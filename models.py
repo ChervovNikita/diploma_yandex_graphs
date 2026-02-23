@@ -40,7 +40,7 @@ class FeedForwardModule(nn.Module):
 class GCNModule(nn.Module):
     def __init__(self, dim, hidden_dim_multiplier, dropout, **kwargs):
         super().__init__()
-        self.conv = GCNConv(dim, dim)
+        self.conv = GCNConv(dim, dim, add_self_loops=False)
         self.feed_forward_module = FeedForwardModule(dim=dim,
                                                      hidden_dim_multiplier=hidden_dim_multiplier,
                                                      dropout=dropout)
@@ -73,7 +73,7 @@ class GATModule(nn.Module):
         if dim % num_heads != 0:
             raise ValueError('Dimension mismatch: hidden_dim should be a multiple of num_heads.')
         head_dim = dim // num_heads
-        self.conv = GATConv(dim, head_dim, heads=num_heads, dropout=dropout, concat=True)
+        self.conv = GATConv(dim, head_dim, heads=num_heads, dropout=dropout, concat=True, add_self_loops=False)
         self.feed_forward_module = FeedForwardModule(dim=dim,
                                                      hidden_dim_multiplier=hidden_dim_multiplier,
                                                      dropout=dropout)
@@ -90,7 +90,7 @@ class GATSepModule(nn.Module):
         if dim % num_heads != 0:
             raise ValueError('Dimension mismatch: hidden_dim should be a multiple of num_heads.')
         head_dim = dim // num_heads
-        self.conv = GATv2Conv(dim, head_dim, heads=num_heads, dropout=dropout, concat=True)
+        self.conv = GATv2Conv(dim, head_dim, heads=num_heads, dropout=dropout, concat=True, add_self_loops=False)
         self.feed_forward_module = FeedForwardModule(dim=dim,
                                                      input_dim_multiplier=2,
                                                      hidden_dim_multiplier=hidden_dim_multiplier,
