@@ -19,20 +19,23 @@ for DS in "${DATASETS[@]}"; do
     CKPT_DIR="all_checkpoints/${DS_DIR}"
 
     echo "=== $DS: BASE (all layers) ==="
+    L="$RESULTS_DIR/logs/base.log"
     python run_base.py --dataset "$DS" --device "$DEVICE" \
         --save_dir "$CKPT_DIR/base" --log_path "$RESULTS_DIR/base.csv" \
         --layers 1 2 3 4 5 \
-        >> "$RESULTS_DIR/logs/base.log" 2>&1
+        --stdout_log "$L" >> "$L" 2>&1
 
     echo "=== $DS: ENSEMBLE ==="
+    L="$RESULTS_DIR/logs/ensemble.log"
     python run_base_ensemble.py --dataset "$DS" --device "$DEVICE" \
         --save_dir "$CKPT_DIR/ensemble" --log_path "$RESULTS_DIR/ensemble.csv" \
-        >> "$RESULTS_DIR/logs/ensemble.log" 2>&1
+        --stdout_log "$L" >> "$L" 2>&1
 
     echo "=== $DS: TABM ==="
+    L="$RESULTS_DIR/logs/tabm.log"
     python run_tabm.py --dataset "$DS" --device "$DEVICE" \
         --save_dir "$CKPT_DIR/tabm" --log_path "$RESULTS_DIR/tabm.csv" \
-        >> "$RESULTS_DIR/logs/tabm.log" 2>&1
+        --stdout_log "$L" >> "$L" 2>&1
 done
 
 echo "All experiments done."

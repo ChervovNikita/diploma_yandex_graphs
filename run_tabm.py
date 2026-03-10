@@ -148,7 +148,14 @@ def main():
     parser.add_argument('--data_dir', type=str, default='data')
     parser.add_argument('--save_dir', type=str, default='checkpoints_tabm')
     parser.add_argument('--log_path', type=str, default='results_tabm.csv')
+    parser.add_argument('--stdout_log', type=str, default=None)
     args = parser.parse_args()
+
+    if args.stdout_log and os.path.exists(args.stdout_log):
+        with open(args.stdout_log) as f:
+            if 'Done.' in f.read():
+                print(f'Skipping: "Done." found in {args.stdout_log}')
+                return
 
     device = torch.device(args.device)
 
