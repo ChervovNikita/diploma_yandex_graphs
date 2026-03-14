@@ -2,6 +2,8 @@
 set -e
 export PYTHONUNBUFFERED=1
 
+# source activate /home/avshmelev/.conda/envs/nikita_neurips
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
