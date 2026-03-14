@@ -45,7 +45,10 @@ def train_step(model, optimizer, data, is_binary):
     model.train()
     optimizer.zero_grad()
     out = model(data, data.x)
-    loss = F.cross_entropy(out[data.train_mask], data.y[data.train_mask].long())
+    if is_binary:
+        loss = F.binary_cross_entropy_with_logits(out[data.train_mask].squeeze(-1), data.y[data.train_mask])
+    else:
+        loss = F.cross_entropy(out[data.train_mask], data.y[data.train_mask].long())
     loss.backward()
     optimizer.step()
     return loss.item()
@@ -186,7 +189,14 @@ def main():
     parser.add_argument('--data_dir', type=str, default='data')
     parser.add_argument('--save_dir', type=str, default='checkpoints_ensemble')
     parser.add_argument('--log_path', type=str, default='results_ensemble.csv')
+    parser.add_argument('--stdout_log', type=str, default=None)
     args = parser.parse_args()
+
+    if args.stdout_log and os.path.exists(args.stdout_log):
+        with open(args.stdout_log) as f:
+            if 'Done.' in f.read():
+                print(f'Skipping: "Done." found in {args.stdout_log}')
+                return
 
     device = torch.device(args.device)
 

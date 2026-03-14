@@ -67,7 +67,7 @@ run_task() {
         echo "[GPU $gpu] $DS $MODEL ${LAYER}L split=$split"
         python run_base.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --layers $LAYER --split $split \
             --save_dir "$CKPT_DIR/base" --log_path "$RESULTS_DIR/base.csv" \
-            >> "$LOG_FILE" 2>&1
+            --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     elif [[ $t -lt $((BASE_PER_DS + ENSEMBLE_PER_DS)) ]]; then
         local ens_t=$((t - BASE_PER_DS))
         local model_idx=$((ens_t / NUM_SPLITS))
@@ -77,7 +77,7 @@ run_task() {
         echo "[GPU $gpu] $DS $MODEL ensemble split=$split"
         python run_base_ensemble.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
             --save_dir "$CKPT_DIR/ensemble" --log_path "$RESULTS_DIR/ensemble.csv" \
-            >> "$LOG_FILE" 2>&1
+            --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     else
         local tabm_t=$((t - BASE_PER_DS - ENSEMBLE_PER_DS))
         local model_idx=$((tabm_t / NUM_SPLITS))
@@ -87,7 +87,7 @@ run_task() {
         echo "[GPU $gpu] $DS $MODEL tabm split=$split"
         python run_tabm.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
             --save_dir "$CKPT_DIR/tabm" --log_path "$RESULTS_DIR/tabm.csv" \
-            >> "$LOG_FILE" 2>&1
+            --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     fi
     echo "[GPU $gpu] Done"
 }
