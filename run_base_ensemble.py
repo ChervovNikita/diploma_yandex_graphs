@@ -10,7 +10,7 @@ from datasets import DATASET_CHOICES, load_dataset, compute_metrics
 
 
 ALL_MODELS = ['ResNet', 'GCN', 'SAGE', 'GAT', 'GAT-sep', 'GT', 'GT-sep', 'TAG']
-NUM_LAYERS = 5
+NUM_LAYERS_RANGE = range(1, 6)
 NUM_MODEL_SEEDS = 4
 NUM_SPLITS = 10
 NUM_STEPS = 1000
@@ -106,7 +106,7 @@ def train_single_seed(model_name, num_layers, model_seed, data, num_targets, is_
     return ckpt_path, best_val_acc, best_step
 
 
-def train_ensemble(model_name, split_idx, data, train_masks, val_masks, test_masks,
+def train_ensemble(model_name, num_layers, split_idx, data, train_masks, val_masks, test_masks,
                    num_targets, is_binary, device, save_dir):
     data.train_mask = train_masks[:, split_idx].to(device)
     data.val_mask = val_masks[:, split_idx].to(device)
@@ -120,7 +120,7 @@ def train_ensemble(model_name, split_idx, data, train_masks, val_masks, test_mas
         model_seed = split_idx * 1000 + mseed_idx
         print(f'\n  Training model seed {mseed_idx} (seed={model_seed})')
         ckpt_path, val_acc, best_step = train_single_seed(
-            model_name, NUM_LAYERS, model_seed, data, num_targets, is_binary, device, save_dir, split_idx,
+            model_name, num_layers, model_seed, data, num_targets, is_binary, device, save_dir, split_idx,
         )
         ckpt_paths.append(ckpt_path)
         individual_val_accs.append(val_acc)
@@ -128,7 +128,7 @@ def train_ensemble(model_name, split_idx, data, train_masks, val_masks, test_mas
 
     logits_sum = None
     for ckpt_path in ckpt_paths:
-        model = make_model(model_name, NUM_LAYERS, data.x.size(1), num_targets, device)
+        model = make_model(model_name, num_layers, data.x.size(1), num_targets, device)
         model.load_state_dict(torch.load(ckpt_path, weights_only=True))
         model.eval()
         with torch.no_grad():
@@ -160,7 +160,7 @@ def train_ensemble(model_name, split_idx, data, train_masks, val_masks, test_mas
 
     result = {
         'model': model_name,
-        'num_layers': NUM_LAYERS,
+        'num_layers': num_layers,
         'split': split_idx,
         'num_model_seeds': NUM_MODEL_SEEDS,
         'best_steps': str(individual_best_steps),
@@ -185,6 +185,7 @@ def main():
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--dataset', type=str, default='roman-empire', choices=DATASET_CHOICES)
     parser.add_argument('--models', nargs='+', default=ALL_MODELS, choices=ALL_MODELS)
+    parser.add_argument('--layers', nargs='+', type=int, default=None)
     parser.add_argument('--split', type=int, default=None, choices=range(NUM_SPLITS))
     parser.add_argument('--data_dir', type=str, default='data')
     parser.add_argument('--save_dir', type=str, default='checkpoints_ensemble')
@@ -222,30 +223,39 @@ def main():
     )
 
     splits = [args.split] if args.split is not None else range(NUM_SPLITS)
+    layers = args.layers if args.layers is not None else list(NUM_LAYERS_RANGE)
 
     for split_idx in splits:
         for model_name in args.models:
-            tag = f'{args.dataset} {model_name} {NUM_LAYERS}L split={split_idx} (ensemble x{NUM_MODEL_SEEDS})'
-            print(f'\n{"="*60}\n{tag}\n{"="*60}')
+            best_result = None
+            for num_layers in layers:
+                tag = f'{args.dataset} {model_name} {num_layers}L split={split_idx} (ensemble x{NUM_MODEL_SEEDS})'
+                print(f'\n{"="*60}\n{tag}\n{"="*60}')
 
-            result = train_ensemble(
-                model_name=model_name,
-                split_idx=split_idx,
-                data=pyg_data,
-                train_masks=train_masks,
-                val_masks=val_masks,
-                test_masks=test_masks,
-                num_targets=num_targets,
-                is_binary=is_binary,
-                device=device,
-                save_dir=save_dir,
-            )
-            result['dataset'] = args.dataset
+                result = train_ensemble(
+                    model_name=model_name,
+                    num_layers=num_layers,
+                    split_idx=split_idx,
+                    data=pyg_data,
+                    train_masks=train_masks,
+                    val_masks=val_masks,
+                    test_masks=test_masks,
+                    num_targets=num_targets,
+                    is_binary=is_binary,
+                    device=device,
+                    save_dir=save_dir,
+                )
+                result['dataset'] = args.dataset
 
-            writer.writerow(result)
+                if best_result is None or result['val_acc'] > best_result['val_acc']:
+                    best_result = result
+
+            writer.writerow(best_result)
             log_file.flush()
-
-            print(f'  >> val_acc={result["val_acc"]:.4f}  test_acc={result["test_acc"]:.4f}')
+            print(
+                f'  >> selected best layer={best_result["num_layers"]} '
+                f'val_acc={best_result["val_acc"]:.4f} test_acc={best_result["test_acc"]:.4f}'
+            )
 
     log_file.close()
     print(f'\nDone. Results saved to {log_path}, checkpoints in {save_dir}/')

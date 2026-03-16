@@ -76,6 +76,7 @@ run_task() {
         local LOG_FILE="$RESULTS_DIR/logs_ensemble/${MODEL}_ens_split${split}.log"
         echo "[GPU $gpu] $DS $MODEL ensemble split=$split"
         python run_base_ensemble.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
+            --layers "${LAYERS[@]}" \
             --save_dir "$CKPT_DIR/ensemble" --log_path "$RESULTS_DIR/ensemble.csv" \
             --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     else
@@ -86,6 +87,7 @@ run_task() {
         local LOG_FILE="$RESULTS_DIR/logs_tabm/${MODEL}_tabm_split${split}.log"
         echo "[GPU $gpu] $DS $MODEL tabm split=$split"
         python run_tabm.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
+            --layers "${LAYERS[@]}" \
             --save_dir "$CKPT_DIR/tabm" --log_path "$RESULTS_DIR/tabm.csv" \
             --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     fi

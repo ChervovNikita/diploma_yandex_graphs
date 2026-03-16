@@ -10,7 +10,7 @@ from datasets import DATASET_CHOICES, load_dataset, compute_metrics
 
 
 ALL_MODELS = ['ResNet', 'GCN', 'SAGE', 'GAT', 'GAT-sep', 'GT', 'GT-sep', 'TAG']
-NUM_LAYERS = 5
+NUM_LAYERS_RANGE = range(1, 6)
 NUM_SPLITS = 10
 NUM_STEPS = 1000
 PATIENCE = 3
@@ -54,7 +54,7 @@ def evaluate_tabm(model, data, mask, is_binary):
     return compute_metrics(avg_out, data.y, mask, is_binary)
 
 
-def train_single(model_name, split_idx, data, train_masks, val_masks, test_masks,
+def train_single(model_name, num_layers, split_idx, data, train_masks, val_masks, test_masks,
                  num_targets, is_binary, device, save_dir):
     data.train_mask = train_masks[:, split_idx].to(device)
     data.val_mask = val_masks[:, split_idx].to(device)
@@ -64,7 +64,7 @@ def train_single(model_name, split_idx, data, train_masks, val_masks, test_masks
 
     model = TABMModel(
         model_name=model_name,
-        num_layers=NUM_LAYERS,
+        num_layers=num_layers,
         input_dim=data.x.size(1),
         hidden_dim=512,
         output_dim=num_targets,
@@ -82,7 +82,7 @@ def train_single(model_name, split_idx, data, train_masks, val_masks, test_masks
     best_val_acc = 0.0
     best_step = 0
     steps_without_improvement = 0
-    ckpt_path = os.path.join(save_dir, f'{model_name}_{NUM_LAYERS}L_split{split_idx}.pt')
+    ckpt_path = os.path.join(save_dir, f'{model_name}_{num_layers}L_split{split_idx}.pt')
 
     for step in range(1, NUM_STEPS + 1):
         train_loss = train_step_tabm(model, data, optimizer, is_binary)
@@ -121,7 +121,7 @@ def train_single(model_name, split_idx, data, train_masks, val_masks, test_masks
 
     result = {
         'model': model_name,
-        'num_layers': NUM_LAYERS,
+        'num_layers': num_layers,
         'split': split_idx,
         'best_step': best_step,
         'train_acc': train_m['acc'],
@@ -144,6 +144,7 @@ def main():
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--dataset', type=str, default='roman-empire', choices=DATASET_CHOICES)
     parser.add_argument('--models', nargs='+', default=ALL_MODELS, choices=ALL_MODELS)
+    parser.add_argument('--layers', nargs='+', type=int, default=None)
     parser.add_argument('--split', type=int, default=None, choices=range(NUM_SPLITS))
     parser.add_argument('--data_dir', type=str, default='data')
     parser.add_argument('--save_dir', type=str, default='checkpoints_tabm')
@@ -180,30 +181,40 @@ def main():
     )
 
     splits = [args.split] if args.split is not None else range(NUM_SPLITS)
+    layers = args.layers if args.layers is not None else list(NUM_LAYERS_RANGE)
 
     for split_idx in splits:
         for model_name in args.models:
-            tag = f'TABM-{args.dataset} {model_name} {NUM_LAYERS}L split={split_idx}'
-            print(f'\n{"="*60}\nTraining {tag}\n{"="*60}')
+            best_result = None
+            for num_layers in layers:
+                tag = f'TABM-{args.dataset} {model_name} {num_layers}L split={split_idx}'
+                print(f'\n{"="*60}\nTraining {tag}\n{"="*60}')
 
-            result = train_single(
-                model_name=model_name,
-                split_idx=split_idx,
-                data=pyg_data,
-                train_masks=train_masks,
-                val_masks=val_masks,
-                test_masks=test_masks,
-                num_targets=num_targets,
-                is_binary=is_binary,
-                device=device,
-                save_dir=save_dir,
-            )
-            result['dataset'] = args.dataset
+                result = train_single(
+                    model_name=model_name,
+                    num_layers=num_layers,
+                    split_idx=split_idx,
+                    data=pyg_data,
+                    train_masks=train_masks,
+                    val_masks=val_masks,
+                    test_masks=test_masks,
+                    num_targets=num_targets,
+                    is_binary=is_binary,
+                    device=device,
+                    save_dir=save_dir,
+                )
+                result['dataset'] = args.dataset
 
-            writer.writerow(result)
+                if best_result is None or result['val_acc'] > best_result['val_acc']:
+                    best_result = result
+
+            writer.writerow(best_result)
             log_file.flush()
-
-            print(f'  >> best_step={result["best_step"]}  val_acc={result["val_acc"]:.4f}  test_acc={result["test_acc"]:.4f}')
+            print(
+                f'  >> selected best layer={best_result["num_layers"]} '
+                f'best_step={best_result["best_step"]} '
+                f'val_acc={best_result["val_acc"]:.4f} test_acc={best_result["test_acc"]:.4f}'
+            )
 
     log_file.close()
     print(f'\nDone. Results saved to {log_path}, checkpoints in {save_dir}/')
