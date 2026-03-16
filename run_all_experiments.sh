@@ -29,12 +29,14 @@ for DS in "${DATASETS[@]}"; do
     L="$RESULTS_DIR/logs/ensemble.log"
     python run_base_ensemble.py --dataset "$DS" --device "$DEVICE" \
         --save_dir "$CKPT_DIR/ensemble" --log_path "$RESULTS_DIR/ensemble.csv" \
+        --layers 1 2 3 4 5 \
         --stdout_log "$L" >> "$L" 2>&1
 
     echo "=== $DS: TABM ==="
     L="$RESULTS_DIR/logs/tabm.log"
     python run_tabm.py --dataset "$DS" --device "$DEVICE" \
         --save_dir "$CKPT_DIR/tabm" --log_path "$RESULTS_DIR/tabm.csv" \
+        --layers 1 2 3 4 5 \
         --stdout_log "$L" >> "$L" 2>&1
 done
 

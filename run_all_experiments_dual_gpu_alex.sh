@@ -7,7 +7,7 @@ export PYTHONUNBUFFERED=1
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-DATASETS=(questions tolokers minesweeper amazon-ratings)
+DATASETS=(questions tolokers minesweeper amazon-ratings roman-empire)
 MODELS=(ResNet GCN SAGE GAT GAT-sep GT GT-sep TAG)
 LAYERS=(1 2 3 4 5)
 NUM_SPLITS=10
