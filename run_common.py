@@ -6,7 +6,7 @@ import torch
 ALL_MODELS = ['ResNet', 'GCN', 'SAGE', 'GAT', 'GAT-sep', 'GT', 'GT-sep', 'TAG']
 NUM_LAYERS_RANGE = range(1, 6)
 NUM_SPLITS = 10
-NUM_STEPS = 1000
+NUM_STEPS = 5000
 PATIENCE = 3
 
 COMMON_RESULT_FIELDNAMES = [

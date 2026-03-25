@@ -83,11 +83,12 @@ def train_single_seed(model_name, num_layers, model_seed, data, num_targets, is_
         val_metrics = evaluate(model, data, data.val_mask, is_binary, dataset_name)
 
         if val_metrics['metric'] > best_val_metric:
-            best_val_metric = val_metrics['metric']
-            best_val_acc = val_metrics['acc']
-            best_step = step
             steps_without_improvement = 0
-            torch.save(model.state_dict(), ckpt_path)
+            if step % 10 == 0:
+                best_val_metric = val_metrics['metric']
+                best_val_acc = val_metrics['acc']
+                best_step = step
+                torch.save(model.state_dict(), ckpt_path)
         else:
             steps_without_improvement += 1
 
