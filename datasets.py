@@ -7,6 +7,13 @@ from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_sco
 
 
 DATASET_CHOICES = ['roman-empire', 'amazon-ratings', 'minesweeper', 'tolokers', 'questions']
+DATASET_VAL_METRIC = {
+    'roman-empire': 'acc',
+    'amazon-ratings': 'acc',
+    'minesweeper': 'roc_auc',
+    'tolokers': 'roc_auc',
+    'questions': 'roc_auc',
+}
 
 
 def load_dataset(name, add_self_loops=False, device='cpu', data_dir='data'):
@@ -49,7 +56,14 @@ def load_dataset(name, add_self_loops=False, device='cpu', data_dir='data'):
     return pyg_data, train_masks, val_masks, test_masks, num_classes, num_targets, is_binary
 
 
-def compute_metrics(logits, y, mask, is_binary):
+def get_validation_metric_name(dataset_name, is_binary):
+    metric_name = DATASET_VAL_METRIC.get(dataset_name, 'roc_auc' if is_binary else 'acc')
+    if metric_name == 'roc_auc' and not is_binary:
+        return 'acc'
+    return metric_name
+
+
+def compute_metrics(logits, y, mask, is_binary, dataset_name=None):
     preds = logits[mask].argmax(dim=1) if not is_binary else (logits[mask].squeeze(-1) > 0).long()
     y_masked = y[mask]
 
@@ -62,12 +76,15 @@ def compute_metrics(logits, y, mask, is_binary):
         loss = torch.nn.functional.binary_cross_entropy_with_logits(
             logits[mask].squeeze(-1), y_masked
         ).item()
-        return {
+        metrics = {
             'acc': acc,
             'roc_auc': roc_auc,
             'loss': loss,
-            'metric': roc_auc,
         }
+        metric_name = get_validation_metric_name(dataset_name, is_binary)
+        metrics['metric_name'] = metric_name
+        metrics['metric'] = metrics[metric_name]
+        return metrics
     else:
         y_true = y_masked.cpu().numpy()
         y_pred = preds.cpu().numpy()
@@ -77,12 +94,15 @@ def compute_metrics(logits, y, mask, is_binary):
         f1_weighted = f1_score(y_true, y_pred, average='weighted', zero_division=0)
         prec_macro = precision_score(y_true, y_pred, average='macro', zero_division=0)
         rec_macro = recall_score(y_true, y_pred, average='macro', zero_division=0)
-        return {
+        metrics = {
             'acc': acc,
             'loss': loss,
             'f1_macro': f1_macro,
             'f1_weighted': f1_weighted,
             'prec_macro': prec_macro,
             'rec_macro': rec_macro,
-            'metric': acc,
         }
+        metric_name = get_validation_metric_name(dataset_name, is_binary)
+        metrics['metric_name'] = metric_name
+        metrics['metric'] = metrics[metric_name]
+        return metrics
