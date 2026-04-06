@@ -41,7 +41,7 @@ def evaluate(model, data, mask, is_binary, dataset_name):
 
 
 def train_single(model_name, num_layers, split_idx, data, train_masks, val_masks, test_masks,
-                 num_targets, is_binary, device, save_dir, dataset_name, hidden_dim, lr):
+                 num_targets, is_binary, device, save_dir, dataset_name, hidden_dim, lr, num_steps):
     data.train_mask = train_masks[:, split_idx].to(device)
     data.val_mask = val_masks[:, split_idx].to(device)
     data.test_mask = test_masks[:, split_idx].to(device)
@@ -70,7 +70,8 @@ def train_single(model_name, num_layers, split_idx, data, train_masks, val_masks
     ckpt_path = os.path.join(save_dir, f'{model_name}_{num_layers}L_{slug}_split{split_idx}.pt')
 
     val_metric_name = get_validation_metric_name(dataset_name, is_binary)
-    for step in range(1, NUM_STEPS + 1):
+    print(f'Training for {num_steps} steps')
+    for step in range(1, num_steps + 1):
         train_loss = train_step(model, optimizer, data, is_binary)
         val_metrics = evaluate(model, data, data.val_mask, is_binary, dataset_name)
         
@@ -152,6 +153,7 @@ def main():
     parser.add_argument('--save_dir', type=str, default='checkpoints_base')
     parser.add_argument('--log_path', type=str, default='results_base.csv')
     parser.add_argument('--stdout_log', type=str, default=None)
+    parser.add_argument('--num_steps', type=int, default=NUM_STEPS)
     args = parser.parse_args()
 
     if args.stdout_log and os.path.exists(args.stdout_log):
@@ -216,6 +218,7 @@ def main():
                             dataset_name=args.dataset,
                             hidden_dim=hidden_dim,
                             lr=lr,
+                            num_steps=args.num_steps,
                         )
                         result['dataset'] = args.dataset
                         combo_results.append(result)
