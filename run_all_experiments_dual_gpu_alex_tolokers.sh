@@ -27,12 +27,12 @@ COUNTER_FILE="/tmp/run_experiments_counter_$(whoami)_$$.txt"
 
 for DS in "${DATASETS[@]}"; do
     DS_DIR=$(echo "$DS" | tr '-' '_')
-    mkdir -p "$SCRIPT_DIR/results/${DS_DIR}/logs_base"
-    mkdir -p "$SCRIPT_DIR/results/${DS_DIR}/logs_ensemble"
-    mkdir -p "$SCRIPT_DIR/results/${DS_DIR}/logs_tabm"
-    mkdir -p "$SCRIPT_DIR/all_checkpoints/${DS_DIR}/base"
-    mkdir -p "$SCRIPT_DIR/all_checkpoints/${DS_DIR}/ensemble"
-    mkdir -p "$SCRIPT_DIR/all_checkpoints/${DS_DIR}/tabm"
+    mkdir -p "$SCRIPT_DIR/results3/${DS_DIR}/logs_base"
+    mkdir -p "$SCRIPT_DIR/results3/${DS_DIR}/logs_ensemble"
+    mkdir -p "$SCRIPT_DIR/results3/${DS_DIR}/logs_tabm"
+    mkdir -p "$SCRIPT_DIR/all_checkpoints3/${DS_DIR}/base"
+    mkdir -p "$SCRIPT_DIR/all_checkpoints3/${DS_DIR}/ensemble"
+    mkdir -p "$SCRIPT_DIR/all_checkpoints3/${DS_DIR}/tabm"
 done
 
 get_next_task() {
@@ -56,8 +56,8 @@ run_task() {
     local t=$((idx % TASKS_PER_DS))
     local DS="${DATASETS[$ds_idx]}"
     local DS_DIR=$(echo "$DS" | tr '-' '_')
-    local RESULTS_DIR="$SCRIPT_DIR/results/${DS_DIR}"
-    local CKPT_DIR="$SCRIPT_DIR/all_checkpoints/${DS_DIR}"
+    local RESULTS_DIR="$SCRIPT_DIR/results3/${DS_DIR}"
+    local CKPT_DIR="$SCRIPT_DIR/all_checkpoints3/${DS_DIR}"
     local DEVICE="cuda:$gpu"
 
     if [[ $t -lt $BASE_PER_DS ]]; then
