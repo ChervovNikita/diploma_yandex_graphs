@@ -7,13 +7,15 @@ export PYTHONUNBUFFERED=1
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-DATASETS=(minesweeper questions tolokers amazon-ratings roman-empire)
+DATASETS=(minesweeper questions amazon-ratings roman-empire)
+# DATASETS=(minesweeper questions tolokers amazon-ratings roman-empire)
 MODELS=(ResNet GCN SAGE GAT GAT-sep GT GT-sep TAG)
 LAYERS=(1 2 3 4 5)
 # Full grid inside each Python run: layers (per task) × hidden_dim × lr
 HIDDEN_DIMS=(256 384 512)
 LRS=(3e-5 2e-5 4e-5 1e-5)
 NUM_SPLITS=10
+MAX_TASKS=2
 
 BASE_PER_DS=$((${#MODELS[@]} * ${#LAYERS[@]} * NUM_SPLITS))
 ENSEMBLE_PER_DS=$((${#MODELS[@]} * NUM_SPLITS))
@@ -100,12 +102,34 @@ run_task() {
     echo "[GPU $gpu] Done"
 }
 
-worker() {
+gpu_pool() {
     local gpu=$1
+    local -a running=()
+    local no_more_tasks=false
+
     while true; do
-        task=$(get_next_task)
-        [[ -z "$task" ]] && break
-        run_task "$task" "$gpu" || echo "[GPU $gpu] Task failed, continuing..."
+        while [[ $no_more_tasks == false && ${#running[@]} -lt $MAX_TASKS ]]; do
+            task=$(get_next_task)
+            if [[ -z "$task" ]]; then
+                no_more_tasks=true
+                break
+            fi
+            ( run_task "$task" "$gpu" || echo "[GPU $gpu] Task failed, continuing..." ) &
+            running+=($!)
+        done
+
+        if [[ ${#running[@]} -eq 0 ]]; then
+            break
+        fi
+
+        wait -n
+        local -a still=()
+        for pid in "${running[@]}"; do
+            if kill -0 "$pid" 2>/dev/null; then
+                still+=("$pid")
+            fi
+        done
+        running=("${still[@]}")
     done
 }
 
@@ -114,8 +138,8 @@ for ds_idx in "${!DATASETS[@]}"; do
     PHASE_END=$(((ds_idx + 1) * TASKS_PER_DS))
     echo "$PHASE_START" > "$COUNTER_FILE"
     echo "=== Dataset ${DATASETS[$ds_idx]} (indices $PHASE_START..$((PHASE_END - 1))) ==="
-    worker 0 &
-    worker 1 &
+    gpu_pool 0 &
+    gpu_pool 1 &
     wait
 done
 rm -f "$LOCK_FILE" "$COUNTER_FILE"

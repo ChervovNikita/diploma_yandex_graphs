@@ -8,14 +8,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 DATASETS=(tolokers)
+# DATASETS=(minesweeper questions tolokers amazon-ratings roman-empire)
 MODELS=(ResNet GCN SAGE GAT GAT-sep GT GT-sep TAG)
 LAYERS=(1 2 3 4 5)
-NUM_SPLITS=10
 # Full grid inside each Python run: layers (per task) × hidden_dim × lr
-HIDDEN_DIMS=(512)
-LRS=(3e-5)
-
-NUM_STEPS=20000
+HIDDEN_DIMS=(256 384 512)
+LRS=(3e-5 2e-5 4e-5 1e-5)
+NUM_SPLITS=10
+MAX_TASKS=1
 
 BASE_PER_DS=$((${#MODELS[@]} * ${#LAYERS[@]} * NUM_SPLITS))
 ENSEMBLE_PER_DS=$((${#MODELS[@]} * NUM_SPLITS))
@@ -72,7 +72,7 @@ run_task() {
         echo "[GPU $gpu] $DS $MODEL ${LAYER}L split=$split"
         python run_base.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --layers $LAYER --split $split \
             --hidden_dim "${HIDDEN_DIMS[@]}" --lr "${LRS[@]}" \
-            --save_dir "$CKPT_DIR/base" --log_path "$RESULTS_DIR/base.csv" --num_steps $NUM_STEPS \
+            --save_dir "$CKPT_DIR/base" --log_path "$RESULTS_DIR/base.csv" \
             --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     elif [[ $t -lt $((BASE_PER_DS + ENSEMBLE_PER_DS)) ]]; then
         local ens_t=$((t - BASE_PER_DS))
@@ -84,7 +84,7 @@ run_task() {
         python run_base_ensemble.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
             --layers "${LAYERS[@]}" \
             --hidden_dim "${HIDDEN_DIMS[@]}" --lr "${LRS[@]}" \
-            --save_dir "$CKPT_DIR/ensemble" --log_path "$RESULTS_DIR/ensemble.csv" --num_steps $NUM_STEPS \
+            --save_dir "$CKPT_DIR/ensemble" --log_path "$RESULTS_DIR/ensemble.csv" \
             --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     else
         local tabm_t=$((t - BASE_PER_DS - ENSEMBLE_PER_DS))
@@ -96,18 +96,40 @@ run_task() {
         python run_tabm.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
             --layers "${LAYERS[@]}" \
             --hidden_dim "${HIDDEN_DIMS[@]}" --lr "${LRS[@]}" \
-            --save_dir "$CKPT_DIR/tabm" --log_path "$RESULTS_DIR/tabm.csv" --num_steps $NUM_STEPS \
+            --save_dir "$CKPT_DIR/tabm" --log_path "$RESULTS_DIR/tabm.csv" \
             --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     fi
     echo "[GPU $gpu] Done"
 }
 
-worker() {
+gpu_pool() {
     local gpu=$1
+    local -a running=()
+    local no_more_tasks=false
+
     while true; do
-        task=$(get_next_task)
-        [[ -z "$task" ]] && break
-        run_task "$task" "$gpu" || echo "[GPU $gpu] Task failed, continuing..."
+        while [[ $no_more_tasks == false && ${#running[@]} -lt $MAX_TASKS ]]; do
+            task=$(get_next_task)
+            if [[ -z "$task" ]]; then
+                no_more_tasks=true
+                break
+            fi
+            ( run_task "$task" "$gpu" || echo "[GPU $gpu] Task failed, continuing..." ) &
+            running+=($!)
+        done
+
+        if [[ ${#running[@]} -eq 0 ]]; then
+            break
+        fi
+
+        wait -n
+        local -a still=()
+        for pid in "${running[@]}"; do
+            if kill -0 "$pid" 2>/dev/null; then
+                still+=("$pid")
+            fi
+        done
+        running=("${still[@]}")
     done
 }
 
@@ -116,8 +138,8 @@ for ds_idx in "${!DATASETS[@]}"; do
     PHASE_END=$(((ds_idx + 1) * TASKS_PER_DS))
     echo "$PHASE_START" > "$COUNTER_FILE"
     echo "=== Dataset ${DATASETS[$ds_idx]} (indices $PHASE_START..$((PHASE_END - 1))) ==="
-    worker 0 &
-    worker 1 &
+    gpu_pool 0 &
+    gpu_pool 1 &
     wait
 done
 rm -f "$LOCK_FILE" "$COUNTER_FILE"
