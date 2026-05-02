@@ -5,7 +5,7 @@
 set -e
 export PYTHONUNBUFFERED=1
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 DATASETS=(tolokers)

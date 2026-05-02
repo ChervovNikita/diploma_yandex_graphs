@@ -5,7 +5,8 @@
 set -e
 export PYTHONUNBUFFERED=1
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Репозиторий (родитель каталога scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 DATASETS=(minesweeper questions amazon-ratings roman-empire)
