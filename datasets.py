@@ -1,6 +1,13 @@
 import os
+import ctypes
+import sysconfig
 import numpy as np
 import torch
+
+ctypes.CDLL(
+    os.path.join(sysconfig.get_paths()["purelib"], "nvidia", "cusparse", "lib", "libcusparse.so.11"),
+    mode=ctypes.RTLD_GLOBAL,
+)
 import dgl
 from torch_geometric.utils import from_dgl
 from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
