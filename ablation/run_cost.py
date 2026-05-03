@@ -72,11 +72,10 @@ def step_base(model, data, optimizer, is_binary):
 def step_tabm(model, data, optimizer, is_binary, k):
     model.train()
     optimizer.zero_grad()
-    total = 0.0
     for i in range(k):
         out = model(data, data.x, tabm_seed=i)
-        total = total + loss_fn(out, data, is_binary) / k
-    total.backward()
+        loss = loss_fn(out, data, is_binary) / k
+        loss.backward()
     optimizer.step()
 
 
