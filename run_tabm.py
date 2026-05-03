@@ -34,10 +34,11 @@ def train_step_tabm(model, data, optimizer, is_binary):
             loss = F.binary_cross_entropy_with_logits(out[data.train_mask].squeeze(-1), data.y[data.train_mask])
         else:
             loss = F.cross_entropy(out[data.train_mask], data.y[data.train_mask].long())
-        total_loss = total_loss + loss / TABM_INITS
-    total_loss.backward()
+        loss = loss / TABM_INITS
+        loss.backward()
+        total_loss += loss.item()
     optimizer.step()
-    return total_loss.item()
+    return total_loss
 
 
 @torch.no_grad()
