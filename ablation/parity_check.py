@@ -73,13 +73,15 @@ def make_model(model_name, num_layers, input_dim, num_targets, hidden_dim, k, de
     ).to(device)
 
 
-def train(step_fn, model_name, num_layers, hidden_dim, lr, k, num_steps,
+def train(step_fn, label, model_name, num_layers, hidden_dim, lr, k, num_steps,
           data, num_targets, is_binary, device, dataset_name, seed):
     set_seed(seed)
     model = make_model(model_name, num_layers, data.x.size(1), num_targets, hidden_dim, k, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0)
-    for _ in range(num_steps):
-        step_fn(model, data, optimizer, is_binary, k)
+    for step in range(1, num_steps + 1):
+        loss = step_fn(model, data, optimizer, is_binary, k)
+        if step == 1 or step % 50 == 0:
+            print(f'  [{label}] step {step:4d}/{num_steps}  loss={loss:.6f}', flush=True)
     val = evaluate(model, data, data.val_mask, is_binary, dataset_name, k)
     test = evaluate(model, data, data.test_mask, is_binary, dataset_name, k)
     state = {name: param.detach().clone() for name, param in model.named_parameters()}
@@ -139,10 +141,10 @@ def main():
 
     print(f'[parity-check] model={args.model} L={args.num_layers} h={args.hidden_dim} '
           f'k={args.k} steps={args.num_steps} dataset={args.dataset} split={args.split}')
-    print('Training OLD step (sum-then-backward)...')
-    state_old, val_old, test_old = train(step_old, **common)
-    print('Training NEW step (per-member backward, memory-efficient)...')
-    state_new, val_new, test_new = train(step_new, **common)
+    print('Training OLD step (sum-then-backward)...', flush=True)
+    state_old, val_old, test_old = train(step_old, 'OLD', **common)
+    print('Training NEW step (per-member backward, memory-efficient)...', flush=True)
+    state_new, val_new, test_new = train(step_new, 'NEW', **common)
 
     metric_name = get_validation_metric_name(args.dataset, is_binary)
     val_diff = abs(val_old['metric'] - val_new['metric'])
