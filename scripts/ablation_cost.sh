@@ -11,7 +11,7 @@ STDOUT_DIR="ablation/logs_cost"
 mkdir -p "$LOG_DIR" "$STDOUT_DIR"
 
 DATASET="${DATASET:-roman-empire}"
-MODELS=(GCN SAGE GAT-sep GT-sep)
+MODELS=(SAGE GAT-sep GT-sep)
 LAYERS=(1 2 3 4 5)
 HIDDEN_DIMS=(512)
 LRS=(3e-5)
