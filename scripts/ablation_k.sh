@@ -10,13 +10,13 @@ LOG_DIR="ablation/results_k"
 STDOUT_DIR="ablation/logs_k"
 mkdir -p "$LOG_DIR" "$STDOUT_DIR"
 
-DATASETS=(roman-empire minesweeper)
-MODELS=(GCN SAGE GAT-sep GT-sep)
-KS=(2 8)
-LAYERS=(1 2 3 4 5)
+DATASETS=(roman-empire)
+MODELS=(SAGE GAT-sep GT-sep)
+KS=(2 4 8)
+LAYERS=(5)
 HIDDEN_DIMS=(512)
 LRS=(3e-5)
-NUM_SPLITS=10
+NUM_SPLITS=5
 
 for ds in "${DATASETS[@]}"; do
   for m in "${MODELS[@]}"; do
