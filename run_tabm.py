@@ -13,6 +13,7 @@ from run_common import (
     PATIENCE,
     COMMON_RESULT_FIELDNAMES,
     combo_slug,
+    read_best_hparams_from_split0_log,
     set_seed,
     metrics_to_str,
     metrics_to_prefixed_dict,
@@ -205,9 +206,19 @@ def main():
     for split_idx in splits:
         for model_name in args.models:
             combo_results = []
-            for num_layers in layers:
-                for hidden_dim in hidden_dims:
-                    for lr in lrs:
+            if split_idx == 0:
+                layers_use, hidden_use, lrs_use = layers, hidden_dims, lrs
+            else:
+                nl, hd, lr0 = read_best_hparams_from_split0_log(log_path, args.dataset, model_name)
+                layers_use, hidden_use, lrs_use = [nl], [hd], [lr0]
+                print(
+                    f'[split {split_idx}] using best split-0 hparams: '
+                    f'layers={nl} hidden_dim={hd} lr={lr0}'
+                )
+
+            for num_layers in layers_use:
+                for hidden_dim in hidden_use:
+                    for lr in lrs_use:
                         tag = (
                             f'TABM-{args.dataset} {model_name} {num_layers}L h={hidden_dim} lr={lr} '
                             f'split={split_idx}'

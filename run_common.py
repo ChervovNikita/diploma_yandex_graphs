@@ -1,3 +1,4 @@
+import csv
 import random
 import numpy as np
 import torch
@@ -17,6 +18,32 @@ COMMON_RESULT_FIELDNAMES = [
     'test_metric_name', 'test_metric', 'test_acc', 'test_loss', 'test_roc_auc',
     'test_f1_macro', 'test_f1_weighted', 'test_prec_macro', 'test_rec_macro',
 ]
+
+
+def read_best_hparams_from_split0_log(log_path, dataset, model):
+    """Best (num_layers, hidden_dim, lr) by val_metric on split 0 (first-fold grid search)."""
+    best_row = None
+    best_vm = float('-inf')
+    with open(log_path, newline='') as f:
+        for row in csv.DictReader(f):
+            if row.get('dataset') != dataset or row.get('model') != model:
+                continue
+            if int(row['split']) != 0:
+                continue
+            vm = float(row['val_metric'])
+            if vm > best_vm:
+                best_vm = vm
+                best_row = row
+    if best_row is None:
+        raise ValueError(
+            f'No split=0 rows in {log_path} for dataset={dataset!r} model={model!r} '
+            f'(run split 0 first for this model, or use the same --log_path).'
+        )
+    return (
+        int(best_row['num_layers']),
+        int(float(best_row['hidden_dim'])),
+        float(best_row['lr']),
+    )
 
 
 def combo_slug(hidden_dim, lr):
