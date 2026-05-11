@@ -5,7 +5,7 @@ export PYTHONUNBUFFERED=1
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-DATASETS=(amazon-ratings minesweeper tolokers questions)
+DATASETS=(minesweeper questions tolokers amazon-ratings)
 MODELS=(ResNet GCN SAGE GAT GAT-sep GT GT-sep TAG)
 LAYERS=(1 2 3 4 5)
 NUM_SPLITS=10
@@ -14,11 +14,9 @@ BASE_PER_DS=$((${#MODELS[@]} * ${#LAYERS[@]} * NUM_SPLITS))
 ENSEMBLE_PER_DS=$((${#MODELS[@]} * NUM_SPLITS))
 TABM_PER_DS=$((${#MODELS[@]} * NUM_SPLITS))
 TASKS_PER_DS=$((BASE_PER_DS + ENSEMBLE_PER_DS + TABM_PER_DS))
-TASK_COUNT=$((${#DATASETS[@]} * TASKS_PER_DS))
 
 LOCK_FILE="/tmp/run_experiments_$(whoami)_$$.lock"
 COUNTER_FILE="/tmp/run_experiments_counter_$(whoami)_$$.txt"
-echo 0 > "$COUNTER_FILE"
 
 for DS in "${DATASETS[@]}"; do
     DS_DIR=$(echo "$DS" | tr '-' '_')
@@ -35,7 +33,7 @@ get_next_task() {
         flock -x 200
         read idx < "$COUNTER_FILE"
         idx=$((idx))
-        if [[ $idx -ge $TASK_COUNT ]]; then
+        if [[ $idx -ge $PHASE_END ]]; then
             echo ""
             exit 0
         fi
@@ -76,6 +74,7 @@ run_task() {
         local LOG_FILE="$RESULTS_DIR/logs_ensemble/${MODEL}_ens_split${split}.log"
         echo "[GPU $gpu] $DS $MODEL ensemble split=$split"
         python run_base_ensemble.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
+            --layers "${LAYERS[@]}" \
             --save_dir "$CKPT_DIR/ensemble" --log_path "$RESULTS_DIR/ensemble.csv" \
             --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     else
@@ -86,6 +85,7 @@ run_task() {
         local LOG_FILE="$RESULTS_DIR/logs_tabm/${MODEL}_tabm_split${split}.log"
         echo "[GPU $gpu] $DS $MODEL tabm split=$split"
         python run_tabm.py --dataset "$DS" --device "$DEVICE" --models "$MODEL" --split $split \
+            --layers "${LAYERS[@]}" \
             --save_dir "$CKPT_DIR/tabm" --log_path "$RESULTS_DIR/tabm.csv" \
             --stdout_log "$LOG_FILE" >> "$LOG_FILE" 2>&1
     fi
@@ -101,8 +101,14 @@ worker() {
     done
 }
 
-worker 0 &
-worker 1 &
-wait
+for ds_idx in "${!DATASETS[@]}"; do
+    PHASE_START=$((ds_idx * TASKS_PER_DS))
+    PHASE_END=$(((ds_idx + 1) * TASKS_PER_DS))
+    echo "$PHASE_START" > "$COUNTER_FILE"
+    echo "=== Dataset ${DATASETS[$ds_idx]} (indices $PHASE_START..$((PHASE_END - 1))) ==="
+    worker 0 &
+    worker 1 &
+    wait
+done
 rm -f "$LOCK_FILE" "$COUNTER_FILE"
 echo "All experiments done."
