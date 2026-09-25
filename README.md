@@ -182,6 +182,36 @@ CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/pyth
 
 See `experiments_iclr/ogbn_arxiv_untied_verification_amendment.md` for the original failure, one-line correction, and artifact hashes.
 
+## Initially matched SAGE checks on WikiCS, Actor, and Roman Empire
+
+The WikiCS and Actor checks fixed one published split per graph before their results were examined. They use a two-block, width-128 residual SAGE model, four members, AdamW at learning rate 0.001 with zero weight decay, dropout 0.2, and exactly 300 full-batch epochs. Three optimizer seeds compare tied graph-layer weights with BatchEnsemble factors at the input and output maps, four initially copied but independently trainable graph stacks, and the tied model with additional identity-initialized factors inside each SAGE linear map. Within a seed, the three variants start with the same member functions and random-generator state. Each selects one checkpoint using pooled validation accuracy, pooled cross entropy to break ties, and then the earlier epoch. Test labels are read only after checkpoint restoration.
+
+| Graph and protocol | Tied test % | Untied test % | In-layer factors test % | Tied minus untied, points |
+| --- | ---: | ---: | ---: | ---: |
+| WikiCS, prospectively fixed split 0 | 79.04 | 79.05 | 78.79 | −0.011 |
+| Actor, prospectively fixed split 0 | 37.30 | 37.39 | 37.24 | −0.088 |
+| Roman Empire, post hoc bridge without explicit self-loops | 84.36 | 84.79 | 84.30 | −0.429 |
+| Roman Empire, post hoc bridge with one self-loop per node | 84.20 | 84.65 | 84.29 | −0.441 |
+
+Entries are means over three optimizer seeds on one fixed split for each graph. The WikiCS and Actor seedwise tied-minus-untied differences have mixed signs. The Roman bridge was chosen after viewing other Roman results, so it is a sensitivity analysis. Its no-loop and self-loop versions keep the model and selection rule fixed. Adding 22,662 self-loops does not recover the earlier favorable Roman tying contrast. The earlier five-layer, width-512 Roman component study also used a smaller learning rate and a different training and checkpoint schedule. The studies must not be pooled as graph replicates.
+
+The compact source, selected predictions, result records, and read-only verifiers are under `external_sage/` and `roman_bridge/`. The full author audit additionally preserves selected checkpoints and complete validation traces. To inspect the compact artifacts from the repository root, run:
+
+```bash
+.venv/bin/python external_sage/verify_compact.py
+.venv/bin/python roman_bridge/verify_compact.py
+```
+
+## Matched Roman Empire GAT failure-case check
+
+A separate post hoc study uses masks 0–4 with the archived GAT depth for each mask, fixed before the paired runs. The two arms start with the same four member predictions and differ only in whether every residual GAT-stack parameter is shared or copied for each member. Tied and untied pooled accuracy averaged **82.347%** and **82.309%**. The signed differences vary across masks, so this local check does not show that untying repairs the unfavorable archived GAT comparison with ENS. Untied members were **0.699 points** less accurate on average, while their gain from averaging logits was **0.660 points** larger and at-least-one-member-correct coverage was **0.770 points** higher. These are exact descriptions of selected predictions, not a causal explanation of training. The full checkpoint and saved-logit replay and an independent official-label score audit are recorded in the accompanying submission evidence.
+
+The Roman GAT verifier requires the complete local result tree, including checkpoints:
+
+```bash
+CUDA_VISIBLE_DEVICES= .venv/bin/python experiments_iclr/verify_gat_failure_pair.py --complete
+```
+
 ## Scope and provenance
 
 `experiments_iclr/data_manifest.json` pins the five public graph NPZ files to one source commit and records their checksums. The tracked Amazon Ratings file had been an HTML page saved with an NPZ extension. It has been replaced with the authentic NPZ, and the old and new hashes are in the manifest. Run `python experiments_iclr/fetch_datasets.py` to verify all five files or download any that are missing.
@@ -192,7 +222,7 @@ The archived CSVs support the five node classification benchmarks and resource m
 
 Run `python experiments_iclr/build_anonymous_bundle.py` from the repository root after checking the studies selected for an anonymous release. It writes `experiments_iclr/gnnm_anonymous_code.zip`. The builder checks the fixed-grid source CSV hashes, the exact 50-row control matrix, the split-0 verification audit and selected prediction arrays, the five timing-matched masks, and the checksums of the three public graph files included in the ZIP. It omits Git history, model checkpoints, the two largest public graph files, and author metadata, and scans included text for identity and private paths. The archive contains instructions for fetching and verifying the two omitted public graph files.
 
-Use this ZIP as the anonymous code supplement for double-blind review. The public repository and its Git remote identify the authors, so the anonymous manuscript and supplementary material should refer to the uploaded anonymous archive rather than linking to that remote. For the completed OGB, untied-propagation, and matched-ensemble studies reported in the paper, pass `--include-ogb --include-ogb-300 --include-ogb-untied --include-parameter-matched-ens`. Each option invokes its complete artifact gate. The untied control is default-off: `--include-ogb-untied` requires `--include-ogb-300`, which in turn requires `--include-ogb`. It adds only compact source and result records after the corrected six-arm CPU replay succeeds.
+Use this ZIP as the anonymous code supplement for double-blind review. The public repository and its Git remote identify the authors, so the anonymous manuscript and supplementary material should refer to the uploaded anonymous archive rather than linking to that remote. For the completed OGB, untied-propagation, matched-ensemble, GAT, WikiCS/Actor, and Roman bridge studies reported in the paper, pass `--include-ogb --include-ogb-300 --include-ogb-untied --include-parameter-matched-ens --include-gat-pair --include-external-sage --include-roman-bridge`. Each option invokes its complete artifact gate. The untied control is default-off: `--include-ogb-untied` requires `--include-ogb-300`, which in turn requires `--include-ogb`. The added studies enter the anonymous ZIP only after their result and artifact checks succeed. The ZIP contains compact selected predictions and records, while the larger author audit retains full checkpoints and traces.
 
 ## Upstream graph data notice
 

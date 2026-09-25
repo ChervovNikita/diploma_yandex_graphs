@@ -471,6 +471,41 @@ Regenerate those artifacts before rerunning the verifier or decision analysis.
 The chosen backbone and masks were selected after archived results were seen;
 the five overlapping masks are descriptive, not independent graph tasks.
 """
+
+EXTERNAL_SAGE_README = """
+
+## WikiCS and Actor fixed-split SAGE controls
+
+`external_sage/` contains the frozen source and protocol for the three-arm,
+three-seed WikiCS and Actor study, with published split 0 on each graph.
+Within each seed, tied propagation, initially copied untied propagation,
+and added in-layer factors begin from the same member functions and random
+state. Run `python external_sage/verify_compact.py` to recalculate all
+tabulated pooled scores from saved selected member logits, check the complete
+validation traces and selected epoch, and compare the GPU replay audit.
+The full checkpoint replay was completed before packaging, but the large
+checkpoints and raw public graph files are omitted from this ZIP. Use
+`python external_sage/fetch_data.py` to download and hash-check the exact
+public WikiCS and Actor files before rerunning the frozen experiment.
+Three seeds on one split are optimizer repetitions, not graph replicates.
+"""
+
+ROMAN_BRIDGE_README = """
+
+## Post hoc Roman Empire configuration bridge
+
+`roman_bridge/` applies the same two-layer, width-128, 300-epoch SAGE
+configuration as the external studies to Roman Empire official split 0,
+with seeds 0–2 and tied, initially copied untied, and in-layer-factor arms.
+Run `python roman_bridge/verify_compact.py` to recalculate the selected
+scores from archived member logits and check the recorded GPU replay.
+`python roman_bridge/fetch_data.py` copies and hash-checks the included
+public `data/roman_empire.npz` for a fresh run. This bridge was chosen
+after seeing other results. It uses a bidirectional message graph without
+explicit self-loops, while the earlier Roman Empire component study added
+one self-loop per node. The bridge therefore does not isolate a single
+architecture or graph-preprocessing change.
+"""
 DECISION_STRATA_README = """
 
 ## Retrospective decision strata
@@ -1673,6 +1708,35 @@ def validate_layerwise(model):
     return source + [output]
 
 
+def validate_external_compact(study):
+    if study not in ('external_sage', 'roman_bridge'):
+        raise ValueError(study)
+    study_root = ROOT / study
+    datasets = ('wikics', 'actor') if study == 'external_sage' else ('roman',)
+    source_names = (
+        ('external_sage_study.py', 'external_sage_protocol.md',
+         'verify_external_sage.py') if study == 'external_sage' else
+        ('roman_bridge.py', 'roman_bridge_protocol.md',
+         'verify_roman_bridge.py')
+    )
+    selected = [study_root / name for name in
+                (*source_names, 'models.py', 'COMPACT_SCOPE.md',
+                 'verify_compact.py', 'fetch_data.py')]
+    for dataset in datasets:
+        result_root = study_root / 'results' / dataset
+        selected += [result_root / 'source_manifest.json',
+                     result_root / 'completion_audit.json']
+        for seed in (0, 1, 2):
+            for arm in ('tied', 'untied_propagation', 'all_layer_be'):
+                run = result_root / f'seed{seed}' / arm
+                selected += [run / name for name in
+                             ('result.json', 'validation_trace.csv',
+                              'initialization.json', 'selected_predictions.npz')]
+    require(selected, f'{study} compact study')
+    run_read_only_verifier(f'{study}/verify_compact.py')
+    return selected
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--include-ogb', action='store_true',
@@ -1699,6 +1763,10 @@ def main():
                         help='Include only the six fully verified mask-0 SAGE optimization-seed pairs')
     parser.add_argument('--include-amazon-sage-pair', action='store_true',
                         help='Include only the complete, independently replayed six-arm Amazon SAGE extension')
+    parser.add_argument('--include-external-sage', action='store_true',
+                        help='Include audited WikiCS and Actor fixed-split SAGE controls')
+    parser.add_argument('--include-roman-bridge', action='store_true',
+                        help='Include audited post hoc Roman Empire OGB-configuration bridge')
     args = parser.parse_args()
     if args.include_ogb_300 and not args.include_ogb:
         parser.error('--include-ogb-300 requires --include-ogb')
@@ -1776,6 +1844,10 @@ def main():
         files.update(validate_fixed_mask_seeds())
     if args.include_amazon_sage_pair:
         files.update(validate_amazon_sage_pair())
+    if args.include_external_sage:
+        files.update(validate_external_compact('external_sage'))
+    if args.include_roman_bridge:
+        files.update(validate_external_compact('roman_bridge'))
     if args.include_mc_dropout:
         files.update(validate_mc_dropout())
     if args.include_all_layer_sage:
@@ -1807,6 +1879,10 @@ def main():
         readme += FIXED_MASK_SEED_README
     if args.include_amazon_sage_pair:
         readme += AMAZON_SAGE_PAIR_README
+    if args.include_external_sage:
+        readme += EXTERNAL_SAGE_README
+    if args.include_roman_bridge:
+        readme += ROMAN_BRIDGE_README
     if args.include_mc_dropout:
         readme += MC_DROPOUT_README
     if args.include_all_layer_sage:
