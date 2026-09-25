@@ -155,6 +155,10 @@ def main():
     parser.add_argument('--log_path', type=str, default='results_base.csv')
     parser.add_argument('--stdout_log', type=str, default=None)
     parser.add_argument('--num_steps', type=int, default=NUM_STEPS)
+    parser.add_argument(
+        '--search_each_split', action='store_true',
+        help='Search the supplied depth/width/LR grid on every official split, as in the archived main table.'
+    )
     args = parser.parse_args()
 
     if args.stdout_log and os.path.exists(args.stdout_log):
@@ -195,7 +199,7 @@ def main():
     for split_idx in splits:
         for model_name in args.models:
             combo_results = []
-            if split_idx == 0:
+            if split_idx == 0 or args.search_each_split:
                 layers_use, hidden_use, lrs_use = layers, hidden_dims, lrs
             else:
                 nl, hd, lr0 = read_best_hparams_from_split0_log(log_path, args.dataset, model_name)

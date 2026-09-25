@@ -105,18 +105,18 @@ def num_params(model):
 
 
 def profile_variant(variant, model_name, num_layers, hidden_dim, lr, data, num_targets,
-                    is_binary, device):
+                    is_binary, device, weight_decay=0.01):
     set_seed(0)
     if variant == 'BASE':
         model = make_base(model_name, num_layers, data.x.size(1), num_targets, hidden_dim, device)
-        opt = torch.optim.AdamW(model.parameters(), lr=lr)
+        opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
         params = num_params(model)
         times, peak = measure(lambda: step_base(model, data, opt, is_binary), device)
         del model, opt
     elif variant == 'ENS_k4':
         models = [make_base(model_name, num_layers, data.x.size(1), num_targets, hidden_dim, device)
                   for _ in range(ENS_K)]
-        opts = [torch.optim.AdamW(m.parameters(), lr=lr) for m in models]
+        opts = [torch.optim.AdamW(m.parameters(), lr=lr, weight_decay=weight_decay) for m in models]
         params = sum(num_params(m) for m in models)
 
         def _step():
@@ -127,7 +127,7 @@ def profile_variant(variant, model_name, num_layers, hidden_dim, lr, data, num_t
     else:
         k = int(variant.split('_k')[-1])
         model = make_tabm(model_name, num_layers, data.x.size(1), num_targets, hidden_dim, k, device)
-        opt = torch.optim.AdamW(model.parameters(), lr=lr)
+        opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
         params = num_params(model)
         times, peak = measure(lambda: step_tabm(model, data, opt, is_binary, k), device)
         del model, opt
