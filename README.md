@@ -12,6 +12,28 @@ The separate `ogbn-arxiv` pilot gives a contrary result. At a fixed 300-epoch bu
 
 A separate, post hoc matched-initialization control on the same split found **70.588%** mean test accuracy with untied propagation versus **69.027%** in its new tied rerun; its three paired differences all favored untied. That control changes parameter count and has selected checkpoints near the 300-epoch cap.
 
+## New depth, sharing-position, and link studies
+
+The ICLR study tests the *effect of tying propagation weights* with four BatchEnsemble member paths that begin from matched parameters and nearly identical initial logits. Tied and untied members have the same boundary factors, data, mean member loss, paired optimization seeds, and pooled validation checkpoint rule. Untying gives every member its own propagation stack, so it changes capacity as well as the training constraint. All reported effects below are local to their fixed data and budgets.
+
+On Roman Empire official mask 0 with explicit self-loops and width 128, a post hoc two-to-five-block SAGE grid gave these tied-minus-untied test-accuracy differences in percentage points across five paired seeds per depth: **−0.738, +0.508, +0.720, +0.709**. Every depth-two seed was negative and every deeper seed was positive under 300 epochs. Validation differences were **−0.667, +0.007, +0.434, +0.519**, and all selected checkpoints were late. A separately frozen 1,000-epoch restart at depths two and five gave **−0.765** and **+0.382** points across three seeds; one five-block seed was negative. Several selected checkpoints were still near the new cap. These results do not give a general depth threshold or a converged comparison. The complete 40-cell and 12-cell audits are retained in the author evidence. The anonymous supplement provides frozen source, validation traces, official labels and held-out IDs, compact selected decisions, and score verifiers.
+
+A 24-cell post hoc extension used the same width-128, 300-epoch SAGE recipe on WikiCS and Actor published split 0, at depths two and five with three paired seeds. The depth-two reruns exactly reproduced the earlier tied/untied controls. Tied-minus-untied test means at depth five were **−0.103 points** on WikiCS and **−0.789 points** on Actor, compared with **−0.011** and **−0.088** at depth two. Seed signs were mixed at both depths. The external graphs have no added self-loops, unlike the Roman grid, so this is a limitation on transfer under these fixed recipes rather than an isolated graph-identity effect. The full 24-cell checkpoint replays and independent official-label score audit passed.
+
+A separate two-block SAGE test asks which of the two propagation blocks is private to the four members. Copying the first block and copying the last block have exactly equal trainable-parameter counts on each graph. Private-first minus private-last test accuracy was **+0.540** percentage points on Roman Empire mask 0 (five seeds), **−0.844** on WikiCS split 0 (three), and **−0.877** on Actor split 0 (three). Roman in this test has no explicit self-loops, unlike the depth grid. These are post hoc, one-split comparisons, and the direction does not yield a rule for unseen graphs. The compact evidence contains all four arms and every seed.
+
+An `ogbl-collab` extension used official temporal link prediction and Hits@50 under one frozen 400-step recipe. Tied, initially matched untied, ordinary four-model ENS, and BASE averaged **47.371%, 46.872%, 44.596%, and 38.549%** across three seeds. The tied-minus-untied seed differences were **+1.427, +0.466, −0.397** points. The negative seed and the fixed, untuned recipe matter. This does not establish a ranking against specialized link predictors or a recommendation-system advantage. The source, temporal graph fingerprint, 12 selected decisions, and score verifier are in the anonymous supplement.
+
+For the new compact score archive, run the verifiers below from its extracted root. These recalculate scores from saved class decisions or Hits@50 threshold decisions. They do not reconstruct full float32 logits or replay omitted checkpoints.
+
+```bash
+python experiments_iclr/verify_new_compact.py
+python experiments_iclr/verify_roman_budget1000_compact.py
+python experiments_iclr/external_depth_sage/verify_compact.py
+python experiments_iclr/sharing_position/verify_decisions.py
+python experiments_iclr/verify_ogb1000_compact.py
+```
+
 ## Environment and data
 
 A runnable environment uses Python 3.11, PyTorch 2.1.2 with CUDA 11.8, PyTorch Geometric 2.7.0, and DGL 2.4.0. Package versions are in `pyproject.toml` and `uv.lock`. The graph files used here are under `data/`. The training scripts load the ten official masks in those files. Run the commands below from the repository root, with a compatible NVIDIA GPU and Python environment.
@@ -147,14 +169,16 @@ To reproduce the recorded latency protocol, run `python experiments_iclr/profile
 | --- | ---: | ---: | ---: |
 | 100 epochs | 67.783 | 68.172 | 64.375 |
 | 300 epochs | 70.639 | 71.096 | 69.027 |
+| 1,000 epochs | 71.500 | 72.143 | 70.824 |
 
-Entries are means across three seeds on the same graph and split. GNNM trailed ENS on every seed at both budgets. Its mean deficit narrowed from **3.797** to **2.070 percentage points**. The 300-epoch repeat was planned after viewing the 100-epoch results, and it still showed validation improvement through the last 25 epochs. Do not select between budgets by test score or treat seeds as independent graph tasks. The 300-epoch run starts from scratch, rather than continuing the 100-epoch checkpoints.
+Entries are means across three seeds on the same graph and split. GNNM trailed ENS on every seed at all three budgets. Its mean deficit was **3.797**, **2.070**, and **1.319 percentage points**, respectively. Each longer repeat was specified after earlier results and restarted from epoch 1. The 300-epoch run still showed validation improvement through the last 25 epochs. At 1,000 epochs, two GNNM checkpoints were selected at 988 or later, as was one ENS checkpoint. Neither budget establishes convergence. Do not select between budgets by test score or treat seeds as independent graph tasks.
 
-The following commands rerun the two fixed budgets into new output roots when the official OGB files are available under `experiments_iclr/data/`. Existing roots with selected records cause the runner to skip those runs:
+The following commands rerun the three fixed budgets into new output roots when the official OGB files are available under `experiments_iclr/data/`. Existing roots with selected records cause the runner to skip those runs:
 
 ```bash
 .venv/bin/python experiments_iclr/ogbn_arxiv_pilot.py --device cuda:0 --seeds 0 1 2 --variants base ens gnnm --output-root experiments_iclr/ogbn_arxiv_reproduction_100
 .venv/bin/python experiments_iclr/ogbn_arxiv_pilot.py --device cuda:0 --seeds 0 1 2 --variants base ens gnnm --max-epochs 300 --min-epochs 300 --output-root experiments_iclr/ogbn_arxiv_reproduction_300
+.venv/bin/python experiments_iclr/ogbn_arxiv_pilot.py --device cuda:0 --seeds 0 1 2 --variants base ens gnnm --max-epochs 1000 --min-epochs 1000 --output-root experiments_iclr/ogbn_arxiv_reproduction_1000
 CUDA_VISIBLE_DEVICES= .venv/bin/python experiments_iclr/verify_ogbn_arxiv_results.py --profile pilot-100 --result-root experiments_iclr/ogbn_arxiv_reproduction_100 --require-complete
 CUDA_VISIBLE_DEVICES= .venv/bin/python experiments_iclr/verify_ogbn_arxiv_results.py --profile fixed-300 --result-root experiments_iclr/ogbn_arxiv_reproduction_300 --require-complete
 ```
