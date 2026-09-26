@@ -1,0 +1,3 @@
+# WikiCS parameter-matched post hoc evidence
+
+This compact folder contains all 54 validation traces, frozen selection and score audits, and exact pooled/member hard decisions for every allowed test checkpoint. Run `python3 source/verify_wikics_matched54_compact.py .` with NumPy. The `pooled_float_companion` subfolder contains exact float32 pooled test logits and allows cross-entropy replay. The original weights and full per-member float logits are omitted for size; independent forward replay of the original checkpoints requires those omitted author weights. The server audit verified all original checkpoints before test scoring.

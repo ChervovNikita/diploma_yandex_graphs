@@ -61,14 +61,14 @@ earlier seven-backbone table. Peak memory is peak PyTorch allocated memory.
 The archived cost profiler used AdamW's default 0.01 weight decay, while
 the archived predictive runs used zero weight decay.
 
-The included public graph files are `data/minesweeper.npz` and
-`data/tolokers.npz`. The public `data/roman_empire.npz`,
+The included public graph file is `data/minesweeper.npz`.
+The public `data/roman_empire.npz`, `data/tolokers.npz`,
 `data/amazon_ratings.npz`, and `data/questions.npz` are omitted to keep the
 upload below the submission form's 100 MB limit. Run
 `python experiments_iclr/fetch_datasets.py` before new training to fetch and
 verify the omitted files from the pinned public source commit. The advertised
 compact score verifiers use retained selected arrays and do not require the
-omitted Roman graph. See `UPLOAD_PACKAGE_SCOPE.md` for exact bytes and hashes. The pinned
+omitted public raw graphs. See `UPLOAD_PACKAGE_SCOPE.md` for exact bytes and hashes. The pinned
 download URL template, byte sizes, and SHA256 hashes of all five files are
 in `experiments_iclr/data_manifest.json`. Recomputing the archived tables
 above reads only CSVs and does not require the omitted graph files.

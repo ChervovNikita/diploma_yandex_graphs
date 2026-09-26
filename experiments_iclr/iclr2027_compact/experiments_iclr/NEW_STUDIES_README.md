@@ -7,14 +7,25 @@ The primary evidence is the four-graph, six-arm, 432-cell optimizer grid in `val
 | Question | Directory | Publicly recomputable evidence |
 | --- | --- | --- |
 | Sharing after optimizer search | `validation_tuning/`, `hpo_selected_test_logits/` | All 432 validation traces and selections, all allowed selected/default decisions, all 72 selected raw member test arrays |
+| Two additional graph settings | `planetoid_confirmation/` | All 216 CiteSeer/PubMed validation cells, 57 selected/default test records and member/pooled classes |
+| Feature preprocessing on Cora | `cora_preprocessing/` | All 216 raw/normalized validation cells, 60 selected/default records and member/pooled classes |
 | Accuracy versus execution cost | `inference_profile/` | All 7,200 timings, peak-allocation records, 24 selected checkpoint identities |
 | Common weights with separate optimizer histories | `optimizer_history/`, `initial_member_gram/` | Full planned outcome records, decision metrics, retained Gram matrices and exact algebraic identities |
 | Factors inside propagation | `factor_placement/` | All 108 new validation records, 36 new pooled test arrays, exact selected/default comparisons |
 | Probability quality | `temperature_sensitivity/` | All 72 validation fits and unscaled/scaled test metrics |
 | Width at approximately equal parameter count | `roman_narrow/` | All six new narrow cells, original comparator records and paired differences |
 | Graph-only link baselines | `ogbl_collab_topology/` | All eight complete official-pool score arrays and four strict Hits@50 values |
+| Preparation from public inputs | `fresh_primary/` | Frozen source closure, exact public input downloads and graph-tensor gate, tested CPU preflight |
 
 Large training checkpoints are omitted. Where a stage retains only member class decisions, it cannot reconstruct the member float logits or the raw-logit pool. Other stages retain exact pooled logits or full member logits, as specified below. Full checkpoint replays were audited before packaging and are retained author records.
+
+## Prepare the primary benchmark from public inputs
+
+`fresh_primary/README.md` gives commands to create an absent study directory, download the exact public inputs, check their raw hashes and graph tensors, and run the frozen primary runner. The download, input checks, and CPU preflight passed in a new directory without copying any author checkpoints, results, or test scores. Full fresh training was not run in this preparation check. The complete 432-cell training and validation-lock commands are included. A read-only source check is:
+
+```sh
+python experiments_iclr/fresh_primary/prepare_primary_fresh.py --source experiments_iclr/validation_tuning --target fresh_primary_432 --check-only
+```
 
 `VERIFICATION_SCOPE.md` gives a command-by-command account for the additional node-graph and decision-mechanism studies below: what a reader can recompute from selected decisions and traces, and which CUDA or full-logit audits are retained records because checkpoints and original float32 logits are omitted.
 
@@ -23,7 +34,7 @@ From the extracted archive root, run:
 ```text
 python experiments_iclr/verify_new_compact.py
 python experiments_iclr/verify_roman_budget1000_compact.py
-python experiments_iclr/roman_additional_masks/verify_roman_multimask_compact.py
+python experiments_iclr/roman_additional_masks/verify_packed_results.py
 python experiments_iclr/roman_noloop_depth/verify_compact.py
 python experiments_iclr/external_depth_sage/verify_compact.py
 python experiments_iclr/sharing_position/verify_decisions.py
@@ -95,7 +106,7 @@ The training loss samples pairs absent from the observed training graph. Such pa
 
 `roman_additional_masks/` supplies the complete 48-cell study on official masks 1–4, depths 2 and 5, and three optimizer seeds. Both arms use width 128, four boundary-projector members, no added self-loops, and 1,000 epochs. TIED and UNTIED have copied initial parameters and matched random-generator states. Every paired depth-two test difference is negative. The depth-five differences have eight positive signs, three negative signs, and one tie. Their means are −0.6118 and +0.1397 percentage points, respectively. Thirty-five of 48 selected checkpoints are after epoch 900. The masks overlap on one graph and were chosen after earlier Roman studies.
 
-Run `python experiments_iclr/roman_additional_masks/verify_roman_multimask_compact.py` from the archive root. This checks source/result hashes, all 48 validation traces, selected decisions and accuracies, initialization records, eight CUDA replay summaries, the complete-grid audit, and all 24 paired differences. The optional `--public-npz /path/to/roman_empire.npz` argument verifies the supplied official label/mask anchor against separately downloaded public graph bytes. Full float32 logits, initial-logit arrays and checkpoints are omitted, so the compact command does not reconstruct logit pooling, cross-entropy or CUDA forwards.
+Run `python experiments_iclr/roman_additional_masks/verify_packed_results.py` from the archive root. The upload wrapper verifies the exact hashes of all 210 original `results/` files in `RESULTS_RECORDS.tar.xz`, temporarily extracts them, then runs the unchanged verifier. This checks source/result hashes, all 48 validation traces, selected decisions and accuracies, initialization records, eight CUDA replay summaries, the complete-grid audit, and all 24 paired differences. The optional `--public-npz /path/to/roman_empire.npz` argument verifies the supplied official label/mask anchor against separately downloaded public graph bytes. Full float32 logits, initial-logit arrays and checkpoints are omitted, so the compact command does not reconstruct logit pooling, cross-entropy or CUDA forwards.
 
 ## Fixed MC Dropout baseline on five Roman masks
 
@@ -104,7 +115,7 @@ Run `python experiments_iclr/verify_mc_dropout_compact.py` from the archive root
 
 ## Primary 432-cell validation grid
 
-`validation_tuning/` supplies the frozen six-arm, six-candidate, three-seed matrix on four graph settings. All 432 validation traces and result records are retained, as are all 141 unique selected/default score records and decisions. Run `python experiments_iclr/validation_tuning/verify_compact_tuning.py`. Its README states its exact arithmetic and provenance checks and the omitted checkpoint/logit boundary. The candidate selection uses validation only, after the complete matrix is locked. Choosing between two tuned partial placements costs twelve configurations, versus six for each individual comparator.
+`validation_tuning/` supplies the frozen six-arm, six-candidate, three-seed matrix on four graph settings. All 432 validation traces and result records are retained, as are all 141 unique selected/default score records and decisions. Run `python experiments_iclr/validation_tuning/verify_trace_archive.py`. The upload packs the original result and validation-trace bytes in `RESULTS_RECORDS.tar.xz`; the wrapper verifies their original hashes and runs the unchanged selection verifier after temporary extraction. Its README states the arithmetic and provenance checks and the omitted checkpoint/logit boundary. The candidate selection uses validation only, after the complete matrix is locked. Choosing between two tuned partial placements costs twelve configurations, versus six for each individual comparator.
 
 ## Separate optimizer histories and update norms
 
@@ -168,6 +179,78 @@ differences are +2.233, -0.239, -0.132, and +1.890 percentage points on
 Cora, WikiCS, Actor, and filtered Chameleon, respectively. Factor placement
 was studied after earlier results and adds parameters, so these comparisons
 do not isolate a causal placement effect.
+
+## Paired selected decisions on eight settings
+
+`paired_decisions/` compares the validation-selected partial-family arm with
+validation-selected ENS on the same test nodes within each optimizer seed.
+Across the four primary graphs, CiteSeer/PubMed, and both new Cora feature
+conditions, it retains all 24 seed-level partitions into both correct,
+partial only correct, ENS only correct, and neither correct. Run
+`python experiments_iclr/paired_decisions/analyze_paired_decisions.py --check`.
+The script checks source hashes, selected candidates, official test references,
+and recorded accuracies before checking the exact CSV/JSON outputs. Seeds
+reuse test nodes and the Cora settings are related, so these counts carry no
+independent-node interval or significance claim.
+An optional `python experiments_iclr/paired_decisions/conditional_seed_intervals.py --check`
+recomputes three-seed t intervals conditional on each fixed graph split and
+selected candidate. It assumes independent, approximately normal optimizer
+seed differences and does not account for validation selection across those
+same seeds. It is not an interval over new graphs or individual test nodes.
+
+## Post hoc width and approximate parameter matching
+
+`narrow_capacity/` supplies 72 UNTIED cells across the four primary graph
+splits, with each width chosen from parameter counts to approach TIED width
+128, plus an 18-cell UNTIED width-128 WikiCS control. All cells receive the
+same six optimizer candidates, three seeds, and 1,000-epoch budget. Run
+`python experiments_iclr/narrow_capacity/verify_narrow_wide_compact_v2.py experiments_iclr/narrow_capacity`
+and `python experiments_iclr/narrow_capacity/verify_comparator_bindings.py`.
+The first command checks all 90 validation cells and 27 allowed selected/default
+test scores, with exact pooled float32 test logits. The second binds the
+published contrasts to the independently retained comparator score records.
+The selected narrow-minus-TIED differences on Cora, WikiCS, Actor and filtered
+Chameleon are +6.133, +0.331, +0.307 and 0.000 points. Wide UNTIED is nearly
+tied with the same-runtime TIED WikiCS control (+0.006 points). These studies
+were designed after earlier outcomes. Changing width changes the initial
+function as well as parameter count, so the contrasts are sensitivity checks,
+not causal estimates of a storage-capacity effect.
+
+## Storage-matched WikiCS controls
+
+`wikics_matched54/` is a post hoc, 54-cell WikiCS split-0 comparison among a
+single BASE width 198, pooled ENS width 92, and private-last width 128. Their
+stored trainable parameter counts are 456,004, 457,464, and 455,552. Six
+AdamW candidates and three optimizer seeds per arm were completed and locked
+before selected/default test scoring. Selected mean test accuracies are
+77.926, 78.770, and 79.454%. Run
+`python experiments_iclr/wikics_matched54/source/verify_wikics_matched54_compact.py experiments_iclr/wikics_matched54`.
+The compact stage retains all 54 validation traces and exact float32 pooled
+test logits for all 18 allowed scores, but not original weights/member floats.
+`python experiments_iclr/paired_decisions/matched_wikics_seed_intervals.py --check`
+recomputes descriptive paired seed differences conditional on this one fixed
+split and the selected candidates; it does not account for selection on the
+same seeds. The separate post hoc profile retains all 900 timings for three
+selected seed-0 checkpoints. Run
+`python experiments_iclr/wikics_matched54_profile/verify_wikics_matched54_profile.py experiments_iclr/wikics_matched54_profile experiments_iclr/wikics_matched54`.
+On one A100, private-last is slower than ENS in this fixed full-graph profile
+(11.133 versus 8.562 ms median), despite nearly equal stored parameters.
+
+## Storage-matched normalized Cora controls
+
+`cora_matched54/` is a separate post hoc comparison on the same normalized
+public Cora split that was favorable in the feature-sensitivity study. BASE
+width 184, ENS width 70, and private-last width 128 store 605,919, 602,868,
+and 604,700 trainable parameters. All 54 validation cells and 18 allowed
+selected/default exact float32 pooled test logits are retained. Selected
+means are 70.267, 72.867, and 74.500%, with private-last minus ENS +1.633
+points across three paired optimizer seeds. Run
+`python experiments_iclr/cora_matched54/source/verify_cora_matched54_compact.py experiments_iclr/cora_matched54`.
+The sibling `python experiments_iclr/paired_decisions/matched_cora_seed_intervals.py --check`
+recomputes a descriptive conditional three-seed t interval. It ignores the
+dependence induced by validation selection and says nothing about unseen
+graphs or splits. The original model weights and individual member float
+logits are omitted from the compact upload.
 
 ## Deterministic graph-only link context
 

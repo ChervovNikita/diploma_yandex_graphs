@@ -34,19 +34,18 @@ score, hard decision and source-array hash. Original pooled validation logits fo
 in the temperature companion. Individual validation member logits and
 training checkpoints remain outside this compact upload.
 
-One additional public raw graph is omitted relative to the full compact bundle:
+Two additional public raw graphs are omitted relative to the full compact bundle:
 
-- File: `data/roman_empire.npz`
-- Bytes: 20401489
-- SHA-256: `a58ba741d123bf892fe5c872138d07463d75a2e9012360b8dd78ac2d4766d428`
-- Pinned public URL: https://raw.githubusercontent.com/yandex-research/heterophilous-graphs/a431395582e929d88271309716bea4fe24ce6318/data/roman_empire.npz
+- File: `data/roman_empire.npz`; bytes: 20401489; SHA-256: `a58ba741d123bf892fe5c872138d07463d75a2e9012360b8dd78ac2d4766d428`; pinned public URL: https://raw.githubusercontent.com/yandex-research/heterophilous-graphs/a431395582e929d88271309716bea4fe24ce6318/data/roman_empire.npz
+- File: `data/tolokers.npz`; bytes: 1329769; SHA-256: `dacf3ac94cec53d03cd2adb5255c08b33dee1656c33ca8164a464bd9450a1667`; pinned public URL: https://raw.githubusercontent.com/yandex-research/heterophilous-graphs/a431395582e929d88271309716bea4fe24ce6318/data/tolokers.npz
+
 
 The existing `experiments_iclr/data_manifest.json` records this exact source.
 Run `python experiments_iclr/fetch_datasets.py` before new training to download
 and verify it, together with the other public raw graphs already omitted from
 the full compact bundle. That script refuses mismatched existing bytes.
 The advertised compact score-verification commands use supplied selected
-records and arrays and do not need this raw Roman graph. Full checkpoint
+records and arrays and do not need these raw public graphs. Full checkpoint
 replay has additional requirements described in each study README.
 
 Descriptive README paragraphs and the Roman bridge compact-verifier entry are
@@ -67,3 +66,9 @@ its unchanged selected result row. Run
 pooled scores, cross-entropies and member accuracies. The remaining original
 control rows still have their summary CSV records and original omission scope.
 The original full-array diagnostic scripts require the full author artifacts.
+
+The two 216-cell studies pack every original result and validation trace in exact CELL_RECORDS.tar.xz archives. Their verify_trace_archive.py wrappers verify all original hashes and run the unchanged original verifier after temporary extraction. All cells and trace rows remain.
+
+The primary 432-cell study packs its original 864 result JSON and validation-trace CSV files in RESULTS_RECORDS.tar.xz, with every byte bound to its unchanged COMPACT_BUNDLE_MANIFEST.json. Run experiments_iclr/validation_tuning/verify_trace_archive.py to verify the archive and execute the unchanged primary selection verifier after temporary extraction. The original records and all outcomes remain.
+
+The Roman additional-mask study similarly packs all 210 original results/ files, including complete validation traces, selected hard decisions, source manifests and audit records, in a lossless RESULTS_RECORDS.tar.xz. Its verify_packed_results.py wrapper checks every original SHA-256 and runs the unchanged 48-cell verifier after temporary extraction.

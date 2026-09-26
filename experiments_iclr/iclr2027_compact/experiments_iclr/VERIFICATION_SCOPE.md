@@ -2,6 +2,8 @@
 
 Run the commands below from the extracted anonymous code-supplement root. They require Python and NumPy and do not need a GPU. Each study supplies raw member logits, pooled logits, or class decisions, as documented below. When only classes are retained, the verifier checks the saved pooled class against labels and run records but cannot independently reconstruct it from the member classes.
 
+The fresh-start preparation command in `fresh_primary/README.md` is separate from score verification. Its `--check-only` mode checks frozen local sources without downloads or writes. Full preparation additionally requires PyTorch and PyG, downloads the public data, and checks the original raw-file and graph-tensor fingerprints. Preparation and CPU preflight were actually tested in a new directory. The supplied scope record does not claim a fresh training run or reproduction of a model's accuracy.
+
 | Study and public command | Checks from included files | Not included in the anonymous compact upload; author-only verification record |
 |---|---|---|
 | `python experiments_iclr/ogbn_arxiv_sharing/verify_decisions.py` (12 arms) | Complete three-seed/four-arm matrix; frozen source hashes; 300-row validation-checkpoint selection; retained official node-ID fingerprints and labels; selected pooled and member accuracies; equal private-arm parameter counts; paired position differences; stage file hashes. | Public OGB graph bytes, float32 member logits, training checkpoints, and initial-logit arrays. `completion_audit.json` reports the earlier CUDA checkpoint/logit replay; the reader cannot repeat that replay with this compact upload. The OGB dataset must be fetched to rerun training. |
@@ -17,7 +19,7 @@ The `initial_update_diagnostic/verify_compact.py` command checks retained file i
 
 ### Roman additional-mask compact evidence
 
-`python experiments_iclr/roman_additional_masks/verify_roman_multimask_compact.py` checks all 48 source/result records, 1,000-row validation traces, retained official mask/label anchors, selected member and pooled hard classes, paired initialization records, replay-audit hashes and 24 paired accuracy differences. An optional `--public-npz` independently anchors the retained labels and masks to public data with the frozen SHA-256. The pooled hard class was derived from original raw logits. It cannot be recalculated from member classes alone. Original full-logit arrays, initial logits and checkpoints remain author evidence. The included CUDA replay summaries record the completed eight setting-level replay checks without making those checks executable from omitted weights.
+`python experiments_iclr/roman_additional_masks/verify_packed_results.py` verifies and temporarily extracts all 210 original `results/` files, then runs the unchanged verifier. This checks all 48 source/result records, 1,000-row validation traces, retained official mask/label anchors, selected member and pooled hard classes, paired initialization records, replay-audit hashes and 24 paired accuracy differences. An optional `--public-npz` independently anchors the retained labels and masks to public data with the frozen SHA-256. The pooled hard class was derived from original raw logits. It cannot be recalculated from member classes alone. Original full-logit arrays, initial logits and checkpoints remain author evidence. The included CUDA replay summaries record the completed eight setting-level replay checks without making those checks executable from omitted weights.
 
 ## Roman bridge upload representation
 
@@ -30,7 +32,7 @@ The anonymous upload retains all nine Roman bridge rows with exact pooled float3
 
 ## Primary selected 72 test logits
 
-`python experiments_iclr/hpo_selected_test_logits/verify_public.py` checks all 72 selected primary models. The original float32 member test arrays are retained without quantization. Their float32 mean reconstructs every original pooled array bitwise. The verifier binds each cell to the complete 432 validation lock and 141-score audit, official test labels/indices, source prediction and score hashes, and independent class exports. It recalculates accuracy and stable cross-entropy. Original pooled validation logits are supplied in the temperature companion. Individual validation member logits and model weights remain author evidence. `python experiments_iclr/validation_tuning/verify_compact_tuning.py` checks the complete validation/selection and selected/default decision records.
+`python experiments_iclr/hpo_selected_test_logits/verify_public.py` checks all 72 selected primary models. The original float32 member test arrays are retained without quantization. Their float32 mean reconstructs every original pooled array bitwise. The verifier binds each cell to the complete 432 validation lock and 141-score audit, official test labels/indices, source prediction and score hashes, and independent class exports. It recalculates accuracy and stable cross-entropy. Original pooled validation logits are supplied in the temperature companion. Individual validation member logits and model weights remain author evidence. `python experiments_iclr/validation_tuning/verify_trace_archive.py` checks the complete validation/selection and selected/default decision records.
 
 ## Earlier external-SAGE upload representation
 
