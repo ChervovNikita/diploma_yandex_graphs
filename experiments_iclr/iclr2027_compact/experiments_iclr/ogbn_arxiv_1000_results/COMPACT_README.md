@@ -1,0 +1,3 @@
+# Fixed 1,000-epoch ogbn-arxiv study
+
+This directory records every seed and arm in the frozen nine-run study. The source lock, official dataset fingerprints, 1,000-row validation traces, selected results, and class decisions are included. Run `python experiments_iclr/verify_ogb1000_compact.py` from the ZIP root to recalculate reported accuracies. The class decisions do not reconstruct full logits, cross-entropy, or CUDA checkpoint replay. The independently audited full float32 logits and checkpoints remain in author evidence because of their size. Re-execute `run_ogbn_arxiv_1000_once.sh` with the declared environment and public OGB data to reproduce the training run.

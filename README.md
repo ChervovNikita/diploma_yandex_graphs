@@ -236,6 +236,18 @@ The Roman GAT verifier requires the complete local result tree, including checkp
 CUDA_VISIBLE_DEVICES= .venv/bin/python experiments_iclr/verify_gat_failure_pair.py --complete
 ```
 
+## Audited depth, sharing-position, and link extensions
+
+The ICLR study separates three questions that the archived benchmark cannot answer cleanly. First, an initially matched Roman Empire SAGE experiment changes only the number of residual graph blocks within a paired tied-versus-untied comparison. On official mask 0, width 128 and a fixed 300-epoch cap, mean tied-minus-untied test accuracy is **−0.738, +0.508, +0.720, and +0.709 percentage points** at depths 2–5, respectively, over five paired optimization seeds. Every selected checkpoint is late. A separate from-scratch 1,000-epoch endpoint repeat gives **−0.765** points at depth 2 and **+0.382** at depth 5, including one negative depth-5 seed. These are post hoc studies of one graph split, not a depth rule for new graphs.
+
+Under the same width-128, 300-epoch recipe, the tied-minus-untied depth-5 means are **−0.103** points on WikiCS and **−0.789** on Actor. Both use one published split and three paired seeds, with mixed seed signs. A Roman repeat without explicitly added self-loops changes from **−0.429** at depth 2 to **+0.724** at depth 5. Thus added self-loops alone do not explain the Roman sign reversal, but the reversal does not transfer to WikiCS or Actor under this fixed recipe. The Roman no-loop depth-5 selected checkpoints are at epochs 289–300.
+
+Second, the study asks which of two residual SAGE blocks remains private when the two partial-sharing arms have exactly the same parameter count. Private-first minus private-last test accuracy is **+0.540** points on Roman Empire, **−0.844** on WikiCS, **−0.877** on Actor, and **+0.467** on `ogbn-arxiv`. The OGB partial arms each have 436,928 parameters, and its three validation and test seed contrasts all favor private first. The graph was added after the other three outcomes were known, and all OGB selected checkpoints lie at epochs 293–300 of 300. Each graph has one split, and Actor's validation and test mean signs differ. These scores do not define a selection rule for unseen graphs.
+
+Third, a fixed `ogbl-collab` link-prediction adaptation uses the official Hits@50 evaluation with four member edge logits. Mean tied, untied, ordinary ENS, and BASE scores are **47.371, 46.872, 44.596, and 38.549 percent** over three paired seeds. Tied minus untied is positive in two seeds and negative in one. This is one untuned temporal graph recipe, not a ranking against specialized link-prediction models.
+
+`experiments_iclr/iclr2027_compact/` preserves the supplement layout for these completed extensions, with frozen source copies, selected-run records, compact decisions, and seven score verifiers. See its README for commands and the limits of compact verification. Complete logits and checkpoints remain in author evidence. The repository's public identity means it should not be linked from the anonymous manuscript or supplement.
+
 ## Scope and provenance
 
 `experiments_iclr/data_manifest.json` pins the five public graph NPZ files to one source commit and records their checksums. The tracked Amazon Ratings file had been an HTML page saved with an NPZ extension. It has been replaced with the authentic NPZ, and the old and new hashes are in the manifest. Run `python experiments_iclr/fetch_datasets.py` to verify all five files or download any that are missing.
