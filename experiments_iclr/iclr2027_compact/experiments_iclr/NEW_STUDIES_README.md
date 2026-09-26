@@ -2,6 +2,8 @@
 
 These files accompany the paper's completed Roman depth, no-loop depth, and longer-budget studies, WikiCS/Actor depth extension, sharing-position tests including `ogbn-arxiv`, `ogbn-arxiv` 1,000-epoch, and `ogbl-collab` experiments. They contain frozen study source, selected-run metadata, complete validation traces, and compact decision arrays derived from the original float32 member logits. The original selected-logit files and training checkpoints were audited separately but are omitted here to keep the upload small. Each `result.json` or `selected.json` retains the SHA-256 hash of its original prediction file where the source runner recorded it. The compact arrays reproduce the paper's accuracies, Hits@50 values, member/pool decompositions, and coverage/utilization counts, but cannot replay the original CUDA checkpoint or reconstruct every floating-point logit.
 
+`VERIFICATION_SCOPE.md` gives a command-by-command account for the additional node-graph and decision-mechanism studies below: what a reader can recompute from selected decisions and traces, and which CUDA or full-logit audits are retained records because checkpoints and original float32 logits are omitted.
+
 From the extracted archive root, run:
 
 ```text
@@ -11,10 +13,14 @@ python experiments_iclr/roman_noloop_depth/verify_compact.py
 python experiments_iclr/external_depth_sage/verify_compact.py
 python experiments_iclr/sharing_position/verify_decisions.py
 python experiments_iclr/ogbn_arxiv_sharing/verify_decisions.py
+python experiments_iclr/new_graph_studies/verify_decisions.py
+python experiments_iclr/filtered_chameleon_study/verify_decisions.py
+python experiments_iclr/analyze_decision_mechanism.py
+python experiments_iclr/analyze_selected_sharing_tradeoffs.py
 python experiments_iclr/verify_ogb1000_compact.py
 ```
 
-These commands use NumPy only. Together they check 40 Roman depth cells, 12 Roman no-loop depth cells, 12 Roman longer-budget cells, 24 external-depth cells, 56 sharing-position arms, nine OGB node arms, and 12 link-prediction runs against the independently audited score manifests. They also check official labels and held-out indices where supplied. The full selected-logit and checkpoint audits were run before packaging and are identified by hashes in the included audit JSON files.
+These commands use NumPy only. Together they check 40 Roman depth cells, 12 Roman no-loop depth cells, 12 Roman longer-budget cells, 24 external-depth cells, 56 earlier sharing-position arms, 48 Cora/legacy-Chameleon depth and position arms, 24 filtered-Chameleon depth and position arms, nine OGB node arms, and 12 link-prediction runs against the independently audited score manifests. They also check official labels and held-out indices where supplied. The full selected-logit and checkpoint audits were run before packaging and are identified by hashes in the included audit JSON files.
 
 ## Roman depth grid
 
@@ -46,6 +52,18 @@ The training loss samples pairs absent from the observed training graph. Such pa
 
 `experiments_iclr/external_depth_sage/` holds the frozen two-versus-five-block SAGE extension on WikiCS and Actor. Its 24 tied/untied arms use the published split 0 of each graph, three seeds, and the same 300-epoch recipe. The fresh depth-two results reproduce the older controls. Depth five does not reproduce the Roman self-loop graph's positive tying contrast. `verify_compact.py` checks complete selected decisions and trace selection. The source/data hashes and CUDA replay audit summaries are retained; full checkpoints and float32 logits remain author evidence.
 
+## Cora and legacy Chameleon extension
+
+`experiments_iclr/new_graph_studies/` contains 48 Cora and legacy Geom-GCN Chameleon depth and sharing-position arms, frozen before their outcomes were read. The public Cora split and legacy Chameleon split 0 are each used with three optimizer seeds. The 300-epoch protocol, pretraining freezes, source/data fingerprints, complete validation traces, and decision arrays are retained. Chameleon contains 50 self-loops in its source graph; none were added. Legacy Chameleon has known duplicate-node and evaluation concerns, so its outcomes are descriptive rather than a clean replication on the filtered benchmark. The nested `verify_decisions.py` checks the complete compact stage, including trace selection, node IDs, predictions, parameter equality, paired contrasts, and hashes. Full selected logits and checkpoints passed separate CUDA replay but remain author evidence. On both graphs, tied propagation underperforms untied propagation at depths two and five in mean held-out accuracy. The predeclared prediction that private-first would underperform private-last on both graphs fails: mean private-first-minus-private-last test differences are +0.367 and +0.292 percentage points on Cora and legacy Chameleon, respectively. These are one-split, three-seed outcomes and do not establish a universal position ordering.
+
+`experiments_iclr/filtered_chameleon_study/` contains a separately frozen 24-arm study on official filtered Chameleon split 0 from Platonov et al. The raw public NPZ is identified by pinned repository commit and SHA-256 in its README. The dataset/protocol proposal and filtered study freezes preceded inspection of the Cora and legacy-Chameleon outcomes. Its no-loop, symmetrized-edge model convention differs from the directed-edge evaluation in the original filtered-graph paper. Tied-minus-untied mean test accuracy is −2.577 percentage points at depth two and −2.921 at depth five; private-first-minus-private-last is +0.172 points across three seeds. The frozen validation rule selects private-last, with +0.172 points retrospective test regret. The selected checkpoints are all at epochs 6–17, limiting any optimization interpretation. All 24 full CUDA checkpoint/logit replays and an independent Mac audit of the original data, float32 logits, validation traces, selected scores, and cross-entropies passed before compacting. The nested verifier checks decision-level accuracy, source and stage hashes, node IDs, parameter equality, and the paired contrasts. Original selected logits and checkpoints remain author evidence.
+
+`experiments_iclr/analyze_decision_mechanism.py` recalculates per-seed and mean member accuracy, pooled accuracy, gain from raw-logit pooling, six-pair member prediction disagreement, and any-member-correct coverage from the verified Cora, legacy-Chameleon, filtered-Chameleon, WikiCS, and Actor depth studies. It writes `DECISION_MECHANISM_CROSSGRAPH.json`; the supplied file has SHA-256 `f80770ea415b0ad2d8b100ceeb93c50a9c415303cc2121708d42e5adb6ab0bcb`. The results are descriptive one-split decision accounting. For example, Cora tied arms have more member prediction disagreement than untied arms despite lower pooled accuracy, so disagreement alone cannot explain the storage/accuracy contrast.
+
 ## Longer OGB node budget
 
 `experiments_iclr/ogbn_arxiv_1000_results/` contains all nine BASE, ENS, and GNNM arms from a from-scratch fixed 1,000-epoch `ogbn-arxiv` repeat. The source lock and protocol are beside it. `verify_ogb1000_compact.py` recalculates selected validation and test accuracies and the three paired test contrasts from class decisions. It checks validation-only selected epochs against all 1,000 trace rows. Class decisions do not reconstruct the raw logits or checkpoint weights. The independently audited full files remain in author evidence.
+
+## Validation-selected partial sharing
+
+`analyze_selected_sharing_tradeoffs.py` applies the stated validation-accuracy, validation-CE, then private-last tie rule to all seven completed 300-epoch position settings. It regenerates `SELECTED_SHARING_TRADEOFFS.json`, including both partial arms, selected test scores, test regret, and the exact reduction in trainable parameters versus the fully untied arm. This analysis reads existing audited `result.json` records. It does not train a model or independently replay logits. The first four settings are retrospective applications, and the last three use a rule recorded before their outcomes were opened. The two Chameleon settings are related variants.

@@ -1,0 +1,7 @@
+# Cora and legacy-Chameleon depth and sharing-position studies
+
+This decision-level archive retains all 48 completed arms on the fixed Planetoid Cora public split and the legacy Geom-GCN Chameleon split 0. Both graphs were selected exploratorily after earlier study outcomes. The complete 300-epoch, three-seed protocols and pretraining freezes are included. Chameleon retains 50 self-loops already present in its public edge list; none were added. The legacy Chameleon data and splits have known duplicate-node/evaluation concerns, so the result is descriptive.
+
+Each `selected_decisions.npz` contains four member class decisions, the decision after averaging their raw logits, public validation/test labels, and the original node IDs. `decision_derivation_manifest.json` binds these arrays to retained SHA-256 hashes of full selected logits. The compact files recalculate accuracy and paired contrasts, but cannot replay omitted checkpoints, reconstruct pooled logits, or recompute cross-entropy. All 48 full checkpoints and their selected validation/test logits passed CUDA replay before this archive was built. Public raw graph files are downloaded by the included PyG loaders rather than redistributed.
+
+Run `python verify_decisions.py` with NumPy after extraction to check source hashes, graph/split fingerprints, complete cells, validation traces, selected decisions, parameter equality, paired contrasts, and stage file hashes.
