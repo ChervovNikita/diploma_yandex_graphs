@@ -25,7 +25,7 @@ BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715
 | --- | --- |
 | `models.py`, `datasets.py` | Residual backbones, projectors, graph loading, and official masks |
 | `run_base.py`, `run_base_ensemble.py`, `run_tabm.py` | New ordinary-model, explicit-ensemble, and GNNM training runs |
-| `results/`, `results2/`, `results3/` | Archived benchmark CSVs |
+| `results/`, `results2/`, `results3/` | Original five-dataset benchmark CSVs |
 | `experiments_iclr/recomputed_main/` | Reconstructed tables, complete source manifest, and selection sensitivities |
 | `experiments_iclr/` | Additional training, analysis, and author-artifact verification scripts |
 | `external_sage/`, `roman_bridge/` | Frozen compact three-arm studies with selected member logits |
@@ -35,7 +35,7 @@ Each frozen study has its own protocol, source hashes, data identifiers, and int
 
 ## What the completed experiments show
 
-The archived comparison covers eight backbones and five graph datasets. GNNM has a higher recorded mean than ENS in 28 of 40 backbone–graph cells. Those cells reuse five graphs. Archived ENS selected member checkpoints separately, while GNNM selected a pooled checkpoint, and their projector initializations differ. These descriptive results do not isolate parameter sharing.
+The original five-dataset comparison covers eight backbones and five graph datasets. GNNM has a higher recorded mean than ENS in 28 of 40 backbone–graph cells. Those cells reuse five graphs. ENS intentionally selects each independently trained member checkpoint separately, while jointly trained GNNM selects one pooled checkpoint. The benchmark compares both complete methods as designed. It is not an isolated parameter-sharing intervention, and their projector initializations also differ.
 
 New experiments copy initial propagation parameters and match random-generator states between tied and untied arms. The study-specific protocols record numerical initial-logit checks. Both arms use the same mean member loss and pooled-validation checkpoint rule. Untying also increases capacity. The first-private and last-private comparisons instead keep parameter count equal.
 
@@ -95,7 +95,7 @@ Legacy Chameleon has known duplicate-node evaluation problems. Its filtered vari
 
 - A selected width-512 Roman SAGE component study gives 89.502% tied accuracy and 86.562% with initially copied untied propagation, across five overlapping masks with one seed per mask. This local +2.940-point difference is positive on every mask. It does not identify the training mechanism.
 - A fresh width-512 Roman mask-0 SAGE repeat across three optimization seeds gives 89.358% tied and 86.028% untied accuracy. Paired differences are +3.600, +3.777, and +2.612 points. Full checkpoint replay and an independent score/provenance audit passed. This remains a post hoc check on one favorable graph.
-- A matched Roman GAT pair is nearly neutral: tied minus untied is +0.039 points, with two positive and three negative masks. This does not explain the archived GAT deficit against ENS.
+- A matched Roman GAT pair is nearly neutral: tied minus untied is +0.039 points, with two positive and three negative masks. This does not explain the original benchmark GAT deficit against ENS.
 - On `ogbn-arxiv`, BASE/ENS/GNNM give 70.639/71.096/69.027% at 300 epochs and 71.500/72.143/70.824% at 1,000. GNNM trails ENS on every seed. Several selected checkpoints remain near the cap. A separate initially matched 300-epoch tying pair gives −1.562 points, all three seeds negative.
 - On `ogbl-collab`, a frozen link recipe gives tied/untied/ENS/BASE Hits@50 of 47.371/46.872/44.596/38.549%. Tied minus untied has two positive seeds and one negative seed. This is one untuned recipe, not a ranking against specialized link predictors.
 - On the selected Roman setting, a parameter-matched explicit ensemble reaches 88.143% with 6.908 million parameters versus GNNM's 89.502% with 6.738 million. Its measured full-graph inference is faster on one A100: 39.9 versus 109.7 ms. Storage and runtime are different costs.
@@ -120,7 +120,7 @@ An additional post hoc factor-placement study trains 72 all-layer-factor cells a
 
 For `ogbl-collab`, the separately fixed, graph-only Common Neighbors and Adamic–Adar baselines obtain 41.700% and 52.401% strict test Hits@50 under the official negative pool. Adamic–Adar exceeds the learned TIED mean of 47.371% in the 400-step recipe. These topology scores were computed after the learned-link outcomes were known; neither baseline is a capacity-matched learned model. They help bound the interpretation of the link result.
 
-## Recalculate the archived tables
+## Recalculate the original benchmark tables
 
 Use the repository root as the working directory:
 
@@ -135,7 +135,7 @@ The main reconstruction fixes width 512 and learning rate 3e-5, then selects dep
 
 This coherent manifest matches 102 of 105 earlier printed seven-backbone cells to two decimals. Three Tolokers cells differ slightly, as documented in the reconstruction. Historical launch-time source hashes, exact software versions, and exact Amazon data bytes were not recovered. Reconstructing CSV arithmetic does not recreate that missing provenance.
 
-The archived cost profiler used 50 warmups and 200 synchronized timed training steps. Its AdamW weight decay was 0.01, while archived predictive runs used zero. The measured step times are distinct from whole-training time and inference latency.
+The original cost profiler used 50 warmups and 200 synchronized timed training steps. Its AdamW weight decay was 0.01, while the original predictive runs used zero. The measured step times are distinct from whole-training time and inference latency.
 
 ## Verify the compact extension evidence
 
@@ -212,7 +212,7 @@ CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
 
 The preparation downloads only hash-checked public graph data inside the new target and refuses an existing target. This path, the original source/data freeze check, and CPU preflight passed in Python 3.11.14, PyTorch 2.1.2+cu118, and PyG 2.7.0. No fresh 432-cell training or score reproduction was run. `experiments_iclr/fresh_primary/README.md` gives the complete GPU run, independent all-cell validation lock, then test-score audit sequence; test scoring must wait for the new lock. The submitted compact verifier checks the historical records and is distinct from a fresh training run.
 
-General runners default to choosing hyperparameters on split 0 and reusing them. For a **new** depth search using the archived selection pattern, pass `--search_each_split --hidden_dim 512 --lr 3e-5 --layers 1 2 3 4 5` to each applicable runner. This matches the stated search dimensions but does not restore the historical runtime.
+General runners default to choosing hyperparameters on split 0 and reusing them. For a **new** depth search using the original benchmark selection pattern, pass `--search_each_split --hidden_dim 512 --lr 3e-5 --layers 1 2 3 4 5` to each applicable runner. This matches the stated search dimensions but does not restore the historical runtime.
 
 For fresh component experiments, choose a new empty result directory, because existing complete keys are skipped:
 
