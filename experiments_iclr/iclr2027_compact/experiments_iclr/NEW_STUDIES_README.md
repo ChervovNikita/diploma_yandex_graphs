@@ -1,6 +1,20 @@
 # Additional matched studies in the anonymous supplement
 
-These files accompany the paper's completed Roman depth, no-loop depth, and longer-budget studies, WikiCS/Actor depth extension, sharing-position tests including `ogbn-arxiv`, `ogbn-arxiv` 1,000-epoch, and `ogbl-collab` experiments. They contain frozen study source, selected-run metadata, complete validation traces, and compact decision arrays derived from the original float32 member logits. The original selected-logit files and training checkpoints were audited separately but are omitted here to keep the upload small. Each `result.json` or `selected.json` retains the SHA-256 hash of its original prediction file where the source runner recorded it. The compact arrays reproduce the paper's accuracies, Hits@50 values, member/pool decompositions, and coverage/utilization counts, but cannot replay the original CUDA checkpoint or reconstruct every floating-point logit.
+The primary evidence is the four-graph, six-arm, 432-cell optimizer grid in `validation_tuning/`. Every selected primary model also has its original test member logits in `hpo_selected_test_logits/`. The additional studies below examine optimizer histories, factor placement, temperature scaling, depth, parameter budgets, and other graph tasks. Each study states its own scope, full matrix, data fingerprints, and verification boundary. These are different protocols, so their training runs are not exchangeable replications.
+
+## Find the decisive evidence
+
+| Question | Directory | Publicly recomputable evidence |
+| --- | --- | --- |
+| Sharing after optimizer search | `validation_tuning/`, `hpo_selected_test_logits/` | All 432 validation traces and selections, all allowed selected/default decisions, all 72 selected raw member test arrays |
+| Accuracy versus execution cost | `inference_profile/` | All 7,200 timings, peak-allocation records, 24 selected checkpoint identities |
+| Common weights with separate optimizer histories | `optimizer_history/`, `initial_member_gram/` | Full planned outcome records, decision metrics, retained Gram matrices and exact algebraic identities |
+| Factors inside propagation | `factor_placement/` | All 108 new validation records, 36 new pooled test arrays, exact selected/default comparisons |
+| Probability quality | `temperature_sensitivity/` | All 72 validation fits and unscaled/scaled test metrics |
+| Width at approximately equal parameter count | `roman_narrow/` | All six new narrow cells, original comparator records and paired differences |
+| Graph-only link baselines | `ogbl_collab_topology/` | All eight complete official-pool score arrays and four strict Hits@50 values |
+
+Large training checkpoints are omitted. Where a stage retains only member class decisions, it cannot reconstruct the member float logits or the raw-logit pool. Other stages retain exact pooled logits or full member logits, as specified below. Full checkpoint replays were audited before packaging and are retained author records.
 
 `VERIFICATION_SCOPE.md` gives a command-by-command account for the additional node-graph and decision-mechanism studies below: what a reader can recompute from selected decisions and traces, and which CUDA or full-logit audits are retained records because checkpoints and original float32 logits are omitted.
 
@@ -9,6 +23,7 @@ From the extracted archive root, run:
 ```text
 python experiments_iclr/verify_new_compact.py
 python experiments_iclr/verify_roman_budget1000_compact.py
+python experiments_iclr/roman_additional_masks/verify_roman_multimask_compact.py
 python experiments_iclr/roman_noloop_depth/verify_compact.py
 python experiments_iclr/external_depth_sage/verify_compact.py
 python experiments_iclr/sharing_position/verify_decisions.py
@@ -24,7 +39,7 @@ These commands use NumPy only. Together they check 40 Roman depth cells, 12 Roma
 
 ## Roman depth grid
 
-`experiments_iclr/roman_depth_grid/grid_index.json` maps every depth, seed, and tied/untied arm to its frozen study directory. The two- and five-block seeds 0–2 were existing endpoint studies. The other 28 cells were frozen before their outcomes were read. `ROMAN_DEPTH_GRID_FREEZE.json` and the two audit JSON files state the graph fingerprints, paired initial-function checks, scores, and decision counts. Every study directory contains its original model and runner source, source manifest, protocol, validation trace, result, and compact selected decisions. To rerun a study, copy the included public `data/roman_empire.npz` to the study directory's `data/roman_empire.npz` path, install the listed dependencies, and use that directory's documented runner command with a new empty result root.
+`experiments_iclr/roman_depth_grid/grid_index.json` maps every depth, seed, and tied/untied arm to its frozen study directory. The two- and five-block seeds 0–2 were existing endpoint studies. The other 28 cells were frozen before their outcomes were read. `ROMAN_DEPTH_GRID_FREEZE.json` and the two audit JSON files state the graph fingerprints, paired initial-function checks, scores, and decision counts. Every study directory contains its original model and runner source, source manifest, protocol, validation trace, result, and compact selected decisions. To rerun a study, first obtain the pinned public `data/roman_empire.npz` with `python experiments_iclr/fetch_datasets.py` from the archive root, then copy it to the study directory's `data/roman_empire.npz` path, install the listed dependencies, and use that directory's documented runner command with a new empty result root.
 
 The compact `selected_decisions.npz` files hold valid/test official indices and labels, four member class predictions, and the class selected after averaging the original raw float32 member logits. A class-only record can verify the published decision statistics, but it does not regenerate the pooled class from raw logits. The original float32 selected-logit SHA-256 is in each run's `result.json`.
 
@@ -67,3 +82,93 @@ The training loss samples pairs absent from the observed training graph. Such pa
 ## Validation-selected partial sharing
 
 `analyze_selected_sharing_tradeoffs.py` applies the stated validation-accuracy, validation-CE, then private-last tie rule to all seven completed 300-epoch position settings. It regenerates `SELECTED_SHARING_TRADEOFFS.json`, including both partial arms, selected test scores, test regret, and the exact reduction in trainable parameters versus the fully untied arm. This analysis reads existing audited `result.json` records. It does not train a model or independently replay logits. The first four settings are retrospective applications, and the last three use a rule recorded before their outcomes were opened. The two Chameleon settings are related variants.
+
+## Width-512 Roman fixed-mask optimization repeat
+
+`fixed_mask_v4/` supplies all six arms of the separate mask-0 repeat, using three optimizer seeds, five SAGE blocks, width512, and the original component-study checkpoint rule. Run `python experiments_iclr/fixed_mask_v4/verify_fixed_mask_v4_compact.py` from the archive root. It verifies frozen source/calibration records, complete validation traces, retained official labels and selected class decisions, and paired score arithmetic. Tied-minus-untied differences are +3.6004, +3.7769, and +2.6121 percentage points. The mean is +3.3298. This repeats optimization on a post hoc favorable graph and does not establish a general graph effect. Its README explains earlier numerical-gate failures and the final pretraining tolerance calibration. Full logits, checkpoints, raw graph bytes, and identifying environment files remain author evidence. Their omissions are explicit in the compact verifier.
+
+## First graph-update diagnostic
+
+`initial_update_diagnostic/` records all 12 fixed CPU comparisons of TIED and synchronized-copy AdamW updates at matched initial weights and training random draws. Run `python experiments_iclr/initial_update_diagnostic/verify_compact.py` from the archive root. The command checks compact hashes, the complete graph/seed matrix, formula/result/audit links, CSV values, and plot provenance. It does not recompute gradients from the omitted raw arrays. The supplied source and public-graph hashes support recreation in the documented full study environment. Cosine0.641–0.857 and norm ratio0.517–0.784 describe the first graph update, without a prediction-quality claim. The source, prior AdaTask relation, gradient scaling, and post hoc sign-threshold sensitivity are documented in its protocol and README.
+
+## Additional Roman masks at two depths
+
+`roman_additional_masks/` supplies the complete 48-cell study on official masks 1–4, depths 2 and 5, and three optimizer seeds. Both arms use width 128, four boundary-projector members, no added self-loops, and 1,000 epochs. TIED and UNTIED have copied initial parameters and matched random-generator states. Every paired depth-two test difference is negative. The depth-five differences have eight positive signs, three negative signs, and one tie. Their means are −0.6118 and +0.1397 percentage points, respectively. Thirty-five of 48 selected checkpoints are after epoch 900. The masks overlap on one graph and were chosen after earlier Roman studies.
+
+Run `python experiments_iclr/roman_additional_masks/verify_roman_multimask_compact.py` from the archive root. This checks source/result hashes, all 48 validation traces, selected decisions and accuracies, initialization records, eight CUDA replay summaries, the complete-grid audit, and all 24 paired differences. The optional `--public-npz /path/to/roman_empire.npz` argument verifies the supplied official label/mask anchor against separately downloaded public graph bytes. Full float32 logits, initial-logit arrays and checkpoints are omitted, so the compact command does not reconstruct logit pooling, cross-entropy or CUDA forwards.
+
+## Fixed MC Dropout baseline on five Roman masks
+
+Run `python experiments_iclr/verify_mc_dropout_compact.py` from the archive root. All five BASE checkpoints use four predetermined dropout draws at probability0.2, with no new training or tuning. Both raw-logit averaging and the arithmetic mean of member softmax probabilities are reported for every mask. The probability analysis was specified after the original logit-pooling results, using the same unselected draws. The compact stage retains deterministic BASE classes, all member classes, both pooled classes, official IDs and labels, and source/audit hashes. It verifies accuracies. Raw logits, checkpoints, and probability tensors are omitted, so the compact verifier cannot regenerate pooling or replay checkpoints. The full author evidence passed independent CUDA replay and full-array arithmetic audits before compaction.
+
+
+## Primary 432-cell validation grid
+
+`validation_tuning/` supplies the frozen six-arm, six-candidate, three-seed matrix on four graph settings. All 432 validation traces and result records are retained, as are all 141 unique selected/default score records and decisions. Run `python experiments_iclr/validation_tuning/verify_compact_tuning.py`. Its README states its exact arithmetic and provenance checks and the omitted checkpoint/logit boundary. The candidate selection uses validation only, after the complete matrix is locked. Choosing between two tuned partial placements costs twelve configurations, versus six for each individual comparator.
+
+## Separate optimizer histories and update norms
+
+`optimizer_history/` supplies all 96 validation-grid cells and the separate 12-cell NORM-SYNC V2 extension. Run `python experiments_iclr/optimizer_history/verify_compact_optimizer_v2.py`. All 48 allowed SYNC/default comparison scores and all 12 NORM scores are included. The README records the numerical correction chronology, which arrays are available, and which complete CUDA replay records can only be checked by provenance. The diagnostic preserves TIED's inference function class but requires additional training memory. It does not consistently improve accuracy.
+
+## Roman depth and optimizer histories
+
+`roman_optimizer/` contains all 24 official-mask-0 cells at depths two and five with three optimization seeds. Run `python experiments_iclr/roman_optimizer/verify_roman_mechanism_compact.py`. An optional public NPZ path checks labels and node IDs against separately downloaded data. The package keeps every validation trace, class decision, original score record, amendment, and full CUDA audit summary. The compact verifier checks accuracy and provenance. Omitted logits and checkpoints prevent it from re-running model forwards or reconstructing pooling. A numerical verification amendment preceded any test score and is described in the nested README.
+
+## Inference profiles for all selected primary arms
+
+`inference_profile/` contains every one of the 7,200 synchronized timings and all 72 memory-allocation blocks for the 24 selected seed-0 checkpoints. Run `python experiments_iclr/inference_profile/verify_inference_profile_public.py`. This NumPy-only command recomputes each median, quartile and peak allocation, and checks each selected result against the 432-cell validation lock. GPU UUID and identifying process context are omitted. Model weight bytes, inference latency, and PyTorch peak allocated bytes are distinct measurements. The profile does not measure training memory or provide an equal-runtime accuracy comparison.
+
+
+## Initial member-gradient cross terms
+
+Run `python experiments_iclr/initial_member_gram/verify_gram.py`. It checks all twelve retained4×4 Gram matrices and the exact first-order graph-only SGD training-loss identities. The original gradient arrays were independently audited but are omitted. Source for recreating them is supplied in `initial_update_diagnostic/`, with the required frozen training modules in `optimizer_history/`. This is a post hoc initial training-gradient calculation, without an AdamW or test-performance claim.
+
+
+## Original test logits for all primary selected models
+
+`hpo_selected_test_logits/` adds original float32 member test logits for every one of the72 primary selected models. Run `python experiments_iclr/hpo_selected_test_logits/verify_public.py`. It reconstructs pooled float32 logits bitwise, checks scores and cross-entropy, and binds each cell to the432-cell validation lock,141-score audit, original-array hashes, official test references and independently exported classes. No model was selected by its test score. Original validation float logits and checkpoint weights remain outside the compact upload.
+
+## Roman parameter-count width sensitivity
+
+The six new narrow UNTIED cells use widths chosen by parameter count before
+training and compare against the existing Roman optimizer study's TIED cells.
+Run from the archive root:
+
+```sh
+python experiments_iclr/roman_narrow/verify_roman_narrow_compact.py --roman24 experiments_iclr/roman_optimizer
+```
+
+This check uses retained pooled test logits and validation/member decisions,
+not omitted checkpoints or individual member float logits. The study README
+records the validation-only numerical amendment and all six paired results.
+
+## Post hoc probability-quality sensitivity
+
+`temperature_sensitivity/STAGE_SCOPE.md` gives commands to refit all 72
+validation temperatures and regenerate the complete unscaled/scaled test table.
+The retained `test_results/TEMPERATURE_ALL24_MEANS.csv` reports means and
+sample standard deviations, with its deterministic aggregation source supplied.
+This uses standard temperature scaling with reused validation nodes and does
+not change any predicted class.
+
+## All-layer factor placement and same-runtime TIED control
+
+`factor_placement/` retains all 108 validation cells across the 72-cell
+all-layer-factor study and the 36-cell Cora/WikiCS same-runtime TIED control.
+It also retains all 36 selected/default test score records with exact pooled
+float32 test logits, member hard decisions, and the two complete independent
+final score audits. Run `python experiments_iclr/factor_placement/verify_factor_compact.py --stage experiments_iclr/factor_placement --primary experiments_iclr/validation_tuning`.
+For six Actor/filtered-Chameleon original TIED default predictions, run
+`python experiments_iclr/factor_placement/legacy_tied_default/verify_legacy_default.py --stage experiments_iclr/factor_placement/legacy_tied_default --primary experiments_iclr/validation_tuning`.
+The nested README explains the full-array projection audit and the omitted
+checkpoint/member-float-logit boundary. Its `provenance/` directory retains
+the pre-test scoring amendment, separate GPU preflights, all eight comparison
+rows, and hashed independent audits. Selected all-layer minus TIED mean test
+differences are +2.233, -0.239, -0.132, and +1.890 percentage points on
+Cora, WikiCS, Actor, and filtered Chameleon, respectively. Factor placement
+was studied after earlier results and adds parameters, so these comparisons
+do not isolate a causal placement effect.
+
+## Deterministic graph-only link context
+
+`python experiments_iclr/ogbl_collab_topology/verify_public.py` checks every official-pool score and all four metrics for Common Neighbors and Adamic–Adar. The original full graph replay source and audit are preserved. Complete graph regeneration requires the official OGB data and full-study dependencies. The baselines were fixed after the learned outcomes were known, before their own scoring, and both are reported. Test Hits@50 is 41.700% for Common Neighbors and 52.401% for Adamic–Adar, versus the learned tied-model mean of 47.371% in the 400-step recipe.
