@@ -19,6 +19,10 @@ Sharing weights reduces trainable-parameter storage. It still requires four prop
 
 BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715)). [Kim (2023)](https://koasas.kaist.ac.kr/handle/10203/308201) previously placed its factors inside GNN layers. This repository studies factors at both boundary projectors, tied propagation weights, partial sharing, and the limits of these constructions. It does not claim the first graph ensemble or the first use of BatchEnsemble in GNNs.
 
+## Post-submission research
+
+New experiments investigate training-only decisions about private graph capacity. The completed 24-fit PPI development screen failed its fixed continuation gate; no new superiority claim follows. Molecular block-sharing and pooled-objective update tests are being prepared. Original benchmark scores remain unchanged. See [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) for the complete scope and reproducibility limits.
+
 ## Repository contents
 
 | Location | Contents |
