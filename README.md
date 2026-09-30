@@ -21,7 +21,7 @@ BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715
 
 ## Post-submission research
 
-New experiments investigate training-only decisions about private graph capacity. The completed 24-fit PPI development screen failed its fixed continuation gate; no new superiority claim follows. Molecular block-sharing and pooled-objective update tests are being prepared. Original benchmark scores remain unchanged. See [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) for the complete scope and reproducibility limits.
+New experiments investigate training-only decisions about private graph capacity and whether they improve the averaged prediction. Earlier PPI execution used an allocation outside the permitted scope; its records are preserved separately and are not admitted as results of the authorized study. Fresh MolHIV preparation and real CUDA optimizer checks passed on the permitted single-GPU allocation. Six training-only layer-selection probes and their full inherited checkpoint replays are running there. A prospectively fixed comparison will test tied, first/middle/last private blocks and a parameter-matched trainable low-rank control under both member-wise and pooled training objectives. No new predictive advantage or methodological novelty is established. Original benchmark scores remain unchanged. See [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) and [review response tracker](experiments_iclr/postsubmission_20260930/REVIEW_RESPONSE_TRACKER.md).
 
 ## Repository contents
 

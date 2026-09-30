@@ -1,21 +1,15 @@
 # GNNM post-submission research
 
-We are investigating when ensemble members should receive private graph transformations. The original benchmark scores are unchanged. No new methodological superiority claim has been established.
+We are investigating when graph ensemble members should receive private transformations and whether those decisions improve the averaged prediction. Original benchmark scores remain fixed. No new predictive superiority or acceptance claim is established.
 
-## Completed development experiment
+## Correct allocation
 
-The first prospective predictive screen compared four PPI ensembles: fully shared graph weights, training-derived private directions, equal-rank random directions, and equal-rank raw-gradient directions. Every arm began from the same supplied training checkpoint, with zero private coefficients and fresh AdamW. The study used all 20 official training graphs, both validation graphs, three paired seeds, and both 10% and 100% observed training labels. Each fit received 2,000 additional graph updates. Test predictions were not scored.
+The originally supplied anogena-2 account is verified to expose one A10080GB. The saved anogena account instead reached an unauthorized seven-GPU allocation. Those earlier records are retained as out-of-scope evidence; that account will never be contacted again. All current execution is guarded against the corrected route and one-GPU identity.
 
-All 24 fits and 24 numerical checkpoint replays completed without a recorded failure. The selected directions **failed the fixed development continuation gate**. At 10% labels, they trailed all three controls in mean validation F1 and had worse pooled BCE. Most trajectories were still improving at the 100-epoch cap. This screen does not justify promoting the criterion or making a convergence claim. Complete results and adverse controls are retained in the research archive; a separate paired uncertainty audit is in progress.
+## Qualified implementations
 
-## Mechanism and next experiments
+A fresh MolHIV training-only export preserves all32,901 official training graphs and original model features, passing every input topology check. Chemical grouping, synthetic/real autograd and a real128-graph CUDA optimizer-step preflight pass on the correct allocation. Six paired training-only probes are running on the single authorized A100. The independent source audit and actual server qualification passed; the first probe and its full checkpoint replay passed. All six cells are required. No predictive chemical comparison has started.
 
-A separate six-cell training-gradient diagnostic found that recurring improvements for individual member losses need not agree with the loss of the averaged prediction. This used two already examined training graphs, took no optimizer step, and supplies no generalization evidence. A new hypothesis will judge the actual optimizer update on separate training graphs using pooled loss, with direct pooled-training controls.
+A declared trainable low-rank GINE control passes meaningful function/gradient/initialization/member-isolation gates. Its count-only rank22 has447,371 parameters, within0.172% of a copied-private-block control. An actual optimizer-lookahead hypothesis, with separate own-member and direct pooled-loss controls, passes its synthetic numerical gates. These implementation results do not establish novelty or generalization.
 
-The molecular direction transfers block-sharing decisions to bond-aware GINE on MolHIV. Its data preparation retains all original graph features and checks every training graph's topology. Export repairs and failures are recorded; chemical predictive fits have not yet started. A declared trainable low-rank comparator is being prepared because low-rank same-task ensembles and gradient-based sharing already have close precedents.
-
-## Reproducibility limits
-
-The portable harness passed synthetic relocation/tamper checks and a prospectively chosen completed checkpoint export. On the recorded server runtime, it reproduced all 101 validation metric epochs, selection, and fresh selected-checkpoint logits. This is checkpoint replay, not fresh training or independent hardware replication. Large binary evidence has not yet been publicly released.
-
-Parameter storage, latency, activation memory and method-selection overhead are reported separately. The completed study ran on CPUs; its unmeasured allocator peaks and concurrent timings establish no GPU efficiency advantage. Independent task confirmation and fresh manuscript review remain required.
+The earlier complete PPI screen was unfavorable and is not being promoted. It remains fully recorded with its adverse controls, uncertainty limits and authorization correction. Proposed new methods need complete representative comparisons, strong and size-matched baselines, separate actual costs and independent confirmation. Parameter storage does not establish faster propagation or lower activation memory. No binary public release or fresh manuscript acceptance review has occurred.
