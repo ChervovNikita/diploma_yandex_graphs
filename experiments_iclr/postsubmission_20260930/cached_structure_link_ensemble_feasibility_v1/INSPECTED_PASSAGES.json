@@ -1,0 +1,652 @@
+[
+  {
+    "id": "buddy_src_runners_run.py:50-93",
+    "source_id": "buddy_src_runners_run.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "01cafe998c225a03bd29f34ef263d33be740c584203721a0d7b762e649b76032",
+    "location": {
+      "kind": "source_lines",
+      "start": 50,
+      "end": 93
+    },
+    "quote": "def run(args):\n    args = initialise_wandb(args)\n    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\n    print(f\"executing on {device}\")\n    results_list = []\n    train_func = get_train_func(args)\n    for rep in range(args.reps):\n        set_seed(rep)\n        dataset, splits, directed, eval_metric = get_data(args)\n        train_loader, train_eval_loader, val_loader, test_loader = get_loaders(args, dataset, splits, directed)\n        if args.dataset_name.startswith('ogbl'):  # then this is one of the ogb link prediction datasets\n            evaluator = Evaluator(name=args.dataset_name)\n        else:\n            evaluator = Evaluator(name='ogbl-ppa')  # this sets HR@100 as the metric\n        emb = select_embedding(args, dataset.data.num_nodes, device)\n        model, optimizer = select_model(args, dataset, emb, device)\n        val_res = test_res = best_epoch = 0\n        print(f'running repetition {rep}')\n        if rep == 0:\n            print_model_params(model)\n        for epoch in range(args.epochs):\n            t0 = time.time()\n            loss = train_func(model, optimizer, train_loader, args, device)\n            if (epoch + 1) % args.eval_steps == 0:\n                results = test(model, evaluator, train_eval_loader, val_loader, test_loader, args, device,\n                               eval_metric=eval_metric)\n                for key, result in results.items():\n                    train_res, tmp_val_res, tmp_test_res = result\n                    if tmp_val_res > val_res:\n                        val_res = tmp_val_res\n                        test_res = tmp_test_res\n                        best_epoch = epoch\n                    res_dic = {f'rep{rep}_loss': loss, f'rep{rep}_Train' + key: 100 * train_res,\n                               f'rep{rep}_Val' + key: 100 * val_res, f'rep{rep}_tmp_val' + key: 100 * tmp_val_res,\n                               f'rep{rep}_tmp_test' + key: 100 * tmp_test_res,\n                               f'rep{rep}_Test' + key: 100 * test_res, f'rep{rep}_best_epoch': best_epoch,\n                               f'rep{rep}_epoch_time': time.time() - t0, 'epoch_step': epoch}\n                    if args.wandb:\n                        wandb.log(res_dic)\n                    to_print = f'Epoch: {epoch:02d}, Best epoch: {best_epoch}, Loss: {loss:.4f}, Train: {100 * train_res:.2f}%, Valid: ' \\\n                               f'{100 * val_res:.2f}%, Test: {100 * test_res:.2f}%, epoch time: {time.time() - t0:.1f}'\n                    print(key)\n                    print(to_print)\n        if args.reps > 1:",
+    "quote_sha256": "8342466c04cd397a190c011bee36dccd64603732e21fd875b769541822d43a2c"
+  },
+  {
+    "id": "buddy_src_runners_run.py:113-143",
+    "source_id": "buddy_src_runners_run.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "01cafe998c225a03bd29f34ef263d33be740c584203721a0d7b762e649b76032",
+    "location": {
+      "kind": "source_lines",
+      "start": 113,
+      "end": 143
+    },
+    "quote": "def select_model(args, dataset, emb, device):\n    if args.model == 'SEALDGCNN':\n        model = SEALDGCNN(args.hidden_channels, args.num_seal_layers, args.max_z, args.sortpool_k,\n                          dataset, args.dynamic_train, use_feature=args.use_feature,\n                          node_embedding=emb).to(device)\n    elif args.model == 'SEALSAGE':\n        model = SEALSAGE(args.hidden_channels, args.num_seal_layers, args.max_z, dataset.num_features,\n                         args.use_feature, node_embedding=emb, dropout=args.dropout).to(device)\n    elif args.model == 'SEALGCN':\n        model = SEALGCN(args.hidden_channels, args.num_seal_layers, args.max_z, dataset.num_features,\n                        args.use_feature, node_embedding=emb, dropout=args.dropout, pooling=args.seal_pooling).to(\n            device)\n    elif args.model == 'SEALGIN':\n        model = SEALGIN(args.hidden_channels, args.num_seal_layers, args.max_z, dataset.num_features,\n                        args.use_feature, node_embedding=emb, dropout=args.dropout).to(device)\n    elif args.model == 'BUDDY':\n        model = BUDDY(args, dataset.num_features, node_embedding=emb).to(device)\n    elif args.model == 'ELPH':\n        model = ELPH(args, dataset.num_features, node_embedding=emb).to(device)\n    else:\n        raise NotImplementedError\n    parameters = list(model.parameters())\n    if args.train_node_embedding:\n        torch.nn.init.xavier_uniform_(emb.weight)\n        parameters += list(emb.parameters())\n    optimizer = torch.optim.Adam(params=parameters, lr=args.lr, weight_decay=args.weight_decay)\n    total_params = sum(p.numel() for param in parameters for p in param)\n    print(f'Total number of parameters is {total_params}')\n    if args.model == 'DGCNN':\n        print(f'SortPooling k is set to {model.k}')\n    return model, optimizer",
+    "quote_sha256": "36a7eba86a7253ec46e5fac31a3a143266e2e086d7886785ea431f2ae8344cd3"
+  },
+  {
+    "id": "buddy_src_runners_run.py:145-181",
+    "source_id": "buddy_src_runners_run.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "01cafe998c225a03bd29f34ef263d33be740c584203721a0d7b762e649b76032",
+    "location": {
+      "kind": "source_lines",
+      "start": 145,
+      "end": 181
+    },
+    "quote": "\nif __name__ == '__main__':\n    # Data settings\n    parser = argparse.ArgumentParser(description='Efficient Link Prediction with Hashes (ELPH)')\n    parser.add_argument('--dataset_name', type=str, default='Cora',\n                        choices=['Cora', 'Citeseer', 'Pubmed', 'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',\n                                 'ogbl-citation2'])\n    parser.add_argument('--val_pct', type=float, default=0.1,\n                        help='the percentage of supervision edges to be used for validation. These edges will not appear'\n                             ' in the training set and will only be used as message passing edges in the test set')\n    parser.add_argument('--test_pct', type=float, default=0.2,\n                        help='the percentage of supervision edges to be used for test. These edges will not appear'\n                             ' in the training or validation sets for either supervision or message passing')\n    parser.add_argument('--train_samples', type=float, default=inf, help='the number of training edges or % if < 1')\n    parser.add_argument('--val_samples', type=float, default=inf, help='the number of val edges or % if < 1')\n    parser.add_argument('--test_samples', type=float, default=inf, help='the number of test edges or % if < 1')\n    parser.add_argument('--preprocessing', type=str, default=None)\n    parser.add_argument('--sign_k', type=int, default=0)\n    parser.add_argument('--load_features', action='store_true', help='load node features from disk')\n    parser.add_argument('--load_hashes', action='store_true', help='load hashes from disk')\n    parser.add_argument('--cache_subgraph_features', action='store_true',\n                        help='write / read subgraph features from disk')\n    parser.add_argument('--train_cache_size', type=int, default=inf, help='the number of training edges to cache')\n    parser.add_argument('--year', type=int, default=0, help='filter training data from before this year')\n    # GNN settings\n    parser.add_argument('--model', type=str, default='BUDDY')\n    parser.add_argument('--hidden_channels', type=int, default=1024)\n    parser.add_argument('--batch_size', type=int, default=1024)\n    parser.add_argument('--eval_batch_size', type=int, default=1000000,\n                        help='eval batch size should be largest the GPU memory can take - the same is not necessarily true at training time')\n    parser.add_argument('--label_dropout', type=float, default=0.5)\n    parser.add_argument('--feature_dropout', type=float, default=0.5)\n    parser.add_argument('--sign_dropout', type=float, default=0.5)\n    parser.add_argument('--save_model', action='store_true', help='save the model to use later for inference')\n    parser.add_argument('--feature_prop', type=str, default='gcn',\n                        help='how to propagate ELPH node features. Values are gcn, residual (resGCN) or cat (jumping knowledge networks)')\n    # SEAL settings",
+    "quote_sha256": "96cec6a6baf5de2b8d5f1a22e857be13095cba69d11a2524e57019afe594d808"
+  },
+  {
+    "id": "buddy_src_runners_run.py:195-259",
+    "source_id": "buddy_src_runners_run.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "01cafe998c225a03bd29f34ef263d33be740c584203721a0d7b762e649b76032",
+    "location": {
+      "kind": "source_lines",
+      "start": 195,
+      "end": 259
+    },
+    "quote": "    parser.add_argument('--use_feature', type=str2bool, default=True,\n                        help=\"whether to use raw node features as GNN input\")\n    parser.add_argument('--use_struct_feature', type=str2bool, default=True,\n                        help=\"whether to use structural graph features as GNN input\")\n    parser.add_argument('--use_edge_weight', action='store_true',\n                        help=\"whether to consider edge weight in GNN\")\n    # Training settings\n    parser.add_argument('--lr', type=float, default=0.0001)\n    parser.add_argument('--weight_decay', type=float, default=0, help='Weight decay for optimization')\n    parser.add_argument('--epochs', type=int, default=100)\n    parser.add_argument('--num_workers', type=int, default=4)\n    parser.add_argument('--num_negs', type=int, default=1, help='number of negatives for each positive')\n    parser.add_argument('--train_node_embedding', action='store_true',\n                        help=\"also train free-parameter node embeddings together with GNN\")\n    parser.add_argument('--propagate_embeddings', action='store_true',\n                        help='propagate the node embeddings using the GCN diffusion operator')\n    parser.add_argument('--loss', default='bce', type=str, help='bce or auc')\n    parser.add_argument('--add_normed_features', dest='add_normed_features', type=str2bool,\n                        help='Adds a set of features that are normalsied by sqrt(d_i*d_j) to calculate cosine sim')\n    parser.add_argument('--use_RA', type=str2bool, default=False, help='whether to add resource allocation features')\n    # SEAL specific args\n    parser.add_argument('--dynamic_train', action='store_true',\n                        help=\"dynamically extract enclosing subgraphs on the fly\")\n    parser.add_argument('--dynamic_val', action='store_true')\n    parser.add_argument('--dynamic_test', action='store_true')\n    parser.add_argument('--pretrained_node_embedding', type=str, default=None,\n                        help=\"load pretrained node embeddings as additional node features\")\n    # Testing settings\n    parser.add_argument('--reps', type=int, default=1, help='the number of repetition of the experiment to run')\n    parser.add_argument('--use_valedges_as_input', action='store_true')\n    parser.add_argument('--eval_steps', type=int, default=1)\n    parser.add_argument('--log_steps', type=int, default=1)\n    parser.add_argument('--eval_metric', type=str, default='hits',\n                        choices=('hits', 'mrr', 'auc'))\n    parser.add_argument('--K', type=int, default=100, help='the hit rate @K')\n    # hash settings\n    parser.add_argument('--use_zero_one', type=str2bool, default=0,\n                        help=\"whether to use the counts of (0,1) and (1,0) neighbors\")\n    parser.add_argument('--floor_sf', type=str2bool, default=0,\n                        help='the subgraph features represent counts, so should not be negative. If --floor_sf the min is set to 0')\n    parser.add_argument('--hll_p', type=int, default=8, help='the hyperloglog p parameter')\n    parser.add_argument('--minhash_num_perm', type=int, default=128, help='the number of minhash perms')\n    parser.add_argument('--max_hash_hops', type=int, default=2, help='the maximum number of hops to hash')\n    parser.add_argument('--subgraph_feature_batch_size', type=int, default=11000000,\n                        help='the number of edges to use in each batch when calculating subgraph features. '\n                             'Reduce or this or increase system RAM if seeing killed messages for large graphs')\n    # wandb settings\n    parser.add_argument('--wandb', action='store_true', help=\"flag if logging to wandb\")\n    parser.add_argument('--wandb_offline', dest='use_wandb_offline',\n                        action='store_true')  # https://docs.wandb.ai/guides/technical-faq\n\n    parser.add_argument('--wandb_sweep', action='store_true',\n                        help=\"flag if sweeping\")  # if not it picks up params in greed_params\n    parser.add_argument('--wandb_watch_grad', action='store_true', help='allows gradient tracking in train function')\n    parser.add_argument('--wandb_track_grad_flow', action='store_true')\n\n    parser.add_argument('--wandb_entity', default=\"link-prediction\", type=str)\n    parser.add_argument('--wandb_project', default=\"link-prediction\", type=str)\n    parser.add_argument('--wandb_group', default=\"testing\", type=str, help=\"testing,tuning,eval\")\n    parser.add_argument('--wandb_run_name', default=None, type=str)\n    parser.add_argument('--wandb_output_dir', default='./wandb_output',\n                        help='folder to output results, images and model checkpoints')\n    parser.add_argument('--wandb_log_freq', type=int, default=1, help='Frequency to log metrics.')\n    parser.add_argument('--wandb_epoch_list', nargs='+', default=[0, 1, 2, 4, 8, 16],\n                        help='list of epochs to log gradient flow')",
+    "quote_sha256": "dd8f9f724a2ec77007dfcc4bfd8aac009314d6468e5b253d6afd97e1b2283c84"
+  },
+  {
+    "id": "buddy_src_models_elph.py:221-352",
+    "source_id": "buddy_src_models_elph.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "831b64b488612b7889a3120ac8f1afab866b09b92d4bc0b71cc1859ef9da1cba",
+    "location": {
+      "kind": "source_lines",
+      "start": 221,
+      "end": 352
+    },
+    "quote": "class BUDDY(torch.nn.Module):\n    \"\"\"\n    Scalable version of ElPH that uses precomputation of subgraph features and SIGN style propagation\n    of node features\n    \"\"\"\n\n    def __init__(self, args, num_features=None, node_embedding=None):\n        super(BUDDY, self).__init__()\n\n        self.use_feature = args.use_feature\n        self.label_dropout = args.label_dropout\n        self.feature_dropout = args.feature_dropout\n        self.node_embedding = node_embedding\n        self.propagate_embeddings = args.propagate_embeddings\n        # using both unormalised and degree normalised counts as features, hence * 2\n        self.append_normalised = args.add_normed_features\n        ra_counter = 1 if args.use_RA else 0\n        num_labelling_features = args.max_hash_hops * (args.max_hash_hops + 2)\n        self.dim = num_labelling_features * 2 if self.append_normalised else num_labelling_features\n        self.use_RA = args.use_RA\n        self.sign_k = args.sign_k\n        if self.sign_k != 0:\n            if self.propagate_embeddings:\n                # this is only used for the ddi dataset where nodes have no features and transductive node embeddings are needed\n                self.sign_embedding = SIGNEmbedding(args.hidden_channels, args.hidden_channels, args.hidden_channels,\n                                                    args.sign_k, args.sign_dropout)\n            else:\n                self.sign = SIGN(num_features, args.hidden_channels, args.hidden_channels, args.sign_k,\n                                 args.sign_dropout)\n        self.label_lin_layer = Linear(self.dim, self.dim)\n        if args.use_feature:\n            self.bn_feats = torch.nn.BatchNorm1d(args.hidden_channels)\n        if self.node_embedding is not None:\n            self.bn_embs = torch.nn.BatchNorm1d(args.hidden_channels)\n        self.bn_labels = torch.nn.BatchNorm1d(self.dim)\n        self.bn_RA = torch.nn.BatchNorm1d(1)\n\n        if args.use_feature:\n            self.lin_feat = Linear(num_features,\n                                   args.hidden_channels)\n            self.lin_out = Linear(args.hidden_channels, args.hidden_channels)\n        hidden_channels = self.dim + args.hidden_channels if self.use_feature else self.dim\n        if self.node_embedding is not None:\n            self.lin_emb = Linear(args.hidden_channels,\n                                  args.hidden_channels)\n            self.lin_emb_out = Linear(args.hidden_channels, args.hidden_channels)\n            hidden_channels += self.node_embedding.embedding_dim\n\n        self.lin = Linear(hidden_channels + ra_counter, 1)\n\n    def propagate_embeddings_func(self, edge_index):\n        num_nodes = self.node_embedding.num_embeddings\n        gcn_edge_index, _ = gcn_norm(edge_index, num_nodes=num_nodes)\n        return self.sign_embedding(self.node_embedding.weight, gcn_edge_index, num_nodes)\n\n    def _append_degree_normalised(self, x, src_degree, dst_degree):\n        \"\"\"\n        Create a set of features that have the spirit of a cosine similarity x.y / ||x||.||y||. Some nodes (particularly negative samples)\n        have zero degree\n        because part of the graph is held back as train / val supervision edges and so divide by zero needs to be handled.\n        Note that we always divide by the src and dst node's degrees for every node in ¬the subgraph\n        @param x: unormalised features - equivalent to x.y\n        @param src_degree: equivalent to sum_i x_i^2 as x_i in (0,1)\n        @param dst_degree: equivalent to sum_i y_i^2 as y_i in (0,1)\n        @return:\n        \"\"\"\n        # this doesn't quite work with edge weights as instead of degree, the sum_i w_i^2 is needed,\n        # but it probably doesn't matter\n        normaliser = torch.sqrt(src_degree * dst_degree)\n        normed_x = torch.divide(x, normaliser.unsqueeze(dim=1))\n        normed_x[torch.isnan(normed_x)] = 0\n        normed_x[torch.isinf(normed_x)] = 0\n        return torch.cat([x, normed_x], dim=1)\n\n    def feature_forward(self, x):\n        \"\"\"\n        small neural network applied edgewise to hadamard product of node features\n        @param x: node features torch tensor [batch_size, 2, hidden_dim]\n        @return: torch tensor [batch_size, hidden_dim]\n        \"\"\"\n        if self.sign_k != 0:\n            x = self.sign(x)\n        else:\n            x = self.lin_feat(x)\n        x = x[:, 0, :] * x[:, 1, :]\n        # mlp at the end\n        x = self.lin_out(x)\n        x = self.bn_feats(x)\n        x = F.relu(x)\n        x = F.dropout(x, p=self.feature_dropout, training=self.training)\n        return x\n\n    def embedding_forward(self, x):\n        x = self.lin_emb(x)\n        x = x[:, 0, :] * x[:, 1, :]\n        # mlp at the end\n        x = self.lin_emb_out(x)\n        x = self.bn_embs(x)\n        x = F.relu(x)\n        x = F.dropout(x, p=self.feature_dropout, training=self.training)\n\n        return x\n\n    def forward(self, sf, node_features, src_degree=None, dst_degree=None, RA=None, emb=None):\n        \"\"\"\n        forward pass for one batch of edges\n        @param sf: subgraph features [batch_size, num_hops*(num_hops+2)]\n        @param node_features: raw node features [batch_size, 2, num_features]\n        @param src_degree: degree of source nodes in batch\n        @param dst_degree:\n        @param RA:\n        @param emb:\n        @return:\n        \"\"\"\n        if self.append_normalised:\n            sf = self._append_degree_normalised(sf, src_degree, dst_degree)\n        x = self.label_lin_layer(sf)\n        x = self.bn_labels(x)\n        x = F.relu(x)\n        x = F.dropout(x, p=self.label_dropout, training=self.training)\n        if self.use_feature:\n            node_features = self.feature_forward(node_features)\n            x = torch.cat([x, node_features.to(torch.float)], 1)\n        if self.node_embedding is not None:\n            node_embedding = self.embedding_forward(emb)\n            x = torch.cat([x, node_embedding.to(torch.float)], 1)\n        if self.use_RA:\n            RA = RA.unsqueeze(-1)\n            RA = self.bn_RA(RA)\n            x = torch.cat([x, RA], 1)\n        x = self.lin(x)\n        return x",
+    "quote_sha256": "41a382fa4387404b460bbccb53fca2ee2692882478ae13a4b91875058ebd94fb"
+  },
+  {
+    "id": "buddy_src_datasets_elph.py:27-110",
+    "source_id": "buddy_src_datasets_elph.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "384d67b7f60cc4909eaa73fc3ae14d35a25064be3271d3737569b081f9bd4327",
+    "location": {
+      "kind": "source_lines",
+      "start": 27,
+      "end": 110
+    },
+    "quote": "    def __init__(\n            self, root, split, data, pos_edges, neg_edges, args, use_coalesce=False,\n            directed=False, **kwargs):\n        if args.model != 'ELPH':  # elph stores the hashes directly in the model class for message passing\n            self.elph_hashes = ElphHashes(args)  # object for hash and subgraph feature operations\n        self.split = split  # string: train, valid or test\n        self.root = root\n        self.pos_edges = pos_edges\n        self.neg_edges = neg_edges\n        self.use_coalesce = use_coalesce\n        self.directed = directed\n        self.args = args\n        self.load_features = args.load_features\n        self.load_hashes = args.load_hashes\n        self.use_zero_one = args.use_zero_one\n        self.cache_subgraph_features = args.cache_subgraph_features\n        self.max_hash_hops = args.max_hash_hops\n        self.use_feature = args.use_feature\n        self.use_RA = args.use_RA\n        self.hll_p = args.hll_p\n        self.subgraph_features = None\n        self.hashes = None\n        super(HashDataset, self).__init__(root)\n\n        self.links = torch.cat([self.pos_edges, self.neg_edges], 0)  # [n_edges, 2]\n        self.labels = [1] * self.pos_edges.size(0) + [0] * self.neg_edges.size(0)\n\n        if self.use_coalesce:  # compress multi-edge into edge with weight\n            data.edge_index, data.edge_weight = coalesce(\n                data.edge_index, data.edge_weight,\n                data.num_nodes, data.num_nodes)\n\n        if 'edge_weight' in data:\n            self.edge_weight = data.edge_weight.view(-1)\n        else:\n            self.edge_weight = torch.ones(data.edge_index.size(1), dtype=int)\n        if self.directed:  # make undirected graphs like citation2 directed\n            print(\n                f'this is a directed graph. Making the adjacency matrix undirected to propagate features and calculate subgraph features')\n            self.edge_index, self.edge_weight = to_undirected(data.edge_index, self.edge_weight)\n        else:\n            self.edge_index = data.edge_index\n        self.A = ssp.csr_matrix(\n            (self.edge_weight, (self.edge_index[0], self.edge_index[1])),\n            shape=(data.num_nodes, data.num_nodes)\n        )\n\n        self.degrees = torch.tensor(self.A.sum(axis=0, dtype=float), dtype=torch.float).flatten()\n\n        if self.use_RA:\n            self.RA = RA(self.A, self.links, batch_size=2000000)[0]\n\n        if args.model == 'ELPH':  # features propagated in the model instead of preprocessed\n            self.x = data.x\n        else:\n            self.x = self._preprocess_node_features(data, self.edge_index, self.edge_weight, args.sign_k)\n            # ELPH does hashing and feature prop on the fly\n            # either set self.hashes or self.subgraph_features depending on cmd args\n            self._preprocess_subgraph_features(self.edge_index.device, data.num_nodes, args.num_negs)\n\n    def _generate_sign_features(self, data, edge_index, edge_weight, sign_k):\n        \"\"\"\n        Generate features by preprocessing using the Scalable Inception Graph Neural Networks (SIGN) method\n         https://arxiv.org/abs/2004.11198\n        @param data: A pyg data object\n        @param sign_k: the maximum number of times to apply the propagation operator\n        @return:\n        \"\"\"\n        try:\n            num_nodes = data.x.size(0)\n        except AttributeError:\n            num_nodes = data.num_nodes\n        edge_index, edge_weight = gcn_norm(  # yapf: disable\n            edge_index, edge_weight.float(), num_nodes)\n        if sign_k == 0:\n            # for most datasets it works best do one step of propagation\n            xs = torch_sparse.spmm(edge_index, edge_weight, data.x.shape[0], data.x.shape[0], data.x)\n        else:\n            xs = [data.x]\n            for _ in range(sign_k):\n                x = torch_sparse.spmm(edge_index, edge_weight, data.x.shape[0], data.x.shape[0], data.x)\n                xs.append(x)\n            xs = torch.cat(xs, dim=-1)\n        return xs",
+    "quote_sha256": "3aa065153a726944a786a993951555776b1e44a907de69ed4b6a71c56e304f3a"
+  },
+  {
+    "id": "buddy_src_datasets_elph.py:112-232",
+    "source_id": "buddy_src_datasets_elph.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "384d67b7f60cc4909eaa73fc3ae14d35a25064be3271d3737569b081f9bd4327",
+    "location": {
+      "kind": "source_lines",
+      "start": 112,
+      "end": 232
+    },
+    "quote": "    def _preprocess_node_features(self, data, edge_index, edge_weight, sign_k=0):\n        \"\"\"\n        preprocess the node features\n        @param data: pyg Data object\n        @param edge_weight: pyg edge index Int Tensor [edges, 2]\n        @param sign_k: the number of propagation steps used by SIGN\n        @return: Float Tensor [num_nodes, hidden_dim]\n        \"\"\"\n        if sign_k == 0:\n            feature_name = f'{self.root}_{self.split}_featurecache.pt'\n        else:\n            feature_name = f'{self.root}_{self.split}_k{sign_k}_featurecache.pt'\n        if self.load_features and os.path.exists(feature_name):\n            print('loading node features from disk')\n            x = torch.load(feature_name).to(edge_index.device)\n        else:\n            print('constructing node features')\n            start_time = time()\n            x = self._generate_sign_features(data, edge_index, edge_weight, sign_k)\n            print(\"Preprocessed features in: {:.2f} seconds\".format(time() - start_time))\n            if self.load_features:\n                torch.save(x.cpu(), feature_name)\n        return x\n\n    def _read_subgraph_features(self, name, device):\n        \"\"\"\n        return True if the subgraph features can be read off disk, otherwise returns False\n        @param name:\n        @param device:\n        @return:\n        \"\"\"\n        retval = False\n        # look on disk\n        if self.cache_subgraph_features and os.path.exists(name):\n            print(f'looking for subgraph features in {name}')\n            self.subgraph_features = torch.load(name).to(device)\n            print(f\"cached subgraph features found at: {name}\")\n            assert self.subgraph_features.shape[0] == len(\n                self.links), 'subgraph features are inconsistent with the link object. Delete subgraph features file and regenerate'\n            retval = True\n        return retval\n\n    def _generate_file_names(self, num_negs):\n        \"\"\"\n        get the subgraph feature file name and the stubs needed to make a new one if necessary\n        :param num_negs: Int negative samples / positive sample\n        :return:\n        \"\"\"\n        if self.max_hash_hops != 2:\n            hop_str = f'{self.max_hash_hops}hop_'\n        else:\n            hop_str = ''\n        end_str = f'_{hop_str}subgraph_featurecache.pt'\n        if self.args.dataset_name == 'ogbl-collab' and self.args.year > 0:\n            year_str = f'year_{self.args.year}'\n        else:\n            year_str = ''\n        if num_negs == 1 or self.split != 'train':\n            subgraph_cache_name = f'{self.root}{self.split}{year_str}{end_str}'\n        else:\n            subgraph_cache_name = f'{self.root}{self.split}_negs{num_negs}{year_str}{end_str}'\n        return subgraph_cache_name, year_str, hop_str\n\n    def _preprocess_subgraph_features(self, device, num_nodes, num_negs=1):\n        \"\"\"\n        Handles caching of hashes and subgraph features where each edge is fully hydrated as a preprocessing step\n        Sets self.subgraph_features\n        @return:\n        \"\"\"\n        subgraph_cache_name, year_str, hop_str = self._generate_file_names(num_negs)\n        found_subgraph_features = self._read_subgraph_features(subgraph_cache_name, device)\n        if not found_subgraph_features:\n            if self.cache_subgraph_features:\n                print(f'no subgraph features found at {subgraph_cache_name}')\n            print('generating subgraph features')\n            hash_name = f'{self.root}{self.split}{year_str}_{hop_str}hashcache.pt'\n            cards_name = f'{self.root}{self.split}{year_str}_{hop_str}cardcache.pt'\n            if self.load_hashes and os.path.exists(hash_name):\n                print('loading hashes from disk')\n                hashes = torch.load(hash_name)\n                if os.path.exists(cards_name):\n                    print('loading cards from disk')\n                    cards = torch.load(cards_name)\n                else:\n                    print(f'hashes found at {hash_name}, but cards not found. Delete hashes and run again')\n            else:\n                print('no hashes found on disk, constructing hashes...')\n                start_time = time()\n                hashes, cards = self.elph_hashes.build_hash_tables(num_nodes, self.edge_index)\n                print(\"Preprocessed hashes in: {:.2f} seconds\".format(time() - start_time))\n                if self.load_hashes:\n                    torch.save(cards, cards_name)\n                    torch.save(hashes, hash_name)\n            print('constructing subgraph features')\n            start_time = time()\n            self.subgraph_features = self.elph_hashes.get_subgraph_features(self.links, hashes, cards,\n                                                                            self.args.subgraph_feature_batch_size)\n            print(\"Preprocessed subgraph features in: {:.2f} seconds\".format(time() - start_time))\n            assert self.subgraph_features.shape[0] == len(\n                self.links), 'subgraph features are a different shape link object. Delete subgraph features file and regenerate'\n            if self.cache_subgraph_features:\n                torch.save(self.subgraph_features, subgraph_cache_name)\n        if self.args.floor_sf and self.subgraph_features is not None:\n            self.subgraph_features[self.subgraph_features < 0] = 0\n            print(\n                f'setting {torch.sum(self.subgraph_features[self.subgraph_features < 0]).item()} negative values to zero')\n        if not self.use_zero_one and self.subgraph_features is not None:  # knock out the zero_one features (0,1) and (1,0)\n            if self.max_hash_hops > 1:\n                self.subgraph_features[:, [4, 5]] = 0\n            if self.max_hash_hops == 3:\n                self.subgraph_features[:, [11, 12]] = 0  # also need to get rid of (0, 2) and (2, 0)\n\n    def len(self):\n        return len(self.links)\n\n    def get(self, idx):\n        src, dst = self.links[idx]\n        if self.args.use_struct_feature:\n            subgraph_features = self.subgraph_features[idx]\n        else:\n            subgraph_features = torch.zeros(self.max_hash_hops * (2 + self.max_hash_hops))",
+    "quote_sha256": "4f57e2e2fd1a3f5d1edce192c9fe35a4391a8e0a9bc17ca9634d0ed8e0fd7a83"
+  },
+  {
+    "id": "buddy_src_data.py:67-120",
+    "source_id": "buddy_src_data.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "30003abd3846ac06f94c3a7efc2f4394eb7b86a19e14d167f302b5100d8a5b08",
+    "location": {
+      "kind": "source_lines",
+      "start": 67,
+      "end": 120
+    },
+    "quote": "def get_data(args):\n    \"\"\"\n    Read the dataset and generate train, val and test splits.\n    For GNN link prediction edges play 2 roles 1/ message passing edges 2/ supervision edges\n    - train message passing edges = train supervision edges\n    - val message passing edges = train supervision edges\n    val supervision edges are disjoint from the training edges\n    - test message passing edges = val supervision + train message passing (= val message passing)\n    test supervision edges are disjoint from both val and train supervision edges\n    :param args: arguments Namespace object\n    :return: dataset, dic splits, bool directed, str eval_metric\n    \"\"\"\n    include_negatives = True\n    dataset_name = args.dataset_name\n    val_pct = args.val_pct\n    test_pct = args.test_pct\n    use_lcc_flag = True\n    directed = False\n    eval_metric = 'hits'\n    path = os.path.join(ROOT_DIR, 'dataset', dataset_name)\n    print(f'reading data from: {path}')\n    if dataset_name.startswith('ogbl'):\n        use_lcc_flag = False\n        dataset = PygLinkPropPredDataset(name=dataset_name, root=path)\n        if dataset_name == 'ogbl-ddi':\n            dataset.data.x = torch.ones((dataset.data.num_nodes, 1))\n            dataset.data.edge_weight = torch.ones(dataset.data.edge_index.size(1), dtype=int)\n    else:\n        dataset = Planetoid(path, dataset_name)\n\n    # set the metric\n    if dataset_name.startswith('ogbl-citation'):\n        eval_metric = 'mrr'\n        directed = True\n\n    if use_lcc_flag:\n        dataset = use_lcc(dataset)\n\n    undirected = not directed\n\n    if dataset_name.startswith('ogbl'):  # use the built in splits\n        data = dataset[0]\n        split_edge = dataset.get_edge_split()\n        if dataset_name == 'ogbl-collab' and args.year > 0:  # filter out training edges before args.year\n            data, split_edge = filter_by_year(data, split_edge, args.year)\n        splits = get_ogb_data(data, split_edge, dataset_name, args.num_negs)\n    else:  # make random splits\n        transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,\n                                    add_negative_train_samples=include_negatives)\n        train_data, val_data, test_data = transform(dataset.data)\n        splits = {'train': train_data, 'valid': val_data, 'test': test_data}\n\n    return dataset, splits, directed, eval_metric\n",
+    "quote_sha256": "0ee1f71c130079a5aa90892ac883ae07b653e9df9e50a8345cfc9771e4bb3cc0"
+  },
+  {
+    "id": "buddy_src_data.py:144-237",
+    "source_id": "buddy_src_data.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "30003abd3846ac06f94c3a7efc2f4394eb7b86a19e14d167f302b5100d8a5b08",
+    "location": {
+      "kind": "source_lines",
+      "start": 144,
+      "end": 237
+    },
+    "quote": "def get_ogb_data(data, split_edge, dataset_name, num_negs=1):\n    \"\"\"\n    ogb datasets come with fixed train-val-test splits and a fixed set of negatives against which to evaluate the test set\n    The dataset.data object contains all of the nodes, but only the training edges\n    @param dataset:\n    @param use_valedges_as_input:\n    @return:\n    \"\"\"\n    if num_negs == 1:\n        negs_name = f'{ROOT_DIR}/dataset/{dataset_name}/negative_samples.pt'\n    else:\n        negs_name = f'{ROOT_DIR}/dataset/{dataset_name}/negative_samples_{num_negs}.pt'\n    print(f'looking for negative edges at {negs_name}')\n    if os.path.exists(negs_name):\n        print('loading negatives from disk')\n        train_negs = torch.load(negs_name)\n    else:\n        print('negatives not found on disk. Generating negatives')\n        train_negs = get_ogb_train_negs(split_edge, data.edge_index, data.num_nodes, num_negs, dataset_name)\n        torch.save(train_negs, negs_name)\n    # else:\n    #     train_negs = get_ogb_train_negs(split_edge, data.edge_index, data.num_nodes, num_negs, dataset_name)\n    splits = {}\n    for key in split_edge.keys():\n        # the ogb datasets come with test and valid negatives, but you have to cook your own train negs\n        neg_edges = train_negs if key == 'train' else None\n        edge_label, edge_label_index = make_obg_supervision_edges(split_edge, key, neg_edges)\n        # use the validation edges for message passing at test time\n        # according to the rules https://ogb.stanford.edu/docs/leader_rules/ only collab can use val edges at test time\n        if key == 'test' and dataset_name == 'ogbl-collab':\n            vei, vw = to_undirected(split_edge['valid']['edge'].t(), split_edge['valid']['weight'])\n            edge_index = torch.cat([data.edge_index, vei], dim=1)\n            edge_weight = torch.cat([data.edge_weight, vw.unsqueeze(-1)], dim=0)\n        else:\n            edge_index = data.edge_index\n            if hasattr(data, \"edge_weight\"):\n                edge_weight = data.edge_weight\n            else:\n                edge_weight = torch.ones(data.edge_index.shape[1])\n        splits[key] = Data(x=data.x, edge_index=edge_index, edge_weight=edge_weight, edge_label=edge_label,\n                           edge_label_index=edge_label_index)\n    return splits\n\n\ndef get_ogb_pos_edges(split_edge, split):\n    if 'edge' in split_edge[split]:\n        pos_edge = split_edge[split]['edge']\n    elif 'source_node' in split_edge[split]:\n        pos_edge = torch.stack([split_edge[split]['source_node'], split_edge[split]['target_node']],\n                               dim=1)\n    else:\n        raise NotImplementedError\n    return pos_edge\n\n\ndef get_ogb_train_negs(split_edge, edge_index, num_nodes, num_negs=1, dataset_name=None):\n    \"\"\"\n    for some inexplicable reason ogb datasets split_edge object stores edge indices as (n_edges, 2) tensors\n    @param split_edge:\n\n    @param edge_index: A [2, num_edges] tensor\n    @param num_nodes:\n    @param num_negs: the number of negatives to sample for each positive\n    @return: A [num_edges * num_negs, 2] tensor of negative edges\n    \"\"\"\n    pos_edge = get_ogb_pos_edges(split_edge, 'train').t()\n    if dataset_name is not None and dataset_name.startswith('ogbl-citation'):\n        neg_edge = get_same_source_negs(num_nodes, num_negs, pos_edge)\n    else:  # any source is fine\n        new_edge_index, _ = add_self_loops(edge_index)\n        neg_edge = negative_sampling(\n            new_edge_index, num_nodes=num_nodes,\n            num_neg_samples=pos_edge.size(1) * num_negs)\n    return neg_edge.t()\n\n\ndef make_obg_supervision_edges(split_edge, split, neg_edges=None):\n    if neg_edges is not None:\n        neg_edges = neg_edges\n    else:\n        if 'edge_neg' in split_edge[split]:\n            neg_edges = split_edge[split]['edge_neg']\n        elif 'target_node_neg' in split_edge[split]:\n            n_neg_nodes = split_edge[split]['target_node_neg'].shape[1]\n            neg_edges = torch.stack([split_edge[split]['source_node'].unsqueeze(1).repeat(1, n_neg_nodes).ravel(),\n                                     split_edge[split]['target_node_neg'].ravel()\n                                     ]).t()\n        else:\n            raise NotImplementedError\n\n    pos_edges = get_ogb_pos_edges(split_edge, split)\n    n_pos, n_neg = pos_edges.shape[0], neg_edges.shape[0]\n    edge_label = torch.cat([torch.ones(n_pos), torch.zeros(n_neg)], dim=0)\n    edge_label_index = torch.cat([pos_edges, neg_edges], dim=0).t()",
+    "quote_sha256": "cb556922b8a54dcdc886f790af01a976c6949d8c00190f31eb0340ea4d78bc22"
+  },
+  {
+    "id": "buddy_src_runners_train.py:27-90",
+    "source_id": "buddy_src_runners_train.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "dcca347b651e23b9246b19e23b56e5b50ce6b7eedf39a6aedfbd6a77dea25501",
+    "location": {
+      "kind": "source_lines",
+      "start": 27,
+      "end": 90
+    },
+    "quote": "def train_buddy(model, optimizer, train_loader, args, device, emb=None):\n    print('starting training')\n    t0 = time.time()\n    model.train()\n    total_loss = 0\n    data = train_loader.dataset\n    # hydrate edges\n    links = data.links\n    labels = torch.tensor(data.labels)\n    # sampling\n    train_samples = get_num_samples(args.train_samples, len(labels))\n    sample_indices = torch.randperm(len(labels))[:train_samples]\n    links = links[sample_indices]\n    labels = labels[sample_indices]\n\n    if args.wandb:\n        wandb.log({\"train_total_batches\": len(train_loader)})\n    batch_processing_times = []\n    loader = DataLoader(range(len(links)), args.batch_size, shuffle=True)\n    for batch_count, indices in enumerate(tqdm(loader)):\n        # do node level things\n        if model.node_embedding is not None:\n            if args.propagate_embeddings:\n                emb = model.propagate_embeddings_func(data.edge_index.to(device))\n            else:\n                emb = model.node_embedding.weight\n        else:\n            emb = None\n        curr_links = links[indices]\n        batch_emb = None if emb is None else emb[curr_links].to(device)\n\n        if args.use_struct_feature:\n            sf_indices = sample_indices[indices]  # need the original link indices as these correspond to sf\n            subgraph_features = data.subgraph_features[sf_indices].to(device)\n        else:\n            subgraph_features = torch.zeros(data.subgraph_features[indices].shape).to(device)\n        node_features = data.x[curr_links].to(device)\n        degrees = data.degrees[curr_links].to(device)\n        if args.use_RA:\n            ra_indices = sample_indices[indices]\n            RA = data.RA[ra_indices].to(device)\n        else:\n            RA = None\n        start_time = time.time()\n        optimizer.zero_grad()\n        logits = model(subgraph_features, node_features, degrees[:, 0], degrees[:, 1], RA, batch_emb)\n        loss = get_loss(args.loss)(logits, labels[indices].squeeze(0).to(device))\n\n        loss.backward()\n        optimizer.step()\n        total_loss += loss.item() * args.batch_size\n        batch_processing_times.append(time.time() - start_time)\n\n    if args.wandb:\n        wandb.log({\"train_batch_time\": np.mean(batch_processing_times)})\n        wandb.log({\"train_epoch_time\": time.time() - t0})\n\n    print(f'training ran in {time.time() - t0}')\n\n    if args.log_features:\n        model.log_wandb()\n\n    return total_loss / len(train_loader.dataset)\n",
+    "quote_sha256": "798d29e549e249112da6e454ab7039c3071bd173283ddeaa1d3e93d49b6e4a1a"
+  },
+  {
+    "id": "buddy_src_hashing.py:1-76",
+    "source_id": "buddy_src_hashing.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "fa6a7283ff50c042a8c23dd84e8f7aafdbed6e0364987046f5b1481f5426c134",
+    "location": {
+      "kind": "source_lines",
+      "start": 1,
+      "end": 76
+    },
+    "quote": "\"\"\"\nhashed based data sketching for graphs. Implemented in pytorch, but based on the datasketch library\n\"\"\"\nfrom time import time\nimport logging\n\nfrom tqdm import tqdm\nimport torch\nfrom torch import float\nimport numpy as np\nfrom pandas.util import hash_array\nfrom datasketch import HyperLogLogPlusPlus, hyperloglog_const\nfrom torch_geometric.nn import MessagePassing\nfrom torch_geometric.utils import add_self_loops\nfrom torch_geometric.loader import DataLoader\n\nlogger = logging.getLogger(__name__)\nlogger.setLevel(logging.INFO)\n\n# the LABEL_LOOKUP primary key is the max hops, secondary key is an index into the feature vector and values are hops\n# from nodes (u,v)\nLABEL_LOOKUP = {1: {0: (1, 1), 1: (0, 1), 2: (1, 0)},\n                2: {0: (1, 1), 1: (2, 1), 2: (1, 2), 3: (2, 2), 4: (0, 1), 5: (1, 0), 6: (0, 2), 7: (2, 0)},\n                3: {0: (1, 1), 1: (2, 1), 2: (1, 2), 3: (2, 2), 4: (3, 1), 5: (1, 3), 6: (3, 2), 7: (2, 3), 8: (3, 3),\n                    9: (0, 1), 10: (1, 0), 11: (0, 2), 12: (2, 0), 13: (0, 3), 14: (3, 0)}}\n\n\nclass MinhashPropagation(MessagePassing):\n    def __init__(self):\n        super().__init__(aggr='max')\n\n    @torch.no_grad()\n    def forward(self, x, edge_index):\n        out = self.propagate(edge_index, x=-x)\n        return -out\n\n\nclass HllPropagation(MessagePassing):\n    def __init__(self):\n        super().__init__(aggr='max')\n\n    @torch.no_grad()\n    def forward(self, x, edge_index):\n        out = self.propagate(edge_index, x=x)\n        return out\n\n\nclass ElphHashes(object):\n    \"\"\"\n    class to store hashes and retrieve subgraph features\n    \"\"\"\n\n    def __init__(self, args):\n        assert args.max_hash_hops in {1, 2, 3}, f'hashing is not implemented for {args.max_hash_hops} hops'\n        self.max_hops = args.max_hash_hops\n        self.floor_sf = args.floor_sf  # if true set minimum sf to 0 (they're counts, so it should be)\n        # minhash params\n        self._mersenne_prime = np.uint64((1 << 61) - 1)\n        self._max_minhash = np.uint64((1 << 32) - 1)\n        self._minhash_range = (1 << 32)\n        self.minhash_seed = 1\n        self.num_perm = args.minhash_num_perm\n        self.minhash_prop = MinhashPropagation()\n        # hll params\n        self.p = args.hll_p\n        self.m = 1 << self.p  # the bitshift way of writing 2^p\n        self.use_zero_one = args.use_zero_one\n        self.label_lookup = LABEL_LOOKUP[self.max_hops]\n        tmp = HyperLogLogPlusPlus(p=self.p)\n        # store values that are shared and only depend on p\n        self.hll_hashfunc = tmp.hashfunc\n        self.alpha = tmp.alpha\n        # the rank is the number of leading zeros. The max rank is the number of bits used in the hashes (64) minus p\n        # as p bits are used to index the different counters\n        self.max_rank = tmp.max_rank\n        assert self.max_rank == 64 - self.p, 'not using 64 bits for hll++ hashing'",
+    "quote_sha256": "ed9984752fd3626c64a107a59ba51c5e49792eb0bf20e20dbbdaaf255672319f"
+  },
+  {
+    "id": "buddy_src_hashing.py:139-165",
+    "source_id": "buddy_src_hashing.py",
+    "commit": "3562d94a07d1166faa0949030824bf75ad9bb2c4",
+    "source_sha256": "fa6a7283ff50c042a8c23dd84e8f7aafdbed6e0364987046f5b1481f5426c134",
+    "location": {
+      "kind": "source_lines",
+      "start": 139,
+      "end": 165
+    },
+    "quote": "    def build_hash_tables(self, num_nodes, edge_index):\n        \"\"\"\n        Generate a hashing table that allows the size of the intersection of two nodes k-hop neighbours to be\n        estimated in constant time\n        @param num_nodes: The number of nodes in the graph\n        @param adj: Int Tensor [2, edges] edges in the graph\n        @return: hashes, cards. Hashes is a dictionary{dictionary}{tensor} with keys num_hops, 'hll' or 'minhash', cards\n        is a tensor[n_nodes, max_hops-1]\n        \"\"\"\n        hash_edge_index, _ = add_self_loops(edge_index)\n        cards = torch.zeros((num_nodes, self.max_hops))\n        node_hashings_table = {}\n        for k in range(self.max_hops + 1):\n            logger.info(f\"Calculating hop {k} hashes\")\n            node_hashings_table[k] = {'hll': torch.zeros((num_nodes, self.hll_size), dtype=torch.int8),\n                                      'minhash': torch.zeros((num_nodes, self.num_perm), dtype=torch.int64)}\n            start = time()\n            if k == 0:\n                node_hashings_table[k]['minhash'] = self.initialise_minhash(num_nodes)\n                node_hashings_table[k]['hll'] = self.initialise_hll(num_nodes)\n            else:\n                node_hashings_table[k]['hll'] = self.hll_prop(node_hashings_table[k - 1]['hll'], hash_edge_index)\n                node_hashings_table[k]['minhash'] = self.minhash_prop(node_hashings_table[k - 1]['minhash'],\n                                                                      hash_edge_index)\n                cards[:, k - 1] = self.hll_count(node_hashings_table[k]['hll'])\n            logger.info(f'{k} hop hash generation ran in {time() - start} s')\n        return node_hashings_table, cards",
+    "quote_sha256": "9bccdb9eb02ce7ce7fb8090557ed3c8302fdb45d6197ac8186246d546950c0eb"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S2.SS1.p4.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S2.SS1.p4.1"
+    },
+    "quote": "Ensemble Methods: Ensemble-based methods for link prediction primarily fall into two categories: bagging and stacking. Bagging methods create multiple base learners trained on varied data subsets and integrate their predictions for final output [28, 29]. Stacking methods train multiple models on the entire graph and use a meta-model to integrate their predictions ( [30, 31, 32, 33]). However, these methods directly combine the predictions of base learner without considering the specific patterns and heuristics of base learners.",
+    "quote_sha256": "7f44bd753675323e5bfa7fbcdaf350c05f766ddf01f746063215f1e565c3f345",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.p1.1"
+    },
+    "quote": "The investigations conducted in Section 3 reveal that various heuristics complement each other for the task on link prediction. This implies that different node pairs may need different heuristics to properly predict the existence of a link. Therefore, one approach to potentially achieve better performance in link prediction is to integrate all these heuristics into a single, unified model. However, as shown in Table 1, this strategy fails to outperform existing GNN4LP methods. This suggests that these GNN4LP models are already quite effective. Our findings further suggest that different GNN4LP models demonstrate unique strengths in different scenarios, which are related to specific heuristics. Therefore, leveraging these diverse heuristics as a guidance could help identify the most suitable GNN4LP models for specific node pairs. Based on the above intuitions, we aim to design a framework that can harness the unique strengths of each model to enhance the performance of link prediction.",
+    "quote_sha256": "19b06b95615cd82fe71fb63318230cc3f80fd09d88721bcc275df6a2219b21fa",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS1.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS1.p1.1"
+    },
+    "quote": "To leverage the strengths of various existing models, we introduce a novel mixture-of-experts (MoE) method tailored for link prediction, which we term – Link-MoE. An overview of Link-MoE is depicted in Figure 5(a). There are two major components: the gating model and the multiple expert models. The gating function can be implemented using any neural network and each expert can be any method used for link prediction. When predicting whether a node pair (i,j) (i,j)(i,j) are linked, the gating function utilizes their heuristic information to produce normalized weights for each expert. These weights dictate the level of contribution each expert model has towards the final prediction. Each expert model processes the graph and node pair information, estimating the likelihood of a connection between the two nodes. The individual expert predictions are then aggregated according to the weights assigned by the gating function. The final prediction is made using the sum of the weighted scores, effectively leveraging the strengths of multiple experts to determine the probability of a link. Formally, the prediction of Link-MoE can be expressed as:",
+    "quote_sha256": "e4f66ff7573d0588ac0c0d55c22c53dc1b48f2ccfeeeb4c3a4a6fe414a1c5b88",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.E1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.E1"
+    },
+    "quote": "Y_{ij}=\\sigma\\left(\\sum_{o=1}^{m}G(\\mathbf{x}_{ij},\\mathbf{s}_{ij})_{o}E_{o}(\\mathbf{A},\\mathbf{X})_{ij}\\right), Yi​j=σ⁡(∑o=1mG​(𝐱i​j,𝐬i​j)o​Eo​(𝐀,𝐗)i​j),Y_{ij}=\\sigma\\left(\\sum_{o=1}^{m}G(\\mathbf{x}_{ij},\\mathbf{s}_{ij})_{o}E_{o}(\\mathbf{A},\\mathbf{X})_{ij}\\right), (1)",
+    "quote_sha256": "93e5c725ac9f7412e2c3a7ceb294f6220cef16352684293f11f55ef0c68b572f",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS1.p3.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS1.p3.1"
+    },
+    "quote": "where m mm denotes the number of expert models incorporated, pairwise node features {\\mathbf{x}}_{ij} 𝐱i​j{\\mathbf{x}}_{ij} and structural heuristics {\\mathbf{s}}_{ij} 𝐬i​j{\\mathbf{s}}_{ij} serves as the input to the gating function, G(\\cdot) G⁡(⋅)G(\\cdot) represents the gating model function, E_{o} EoE_{o} refers to the o oo-th expert model, and \\sigma σ\\sigma is a sigmoid activation function. This configuration makes the Link-MoE remarkably flexible and easily adaptable, allowing for the seamless integration of different expert models as required. We will detail our implementation in the following subsections.",
+    "quote_sha256": "4d4dffd46f38425116f66a623df0e8f2a51e8dc35ad6d07d75273fe5ab6d92b4",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS2.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS2.p1.1"
+    },
+    "quote": "As highlighted in our preliminary studies (Section 3), it’s evident that different GNN4LP models excel in varying contexts and that their strengths can be indicated by different heuristics. Therefore, we incorporate a broad spectrum of heuristics as inputs to the gating model to leverage these strengths. Specifically we consider CN [10], AA [18] and RA [19] to model the local structural proximity and Shortest Path, Katz index [11], and PPR [44] for the global structural proximity. For the feature proximity, to ensure the score is invariant to the ordering of the node pair, we utilize the element-wise product for deriving the feature heuristic of node pair (i,j) (i,j)(i,j). This is defined as {\\mathbf{x}}_{ij}={\\mathbf{x}}_{i}\\odot{\\mathbf{x}}_{j} 𝐱i​j=𝐱i⊙𝐱j{\\mathbf{x}}_{ij}={\\mathbf{x}}_{i}\\odot{\\mathbf{x}}_{j}. We also use {\\mathbf{s}}_{ij}=[s^{1}_{ij},s^{2}_{ij},...,s^{k}_{ij}] 𝐬i​j=[si​j1,si​j2,…,si​jk]{\\mathbf{s}}_{ij}=[s^{1}_{ij},s^{2}_{ij},...,s^{k}_{ij}] to represent all the k kk structural heuristics, and the dimension of each structural heuristics is typically very small. However, the node pair feature heuristic is equal to the input node feature dimension and can span hundreds or even thousands of dimensions. This significant disparity in dimensionality could hinder the model’s ability to effectively learn from the structural heuristics. To address this challenge, we design a two-branch gating model, as illustrated in Figure 5(b). Each branch is a simple MLP. One branch is dedicated to encoding the structural heuristics, while the other focuses on processing the node pair features. After that, these two branches are merged via concatenation. Finally, an MLP with the softmax function is applied to this combined output to generate the final weight predictions. This design ensures a balanced consideration of both structural and feature-based heuristics. Formally, the gating function is defined as follows:",
+    "quote_sha256": "4c83042a9d6e35a77e98dae1ed0890155fc3f9921ccbda7c8941efb5dae5b9d1",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.EGx1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.EGx1"
+    },
+    "quote": "\\displaystyle G(\\mathbf{x}_{ij},\\mathbf{s}_{ij})=\\text{softmax}\\Bigl(f\\bigl(f(\\mathbf{x}_{ij})||f(\\mathbf{s}_{ij})\\bigl)\\Bigl), G(𝐱i​j,𝐬i​j)=softmax(f(f(𝐱i​j)||f(𝐬i​j))),\\displaystyle G(\\mathbf{x}_{ij},\\mathbf{s}_{ij})=\\text{softmax}\\Bigl(f\\bigl(f(\\mathbf{x}_{ij})||f(\\mathbf{s}_{ij})\\bigl)\\Bigl), (2)",
+    "quote_sha256": "4e0090cdbffdc710ad50a10e3c7043841224214bc1f052582966aecd92eee837",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS2.p1.2",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS2.p1.2"
+    },
+    "quote": "where f ff is a MLP and || |⁣||| denotes the concatenation operator.",
+    "quote_sha256": "86a32251a2ecbb5d6f82ce0a7465df05d12035545c7c756561c88fb537032677",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS3.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS3.p1.1"
+    },
+    "quote": "Given the experts chosen in Section 5.1, there are several training strategies used by MoE models to combine them. This includes end-to-end training [42] and the EM algorithm [45]. Given the multiple options, we are then tasked with the question: how do we optimize Link-MoE?",
+    "quote_sha256": "f69707b3263055a445335d0c6465e272aac9b54bc91b93914a4159df88255bd8",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS3.p2.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS3.p2.1"
+    },
+    "quote": "In this work, we employ a two-step training strategy, as detailed in Algorithm 1 in Appendix E. Initially, we train each expert individually using their respective optimal hyperparameters and perform inference on the dataset to obtain the prediction scores for each link. Subsequently, we focus on the training of the gating model. Specifically, we adopt the cross entropy to train the gating function:",
+    "quote_sha256": "d2879adc46e8b103a8fdefcec3f23c959b9fac940f222ac96c9a16ade1e40f38",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.E3",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.E3"
+    },
+    "quote": "L=-\\sum_{(i,j)\\in\\mathcal{P}\\bigcup\\mathcal{N}}y_{ij}\\log Y_{ij}+(1-y_{ij})\\log(1-Y_{ij})), L=−∑(i,j)∈𝒫​⋃𝒩yi​jlogYi​j+(1−yi​j)log(1−Yi​j)),L=-\\sum_{(i,j)\\in\\mathcal{P}\\bigcup\\mathcal{N}}y_{ij}\\log Y_{ij}+(1-y_{ij})\\log(1-Y_{ij})), (3)",
+    "quote_sha256": "19927c2469dd74c7aed1466cc6cda81eee431c9ac0b1c376387b652d11511132",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS3.p2.2",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS3.p2.2"
+    },
+    "quote": "where y_{ij}=1 yi​j=1y_{ij}=1 when a link exists between node v_{i} viv_{i} and v_{j} vjv_{j} in the graph, and y_{ij}=0 yi​j=0y_{ij}=0 otherwise. \\mathcal{P} 𝒫\\mathcal{P} and \\mathcal{N} 𝒩\\mathcal{N} denote the set of positive/negative links in the graph, respectively.",
+    "quote_sha256": "b99c3bcd4f4cbe5258b800edb96bb415e36453fb40d453cb68e0588f83ac3557",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S4.SS3.p3.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S4.SS3.p3.1"
+    },
+    "quote": "There are several benefits to our two-step training strategy. (1) Efficiency: This approach eliminates the need to load every expert into memory simultaneously, as each expert is trained and infers independently; For time efficiency, tuning the gating model to identify the best hyperparameters is more efficient since it involves training only MLPs. (2) Effectiveness: The two-step training strategy helps to avoid the ‘collapse problem’ often encountered in MoE models [37]. This issue arises when only a single expert is consistently selected, leading to the under-utilization and inadequate learning of the other experts. By training the experts individually first, we mitigate this risk, ensuring a more balanced and effective utilization of all experts. We compare two-step and end-to-end training strategies in Appendix G. (3) Flexibility: When introducing new experts into the Link-MoE, it’s only necessary to train these new experts and the gating model. All previously trained experts can be seamlessly integrated without the need for retraining.",
+    "quote_sha256": "f96e3c9f5691776dd64dad41db6bf8b323c2864c4c31df225ce1c8a53da8ecf9",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S5.SS1.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S5.SS1.p1.1"
+    },
+    "quote": "Datasets. We evaluate our proposed method on eight datasets including homophilous graphs: Cora, Citeseer, Pubmed [46], ogbl-ppa, ogbl-collab, and ogbl-citation2 [47] and heterophilic graphs: Chameleon and Squirrel [48]. Please see Appendix A for more details on each dataset.",
+    "quote_sha256": "e1cc12483501e51c95095c2a0f21b4a2a48964c5aa6b99eb68c23a352836e2f7",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S5.SS1.p2.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S5.SS1.p2.1"
+    },
+    "quote": "Baselines. We consider a diverse set of baselines include heuristics, embedding methods, GNNs, and GNN4LP methods. This includes: CNs [10], AA [18], RA [19], Shortest Path [43], Katz [11], Node2Vec [49], Matrix Factorization (MF) [50], MLP, GCN [23], GAT [51], SAGE [24], GAE [25], SEAL [15], BUDDY [26], Neo-GNN [14], NCN and NCNC [13], NBFNet [16], PEG [52], LPFormer [27].",
+    "quote_sha256": "0809437fcf2b5135a3753500f9743bbe2b4f0e18c212f5167dcbda2e9af750d0",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S5.SS1.p3.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S5.SS1.p3.1"
+    },
+    "quote": "Additionally, to comprehensively evaluate the proposed Link-MoE, which integrates multiple link predictors, we design two ensemble baseline methods for comparison. The first method, Mean-Ensemble, combines all expert models with uniform weight, ensuring each expert contributes equally to the final prediction. The second method, Global-Ensemble, learns a global weight for each expert that is applied when predicting all node pairs. In this approach, each expert contributes to the final prediction based on the learned global weight for all node pairs, allowing for a differentiated influence of each expert based on their performance. See Appendix A.2 for more details on these two methods. Additionally, we compare our method with two other ensemble methods [30, 31], with the results provided in Appendix H.",
+    "quote_sha256": "38dc59725919c4bc8633fa3733c84918a9367688f3b77d70221e8bc030d2ff29",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:S5.SS1.p4.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S5.SS1.p4.1"
+    },
+    "quote": "Link-MoE Settings. In this study, we incorporate both node features and a variety of different heuristics as input features for the gating model. These heuristics include node degree, CN, AA, RA, Shortest Path, Katz, and Personalized PageRank (PPR) [20]. Furthermore, our approach uses a wide range of experts, including NCN, NCNC, Neo-GNN, BUDDY, MLP, Node2Vec, SEAL, GCN, NBFNet, and PEG. NBFNet and PEG are only used for smaller datasets, as they often run into out-of-memory issues on the larger OGB datasets. For the two baselines, Mean-Ensemble and Global-Ensemble, we use the same experts as with Link-MoE. More setting details are in Appendix A.2. For evaluation, we report several ranking metrics including the Hits@K and Mean Reciprocal Rank (MRR). In the main paper, we report the MRR for Cora, Citeseer, and Pubmed and for OGB we use the evaluation metric used in the original study [47]. Results for other metrics are shown in Appendix C.",
+    "quote_sha256": "6ced33d72c67f921120041488da2b1343922bf931062d4d685c5875b607b9a87",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A1.SS2.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A1.SS2.p1.1"
+    },
+    "quote": "Training Settings. We use the binary cross entropy loss to train each model. The loss is optimized using the Adam optimizer [55]. At first, we train all of the expert models by using the hyperparameters suggested in this repository 11 1 https://github.com/Juanhui28/HeaRT/tree/master. We then do the inference to obtain the prediction score for each link. Secondly, in order to train Link-MoE, we split the original validation dataset into a new training set and validation set. Thirdly, we train the gating model until it converges and choose the model weights associated with the best validation performance. The rationale for utilizing a portion of the validation set to train the gating model is as follows: Given that each expert model is finely tuned on the training data, there exists a significant disparity between the prediction scores for positive and negative edges within this dataset. Should the original training set be employed to train our gating model, the outcome would be skewed—regardless of the gating model’s outputs, predicted scores for positive pairs would invariably remain substantially higher than those for negative pairs. Therefore, to train the gating model effectively, we repurpose the original validation set as our training data, dividing it into new training and validation subsets. Unlike baseline models, which are trained exclusively on the original training set, our method benefits from incorporating a very small validation set compared to the training set into the training process for the gating model, yielding notable performance improvements. Despite this modification, the comparison remains relatively fair. The original validation set is relatively small, so using a portion of it for training does not significantly alter the amount of data available. Thus, the baseline models remain essentially equivalent, even with this adjustment. Moreover, it is common for validation set is to be used for the search of model architectures in neural architecture search. We train both experts and gating models on NVIDIA RTX A6000 GPU with 48GB memory.",
+    "quote_sha256": "4b5f76d6d34682f5793eac1d900fff34c140ff1b584c32325b68ad09c187dfc8",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A1.SS2.p2.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A1.SS2.p2.1"
+    },
+    "quote": "Training Data Split. In the original datasets, we are given a fixed train, validation and test dataset. These splits are used to train each individual expert. Once each expert model is fully trained, we perform inference on the validation and test sets, thereby obtaining the prediction score for each link. As noted earlier, we split the original validation set into a new training and validation split for training and validating Link-MoE. Note that the original test dataset is still used solely for testing. When splitting the validation set, we use different ratios for different datasets. For ogbl-citation2, ogbl-ppa, ogbl-collab, Citeseer, Chameleon and Squirrel, the ratios are 0.8 0.80.8, and for Cora and Pubmed, the ratios aer 0.9 0.90.9.",
+    "quote_sha256": "32675233d72c10802818362727a5fd7e7e20a274671fb43b2e0c2e4dde942321",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A1.SS2.p3.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A1.SS2.p3.1"
+    },
+    "quote": "Hyperparameter Settings. The hyperparameter ranges are shown in Table 4. Since our gating model has a low complexity, we can efficiently search over a large hyperparameter space on all eight datasets.",
+    "quote_sha256": "2471d78e9324d7e3011b9eb9e043b0af91c8c88108cd486ccfa544e072b544eb",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A1.SS2.p4.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A1.SS2.p4.1"
+    },
+    "quote": "Evaluation Setting. The evaluation is conducted by ranking each positive sample against a set of negative samples. The same set of negatives are shared among all positive samples with the exception of ogbl-citation2, which customizes 1000 negatives to each positive sample. The set of negative samples are fixed and are taken from Li et al. [53] and Hu et al. [47] for their respective datasets.",
+    "quote_sha256": "a8f3e13e21b74fa2abc5eda3d59ed551368df5daefcf78f4487316b083f2d408",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A1.SS2.p5.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A1.SS2.p5.1"
+    },
+    "quote": "Mean-Ensemble. After training the experts, we can obtain the prediction score on the test set from each expert. Then we take the mean across all experts to get a final score for link in the test set. The purpose of this model is to ascertain whether naively combining the different experts is itself enough for good performance. More formally, the Mean-Ensemble can be defined as follows:",
+    "quote_sha256": "be9fc4cea6d9c46f5df328a19a67f1bc99136b2c51a4b68561940d7476ea0fad",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A1.SS2.p6.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A1.SS2.p6.1"
+    },
+    "quote": "Global-Ensemble. For the Global-Ensemble, we learn a weight vector \\mathbf{w}=[w_{1},w_{2},...,w_{m}] 𝐰=[w1,w2,…,wm]\\mathbf{w}=[w_{1},w_{2},...,w_{m}] to combine the experts which can be defined as follows:",
+    "quote_sha256": "cf2c3539e117f0baf6c1c374c5ad700d722b1a185a4d5941ba28b97ebf407541",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A1.SS2.p6.2",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A1.SS2.p6.2"
+    },
+    "quote": "Notably, the \\mathbf{w} 𝐰\\mathbf{w} is uniform for all node pairs. Therefore, this method is not able to flexibility adjust the weight of different experts to each node pair. Rather, a single weight is used across all samples. The purpose of this method is to test whether it is necessary to customize the weight of the experts to each link as is done in Link-MoE.",
+    "quote_sha256": "ebb7aa834bfe8a5d3165a3eade92023731a586c0ec329edd76880aff127e08d0",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A5.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A5.p1.1"
+    },
+    "quote": "The full algorithm is detailed in Algorithm 1. Notably, line 1-3 trains the experts individally. Line 4 performs the inference on links to obtain the prediction scores using the obtained experts and get the heuristic features for each link. Line 5-7 updates the gating model using Equation 3.",
+    "quote_sha256": "97a531bf52ae6eac2b0a1255b0ea944ca31fc47e3b9286f064eb4b85b412fb9b",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A7.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A7.p1.1"
+    },
+    "quote": "In this section, we explore the end-to-end training of the experts and gating models, as shown in Table 11 and Figure 14. Our results show that the convergence speed of different experts varies significantly, which often leads to the model collapsing to a single expert. As a result, the performance of end-to-end training is not as good as the proposed Link-MoE. Despite this, it remains an interesting and challenging idea to explore the effective end-to-end training.",
+    "quote_sha256": "9ba5e83706bc4378812dfaff86dc4d0a7f5ce481703d8ee147332c1f95a2d148",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A8.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A8.p1.1"
+    },
+    "quote": "We compare our methods with two ensemble methods [30, 31] specifically designed for link prediction tasks. Specifically, [30] found that individual link prediction algorithms exhibit a broad diversity of prediction errors on different graphs and utilized a random forest to ensemble various link predictors; Similarly, [31] employs different graph embedding techniques to train multiple link predictors, using the outputs of these predictors as inputs for training a subsequent link predictor. We conduct experiments on ogbl-collab and Pubmed dataset.The evaluation metrics are Hits@50 and MRR for ogbl-collab and Pubmed, respectively. The results, shown in Table 12, demonstrate that the proposed Link-MoE model significantly outperforms the ensemble-based methods by a large margin. This can be attributed to the dynamic nature of our gating module, which assigns customized weights to each expert for every node pair.",
+    "quote_sha256": "bda71dca6d3f27c98dda7641383927e1f7691b81db67c837eb44134dfc685221",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A10.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A10.p1.1"
+    },
+    "quote": "We conducted additional experiments under the HeaRT setting [53] with OGB datasets, and the results are shown in 14. In the HeaRT setting, hard negative samples are selected for positive samples based on specific heuristics, restricting the negatives to include one of the two nodes from the original positive pair. The results in Table 14 demonstrate that Link-MoE still significantly outperforms the best baseline models, even in this more challenging evaluation scenario.",
+    "quote_sha256": "51be8bd5d36811a7bb1a7253b2889b8600532e19fc6056fae283edbc5cc98a45",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "mixture_predictors_2402.08583v2:A11.p1.1",
+    "source_id": "mixture_predictors_2402.08583v2",
+    "version": "2402.08583v2",
+    "source_sha256": "0059b8d9b139ac78ae0594f6328590766b47afbe61b63d6f611d552f418d56cb",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "A11.p1.1"
+    },
+    "quote": "In our current work, we explore various heuristics and GNN4LP models for link prediction and demonstrate the potential of MoE models in this context. The training of the gating model in Link-MoE relies on pre-trained experts and heuristic features generated from the graphs. Although we can select a few experts, training these pre-trained experts remains time-consuming, especially for complex models. Additionally, since real-world graphs come from diverse domains and the graph generation process might be quite different, the heuristics used in this paper might not be comprehensive to other domains. Future work should focus on exploring more heuristics to better accommodate diverse domains.",
+    "quote_sha256": "fd61eb0fb8581ac6735bfc16fd60c4f4adb75dfe86fe4a4d09baad5229cc1412",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS1.p1.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS1.p1.1"
+    },
+    "quote": "We encode each sampled subgraph around a candidate pair (v_{\\text{src}},v_{\\text{dst}}) (vsrc,vdst)(v_{\\text{src}},v_{\\text{dst}}) using an encoding scheme similar to node-adjacency tokenization (Yehudai et al., 2025). As illustrated in Figure 2, we assign indices to the N NN nodes in the extracted subgraph (with N\\leq N_{\\max} N≤NmaxN\\leq N_{\\max} where N_{\\max} NmaxN_{\\max} is the sampling budget) by fixing v_{\\text{src}} vsrcv_{\\text{src}} to index 0 00 and v_{\\text{dst}} vdstv_{\\text{dst}} to index 1 11, while assigning the remaining nodes uniformly at random to indices 2,\\ldots,N-1 2,…,N−12,\\ldots,N-1. For the first N NN context nodes (blue block), we concatenate three parts: (i) a one-hot identifier of the node in the chosen subgraph order, padded to length N_{\\max} NmaxN_{\\max} (green block); (ii) the node’s adjacency indicator row within the extracted subgraph, also padded to length N_{\\max} NmaxN_{\\max} (yellow block); and (iii) a two-bit role flag indicating whether the node is a context node or a task node (purple block), set to [1,0] [1,0][1,0] for context nodes. We then append two task nodes corresponding to the endpoints v_{\\text{src}} vsrcv_{\\text{src}} and v_{\\text{dst}} vdstv_{\\text{dst}} (bottom two red rows): each task node copies the same one-hot and adjacency parts from its corresponding context node representation, but flips the role flag to [0,1] [0,1][0,1]. Since ‘node’ and ‘token’ are referring to the same entity, we use them interchangeably from now on.",
+    "quote_sha256": "2a2ba960565b0c0bb405f9a24f72b0be6108003bd3af0e9565be5c0a97dd6471",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p1.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p1.1"
+    },
+    "quote": "We begin by outlining the subgraph batching, which will clarify the tensor dimensions used later. Each mini-batch contains B BB sampled subgraphs; letting N_{b} NbN_{b} be the number of context nodes in subgraph b bb, we set N_{B}=\\max_{b\\in[B]}N_{b} NB=maxb∈[B]⁡NbN_{B}=\\max_{b\\in[B]}N_{b} and pad all samples to this length. The model processes a length- (N_{B}+2) (NB+2)(N_{B}+2) token sequence consisting of N_{B} NBN_{B} context tokens (sampled subgraph nodes, with padding as needed) and two task tokens (for v_{\\text{src}} vsrcv_{\\text{src}} and v_{\\text{dst}} vdstv_{\\text{dst}}). By construction, N_{B}\\leq N_{\\max} NB≤NmaxN_{B}\\leq N_{\\max}, where N_{\\max} NmaxN_{\\max} is the global sampling budget. It is worth noting that there are two levels of padding: padding to N_{\\max} NmaxN_{\\max} is feature-level padding, used for the one-hot identifier and adjacency fields, whereas padding to N_{B}+2 NB+2N_{B}+2 is batch-level sequence padding, accounting for the two appended task tokens. While one can pad every sequence to N_{\\max}+2 Nmax+2N_{\\max}+2, it is more efficient to pad to N_{B}+2 NB+2N_{B}+2, avoiding unnecessary computation when sampled subgraphs are smaller than N_{\\max} NmaxN_{\\max}.",
+    "quote_sha256": "9daa7926c2781346f277eb01c021e699cb24e9fec4529ecb679447a9534edeb1",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p2.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p2.1"
+    },
+    "quote": "Figure 3 illustrates PENCIL, a model composed of K KK stacked blocks of identical form that couple bidirectional self-attention with one-hop propagation. We omit the default sequential PE, so the Transformer encoder is permutation equivariant with respect to reordering the input tokens.",
+    "quote_sha256": "a1b4a1081371618a47b0faed4675fa18c77e03add955f3b29be94035c008f8be",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p3.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p3.1"
+    },
+    "quote": "Input Projection. The tokenized input \\tilde{\\mathbf{X}}\\in\\mathbb{R}^{B\\times(N_{B}+2)\\times(2N_{\\max}+2)} 𝐗~∈ℝB×(NB+2)×(2​Nmax+2)\\tilde{\\mathbf{X}}\\in\\mathbb{R}^{B\\times(N_{B}+2)\\times(2N_{\\max}+2)} (see Figure 2) and optional node features \\mathbf{X}\\in\\mathbb{R}^{B\\times(N_{B}+2)\\times f} 𝐗∈ℝB×(NB+2)×f\\mathbf{X}\\in\\mathbb{R}^{B\\times(N_{B}+2)\\times f} are projected into a shared hidden dimension d dd to form \\mathbf{H}^{(0)} 𝐇(0)\\mathbf{H}^{(0)}:",
+    "quote_sha256": "08844a5ed891b953d4f459b8a02c8635d6a1e3816fb73ac42a5ca24bcd2c9656",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p3.2",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p3.2"
+    },
+    "quote": "where \\mathbf{W}_{0}\\in\\mathbb{R}^{(2N_{\\max}+2)\\times d} 𝐖0∈ℝ(2​Nmax+2)×d\\mathbf{W}_{0}\\in\\mathbb{R}^{(2N_{\\max}+2)\\times d} is an orthogonally initialized projection matrix and \\mathbf{G}(\\cdot) 𝐆⁡(⋅)\\mathbf{G}(\\cdot) is a learnable feature encoder. Although random initialization often yields approximately orthogonal vectors in high dimensions, it does not guarantee an orthonormal or norm-preserving projection. We therefore use orthogonal initialization (Saxe et al., 2014) with gain 1 to obtain a better-conditioned initial projection.",
+    "quote_sha256": "acc93d41b81e5b3c5cfd298de53d03e138b9a24c8827b56f13485a50a1ab7ff7",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p4.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p4.1"
+    },
+    "quote": "Adjacency Reconstruction. A key feature of PENCIL is that the subgraph adjacency matrix \\tilde{\\mathbf{A}} 𝐀~\\tilde{\\mathbf{A}} is not provided as a separate input but is recovered directly from the token encoding \\tilde{\\mathbf{X}} 𝐗~\\tilde{\\mathbf{X}}. Since each token includes its adjacency-indicator row (see Figure 2), \\tilde{\\mathbf{A}} 𝐀~\\tilde{\\mathbf{A}} is constructed by slicing the corresponding columns from \\tilde{\\mathbf{X}} 𝐗~\\tilde{\\mathbf{X}}. While normalized variants such as \\mathbf{D}^{-1}\\tilde{\\mathbf{A}} 𝐃−1​𝐀~\\mathbf{D}^{-1}\\tilde{\\mathbf{A}} or \\mathbf{D}^{-1/2}\\tilde{\\mathbf{A}}\\mathbf{D}^{-1/2} 𝐃−1/2𝐀~𝐃−1/2\\mathbf{D}^{-1/2}\\tilde{\\mathbf{A}}\\mathbf{D}^{-1/2} are applicable, we retain the raw adjacency \\tilde{\\mathbf{A}} 𝐀~\\tilde{\\mathbf{A}} for notational simplicity. Details regarding the adjacency reconstruction are discussed in Appendix A.",
+    "quote_sha256": "a792f1a6656df0f87ac2a91fbd4f251ac4af20ef47844f8c780e6f78cacd65d2",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p5.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p5.1"
+    },
+    "quote": "Multiplicative Residual. For each layer k kk, PENCIL applies a bidirectional Transformer block followed by a residual term:",
+    "quote_sha256": "5d2def308f328661ba92ef0de7577ce3b5c4e4f66bc17a8dde3b48fa0cf46dd3",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p7.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p7.1"
+    },
+    "quote": "where \\mathbf{T}_{k} 𝐓k\\mathbf{T}_{k} is a Transformer layer and \\mathbf{P}_{k} 𝐏k\\mathbf{P}_{k} is a learnable row-wise post-propagation projection applied to \\tilde{\\mathbf{A}}\\mathbf{Z}^{(k)} 𝐀~​𝐙(k)\\tilde{\\mathbf{A}}\\mathbf{Z}^{(k)}. We refer to the second term as a multiplicative residual because it adds an explicit matrix-multiplication branch \\mathbf{P}_{k}(\\tilde{\\mathbf{A}}\\mathbf{Z}^{(k)}) 𝐏k​(𝐀~​𝐙(k))\\mathbf{P}_{k}(\\tilde{\\mathbf{A}}\\mathbf{Z}^{(k)}) on top of the attention output, where \\tilde{\\mathbf{A}} 𝐀~\\tilde{\\mathbf{A}} is reconstructed from the input encoding \\tilde{\\mathbf{X}} 𝐗~\\tilde{\\mathbf{X}}. Therefore, if self-attention is replaced with the identity map \\mathbf{Z}^{(k)}=\\mathbf{H}^{(k-1)} 𝐙(k)=𝐇(k−1)\\mathbf{Z}^{(k)}=\\mathbf{H}^{(k-1)}, the update reduces to a residual message-passing layer over \\tilde{\\mathbf{A}} 𝐀~\\tilde{\\mathbf{A}}, with node features induced by the graph encoding scheme in Section 3.1. As the residual is computed outside the self-attention module, resulting in full compatibility with efficient attention techniques. Finally, self-attention is computed only among non-padded tokens from the same sampled subgraph.",
+    "quote_sha256": "11d886148e3d1e30f3cf3a43dc6e2208786b3b46e13ebf7862d0de5363afa618",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  },
+  {
+    "id": "pencil_2602.01553v4:S3.SS2.p8.1",
+    "source_id": "pencil_2602.01553v4",
+    "version": "2602.01553v4",
+    "source_sha256": "81fe52c3eaf103a0c38dc53eeb6fca5eabcca91307ca7910c7ed19a7f90ed559",
+    "location": {
+      "kind": "HTML paragraph/equation",
+      "id": "S3.SS2.p8.1"
+    },
+    "quote": "The link logit is obtained by concatenating the final representations of v_{\\text{src}} vsrcv_{\\text{src}} and v_{\\text{dst}} vdstv_{\\text{dst}}, followed by a linear projection to a scalar. The model is trained with the binary cross-entropy (BCE) loss.",
+    "quote_sha256": "d84ef8453ee89536bea474a5abfbb20144d91923ef35f78f7479546aff1ef16c",
+    "extraction": "stdlib HTMLParser visible text, whitespace normalized; MathML alternate text retained"
+  }
+]

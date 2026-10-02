@@ -4,7 +4,7 @@ Original benchmark scores remain fixed. This phase must establish a useful metho
 
 ## Active evidence obligations, 2 October 2026
 
-The current candidate initializes private factors from graph-filtered training errors after a common warm start. The fixed precision study has completed all six numerical checks, all six warm trajectories, all 30 initializations and 10 of 30 continuations. Its final labels remain closed. The earlier 54-fit coordinate screen is STAGE1_NO_GO. Tolokers public extraction succeeded, but actual isolated mounting remains unresolved before labels/model execution. No new predictive advantage, established novelty or manuscript is claimed.
+The current candidate initializes private factors from graph-filtered training errors after a common warm start. The fixed precision study has completed all six numerical checks, all six warm trajectories, all 30 initializations and 16 of 30 continuations. Its final labels remain closed. The earlier 54-fit coordinate screen is STAGE1_NO_GO. Tolokers public extraction succeeded. Mounting remains unavailable; restricted imports exposed a zlib loader dependency before data/model access, and its pinned repo-local v3 repair now passes NumPy/SciPy but fails pandas at entropy acquisition. No dataset/model/GPU access occurred. No new predictive advantage, established novelty or manuscript is claimed.
 
 | Required conclusion | Decisive evidence still needed |
 | --- | --- |
@@ -15,7 +15,7 @@ The current candidate initializes private factors from graph-filtered training e
 | Statistical support reflects the actual data. | Report all paired outcomes and intervals with declared multiplicity and split scope. Three seeds on one task cannot establish graph-population generalization. No statistical significance is asserted from source gates. |
 | Evidence is inspectable. | Release exact admitted source, complete costs/failures and selected checkpoint/logit replay after valid study closure. Source-only commits and disposable numerical checks do not establish reproducible predictive performance. |
 
-The unchanged concerns table below records the wider historical campaign and requirements; references to molecular lanes are historical, not the currently admitted experiment queue. The latest verified pushed source/evidence branch head is 3cb4b100e712c1b33848d3b5afcbba7662dd8fe0. Public source publication is verified, while a complete new trained evidence package remains pending.
+The unchanged concerns table below records the wider historical campaign and requirements; references to molecular lanes are historical, not the currently admitted experiment queue. The latest verified pushed source/evidence branch head is 860c0cdab4339b52683beb43c27a44c7737e7b17. Public source publication is verified, while a complete new trained evidence package remains pending.
 
 | Reviewer concern | Current evidence | Remaining requirement |
 | --- | --- | --- |
