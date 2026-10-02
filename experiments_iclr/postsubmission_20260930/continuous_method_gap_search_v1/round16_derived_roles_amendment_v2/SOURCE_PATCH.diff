@@ -1,0 +1,53 @@
+--- v1/correction_screen_driver.py
++++ v2/correction_screen_driver.py
+@@ -1,4 +1,4 @@
+-"""Future correction screen CLI. SOURCE TEXT ONLY: never imported/run in authoring.
++"""Future correction screen CLI, derived roles v2. SOURCE TEXT ONLY: never imported/run in authoring.
+ 
+ prepare reads graph/masks but no labels; fit reads only compact source-role labels;
+ report alone reads compact final-pool labels, after verifying an immutable freeze.
+@@ -191,16 +191,26 @@
+                     'Published roles must partition all released nodes exactly once')
+             published_train = rng.permutation(published['train'])
+             train_count, reservoir_count = n*20//100, n*50//100-n*20//100
+-            require(len(published_train) >= train_count and len(published['validation']) <= reservoir_count,
+-                    'Published mask cannot support the frozen derived-role rule')
++            require(len(published_train) >= train_count,
++                    'Published train mask cannot supply the frozen teacher count')
+             train, remainder = published_train[:train_count], published_train[train_count:]
+-            fill_count = reservoir_count-len(published['validation'])
++            # v2: an oversized published validation role is thinned uniformly,
++            # using masks/node IDs only. Every surplus node moves to final pool.
++            # The feasible v1 branch keeps the original RNG stream unchanged.
++            if len(published['validation']) > reservoir_count:
++                validation_order = rng.permutation(published['validation'])
++                reservoir_validation = validation_order[:reservoir_count]
++                pool_validation = validation_order[reservoir_count:]
++            else:
++                reservoir_validation = published['validation']
++                pool_validation = np.empty(0, dtype=np.int64)
++            fill_count = reservoir_count-len(reservoir_validation)
+             require(len(remainder) >= fill_count, 'Insufficient published train reservoir fill')
+-            reservoir = rng.permutation(np.concatenate((published['validation'], remainder[:fill_count])))
+-            pool = np.concatenate((published['pool'], remainder[fill_count:]))
++            reservoir = rng.permutation(np.concatenate((reservoir_validation, remainder[:fill_count])))
++            pool = np.concatenate((published['pool'], remainder[fill_count:], pool_validation))
+             cut = [len(reservoir) * k // 6 for k in (2, 3, 5)]
+             val, a, b, d = np.split(reservoir, cut)
+-            mask_rule = 'derived: floor(.20N) uniform published-train teacher nodes; reservoir floor(.50N)-floor(.20N) retains every published-validation node, fills from same train permutation, re-permutes then2:1:2:1 floors; pool retains every published-test node plus remaining train'
++            mask_rule = 'derived-v2: floor(.20N) uniform published-train teacher nodes; reservoir floor(.50N)-floor(.20N); if published-validation exceeds reservoir, permute it uniformly with same PCG64 stream and move surplus to pool, otherwise retain all and fill from same train permutation; re-permute reservoir then2:1:2:1 floors; pool retains every published-test node plus remaining train and surplus validation'
+         else:
+             order = rng.permutation(n)
+             cut = [n * k // 100 for k in (20, 30, 35, 45, 50)]
+@@ -234,7 +244,10 @@
+         write_json(cell / 'ROLE_FREEZE.json', dict(graph_input=descriptor(args.input),
+                    preparation_driver_sha256=sha(__file__),
+                    graph=manifest['graph'], seed=seed, source_split_index=split_index,
+-                   mask_rule=mask_rule, source_counts={k: len(v) for k, v in roles.items()},
++                   mask_rule=mask_rule, role_derivation_version='derived_roles_v2',
++                   published_role_counts={k: len(v) for k, v in published.items()} if masks is not None else None,
++                   surplus_published_validation_to_pool=len(pool_validation) if masks is not None else 0,
++                   source_counts={k: len(v) for k, v in roles.items()},
+                    randomness='NumPy Generator PCG64; uniforms FP32; independent fixed per-node permutations',
+                    community_recipe=dict(algorithm='networkx.asyn_lpa_communities', version=nx.__version__,
+                                          seed=seed + 60000, edge_order='canonical lexicographic'),

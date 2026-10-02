@@ -1,0 +1,37 @@
+# Prospective equivalence and trained-checkpoint cost contract
+
+This is source only, not a runtime launch. No retraining. The caller uses already selected original/untied/head trained cells and the existing complete graph/features/splits. Preserve checkpoint, provider/source/runtime and selected recipe hashes; no new quality tuning, omitted members, graph sampling or checkpoint choice based on test/conformal outcomes.
+
+## 1. Custody and semantic preconditions
+
+Verify canonical wrapper SHA256 a74a87dc26b7675a2d3fa0aaf0e7734b4786fa6c49411ef52f9bb21c0516dbc1 and frozen source07a6c1c452486802713a1a040ab24f9e9f8504660d731eb5b6417e2357f0f303. Record selected checkpoint hashes and exact loaded state tensors. Confirm Torch2.1.2+cu118/PyG2.7.0, GPU/driver/cuDNN/BLAS versions, installed SAGE/MessagePassing/MeanAggregation/scatter/linear/LayerNorm hashes, graph edge/features hashes, adjacency format and precision settings.
+
+Only ordinary int64 COO `edge_index[2,E]`, unchanged edge order, homogeneous graph, default selected mean SAGE/root, no project/normalize, node_dim=-2, no semantic hooks, no explain mode, no feature decomposition, feature-only affine LayerNorm, and all modules already eval are bound. SparseTensor/fused sparse, compiled/custom subclasses, mixed precision or stochastic dropout require separately demonstrated equality. Adapter fails closed on its declared checks; checks are not a substitute for runtime qualification.
+
+State parameters, buffers, graph and RNG states must match before/after evaluation. The original adapter creates no new learned tensors. Packed controls reproduce all selected private tensors, charge conversion, and invalidate a retained-source cache on parameter/device/dtype/version changes. Packed-only deployment is allowed after equality, with cold conversion and actual temporary peak charged; retain a checkpoint hash/provenance receipt, not duplicate weights forever.
+
+## 2. CPU float64 semantic gate
+
+After separate execution admission, use independent CPU float64 evaluation copies of the **same selected trained state**, with unchanged parameter values represented in float64. Compare the actual canonical wrapper `model(graph,x)` (four serial forwards) with original adapter pairs `(member_chunk,stem_chunk)=(1,1),(2,1),(2,2),(4,1),(4,2),(4,4)`. Compare each untied/head packed path at chunks1/2/4, both retained-source and released-source states.
+
+A small directed graph containing isolated nodes, repeated directed edges, self loops and asymmetric degrees can diagnose shape/aggregation semantics, using the selected checkpoint and full input-feature width. These are correctness diagnostics only; no timings or task-quality claim from them. Then validate the same selected state on the complete native graph/features. If full CPU double memory is impractical, document the explicit resource limit and keep the CPU diagnostic distinct; complete trained-checkpoint GPU equivalence remains mandatory before deployment.
+
+Require all per-member logits finite, shape[4,N,C] unchanged, and allclose atol1e-10,rtol1e-9 on CPU float64, with maximum absolute and scaled errors reported. Report each member and class, including a C=1 shape diagnostic; no member mean may hide a failure. Compare optional per-layer normalized/message/residual traces separately from timing. CPU diagnostics use no labels and cannot select a new model. No gradient/training/dropout-RNG equivalence is claimed.
+
+## 3. Complete selected-checkpoint GPU gate
+
+Use the actual full graph and trained checkpoint for each retained selected cell. Preserve its dtype and admitted evaluation precision/TF32/autocast/backend settings identically across serial and batched versions; record them. Predeclare float32 numerical tolerance atol5e-5,rtol1e-4; non-float32 modes need their own declared gate. Warmup until kernels/caches settle, compare every member's logits and probabilities and report error distributions and prediction disagreement. CUDA scatter/dense kernels can change floating reduction order, so mathematical equality is not a bitwise guarantee.
+
+The canonical prediction is `mean_m softmax(logits_m)`, never softmax(mean logits). Apply the existing covariance/conformal score, calibration protocol, sorting/tie handling, frozen thresholds and all retained evaluation nodes to **both** versions. Require identical predicted labels and final prediction-set membership for every relevant node/cell; report any differing score/rank/threshold tie. A tolerance in logits does not license changing a calibrated result. Do not retune thresholds to make the batched path pass. If this gate fails, retain canonical evaluation for the utility study or use a separately reviewed numerical contract.
+
+## 4. Cold and warm full-task cost gate
+
+Compare native serial versus optimized original and equally optimized untied/head serving. Keep complete graph, feature widths, selected checkpoints, all four trajectories, hardware/core/thread budget and output computation identical. The candidate chunks are chosen using unlabeled equality/cost only, under the same bounded optimization opportunity for all arms; no test-quality selection. No shortened/miniature graph timing establishes utility.
+
+Record cold checkpoint loading/device transfers, original/control conversion, source verification, adjacency/features preparation, graph/all weight storage and peak live memory. Charge original+packed overlap during control conversion, then measure true packed-only serving if original references are released. Do not force permanent duplication. Report parameter logical/unique storage, graph/features, packed tensors and serving workspace separately. Packing happens once per deployed checkpoint; amortization across R requests is `(cold+R*warm)/R` with R stated.
+
+For warm latency/throughput, use CUDA synchronization/events around the entire complete four-member forward plus required softmax/mean and covariance/conformal scoring. At least10 warmups and30 measured complete evaluations in randomized paired/interleaved order; record median,p90,variation and confidence interval, with identical warm-cache handling. Repetition cap can be reduced only for a disclosed measured resource limit; it is not a smaller graph/task. Include final output transfers if actual workflow uses them. Reset peak allocation counters around each full serving request and record CUDA allocated/reserved peaks; CUDA profiler/kernel traces are optional mechanism evidence and include all message lifts, degree/scatter work, dense transforms, norm/GELU/concat, input scaling, copies/chunks and output construction.
+
+Measure CPU RSS and deployed disk/checkpoint footprint too. If chunk4 OOMs or loses throughput, retain its failure/cost and select a qualified smaller chunk. Source checks and packing occur once outside warm loops only when deployment actually does so. No cache of prediction/hidden states across different requests is allowed. Warm latency does not claim faster training; training/selection/conformal preparation costs remain unchanged and included if reporting whole-study totals.
+
+A useful deployment requires complete equality/conformal gates and a reproducible full serving cost advantage over the best qualified native implementation, without unacceptable memory/failure cost. Report raw numbers and cold amortization; do not infer speedup from shared parameter counts or operator-call counts. If no advantage survives competent controls, retain this as an implementation investigation rather than a utility result.

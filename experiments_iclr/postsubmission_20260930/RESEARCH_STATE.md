@@ -1,6 +1,8 @@
-# Current research status
+# GNNM post-submission research state
 
-Updated: 2026-10-02T02:02:10.843993+00:00. The research goal remains incomplete.
+Updated: 2026-10-02T02:02:10.843993+00:00. Goal incomplete.
+
+PUBLIC_STATUS.md gives the current status. research_ledger.json retains prior study records. The prior coordination state is preserved in coordination_snapshots/20261002_publication_before_state_v1/.
 
 ## Completed representative comparison
 

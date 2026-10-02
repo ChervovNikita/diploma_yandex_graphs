@@ -1,0 +1,11 @@
+# Prospective protocol amendment: derived_roles_v2
+
+This replaces only the Squirrel mask transformation in round5 v1. The graph, teacher schedule, source labels, correction candidates, qualification/final reporting rules, Photo transformation, and budgets retain their previously frozen specification. It is motivated by a label-free preparation failure, before any fit or score.
+
+For split indices0/1/2 paired with seeds17/29/43, verify the published train/validation/test masks partition N released nodes. Set `T=floor(.20N)` and `L=floor(.50N)-T`. Use NumPy Generator PCG64(seed+10000). Permute published train once; choose its first T for teacher training and retain its remainder in order.
+
+If published validation exceeds L, permute published validation using the same RNG stream; keep its first L in the source reservoir and designate the remainder final pool. Otherwise keep all published validation and fill to L from the beginning of the unused train permutation. Fail if either teacher train or the required reservoir fill cannot be supplied. Re-permute the completed reservoir using that same RNG stream. Split at `floor(2L/6)`, `floor(3L/6)`, `floor(5L/6)` into predictor validation/A/B/D. Final pool is all published test, unused train after fill, and surplus published validation. Sort each role before serialization. Existing independent random arrays/community/calibration schedules are unchanged.
+
+No labels or features determine role allocation. No class balancing is performed. Every node belongs to exactly one role. Every published test node belongs to final pool. The previously stated promise that all published validation stays source is withdrawn. Preserve exact native counts, surplus count, role arrays, RNG rule, preparation driver hash and all payload hashes in ROLE_FREEZE. Photo retains its original full-node uniform transformation.
+
+Root must use a fresh v2 output directory and new acquisition/admission identities; never reuse or overwrite v1 failed paths. Report v1's preparation failure and the v2 amendment alongside any eventual results. Source eligibility/qualification uses v2 roles uniformly across all paired methods. Final labels remain confined to the once-frozen reporting step.

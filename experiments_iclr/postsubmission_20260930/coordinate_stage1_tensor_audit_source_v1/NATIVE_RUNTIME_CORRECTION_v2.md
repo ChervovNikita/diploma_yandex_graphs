@@ -1,0 +1,3 @@
+# Native replay v2 runtime correction
+
+Static final review found that native sourcev1 had not explicitly set the frozen CUBLAS workspace configuration before importing Torch. The training runner sets this field before framework import. Sourcev1 and its unadmitted request/hash index are preserved. Use only `replay_selected_v2.py` with `REQUEST_TEMPLATE_v2.json`: v2 adds exactly `CUBLAS_WORKSPACE_CONFIG=protocol.runtime.cublas_workspace_config` before Torch import. No tolerance, tensor read list, model/cell, source/metric, resource or scientific gate changes. No source version was executed or compiled, and no comparative output was inspected. This resolves the concrete runtime-configuration omission before any native replay admission.
