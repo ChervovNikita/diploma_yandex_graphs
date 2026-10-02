@@ -1,37 +1,35 @@
 # Current research status
 
-Updated: 2026-10-02T15:46:33.373055+00:00. The research goal remains incomplete.
+Updated: 2026-10-02T17:19:09.124573+00:00. The research goal remains incomplete.
 
-## Running experiment
+## Additional GPU connection
 
-The exact authorized one-GPU route remains active. The latest query (15:44 UTC) observed utilization100%, memory31,381MiB and Photo seed17/common-only continuation275/950, actual update525. The same local execution handle51929 remains live. Canonical local coordinator metadata verifies 16/30 continuations, including the first Photo graph fit, plus6/6 numerical checks,6/6 warm trajectories and30/30 initializations. Final labels remain closed. The completed phases cost8916.4 whole supervised seconds; this excludes ongoing phases and is not an ETA.
+18.77 is reachable and authenticated through the linked Mac. The user explicitly permitted the existing seven-GPU account as the MacLink forwarding relay; no commands or experiments execute on that allocation. Its earlier scientific evidence remains excluded. The server password was consumed privately from the user-designated Desktop text file and was not returned or recorded. The Git key passphrase is separate from the server password.
 
-The operative hypothesis is whether graph-filtered training errors initialize private routes more usefully than common descent, random tangent directions, altered topology and warm copying. Five arms on PolyFormer-Mono/filtered Squirrel and Polynormer-r/Photo use three fixed paired seed/split contexts. The outcome-aware exploratory study does not constitute confirmation or published-test reproduction. Compare/report/final-label access waits for genuine72-phase closure and separate admissions.
+Two NVIDIA A100 80 GB devices were verified. Both showed existing activity; their process metadata was inaccessible, and no jobs were stopped. The existing project folder was a source/archive workspace without Git. A new checkout inside it, `postsubmission_git`, now contains the exact published research branch at b7534aa685f62c2c52ab749da49a26a9ce9b836e. Existing parent files were preserved. The latest repaired sources are being published before the next sync.
 
-The local coordinator owns live completion receipts. Remote copies of its receipts are publication snapshots; their counts must not be used as current counts. Each retained progress query discloses this limitation separately.
+The saved runtime is Python 3.12.11, Torch 2.7.1 and PyG 2.4.0. All requested BUDDY dependencies were installed in an isolated project-local target. The user permits our jobs alongside existing GPU activity; their jobs will remain running. Its own numerical and resource qualification is required; the one-GPU certificate does not qualify this different runtime.
 
-## Stronger controls
+## Active graph-initialization experiment
 
-Packed native M4 and cached-token PolyFormer MIMO ports previously passed seven synthetic CPU tests. Actual full-context/GPU qualification, trained comparisons and efficiency measurement remain pending. PyG reported vmap scatter batching fallbacks; correctness is not a speed claim.
+The original one-GPU execution handle 51929 remains active. Canonical local receipts verify 17 of 30 continuations, plus all six numerical checks, six warm trajectories and 30 initializations. Completed phases account for 14251.6 supervised seconds, excluding current work. The latest 17:02 UTC query observed 100% GPU utilization and Photo seed17/random-tangent continuation 147/950. Final labels remain closed; no new comparison or advantage is claimed.
 
-A real cfg0 fitting adapter prepares21 fixed cells for native single, independent M4, parameter-capped M4 and applicable MIMO across the current contexts. Independent source review identified missing qualification source/input bindings and swallowed interval-end CUDA synchronization errors; v1 is preserved and v2 is repaired and sealed. Root inspected both fixes; independent review verifies the sealed payload and rejects mismatched source/input/runtime identities. No GPU or predictive fit is qualified by these source checks. Independent M4 uses a joint pooled selector and mean-member loss, so it is an aligned control rather than an exact independently selected native reproduction. No full-context execution is admitted before current study closure and root qualification.
+Five fixed arms compare graph-filtered training-error initialization with common descent, random tangent directions, altered topology and warm copying on modern backbones. The exploratory context and decisions are retained. Report and final-label access require the complete registered cohort. Remote copies of coordinator receipts are publication snapshots; local receipts own live counts.
 
-## Industrial and temporal tasks
+## Link prediction
 
-The earlier mount/chroot route remains unavailable. Landlock/seccomp CPU fixtures passed19 groups, but two actual restricted import diagnostics failed at NumPy after restrictions. V2 preserved the inner loader exception:libz.so.1 cannot open. A regular108,936-byte pinned zlib copy is now inside the project, SHA25664c206f0146cc58bbddc4f22054436f4ff278f5a554aa3ce6921ddf7e9133370. The v3 contract granted only that file. The root-executed v3 diagnostic imported packaging, NumPy and SciPy after restrictions, then pandas failed during NumPy random initialization with “/dev/urandom (or equivalent) not found”. No dataset or model was loaded and no GPU was initialized in these diagnostics. Their restrictions and unchanged host state were observed; GPU compatibility remains unqualified.
+Repaired BUDDY source v4 passed an independent source inspection and all seven numerical CPU checks on the one-GPU runtime. The v4 correction reads official split metadata from the installed OGB loader. V2's failed dynamic-loader check is preserved. The complete official ogbl-collab archive was downloaded on this Mac after the server TLS acquisition failed, transferred byte for byte into the repository, and verified. No member was opened or extracted during acquisition; test pairs remain closed.
 
-RelBench F1 Stage1 source prepares native temporal HeteroGraphSAGE and full-data history/raw LightGBM controls. Its independent source review found no confirmed blocking source bug; runtime, assets, sampler/SQL/input qualification and real fits remain pending.
+Next steps are complete-data training-topology verification, one shared native cache, actual 18.77 numerical qualification and resource epochs, then the fixed five-arm, three-seed family across the two GPUs. Independent predictors receive the same deterministic cache. This study tests compact ensemble storage and predictive benefit; it is not yet a new learner or result.
 
-## Literature and conclusions
+## Industrial runtime and other controls
 
-The new cached-structure LP packet supports a practical BUDDY benchmark with fair shared-cache reuse for independent predictors. It does not establish a new learner. Link-MoE already uses pair-structural expert routing; its official-validation supervision differs materially from a training-only pilot. PENCIL is a recent structural competence reference. No LP dataset or model run was launched.
+All 14 pinned native import checks now pass after Landlock/seccomp. The explicit v6 difference is one actual, validated read-only kernel entropy device. Regular library checks, sensitive-file denials and the core syscall policy remain in place; host namespaces and mounts were unchanged. All failed predecessors are preserved. These imports do not qualify data, a fitted model or GPU execution.
 
-Literature index_v16 holds81 conclusion records,37 normalized paper identifiers and2 software documentation identifiers. This is indexed post-submission coverage, not a count of complete-paper reads. The newest packet adds two scoped primary reads and one retained revisit. Sampling coupling, generic repulsion, graph curvature and initialization ancestry retain their prior-work limitations. No methodological novelty is established.
+The repaired 21-cell stronger node-classification control fitter has passed source review. Actual full-context fits and efficiency measurements remain pending. Stored parameters alone are not a latency or memory improvement. RelBench temporal source preparations also await real runtime/data qualification.
 
-## Preservation, publication and scope
+## Literature and scientific claims
 
-Original paper scores remain unchanged. Unsuccessful studies, source reviews, numerical/launch failures and wrong-allocation evidence are preserved. Latest verified pushed head remains860c0cdab4339b52683beb43c27a44c7737e7b17; this follow-up is pending publication. Explicit fetches through163 are retained.
+Literature index v17 contains 86 conclusion records across 42 normalized paper identifiers and two software identifiers. The five newest papers were scoped method reads, not complete-paper reads. Notes are retained to avoid repeated acquisition. Jacobian ensemble construction, output-scale matching, graph-Gaussian priors and adapter Laplace inference have close prior work. No new Bayesian or initialization principle is established. A separate heterogeneous-graph search is underway.
 
-Only anogena-2 on port2222 and UUID GPU-44039938-fd82-41d2-fefd-de71514e2fac are used. It is one device, physical minor7. Never access the forbidden seven-GPU account. The user explicitly requests18.77 activation and Git sync. Direct192.168.18.77:22 timed out and the linked Mac name did not resolve. The active MacLink controller uses the prohibited account as its relay; no commands were sent through it. A separate one-GPU relay controller is now ready on port28444; the other Mac must pair with it. Configuration and findings are in gpu77_connection_recovery_v1. Neither18.77 authentication nor its GPU inventory has been verified. Work is confined to the local project and authorized remote repository; no sudo, PDF compilation, GENLINK, Desktop/unrelated files or original-score recalculation.
-
-No new predictive superiority, revised manuscript or acceptance recommendation is claimed. Fresh paper reviewers require a complete immutable evidence-backed manuscript and no author history or requested verdict. Source reviews are engineering reviews.
+Original paper scores remain unchanged. No new predictive superiority, methodological novelty, revised manuscript or paper acceptance is claimed. Future paper reviewers receive immutable evidence and fresh context through the requested skill. Source audits are engineering checks. No sudo, PDF compilation or GENLINK is used; project operations remain in the authorized folders. The old automation was absent; an active replacement with the same id was successfully created and monitors every thirty minutes.

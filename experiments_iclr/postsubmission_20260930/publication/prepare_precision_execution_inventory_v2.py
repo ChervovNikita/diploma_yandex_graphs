@@ -25,7 +25,7 @@ def main():
         root = PHASE / relative
         assert root.resolve().is_relative_to(PHASE) and root.is_dir() and not root.is_symlink()
         selected.update(p for p in root.rglob('*') if p.is_file() and not p.is_symlink()
-                        and p.suffix in EXTENSIONS and '__pycache__' not in p.parts)
+                        and (p.suffix in EXTENSIONS or p.name == '.gitignore') and '__pycache__' not in p.parts)
     for name in ('PUBLIC_STATUS.md', 'RESEARCH_STATE.md', 'research_ledger.json',
                  'publication/prepare_precision_execution_inventory_v2.py'):
         selected.add(PHASE / name)

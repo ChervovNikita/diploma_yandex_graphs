@@ -1,0 +1,1531 @@
+Preprint. Under review.
+
+
+Graph Random Features for Scalable
+Gaussian Processes
+Matthew Zhang♦1       Jihao Andreas Lin♦1 2     Krzysztof Choromanski♦3
+Adrian Weller♦1 4    Richard E. Turner♦1 4     Isaac Reid♦1 3
+
+1University of Cambridge2Max Planck Institute for Intelligent Systems
+3Google DeepMind4Alan Turing Institute
+matthew.zhang473@gmail.com         ir337@cam.ac.uk
+                                          Abstract
+         We study the application of graph random features (GRFs) – a recently-in-
+         troduced stochastic estimator of graph node kernels – to scalable Gaussian
+         processes on discrete input spaces. We prove that (under mild assumptions)
+         Bayesian inference with GRFs enjoys 𝒪(𝑁3/2) time complexity with respect
+         to the number of nodes 𝑁, with probabilistic accuracy guarantees. In
+         contrast, exact kernels generally incur 𝒪(𝑁3). Wall-clock speedups and
+         memory savings unlock Bayesian optimisation with over 1M graph nodes
+         on a single computer chip, whilst preserving competitive performance.
+
+1   Introduction and related work
+Gaussian processes (GPs) provide a powerful framework for learning unknown functions
+in the presence of uncertainty (Rasmussen, 2003). In certain applications, kernels based
+on Euclidean distance may be unsuitable: for example, when modelling traffic congestion,
+since pairs of locations that are spatially close may not be connected by roads. In this case,
+kernels defined on the nodes of a graph 𝒢 may be more appropriate (Borovitskiy et al., 2021;
+Smola and Kondor, 2003). One can then perform inference and make principled predictions,
+including during Bayesian optimisation, using GPs on graphs.¹
+Scalability of GPs on graphs. Like their Euclidean cousins, exact GPs on graphs incur
+𝒪(𝑁3) time complexity with respect to the number of nodes 𝑁. This makes them impractical
+when working with very large graphs. To mitigate this, practitioners use techniques such as
+‘graph Fourier features’, which approximate the kernel matrix with a truncated eigenvalue
+expansion, or specific sparse kernel families (Borovitskiy et al., 2021). The former loses
+high-frequency kernel information and the latter limits flexibility. Alternatively, one can use
+kernels for small, local subgraphs, at the cost of no longer performing inference on the whole
+of the graph 𝒢 (Wan et al., 2023).
+Graph random features. In this paper, we propose to instead use the recently-intro-
+duced class of graph random features (GRFs) – sparse, unbiased estimates of graph node
+kernels computed using random walks (Choromanski, 2023; Reid et al., 2023). GRFs are
+Monte Carlo estimators of power series of weighted adjacency matrices, analogous to Von
+Neumann’s celebrated Russian Roulette estimator (Carter and Cashwell, 1975; Hendricks
+and Booth, 2006). GRFs enjoy strong concentration properties (Reid et al., 2024b). They
+are able to estimate a flexible class of graph node kernels – including the popular diffusion
+and Matérn kernels – by varying the so-called ‘modulation function’.
+GRFs for scalable GPs. Reid et al. (2024a) previously suggested using GRFs for GPs, as
+part of a broader study of variance reduction techniques. However, their experiments focused
+exclusively on the diffusion kernel with small graphs, failing to exploit the estimator’s
+sparsity to accelerate inference. Moreover, they limited their (chiefly theoretical) study to
+computing the posterior, omitting exploration of applications such as Bayesian optimisation.
+
+
+   ¹We consider GPs defined on the nodes of a fixed graph. The input space is finite and we perform
+inference for a finite set of random variables, one per node. The relationships between these variables
+are determined by the structure of 𝒢 via a graph node kernel. Whilst some might prefer to call this
+a ‘Gaussian random field’ or simply a ‘multivariate Gaussian’, in this paper we use ‘GP on a graph’
+for consistency with recent literature (Borovitskiy et al., 2021; Reid et al., 2024a; Wan et al., 2023).
+
+
+                                                 1
+
+Preprint. Under review.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 1: GRFs for scalable GPs on graphs. The GRF algorithm constructs random𝑁
+feature 𝜑(𝑖)for node    𝑖∈ {1,…,𝑁} using random walks. 𝐊̂        ≔ [𝜑(𝑖)⊤𝜑(𝑗)]       is a sparse
+                                                                                𝑖,𝑗=1       3/2
+approximation of the kernel matrix 𝐊𝛼, enabling efficient posterior inference in 𝒪(𝑁           ).
+Key contributions. We investigate graph random features (GRFs) for Gaussian processes
+(GPs), unlocking scalable Bayesian inference on graphs with >       1M nodes. See Figure 1.
+
+1. We use GRFs to construct sparse estimates of learnable graph node kernels, and use
+   these as covariance functions for GPs.
+2. We prove that Bayesian inference with GRFs enjoys 𝒪(𝑁3/2) time complexity with prob-
+   abilistic guarantees on approximation quality, compared to 𝒪(𝑁3) for exact alternatives.
+   In experiments, this translates to 50× wall-clock speedups on graphs with fewer than
+   10K nodes. Remarkably, the flexibility of GRFs sometimes enables them to outperform
+   dense alternatives on test negative log probability density and root mean squared error.
+3. We showcase our new techniques by performing Bayesian optimisation on massive graphs,
+   implementing Thompson sampling with >         1M nodes on a single computer chip.²
+
+2   Preliminaries
+
+Consider an undirected graph 𝒢     = (𝒱,ℰ,𝐖), consisting of nodes 𝒱     =  {1,…,𝑁}, edges ℰ    ⊆
+𝒱 × 𝒱, and a weighted adjacency matrix 𝐖       ∈  ℝ𝑁×𝑁. Here 𝐖𝑖𝑗     = 0 if (𝑖,𝑗)∉ ℰ. Define the
+graph Laplacian 𝐋   = 𝐃  −  𝐖, with 𝐃   =  diag(∑𝑁     𝐖    ). The normalised graph Laplacian
+                                                    𝑗=1   𝑖𝑗
+is ̃𝐋≔ 𝐃−1/2𝐋𝐃−1/2, whose spectrum lies in [0,2] (Chung, 1997).
+
+Graph node kernels. A graph node kernel is a symmetric, positive semidefinite function
+𝑘 :𝒱 ×  𝒱 →  ℝ, mapping pairs of graph nodes to real numbers (Smola and Kondor, 2003).
+Heuristically, it assigns similarity scores to every pair of nodes, which are assembled into a
+Gram matrix 𝐊≔     [𝑘(𝑖,𝑗)]𝑁    ∈ ℝ𝑁×𝑁. Many popular graph node kernels are parameterised
+                           𝑖,𝑗=1
+as functions of 𝐖, 𝐋 or ̃𝐋, expressed using the power series
+
+                                  ∞
+                      𝐊𝛼(𝐖)=      ∑   𝛼𝑟𝐖𝑟  ,  𝛼𝑟  ∈ ℝ  ∀𝑟  ∈ (0,1,…,∞).                      (1)
+
+                                  𝑟=0
+The coefficients (𝛼  )∞   determine the behaviour of the kernel, e.g. whether it upweights
+                    𝑟 𝑟=0
+long- or short-range interactions. For instance, the graph diffusion kernel 𝐊diff   ≔  exp(−𝛽𝐋)
+takes 𝛼𝑟 =  (−𝛽)𝑟 /𝑟!. Graph node kernels flexibly capture structural information about 𝒢,
+providing a natural choice for the GP covariance (Borovitskiy et al., 2021; Reid et al., 2024a).
+
+  ²Specifically, an NVIDIA GeForce RTX 2080 Ti GPU (11 GB memory).
+
+
+                                                2
+
+Preprint. Under review.
+
+
+
+
+Gaussian processes. Let us now consider modelling functions ℎ             :𝒱 →   ℝ defined on the
+graph nodes. A common task is to identify the node that maximises ℎ, e.g. the most
+influential social media user, or ‘patient zero’ in an epidemiological contact network. We
+may wish to solve 𝑥∗   =  arg max𝑥∈𝒱   ℎ(𝑥). Suppose we have access to a sequence of 𝑇 noisy
+observations of the objective 𝑦    = ℎ(𝑥  )+  𝜀,𝜀  ∼ 𝒩(0,𝜎2),𝑡    ∈ (1,2,…,𝑇) at distinct nodes
+          2                      𝑡       𝑡                   𝑛
+𝑥𝑡 ∈ 𝒱. 𝜎𝑛 is the noise variance. A common choice of statistical surrogate for the objective
+function ℎ𝑇, for which we can perform analytic Bayesian inference given observations 𝒟𝑇          =
+{(𝑥𝑡,𝑦𝑡)}𝑡=1 (also denoted 𝒟𝑇    =  {𝒙,𝒚}), is the Gaussian process (GP) (Rasmussen, 2003):
+                                   ℎ(𝑥)∼   GP(𝑚(𝑥),𝑘(𝑥,𝑥′)).                                    (2)
+
+Here, 𝑚(𝑥) is the mean function and 𝑘(𝑥,𝑥′) the covariance function (‘kernel’). In our
+setting, the input domain consists of the nodes of a fixed graph. We can ‘train’ the kernel∞
+parameters (𝛼𝑟  )𝑟=0 by maximising the log-marginal likelihood on the training data 𝒟𝑇        , and
+then compute the analytic posterior mean and covariance:
+                    𝑚   (𝑥)=   𝑚(𝑥)+   𝑘(𝑥,𝒙)[𝑘(𝒙,𝒙)+      𝜎2𝐈]−1(𝒚  −  𝑚(𝒙)),                  (3)
+                      |𝒚                                    𝑛
+                   𝑘  (𝑥,𝑥′)=    𝑘(𝑥,𝑥′)−   𝑘(𝑥,𝒙)[𝑘(𝒙,𝒙)+     𝜎2𝐈]−1𝑘(𝒙,𝑥′).                   (4)
+                     |𝒚                                          𝑛
+Bayesian optimisation (BO) (Jones et al., 1998; Močkus, 1974) uses the posterior mean and
+covariance – or related quantities, like samples from the posterior – to efficiently locate 𝑥∗ in
+the presence of uncertainty. BO trades off exploration and exploitation in a mathematically
+principled manner, helping us decide which nodes to query in our attempt to maximise ℎ.
+Efficiency and scalability. A core computational challenge with performing Bayesian
+inference on graphs using GPs is that even just evaluating a dense graph kernel 𝐊𝛼 generally
+incurs 𝒪(𝑁3) time complexity, let alone computing the matrix-vector products and matrix
+inversions that we will in general require for BO. This is because it involves computing
+functions like exp(⋅) or (⋅)−1 of the 𝑁   ×  𝑁 weighted adjacency matrix 𝐖, which becomes
+expensive for big graphs. For Euclidean kernels, a common recourse to improve scalability
+is to use random features (Rahimi and Recht, 2007; Yang et al., 2014): stochastic, finite-
+dimensional features {𝜑(𝑖)}𝑁      ∈  ℝ𝑚 whose dot product is equal to the kernel evaluation
+                              𝑖=1 ⊤
+in expectation, 𝑘(𝑖,𝑗)=    𝔼(𝜑(𝑖)   𝜑(𝑗)). In close analogy for discrete domains, researchers
+recently introduced graph random features (GRFs) (Choromanski, 2023; Reid et al., 2023)
+– sparse random walk-based vectors for unbiased estimation of graph node kernels.
+Graph random features: sparse, sharp kernel estimators using random walks.
+The mathematical details of GRFs are involved and can be safely omitted on a first reading,
+but their behaviour can be intuitively understood as follows. Consider a sequence of scalars∞𝑟∞
+(𝑓𝑙)𝑙=0 satisfying ∑𝑙=0 𝑓𝑙𝑓𝑟−𝑙  = 𝛼𝑟  ∀ 𝑟, namely, the ‘deconvolution’ of (𝛼𝑟)𝑟=0. We refer to 𝑓𝑙
+as the modulation function. Suppose that the power series 𝚿       ≔  ∑∞    𝑓 𝐖𝑙 converges. Then
+                                                                        𝑙=0  𝑙
+it is straightforward to see that for symmetric 𝐖 (undirected graphs), we have 𝚿⊤𝚿               =
+𝐊𝛼. Powers of an adjacency matrix count walks on a graph: for instance, 𝐖𝑖𝑙𝑗 gives the
+(weighted) number of walks of length 𝑙 between nodes 𝑖 and 𝑗. Since 𝐊𝛼           converges, longer
+walks must eventually be discounted, either due to decaying 𝑓𝑙 or due to multiplication of
+edge weights that are less than 1. The key insight of GRFs is that we can compute a Monte
+Carlo estimate 𝚽   ∈  ℝ𝑁×𝑁 that satisfies 𝚿    =  𝔼(𝚽) by importance sampling random walks.
+
+Concretely, we simulate random walks out of every node of the graph. Each random walk
+of length 𝐿 consists of a number of ‘prefix subwalks’ – namely, for each step 𝑙<            𝐿, the
+sequence of the first 𝑙 nodes visited. We keep track of 1) the weights of edges they traverse,
+2) the modulation function 𝑓, and 3) their marginal probabilities. Using a simple formula,
+we can construct unbiased,³ sparse 𝑁-dimensional vectors that satisfy 𝔼(𝜑(𝑖)⊤𝜑(𝑗))=
+
+
+   ³It has been noted that the shared source of randomness actually introduces a 𝒪(1/𝑛) bias term
+for estimates of diagonal kernel entries [𝐊𝛼]𝑖,𝑖. This is of little significance for large graphs with many
+walkers so, following convention (Choromanski, 2023; Reid et al., 2023), we omit further discussion.̂
+One could remove this bias by sampling two independent ensembles of random walks and taking 𝐊=
+𝚽1𝚽2⊤, at the cost of losing the positive definiteness guarantee and thus (typically) worse performance.
+
+
+                                                 3
+
+Preprint. Under review.
+
+
+
+
+𝔼([𝚽𝚽⊤]    )=   [𝐊𝛼]   . Alg. 1 below provides pseudocode. It is deliberately kept high-level
+          𝑖𝑗         𝑖,𝑗
+for compactness; the interested reader can find more details in App. A.
+
+Algorithm 1: Constructing a GRF vector 𝜑(𝑖)∈          ℝ𝑁 to approximate 𝐊𝛼(𝐖)
+
+
+1 Inputs: Graph 𝒢, modulation function 𝑓       :ℕ →   ℝ, random walk sampler 𝑝.
+2 Output: Set of sparse GRFs {𝜑(𝑖)}𝑁        ∈ ℝ𝑁 that satisfy [𝐊    ]   = 𝔼(𝜑(𝑖)⊤𝜑(𝑗)).
+                                        𝑖=1                        𝛼 𝑖,𝑗
+3 for 𝑖∈  𝒱:
+4   initialise 𝜑(𝑖)←  𝟎
+5   for walker_idx    ∈ 1,…,𝑛:
+6      sample random_walk    ∼  𝑝
+7      for prefix_subwalk     ∈ random_walk:
+
+8        𝜑(𝑖)[prefix_subwalk[−1]]+      =  (∏traversed_edge_weights)∗
+         𝑓(length(prefix_subwalk))/𝑝(prefix_subwalk)
+9      normalise 𝜑(𝑖)/  =  𝑛
+
+Remarkably, under mild assumptions on 𝒢 and (𝛼        )∞  , GRFs provide very sharp estimates
+                                                     𝑟 𝑟=0
+of 𝐊𝛼. In particular, the estimates satisfy exponential concentration bounds, whilst storing
+only 𝒪(1) nonzero entries per feature. See Theorem 1 for a formal statement. As we will see
+in Section 3, we can use the sparse kernel estimate 𝐊̂   ≔  𝚽𝚽⊤ as an efficient alternative to
+the dense exact kernel 𝐊𝛼   , speeding up inference from 𝒪(𝑁3    ) to 𝒪(𝑁3/2).
+
+3   Scalable posterior inference with GRFs
+
+Next, we demonstrate how GRFs speed up inference. We begin by proving novel theoretical
+results (Section 3.1), and then describe our full efficient GP workflow (Section 3.2).
+
+3.1  Novel theoretical results
+
+We first recall the following result for GRFs, proved by Reid et al. (2024b).
+Theorem     1. (GRFs are sparse and give sharp kernel estimates                  (Reid et al.,
+2024b𝑁 )). Consider a graph 𝒢 with weighted adjacency matrix 𝐖 and node degrees
+{𝑑𝑖}   . Suppose we sample GRFs {𝜑(𝑖)}𝑁         by sampling 𝑛 random walks that terminate
+    𝑖=1                                     𝑖=1
+with probability ∞𝑝 at each timestep, with modulation function 𝑟     𝑓. Suppose also that 𝑐   ≔
+∑𝑟=0|𝑓𝑟|  (max𝑖,𝑗∈⟦1,𝑁⟧ 𝐖𝑖𝑗𝑑𝑖/(1−    𝑝))  is finite. Then we have that
+                                                                  𝑡2𝑛3
+                  ℙ(|𝜑(𝑖)⊤𝜑(𝑗)−    [𝐊𝛼]   | > 𝑡) ≤  2exp(  −               ).                (5)
+                                        𝑖,𝑗                  2(2𝑛−   1)2𝑐4
+
+Moreover, with probability at least 1−     𝛿, any GRF 𝜑(𝑖) is guaranteed to be sparse, with
+at most 𝑛log(1−    (1−  𝛿)1/𝑛)log(1−   𝑝)−1 nonzero entries.
+
+Proof. The proof, based on McDiarmid’s inequality, is reported by Reid et al. (2024b). ∎
+Theorem 1 demonstrates that, despite being sparse, GRFs give sharp kernel estimates. In
+particular, we can use Eq. (5) to compute the number of walkers 𝑛 needed to guarantee
+an accurate estimate of 𝐊𝛼 with high probability. Because of the bound, this number is
+independent of the graph size 𝑁. 𝑛 then determines the number of nonzero entries in the
+GRF, which also inherits independence of graph size 𝑁. We note that Theorem 1 makes the
+mild assumption about the graph 𝒢 that the constant 𝑐 is finite. This is not controversial;
+Reid et al. (2024b) provide extensive discussion. Intuitively, it is natural that the spectrum∞
+of 𝐖 must lie in some radius of convergence in order for the power series ∑            𝛼𝑟𝐖𝑟 to
+                                                                                   𝑟=0
+converge. The condition for its Monte Carlo estimate to converge is only slightly stronger.
+
+
+                                               4
+
+Preprint. Under review.
+
+
+
+
+For computational reasons we often only sample random walks up to some fixed maximum
+length 𝑙max, e.g. a fraction of the graph diameter, whereupon 𝑓𝑙     =  0 ∀  𝑙>  𝑙max (discussed
+in App. C.1). The condition thus trivially holds in any reasonable implementation.
+Given Theorem 1, we will henceforth assume that the number of walkers 𝑛 is constant,
+confident that this gives a sharp kernel estimate. Property (2) of Theorem 2 is novel.
+Theorem 2. (Properties of 𝐊̂      ). The randomised approximate Gram matrix 𝐊̂        ≔  𝚽𝚽⊤   =
+[𝜑(𝑖)⊤𝜑(𝑗)]𝑁     ∈ ℝ𝑁×𝑁 has the following properties.
+            𝑖,𝑗=1
+1. Property 1. 𝐊̂  supports 𝒪(𝑁) matrix-vector multiplication;
+2. Property 2. The condition number of the approximate Gram matrix 𝜅(𝐊̂         +  𝜎2𝐈) is 𝒪(𝑁).
+                                                                                    𝑛
+Proof. Property (1) follows trivially from the fact that 𝐊̂        has   𝒪(𝑁) nonzero entries,
+whereupon matrix-vector multiplication only requires 𝒪(𝑁) operations. Considering (2),
+since 𝐊̂ is positive definite, the smallest possible eigenvalue of 𝐊̂+𝜎2𝐈 is 𝜎2. Then note that
+                                                                        𝑛     𝑛
+                           √   𝑁            √   𝑁
+                           √                √
+         ‖𝐊̂ ‖ ≤  ‖𝐊̂‖  ≔  √  ∑   |𝐊̂  |2 = √  ∑   |𝜑(𝑖)⊤𝜑(𝑗)|2  ≤ 𝑁  max|𝜑(𝑖)⊤𝜑(𝑗)|.         (6)
+              2       F              𝑖,𝑗                               𝑖,𝑗
+                           √  𝑖,𝑗=1         √  𝑖,𝑗=1
+Under the assumptions above ‖𝜑(𝑖)‖1     ≤ 𝑐 ∀  𝑖, whereupon |𝜑(𝑖)⊤𝜑(𝑗)|   ≤ 𝑐2 ∀  𝑖,𝑗. Hence, we
+have that 𝜅(𝐊̂  + 𝜎2𝐈)≤    1+  𝑁  𝑐2, which is 𝒪(𝑁) as claimed. ∎
+                    𝑛             𝜎2
+                                   𝑛
+Theorem 2 immediately implies the following corollary, which is also novel for GRFs.
+Lemma 1. Solving the sparse linear system. Consider solving (𝐊̂             + 𝜎2𝐈)𝒗  =  𝒃, where
+                                                                               𝑛
+𝒗,𝒃 ∈ ℝ𝑁. This can be achieved with the conjugate gradient method in 𝒪(𝑁3/2) time.
+
+Proof. Using the conjugate gradient method, it is known that the system can be solved in
+√ 𝜅(𝐊̂ +  𝜎𝑛2𝐈) iterations (Shewchuk, 1994), which by property (2) above is 𝒪(𝑁1/2). Each
+iteration involves matrix-vector multiplication, which is 𝒪(𝑁) in our case due to property
+(1). Combining gives a total time complexity of 𝒪(𝑁3/2). ∎
+We remark that this is substantially less than the 𝒪(𝑁3) time complexity of exact GP
+methods that use 𝐊𝛼 rather than 𝐊̂     . It is also straightforward to see that Theorem 2 and
+Lemma 1 will continue to hold if we only consider a subset of the nodes of the graph, e.g.
+just considering a set of training nodes of cardinality 𝑁train  ≤ 𝑁.
+
+3.2  From pathwise conditioning to conjugate gradients
+
+We now introduce the three-step ‘recipe’ of posterior inference using GRFs: kernel initial-
+isation, hyperparameter learning and posterior inference. We will also analyse the overall
+time and space complexity of this workflow. App. C.1 gives further heuristic guidance for
+practitioners, including for choosing the number of walkers 𝑛.
+Kernel initialisation. We compute the Gram matrix using Alg. 1, which involves sampling
+𝑛 random walks for every node on the graph. This yields a sparse kernel approximation:
+                           𝐊̂ ≔  𝚽𝚽⊤   =  [𝜑(𝑖)⊤𝜑(𝑗)]𝑁     ∈  ℝ𝑁×𝑁.                           (7)
+                                                      𝑖,𝑗=1
+In practice, 𝐊̂ does not need to be materialised as we can replace the matrix-vector product
+𝐊̂𝒗 with two fast matrix-vector products 𝚽(𝚽⊤𝒗). Each is computed in linear time.
+
+Hyperparameter learning. Denote the training data 𝒟𝑇             =  {𝒙, 𝒚}, containing training
+nodes 𝒙 and corresponding noisy observations 𝒚. We learn the hyperparameters 𝜽, such as
+observation noise and the modulation function 𝑓, by maximising the log marginal likelihood,
+                      ℒ(𝜽)=   −1𝒚⊤𝐇−1𝒚     −  1log det(𝐇   )−  𝑁  log(2𝜋),                    (8)
+                                2      𝜽      2           𝜽     2
+where 𝐇    = (𝐊̂    + 𝜎2𝐈). We use the Adam optimiser and estimate the gradient,
+         𝜽       𝒙𝒙     𝑛
+
+
+                                                5
+
+Preprint. Under review.
+
+
+
+
+                    ∇ℒ(𝜽)=     1(𝐇−1𝒚)⊤    𝜕𝐇𝜽  (𝐇−1𝒚)−     1tr(𝐇−1𝜕𝐇𝜽      ),                  (9)
+                               2    𝜽       𝜕𝜽      𝜽       2       𝜽   𝜕𝜽
+
+using iterative methods (Gardner et al., 2018; Lin et al., 2024a). These avoid explicit matrix
+inverses via iterative linear system solvers such as conjugate gradients (CGs) (Hestenes and
+Stiefel, 1952; Shewchuk, 1994). Since CGs rely on matrix-vector multiplication, this allows
+us to leverage the efficient structure of GRFs. Meanwhile, the trace term is estimated using
+Hutchinson’s trace estimator (Hutchinson, 1990),
+                         𝜕𝐇                    𝜕𝐇           1  𝑆          𝜕𝐇
+                tr(𝐇−1       𝜽 ) =  𝔼(𝒛⊤𝐇−1        𝜽𝒛)   ≈    ∑   𝒛⊤𝐇−1       𝜽𝒛  ,            (10)
+                       𝜽  𝜕𝜽                 𝜽  𝜕𝜽         𝑆       𝑠   𝜽   𝜕𝜽   𝑠
+                                                              𝑠=1
+where 𝒛𝑠 are random probes satisfying 𝔼 [𝒛𝑠𝒛𝑠⊤]      =  𝐈. This gives a batch of linear systems,
+
+                              𝐇𝜽 [𝒗𝒚,𝒗1,…,𝒗𝑆]      =  [𝒚,𝒛1,…,𝒛𝑆],                             (11)
+
+which can be solved via iterative methods. The solutions allow us to estimate ∇ℒ.
+Posterior inference. We perform posterior inference using pathwise conditioning (Wilson
+et al., 2020; 2021) and iterative methods – a combination that has attracted recent interest
+in the literature (Lin et al., 2024b; 2025). This allows us to exploit the efficient structure
+of GRFs. In particular, pathwise conditioning expresses a sample from the posterior as a
+sample from the prior with an additional correction term,
+                    𝒈   (⋅)=  𝒈(⋅)+  𝐊̂   (𝐊̂    +  𝜎2𝐈)−1(𝒚−    (𝒈(𝒙)+   𝜺)),                 (12)
+                      |𝒚               (⋅)𝒙   𝒙𝒙     𝑛
+
+where (⋅) is any node of the graph 𝒢, 𝒈|      𝒚 is a sample from the posterior, 𝒈 is a sample
+from the prior, and 𝜺  ∼  𝒩(𝟎,𝜎2𝐈). This facilitates the use of iterative linear system solvers
+                            −1    𝑛
+to compute (𝐊̂      +  𝜎2𝐈)    (𝒚 − (𝒈(𝒙)+   𝜺)), which again avoids the explicit inverse and
+                 𝒙𝒙     𝑛
+leverages sparse matrix multiplication.4 Once more, we use CGs (Hestenes and Stiefel, 1952;
+Shewchuk, 1994) as linear system solver, though alternatives have recently been proposed
+(Lin et al., 2023; 2024c). The structure of the GRFs kernel also admits efficient sampling
+from the prior via 𝒈  =  𝚽𝒘 with 𝒘    ∼  𝒩(𝟎,𝐈),5 since Cov(𝚽𝒘)=        𝚽𝚽⊤   =  𝐊̂.
+
+Algorithm complexity. Kernel initialisation takes 𝒪(𝑁) time, since a fixed number of
+random walks are simulated from all 𝑁 nodes. Training and inference are dominated by
+CG solvers, with 𝒪(𝑁3/2) time complexity (Lemma 1). All stages use sparse matrices (e.g.
+𝐊̂+  𝜎𝑛2𝐈) with 𝒪(𝑁) nonzero entries, giving overall space complexity 𝒪(𝑁).
+
+4   Experimental results
+
+Here, we present empirical results demonstrating the scalability and practical effectiveness
+of the GRF-GPs model. In each case, full experimental details are provided in App. C.
+
+4.1  Computation complexity and ablations
+
+Dense vs. sparse GRFs: the importance of an efficient implementation. We
+benchmark posterior inference on synthetic graphs under two GRF implementations. First,
+we consider a dense baseline that uses GRFs, but explicitly materialises the 𝑁         × 𝑁 kernel
+approximation and computes its inverse. Second, we take the sparse GRF method described
+in Section 3.2, storing the random walk trajectories and solving the corresponding linear
+systems with CG methods. Table 1 summarises the results, with full measurements provided
+
+
+   4An alternative to solving this sparse linear system is to use the Johnson-Lindenstrauss trans-
+formation to reduce the dimensionality of the features {𝜑(𝑖)}𝑁   ∈ ℝ𝑁, whilst preserving their dot
+                                                              𝑖=1
+products in expectation (Dasgupta and Gupta, 2003). At the cost of sacrificing sparsity, we can then
+use the Woodbury Identity to efficiently solve a smaller linear system. We describe this in App. B.
+   5𝒈 is an 𝑁-dimensional vector corresponding to a sample evaluated at all 𝑁 nodes. One could
+consider a subset of nodes, where the prior sample 𝒈(⋅) now corresponds to the vector’s (⋅)th entry.
+
+
+                                                 6
+
+Preprint. Under review.
+
+
+
+
+in the App. C.2 (Table 3 and Table 2). For a graph with 8192 nodes, we observe a 50×
+speedup in total wall-clock time.
+Table 1:  GRF-GPs have sub-quadratic time scaling and linear memory scaling.
+Empirical scaling exponents (± s.d.) for memory usage, kernel initialisation, training, and
+inference with respect to graph size 𝑁. In the table, an entry 𝑏 indicates scaling 𝒪(𝑁𝑏).
+
+      Kernel         Memory        Kernel init. time       Training time       Inference time
+  GRFs (Dense)       2.00 ± 0.00        1.21±   0.06          1.97 ± 0.38         2.16±   0.33
+  GRFs (Sparse)      1.00 ± 0.00        0.81±   0.04          1.04 ± 0.04         1.04±   0.05
+
+Figure 2 shows log–log scaling curves. Exponents from the asymptotic regime match those
+shown in Table 1. As expected, GRFs attain linear memory and initialisation cost, and
+sub-quadratic training and inference, scaling to graphs with 1M nodes. The near-linear
+runtime trends in training and inference reflect the fixed iteration budget of sparse linear
+solves; conditioning effects have not yet dominated at these scales.
+
+
+
+
+
+
+
+
+
+
+
+    (a) Memory usage        (b) Initialisation time(c) Training wall-clock time(d) Inference wall-clock time
+
+Figure 2:  GRFs scale better (blue curve) when sparsity is leveraged. Scaling
+experiments for the GRF-GPs. Yellow: brute-force dense implementation. Blue: sparse
+implementation. Panels (a)–(d) correspond to memory footprint, kernel initialisation time,
+training time and inference time, respectively. The dense model is limited to 8,192 nodes
+due to its higher memory demands.
+Importance sampling ablation. As discussed in Section 2, the key insight of GRFs is
+that one can replace a function of a weighted adjacency matrix 𝐖 with a Monte Carlo
+estimate. This estimate is constructed using random walks, weighted by (1) the product
+of traversed edge weights and (2) the per-walk probability under the sampling mechanism.
+Following Reid et al. (2024b), one can investigate the significance of this principled approach
+by instead constructing a naive random walk-based empirical kernel, without appropriate
+reweighting. In particular, we replace line 8 of Alg 1 by
+
+     𝜑(𝑖)[prefix_subwalk[−1]]+  =  (∏  traversed_edge_weights)∗    𝑓(length(prefix_subwalk)),   (13)
+
+removing normalisation by 𝑝(prefix_subwalk). Crucially, this set of features still defines a
+valid kernel on 𝒢, but it is no longer an unbiased estimate of a power series of 𝐖. A similar
+‘ad-hoc’ kernel was used in the context of transformer position encodings by Choromanski
+et al. (2022). Full empirical results are reported in App. C.3, where we find this modification
+substantially degrades regression performance. Intuitively, failing to upweight long, unlikely
+walks by 1/𝑝(prefix_subwalk) makes it challenging to model longer-range dependencies.
+
+4.2  Regression Tasks
+
+Next, we apply our method to regression with a variety of real-world datasets.
+1. Traffic speed prediction. To assess predictive capability, we begin with a traffic speed
+forecasting task (Figure 6) on the San Jose freeway sensor network (Chen et al., 2001). We
+follow the setup of Borovitskiy et al. (2021). Experiment details can be found in App. C.4.
+We compare three kernel configurations by measuring the negative log probability density
+(NLPD) and the root mean squared error (RMSE) of the maximum-a-posteriori (MAP)
+predictions. We consider (1) the exact diffusion kernel 𝐊diff; (2) a GRF kernel in a ‘diffusion
+
+
+                                                 7
+
+Preprint. Under review.
+
+
+
+
+shape’ (namely, the modulation function frozen to approximate 𝐊diff, with a learnable
+lengthscale); and (3) a GRF kernel with a flexible, fully learnable modulation function.
+Figure 3 (a)-(b) reports the test NLPD and RMSE as a function of the number of random̂
+walks per node 𝑛. As 𝑛 increases, the variance of the Monte Carlo approximation 𝐊 drops.
+It better captures the underlying graph structure, yielding more accurate predictions. Note
+that the fully-learnable GRF kernel consistently outperforms the diffusion-shaped variant,
+highlighting the benefit of implicit kernel learning via a flexible modulation function.
+In addition to greater flexibility via learnable 𝑓𝑙, another reason GRFs are able to outperform
+𝐊diff may be that their inbuilt sparsity is actually a sensible inductive bias. Pairs of graph
+nodes only have nonzero covariance if their respective ensembles of random walks hit, which
+is more likely if they are nearby in 𝒢. This means that a node’s predictions depend mostly
+on information from its local neighborhood, whilst still sampling longer dependencies with
+lower probability. In contrast, dense kernels can sometimes be prone to the ‘oversmoothing’
+effect as they capture spurious long-range correlations driven by noise (Keriven, 2022).
+2. Wind interpolation on the globe. Next, we consider the task of interpolating monthly
+average wind velocities from the ERA5 dataset (Hersbach et al., 2019), from a set of locations
+on the Aeolus satellite track (Reitebuch, 2012). Our problem setup follows that of Wyrwal et
+al. (2024) and Robert-Nicoud et al. (2023). We discretise the surface of the globe (formally,
+the manifold 𝑆2) by computing a 𝑘-nearest neighbours graph from the observation locations.
+This yields a graph 𝒢 with 10K nodes, with which we can apply our scalable GRF-GPs
+algorithm. The task is to predict the velocity fields of a held out test set.
+The test NLPD and RMSE of the diffusion-shape and fully-learnable GRF kernels are
+shown in Figure 3 (c)-(d). Similarly, the predictions improve as 𝑛 increases. We provide
+full results and visualisations in App. C.5. This type of implicit manifold GP regression –
+approximating a (possibly unknown) manifold by computing a nearest neighbour graph 𝒢
+and then performing inference therein – is a rich area of active research (Borovitskiy et al.,
+2021; Dunson et al., 2021; Fichera et al., 2023). This is an exciting possible application of
+GRFs; we hope our initial example will spur future work.
+
+
+
+
+
+
+
+
+
+
+
+    (a) Traffic NLPD          (b)Traffic RMSE          (c) Wind NLPD             (d) Wind RMSE
+
+Figure 3:  GRFs outperforms diffusion baselines in regression tasks. Panels (a)–(d)
+report test NLPD and RMSE versus the number of random walkers 𝑛. Blue: GRF kernel
+with a fully learnable modulation; orange: diffusion-shape GRF. Shading shows ±1 s.d. On
+Traffic, the learnable GRF surpasses the exact diffusion kernel once 𝑛≳            500. On Wind,
+the exact diffusion kernel is omitted due to 𝒪(𝑁3) cost. Again, the fully-learnable GRF
+kernel consistently achieves lower NLPD and RMSE than the diffusion-shape variant.
+
+4.3  Scalable and robust Bayesian optimisation
+
+Having demonstrated the scalability of GRFs (Section 4.1) and their efficacy for GP
+regression (Section 4.2), we now use them to perform efficient Bayesian optimisation (BO).
+We consider large graphs with up to 106 nodes, where exact posterior inference becomes
+prohibitively expensive. For the acquisition strategy we use Thompson sampling, drawing
+samples from the posterior over the objective function and selecting maximisers as the next
+query point (Russo et al., 2018; Thompson, 1933). Posterior sampling is made efficient by
+pathwise conditioning, given in Equation (12). Alg. 3 in App. C.6 gives full details.
+
+
+
+
+                                                 8
+
+Preprint. Under review.
+
+
+
+
+Datasets and baselines. For datasets, we consider a range of synthetic and real-world
+graphs. First, we maximise a variety of scalar functions on grids, community and circular
+graphs, chosen to have different properties, e.g. multimodality and periodicity. Next, we
+identify ‘influential’ (high node degree) users in a range of social networks: Eron, Facebook,
+Twitch and YouTube. Lastly, we predict the physical location with the greatest windspeed
+for the ERA5 dataset studied in Section 4.2, considering three different altitudes where the
+wind behaviour is known to be qualitatively different (Wyrwal et al., 2024). In each case,
+we compare our efficient BO method with random search, breadth first search and depth
+first search policies. In almost all instances our algorithm achieves lower regret, showing the
+benefit of uncertainty-aware strategies for large-scale optimisation on graphs.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 4: GRF-based BO achieves lower regret than search-based baselines in
+most datasets. Each panel shows the regret curve of BO for the following datasets: (a)-
+(d) synthetic datasets, (e)-(h) social networks, and (i)-(k) windspeed in the ERA5 dataset.
+
+4.4  Future work: scalable variational GPs for classification
+
+Lastly, we evaluate GRF-GPs on a multi-class node classification task using the Cora
+citation network benchmark (McCallum et al., 2000). In this non-conjugate inference setting,
+we handle the non-Gaussian likelihood via variational inference (Leibfried et al., 2020).
+Pathwise conditioning for classification is nontrivial (Wilson et al., 2021); we defer a full
+treatment to a future paper. We can nonetheless assess the performance of GRFs, even
+without explicit time complexity guarantees like Lemma 1. Details are provided in App.
+C.7. Once again, sparse GRF kernels achieve very strong performance.
+
+5   Conclusion
+
+We demonstrated how graph random features (GRFs), a recently-introduced Monte Carlo
+algorithm, can be used to speed up training and inference with Gaussian processes on
+discrete input spaces. Under mild assumptions, GRFs support 𝒪(𝑁3/2) time complexity
+inference – much faster than 𝒪(𝑁3) for their exact counterpart – with probabilistic accuracy
+guarantees. This translates to substantial wall-clock time speedups, and unlocks scalable
+Bayesian optimisation on massive topologies with little or no sacrifice in performance.
+
+
+
+
+                                                 9
+
+Preprint. Under review.
+
+
+
+6   Ethics and reproducibility
+
+Ethics. Our work is methodological and does not raise direct ethical concerns. Nonetheless,
+advances in scalable graph-based ML may amplify risks if misapplied, either by malicious
+actors or through unforeseen downstream consequences.
+Reproducibility. To ensure transparency and facilitate further research, we will make the
+code public with all implementations and experimental scripts after the double-blind review.
+All datasets are freely available online, with links to the original sources provided.
+
+7   Funding and acknowledements
+
+JAL is supported by the University of Cambridge Harding Distinguished Postgraduate
+Scholars Programme. AW acknowledges support from EPSRC via a Turing AI Fellowship
+under grant EP/V025279/1 and project FAIR under grant EP/V056883/1. AW is also
+supported by the Leverhulme Trust via CFI. RET is supported by the EPSRC Probabilistic
+AI Hub (EP/Y028783/1). IR gratefully acknowledges funding from Trinity College, Cam-
+bridge and from Google. IR was a student researcher at Google DeepMind at the time of
+submission. This work was funded in part by an unrestricted gift from Huawei, via AW.
+Trustworthy, scalable and robust machine learning for graphs. Much of graph-based
+machine learning research to date has focused on graph neural networks. Kernel methods
+provide an exciting alternative which is inherently more explainable. Our algorithms are
+applicable to a broad range of real world settings, including many tasks in social networks.
+We demonstrate strong scalability, efficiency and performance whilst retaining the benefits
+of explainability.
+
+References
+
+Borovitskiy, V., Azangulov, I., Terenin, A., Mostowsky, P., Deisenroth, M., and Durrande, N. Matérn
+   Gaussian processes on graphs. International Conference on Artificial Intelligence and Statistics,
+   2593–2601, 2021.
+Carter, L. L., and Cashwell, E. D. Particle-transport simulation with the Monte Carlo method, 1975.
+Chen, C., Petty, K., Skabardonis, A., Varaiya, P., and Jia, Z. Freeway Performance Measurement
+   System: Mining Loop Detector Data. 80th Annual Meeting of the Transportation Research Board,
+   2001. https://people.eecs.berkeley.edu/~varaiya/papers_ps.dir/MiningLoopDetectorData.pdf
+Choromanski, K. M. Taming graph kernels with random features. International Conference on
+   Machine Learning, 5964–5977, 2023.
+Choromanski, K., Lin, H., Chen, H., Zhang, T., Sehanobish, A., Likhosherstov, V., Parker-Holder, J.,
+   Sarlos, T., Weller, A., and Weingarten, T. From block-toeplitz matrices to differential equations
+   on graphs: towards a general theory for scalable masked transformers. International Conference
+   on Machine Learning, 3962–3983, 2022.
+Chung, F. R. Spectral graph theory (Vol. 92). American Mathematical Soc., 1997.
+contributors, O. OpenStreetMap [Data set], 2024.
+Dasgupta, S., and Gupta, A. An elementary proof of a theorem of Johnson and Lindenstrauss. Random
+   Structures & Algorithms, 22(1), 60–65, 2003.
+Dunson, D. B., Wu, H.-T., and Wu, N. Spectral convergence of graph Laplacian and heat kernel
+   reconstruction in L∞ from random samples. Applied and Computational Harmonic Analysis, 55,
+   282–336, 2021.
+Fichera, B., Borovitskiy, S., Krause, A., and Billard, A. G. Implicit manifold gaussian process
+   regression. Advances in Neural Information Processing Systems, 36, 67701–67720, 2023.
+Freksen, C. B. An Introduction to Johnson-Lindenstrauss Transforms. Corr, 2021. https://arxiv.org/
+   abs/2103.00564
+
+
+
+                                                   10
+
+Preprint. Under review.
+
+
+
+
+Gardner, J., Pleiss, G., Weinberger, K. Q., Bindel, D., and Wilson, A. G. GPyTorch: Blackbox Matrix-
+   Matrix Gaussian Process Inference with GPU Acceleration. Advances in Neural Information
+   Processing Systems, 2018.
+Hendricks, J. S., and Booth, T. E. MCNP variance reduction overview. Monte-Carlo Methods and
+   Applications in Neutronics, Photonics and Statistical Physics: Proceedings of the Joint Los Alamos
+   National Laboratory-Commissariat à L'energie Atomique Meeting Held at Cadarache Castle,
+   Provence, France April 22–26, 1985, 83–92, 2006.
+Hersbach, H., Bell, B., Berrisford, P., Biavati, G., Horányi, A., Muñoz Sabater, J., Nicolas, J., Peubey,
+   C., Radu, R., Rozum, I., and others. ERA5 monthly averaged data on single levels from 1979 to
+   present. Copernicus Climate Change Service (C3s) Climate Data Store (CDS), 10, 252–266, 2019.
+Hestenes, M. R., and Stiefel, E. Methods of Conjugate Gradients for Solving Linear Systems. Journal
+   of Research of the National Bureau of Standards, 49(6), 1952.
+Hutchinson, M. A Stochastic Estimator of the Trace of the Influence Matrix for Laplacian Smoothing
+   Splines. Communications in Statistics - Simulation and Computation, 19(2), 1990.
+Jones, D. R., Schonlau, M., and Welch, W. J. Efficient global optimization of expensive black-box
+   functions. Journal of Global Optimization, 13(4), 455–492, 1998.
+Keriven, N. Not too little, not too much: A theoretical analysis of graph (over)smoothing. Advances
+   in Neural Information Processing Systems, 36, 2022.
+Leibfried, F., Dutordoir, V., John, S. T., and Durrande, N. A Tutorial on Sparse Gaussian Processes
+   and Variational Inference, 2020, December. https://doi.org/10.48550/arXiv.2012.13962
+Leskovec, J., and Krevl, A. SNAP Datasets: Stanford Large Network Dataset Collection, 2014.
+Lin, J. A., Ament, S., Balandat, M., and Bakshy, E. Scaling Gaussian Processes for Learning Curve
+   Prediction via Latent Kronecker Structure. Neurips Bayesian Decision-Making and Uncertainty
+   Workshop, 2024b.
+Lin, J. A., Ament, S., Balandat, M., Eriksson, D., Hernández-Lobato, J. M., and Bakshy, E. Scalable
+   Gaussian Processes with Latent Kronecker Structure. International Conference on Machine
+   Learning, 2025.
+Lin, J. A., Antorán, J., Padhy, S., Janz, D., Hernández-Lobato, J. M., and Terenin, A. Sampling from
+   Gaussian Process Posteriors using Stochastic Gradient Descent. Advances in Neural Information
+   Processing Systems, 2023.
+Lin, J. A., Padhy, S., Antorán, J., Tripp, A., Terenin, A., Szepesvári, C., Hernández-Lobato, J. M., and
+   Janz, D. Stochastic Gradient Descent for Gaussian Processes Done Right. International Conference
+   on Learning Representations, 2024c.
+Lin, J. A., Padhy, S., Mlodozeniec, B., Antorán, J., and Hernández-Lobato, J. M. Improving Linear
+   System Solvers for Hyperparameter Optimisation in Iterative Gaussian Processes. Advances in
+   Neural Information Processing Systems, 2024a.
+Matthews, A. G. d. G., van der Wilk, M., Nickson, T., Fujii, K., Boukouvalas, A., León-Villagrá, P.,
+   Ghahramani, Z., and Hensman, J. GPflow: A Gaussian process library using TensorFlow. Journal
+   of Machine Learning Research, 18(40), 1–6, 2017. http://jmlr.org/papers/v18/16-537.html
+McCallum, A., Nigam, K., Rennie, J., and Seymore, J. Automating the Construction of Internet
+   Portals with Machine Learning. Information Retrieval, 3(2), 127–163, 2000.
+Močkus, J. On Bayesian methods for seeking the extremum. IFIP Technical Conference on Optimiza-
+   tion Techniques, 400–404, 1974.
+Rahimi, A., and Recht, B. Random features for large-scale kernel machines. Advances in Neural
+   Information Processing Systems, 20, 2007.
+Rasmussen, C. E. Gaussian processes in machine learning. In Summer school on machine learning,
+   pp. 63–71. Springer, 2003.
+Reid, I., Choromanski, K., Berger, E., and Weller, A. General graph random features. Arxiv Preprint
+   Arxiv:2310.04859, 2023.
+
+
+
+
+
+                                                        11
+
+Preprint. Under review.
+
+
+
+
+Reid, I., Dubey, K. A., Jain, D., Whitney, W., Ahmed, A., Ainslie, J., Bewley, A., Jacob, M., Mehta, A.,
+   Rendleman, D., and others. Linear transformer topological masking with graph random features.
+   Arxiv Preprint Arxiv:2410.03462, 2024b.
+Reid, I., Markou, S., Choromanski, K., Turner, R. E., and Weller, A. Variance-Reducing Couplings
+   for Random Features. Arxiv Preprint Arxiv:2405.16541, 2024a.
+Reitebuch, O. The spaceborne wind lidar mission ADM-Aeolus. In Atmospheric physics: Background–
+   methods–trends, pp. 815–827. Springer, 2012.
+Robert-Nicoud, D., Krause, A., and Borovitskiy, V. Intrinsic Gaussian Vector Fields on Manifolds.
+   Arxiv Preprint Arxiv:2310.18824, 2023.
+Russo, D. J., Van Roy, B., Kazerouni, A., Osband, I., and Wen, Z. A Tutorial on Thompson
+   Sampling. Foundations and Trends® in Machine Learning, 11(1), 1–96, 2018. https://doi.org/10.
+   1561/2200000070
+Shewchuk, J. R. An Introduction to the Conjugate Gradient Method Without the Agonizing Pain, 1994.
+Smola, A. J., and Kondor, R. Kernels and regularization on graphs. Learning Theory and Kernel
+   Machines: 16th Annual Conference on Learning Theory and 7th Kernel Workshop, Colt/kernel
+   2003, Washington, DC, USA, August 24-27, 2003. Proceedings, 144–158, 2003.
+Thompson, W. R. On the likelihood that one unknown probability exceeds another in view of the
+   evidence of two samples. Biometrika, 25(3–4), 285–294, 1933.
+van der Wilk, M., Dutordoir, V., John, S., Artemev, A., Adam, V., and Hensman, J. A Framework
+   for Interdomain and Multioutput Gaussian Processes. Arxiv:2003.01115, 2020. https://arxiv.org/
+   abs/2003.01115
+Wan, X., Osselin, P., Kenlay, H., Ru, B., Osborne, M. A., and Dong, X. Bayesian optimisation of
+   functions on graphs. Advances in Neural Information Processing Systems, 36, 43012–43040, 2023.
+Wilson, J. T., Borovitskiy, V., Terenin, A., Mostowsky, P., and Deisenroth, M. P. Efficiently Sampling
+   Functions from Gaussian Process Posteriors. International Conference on Machine Learning, 2020.
+Wilson, J. T., Borovitskiy, V., Terenin, A., Mostowsky, P., and Deisenroth, M. P. Pathwise Condi-
+   tioning of Gaussian Processes. Journal of Machine Learning Research, 22(1), 2021.
+Wyrwal, K., Krause, A., and Borovitskiy, V. Residual Deep Gaussian Processes on Manifolds. Arxiv
+   Preprint Arxiv:2411.00161, 2024.
+Yang, J., Sindhwani, V., Fan, Q., Avron, H., and Mahoney, M. W. Random laplace feature maps for
+   semigroup kernels on histograms. Proceedings of the IEEE Conference on Computer Vision and
+   Pattern Recognition, 971–978, 2014.
+
+A    Full GRF Algorithm
+
+To complement the pseudocode provided in Alg. 1, Alg. 2 provides a more detailed expla-
+nation of how one can estimate graph node kernels using graph random features (GRFs).
+The motivated reader is invited to consult the works of Reid et al. (2023) and Choromanski
+(2023) for the original accounts, including further intuitions and a proof of unbiasedness.
+
+Algorithm 2: Constructing a random feature vector 𝜑(𝑖)∈                  ℝ𝑁 to approximate 𝐊          (𝐖)
+                                                                                                    𝛼
+   Inputs: weighted adjacency matrix 𝐖             ∈  ℝ𝑁×𝑁 for a graph 𝒢 with 𝑁 nodes, vector of
+ 1 unweighted node degrees 𝒅         ∈ ℝ𝑁, modulation function 𝑓         : (ℕ ∪  {0})→    ℝ, termination
+   probability 𝑝halt   ∈  (0,1), node 𝑖∈    𝒩, number of random walks to sample 𝑛∈                ℕ.
+ 2 Output: random walk feature vector 𝜑(𝑖)∈               ℝ𝑁.
+
+ 3 initialise: 𝜑(𝑖)←    𝟎
+ 4 for 𝑤   =  1,…,𝑛
+ 5    initialise: load ←    1
+ 6    initialise: current_node ←        1
+
+
+
+                                                     12
+
+Preprint. Under review.
+
+
+
+
+Algorithm 2: Constructing a random feature vector 𝜑(𝑖)∈        ℝ𝑁 to approximate 𝐊𝛼     (𝐖)
+
+
+7    initialise: terminated ← False
+8    initialise: walk_length ←   0
+9    while terminated = False do
+10     𝜑(𝑖) [current_node] ← 𝜑(𝑖) [current_node] + load ×         𝑓 (walk_length)
+11     walk_length = walk_length+1
+12     new_node ← Unif[𝒩(current_node)]                     ▹ assign to one of neighbours
+13     load ← load ×     𝑑[current_node]×𝐖[current_node, new_node]          ▹ update load
+                            1−𝑝halt
+14     current_node ← new_node
+15     terminated ← (t ∼ Unif(0,1)<       𝑝halt)       ▹ draw RV to decide on termination
+16   end while
+17 end for
+18   normalise 𝜑(𝑖)=   𝜑(𝑖)/𝑚
+
+B   Efficiently solving linear systems                    (𝐊̂  +  𝜎2𝐈)𝒗   =  𝒃 with the
+                                                                    𝑛
+Woodbury Formula
+
+In this appendix, we provide another algorithm for efficiently solving linear system (𝐊̂    +
+𝜎2𝐈)𝒗 =  𝒃 , with the use of Woodbury matrix identity formula and Johnson-Lindenstrauss
+ 𝑛
+Transform (JLT) (Freksen, 2021). This algorithm has time complexity 𝑂(𝑁2𝑚+         𝑚3), where
+𝑚≪   𝑁 is the number of the output dimensions (a hyperparameter of the JLT algorithm).
+While this approach appears promising, we emphasise that our investigation here is prelim-
+inary. A more thorough evaluation of its empirical performance and potential trade-offs is
+left to future work.
+Take the decomposition of 𝐊̂   of the form 𝐊̂ = 𝚽𝚽⊤. Construct a random Gaussian matrix
+𝐆 ∈  ℝ𝑁×𝑚, with entries taken independently at random from the Gaussian distribution
+with mean 𝜇  =  0 and standard deviation 𝜎  = 1. By the JLT, we can unbiasedly approximate
+𝚽𝚽⊤ as 𝐊    𝐊⊤, where 𝐊      = √1  Φ𝐆  ∈ ℝ𝑁×𝑚 (and with strong concentration guarantees
+           1  1            1     𝑚                                                     −1
+for 𝑚 of logarithmic in 𝑁 order). We can then approximately rewrite (𝐊̂         + 𝜎2𝐈)    𝒃 as
+                −1            𝐊                                                     𝑛
+1 (𝐈   + 𝐔𝐔⊤)     𝒃, for 𝐔 =    1.
+𝜎2  𝑁                         𝜎
+ 𝑛                             𝑛
+Now, we can apply the following special case of the celebrated Woodbury Matrix Identity
+formula:
+                       (𝐈  +  𝐔𝐔⊤))−1   =  𝐈  −  𝐔(𝑰   +  𝐔⊤𝐔)−1𝐔⊤.                       (14)
+                         𝑁                  𝑁        𝑚
+Therefore, we conclude that the solution 𝒗 to our linear system can be approximated as:
+                             𝒗 ≈ [𝐈   − 𝐔(𝑰    + 𝐔⊤𝐔)−1𝐔⊤]𝒃.                              (15)
+                                   𝑁        𝑚
+The expression on the right side can clearly be computed in time 𝑂(𝑁𝑚+              𝑚3) since
+brute-force inversion of 𝐗  =  (𝑰   + 𝐔⊤𝐔)−1    ∈ ℝ𝑚×𝑚 takes 𝑂(𝑚3) time and expression
+       ⊤               𝑁×𝑚       𝑚
+𝐔(𝐗𝐔    𝒃)) for 𝐔  ∈ ℝ      can be computed in 𝑂(𝑁𝑚) time. Thus, since the computation
+of 𝐊1 takes time 𝑂(𝑁2𝑚), total time complexity is 𝑂(𝑁2𝑚+         𝑚3).
+
+This approach, using dimensionality reduction of GRFs to replace the inverse of an 𝑁      × 𝑁
+matrix by the inverse of an 𝑚×   𝑚 matrix, provides an interesting alternative to relying on
+sparse operations to achieve speedups.
+
+
+
+
+                                              13
+
+Preprint. Under review.
+
+
+
+C    Experiment Details
+
+We provide experimental details in this section. All experiments are conducted on a single
+compute node equipped with an NVIDIA GeForce RTX 2080 Ti GPU (11 GB memory).
+
+C.1   Choosing GRF hyperparameters: guidance for practitioners
+
+In this appendix, we provide further practical guidance for practitioners when choosing the
+number of random walks 𝑛 and (if desired) the maximum walk length 𝑙max.
+Choosing 𝑛. Theorem 1 gives a precise formula for choosing the number of walkers 𝑛 to
+guarantee an accurate kernel estimate with high probability. In principle, one could use
+this to derive the minimum 𝑛 required for a sharp estimate, given the constant 𝑐, the
+maximum permissible deviation 𝑡, and the maximum permissible probability of deviation
+ℙ(|𝜑(𝑖)⊤𝜑(𝑗)−    [𝐊𝛼 ]  |>  𝑡). However, in practice we find this to be unecessary: choosing
+                      𝑖,𝑗
+𝑛 to be a small multiple of the average node degree already works well. As seen in Figure 3,
+performance tends to improve as 𝑛 increases, at the cost of decreasing kernel sparsity and
+thus slower wall-clock times. We recommend choosing 𝑛 that balances the practitioner’s
+performance and efficiency requirements.
+Choosing 𝑙max. In Section 3.1, we noted that in implementations it is often convenient
+and memory-efficient to only sample walks up to some maximum length 𝑙max. This way, the
+number of modulation function terms (𝑓       )𝑙max that must be learned is finite and fixed. We
+                                            𝑙 𝑙=0
+emphasise that this is not a requirement for the time complexity guarantees in Section 3.1 ;
+it is a practical (as opposed to mathematical) detail. In principle, one could choose 𝑙max to
+be sufficiently large that all 𝑛 walkers will be shorter with high probability, avoiding any
+truncation – see e.g. App. A.1 by Reid et al. (2023) for a mathematical bound. However,
+in practice we find that choosing 𝑙max to be some modest fraction of the graph diameter
+is sufficient for good performance. In each experiment, we report 𝑙max in the respective
+appendix.
+
+C.2   Time and space complexity measurements
+
+This section reports experimental details for the scaling results in Figure 2 and Table 1.
+Synthetic data. We generate synthetic signals on ring graphs of increasing size: 𝑁              =
+25,26,…,220 nodes. The groundtruth functions are smooth periodic functions on the nodes
+with additive Gaussian noise (𝜎2   =  0.1). For graphs with more than 8192 nodes, we only use
+                                 𝑛
+the sparse GRF implementation, since the dense adjacency matrices exceed the available
+GPU memory. Random feature matrices 𝚽 are constructed using 100 random walks per
+node, with halting probability 𝑝halt  =  0.1. Walks longer than 3 hops are truncated.
+Measurements taken. For each graph size, and across 5 random seeds, we measure:
+
+     •   The memory footprint of the random feature matrices 𝚽.
+     •   The random-walk preprocessing time for constructing 𝚽.
+     •   Training wall-clock time, measured as total optimiser runtime over 50 epochs.
+     •   Inference wall-clock time, measured as posterior mean and covariance evalu-
+         ation time on the test set.
+The dense implementation uses the GPflow library for kernels with explicit adjacency
+materialisation, while the sparse implementation uses a GPyTorch library to implement
+kernels with customised sparse linear operators to maximise efficiency (Gardner et al., 2018;
+Matthews et al., 2017; van der Wilk et al., 2020). Full empirical measurements are shown
+in Table 2 and Table 3.
+
+
+
+
+
+                                                14
+
+Preprint. Under review.
+
+
+
+
+    Table 2:  Memory and time measurements for dense implementation: mean ± s.d.
+
+ Graph Size     Memory (MB)       Kernel init time (s)  Training time (s)   Inference time (s)
+     32         0.024±   0.000       0.115 ± 0.017       1.726 ±  0.336      0.019±   0.002
+     64         0.094±   0.000       0.205 ± 0.012       1.430 ±  0.219      0.018±   0.002
+     128        0.375±   0.000       0.421±  0.025       1.403 ±  0.116      0.017 ±  0.002
+     256        1.500±   0.000       0.840 ± 0.044       1.371±   0.152      0.016±   0.002
+     512        6.000±   0.000       1.800 ± 0.069       1.370 ±  0.288      0.021±   0.004
+    1024        24.000 ± 0.000       4.189 ± 0.204       2.465 ±  0.595      0.045±   0.006
+    2048        96.000 ± 0.000      10.546±   0.107      7.680 ±  1.649      0.173 ±  0.001
+    4096       384.000±   0.000     31.749 ±  1.246      40.376±  4.080      1.043 ±  0.006
+    8192      1536.000  ± 0.000     104.839 ± 2.026     307.188±  35.938     7.572±   0.000
+
+    Table 3:  Memory and time measurements for sparse implementation: mean ± s.d.
+
+  Graph Size    Memory (MB)       Kernel init time (s)  Training time (s)  Inference time (s)
+      32        0.004 ±  0.000      0.160±   0.033       4.103 ± 0.216       0.066 ± 0.007
+      64        0.008 ±  0.000      0.168±   0.022       3.823 ± 0.136       0.061±  0.008
+     128        0.015 ±  0.000      0.202±   0.022       4.036±  0.191       0.066 ± 0.007
+     256        0.030 ±  0.000      0.271±   0.030       4.369±  0.349       0.079 ± 0.009
+     512        0.059 ±  0.000      0.379±   0.021       4.395±  0.619       0.077 ± 0.019
+     1024       0.118 ±  0.000      0.552±   0.024       4.549±  0.593       0.082±  0.014
+     2048       0.235 ±  0.000      0.973 ±  0.039       4.416±  0.320       0.082±  0.012
+     4096       0.470±   0.000      1.790±   0.028       4.185±  0.252       0.078 ± 0.015
+     8192       0.938 ±  0.000      3.481±   0.074       4.247 ± 0.143       0.076 ± 0.006
+    16384       1.876±   0.000      6.764±   0.052       5.117 ± 0.518       0.100 ± 0.016
+    32768       3.751±   0.000      13.297 ± 0.050       6.623 ± 1.048       0.129 ± 0.040
+    65536       7.501±   0.000      26.569 ± 0.063      12.566 ±  1.188      0.254 ± 0.061
+    131072      15.001±  0.000      53.012±  0.156      31.534 ±  6.376      0.651±  0.175
+    262144      30.000±  0.000     105.901±   0.514     60.488±  17.849      1.216 ± 0.443
+    524288      60.000±  0.000     212.671±   0.758    111.672±   31.377     2.068 ± 0.775
+   1048576     120.000 ±  0.000    426.074±   1.562    245.060 ±  65.159     4.947 ± 1.226
+
+
+Scaling factor estimation. We estimate empirical complexity exponents by fitting the
+measured runtime and memory data to a power-law model,
+                                          𝑦 ≈  𝑎𝑁𝑏,
+
+using ordinary least squares in log–log space, where 𝑁 is the number of graph nodes.
+Uncertainty in the slope 𝑏 is quantified with 95% confidence intervals derived from the 𝑡-
+distribution. To capture asymptotic scaling behavior, fits are restricted to sufficiently large
+graphs: dense GP experiments are fit for 𝑁    ≥  29, while sparse GP experiments are fit for
+𝑁 ≥  215. The fitted coefficients 𝑎 and 𝑏, together with confidence intervals and 𝑅2 values,
+are summarised in Table 4.
+
+
+
+
+
+                                              15
+
+Preprint. Under review.
+
+
+
+
+Table 4:  Fitted power-law scaling coefficients for memory usage, random-walk initialisation,
+training, and inference time. Each row reports multiplicative constant 𝑎, exponent 𝑏 with
+95% confidence interval, and coefficient of determination 𝑅2. Fits performed in log–log
+space.
+                                  Kernel          𝒂          𝒃    95% CI (b)       𝑅2
+             Memory (MB)          Sparse     1.37 × 10−4   1.00     [1.00,1.00]    1.00
+                                   Dense     2.29×  10−5   2.00     [2.00,2.00]    1.00
+          Kernel init time (s)Sparse         3.58×  10−3   0.81     [0.73,0.88]    0.97
+                                   Dense     1.22×  10−3   1.21     [1.09,1.33]    0.99
+           Training time (s)      Sparse     1.32×  10−4   1.04     [0.96,1.12]    1.00
+                                   Dense     3.93×  10−6   1.97     [1.20,2.73]    0.96
+           Inference time (s)     Sparse     2.79 × 10−6   1.04     [0.93,1.14]    0.99
+                                   Dense     1.92×  10−8   2.16     [1.50,2.81]    0.97
+
+
+C.3   Ablation studies
+
+This section reports the results of the ablation experiment described in Section 4.1, where
+we replace the GRF estimate of a function of a weighted adjacency matrix by an ad-hoc
+random walk-based kernel. As described in the main body, line 8 of Alg 1 is replaced by
+
+       𝜑(𝑖)[prefix_subwalk[−1]]+ = (∏traversed_edge_weights)∗    𝑓(length(prefix_subwalk)),   (16)
+
+removing the normalisation factor 𝑝(prefix_subwalk)).
+Data synthesis. We consider a synthetic dataset, consisting of a regular 30           ×  30 mesh
+graph (900 nodes). We compute a ground truth diffusion kernel 𝐊∗           =  exp(−𝛽∗𝐋) on this
+                                             ∗                          diff
+mesh graph with a known length scale 𝛽         = 10 (hidden from the models), and sample a
+function from the corresponding GP, shown in Figure 5. Noisy observations are made at
+10% of the nodes, indicated by black dots. The task is to predict missing measurements.
+Kernels comparison. For GP training and inference, we consider three kernels: the exact
+diffusion kernel 𝐊    =  𝜎2 exp(−𝛽𝐋), a GRF kernel 𝐊̂     , and an ad-hoc random walk kernel
+                   diff    𝑓
+𝐊̂ad-hoc as per Eq. (16). The learned maximum-a-posteriori predictions (posterior mean) are
+shown in Figure 5 (b)-(d), and the RMSE and NLPD are reported in ̂̂         Table 5. For random
+walk-based kernels 𝐊 and 𝐊ad-hoc, we sample 10,000 walks per node, truncating any walk
+exceeding 10 steps. Models are trained using the Adam optimiser with a learning rate of
+0.01 for 1,000 iterations.
+Clearly, the ad-hoc kernel fails to capture the underlying structure, producing inaccurate
+predictions. This shows that a principled importance sampling approach is essential for
+random walk-based kernels to perform well in practice.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                               16
+
+Preprint. Under review.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   (a) Ground truth                                (b) Diffusion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      (c) GRFs                                   (d) Ad-hoc GRFs
+
+Figure 5:  The ad-hoc kernel fails to capture longer-range relationships. Panel (a):
+Ground-truth function on a 30    ×  30 mesh graph; black dots mark noisy observations at 10%
+of the nodes. Panels (b–d): Posterior means inferred with the exact diffusion kernel, the
+GRF kernel, and the ad-hoc kernel, respectively. Unlike the principled GRF estimator, the
+ad-hoc variant produces poor predictions and misses the underlying structure.
+Table 5:  The ad-hoc kernel yields much worse predictive accuracy. Test RMSE
+and NLPD for the diffusion kernel, principled GRF kernel, and the ad-hoc variant. The ad-
+hoc kernel exhibits substantially higher RMSE and NLPD.
+                                  Kernel         RMSE      NLPD
+                                  Diffusion       0.262      0.090
+                                   GRFs           0.339      0.339
+                               Ad-hoc GRFs        0.573      1.265
+
+
+C.4   Regression task: traffic speed prediction
+
+Here we provide further details for the first regression experiment: predicting traffic speeds
+in the San Jose freeway sensor network (Chen et al., 2001), following the setup of Borovitskiy
+et al. (2021).
+Dataset. We use the San Jose freeway sensor network combined with OpenStreetMap data
+to construct a graph with 1,016 nodes and 1,173 edges (contributors, 2024). Traffic speed
+measurements (in mph) are available at 325 sensor locations. These values are normalised
+(zero mean, unit variance), and the data is split into a training set of 250 randomly selected
+nodes and a test set of the remaining 75 nodes.
+Kernel approximation with GRFs. We used two variants of GRFs kernels. The first
+                                                                     (−𝛽/2)𝑙
+GRF kernel uses a diffusion-shape modulation function 𝑓𝑙          =    𝑙!  . This is a truncated
+power series expansion of the diffusion kernel, where the learnable hyperparameters are
+length scale 𝛽 and kernel variance 𝜎2. The second kernel directly learns the modulation
+                                         𝑘
+
+
+                                                17
+
+Preprint. Under review.
+
+
+
+coefficients (𝑓)∞  , which are initialised randomly and learned via log marginal likelihood.
+              𝑙 𝑙=0
+For both GRF variants, we fix 𝑝halt      =  0.1 and truncate walks at a maximum length of
+10, and vary the number of walks per node 𝑛∈        {1,2,4,…,8192}. Since the traffic network
+contains roughly 1,000 nodes, we also include the exact diffusion kernel 𝐊diff as a baseline.
+The kernel configurations are:
+                         𝐄𝐱𝐚𝐜𝐭 𝐃𝐢𝐟𝐟𝐮𝐬𝐢𝐨𝐧      :  𝐊    =  𝜎2 exp(−𝛽𝐋),
+                                                   diff   𝑓
+                                              ̂          (−𝛽/2)𝑙
+                         𝐃𝐢𝐟𝐟𝐮𝐬𝐢𝐨𝐧-𝐬𝐡𝐚𝐩𝐞      𝐊  :  𝑓𝑙=      𝑙!   ,
+                         𝐅𝐮𝐥𝐥𝐲-𝐥𝐞𝐚𝐫𝐧𝐚𝐛𝐥𝐞     𝐊̂ :  𝑓𝑙  learned directly.
+
+Regression task. We apply GP inference using the 250 labeled nodes as training data to
+predict traffic speeds at all 1,016 nodes in the network. The kernel hyperparameter and noise
+variance 𝜎2 are learned by maximising the log marginal likelihood, using Adam. Posterior
+           𝑛                                                       ̂
+inference then yields the predicted mean 𝝁̂ and covariance 𝚺 of the latent traffic speed
+function over the graph.
+To quantify accuracy, we compute the negative log probability density (NLPD) and root
+mean squared error (RMSE) on the 75 test nodes between the true speeds 𝒚test and the
+MAP estimate 𝝁̂:
+                                     √           𝑁test
+                                     √     1
+                          RMSE    =  √ (      )  ∑   (𝜇̂ − 𝑦 )2
+                                         𝑁             𝑖    𝑖
+                                     √     test  𝑖=1
+                                                𝑁test
+                          NLPD    = −(    1   )∑log    𝑝(𝑦   |𝑥 ,𝐷     )
+                                        𝑁                  𝑖    𝑖  train
+                                          test  𝑖=1
+The experiment is repeated five times with different random seeds. The results are shown
+in Figure 3 (a)-(b) in the main text.
+Capturing global and local patterns. Using the visualisation toolkits by Borovisky et
+al., we illustrate the GRF-GPs posterior inference results on the San Jose traffic network in
+Figure 6. The left panel provides a global view over the full network, while the right panel
+zooms in on a specific highway junction. We observe that the global inferred mean (top left)
+captures large-scale spatial variation across the network—speeds are higher on main freeway
+segments and lower in peripheral or downtown regions. Notably, in the zoomed-in view (top
+right), the model successfully distinguishes speeds across tightly packed lanes running in
+opposite directions. Despite spatial proximity, the posterior assigns significantly different
+mean values to adjacent but directionally distinct segments, demonstrating that GRF-GPs
+capture connectivity-aware patterns rather than relying solely on Euclidean distance. The
+bottom row visualises posterior uncertainty, with standard deviation plotted over the full
+graph (bottom left) and zoomed in section (bottom right).These results confirm that GRF-
+GPs respect both global graph structure and local topology, delivering interpretable and
+spatially coherent predictions on complex, real-world networks.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                18
+
+Preprint. Under review.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 6:  Posterior inference using GRF-GPs on the San Jose traffic network. Top left:
+Mean predictions across the full graph. Top right: Zoomed-in directional differences be-
+tween closely spaced lanes. Bottom left: Posterior uncertainty over the network. Bottom
+right: Zoomed view reveals local variation in confidence. Coloured dots are sensor nodes;
+white dots indicate training nodes.
+
+C.5   Regression task: wind velocity interpolation
+
+Here we provide further details about the wind velocity interpolation task from the ERA5
+dataset (Hersbach et al., 2019). Our problem setup follows that of Wyrwal et al. (2024) and
+Robert-Nicoud et al. (2023).
+Dataset. We use the average wind velocity field from the ERA5 dataset at three altitudes:
+0.1 km, 2 km, and 5 km. The surface of the globe (formally, the manifold 𝑆2) is discretised
+at a resolution of 2.5° longitude by 2.5° latitude, yielding a 𝑘-nearest neighbours graph 𝒢
+with roughly 10K nodes, on which we apply our scalable GRF-GPs algorithm. The task
+is to predict the velocity fields on the held-out test nodes. The locations along the Aeolus
+satellite track (1441 nodes) serve as training data, while all remaining nodes are treated as
+the test set.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                19
+
+Preprint. Under review.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 7:  Ground-truth wind velocity field from the ERA5 dataset at 0.1 km above sea
+level. Black vectors show local wind velocities. Red dots mark 1441 Aeolus satellite track
+locations, used as training data in the interpolation task (Reitebuch, 2012).
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Figure 8:  Predicted wind velocity field using GRF-GPs. Blue vectors represent MAP
+  predictions (GP posterior mean).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Figure 9:  Prediction uncertainty (GP posterior covariance) using GRF-GPs. Brighter
+  regions indicate higher uncertainty, which is significantly reduced near satellite track.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 10:  Absolute error between ground-truth and MAP-predicted velocities. GRF-GPs
+achieve accurate predictions, with error patterns aligned with uncertainty estimates.
+
+
+                                                20
+
+Preprint. Under review.
+
+
+
+
+Experiment setup. We use the fully-learnable and diffusion-shape GRF kernels, varying
+the random walk budget, similar to the method described in App. C.4. Note the exact
+diffusion kernel 𝐊diff cannot be applied on this large graph. We measure the NLPD and
+RMSE to evaluate the kernel performance. The results are shown in Figure 3 (c-d) in the
+main text.
+Uncertainty-aware wind velocity interpolation. Figures 7–10 visualise GRF-GPs
+inference on the ERA5 wind dataset at 0.1 km altitude. For visualisation clarity, the 𝑘-
+nearest neighbour graph on the globe is downsampled. Figure 7 shows the ground-truth
+wind field with training node positions marked in red. Figure 8 shows the MAP prediction,
+and Figure 9 shows the posterior uncertainty, which is notably reduced along the Aeolus
+satellite track. Finally, Figure 10 displays the absolute error field.
+
+C.6   Large scale Bayesian optimisation on graphs
+
+Here, we describe our evaluations of the performance and scalability of GRF-GPs on
+Bayesian optimisation (BO) tasks, as detailed in Section 4.3. We test the methodology
+across three settings: (1) four synthetic graph benchmarks, (2) four real-world social network
+datasets for identifying influential users, and (3) three wind interpolation datasets. First,
+let us describe the benchmark datasets.
+1. Synthetic benchmarks. We consider four synthetic graph benchmarks.
+
+     •   Unimodal function on grid: a function with a smooth central peak, discretised
+         on a 1000  × 1000 grid graph.
+     •   Multi-modal fucntion on grid: a function with several randomly placed peaks,
+         discretised on a 1000  × 1000 grid graph.
+     •   Community graph: a community graph generated via a stochastic block model
+         (SBM), with nodes in a community 𝐶        assigned a score by sampling from 𝒩(𝜇     ,𝜎2).
+                                                 𝑖                                          𝑖   𝑖
+     •   Circular graph: a sinusoidal function defined on a ring, discretised into a 𝑘-nearest
+         neighbour graph with 106 nodes.
+All signals are perturbed with Gaussian noise (𝜎2    =  0.1). Random features 𝚽 are computed
+                                                   𝑛
+with 100 walks per node, with halting probability 𝑝halt    =  0.1. Random walks longer than 5
+hops are truncated.
+2. Social networks benchmarks: identify the most influential user.
+We consider four real-world social network datasets (Table 6) from the Stanford Network
+Analysis Project (SNAP) (Leskovec and Krevl, 2014), with up to 1.1M nodes. Each node
+represents a user in the network. Following Wan et al. (2023), we use node degree as a proxy
+for user influence, and the task is to identify the most ‘influential’ users in each network.
+Table 6:  Summary of four SNAP datasets used for large-scale BO experiments. Each dataset
+corresponds to a user-level social network, with node degree used as a proxy for influence.
+ Dataset       Nodes       Edges       Maximum Degree                    Description
+ YouTube     1,134,890    2,987,624            28754            Youtube online social network
+ Facebook      22,470      171,002              709            Facebook  page-page  network
+                                                                       with page names.
+  Twitch      168,114     6,797,557            35279           Social network of Twitch users.
+   Enron       36,652      183,831             1383            Email communication network
+                                                                          from Enron
+
+3. ERA5 wind velocity field: predict the location with greatest wind speed.
+To demonstrate the utility of GRFs for BO on manifolds, we use the ERA5 wind datasets
+at three altitudes. Full details of dataset processing are provided in App C.5.
+
+
+                                                21
+
+Preprint. Under review.
+
+
+
+
+Algorithm Baselines. We compare GRF-based Thompson Sampling against three search
+heuristics:
+
+     •   Random search: uniformly samples nodes without replacement.
+     •   Breadth-first search (BFS): sequentially expand observed nodes along the
+         adjacency structure in breadth-first order.
+     •   Depth-first search (DFS): sequentially expand observed nodes along the adja-
+         cency structure in depth-first order.
+BO setting. In each experiment, algorithms are initialised with up to 1,000 samples and
+then run for up to 1,000 BO iterations, repeated across five random seeds. At each iteration,
+we report simple regret, defined as the difference between the global maximum and the best
+function value observed so far.
+
+Algorithm 3: Graph Thompson Sampling with GRFs
+
+1  Inputs: black-box function ℎ, candidate nodes x_all, initial sample size N_0, number
+   of BO steps T.
+2  Output: augmented dataset (x_obs, y_obs).
+3  initialise x_obs ←  {𝑥  }N_0;𝑥  ∼  Unif(x_all)
+                          𝑖 𝑖=1   𝑖
+4  initialise y_obs ←  {ℎ(𝑥  )+  𝜀 }N_0
+                            𝑖     𝑖  𝑖=1
+5  for 𝑡 = 1,…,T
+6    model.train(x_obs, y_obs)
+7    s_t ← PosteriorSample(model, x_all)
+8    x_t ← ArgMax(s_t)
+9    y_t←   ℎ(x_t)+    𝜀
+10   x_obs ←    x_obs  ∪ s_t
+11   y_obs ←    y_obs  ∪ y_t
+12 end for
+13 return (x_obs,y_obs)
+
+
+C.7   Classification task: Cora citation network
+
+Here we provide more experimental details about the classification task on the Cora scientific
+citation network (McCallum et al., 2000). This experiment highlights the application of
+GRF-GPs in a more challenging, non-conjugate inference setting.
+Dataset and preprocessing. The Cora dataset is a standard benchmark in graph-based
+machine learning. It consists of a citation network, where each node corresponds to a
+scientific publication and each edge represents a citation. Each publication is labeled with
+one of seven machine learning topics (Figure 11). While Cora also includes textual features,
+we focus solely on the graph structure. We extract the largest connected component of the
+citation graph, resulting in a subgraph with 2,485 nodes and 5,069 edges.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                22
+
+Preprint. Under review.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (a) Ground-truth labels. Each color denotes a class(b) Prediction errors using graph GP with Matern
+                                                           kernel. Red nodes are misclassified
+
+                    Figure 11: Cora dataset classification with graph GP.
+Sparse variational inference for classification. In classification tasks, the likelihood
+functions are usually non-Gaussian (softmax), so the posterior is not analytically tractable.
+Denote the 𝑁train training nodes as 𝒙 and the 𝑀 inducing nodes as 𝒛. Define latent
+function values at the training inputs as 𝒉     = (ℎ(𝑥):  𝑥 ∈  𝒙) and function values at induc-
+ing nodes as 𝒖   =  (𝑢(𝑧): 𝑧 ∈  𝒛). Assume a GP prior 𝑝(𝒖)=         𝑁(𝟎,𝐊𝑢𝑢) and a likelihood
+𝑝(𝑦𝑖 |ℎ𝑖) (softmax). Choose a Gaussian variational posterior 𝑞(𝒖)=          𝑁(𝝁,𝚺) and induce
+the marginal 𝑞(𝒉)=    ∫ 𝑝(𝒉  |𝒖)𝑞(𝒖)𝑑𝒖. Under this approximation we maximise the evidence
+lower bound (ELBO): ℒ            = ∑𝑁train 𝐸     [log𝑝(𝑦  | ℎ )]−  KL(𝑞(𝒖)‖    𝑝(𝒖)). This varia-
+                           ELBO       𝑖=1   𝑞(ℎ𝑖)        𝑖   𝑖
+tional treatment replaces the intractable posterior with a tractable family and supplies a
+principled objective (a lower bound on log𝑝(𝒚)); it yields coherent predictive distributions
+by integrating over 𝑞(𝒉) rather than relying on point approximations, which is especially
+important when the likelihood breaks conjugacy.
+Experiment setup. We compare classification accuracy across exact kernels (diffusion and
+Matérn) and the GRF kernel. We use an 80/20 train-test split on the largest connected
+component of the graph. The goal is to predict the class labels of all nodes based on the
+graph structure alone. All models are trained using softmax likelihood. Optimisation is
+performed for up to 1000 iterations using the Adam optimiser. To reduce uncertainty and
+assess variability, each configuration is repeated five times with different random seeds. We
+also measure the sparsity of the resulting GRF kernels. Results are reported in Table 7,
+showing that with a sufficient number of random walkers, the flexibility of the GRF kernel
+allows it to capture the graph structure effectively and outperform the exact kernel baselines.
+Table 7: The GRF kernel reaches highest accuracy in the Cora benchmark.
+Classification accuracy on the Cora dataset with different graph kernels. With 𝑛=           16384
+walks per node (22.17% non-zero entries), the GRF kernel outperforms both diffusion and
+Matérn kernels.(Borovitskiy et al., 2021).
+                      Kernel              Form                Accuracy
+                     Diffusion      𝐊diff=  exp(−𝛽𝐋)        85.31±   0.61%
+                       GRFs            𝐊̂ =  𝚽𝚽⊤           87.04  ±  0.53%
+                      Matérn     𝐊        =  (2𝜈 + ̃𝐋)−𝜈    86.72±   0.31%
+                                    Matérn    𝜅2
+
+
+
+
+
+
+
+
+                                                23
