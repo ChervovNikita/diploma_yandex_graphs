@@ -1,0 +1,866 @@
+[
+  {
+    "index": 0,
+    "tag": "h5",
+    "id": "modal-title",
+    "text": "Report GitHub Issue"
+  },
+  {
+    "index": 1,
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "index": 2,
+    "tag": "h1",
+    "id": null,
+    "text": "Efficient Lifelong Learning with A-GEM"
+  },
+  {
+    "index": 3,
+    "tag": "h6",
+    "id": null,
+    "text": "Abstract"
+  },
+  {
+    "index": 4,
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "In lifelong learning, the learner is presented with a sequence of tasks, incrementally building a data-driven prior which may be leveraged to speed up learning of a new task. In this work, we investigate the efficiency of current lifelong approaches, in terms of sample complexity, computational and memory cost. Towards this end, we first introduce a new and a more realistic evaluation protocol, whereby learners observe each example only once and hyper-parameter selection is done on a small and disjoint set of tasks, which is not used for the actual learning experience and evaluation. Second, we introduce a new metric measuring how quickly a learner acquires a new skill. Third, we propose an improved version of GEM ( Lopez-Paz & Ranzato, 2017 ) , dubbed Averaged GEM ( a-gem ), which enjoys the same or even better performance as GEM, while being almost as computationally and memory efficient as EWC ( Kirkpatrick et al., 2016 ) and other regularization-based methods. Finally, we show that all algorithms including a-gem can learn even more quickly if they are provided with task descriptors specifying the classification tasks under consideration. Our experiments on several standard lifelong learning benchmarks demonstrate that a-gem has the best trade-off between accuracy and efficiency. 1 1 1 We will release the code upon publication."
+  },
+  {
+    "index": 5,
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "index": 6,
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Intelligent systems, whether they are natural or artificial, must be able to quickly adapt to changes in the environment and to quickly learn new skills by leveraging past experiences. While current learning algorithms can achieve excellent performance on a variety of tasks, they strongly rely on copious amounts of supervision in the form of labeled data."
+  },
+  {
+    "index": 7,
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "The lifelong learning (LLL) setting attempts at addressing this shortcoming, bringing machine learning closer to a more realistic human learning by acquiring new skills quickly with a small amount of training data, given the experience accumulated in the past. In this setting, the learner is presented with a stream of tasks whose relatedness is not known a priori. The learner has then the potential to learn more quickly a new task, if it can remember how to combine and re-use knowledge acquired while learning related tasks of the past. Of course, for this learning setting to be useful, the model needs to be constrained in terms of amount of compute and memory required. Usually this means that the learner should not be allowed to merely store all examples seen in the past (in which case this reduces the lifelong learning problem to a multitask problem) nor should the learner be engaged in computations that would not be feasible in real-time, as the goal is to quickly learn from a stream of data."
+  },
+  {
+    "index": 8,
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "Unfortunately, the established training and evaluation protocol as well as current algorithms for lifelong learning do not satisfy all the above desiderata, namely learning from a stream of data using limited number of samples, limited memory and limited compute. In the most popular training paradigm, the learner does several passes over the data ( Kirkpatrick et al., 2016 ; Aljundi et al., 2018 ; Rusu et al., 2016 ; Schwarz et al., 2018 ) , while ideally the model should need only a handful of samples and these should be provided one-by-one in a single pass ( Lopez-Paz & Ranzato, 2017 ) . Moreover, when the learner has several hyper-parameters to tune, the current practice is to go over the sequence of tasks several times, each time with a different hyper-parameter value, again ignoring the requirement of learning from a stream of data and, strictly speaking, violating the assumption of the LLL scenario. While some algorithms may work well in a single-pass setting, they unfortunately require a lot of computation ( Lopez-Paz & Ranzato, 2017 ) or their memory scales with the number of tasks ( Rusu et al., 2016 ) , which greatly impedes their actual deployment in practical applications."
+  },
+  {
+    "index": 9,
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "In this work, we propose an evaluation methodology and an algorithm that better match our desiderata, namely learning efficiently – in terms of training samples, time and memory – from a stream of tasks. First, we propose a new learning paradigm, whereby the learner performs cross validation on a set of tasks which is disjoint from the set of tasks actually used for evaluation (Sec. 2 ). In this setting, the learner will have to learn and will be tested on an entirely new sequence of tasks and it will perform just a single pass over this data stream. Second, we build upon GEM ( Lopez-Paz & Ranzato, 2017 ) , an algorithm which leverages a small episodic memory to perform well in a single pass setting, and propose a small change to the loss function which makes GEM orders of magnitude faster at training time while maintaining similar performance; we dub this variant of GEM, a-gem (Sec. 4 ). Third, we explore the use of compositional task descriptors in order to improve the few-shot learning performance within LLL showing that with this additional information the learner can pick up new skills more quickly (Sec. 5 ). Fourth, we introduce a new metric to measure the speed of learning, which is useful to quantify the ability of a learning algorithm to learn a new task (Sec. 3 ). And finally, using our new learning paradigm and metric, we demonstrate a-gem on a variety of benchmarks and against several representative baselines (Sec. 6 ). Our experiments show that a-gem has a better trade-off between average accuracy and computational/memory cost. Moreover, all algorithms improve their ability to quickly learn a new task when provided with compositional task descriptors, and they do so better and better as they progress through the learning experience."
+  },
+  {
+    "index": 10,
+    "tag": "h2",
+    "id": null,
+    "text": "2 Learning Protocol"
+  },
+  {
+    "index": 11,
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "Currently, most works on lifelong learning ( Kirkpatrick et al., 2016 ; Rusu et al., 2016 ; Shin et al., 2017 ; Nguyen et al., 2018 ) adopt a learning protocol which is directly borrowed from supervised learning. There are T T tasks, and each task consists of a training, validation and test sets. During training the learner does as many passes over the data of each task as desired. Moreover, hyper-parameters are tuned on the validation sets by sweeping over the whole sequence of tasks as many times as required by the cross-validation grid search. Finally, metrics of interest are reported on the test set of each task using the model selected by the previous cross-validation procedure."
+  },
+  {
+    "index": 12,
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "Since the current protocol violates our stricter definition of LLL for which the learner can only make a single pass over the data, as we want to emphasize the importance of learning quickly from data, we now introduce a new learning protocol."
+  },
+  {
+    "index": 13,
+    "tag": "p",
+    "id": "S2.p3.1",
+    "text": "We consider two streams of tasks, described by the following ordered sequences of datasets 𝒟 C ​ V = { 𝒟 1 , ⋯ , 𝒟 T C ​ V } \\mathcal{D}^{CV}=\\{\\mathcal{D}_{1},\\cdots,\\mathcal{D}_{T^{CV}}\\} and 𝒟 E ​ V = { 𝒟 T C ​ V + 1 , ⋯ , 𝒟 T } \\mathcal{D}^{EV}=\\{\\mathcal{D}_{{T^{CV}}+1},\\cdots,\\mathcal{D}_{T}\\} , where 𝒟 k = { ( 𝐱 i k , t i k , y i k ) i = 1 n k } \\mathcal{D}_{k}=\\{(\\mathbf{x}_{i}^{k},t_{i}^{k},y_{i}^{k})_{i=1}^{n_{k}}\\} is the dataset of the k k -th task, T C ​ V < T {T^{CV}}<T (in all our experiments T C ​ V = 3 T^{CV}=3 while T = 20 T=20 ), and we assume that all datasets are drawn from the same distribution over tasks. To avoid cluttering of the notation, we let the context specify whether 𝒟 k \\mathcal{D}_{k} refers to the training or test set of the k k -th dataset."
+  },
+  {
+    "index": 14,
+    "tag": "p",
+    "id": "S2.p4.1",
+    "text": "𝒟 C ​ V \\mathcal{D}^{CV} is the stream of datasets which will be used during cross-validation; 𝒟 C ​ V \\mathcal{D}^{CV} allows the learner to replay all samples multiple times for the purposes of model hyper-parameter selection. Instead, 𝒟 E ​ V \\mathcal{D}^{EV} is the actual dataset used for final training and evaluation on the test set; the learner will observe training examples from 𝒟 E ​ V \\mathcal{D}^{EV} once and only once, and all metrics will be reported on the test sets of 𝒟 E ​ V \\mathcal{D}^{EV} . Since the regularization-based approaches for lifelong learning ( Kirkpatrick et al., 2016 ; Zenke et al., 2017 ) are rather sensitive to the choice of the regularization hyper-parameter, we introduced the set 𝒟 C ​ V \\mathcal{D}^{CV} , as it seems reasonable in practical applications to have similar tasks that can be used for tuning the system. However, the actual training and testing are then performed on 𝒟 E ​ V \\mathcal{D}^{EV} using a single pass over the data. See Algorithm 1 for a summary of the training and evaluation protocol."
+  },
+  {
+    "index": 15,
+    "tag": "p",
+    "id": "S2.p5.1",
+    "text": "Each example in any of these dataset consists of a triplet defined by an input ( 𝐱 k ∈ 𝒳 \\mathbf{x}^{k}\\in\\mathcal{X} ), task descriptor ( t k ∈ 𝒯 t^{k}\\in\\mathcal{T} , see Sec. 5 for examples) and a target vector ( y k ∈ 𝐲 k y^{k}\\in\\mathbf{y}^{k} ), where 𝐲 k \\mathbf{y}^{k} is the set of labels specific to task k k and 𝐲 k ⊂ 𝒴 \\mathbf{y}^{k}\\subset\\mathcal{Y} . While observing the data, the goal is to learn a predictor f θ : 𝒳 × 𝒯 → 𝒴 f_{\\theta}:\\mathcal{X}\\times\\mathcal{T}\\rightarrow\\mathcal{Y} , parameterized by θ ∈ P \\theta\\in\\real^{P} (a neural network in our case), that can map any test pair ( 𝐱 , t ) (\\mathbf{x},t) to a target y y ."
+  },
+  {
+    "index": 16,
+    "tag": "h2",
+    "id": null,
+    "text": "3 Metrics"
+  },
+  {
+    "index": 17,
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "Below we describe the metrics used to evaluate the LLL methods studied in this work. In addition to Average Accuracy ( A A ) and Forgetting Measure ( F F ) ( Chaudhry et al., 2018 ) , we define a new measure, the Learning Curve Area ( LCA ), that captures how quickly a model learns."
+  },
+  {
+    "index": 18,
+    "tag": "p",
+    "id": "S3.p2.1",
+    "text": "The training dataset of each task, 𝒟 k \\mathcal{D}_{k} , consists of a total B k B_{k} mini-batches. After each presentation of a mini-batch of task k k , we evaluate the performance of the learner on all the tasks using the corresponding test sets. Let a k , i , j ∈ [ 0 , 1 ] a_{k,i,j}\\in[0,1] be the accuracy evaluated on the test set of task j j , after the model has been trained with the i i -th mini-batch of task k k . Assuming the first learning task in the continuum is indexed by 1 1 (it will be T C ​ V + 1 T^{CV}+1 for 𝒟 E ​ V \\mathcal{D}^{EV} ) and the last one by T T (it will be T C ​ V T^{CV} for 𝒟 C ​ V \\mathcal{D}^{CV} ), we define the following metrics:"
+  },
+  {
+    "index": 19,
+    "tag": "h4",
+    "id": null,
+    "text": "Average Accuracy ( A ∈ [ 0 , 1 ] A\\in[0,1] )"
+  },
+  {
+    "index": 20,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p1.1",
+    "text": "Average accuracy after the model has been trained continually with all the mini-batches up till task k k is defined as:"
+  },
+  {
+    "index": 21,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p1.2",
+    "text": "In particular, A T A_{T} is the average accuracy on all the tasks after the last task has been learned; this is the most commonly used metric used in LLL."
+  },
+  {
+    "index": 22,
+    "tag": "h4",
+    "id": null,
+    "text": "Forgetting Measure ( F ∈ [ − 1 , 1 ] F\\in[-1,1] )"
+  },
+  {
+    "index": 23,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p1.1",
+    "text": "( Chaudhry et al., 2018 ) Average forgetting after the model has been trained continually with all the mini-batches up till task k k is defined as:"
+  },
+  {
+    "index": 24,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p1.2",
+    "text": "where f j k f_{j}^{k} is the forgetting on task ‘ j j ’ after the model is trained with all the mini-batches up till task k k and computed as:"
+  },
+  {
+    "index": 25,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p1.3",
+    "text": "Measuring forgetting after all tasks have been learned is important for a two-fold reason. It quantifies the accuracy drop on past tasks, and it gives an indirect notion of how quickly a model may learn a new task, since a forgetful model will have little knowledge left to transfer, particularly so if the new task relates more closely to one of the very first tasks encountered during the learning experience."
+  },
+  {
+    "index": 26,
+    "tag": "h4",
+    "id": null,
+    "text": "Learning Curve Area ( LCA ∈ [ 0 , 1 ] \\textsc{LCA}\\in[0,1] )"
+  },
+  {
+    "index": 27,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px3.p1.1",
+    "text": "Let us first define an average b b -shot performance (where b b is the mini-batch number) after the model has been trained for all the T T tasks as:"
+  },
+  {
+    "index": 28,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px3.p2.1",
+    "text": "LCA at β \\beta is the area of the convergence curve Z b Z_{b} as a function of b ∈ [ 0 , β ] b\\in[0,\\beta] :"
+  },
+  {
+    "index": 29,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px3.p2.2",
+    "text": "LCA has an intuitive interpretation. LCA 0 \\textsc{LCA}_{0} is the average 0-shot performance, the same as forward transfer in Lopez-Paz & Ranzato (2017) . LCA β \\textsc{LCA}_{\\beta} is the area under the Z b Z_{b} curve, which is high if the 0-shot performance is good and if the learner learns quickly. In particular, there could be two models with the same Z β Z_{\\beta} or A T A_{T} , but very different LCA β \\textsc{LCA}_{\\beta} because one learns much faster than the other while they both eventually obtain the same final accuracy. This metric aims at discriminating between these two cases, and it makes sense for relatively small values of β \\beta since we are interested in models that learn from few examples."
+  },
+  {
+    "index": 30,
+    "tag": "h2",
+    "id": null,
+    "text": "4 Averaged Gradient Episodic Memory ( a-gem )"
+  },
+  {
+    "index": 31,
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "So far we discussed a better training and evaluation protocol for LLL and a new metric to measure the speed of learning. Next, we review gem ( Lopez-Paz & Ranzato, 2017 ) , which is an algorithm that has been shown to work well in the single epoch setting. Unfortunately, gem is very computational and memory intensive, which motivates our efficient variant, dubbed a-gem . In Sec. 5 , we will describe how compositional task descriptors can be leveraged to further speed up learning in the few shot regime."
+  },
+  {
+    "index": 32,
+    "tag": "p",
+    "id": "S4.p2.1",
+    "text": "gem avoids catastrophic forgetting by storing an episodic memory ℳ k \\mathcal{M}_{k} for each task k k . While minimizing the loss on the current task t t , gem treats the losses on the episodic memories of tasks k < t k<t , given by ℓ ⁡ ( f θ , ℳ k ) = 1 | ℳ k | ​ ∑ ( 𝐱 i , k , y i ) ∈ ℳ k ℓ ⁡ ( f θ ​ ( 𝐱 i , k ) , y i ) \\ell(f_{\\theta},\\mathcal{M}_{k})~=~\\frac{1}{|\\mathcal{M}_{k}|}\\sum_{(\\mathbf{x}_{i},k,y_{i})\\in\\mathcal{M}_{k}}\\ell(f_{\\theta}(\\mathbf{x}_{i},k),y_{i}) , as inequality constraints, avoiding their increase but allowing their decrease. This effectively permits gem to do positive backward transfer which other LLL methods do not support. Formally, at task t t , gem solves for the following objective:"
+  },
+  {
+    "index": 33,
+    "tag": "p",
+    "id": "S4.p2.2",
+    "text": "Where f θ t − 1 f_{\\theta}^{t-1} is the network trained till task t − 1 t-1 . To inspect the increase in loss, gem computes the angle between the loss gradient vectors of previous tasks g k g_{k} , and the proposed gradient update on the current task g g . Whenever the angle is greater than 90 ​ ° with any of the g k g_{k} ’s, it projects the proposed gradient to the closest in L2 norm gradient g ~ \\tilde{g} that keeps the angle within the bounds. Formally, the optimization problem gem solves is given by:"
+  },
+  {
+    "index": 34,
+    "tag": "p",
+    "id": "S4.p2.3",
+    "text": "Eq. 7 is a quadratic program (QP) in P P -variables (the number of parameters in the network), which for neural networks could be in millions. In order to solve this efficiently, gem works in the dual space which results in a much smaller QP with only t − 1 t-1 variables:"
+  },
+  {
+    "index": 35,
+    "tag": "p",
+    "id": "S4.p2.4",
+    "text": "where G = − ( g 1 , ⋯ , g t − 1 ) ∈ ( t − 1 ) × P G=-(g_{1},\\cdots,g_{t-1})\\in\\real^{(t-1)\\times P} is computed at each gradient step of training. Once the solution v ∗ v^{*} to Eq. 8 is found, the projected gradient update can be computed as g ~ = G ⊤ ​ v ∗ + g \\tilde{g}=G^{\\top}v^{*}+g ."
+  },
+  {
+    "index": 36,
+    "tag": "p",
+    "id": "S4.p3.1",
+    "text": "While gem has proven very effective in a single epoch setting ( Lopez-Paz & Ranzato, 2017 ) , the performance gains come at a big computational burden at training time. At each training step, gem computes the matrix G G using all samples from the episodic memory, and it also needs to solve the QP of Eq. 8 . Unfortunately, this inner loop optimization becomes prohibitive when the size of ℳ \\mathcal{M} and the number of tasks is large, see Tab. 7 in Appendix for an empirical analysis. To alleviate the computational burden of gem , next we propose a much more efficient version of gem , called Averaged GEM ( a-gem )."
+  },
+  {
+    "index": 37,
+    "tag": "p",
+    "id": "S4.p4.1",
+    "text": "Whereas gem ensures that at every training step the loss of each individual previous tasks, approximated by the samples in episodic memory, does not increase, a-gem tries to ensure that at every training step the average episodic memory loss over the previous tasks does not increase. Formally, while learning task t t , the objective of a-gem is:"
+  },
+  {
+    "index": 38,
+    "tag": "p",
+    "id": "S4.p4.2",
+    "text": "The corresponding optimization problem reduces to:"
+  },
+  {
+    "index": 39,
+    "tag": "p",
+    "id": "S4.p4.3",
+    "text": "where g r ​ e ​ f g_{ref} is a gradient computed using a batch randomly sampled from the episodic memory, ( 𝐱 r ​ e ​ f , y r ​ e ​ f ) ∼ ℳ (\\mathbf{x}_{ref},y_{ref})\\sim\\mathcal{M} , of all the past tasks. In other words, a-gem replaces the t − 1 t-1 constraints of gem with a single constraint, where g r ​ e ​ f g_{ref} is the average of the gradients from the previous tasks computed from a random subset of the episodic memory."
+  },
+  {
+    "index": 40,
+    "tag": "p",
+    "id": "S4.p5.1",
+    "text": "The constrained optimization problem of Eq. 10 can now be solved very quickly; when the gradient g g violates the constraint, it is projected via:"
+  },
+  {
+    "index": 41,
+    "tag": "p",
+    "id": "S4.p5.2",
+    "text": "The formal proof of the update rule of a-gem (Eq. 11 ) is given in Appendix C . This makes a-gem not only memory efficient, as it does not need to store the matrix G G , but also orders of magnitude faster than gem because 1) it is not required to compute the matrix G G but just the gradient of a random subset of memory examples, 2) it does not need to solve any QP but just an inner product, and 3) it will incur in less violations particularly when the number of tasks is large (see Tab. 7 and Fig. 6 in Appendix for empirical evidence). All together these factors make a-gem faster while not hampering its good performance in the single pass setting."
+  },
+  {
+    "index": 42,
+    "tag": "p",
+    "id": "S4.p6.1",
+    "text": "Intuitively, the difference between gem and a-gem loss functions is that gem has better guarantess in terms of worst-case forgetting of each individual task since (at least on the memory examples) it prohibits an increase of any task-specific loss, while a-gem has better guaratees in terms of average accuracy since gem may prevent a gradient step because of a task constraint violation although the overall average loss may actually decrease, see Appendix Sec. D.1 and D.2 for further analysis and empirical evidence. The pseudo-code of a-gem is given in Appendix Alg. 2 ."
+  },
+  {
+    "index": 43,
+    "tag": "h2",
+    "id": null,
+    "text": "5 Joint Embedding Model Using Compositional Task Descriptors"
+  },
+  {
+    "index": 44,
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "In this section, we discuss how we can improve forward transfer for all the LLL methods including a-gem . In order to speed up learning of a new task, we consider the use of compositional task descriptors where components are shared across tasks and thus allow transfer. Examples of compositional task descriptors are, for instance, a natural language description of the task under consideration or a matrix specifying the attribute values of the objects to be recognized in the task. In our experiments, we use the latter since it is provided with popular benchmark datasets ( Wah et al., 2011 ; Lampert et al., 2009 ) . For instance, if the model has already learned and remembers about two independent properties (e.g., color of feathers and shape of beak), it can quickly recognize a new class provided a descriptor specifying the values of its attributes (yellow feathers and red beak), although this is an entirely unseen combination."
+  },
+  {
+    "index": 45,
+    "tag": "p",
+    "id": "S5.p2.1",
+    "text": "Borrowing ideas from literature in few-shot learning ( Lampert et al., 2014 ; Zhang et al., 2018 ; Elhoseiny et al., 2017 ; Xian et al., 2018 ) , we learn a joint embedding space between image features and the attribute embeddings. Formally, let 𝐱 k ∈ 𝒳 \\mathbf{x}^{k}\\in\\mathcal{X} be the input (e.g., an image), t k t^{k} be the task descriptor in the form of a matrix of size C k × A C_{k}\\times A , where C k C_{k} is the number of classes in the k k -th task and A A is the total number of attributes for each class in the dataset. The joint embedding model consists of a feature extraction module, ϕ θ : 𝐱 k → ϕ θ ​ ( 𝐱 k ) \\phi_{\\theta}:\\mathbf{x}^{k}\\rightarrow\\phi_{\\theta}(\\mathbf{x}^{k}) , where ϕ θ ( 𝐱 k ) ∈ D \\phi_{\\theta}(\\mathbf{x}^{k})\\in\\real^{D} , and a task embedding module, ψ ω : t k → ψ ω ​ ( t k ) \\psi_{\\omega}:t^{k}\\rightarrow\\psi_{\\omega}(t^{k}) , where ψ ω ( t k ) ∈ C k × D \\psi_{\\omega}(t^{k})\\in\\real^{C_{k}\\times D} . In this work, ϕ θ ( . ) \\phi_{\\theta}(.) is implemented as a standard multi-layer feed-forward network (see Sec. 6 for the exact parameterization), whereas ψ ω ( . ) \\psi_{\\omega}(.) is implemented as a parameter matrix of dimensions A × D A\\times D . This matrix can be interpreted as an attribute look-up table as each attribute is associated with a D D dimensional vector, from which a class embedding vector is constructed via a linear combination of the attributes present in the class; the task descriptor embedding is then the concatenation of the embedding vectors of the classes present in the task (see Appendix Fig. 9 for the pictorial description of the joint embedding model). During training, the parameters θ \\theta and ω \\omega are learned by minimizing the cross-entropy loss:"
+  },
+  {
+    "index": 46,
+    "tag": "p",
+    "id": "S5.p2.2",
+    "text": "where ( 𝐱 i k , t k , y i k \\mathbf{x}_{i}^{k},t^{k},y_{i}^{k} ) is the i i -th example of task k k . If y i k = c y_{i}^{k}=c , then the distribution p ( . ) p(.) is given by:"
+  },
+  {
+    "index": 47,
+    "tag": "p",
+    "id": "S5.p2.3",
+    "text": "where [ a ] i [a]_{i} denotes the i i -th element of the vector a a . Note that the architecture and loss functions are general, and apply not only to a-gem but also to any other LLL model (e.g., regularization based approaches). See Sec. 6 for the actual choice of parameterization of these functions."
+  },
+  {
+    "index": 48,
+    "tag": "h2",
+    "id": null,
+    "text": "6 Experiments"
+  },
+  {
+    "index": 49,
+    "tag": "p",
+    "id": "S6.p1.1",
+    "text": "We consider four dataset streams, see Tab. 1 in Appendix Sec. A for a summary of the statistics. Permuted MNIST ( Kirkpatrick et al., 2016 ) is a variant of MNIST ( LeCun, 1998 ) dataset of handwritten digits where each task has a certain random permutation of the input pixels which is applied to all the images of that task. Split CIFAR ( Zenke et al., 2017 ) consists of splitting the original CIFAR-100 dataset ( Krizhevsky & Hinton, 2009 ) into 20 20 disjoint subsets, where each subset is constructed by randomly sampling 5 5 classes without replacement from a total of 100 100 classes. Similarly to Split CIFAR, Split CUB is an incremental version of the fine-grained image classification dataset CUB ( Wah et al., 2011 ) of 200 200 bird categories split into 20 20 disjoint subsets of classes. Split AWA , on the other hand, is the incremental version of the AWA dataset ( Lampert et al., 2009 ) of 50 50 animal categories, where each task is constructed by sampling 5 5 classes with replacement from the total 50 50 classes, constructing 20 20 tasks. In this setting, classes may overlap among multiple tasks, but within each task they compete against different set of classes. Note that to make sure each training example is only seen once, the training data of a each class is split into disjoint sets depending on the frequency of its occurrence in different tasks. For Split AWA, the classifier weights of each class are randomly initialized within each head without any transfer from the previous occurrence of the class in past tasks. Finally, while on Permuted MNIST and Split CIFAR we provide integer task descriptors, on Split CUB and Split AWA we stack together the attributes of the classes (specifying for instance the type of beak, the color of feathers, etc.) belonging to the current task to form a descriptor."
+  },
+  {
+    "index": 50,
+    "tag": "p",
+    "id": "S6.p2.1",
+    "text": "In terms of architectures, we use a fully-connected network with two hidden layers of 256 256 ReLU units each for Permuted MNIST, a reduced ResNet18 for Split CIFAR like in Lopez-Paz & Ranzato (2017) , and a standard ResNet18 ( He et al., 2016 ) for Split CUB and Split AWA. For a given dataset stream, all models use the same architecture, and all models are optimized via stochastic gradient descent with mini-batch size equal to 10. We refer to the joint-embedding model version of these models by appending the suffix ‘ -je ’ to the method name."
+  },
+  {
+    "index": 51,
+    "tag": "p",
+    "id": "S6.p3.1",
+    "text": "As described in Sec. 2 and outlined in Alg. 1 , in order to cross validate we use the first 3 tasks, and then report metrics on the remaining 17 tasks after doing a single training pass over each task in sequence."
+  },
+  {
+    "index": 52,
+    "tag": "p",
+    "id": "S6.p4.1",
+    "text": "Lastly, we compared a-gem against several baselines and state-of-the-art LLL approaches which we describe next. van is a single supervised learning model, trained continually without any regularization, with the parameters of a new task initialized from the parameters of the previous task. icarl ( Rebuffi et al., 2017 ) is a class-incremental learner that uses nearest-exemplar-based classifier and avoids catastrophic forgetting by regularizing over the feature representation of previous tasks using a knowledge distillation loss. ewc ( Kirkpatrick et al., 2016 ) , pi ( Zenke et al., 2017 ) , rwalk ( Chaudhry et al., 2018 ) and mas ( Aljundi et al., 2018 ) are regularization-based approaches aiming at avoiding catastrophic forgetting by limiting learning of parameters critical to the performance of past tasks. Progressive Networks ( prog-nn ) ( Rusu et al., 2016 ) is a modular approach whereby a new “column” with lateral connections to previous hidden layers is added once a new task arrives. gem ( Lopez-Paz & Ranzato, 2017 ) described in Sec. 4 is another natural baseline of comparison since a-gem builds upon it. The amount of episodic memory per task used in icarl , gem and a-gem is set to 250 250 , 65 65 , 50 50 , and 100 100 , and the batch size for the computation of g r ​ e ​ f g_{ref} (when the episodic memory is sufficiently filled) in a-gem is set to 256 256 , 256 256 , 128 128 and 128 128 for MNIST, CIFAR, CUB and AWA, respectively. While populating episodic memory, the samples are chosen uniformly at random for each task. And finally, we consider a multi-task baseline, multi-task , trained on a single pass over shuffled data from all tasks, and thus violating the LLL assumption. It can be seen as an upper bound performance for average accuracy."
+  },
+  {
+    "index": 53,
+    "tag": "h3",
+    "id": null,
+    "text": "6.1 Results"
+  },
+  {
+    "index": 54,
+    "tag": "p",
+    "id": "S6.SS1.p1.1",
+    "text": "Fig. 1 and 2 show the overall results on all the datasets we considered (for brevity we show only representative methods, see detailed results in Appendix Tab. 4 , 5 , 6 and 7 ). First, we observe that a-gem achieves the best average accuracy on all datasets, except Permuted MNIST, where prog-nn works better. The reason is because on this dataset each task has a large number of training examples, which enables prog-nn to learn its task specific parameters and to leverage its lateral connections. However, notice how prog-nn has the worst memory cost by the end of training - as its number of parameters grows super-linearly with the number of tasks. In particular, in large scale setups (Split CUB and AWA), prog-nn runs out of memory during training due to its large size. Also, prog-nn does not learn well on datasets where tasks have fewer training examples. Second, a-gem and gem perform comparably in terms of average accuracy, but a-gem has much lower time (about 100 100 times faster) and memory cost (about 10 10 times lower), comparable to regularization-based approaches like EWC. Third, EWC and similar methods perform only slightly better than van on this single pass LLL setting. The analysis in Appendix Sec. F demonstrates that EWC requires several epochs and over-parameterized architectures in order to work well. Fourth, prog-nn has no forgetting by construction and a-gem and gem have the lowest forgetting among methods that use a fixed capacity architecture. Next, all methods perform similarly in terms of LCA , with prog-nn being the worst because of its ever growing number of parameters and a-gem slightly better than all the other approaches. And finally, the use of task descriptors improves average accuracy across the board as shown in Fig. 2 , with a-gem a bit better than all the other methods we tried. All joint-embedding models using task descriptors have better LCA performance, although this is the same across all methods including a-gem . Overall, we conclude that a-gem offers the best trade-off between average accuracy performance and efficiency in terms of sample, memory and computational cost."
+  },
+  {
+    "index": 55,
+    "tag": "p",
+    "id": "S6.SS1.p2.1",
+    "text": "Fig. 3 shows a more fine-grained analysis and comparison with more methods on Permuted MNIST and Split CIFAR. The average accuracy plots show how a-gem and gem greatly outperform other approaches, with the exception of prog-nn on MNIST as discussed above. On different datasets, different methods are best in terms of LCA , although a-gem is always top-performing. Fig. 4 shows in more detail the gain brought by task descriptors which greatly speed up learning in the few-shot regime. On these datasets, a-gem performs the best or on par to the best."
+  },
+  {
+    "index": 56,
+    "tag": "p",
+    "id": "S6.SS1.p3.1",
+    "text": "Finally, in Fig. 5 , we report the 0-shot performance of LLL methods on Split CUB and Split AWA datasets over time, showing a clear advantage of using compositional task descriptors with joint embedding models, which is more significant for a-gem . Interestingly, the zero-shot learning performance of joint embedding models improves over time, indicating that these models get better at forward transfer or, in other words, become more efficient over time."
+  },
+  {
+    "index": 57,
+    "tag": "h2",
+    "id": null,
+    "text": "7 Related Work"
+  },
+  {
+    "index": 58,
+    "tag": "p",
+    "id": "S7.p1.1",
+    "text": "Continual ( Ring, 1997 ) or Lifelong Learning (LLL) ( Thrun, 1998 ) have been the subject of extensive study over the past two decades. One approach to LLL uses modular compositional models ( Fernando et al., 2017 ; Aljundi et al., 2017 ; Rosenbaum et al., 2018 ; Chang et al., 2018 ; Xu & Zhu, 2018 ; Ferran Alet, 2018 ) , which limit interference among tasks by using different subset of modules for each task. Unfortunately, these methods require searching over the space of architectures which is not sample efficient with current methods. Another approach is to regularize parameters important to solve past tasks ( Kirkpatrick et al., 2016 ; Zenke et al., 2017 ; Chaudhry et al., 2018 ) , which has been proven effective for over-parameterized models in the multiple epoch setting (see Appendix Sec. F ), while we focus on learning from few examples using memory efficient models. Methods based on episodic memory ( Rebuffi et al., 2017 ; Lopez-Paz & Ranzato, 2017 ) require a little bit more memory at training time but can work much better in the single pass setting we considered ( Lopez-Paz & Ranzato, 2017 ) ."
+  },
+  {
+    "index": 59,
+    "tag": "p",
+    "id": "S7.p2.1",
+    "text": "The use of task descriptors for LLL has already been advocated by Isele et al. (2016) but using a sparse coding framework which is not obviously applicable to deep nets in a computationally efficient way, and also by Lopez-Paz & Ranzato (2017) although they did not explore the use of compositional descriptors. More generally, tasks descriptors have been used in Reinforcement Learning with similar motivations by several others ( Sutton et al., 2011 ; Schaul et al., 2015 ; Baroni et al., 2017 ) , and it is also a key ingredient in all the zero/few-shot learning algorithms ( Lampert et al., 2014 ; Xian et al., 2018 ; Elhoseiny et al., 2017 ; Wah et al., 2011 ; Lampert et al., 2009 ) ."
+  },
+  {
+    "index": 60,
+    "tag": "h2",
+    "id": null,
+    "text": "8 Conclusion"
+  },
+  {
+    "index": 61,
+    "tag": "p",
+    "id": "S8.p1.1",
+    "text": "We studied the problem of efficient Lifelong Learning (LLL) in the case where the learner can only do a single pass over the input data stream. We found that our approach, a-gem , has the best trade-off between average accuracy by the end of the learning experience and computational/memory cost. Compared to the original gem algorithm, a-gem is about 100 times faster and has 10 times less memory requirements; compared to regularization based approaches, it achieves significantly higher average accuracy. We also demonstrated that by using compositional task descriptors all methods can improve their few-shot performance, with a-gem often being the best."
+  },
+  {
+    "index": 62,
+    "tag": "p",
+    "id": "S8.p2.1",
+    "text": "Our detailed experiments reported in Appendix E also show that there is still a substantial performance gap between LLL methods, including a-gem , trained in a sequential learning setting and the same network trained in a non-sequential multi-task setting, despite seeing the same data samples. Moreover, while task descriptors do help in the few-shot learning regime, the LCA performance gap between different methods is very small; suggesting a poor ability of current methods to transfer knowledge even when forgetting has been eliminated. Addressing these two fundamental issues will be the focus of our future research."
+  },
+  {
+    "index": 63,
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "index": 64,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix"
+  },
+  {
+    "index": 65,
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "text": "In Sec. A we report the summary of datasets used for the experiments. Sec. B details our a-gem algorithm and Sec. C provides the proof of update rule of a-gem discussed in Sec. 4 of the main paper. In Sec. D , we analyze the differences between a-gem and gem , and describe another variation of gem , dubbed Stochastic gem ( s-gem ). The detailed results of the experiments which were used to generate Fig 1 and 2 in the main paper are given in Sec. E . In Sec. F , we provide empirical evidence to the conjecture that regularization-based approaches like ewc require over-parameterized architectures and multiple passes over data in order to perform well as discussed in the Sec. 6.1 of the main paper. In Sec. G , we provide the grid used for the cross-validation of different hyper-parameters and report the optimal values for different models. Finally, in Sec. H , we pictorially describe the joint embedding model discussed in Sec. 5 ."
+  },
+  {
+    "index": 66,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A Dataset Statistics"
+  },
+  {
+    "index": 67,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix B a-gem Algorithm"
+  },
+  {
+    "index": 68,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix C a-gem Update Rule"
+  },
+  {
+    "index": 69,
+    "tag": "p",
+    "id": "A3.p1.1",
+    "text": "Here we provide the proof of the update rule of a-gem (Eq. 11 ), g ~ = g − g ⊤ ​ g r ​ e ​ f g r ​ e ​ f ⊤ ​ g r ​ e ​ f ​ g r ​ e ​ f \\tilde{g}=g-\\frac{g^{\\top}g_{ref}}{g_{ref}^{\\top}g_{ref}}g_{ref} , stated in Sec. 4 of the main paper."
+  },
+  {
+    "index": 70,
+    "tag": "h6",
+    "id": null,
+    "text": "Proof."
+  },
+  {
+    "index": 71,
+    "tag": "p",
+    "id": "A3.p2.1",
+    "text": "The optimization objective of a-gem as described in the Eq. 10 of the main paper, is:"
+  },
+  {
+    "index": 72,
+    "tag": "p",
+    "id": "A3.p2.2",
+    "text": "Replacing g ~ \\tilde{g} with z z and rewriting Eq. 14 yields:"
+  },
+  {
+    "index": 73,
+    "tag": "p",
+    "id": "A3.p2.3",
+    "text": "Note that we discard the term g ⊤ ​ g g^{\\top}g from the objective and change the sign of the inequality constraint. The Lagrangian of the constrained optimization problem defined above can be written as:"
+  },
+  {
+    "index": 74,
+    "tag": "p",
+    "id": "A3.p3.1",
+    "text": "Now, we pose the dual of Eq. 16 as:"
+  },
+  {
+    "index": 75,
+    "tag": "p",
+    "id": "A3.p4.1",
+    "text": "Lets find the value z ∗ z^{*} that minimizes the ℒ ⁡ ( z , α ) \\mathcal{L}(z,\\alpha) by setting the derivatives of ℒ ⁡ ( z , α ) \\mathcal{L}(z,\\alpha) w.r.t. to z z to zero:"
+  },
+  {
+    "index": 76,
+    "tag": "p",
+    "id": "A3.p5.1",
+    "text": "The simplified dual after putting the value of z ∗ z^{*} in Eq. 17 can be written as:"
+  },
+  {
+    "index": 77,
+    "tag": "p",
+    "id": "A3.p6.1",
+    "text": "The solution α ∗ = max α ; α > 0 ⁡ θ 𝒟 ​ ( α ) \\alpha^{*}=\\max_{\\alpha;\\alpha>0}\\theta_{\\mathcal{D}}(\\alpha) to the dual is given by:"
+  },
+  {
+    "index": 78,
+    "tag": "p",
+    "id": "A3.p7.1",
+    "text": "By putting α ∗ \\alpha^{*} in Eq. 18 , we recover the a-gem update rule:"
+  },
+  {
+    "index": 79,
+    "tag": "p",
+    "id": "A3.p7.2",
+    "text": "∎"
+  },
+  {
+    "index": 80,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix D Analysis of gem and a-gem"
+  },
+  {
+    "index": 81,
+    "tag": "p",
+    "id": "A4.p1.1",
+    "text": "In this section, we empirically analyze the differences between a-gem and gem , and report experiments with another computationally efficient but worse performing version of gem ."
+  },
+  {
+    "index": 82,
+    "tag": "h3",
+    "id": null,
+    "text": "D.1 Frequency of Constraint Violations"
+  },
+  {
+    "index": 83,
+    "tag": "p",
+    "id": "A4.SS1.p1.1",
+    "text": "Fig. 6 shows the frequency of constraint violations (see Eq. 8 and 10 ) on Permuted MNIST and Split CIFAR datasets. Note that, the number of gradient updates (training steps) per task on MNIST and CIFAR are 5500 5500 and 250 250 , respectively. As the number of tasks increase, gem violates the optimization constraints at almost each training step, whereas a-gem plateaus to a much lower value. Therefore, the computational efficiency of a-gem not only stems from the fact that it avoids solving a QP at each training step (which is much more expensive than a simple inner product) but also from the fewer number of constraint violations. From the figure, we can also infer that as the number of tasks grows the gap between gem and a-gem would grow further. Thus, the computational and memory overhead of gem over a-gem , see also Tab. 7 , gets worse as the number of tasks increases."
+  },
+  {
+    "index": 84,
+    "tag": "h3",
+    "id": null,
+    "text": "D.2 Average Accuracy and Worst-Case Forgetting"
+  },
+  {
+    "index": 85,
+    "tag": "p",
+    "id": "A4.SS2.p1.1",
+    "text": "In Tab. 2 , we empirically demonstrate the different properties induced by the objective functions of gem and a-gem . gem enjoys lower worst-case task forgetting while a-gem enjoys better overall average accuracy. This is particularly true on the training examples stored in memory, as on the test set the result is confounded by the generalization error."
+  },
+  {
+    "index": 86,
+    "tag": "h3",
+    "id": null,
+    "text": "D.3 Stochastic gem ( s-gem )"
+  },
+  {
+    "index": 87,
+    "tag": "p",
+    "id": "A4.SS3.p1.1",
+    "text": "In this section we report experiments with another variant of gem , dubbed Stochastic gem ( s-gem ). The main idea in s-gem is to randomly sample one constraint, at each training step, from the possible t − 1 t-1 constraints of gem . If that constraint is violated, the gradient is projected only taking into account that constraint. Formally, the optimization objective of s-gem is given by:"
+  },
+  {
+    "index": 88,
+    "tag": "p",
+    "id": "A4.SS3.p2.1",
+    "text": "In other words, at each training step, s-gem avoids the increase in loss of one of the previous tasks sampled randomly. In Tab. 3 we report the comparison of gem , s-gem and a-gem on Permuted MNIST and Split CIFAR."
+  },
+  {
+    "index": 89,
+    "tag": "p",
+    "id": "A4.SS3.p3.1",
+    "text": "Although, s-gem is closer in spirit to gem , as it requires randomly sampling one of the gem constraints to satisfy, compared to a-gem , which defines the constraint as the average gradient of the previous tasks, it perform slightly worse than gem , as can be seen from Tab. 3 ."
+  },
+  {
+    "index": 90,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix E Result Tables"
+  },
+  {
+    "index": 91,
+    "tag": "p",
+    "id": "A5.p1.1",
+    "text": "In Tab. 4 , 5 , 6 and 7 we report the detailed results which were used to generate Fig. 1 and 2 ."
+  },
+  {
+    "index": 92,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix F Analysis of EWC"
+  },
+  {
+    "index": 93,
+    "tag": "p",
+    "id": "A6.p1.1",
+    "text": "In this section we provide empirical evidence to the conjecture that regularization-based approaches like ewc need over-parameterized architectures and multiple passes over the samples of each task in order to perform well. The intuition as to why models need to be over-parameterized is because it is easier to avoid cross-task interference when the model has additional capacity. In the single-pass setting and when each task does not have very many training samples, regularization-based appraches also suffer because regularization parameters cannot be estimated well from a model that has not fully converged. Moreover, for tasks that do not have much data, rgularization-based approaches do not enable any kind of positive backward transfer ( Lopez-Paz & Ranzato, 2017 ) which further hurts performance as the predictor cannot leverage knowledge acquired later to improve its prediction on past tasks. Finally, regularization-based approaches perform much better in the multi-epoch setting simply because in this setting the baseline un-regularized model performs much worse, as it overfits much more to the data of the current task, every time unlearning what it learned before."
+  },
+  {
+    "index": 94,
+    "tag": "p",
+    "id": "A6.p2.1",
+    "text": "We consider Permuted MNIST and Split CIFAR datasets as described in Sec. 6 of the main paper. For MNIST, the two architecture variants that we experiment with are; 1 1 ) two-layer fully-connected network with 256 256 units in each layer (denoted by − S -S suffix), and 2 2 ) two-layer fully-connected network with 2000 2000 units in each layer (denoted by − B -B suffix)."
+  },
+  {
+    "index": 95,
+    "tag": "p",
+    "id": "A6.p3.1",
+    "text": "For CIFAR, the two architecture variants are; 1 1 ) ResNet-18 with 3 3 times less feature maps in all the layers (denoted by − S -S suffix), and 2 2 ) Standard ResNet-18 (denoted by − B -B token)."
+  },
+  {
+    "index": 96,
+    "tag": "p",
+    "id": "A6.p4.1",
+    "text": "We run the experiments on van and ewc with increasing the number of epochs from 1 1 to 10 10 for Permuted MNIST and from 1 1 to 30 30 for CIFAR. For instance, when epoch is set to 10 10 , it means that the training samples of task t t are presented 10 10 times before showing examples from task t + 1 t+1 . In Fig. 7 and 8 we plot the Average Accuracy (Eq. 1 ) and Forgetting (Eq. 2 ) on Permuted MNIST and Split CIFAR, respectively."
+  },
+  {
+    "index": 97,
+    "tag": "p",
+    "id": "A6.p5.1",
+    "text": "We observe that the average accuracy significantly improves with the number of epochs only when ewc is applied to the big network. In particular, in the single epoch setting, ewc peforms similarly to the baseline van on Split CIFAR which has fewer number of training examples per task."
+  },
+  {
+    "index": 98,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix G Hyper-parameter Selection"
+  },
+  {
+    "index": 99,
+    "tag": "p",
+    "id": "A7.p1.1",
+    "text": "Below we report the hyper-parameters grid considered for different experiments. Note, as described in the Sec. 6 of the main paper, to satisfy the requirement that a learner does not see the data of a task more than once, first T C ​ V T^{CV} tasks are used to cross-validate the hyper-parameters. In all the datasets, the value of T C ​ V T^{CV} is set to ‘ 3 3 ’. The best setting for each experiment is reported in the parenthesis."
+  },
+  {
+    "index": 100,
+    "tag": "p",
+    "id": "A7.I1.i1.p1.1",
+    "text": "multi-task"
+  },
+  {
+    "index": 101,
+    "tag": "p",
+    "id": "A7.I1.i1.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (MNIST perm, Split CIFAR, Split CUB, Split AWA), 0.01 0.01 , 0.003 0.003 , 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 102,
+    "tag": "p",
+    "id": "A7.I1.i2.p1.1",
+    "text": "multi-task-je"
+  },
+  {
+    "index": 103,
+    "tag": "p",
+    "id": "A7.I1.i2.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (Split CUB, Split AWA), 0.01 0.01 , 0.003 0.003 , 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 104,
+    "tag": "p",
+    "id": "A7.I1.i3.p1.1",
+    "text": "van"
+  },
+  {
+    "index": 105,
+    "tag": "p",
+    "id": "A7.I1.i3.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (MNIST perm, Split CUB), 0.01 0.01 (Split CIFAR), 0.003 0.003 , 0.001 0.001 (Split AWA), 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 106,
+    "tag": "p",
+    "id": "A7.I1.i4.p1.1",
+    "text": "van-je"
+  },
+  {
+    "index": 107,
+    "tag": "p",
+    "id": "A7.I1.i4.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (Split CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 108,
+    "tag": "p",
+    "id": "A7.I1.i5.p1.1",
+    "text": "prog-nn"
+  },
+  {
+    "index": 109,
+    "tag": "p",
+    "id": "A7.I1.i5.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 (MNIST perm, ), 0.03 0.03 (Split CIFAR, Split AWA), 0.01 0.01 (Split CUB), 0.003 0.003 , 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 110,
+    "tag": "p",
+    "id": "A7.I1.i6.p1.1",
+    "text": "ewc"
+  },
+  {
+    "index": 111,
+    "tag": "p",
+    "id": "A7.I1.i6.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (MNIST perm, Split CIFAR, Split CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 112,
+    "tag": "p",
+    "id": "A7.I1.i6.I1.i2.p1.1",
+    "text": "regularization: [ 1 1 (Split CUB), 10 10 (MNIST perm, Split CIFAR), 100 100 (Split AWA), 1000 1000 , 10000 10000 ]"
+  },
+  {
+    "index": 113,
+    "tag": "p",
+    "id": "A7.I1.i7.p1.1",
+    "text": "ewc-je"
+  },
+  {
+    "index": 114,
+    "tag": "p",
+    "id": "A7.I1.i7.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (Split CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 115,
+    "tag": "p",
+    "id": "A7.I1.i7.I1.i2.p1.1",
+    "text": "regularization: [ 1 1 , 10 10 (Split CUB), 100 100 (Split AWA), 1000 1000 , 10000 10000 ]"
+  },
+  {
+    "index": 116,
+    "tag": "p",
+    "id": "A7.I1.i8.p1.1",
+    "text": "pi"
+  },
+  {
+    "index": 117,
+    "tag": "p",
+    "id": "A7.I1.i8.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 (MNIST perm), 0.03 0.03 (Split CUB), 0.01 0.01 (Split CIFAR), 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 118,
+    "tag": "p",
+    "id": "A7.I1.i8.I1.i2.p1.1",
+    "text": "regularization: [ 0.001 0.001 , 0.01 0.01 , 0.1 0.1 (MNIST perm, Split CIFAR, Split CUB), 1 1 (Split AWA), 10 10 ]"
+  },
+  {
+    "index": 119,
+    "tag": "p",
+    "id": "A7.I1.i9.p1.1",
+    "text": "pi-je"
+  },
+  {
+    "index": 120,
+    "tag": "p",
+    "id": "A7.I1.i9.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (Split CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 121,
+    "tag": "p",
+    "id": "A7.I1.i9.I1.i2.p1.1",
+    "text": "regularization: [ 0.001 0.001 , 0.01 0.01 , 0.1 0.1 (Split CUB), 1 1 , 10 10 (Split AWA)]"
+  },
+  {
+    "index": 122,
+    "tag": "p",
+    "id": "A7.I1.i10.p1.1",
+    "text": "mas"
+  },
+  {
+    "index": 123,
+    "tag": "p",
+    "id": "A7.I1.i10.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 (MNIST perm), 0.03 0.03 (Split CIFAR, Split CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 124,
+    "tag": "p",
+    "id": "A7.I1.i10.I1.i2.p1.1",
+    "text": "regularization: [ 0.01 0.01 , 0.1 0.1 (MNIST perm, Split CIFAR, Split CUB), 1 1 (Split AWA), 10 10 ]"
+  },
+  {
+    "index": 125,
+    "tag": "p",
+    "id": "A7.I1.i11.p1.1",
+    "text": "mas-je"
+  },
+  {
+    "index": 126,
+    "tag": "p",
+    "id": "A7.I1.i11.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (Split CUB), 0.01 0.01 , 0.003 0.003 , 0.001 0.001 (Split AWA), 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 127,
+    "tag": "p",
+    "id": "A7.I1.i11.I1.i2.p1.1",
+    "text": "regularization: [ 0.01 0.01 , 0.1 0.1 (Split CUB, Split AWA), 1 1 , 10 10 ]"
+  },
+  {
+    "index": 128,
+    "tag": "p",
+    "id": "A7.I1.i12.p1.1",
+    "text": "rwalk"
+  },
+  {
+    "index": 129,
+    "tag": "p",
+    "id": "A7.I1.i12.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 (MNIST perm), 0.03 0.03 (Split CIFAR, Split CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 130,
+    "tag": "p",
+    "id": "A7.I1.i12.I1.i2.p1.1",
+    "text": "regularization: [ 0.1 0.1 , 1 1 (MNIST perm, Split CIFAR, Split CUB), 10 10 (Split AWA), 100 100 , 1000 1000 ]"
+  },
+  {
+    "index": 131,
+    "tag": "p",
+    "id": "A7.I1.i13.p1.1",
+    "text": "rwalk-je"
+  },
+  {
+    "index": 132,
+    "tag": "p",
+    "id": "A7.I1.i13.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (SPLIT CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 133,
+    "tag": "p",
+    "id": "A7.I1.i13.I1.i2.p1.1",
+    "text": "regularization: [ 0.1 0.1 , 1 1 (Split CUB), 10 10 (Split AWA), 100 100 , 1000 1000 ]"
+  },
+  {
+    "index": 134,
+    "tag": "p",
+    "id": "A7.I1.i14.p1.1",
+    "text": "a-gem"
+  },
+  {
+    "index": 135,
+    "tag": "p",
+    "id": "A7.I1.i14.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 (MNIST perm), 0.03 0.03 (Split CIFAR, Split CUB), 0.01 0.01 (Split AWA), 0.003 0.003 , 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 136,
+    "tag": "p",
+    "id": "A7.I1.i15.p1.1",
+    "text": "a-gem-je"
+  },
+  {
+    "index": 137,
+    "tag": "p",
+    "id": "A7.I1.i15.I1.i1.p1.1",
+    "text": "learning rate: [ 0.3 0.3 , 0.1 0.1 , 0.03 0.03 (SPLIT CUB), 0.01 0.01 , 0.003 0.003 (Split AWA), 0.001 0.001 , 0.0003 0.0003 , 0.0001 0.0001 ]"
+  },
+  {
+    "index": 138,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix H Joint Embedding Model Pictorial Description"
+  },
+  {
+    "index": 139,
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "index": 140,
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "index": 141,
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "index": 142,
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "index": 143,
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions ."
+  }
+]
