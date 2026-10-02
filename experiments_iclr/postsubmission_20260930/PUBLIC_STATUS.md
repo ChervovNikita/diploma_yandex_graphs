@@ -1,6 +1,6 @@
 # Current research status
 
-Updated: 2026-10-02T18:08:24.310040+00:00. The research goal remains incomplete.
+Updated: 2026-10-02T20:04:59.559940+00:00. The research goal remains incomplete.
 
 ## Additional GPU connection
 
@@ -12,19 +12,19 @@ The saved runtime is Python 3.12.11, Torch 2.7.1 and PyG 2.4.0. BUDDY dependenci
 
 ## Active graph-initialization experiment
 
-The original one-GPU execution handle 51929 remains active. Canonical local receipts verify 17 of 30 continuations, plus all six numerical checks, six warm trajectories and 30 initializations. Completed phases account for 14251.6 supervised seconds, excluding current work. The latest 17:02 UTC query observed 100% GPU utilization and Photo seed17/random-tangent continuation 147/950. Final labels remain closed; no new comparison or advantage is claimed.
+The one-GPU execution handle 51929 was confirmed live. Canonical local metadata now contains 18 of 30 continuation completion receipts, plus all six numerical checks, six warm trajectories and 30 initializations. The latest outcome-free remote observation (19:48 UTC) recorded Photo seed17/warm-copy continuation 10/950, actual update 260, and 100% utilization. Copied remote coordinator counts lag the canonical local coordinator. All 72 phase terminals require a separate complete-cohort audit before scientific comparisons or final scoring. Final labels remain closed; no new comparison or predictive advantage is claimed.
 
 Five fixed arms compare graph-filtered training-error initialization with common descent, random tangent directions, altered topology and warm copying on modern backbones. The exploratory context and decisions are retained. Report and final-label access require the complete registered cohort. Remote copies of coordinator receipts are publication snapshots; local receipts own live counts.
 
 ## Link prediction
 
-BUDDY source v5 repairs CUDA device initialization immediately before peak-memory reset. The v4 resource failure (Torch 2.7 Invalid device argument before model construction, optimizer or training) is preserved at `buddy_gpu77_resource_family_launcher_v1/root_resource_v1/native1024.log`. Config, vendor recipe, CPU tests and cache builder are unchanged. All seven exact-v5 CPU checks passed on actual 18.77 with Torch 2.7.1 in 8.22 seconds.
+**Normal execution restored, 20:02 UTC:** the user clarified that incidental standard runtime caches outside the repo are allowed and requested normal execution. The filesystem namespace guard is retired from active execution. Normal PyTorch/CUDA checks passed on both intended A100 GPUs in 4.26 seconds. No host mounts, settings or other users' jobs were changed.
 
-The complete official ogbl-collab training/validation cache qualification passed for all 235,868 nodes. Topology and cached graph features use training data only; official validation pairs are retained in order. No test member or combined split accessor was opened. All arms reuse this one deterministic cache.
+The unchanged five-arm ogbl-collab family restarted in a fresh repository output directory. At 20:03 UTC, both fit workers were alive, with both GPUs at 97% utilization. No runtime error was observed. The first epoch records were not yet present at that observation; this is liveness evidence, not a completed fit or a predictive result. The 15-cell, three-seed, 100-epoch schedule retains 24 optimizer fits and all original scientific settings.
 
-A locally fetched detached START receipt attests the authorized family launcher launch after all five complete resource epochs and separate prospective root admission. No terminal family receipt is locally available yet. The launch PID does not establish current liveness, fitted completion or training progress; current progress requires separate evidence. Scientific comparisons remain unaudited.
+The earlier partial fits (39 and 40 epoch records) remain preserved and excluded from comparisons. Their costs and all failed guard checks remain recorded. The guard blocked CUDA initialization; the server's normal runtime works. The exact causative blocked syscall was not established. Source, data, checkpoints and deliberate outputs remain in the authorized repository; incidental automatic runtime caches are permitted by the user.
 
-The registered schedule remains five fixed arms × three seeds × 100 epochs (15 cells, 24 optimizer fits). The process-local OGB compatibility environment is retained; explicit checkpoint loading still uses weights_only=True. Other jobs remain active, so observed resource timing and memory depend on contention. This setup establishes no isolated speedup, new predictive result or methodological novelty.
+The qualified shared cache contains all 235,868 official ogbl-collab nodes with training-only topology and graph features. The test archive member remains unopened. The original resource observation estimated 54.47 aggregate hours, approximately 27.23 hours with two workers before overhead and shared-host contention; cancelled partials and diagnostic costs add to total expenditure. This estimate is not an isolated speedup claim. Complete-cohort audit and heldout scoring remain pending.
 
 ## Industrial runtime and other controls
 
@@ -36,4 +36,4 @@ The repaired 21-cell stronger node-classification control fitter has passed sour
 
 Literature index_v19 contains 92 conclusion records across 48 normalized paper identifiers and 2 software documentation identifiers. These counts were checked against the index metadata and normalization groups. Scoped method reads, retained notes and revisits are not full-paper reads; a cumulative full-paper-read total is not certified. Prior conclusions and unresolved novelty limitations remain retained.
 
-Original paper scores remain unchanged. No new predictive superiority, methodological novelty, revised manuscript or paper acceptance is claimed. Future paper reviewers receive immutable evidence and fresh context through the requested skill. Source audits are engineering checks. No sudo, PDF compilation or GENLINK is used; project operations remain in the authorized folders. The old automation was absent; an active replacement with the same id was successfully created and monitors every thirty minutes.
+Original paper scores remain unchanged. No new predictive superiority, methodological novelty, revised manuscript or paper acceptance is claimed. Future paper reviewers receive immutable evidence and fresh context through the requested skill. Source audits are engineering checks. No sudo, PDF compilation or GENLINK is used; research artifacts and deliberate file operations remain in the authorized folders; incidental standard runtime caches outside them are allowed by the user. The old automation was absent; an active replacement with the same id was successfully created and monitors every thirty minutes.

@@ -1,0 +1,27 @@
+/usr/bin/python3 -I -S -B -c 'from pathlib import Path
+from datetime import datetime,timezone
+import os,subprocess,json
+repo=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');phase=repo/'"'"'experiments_iclr/postsubmission_20260930'"'"';p=phase/'"'"'buddy_gpu77_resource_family_launcher_v3'"'"';launch=p/'"'"'root_family_launch_v2'"'"';start=json.loads((launch/'"'"'FAMILY_START.json'"'"').read_text());sid=start['"'"'PID'"'"']
+assert start['"'"'actual_git_root'"'"']==str(repo) and start['"'"'user_allows_incidental_runtime_caches_outside_repo'"'"'] is True
+ps=subprocess.run(['"'"'ps'"'"','"'"'-s'"'"',str(sid),'"'"'-o'"'"','"'"'pid=,ppid=,sid=,stat=,etime=,comm='"'"'],capture_output=True,text=True,check=True)
+processes=[]
+for line in ps.stdout.splitlines():
+ parts=line.split();pid=int(parts[0]);proc=Path('"'"'/proc'"'"')/str(pid)
+ try:
+  cwd=Path(os.readlink(proc/'"'"'cwd'"'"'));argv=(proc/'"'"'cmdline'"'"').read_bytes().decode().split('"'"'\0'"'"');argv=[a for a in argv if a]
+ except FileNotFoundError:continue
+ assert cwd.is_relative_to(repo)
+ processes.append({'"'"'PID'"'"':pid,'"'"'PPID'"'"':int(parts[1]),'"'"'SID'"'"':int(parts[2]),'"'"'state'"'"':parts[3],'"'"'elapsed'"'"':parts[4],'"'"'cwd'"'"':str(cwd),'"'"'argv'"'"':argv})
+progress=[]
+runs=p/'"'"'root_family_v2/runs'"'"'
+if runs.is_dir():
+ for trace in sorted(runs.glob('"'"'*/epochs.jsonl'"'"')):
+  lines=trace.read_text().splitlines();record=json.loads(lines[-1]) if lines else {}
+  progress.append({'"'"'cell'"'"':str(trace.parent.relative_to(runs)),'"'"'completed_epoch_records'"'"':len(lines),'"'"'last_epoch'"'"':record.get('"'"'epoch'"'"')})
+logs={}
+for log in [launch/'"'"'family_execution.log'"'"',p/'"'"'root_family_v2/family.log'"'"']:
+ if log.exists():logs[str(log.relative_to(p))]={'"'"'bytes'"'"':log.stat().st_size,'"'"'error_tail'"'"':log.read_text()[-500:] if any(s in log.read_text() for s in ['"'"'Traceback'"'"','"'"'RuntimeError'"'"','"'"'FAILED'"'"']) else None}
+receipt={'"'"'UTC'"'"':datetime.now(timezone.utc).isoformat(),'"'"'processes'"'"':processes,'"'"'progress_only'"'"':progress,'"'"'logs'"'"':logs,'"'"'outcome_metrics_requested'"'"':False,'"'"'GPU_utilization'"'"':subprocess.run(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid,utilization.gpu,memory.used'"'"','"'"'--format=csv,noheader'"'"'],capture_output=True,text=True,check=True).stdout.splitlines(),'"'"'other_jobs_stopped'"'"':False}
+with (launch/'"'"'PROGRESS_OBSERVATION_v1.json'"'"').open('"'"'x'"'"') as h:json.dump(receipt,h,indent=2);h.write('"'"'\n'"'"')
+print(json.dumps(receipt))
+'
