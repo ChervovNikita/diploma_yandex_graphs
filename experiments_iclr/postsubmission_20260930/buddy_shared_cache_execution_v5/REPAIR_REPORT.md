@@ -1,0 +1,9 @@
+# BUDDY source v5: CUDA initialization before peak reset
+
+The preserved v4 actual77 first resource pass loaded the qualified training cache, then failed at `torch.cuda.reset_peak_memory_stats(device)` with `RuntimeError: Invalid device argument`. It had not yet constructed a model, optimizer or entered training. Root's separate data-free Torch2.7.1/CUDA12.6 probe showed `set_device(0)` followed by peak reset succeeds on the authorized UUID's A10080GB. The failure/probe paths and hashes are in REPAIR_PROOF.json.
+
+The sole executable delta from v4 is `torch.cuda.set_device(device)` immediately before peak reset in the CUDA branch of `fit`. No monkeypatch, learned model, recipe, batch policy, CPU numerical test, guard, checkpoint validator, cache-builder or vendor source changes. All five arms, seeds 0/1/2 and 100 complete epochs remain fixed. The process-local compatibility environment and explicit checkpoint weights_only=True calls remain unchanged.
+
+Static source checks and the original twelve stdlib guard fixtures are rechecked. No new guard or numerical test is added. The patch order is verified by AST and exact source delta. This author executed no Torch/native model/hashing, real data/checkpoint, GPU or remote action. The external root probe supports the initialization repair; it is not a v5 numerical/resource certificate.
+
+Fresh all-seven exact-v5 CPU qualification remains pending root. Whole-source identity changes require root to rebuild the scientifically identical full training-only common cache through new data wrapper v3, then rerun all five complete resource epochs through new launcher v2 before separate prospective family admission. V4's prior CPU/data successes and resource failure are preserved and do not qualify v5. No heldout selection or final-test action is added.

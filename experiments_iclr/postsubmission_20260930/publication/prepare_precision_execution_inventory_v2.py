@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 PHASE = Path(__file__).resolve().parents[1]
-EXTENSIONS = {'.py', '.json', '.md', '.txt', '.log', '.jsonl', '.csv', '.sh', '.patch', '.diff', '.toml'}
+EXTENSIONS = {'.py', '.json', '.md', '.txt', '.log', '.jsonl', '.csv', '.sh', '.patch', '.diff', '.toml', '.html', '.xml'}
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--head', required=True)
     parser.add_argument('--readme', type=Path, required=True)
     parser.add_argument('--root', action='append', required=True)
+    parser.add_argument('--file', action='append', default=[])
     args = parser.parse_args()
     assert re.fullmatch(r'[a-z0-9_]+', args.snapshot) and re.fullmatch(r'[0-9a-f]{40}', args.head)
     out = PHASE / 'publication' / args.snapshot
@@ -26,6 +27,11 @@ def main():
         assert root.resolve().is_relative_to(PHASE) and root.is_dir() and not root.is_symlink()
         selected.update(p for p in root.rglob('*') if p.is_file() and not p.is_symlink()
                         and (p.suffix in EXTENSIONS or p.name == '.gitignore') and '__pycache__' not in p.parts)
+    for relative in args.file:
+        path = PHASE / relative
+        assert path.resolve().is_relative_to(PHASE) and path.is_file() and not path.is_symlink()
+        assert path.suffix in EXTENSIONS or path.name == '.gitignore'
+        selected.add(path)
     for name in ('PUBLIC_STATUS.md', 'RESEARCH_STATE.md', 'research_ledger.json',
                  'publication/prepare_precision_execution_inventory_v2.py'):
         selected.add(PHASE / name)

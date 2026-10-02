@@ -1,0 +1,31 @@
+/usr/bin/python3 -I -S -B -c 'from pathlib import Path
+from datetime import datetime,timezone
+import json,os,subprocess
+repo=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"')
+p=repo/'"'"'experiments_iclr/postsubmission_20260930/buddy_gpu77_resource_family_launcher_v2'"'"'
+start=json.loads((p/'"'"'root_family_launch_v1/FAMILY_START.json'"'"').read_text())
+actual=subprocess.run(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid,utilization.gpu,memory.used,memory.total'"'"','"'"'--format=csv,noheader'"'"'],check=True,capture_output=True,text=True).stdout
+assert Path(subprocess.run(['"'"'git'"'"','"'"'rev-parse'"'"','"'"'--show-toplevel'"'"'],cwd=repo,check=True,capture_output=True,text=True).stdout.strip()).resolve()==repo
+assert {line.split('"'"','"'"')[0] for line in actual.splitlines()}==set(start['"'"'physical_GPU_UUIDs'"'"'])
+tree=[];pending=[start['"'"'PID'"'"']]
+while pending:
+ pid=pending.pop(0);proc=Path('"'"'/proc'"'"')/str(pid)
+ if not proc.exists():continue
+ raw=(proc/'"'"'cmdline'"'"').read_bytes().split(b'"'"'\0'"'"')
+ argv=[x.decode(errors='"'"'replace'"'"') for x in raw if x]
+ assert any(str(repo) in x for x in argv),'"'"'Unexpected PID identity'"'"'
+ children=(proc/'"'"'task'"'"'/str(pid)/'"'"'children'"'"').read_text().split()
+ tree.append({'"'"'PID'"'"':pid,'"'"'argv'"'"':argv,'"'"'children'"'"':[int(x) for x in children]})
+ pending.extend(int(x) for x in children)
+rows=[]
+for seed in [0,1,2]:
+ for arm in ['"'"'native1024'"'"','"'"'single256'"'"','"'"'factorized4'"'"','"'"'independent4'"'"','"'"'matched_single'"'"']:
+  f=p/'"'"'root_family_v1/runs'"'"'/f'"'"'{arm}_seed{seed}'"'"'
+  trace=f/'"'"'epochs.jsonl'"'"';lines=trace.read_text().splitlines() if trace.exists() else []
+  complete=f/'"'"'completion.json'"'"'
+  c=json.loads(complete.read_text()) if complete.exists() else {}
+  rows.append({'"'"'arm'"'"':arm,'"'"'seed'"'"':seed,'"'"'epoch_records'"'"':len(lines),'"'"'last_epoch'"'"':json.loads(lines[-1])['"'"'epoch'"'"'] if lines else None,'"'"'completion_status'"'"':c.get('"'"'status'"'"'),'"'"'validation_metrics_disclosed'"'"':False})
+terminal=p/'"'"'root_family_v1/FAMILY_LAUNCH_RECEIPT.json'"'"'
+log=p/'"'"'root_family_launch_v1/family_execution.log'"'"'
+print(json.dumps({'"'"'UTC'"'"':datetime.now(timezone.utc).isoformat(),'"'"'start_PID'"'"':start['"'"'PID'"'"'],'"'"'owned_process_tree'"'"':tree,'"'"'cells'"'"':rows,'"'"'terminal_receipt_exists'"'"':terminal.exists(),'"'"'wrapper_log_tail'"'"':log.read_text()[-1000:] if log.exists() else None,'"'"'GPU_usage'"'"':actual,'"'"'test_access_requested'"'"':False}))
+'

@@ -1,0 +1,1465 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "section": null,
+    "text": "Content selection saved. Describe the issue below:",
+    "index": 0
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "section": null,
+    "text": "LPFormer: An Adaptive Graph Transformer for Link Prediction",
+    "index": 1
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "section": null,
+    "text": "Link prediction is a common task on graph-structured data that has seen applications in a variety of domains. Classically, hand-crafted heuristics were used for this task. Heuristic measures are chosen such that they correlate well with the underlying factors related to link formation. In recent years, a new class of methods has emerged that combines the advantages of message-passing neural networks (MPNN) and heuristics methods. These methods perform predictions by using the output of an MPNN in conjunction with a “pairwise encoding” that captures the relationship between nodes in the candidate link. They have been shown to achieve strong performance on numerous datasets. However, current pairwise encodings often contain a strong inductive bias, using the same underlying factors to classify all links. This limits the ability of existing methods to learn how to properly classify a variety of different links that may form from different factors. To address this limitation, we propose a new method, LPFormer, which attempts to adaptively learn the pairwise encodings for each link. LPFormer models the link factors via an attention module that learns the pairwise encoding that exists between nodes by modeling multiple factors integral to link prediction. Extensive experiments demonstrate that LPFormer can achieve SOTA performance on numerous datasets while maintaining efficiency. The code is available at The code is available at https://github.com/HarryShomer/LPFormer.",
+    "index": 2
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "S1",
+    "text": "1. Introduction",
+    "index": 3
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S1",
+    "text": "Figure 1. Example of multiple heuristic scores for the candidate links (source, 5), (source, 6), and (source, 7). Each heuristic corresponds to a different LP factor – local (CNs), global (Katz), and feature proximity (Feat-Sim).",
+    "index": 4
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "section": "S1",
+    "text": "Link prediction (LP) attempts to predict unseen edges in a graph. It has been adopted in many applications including recommender systems (Huang et al., 2005), social networks (Daud et al., 2020), and drug discovery (Abbas et al., 2021). Traditionally, hand-crafted heuristics were used to identify new links in the graph (Newman, 2001; Zhou et al., 2009; Adamic and Adar, 2003). Heuristics are often chosen based on factors that typically correlate well with the formation of new links. For example, a popular heuristic is common neighbors (CNs), which assume that the links are more likely to exist between node pairs with more shared neighbors. It has been found that these factors, which we refer to as “LP Factors”, often stem from the local and global structural information and feature proximity (Mao et al., 2023). We give an example in Figure 1 that demonstrates different heuristic scores for multiple candidate links. Each heuristic score corresponds to one of the LP factors: CNs for local information, Katz for global, and Feat-Sim for feature proximity. We can observe that the pair (source, 5) has the highest CN and Katz score of the candidate links, indicating an abundance of local and global structural information between the pair. On the other hand, the feature similarity for (source, 5) is the lowest among the candidate links. This indicates that different LP factors and heuristics have distinct assumptions about why links are formed.",
+    "index": 5
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "section": "S1",
+    "text": "More recently, message passing neural networks (MPNNs) (Gilmer et al., 2017), which are able to learn effective node representations via message passing, have been widely adopted for LP tasks. They predict the existence of a link by combining the node representations of both nodes in the link. However, such a node-centric view is unable to incorporate the pairwise information between the nodes in the link. Because of this, conventional MPNNs have been demonstrated to be poor link predictors due to their limited capability to learn effective and expressive link representations (Zhang et al., 2021a; Srinivasan and Ribeiro, 2019). To address this issue, recent efforts (Zhang and Chen, 2018; Zhu et al., 2021) have attempted to move beyond the node-centric view of traditional MPNNs by equipping them with pairwise information specific to the link being predicted (i.e. the “target link”) (Zhang and Chen, 2018; Zhu et al., 2021). This is done by customizing the message passing process to each target link. However, a concern with this approach is that it can be prohibitively expensive (Chamberlain et al., 2022), as message passing needs to be run for each individual target link. This is as opposed to traditional MPNNs which only run message passing once for all target links.",
+    "index": 6
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "section": "S1",
+    "text": "To overcome these inefficiencies, recent methods (Yun et al., 2021; Chamberlain et al., 2022; Wang et al., 2023) have instead explored ways to inject pairwise information into the model, without individualizing the message passing to each target link. This is done by decoupling the message passing and link-specific pairwise information. By doing so, the message passing only needs to be done once for all target links. To include the pairwise information, these methods, which we refer to as “Decoupled Pairwise MPNNs” (DP-MPNNs), instead learn a “pairwise encoding” to encode the pairwise relationship of the target link. The choice of pairwise encoding is often based on heuristics that correspond to common LP factors (e.g., common neighbors). DP-MPNNs have gained attention as they can achieve promising performance while being much more efficient than methods that customize the message passing mechanism.",
+    "index": 7
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "section": "S1",
+    "text": "However, DP-MPNNs are often limited in the choice of pairwise encoding, using a one-size-fits-all solution for all target links. This has two limitations. (1) The pairwise encoding may fail to consider some integral LP factors. For example, NCNC (Wang et al., 2023) only considers the 1-hop neighborhood when computing the pairwise encoding, thereby ignoring the global structural information. This suggests the need for a pairwise encoding that considers multiple types of LP factors. (2) The pairwise encoding uses the same LP factors for all target links. This assumes that all target links need the same factors. However, it may not necessarily be true. Recently, Mao et al. (2023) have shown that different LP factors are necessary to classify different target links. It is evident that even for the same dataset, multiple LP factors are needed to properly predict all target links. This further applies to different datasets, where certain factors are more prominent than others. As such, it faces tremendous challenges when considering multiple types of LP factors. While one factor may effectively model some target links, it will fail for other target links where those patterns aren’t present. It is therefore desired to consider different LP factors for different target links.",
+    "index": 8
+  },
+  {
+    "tag": "p",
+    "id": "S1.p5.1",
+    "section": "S1",
+    "text": "These observations motivate us to ask – can we design an efficient method that can adaptively determine which LP factors to incorporate for each individual target link? Essentially, it requires a pairwise encoding that (a) models multiple LP factors, (b) can be tailored to fit each individual target link, and (c) is efficient to calculate. By doing so, we can flexibly adapt the pairwise information based on the existing needs of each target link. To achieve this, we propose LPFormer – Link Prediction TransFormer. LPFormer is a type of graph Transformer (Müller et al., 2023) designed specifically for link prediction. Given a target link (a,b) , LPFormer models the pairwise encoding via an attention module that learns how a and b relate in the context of various LP factors. This allows for a more customizable set of pairwise encodings that are specific to each target link. Extensive experiments validate that LPFormer can achieve SOTA on a variety of benchmark datasets. We further demonstrate that LPFormer is better at modeling several types of LP factors, highlighting its adaptability, while also maintaining efficiency on denser graphs.",
+    "index": 9
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "S2",
+    "text": "2. Background",
+    "index": 10
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S2.SS1",
+    "text": "2.1. Related Work",
+    "index": 11
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "section": "S2.SS1",
+    "text": "Link prediction (LP) aims to model how links are formed in a graph. The process by which links are formed, i.e., link formation, is often governed by a set of underlying factors (Barabâsi et al., 2002; Liben-Nowell and Kleinberg, 2003). We refer to these as “LP factors”. Two categories of methods are used for modeling these factors – heuristics and MPNNs. We describe each class of methods. We further include a discussion on existing graph transformers.",
+    "index": 12
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "section": "S2.SS1",
+    "text": "Heuristics for Link Prediction. Heuristics methods (Newman, 2001; Zhou et al., 2009) attempt to explicitly model the LP factors via hand-crafted measures. Recently, Mao et al. (2023) have shown that there are three main factors that correlate with the existence of a link: (1) local structural information, (2) global structural information, and (3) feature proximity. Local structural information only considers the immediate neighborhood of the target link. Representative methods include Common Neighbors (CN) (Newman, 2001), Adamic Adar (AA) (Adamic and Adar, 2003), and Resource Allocation (RA) (Zhou et al., 2009). They are predicated on the assumption that nodes that share a greater number neighbors exhibit a higher probability of forming connections. Global structural information further considers the global structure of the graph. Such methods include Katz (Katz, 1953) and Personalized PageRank (PPR) (Brin and Page, 1998). These methods posit that nodes interconnected by a higher number of paths are deemed to have larger similarity and, therefore, are more likely to form connections. Lastly, feature proximity assumes nodes with more similar features connect (Murase et al., 2019). Previous work (Nickel et al., 2014; Zhao et al., 2017) have shown that leveraging the node features are helpful in predicting links. Lastly, we note that Mao et al. (2023) has recently shown that to properly predict a wide variety of links, it’s integral to incorporate all three of these factors.",
+    "index": 13
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p3.1",
+    "section": "S2.SS1",
+    "text": "MPNNs for Link Prediction. Message Passing Neural Networks (MPNNs) (Gilmer et al., 2017) aim to learn node representations via the message passing mechanism. Traditional MPNNs have been used for LP including GCN (Kipf and Welling, 2016a), SAGE (Hamilton et al., 2017), and GAE (Kipf and Welling, 2016b). However, they have been shown to be suboptimal for LP as they aren’t expressive enough to capture important pairwise patterns (Zhang et al., 2021b; Srinivasan and Ribeiro, 2019). SEAL (Zhang and Chen, 2018) and NBFNet (Zhu et al., 2021) try to address this by customizing the message passing process to each target link. This allows for the message passing to learn pairwise information specific to the target link. However, these methods have been shown to be unduly expensive as they require a separate round of message passing for each target link. As such, recent methods have been proposed to instead decouple the message passing and pairwise information (Yun et al., 2021; Chamberlain et al., 2022; Wang et al., 2023), reducing the time needed to do message passing. Such methods include NCN/NCNC (Wang et al., 2023) which exploit the common neighbor information and BUDDY (Chamberlain et al., 2022) and Neo-GNN (Yun et al., 2021) which consider the global structural information.",
+    "index": 14
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p4.1",
+    "section": "S2.SS1",
+    "text": "Graph Transformers. Recent work has attempted to extend the original Transformer (Vaswani et al., 2017) architecture to graph-structured data. Graphormer (Ying et al., 2021) learns node representations by attending all nodes to each other. To properly model the structural information, they propose to use multiple types of structural encodings (i.e., structural, centrality, and edge). SAN (Kreuzer et al., 2021) further considers the use of the Laplacian positional encodings (LPEs) to enhance the learnt structural information. Alternatively, TokenGT (Kim et al., 2022) considers all nodes and edges as tokens in the sequence when performing attention. Due to the large complexity of these models, they are unable to scale to larger graphs. To address this, several graph transformers (Chen et al., 2022; Wu et al., 2022) have been proposed for node classification that attempt to efficiently attend to the graph. However, while some work (Chen et al., 2021; Pahuja et al., 2023) have formulated transformers for knowledge graph completion, to our knowledge, there are no graph transformers designed specifically for LP on uni-relational graphs.",
+    "index": 15
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S2.SS2",
+    "text": "2.2. Preliminaries",
+    "index": 16
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "section": "S2.SS2",
+    "text": "We denote a graph as \\mathcal{G}=\\{\\mathcal{V},\\mathcal{E}\\} , where \\mathcal{V} and \\mathcal{E} are the sets of nodes and edges in \\mathcal{G} , respectively. The adjacency matrix is represented as A\\in\\mathbb{R}^{\\lvert V\\rvert\\times\\lvert V\\rvert} . The d -dimensional node features are represented by the matrix X\\in\\mathbb{R}^{\\lvert V\\rvert\\times d} . The set of neighbors for a node v is given by \\mathcal{N}(v) . The set of overlapping neighbors between two nodes a and b , i.e., the common neighbors (CNs), is expressed by \\mathcal{N}^{\\text{CN}}_{(a,b)} . We further denote the set of nodes that are 1-hop neighbors of only one of a or b as \\mathcal{N}^{1}_{(a,b)} and the nodes that are {>}1 -hop from both nodes as \\mathcal{N}^{>1}_{(a,b)} . Lastly, the personalized pagerank (PPR) score for a root node v and an arbitrary node u is given by \\text{ppr}(v,u) .",
+    "index": 17
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "S3",
+    "text": "3. The Proposed Framework",
+    "index": 18
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S3",
+    "text": "Figure 2. An overview of LPFormer. (1) Encode the nodes via a MPNN. (2) For a given target link, we determine which nodes to attend to ( \\hat{\\mathcal{N}}(a,b) ) via the PPR-based thresholding technique in Eq. (10). (3) The pairwise encoding is computed by attending to each node, u\\in\\hat{\\mathcal{N}}(a,b) using the feature and relative positional encoding \\mathbf{\\text{rpe}}_{(a,b,u)} . (4) The pairwise encoding, node representations, and counts of different node types are concatenated and used to compute the final probability of the target link existing.",
+    "index": 19
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "section": "S3",
+    "text": "In Section 1, we highlighted the importance of adaptively modeling multiple types of LP factors. However, current methods that use pairwise encodings, i.e., DP-MPNNs, struggle to appropriately achieve this goal. This is due to two issues: (1) They only attempt to model a subset of the potential LP factors (e.g., only local structural information), limiting their ability to model multiple factors. (2) They use a one-size-fits-all approach in regard to pairwise encoding, using the same combination of LP factors for each target link. These issues strongly limit the potential of such methods to properly model a variety of different target links. To overcome these problems, we propose LPFormer, a new transformer-based method that can adaptively customize the pairwise information for each target link by considering a variety of different LP factors in an efficient manner.",
+    "index": 20
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S3.SS1",
+    "text": "3.1. A General View of Pairwise Encodings",
+    "index": 21
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "section": "S3.SS1",
+    "text": "Recent MPNNs for LP use a decoupled strategy to include the pairwise information (Chamberlain et al., 2022; Wang et al., 2023; Yun et al., 2021). These methods, DP-MPNNs, predict the existence of a link (a,b) via both the node representations and a pairwise encoding s(a,b) . They follow the formulation below:",
+    "index": 22
+  },
+  {
+    "tag": "table",
+    "id": "S3.EGx1",
+    "section": "S3.SS1",
+    "text": "| | | \\displaystyle H=\\text{MPNN}(A,X), | | (1) | | | \\displaystyle p(a,b)=\\sigma\\left(\\text{MLP}\\left(\\mathbf{h}_{a}\\odot\\mathbf{h}_{b}\\concat s(a,b)\\right)\\right), |",
+    "index": 23
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.2",
+    "section": "S3.SS1",
+    "text": "where h_{i} is the representation of node i encoded by the MPNN. Various DP-MPNNs adopt different ways to model the pairwise encoding. For example, NCN (Wang et al., 2023) models the pairwise encoding s(a,b) as the summation of the node representations of the CNs. The definitions of s(a,b) for other prominent DP-MPNNs can be found in Appendix A. The pairwise encodings in these existing methods are typically manually selected or extracted from the graph, which limits the LP factors they can cover. For example, s(a,b) in NCN and NCNC only capture the local structural information. BUDDY (Chamberlain et al., 2022) ignores the node features when computing the pairwise encoding. To flexibly model multiple types of LP factors, we propose a general formulation for pairwise encodings as follows,",
+    "index": 24
+  },
+  {
+    "tag": "table",
+    "id": "S3.E2",
+    "section": "S3.SS1",
+    "text": "| (2) | | s(a,b)=\\sum_{u\\in\\mathcal{V}}w(a,b,u)\\odot h(a,b,u), |",
+    "index": 25
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.3",
+    "section": "S3.SS1",
+    "text": "where w(a,b,u) measures the importance of node u to (a,b) , and h(a,b,u) is the encoding of node u relative to (a,b) . By considering which nodes should be considered for (a,b) and how they are related to the node pair, Eq. (2) can model different LP factors by manually defining w(a,b,u) and h(a,b,u) . In particular, we demonstrate how the heuristic methods corresponding to different LP factors can fit into this framework.",
+    "index": 26
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "section": "S3.SS1",
+    "text": "Common Neighbors (CNs) (Newman, 2001): CNs considers the local structural information and is defined for a pair of nodes (a,b) as \\mathcal{N}^{\\text{CN}}_{(a,b)}=\\mathcal{N}(a)\\cap\\mathcal{N}(b) . Eq. (2) is equal to the CNs when h(a,b,u)=1 and:",
+    "index": 27
+  },
+  {
+    "tag": "table",
+    "id": "S3.E3",
+    "section": "S3.SS1",
+    "text": "| (3) | | w(a,b,u)=\\left\\{\\begin{array}[]{ll}1,&\\text{when }u\\in\\mathcal{N}(a)\\cap\\mathcal{N}(b)\\\\ 0,&\\text{else }\\end{array}\\right\\}. |",
+    "index": 28
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p3.1",
+    "section": "S3.SS1",
+    "text": "Katz Index (Katz, 1953): The Katz index models the global structural information. It is defined as weighted summation of the number of paths of different lengths connecting a and b and a decay weight \\beta\\in[0,1] ,",
+    "index": 29
+  },
+  {
+    "tag": "table",
+    "id": "S3.Ex2",
+    "section": "S3.SS1",
+    "text": "| | \\text{Katz}(a,b)=\\sum_{l=1}^{\\infty}\\beta^{l}A_{a,b}^{l}. |",
+    "index": 30
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p3.2",
+    "section": "S3.SS1",
+    "text": "This is equivalent to Eq. (2) where w(a,b,u)=\\sum_{l=1}^{\\infty}\\beta^{l}e_{a}^{T}A^{l} and",
+    "index": 31
+  },
+  {
+    "tag": "table",
+    "id": "S3.Ex3",
+    "section": "S3.SS1",
+    "text": "| | h(a,b,u)=\\left\\{\\begin{array}[]{ll}e_{b}^{T},&\\text{when }u=b\\\\ \\mathbf{0},&\\text{else }\\end{array}\\right\\}, |",
+    "index": 32
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p3.3",
+    "section": "S3.SS1",
+    "text": "where e_{i}\\in\\mathbb{B}^{\\lvert\\mathcal{V}\\rvert} is a one-hot vector for a node i .",
+    "index": 33
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p4.1",
+    "section": "S3.SS1",
+    "text": "Feature Similarity: The feature similarity of the pair of nodes (a,b) is expressed by \\text{dis}(\\mathbf{x}_{a},\\mathbf{x}_{b}) where \\mathbf{x}_{a} are the node features of node a and \\text{dis}(\\cdot) is a distance function (e.g., euclidean distance). This can be rewritten as Eq. (2) by substituting w(a,b,u)=\\text{dis}(\\mathbf{x}_{a},\\mathbf{x}_{u}) and h(a,b,u)=e_{b}^{T} .",
+    "index": 34
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p5.1",
+    "section": "S3.SS1",
+    "text": "These examples demonstrate that the general formulation can indeed model many different LP factors including local and global structural information and feature proximity. We further show in Appendix B that Eq. (2) can model a variety of additional LP factors including RA (Zhou et al., 2009), the pairwise encodings used in NCN/NCNC (Wang et al., 2023) and Neo-GNN (Yun et al., 2021). However, fitting these methods into the formulation in Eq. (2) requires manually defining both w(a,b,u) and h(a,b,u) . This constrains the information represented by s(a,b) based on the choice of design. Motivated by this, in the next section we introduce our method that does not rely on a handcrafting both w(a,b,u) and h(a,b,u) .",
+    "index": 35
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S3.SS2",
+    "text": "3.2. Modeling Pairwise Encodings via Attention",
+    "index": 36
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "section": "S3.SS2",
+    "text": "In Section 3.1, we introduced a general formulation for pairwise encodings in Eq. (2), which is able to capture a variety of different LP factors. However, it requires manually defining both terms in the equation. This limits our ability to customize the pairwise information to each target link. As such, we further aim to move beyond a one-size-fits-all pairwise encoding, and enable the model to produce customized pairwise encoding for each target link. This allows the model to handle more realistic graphs that often contain multiple prominent LP factors for different target links as shown in (Mao et al., 2023).",
+    "index": 37
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "section": "S3.SS2",
+    "text": "In particular, we consider the following question: How can we model Eq (2) such that it can customize the used LP factors to each target link? We consider parameterizing both w(a,b,u) and h(a,b,u) . This allows us to learn how to personalize them to each target link. To achieve this, we leverage softmax attention (Bahdanau et al., 2015). This is due to its ability to dynamically learn the relevance of different nodes to the target link. As such, for multiple target links, it can emphasize the contributions of different nodes, thereby flexibly modeling different LP factors. We note that since the attention is between different sequences (i.e., a target link and nodes), it can be considered a form of cross attention (Vaswani et al., 2017).",
+    "index": 38
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p3.1",
+    "section": "S3.SS2",
+    "text": "To enhance the adaptability of the pairwise encoding for various links, it is essential to incorporate various types of information. This allows the attention mechanism to discern and prioritize relevant information for each target link, facilitating the effective modeling of diverse LP factors. In particular, we consider two types of information. The first is the feature information. This includes the feature representation of both nodes in the target link and the node being attended to. The node features are included due to their role in link formation and relationship to structural information (Murase et al., 2019). Second, we consider the relative positional information. The relative positional information reflects the relative position in the graph of a node u to the target link (a,b) in the local and global structural context. Due to the importance of local and global structural information (Dong et al., 2017; Huang et al., 2015), it is vital to properly encode both. By including both the structural and feature information, we are able to cover the space of potential LP factors (see Section 2.1).",
+    "index": 39
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p4.1",
+    "section": "S3.SS2",
+    "text": "We denote the feature representation of a node u as \\mathbf{h}_{u} and the relative positional encoding (RPE) as \\mathbf{rpe}_{(a,b,u)} . The node importance w(a,b,u) is modeled via attention as follows:",
+    "index": 40
+  },
+  {
+    "tag": "table",
+    "id": "S3.EGx2",
+    "section": "S3.SS2",
+    "text": "| | | \\displaystyle\\tilde{w}(a,b,u)=\\phi\\left(\\mathbf{h}_{a},\\mathbf{h}_{b},\\mathbf{h}_{u},\\>\\mathbf{rpe}_{(a,b,u)}\\right), | | (4) | | | \\displaystyle w(a,b,u)=\\frac{\\text{exp}(\\tilde{w}(a,b,u))}{\\sum_{v\\in\\bar{\\mathcal{V}}(a,b)}\\text{exp}(\\tilde{w}(a,b,u))}, |",
+    "index": 41
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p4.2",
+    "section": "S3.SS2",
+    "text": "where \\bar{\\mathcal{V}}(a,b)=\\mathcal{V}\\setminus\\{a,b\\} . The attention weight w(a,b,u) can be considered as the impact of a node u on (a,b) relative to all nodes in \\mathcal{G} . This allows the model to emphasize different LP factors for each target link. The node encoding h(a,b,u) includes the features of node u in conjunction with the RPE and is defined as:",
+    "index": 42
+  },
+  {
+    "tag": "table",
+    "id": "S3.E5",
+    "section": "S3.SS2",
+    "text": "| (5) | | h(a,b,u)=\\mathbf{W}\\left[\\mathbf{h}_{u}\\>\\concat\\mathbf{rpe}_{(a,b,v)}\\right]. |",
+    "index": 43
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p4.3",
+    "section": "S3.SS2",
+    "text": "By substituting Eq. (4) and Eq. (5) into Eq. (2) we can compute the pairwise information s(a,b) . We further define \\phi(\\cdot) in Eq. (4) as the GATv2 (Brody et al., 2022) attention mechanism. The detailed formulation is given in Appendix D. The feature representations \\mathbf{h}_{i} are computed via a MPNN. We use GCN (Kipf and Welling, 2017) in this work. However, it is unclear how to properly encode the RPE of a node u relative to (a,b) , \\mathbf{rpe}_{(a,b,u)} . We aim to design the RPE to capture both the local and global structural relationship between the node and target link while also being efficient to calculate. In the next section, we discuss our solution for modeling \\mathbf{rpe}_{(a,b,u)} .",
+    "index": 44
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S3.SS3",
+    "text": "3.3. PPR-Based Relative Positional Encodings",
+    "index": 45
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "section": "S3.SS3",
+    "text": "In this section, we introduce our strategy for computing the RPE of a node u relative to a target link (a,b) . Intuitively, we want the RPE to reflect the positional relationship between u and (a,b) such that different types of information (i.e., local vs. global) are encoded differently. Using Figure 1 as an example, since node 3 is a CN of (source, 5) we expect it to have a much different relationship to the target link than node 6, which is a 2-hop neighbor of both nodes. An enticing option is to use the double radius node labeling (DRNL) trick introduced by Zhang and Chen (2018). However, Chamberlain et al. (2022) have shown it to be prohibitively expensive to calculate for larger graphs. Furthermore, existing RPEs are typically infeasible to calculate on larger graphs as they often rely on pairwise distances or the eigenvectors of the Laplacian (Rampášek et al., 2022).",
+    "index": 46
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "section": "S3.SS3",
+    "text": "As such, we seek an RPE that can both distinguish the relationship of different nodes to the target link while also being efficient to calculate. To motivate our RPE design, we draw inspiration from the following Proposition.",
+    "index": 47
+  },
+  {
+    "tag": "p",
+    "id": "S3.Thmtheorem1.p1.1",
+    "section": "S3.SS3",
+    "text": "Consider a target link (a,b) and a node u\\in\\mathcal{V}\\setminus\\{a,b\\} . The PPR (Brin and Page, 1998) score of a root node i and target node j with teleportation probability \\alpha is denoted by \\text{ppr}(i,j) . Let r_{a}^{k}(u) be the probability of a walk of length k beginning at node a and terminating at u . We define r_{a,b}^{k}(u):=r_{a}^{k}(u)+r_{b}^{k}(u) . We also define a weight \\gamma^{k}:=\\alpha(1-\\alpha)^{k} for all walks of length k . The PPR scores, ppr(a,u) and ppr(b,u) , along with the random walk probabilities of disparate lengths, are interconnected through the following relationship.",
+    "index": 48
+  },
+  {
+    "tag": "table",
+    "id": "S3.E6",
+    "section": "S3.SS3",
+    "text": "| (6) | | \\Gamma(a,b,u)=\\text{ppr}(a,u)+\\text{ppr}(b,u)=\\sum_{k=0}^{\\infty}\\gamma^{k}r_{a,b}^{k}(u). |",
+    "index": 49
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p3.1",
+    "section": "S3.SS3",
+    "text": "The detailed proof is given in Appendix C. From Proposition 1, we can make the following observations: (1) The PPR scores encode the weighted sum of the probabilities of different length random walks connecting two nodes. (2) Walks of shorter length are given higher importance, as evidenced by the dampening factor \\gamma^{k}=\\alpha(1-\\alpha)^{k} which decays with the increase in k . These observations imply that – a larger value of \\Gamma(a,b,u) correlates with the existence of many shorter walks connecting node u to the both nodes in the target link (a,b) .",
+    "index": 50
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p4.1",
+    "section": "S3.SS3",
+    "text": "Therefore, the PPR scores can be used as an intuitive and useful method to understand the structural relationship between node u and both nodes in the target link (a,b) . If both scores, \\text{ppr}(a,u) and \\text{ppr}(b,u) , are high, there exists a high probability that many shorter walks connect u to both nodes in the target link. This implies that node u has a stronger impact on the nodes in the target link. On the other hand, if both PPR scores are low, there is likely very little relationship between u and the target link. This allows for a convenient way of differentiating how a node structurally relates to the target link. Furthermore, we note that the PPR matrix can be efficiently pre-computed using the algorithm introduced by Andersen et al. (2006), allowing for easy computation and use.",
+    "index": 51
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p5.1",
+    "section": "S3.SS3",
+    "text": "Following this idea, to calculate the RPE of a node u , we use the PPR scores of a node u relative to both nodes in the target link (a,b) . Instead of considering the sum of PPR scores as in Proposition 1, we further parameterize \\Gamma(\\cdot) via an MLP,",
+    "index": 52
+  },
+  {
+    "tag": "table",
+    "id": "S3.E7",
+    "section": "S3.SS3",
+    "text": "| (7) | | \\mathbf{rpe}_{(a,b,u)}=\\text{MLP}\\left(\\text{ppr}(a,u),\\text{ppr}(b,u)\\right). |",
+    "index": 53
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p5.2",
+    "section": "S3.SS3",
+    "text": "By introducing learnable parameters to \\Gamma(\\cdot) , it allows for the model learn the importance of individual PPR scores and how they interact with each other. To ensure that Eq. (7) is invariant to the order of the nodes in the target link, i.e., (a,b) and (b,u) , we further set the RPE to be equal to the summation of the representations given by both (a,b) and (b,a) :",
+    "index": 54
+  },
+  {
+    "tag": "table",
+    "id": "S3.E8",
+    "section": "S3.SS3",
+    "text": "| (8) | | \\mathbf{\\overline{rpe}}_{(a,b,u)}=\\mathbf{rpe}_{(a,b,u)}+\\mathbf{rpe}_{(b,a,u)}. |",
+    "index": 55
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p5.3",
+    "section": "S3.SS3",
+    "text": "However, a concern with Eq. (8) is that it is not guaranteed to be able to distinguish certain types of nodes from each other. For example, it is necessary to clearly distinguish CNs from other nodes due to their important role in link formation (Newman, 2001). To overcome this issue, we fit three separate MLPs for when u is a: CN of (a,b) , a 1-hop neighbor of either a and b , and a {>}1 -hop neighbor of both a and b . This ensures that we can properly distinguish between these three types of nodes. We verify the effectiveness of this design in Section 4.4. Lastly, we note that while other work (Mialon et al., 2021; Li et al., 2020) has considered the use of random-walk based positional encodings, they are only designed for use on the node-level and are unable to be used for link-level tasks like LP.",
+    "index": 56
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S3.SS4",
+    "text": "3.4. Efficiently Attending to the Graph Context",
+    "index": 57
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p1.1",
+    "section": "S3.SS4",
+    "text": "The proposed attention mechanism in Section 3.2 attends to all nodes in the graph, sans those in the link itself. This makes it difficult to scale to large graphs. Motivated by selective (Maruf et al., 2019) and sparse (Correia et al., 2019) attention, we opt to attend to only a small portion of the nodes.",
+    "index": 58
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p2.1",
+    "section": "S3.SS4",
+    "text": "At a high level, we are interested in determining a subset of nodes \\hat{\\mathcal{N}}(a,b)\\in\\mathcal{V} to attend to for the target link (a,b) . Our goal is to choose the set of nodes \\hat{\\mathcal{N}}(a,b) such that they are (a) few in number to improve scalability and (b) provide important contextual information to the pair (a,b) to best learn the pairwise information. This can be achieved by only considering all nodes where the importance of the node u to the target link (a,b) is considered high. Formally, we can write this as the following where \\mathcal{I}(a,b,u) is a function that denotes the importance of a node u to the target link (a,b) :",
+    "index": 59
+  },
+  {
+    "tag": "table",
+    "id": "S3.E9",
+    "section": "S3.SS4",
+    "text": "| (9) | | \\hat{\\mathcal{N}}(a,b)=\\{u\\in\\mathcal{V}\\setminus\\{a,b\\}\\;|\\;\\mathcal{I}(a,b,u)>\\eta\\}. |",
+    "index": 60
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p2.2",
+    "section": "S3.SS4",
+    "text": "The threshold \\eta allows us to distinguish those nodes that are sufficiently important to the target link. This allows for a simple and efficient way of determining the set \\hat{\\mathcal{N}}(a,b) . However, what do we use to model the importance \\mathcal{I}(a,b,u) ? For ease of optimization and better efficiency, we avoid parameterizing the function \\mathcal{I}(a,b,u) . Instead, we want to choose a metric such that can properly serve as a proxy for the importance of a node u to (a,b) while also being concentrated in a small subset of nodes. Such a metric will allow Eq. (9) to choose a small but influential set of nodes to attend to.",
+    "index": 61
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p3.1",
+    "section": "S3.SS4",
+    "text": "A measure that satisfies both criteria is Personalized Pagerank (PPR) (Brin and Page, 1998). In Section 3.3 we discussed that the PPR score can serve as a good tool to model the influence of a one node on another. Furthermore, existing work (Gleich et al., 2015; Nassar et al., 2015; Andersen et al., 2006) shows that the PPR scores tend to be highly localized in a small subset of nodes. Therefore by making \\mathcal{I}(a,b,u) contingent on the PPR scores of (a,u) and (b,u) we can extract a small but important set of nodes to attend to for the target link.",
+    "index": 62
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p4.1",
+    "section": "S3.SS4",
+    "text": "Following this idea, for a target link (a,b) , we keep all nodes whose PPR score is above some threshold \\eta relative to both nodes in the target link. As such, we only keep a node u if it is related in some capacity to at least one of the nodes in the target link. Similarly to Section 3.3, we treat CN, 1-Hop, and {>}1 -Hop nodes differently by applying a different threshold for them. The filtered node set for each category of nodes is given by:",
+    "index": 63
+  },
+  {
+    "tag": "table",
+    "id": "S3.E10",
+    "section": "S3.SS4",
+    "text": "| (10) | | \\hat{\\mathcal{N}}^{\\pi}_{(a,b)}=\\{u\\in\\mathcal{N}^{\\pi}_{(a,b)}\\>|\\>\\text{ppr}(a,u)>\\eta^{\\pi},\\>\\text{ppr}(b,u)>\\eta^{\\pi}\\}, |",
+    "index": 64
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p4.2",
+    "section": "S3.SS4",
+    "text": "where \\hat{\\mathcal{N}}^{\\pi}_{(a,b)} is the filtered node set for all nodes of the type \\pi\\in\\{\\text{CN},1{-}\\text{Hop},{>}1{-}\\text{Hop}\\} and \\eta^{\\pi} is the corresponding PPR threshold. We note that while other work (Bojchevski et al., 2020; Ying et al., 2018) has used PPR to filter the nodes on the node-level, no existing work has done so on the link-level.",
+    "index": 65
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p5.1",
+    "section": "S3.SS4",
+    "text": "We corroborate this design by demonstrating that LPFormer can achieve SOTA performance in LP (Section 4.2) while achieving a faster runtime than the second-best method, NCNC (Wang et al., 2023), on denser graphs (Section 4.7). This is despite the fact that LPFormer can attend to a wider variety of nodes. We further show in Section 4.5 that the performance is stable with regards to the values of \\eta chosen, allowing us to easily choose a proper threshold on any dataset.",
+    "index": 66
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S3.SS5",
+    "text": "3.5. LPFormer",
+    "index": 67
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p1.1",
+    "section": "S3.SS5",
+    "text": "We now define the overall framework – LPFormer. The overall procedure is given in Figure 2: (1) We first learn node representations from the input adjacency and node features via an MPNN. We note that this step is agnostic to the target link. (2) For a target link (a,b) we extract the nodes to attend to, i.e. \\hat{\\mathcal{N}}(a,b) . This is done via the PPR thresholding technique defined in Section 3.4. (3) We apply L layers of attention, using the mechanism defined in Section 3.2. The output is the pairwise encoding s(a,b) . (4) We generate the prediction of the target link using three types of information: the element-wise product of the node representation, the pairwise encoding, and the number of CN, 1-Hop, and > 1-Hop nodes identified by Eq. (10). The score function is given by:",
+    "index": 68
+  },
+  {
+    "tag": "table",
+    "id": "S3.E11",
+    "section": "S3.SS5",
+    "text": "| (11) | | p(a,b)=\\sigma\\left(\\text{MLP}\\left(\\mathbf{h}_{a}\\odot\\mathbf{h}_{b}\\concat s(a,b)\\concat\\lvert\\hat{\\mathcal{N}}^{\\text{CN}}_{(a,b)}\\rvert\\concat\\lvert\\hat{\\mathcal{N}}^{1}_{(a,b)}\\rvert\\concat\\lvert\\hat{\\mathcal{N}}^{>1}_{(a,b)}\\rvert\\right)\\right) |",
+    "index": 69
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p1.2",
+    "section": "S3.SS5",
+    "text": "We demonstrate in Section 4.4 that the inclusion of the node counts is helpful, as it provides complementary information to the pairwise encoding.",
+    "index": 70
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "S4",
+    "text": "4. Experiments",
+    "index": 71
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4",
+    "text": "Table 1. Dataset statistics. The split ratio is the % of samples for train/validation/test.",
+    "index": 72
+  },
+  {
+    "tag": "table",
+    "id": "S4.T1.5",
+    "section": "S4",
+    "text": "| | Cora | Citeseer | Pubmed | ogbl-collab | ogbl-ddi | ogbl-ppa | ogbl-citation2 | #Nodes | 2,708 | 3,327 | 18,717 | 235,868 | 4,267 | 576,289 | 2,927,963 | #Edges | 5,278 | 4,676 | 44,327 | 1,285,465 | 1,334,889 | 30,326,273 | 30,561,187 | Split Ratio | 85/5/10 | 85/5/10 | 85/5/10 | 92/4/4 | 80/10/10 | 70/20/10 | 98/1/1",
+    "index": 73
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4",
+    "text": "Table 2. Results on benchmark datasets. OOM is an out of memory error. Colored are the results ranked first, second, and third.",
+    "index": 74
+  },
+  {
+    "tag": "table",
+    "id": "S4.T2.8",
+    "section": "S4",
+    "text": "| | Cora | Citeseer | Pubmed | ogbl-collab | ogbl-ppa | ogbl-citation2 | Mean Rank | Metric | MRR | MRR | MRR | H@50 | H@100 | MRR | | CN | 20.99 {\\scriptstyle\\pm 0.00} | 28.34 {\\scriptstyle\\pm 0.00} | 14.02 {\\scriptstyle\\pm 0.00} | 56.44 {\\scriptstyle\\pm 0.00} | 27.65 {\\scriptstyle\\pm 0.00} | 51.47 {\\scriptstyle\\pm 0.00} | 11.0 | AA | 31.87 {\\scriptstyle\\pm 0.00} | 29.37 {\\scriptstyle\\pm 0.00} | 16.66 {\\scriptstyle\\pm 0.00} | 64.35 {\\scriptstyle\\pm 0.00} | 32.45 {\\scriptstyle\\pm 0.00} | 51.89 {\\scriptstyle\\pm 0.00} | 8.5 | RA | 30.79 {\\scriptstyle\\pm 0.00} | 27.61 {\\scriptstyle\\pm 0.00} | 15.63 {\\scriptstyle\\pm 0.00} | 64.00 {\\scriptstyle\\pm 0.00} | 49.33 {\\scriptstyle\\pm 0.00} | 51.98 {\\scriptstyle\\pm 0.00} | 8.7 | GCN | 32.50 {\\scriptstyle\\pm 6.87} | 50.01 {\\scriptstyle\\pm 6.04} | 19.94 {\\scriptstyle\\pm 4.24} | 44.75 {\\scriptstyle\\pm 1.07} | 18.67 {\\scriptstyle\\pm 1.32} | 84.74 {\\scriptstyle\\pm 0.21} | 8.0 | SAGE | 37.83 {\\scriptstyle\\pm 7.75} | 47.84 {\\scriptstyle\\pm 6.39} | 22.74 {\\scriptstyle\\pm 5.47} | 48.10 {\\scriptstyle\\pm 0.81} | 16.55 {\\scriptstyle\\pm 2.40} | 82.60 {\\scriptstyle\\pm 0.36} | 7.7 | GAE | 29.98 {\\scriptstyle\\pm 3.21} | 63.33 {\\scriptstyle\\pm 3.14} | 16.67 {\\scriptstyle\\pm 0.19} | OOM | OOM | OOM | NA | SEAL | 26.69 {\\scriptstyle\\pm 5.89} | 39.36 {\\scriptstyle\\pm 4.99} | 38.06 {\\scriptstyle\\pm 5.18} | 64.74 {\\scriptstyle\\pm 0.43} | 48.80 {\\scriptstyle\\pm 3.16} | 87.67 {\\scriptstyle\\pm 0.32} | 6.2 | NBFNet | 37.69 {\\scriptstyle\\pm 3.97} | 38.17 {\\scriptstyle\\pm 3.06} | 44.73 {\\scriptstyle\\pm 2.12} | OOM | OOM | OOM | NA | Neo-GNN | 22.65 {\\scriptstyle\\pm 2.60} | 53.97 {\\scriptstyle\\pm 5.88} | 31.45 {\\scriptstyle\\pm 3.17} | 57.52 {\\scriptstyle\\pm 0.37} | 49.13 {\\scriptstyle\\pm 0.60} | 87.26 {\\scriptstyle\\pm 0.84} | 7.0 | BUDDY | 26.40 {\\scriptstyle\\pm 4.40} | 59.48 {\\scriptstyle\\pm 8.96} | 23.98 {\\scriptstyle\\pm 5.11} | 65.94 {\\scriptstyle\\pm 0.58} | 49.85 {\\scriptstyle\\pm 0.20} | 87.56 {\\scriptstyle\\pm 0.11} | 5.7 | NCN | 32.93 {\\scriptstyle\\pm 3.80} | 54.97 {\\scriptstyle\\pm 6.03} | 35.65 {\\scriptstyle\\pm 4.60} | 64.76 {\\scriptstyle\\pm 0.87} | 61.19 {\\scriptstyle\\pm 0.85} | 88.09 {\\scriptstyle\\pm 0.06} | 3.8 | NCNC | 29.01 {\\scriptstyle\\pm 3.83} | 64.03 {\\scriptstyle\\pm 3.67} | 25.70 {\\scriptstyle\\pm 4.48} | 66.61 {\\scriptstyle\\pm 0.71} | 61.42 {\\scriptstyle\\pm 0.73} | 89.12 {\\scriptstyle\\pm 0.40} | 3.8 | LPFormer | 39.42 {\\scriptstyle\\pm 5.78} | 65.42 {\\scriptstyle\\pm 4.65} | 40.17 {\\scriptstyle\\pm 1.92} | 68.14 {\\scriptstyle\\pm 0.51} | 63.32 {\\scriptstyle\\pm 0.63} | 89.81 {\\scriptstyle\\pm 0.13} | 1.2",
+    "index": 75
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "section": "S4",
+    "text": "In this section, we conduct extensive experiments to validate the effectiveness of LPFormer. Specifically, we attempt to answer the following questions: (RQ1) Can LPFormer consistently outperform baseline methods on a variety of different benchmark datasets? (RQ2) Is LPFormer able to model a variety of different LP factors? (RQ3) Can LPFormer be run efficiently on large dense graphs? We further conduct studies ablating each component of our model and analyzing the effect of the PPR-based threshold on performance.",
+    "index": 76
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S4.SS1",
+    "text": "4.1. Experimental Settings",
+    "index": 77
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "section": "S4.SS1",
+    "text": "Datasets. We include Cora, Citeseer, and Pubmed (Yang et al., 2016) and ogbl-collab, ogbl-ppa, ogbl-ddi, and ogbl-citation2 (Hu et al., 2020). Furthermore, for Cora, Citeseer, and Pubmed we experiment under a single fixed split (see Appendix E.1 for further discussion). The detailed statistics for each dataset are shown in Table 1.",
+    "index": 78
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "section": "S4.SS1",
+    "text": "Baseline Models. We compare LPFormer against a wide variety of baselines including: CN (Newman, 2001), AA (Adamic and Adar, 2003), RA (Zhou et al., 2009), GCN (Kipf and Welling, 2017), SAGE (Hamilton et al., 2017), GAE (Kipf and Welling, 2016b), SEAL (Zhang and Chen, 2018), NBFNet (Zhu et al., 2021), Neo-GNN (Yun et al., 2021), BUDDY (Chamberlain et al., 2022), and NCNC (Wang et al., 2023). Results on Cora, Citeseer, and Pubmed are taken from Li et al. (2023). Results for the heuristic methods are from Hu et al. (2020). All other results are either from their respective study or Chamberlain et al. (2022).",
+    "index": 79
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p3.1",
+    "section": "S4.SS1",
+    "text": "Hyperparameters: The learning rate is tuned from \\{1e^{-3},5e^{-3}\\} , the decay from \\{0.95,0.975,1\\} , and the dropout from [0,0.7] , and the weight decay from \\{0,1e^{-4},1e^{-7}\\} . The size of the hidden dimension is set to 64 for ogbl-ppa and ogbl-citation2, 128 for Cora, Pubmed, and ogbl-collab, and 256 for Citeseer. Lastly, the PPR threshold is tuned from \\{1e^{-2},1e^{-3},1e^{-4}\\} .",
+    "index": 80
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p4.1",
+    "section": "S4.SS1",
+    "text": "Evaluation Metrics. Each positive target link is evaluated against a set of given negative links. The rank of the positive link among the negatives is used to evaluate performance. The two types of metrics that are used to evaluate this ranking are Hits@K and MRR. For the OGB datasets we use the metric used in the original study. This includes Hits@50 for ogbl-collab, Hits@100 for ogbl-ppa and MRR for ogbl-citation2. For Cora, Citeseer, Pubmed we follow Li et al. (2023) and use MRR. Lastly, the same set of negative links is used for all positive links except on ogbl-citation2, where (Hu et al., 2020) provides a customized set of 1000 negatives for each individual positive link.",
+    "index": 81
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S4.SS2",
+    "text": "4.2. Main Results",
+    "index": 82
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "section": "S4.SS2",
+    "text": "We present the results of LPFormer compared with baselines on multiple benchmark datasets. Note that we omit ogbl-ddi from the main results due to recent issues discovered by Li et al. (2023) (see Appendix E.2 for more details). The results are shown in Table 2. We observe that LPFormer can achieve SOTA performance on 5/6 datasets, significantly outperforming other baselines. Moreover, LPFormer is also the most consistent of all the methods, achieving strong performance on all datasets. This is as opposed to previous SOTA methods, NCNC and BUDDY, which tend to struggle on Cora and Pubmed. We attribute the consistency of LPFormer to the flexibility of our model, allowing it to customize the LP factors needed to each link and dataset.",
+    "index": 83
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S4.SS3",
+    "text": "4.3. Performance by LP Factor",
+    "index": 84
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p1.1",
+    "section": "S4.SS3",
+    "text": "In this section, we measure the ability of LPFormer to capture a variety of different LP factors. To measure this, we identify all positive target links when there is only one dominant LP factor. For example, one group would contain all target links where the only dominant factor is the local structural information. We focus on links that correspond to one of the three groups identified in (Mao et al., 2023): local structural information, global structural information, and feature proximity.",
+    "index": 85
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p2.1",
+    "section": "S4.SS3",
+    "text": "We identify these groups by using popular heuristics as proxies for each factor. For local structural information, we use CNs (Newman, 2001), for global structural information we use PPR (Brin and Page, 1998) as it’s the most computationally efficient of all global methods, and for feature proximity, we use the cosine similarity of the features. Using these heuristics, we determine if only one factor is dominant by comparing the relative score of each heuristic. This is done by first computing the score for each factor i for the target link (a,b) – s^{i}(a,b) . For each factor, we then compute the score corresponding to the p -th percentile among all links, \\hat{s}^{i} . We choose a larger value of p (i.e. 90%) such that a score \\geq\\hat{s}^{i} indicates that a significant amount of pairwise information exists for that factor. For a single target link, we then compare the score of each factor s^{i}(a,b) to \\hat{s}^{i} . If s^{i}(a,b)\\geq\\hat{s}^{i} is true for only one factor, this implies that the score for only one factor is “high”. Therefore there is a notable amount of pairwise information existing for only one factor for the link (a,b) . This ensures that only one factor is strongly expressed. If this is true, we then assign the target link (a,b) to factor i . Please see Appendix E.4 for a more detailed explanation.",
+    "index": 86
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p3.1",
+    "section": "S4.SS3",
+    "text": "We demonstrate the results on Cora, Citeseer, and ogbl-collab in Figure 3. We observe that LPFormer typically performs best for each individual LP factor on all datasets. Furthermore, it is also the most consistently well-performing on each factor as compared to other methods. For example, on Cora the other methods struggle for links that correspond to the feature proximity factor. LPFormer, on the other hand, is able to significantly outperform them on those target links, performing around 33% better than the second best method. Lastly, we note that most methods tend to perform well on the links corresponding to the global factor, even if they don’t explicitly model such information. This is caused by a strong correlation that tends to exist between local and global structural information, often resulting in considerable overlap between both factors (Mao et al., 2023). These results show that LPFormer can indeed adapt to multiple types of LP factors, as it can consistently perform well on samples belonging to a variety of different LP factors. Additional results are given in Appendix E.5.",
+    "index": 87
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS3",
+    "text": "(a) Cora",
+    "index": 88
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS3",
+    "text": "(b) Citeseer",
+    "index": 89
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS3",
+    "text": "(c) ogbl-collab",
+    "index": 90
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS3",
+    "text": "Figure 3. Performance on links that contain one dominant LP factor. Results are on (a) Cora, (b) Citeseer, and (c) ogbl-collab.",
+    "index": 91
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S4.SS4",
+    "text": "4.4. Ablation Study",
+    "index": 92
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p1.1",
+    "section": "S4.SS4",
+    "text": "We further include an ablation study to verify the effectiveness of the proposed components in LPFormer. In particular, we introduce 6 variants of LPFormer. (a) w/o Learnable Att: No attention is learned. As such, we set all attention weights to 1 and remove the RPE. (b) w/o Features in Att: We remove the node feature information from the attention mechanism. (c) w/o RPE in Att: We remove the RPE from the attention mechanism. (d) w/o PPR RPE: We replace the PPR-based RPE with a learnable embedding for each of CN, 1-Hop, and > 1-Hop nodes. (e) w/o PPR RPE by Node Type: We don’t fit a separate function for each node type when determining the PPR RPE (see Section 3.3). Instead we use one for all nodes. (f) w/o Counts: We remove the counts of different nodes from the scoring function.",
+    "index": 93
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p2.1",
+    "section": "S4.SS4",
+    "text": "The results are shown in Table 3. We include ogbl-collab, ogbl-ppa, and Citeseer. We observe that ablating a component always decreases the performance. However, the magnitude of the decrease is dataset-dependent. For example, on ogbl-collab, ablating the feature information in the attention marginally affects the performance. However, on ogbl-ppa and Citeseer, removing the feature information results in a large decrease in performance. On the other hand, while removing learnable attention results in a modest decrease on ogbl-ppa, for the other two datasets we see a large drop. This highlights the importance of each component of our framework, as they are each necessary for consistently strong performance across multiple datasets.",
+    "index": 94
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS4",
+    "text": "Table 3. Ablation Study on LPFormer",
+    "index": 95
+  },
+  {
+    "tag": "p",
+    "id": "S4.T3.5",
+    "section": "S4.SS4",
+    "text": "Method ogbl-collab ogbl-ppa Citeseer w/o Learnable Att 65.05{\\scriptstyle\\pm 0.50} 62.77{\\scriptstyle\\pm 1.03} 56.23{\\scriptstyle\\pm 1.75} w/o Features in Att 68.04\\scriptstyle\\pm 0.79 56.98{\\scriptstyle\\pm 1.55} 53.40{\\scriptstyle\\pm 9.30} w/o RPE in Att 65.26{\\scriptstyle\\pm 0.56} 61.20{\\scriptstyle\\pm 0.69} 56.70{\\scriptstyle\\pm 3.79} w/o PPR RPE 67.09{\\scriptstyle\\pm 0.51} 61.91{\\scriptstyle\\pm 1.22} 51.96{\\scriptstyle\\pm 15.2} w/o PPR RPE by Node Type 67.95{\\scriptstyle\\pm 0.54} 62.92{\\scriptstyle\\pm 1.06} 57.40{\\scriptstyle\\pm 5.71} w/o Counts 67.75{\\scriptstyle\\pm 0.41} {44.37\\scriptstyle\\pm 1.89} 54.39{\\scriptstyle\\pm 5.30} LPFormer \\mathbf{68.14{\\scriptstyle\\pm 0.51}} \\mathbf{63.32{\\scriptstyle\\pm 0.63}} \\mathbf{65.42\\scriptstyle\\pm 4.65}",
+    "index": 96
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS4",
+    "text": "Table 4. Effect of Varying the PPR Thresholds",
+    "index": 97
+  },
+  {
+    "tag": "p",
+    "id": "S4.T4.5",
+    "section": "S4.SS4",
+    "text": "Threshold ogbl-collab ogbl-citation2 1-Hop {>}1{-}\\text{Hop} 1-Hop {>}1{-}\\text{Hop} 1e-4 68.24{\\scriptstyle\\pm 0.25} 67.73{\\scriptstyle\\pm 0.65} 89.81{\\scriptstyle\\pm 0.13} 89.14{\\scriptstyle\\pm 0.22} 1e-2 67.60{\\scriptstyle\\pm 0.31} 68.24{\\scriptstyle\\pm 0.25} 89.49{\\scriptstyle\\pm 0.18} 89.81{\\scriptstyle\\pm 0.13} 1 67.08{\\scriptstyle\\pm 0.65} 68.14{\\scriptstyle\\pm 0.51} 89.49{\\scriptstyle\\pm 0.16} 89.26{\\scriptstyle\\pm 0.39}",
+    "index": 98
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S4.SS5",
+    "text": "4.5. Effect of the PPR Thresholds",
+    "index": 99
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS5.p1.1",
+    "section": "S4.SS5",
+    "text": "We examine the effect of varying the PPR threshold for both 1-Hop and {>}1{-}\\text{Hop} nodes as described in Eq. (10). The results for ogbl-collab and ogbl-citation2 are shown in Table 4. When varying the 1-Hop threshold, we fix the value of the {>}1{-}\\text{Hop} threshold to 1e-2 for both datasets. When varying the {>}1{-}\\text{Hop} threshold, we fix the value of the 1 -Hop threshold to 1e-4 for both datasets.",
+    "index": 100
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS5.p2.1",
+    "section": "S4.SS5",
+    "text": "We can observe that modifying the threshold has little effect on the underlying performance of the model. For both datasets, a value of 1e-2 works well for the {>}1{-}\\text{Hop} threshold and 1e-4 works well for the 1-Hop threshold. We typically find that setting both values to 1e-2 provides a good trade-off between performance and efficiency.",
+    "index": 101
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S4.SS6",
+    "text": "4.6. Performance on HeaRT Setting",
+    "index": 102
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS6.p1.1",
+    "section": "S4.SS6",
+    "text": "We further test the performance of our method on the HeaRT (Li et al., 2023) evaluation setting, which considers a more realistic and difficult evaluation setting for link prediction. This is done by introducing a much harder and more realistic set of negative samples during evaluation. Li et al. (2023) observe that this results in a large decrease in performance on all datasets. Furthermore, compared to the original evaluation setting, MPNNs designed specifically for link prediction are often outperformed by heuristics or other MPNNs.",
+    "index": 103
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS6.p2.1",
+    "section": "S4.SS6",
+    "text": "The full results can be found in Table 5. We observe that LPFormer performs considerably better than all other models. For instance, the mean rank of LPFormer is 3.1x better than the 2nd best-performing model, NCN. This indeed shows the advantage of LPFormer, as it can consistently achieve extraordinary performance across all datasets under the much more challenging HeaRT evaluation setting. This is as opposed to other LP-specific methods that often perform similarly to standard MPNN methods.",
+    "index": 104
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS6",
+    "text": "Table 5. Results (MRR) under HeaRT. Highlighted are the results ranked first, second, and third.",
+    "index": 105
+  },
+  {
+    "tag": "p",
+    "id": "S4.T5.8.1",
+    "section": "S4.SS6",
+    "text": "Models Cora Citeseer Pubmed ogbl-collab ogbl-ddi ogbl-ppa ogbl-citation2 Mean Rank CN 9.78 8.42 2.28 4.20 6.71 25.70 17.11 11.1 AA 11.91 10.82 2.63 5.07 6.97 26.85 17.83 9.6 RA 11.81 10.84 2.47 6.29 8.70 28.34 17.79 8.1 GCN 16.61 \\pm 0.30 21.09 \\pm 0.88 7.13 \\pm 0.27 6.09 \\pm 0.38 13.46 \\pm 0.34 26.94 \\pm 0.48 19.98 \\pm 0.35 4.7 SAGE 14.74 \\pm 0.69 21.09 \\pm 1.15 9.40 \\pm 0.70 5.53 \\pm 0.5 12.60 \\pm 0.72 27.27 \\pm 0.30 22.05 \\pm 0.12 4.7 GAE 18.32 \\pm 0.41 25.25 \\pm 0.82 5.27 \\pm 0.25 OOM 3.49 \\pm 1.73 OOM OOM NA SEAL 10.67 \\pm 3.46 13.16 \\pm 1.66 5.88 \\pm 0.53 6.43 \\pm 0.32 9.99 \\pm 0.90 29.71 \\pm 0.71 20.60 \\pm 1.28 6.4 NBFNet 13.56 \\pm 0.58 14.29 \\pm 0.80 >24h OOM >24h OOM OOM NA BUDDY 13.71 \\pm 0.59 22.84 \\pm 0.36 7.56 \\pm 0.18 5.67 \\pm 0.36 12.43 \\pm 0.50 27.70 \\pm 0.33 19.17 \\pm 0.20 5.9 Neo-GNN 13.95 \\pm 0.39 17.34 \\pm 0.84 7.74 \\pm 0.30 5.23 \\pm 0.9 10.86 \\pm 2.16 21.68 \\pm 1.14 16.12 \\pm 0.25 7.4 NCN 14.66 \\pm 0.95 28.65 \\pm 1.21 5.84 \\pm 0.22 5.09 \\pm 0.38 12.86 \\pm 0.78 35.06 \\pm 0.26 23.35 \\pm 0.28 4.4 NCNC 14.98 \\pm 1.00 24.10 \\pm 0.65 8.58 \\pm 0.59 4.73 \\pm 0.86 >24h 33.52 \\pm 0.26 19.61 \\pm 0.54 4.8 LPFormer 16.80 \\pm 0.52 26.34 \\pm 0.67 9.99 \\pm 0.52 7.62 \\pm 0.26 13.20 \\pm 0.54 40.25 \\pm 0.24 24.70 \\pm 0.55 1.4",
+    "index": 106
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "S4.SS7",
+    "text": "4.7. Runtime Analysis",
+    "index": 107
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS7.p1.1",
+    "section": "S4.SS7",
+    "text": "In this section, we compare the runtime of LPFormer against NCNC, which is the strongest performing baseline. The results are shown in Figure 4 on all four OGB datasets We further include the mean degree of each dataset in parentheses. We observe that LPFormer shines on denser datasets, taking significantly less time to train one epoch. This is despite that LPFormer can attend to nodes beyond the 1-hop radius of the target link. This underscores the importance of the PPR thresholding technique introduced in Section 3.4, as it allows for efficient attention to a wider variety of nodes. Lastly, we note that LPFormer struggles on the ogbl-citation2 dataset due to the large number of nodes in the dataset (i.e., 2,927,963), which requires the sparse PPR matrix to be quite large. For future work we plan on exploring pre-computing the necessary PPR scores as an efficient pre-processing step, thereby removing the need to store the costly PPR matrix. Please see Appendix E.7 for more details.",
+    "index": 108
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "S4.SS7",
+    "text": "Figure 4. Comparison of training time of 1 epoch between LPFormer and NCNC. The mean degree is in parentheses.",
+    "index": 109
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "S5",
+    "text": "5. Conclusion",
+    "index": 110
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "section": "S5",
+    "text": "In this paper we introduce a new framework, LPFormer, that aims to integrate a wider variety of pairwise information for link prediction. LPFormer does this via a specially designed graph transformer, which adaptively considers how a node pair relate to each other in the context of the graph. Extensive experiments demonstrate that LPFormer can achieve SOTA performance on a wide variety of benchmark datasets while retaining efficiency. We further demonstrate LPFormer’s supremacy at modeling multiple types of LP factors. For future work, we plan on exploring other methods of incorporating multiple LP factors with an emphasis on global structural information. We also plan to investigate the potential of alternative relative positional encodings.",
+    "index": 111
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "bib",
+    "text": "References",
+    "index": 112
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "A1",
+    "text": "Appendix A Existing Formulations of Pairwise Encodings",
+    "index": 113
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.1",
+    "section": "A1",
+    "text": "In this section we give an overview of existing formulations of pairwise encodings using in DP-MPNNs. The standard formulation of DP-MPNNs is given in Eq. 1 where s(a,b) is the pairwise encoding. We briefly describe other existing solutions below:",
+    "index": 114
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.1",
+    "section": "A1",
+    "text": "NCN (Wang et al., 2023): NCN only considers the CNs of the target link (a,b) by summing the node representation of each. The pairwise encoding, s(a,b) , is written as:",
+    "index": 115
+  },
+  {
+    "tag": "table",
+    "id": "A1.E12",
+    "section": "A1",
+    "text": "| (12) | | s(a,b)=\\sum_{u\\in\\mathcal{N}^{\\text{CN}}_{(a,b)}}\\mathbf{h}_{u}, |",
+    "index": 116
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.2",
+    "section": "A1",
+    "text": "where \\mathbf{h}_{u} is the node representation encoded by a MPNN.",
+    "index": 117
+  },
+  {
+    "tag": "p",
+    "id": "A1.p3.1",
+    "section": "A1",
+    "text": "NCNC (Wang et al., 2023): NCNC extends NCN by further considering the 1-hop neighbors of the node pair that aren’t CNs. To account for the difference, they are weighted by the probability of they themselves being CNs of the other node in the pair. This is given for a target link (a,b) as:",
+    "index": 118
+  },
+  {
+    "tag": "table",
+    "id": "A1.E13",
+    "section": "A1",
+    "text": "| (13) | | s(a,b)=\\sum_{u\\in\\mathcal{V}}w(a,b,u)\\>\\mathbf{h}_{u}, |",
+    "index": 119
+  },
+  {
+    "tag": "p",
+    "id": "A1.p3.2",
+    "section": "A1",
+    "text": "where",
+    "index": 120
+  },
+  {
+    "tag": "table",
+    "id": "A1.E14",
+    "section": "A1",
+    "text": "| (14) | | w(a,b,u)=\\left\\{\\begin{array}[]{ll}1,&\\text{when }u\\in\\mathcal{N}^{\\text{CN}}_{(a,b)}\\\\ \\text{NCN}(A,X,b,u)&\\text{when }u\\in\\mathcal{N}(a)\\\\ \\text{NCN}(A,X,a,u)&\\text{when }u\\in\\mathcal{N}(b)\\\\ 0,&\\text{else }\\end{array}\\right\\}. |",
+    "index": 121
+  },
+  {
+    "tag": "p",
+    "id": "A1.p3.3",
+    "section": "A1",
+    "text": "This weighting scheme ensures that CNs play a larger role in the pairwise information than non-CNs.",
+    "index": 122
+  },
+  {
+    "tag": "p",
+    "id": "A1.p4.1",
+    "section": "A1",
+    "text": "BUDDY (Wang et al., 2023): BUDDY considers counting the number of nodes that correspond to different labels given by the double radius node labeling trick (Zhang et al., 2021a). We first define the number of nodes that are a distance d_{a} and d_{b} from nodes a and b as \\mathcal{A}_{ab}[d_{a},d_{b}] . We further define the number of nodes where \\text{max}(d_{u},d_{v})>k as \\beta_{ab}[d] . The pairwise encoding concatenates the counts belonging to all combination of d=1\\cdots k . The counts are estimated using subgraph sketching algorithms (Flajolet et al., 2007; Broder, 1997) and are denoted \\hat{\\mathcal{A}} and \\hat{\\mathcal{B}} . The pairwise encoding for a target link (a,b) is given by the following where [k]=\\{1\\cdots k\\} :",
+    "index": 123
+  },
+  {
+    "tag": "table",
+    "id": "A1.EGx3",
+    "section": "A1",
+    "text": "| (15) | | \\displaystyle s^{\\hat{\\mathcal{A}}}(a,b) | \\displaystyle=\\concat_{d_{a},d_{b}\\in[k]}\\hat{\\mathcal{A}}_{ab}[d_{a},d_{b}], | | (16) | | \\displaystyle s^{\\hat{\\mathcal{\\beta}}}(a,b) | \\displaystyle=\\concat_{d\\in[k]}\\hat{\\beta}_{ab}[d], | | (17) | | \\displaystyle s(a,b) | \\displaystyle=s^{\\hat{\\mathcal{A}}}(a,b)\\concat s^{\\hat{\\mathcal{\\beta}}}(a,b). |",
+    "index": 124
+  },
+  {
+    "tag": "p",
+    "id": "A1.p5.1",
+    "section": "A1",
+    "text": "Neo-GNN (Wang et al., 2023): Neo-GNN considers the higher-order neighbor overlap between two nodes. This is done by first learning a structural representation for each node i , x_{i}^{struct} . This is given by:",
+    "index": 125
+  },
+  {
+    "tag": "table",
+    "id": "A1.E18",
+    "section": "A1",
+    "text": "| (18) | | x_{i}^{struct}=f_{1}\\left(\\sum_{j\\in\\mathcal{N}(i)}f_{2}\\left(A_{ij}\\right)\\right). |",
+    "index": 126
+  },
+  {
+    "tag": "p",
+    "id": "A1.p5.2",
+    "section": "A1",
+    "text": "To consider the L -hop structural information, the structural representations are diffused over L hops and weighted by a hyperparameter \\beta :",
+    "index": 127
+  },
+  {
+    "tag": "table",
+    "id": "A1.EGx4",
+    "section": "A1",
+    "text": "| (19) | | \\displaystyle Z | \\displaystyle=\\text{MLP}\\left(\\sum_{l=1}^{L}\\beta^{l-1}A^{l}X^{struct}\\right), | | (20) | | | \\displaystyle\\text{where}\\>\\>\\>X=\\text{diag}(x^{struct}). |",
+    "index": 128
+  },
+  {
+    "tag": "p",
+    "id": "A1.p5.3",
+    "section": "A1",
+    "text": "The pairwise encoding s(a,b) is the dot product of both the final representations,",
+    "index": 129
+  },
+  {
+    "tag": "table",
+    "id": "A1.E21",
+    "section": "A1",
+    "text": "| (21) | | s(a,b)=z_{a}^{T}z_{b}. |",
+    "index": 130
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "A2",
+    "text": "Appendix B Special Cases of the General Pairwise Encoding",
+    "index": 131
+  },
+  {
+    "tag": "p",
+    "id": "A2.p1.1",
+    "section": "A2",
+    "text": "In this section we demonstrate that multiple popular heuristics and pairwise encodings can be formulated as special cases of the general pairwise encoding given in Eq. (2).",
+    "index": 132
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.1",
+    "section": "A2",
+    "text": "Common Neighbors (CNs) (Newman, 2001): The CNs of a pair of nodes (a,b) is defined the overlapping 1-hop neighbors of both nodes:",
+    "index": 133
+  },
+  {
+    "tag": "table",
+    "id": "A2.E22",
+    "section": "A2",
+    "text": "| (22) | | \\mathcal{N}^{\\text{CN}}_{(a,b)}=\\mathcal{N}(a)\\cap\\mathcal{N}(b). |",
+    "index": 134
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.2",
+    "section": "A2",
+    "text": "Eq. (2) is equal to the CNs when h(a,b,u)=1 and w(a,b,u) is:",
+    "index": 135
+  },
+  {
+    "tag": "table",
+    "id": "A2.E23",
+    "section": "A2",
+    "text": "| (23) | | w(a,b,u)=\\left\\{\\begin{array}[]{ll}1,&\\text{when }u\\in\\mathcal{N}(a)\\cap\\mathcal{N}(b)\\\\ 0,&\\text{else }\\end{array}\\right\\}. |",
+    "index": 136
+  },
+  {
+    "tag": "p",
+    "id": "A2.p3.1",
+    "section": "A2",
+    "text": "Adamic-Adar (AA) (Adamic and Adar, 2003): AA is defined as the reciprocal log-degree weighted CN score where d_{u} is the degree of node u :",
+    "index": 137
+  },
+  {
+    "tag": "table",
+    "id": "A2.E24",
+    "section": "A2",
+    "text": "| (24) | | \\text{AA}(a,b)=\\sum_{u\\in\\mathcal{N}^{\\text{CN}}_{(a,b)}}\\frac{1}{\\text{log}(d_{u})}. |",
+    "index": 138
+  },
+  {
+    "tag": "p",
+    "id": "A2.p3.2",
+    "section": "A2",
+    "text": "Eq. (2) can be rewritten as the AA when h(a,b,u)=1/\\text{log}(d_{u}) and w(a,b,u) is equal to Eq. (23).",
+    "index": 139
+  },
+  {
+    "tag": "p",
+    "id": "A2.p4.1",
+    "section": "A2",
+    "text": "Resource Allocation (RA) (Zhou et al., 2009): RA is defined as the reciprocal degree weighted CN score:",
+    "index": 140
+  },
+  {
+    "tag": "table",
+    "id": "A2.E25",
+    "section": "A2",
+    "text": "| (25) | | \\text{RA}(a,b)=\\sum_{u\\in\\mathcal{N}^{\\text{CN}}_{(a,b)}}\\frac{1}{d_{u}}. |",
+    "index": 141
+  },
+  {
+    "tag": "p",
+    "id": "A2.p4.2",
+    "section": "A2",
+    "text": "Eq. (2) can be rewritten as the AA when h(a,b,u)=1/d_{u} and w(a,b,u) is equal to Eq. (23).",
+    "index": 142
+  },
+  {
+    "tag": "p",
+    "id": "A2.p5.1",
+    "section": "A2",
+    "text": "Katz Index (Katz, 1953): The Katz index is a global structural measure. It is defined as weighted summation of the number of paths of different lengths connecting a and b . It is given by the following where the decay weight \\beta\\in[0,1] ,",
+    "index": 143
+  },
+  {
+    "tag": "table",
+    "id": "A2.E26",
+    "section": "A2",
+    "text": "| (26) | | \\text{Katz}(a,b)=\\sum_{l=1}^{\\infty}\\beta^{l}A_{a,b}^{l}. |",
+    "index": 144
+  },
+  {
+    "tag": "p",
+    "id": "A2.p5.2",
+    "section": "A2",
+    "text": "This is equivalent to Eq. (2) when:",
+    "index": 145
+  },
+  {
+    "tag": "table",
+    "id": "A2.E27",
+    "section": "A2",
+    "text": "| (27) | | w(a,b,u)=\\sum_{l=1}^{\\infty}\\beta^{l}e_{a}^{T}A^{l}, |",
+    "index": 146
+  },
+  {
+    "tag": "p",
+    "id": "A2.p5.3",
+    "section": "A2",
+    "text": "where e_{i}\\in\\mathbb{B}^{\\lvert\\mathcal{V}\\rvert} is a one-hot vector for a node i . We further set,",
+    "index": 147
+  },
+  {
+    "tag": "table",
+    "id": "A2.E28",
+    "section": "A2",
+    "text": "| (28) | | h(a,b,u)=\\left\\{\\begin{array}[]{ll}e_{b}^{T},&\\text{when }u=b\\\\ \\mathbf{0},&\\text{else }\\end{array}\\right\\}. |",
+    "index": 148
+  },
+  {
+    "tag": "p",
+    "id": "A2.p6.1",
+    "section": "A2",
+    "text": "Personalized Pagerank (PPR) Score (Brin and Page, 1998): The personalized pagerank score is the pagerank score localized to a root node u . The localization is via a teleportation probability \\alpha that transports the random walk back to the root node. We show that Eq. (2) can be rewritten as the PPR score when setting h(a,b,u) equal to (28) and, following Chung (2007), setting w(a,b,u) to:",
+    "index": 149
+  },
+  {
+    "tag": "table",
+    "id": "A2.E29",
+    "section": "A2",
+    "text": "| (29) | | w(a,b,u)=\\alpha\\sum_{l=0}^{\\infty}(1-\\alpha)^{l}e_{a}^{T}(D^{-1}A)^{l}. |",
+    "index": 150
+  },
+  {
+    "tag": "p",
+    "id": "A2.p7.1",
+    "section": "A2",
+    "text": "Feature Similarity: The feature similarity of the pair of nodes (a,b) is expressed by \\text{dis}(\\mathbf{x}_{a},\\mathbf{x}_{b}) where \\mathbf{x}_{a} are the node features of node a and \\text{dis}(\\cdot) is a distance function (e.g., euclidean distance). This can be rewritten as Eq. (2) by substituting:",
+    "index": 151
+  },
+  {
+    "tag": "table",
+    "id": "A2.E30",
+    "section": "A2",
+    "text": "| (30) | | w(a,b,u)=\\text{dis}(\\mathbf{x}_{a},\\mathbf{x}_{u}), |",
+    "index": 152
+  },
+  {
+    "tag": "p",
+    "id": "A2.p7.2",
+    "section": "A2",
+    "text": "and h(a,b,u)=e_{b}^{T} where e_{i}\\in\\mathbb{B}^{\\lvert\\mathcal{V}\\rvert} is a one-hot vector for a node i .",
+    "index": 153
+  },
+  {
+    "tag": "p",
+    "id": "A2.p8.1",
+    "section": "A2",
+    "text": "NCN (Wang et al., 2023): The pairwise encoding used in NCN is defined as the summation of the representations for the CNs of a link. Eq. (2) can be rewritten as NCN when w(a,b,u) is equal to Eq. (23). h(a,b,u) is equal to the node representation u encoded by a MPNN, i.e., h(a,b,u)=\\mathbf{h}_{u} where H=\\text{MPNN}(A,X) .",
+    "index": 154
+  },
+  {
+    "tag": "p",
+    "id": "A2.p9.1",
+    "section": "A2",
+    "text": "NCNC (Wang et al., 2023): NCNC extends NCNC by further weighting the 1-hop (non-CN) by their probability of linking to the other nodes. Given Eq. (2), the weight w(a,b,u) is equal to following where 1-hop neighbors are weighted by their probability of linking with the other node:",
+    "index": 155
+  },
+  {
+    "tag": "table",
+    "id": "A2.E31",
+    "section": "A2",
+    "text": "| (31) | | w(a,b,u)=\\left\\{\\begin{array}[]{ll}1,&\\text{when }u\\in\\mathcal{N}^{\\text{CN}}_{(a,b)}\\\\ \\text{NCN}(A,X,b,u)&\\text{when }u\\in\\mathcal{N}(a)\\\\ \\text{NCN}(A,X,a,u)&\\text{when }u\\in\\mathcal{N}(b)\\\\ 0,&\\text{else }\\end{array}\\right\\}. |",
+    "index": 156
+  },
+  {
+    "tag": "p",
+    "id": "A2.p9.2",
+    "section": "A2",
+    "text": "\\text{NCN}(A,X,a,u) is the probability of a and u being linked using the NCN model. We further define h(a,b,u)=\\mathbf{h}_{u} .",
+    "index": 157
+  },
+  {
+    "tag": "p",
+    "id": "A2.p10.1",
+    "section": "A2",
+    "text": "Neo-GNN (Yun et al., 2021): The pairwise encoding used in Neo-GNN considers the higher-order neighborhood overlap between two nodes. The formulation is given in Section B. When l=1 , it can be expressed using Eq. (2) by setting:",
+    "index": 158
+  },
+  {
+    "tag": "table",
+    "id": "A2.E32",
+    "section": "A2",
+    "text": "| (32) | | h(a,b,u)=f_{1}\\left(\\sum_{v\\in\\mathcal{N}(u)}f_{2}\\left(A_{uv}\\right)\\right)^{2}, |",
+    "index": 159
+  },
+  {
+    "tag": "p",
+    "id": "A2.p10.2",
+    "section": "A2",
+    "text": "and",
+    "index": 160
+  },
+  {
+    "tag": "table",
+    "id": "A2.E33",
+    "section": "A2",
+    "text": "| (33) | | w(a,b,u)=\\left\\{\\begin{array}[]{ll}1,&\\text{when }u\\in\\mathcal{N}^{\\text{CN}}_{(a,b)}\\\\ 0,&\\text{else }\\end{array}\\right\\}. |",
+    "index": 161
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "A3",
+    "text": "Appendix C Proof of Proposition 1",
+    "index": 162
+  },
+  {
+    "tag": "p",
+    "id": "A3.p1.1",
+    "section": "A3",
+    "text": "See 1",
+    "index": 163
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.1",
+    "section": "A3",
+    "text": "Per Chung (2007), the PPR vector for a root node s , \\text{pr}_{s} , is equivalent to:",
+    "index": 164
+  },
+  {
+    "tag": "table",
+    "id": "A3.E34",
+    "section": "A3",
+    "text": "| (34) | | \\text{pr}_{s}=\\alpha\\sum_{k=0}^{\\infty}(1-\\alpha)^{k}W^{k}x_{s}, |",
+    "index": 165
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.2",
+    "section": "A3",
+    "text": "where W is a the random walk matrix and x_{s} is a preference vector that is a one-hot vector for element s . We note that \\text{pr}_{s}(t) represents the landing probability of node t given the root node s . As such, by definition, \\text{pr}_{s}(t)=\\text{ppr}(s,t) . Furthermore, it is clear that r_{s}^{k}=W^{k}x_{s}\\in\\mathbb{R}^{\\mathcal{V}} represents the probability of a walk of length k beginning at node s and stop all other nodes, individually. Also, the probabilities of all walks of length k are weighted by \\gamma^{k}=\\alpha(1-\\alpha)^{k} . \\Gamma\\left(a,b,u\\right) can be obtained by first taking the sum of the PPR vectors for nodes a and b ,",
+    "index": 166
+  },
+  {
+    "tag": "table",
+    "id": "A3.EGx5",
+    "section": "A3",
+    "text": "| | \\displaystyle\\text{pr}_{a}+\\text{pr}_{b} | \\displaystyle=\\alpha\\sum_{k=0}^{\\infty}(1-\\alpha)^{k}W^{k}x_{a}+\\alpha\\sum_{k=0}^{\\infty}(1-\\alpha)^{k}W^{k}x_{b}, | | (35) | | \\displaystyle\\text{pr}_{a,b} | \\displaystyle=\\alpha\\sum_{k=0}^{\\infty}(1-\\alpha)^{k}W^{k}\\left(x_{a}+x_{b}\\right), |",
+    "index": 167
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.3",
+    "section": "A3",
+    "text": "where \\text{pr}_{a,b}=\\text{pr}_{a}+\\text{pr}_{b} . From this, we can express \\Gamma(a,b,u) as:",
+    "index": 168
+  },
+  {
+    "tag": "table",
+    "id": "A3.EGx6",
+    "section": "A3",
+    "text": "| | \\displaystyle\\Gamma(a,b,u) | \\displaystyle=\\text{ppr}(a,u)+\\text{ppr}(b,u), | | (36) | | | \\displaystyle=\\text{pr}_{a,b}(u), | | | | \\displaystyle=\\text{pr}_{a}(u)+\\text{pr}_{b}(u), |",
+    "index": 169
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.4",
+    "section": "A3",
+    "text": "which as shown in Eq. (35) is equivalent to the probability of a walk that originates from either node a or b and terminates at node u . This completes the proof. ∎",
+    "index": 170
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "A4",
+    "text": "Appendix D Attention Formulation",
+    "index": 171
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.1",
+    "section": "A4",
+    "text": "For a target link (a,b) , LPFormer attends to the nodes in the set \\bar{\\mathcal{V}}(a,b) . The attention mechanism used in LPFormer is defined in Section 3 as follows where w(a,b,u) is the attention weight of u to the target link and \\bar{\\mathcal{V}}(a,b)=\\mathcal{V}\\setminus\\{a,b\\} :",
+    "index": 172
+  },
+  {
+    "tag": "table",
+    "id": "A4.EGx7",
+    "section": "A4",
+    "text": "| | | \\displaystyle\\tilde{w}(a,b,u)=\\phi\\left(\\mathbf{h}_{a},\\mathbf{h}_{b},\\mathbf{h}_{u},\\>\\mathbf{rpe}_{(a,b,u)}\\right), | | (37) | | | \\displaystyle w(a,b,u)=\\frac{\\text{exp}(\\tilde{w}(a,b,u))}{\\sum_{v\\in\\bar{\\mathcal{V}}(a,b)}\\text{exp}(\\tilde{w}(a,b,u))}. |",
+    "index": 173
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.2",
+    "section": "A4",
+    "text": "The function \\phi(\\cdot) is modeled via the attention mechanism defined in GATv2 (Brody et al., 2022). We define a\\in\\mathbb{R}^{2d^{\\prime}} and W\\in\\mathbb{R}^{d\\times d^{\\prime}} . The raw attention weights are then given by:",
+    "index": 174
+  },
+  {
+    "tag": "table",
+    "id": "A4.EGx8",
+    "section": "A4",
+    "text": "| (38) | | \\displaystyle\\tilde{w}(a,b,u)=\\mathbf{a}^{T}\\>\\text{LeakyReLU}\\left[W\\>\\mathbf{h}_{a}\\concat W\\>\\mathbf{h}_{b}\\concat W\\>\\mathbf{h}_{u}\\concat\\mathbf{rpe}_{(a,b,u)}\\right]. |",
+    "index": 175
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.3",
+    "section": "A4",
+    "text": "The final attention weights, {w}(a,b,u) , are given by passing \\tilde{w}(a,b,u) through a softmax activation layer.",
+    "index": 176
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": "A5",
+    "text": "Appendix E Additional Experimental Details",
+    "index": 177
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "A5.SS1",
+    "text": "E.1. Planetoid splits",
+    "index": 178
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS1.p1.1",
+    "section": "A5.SS1",
+    "text": "We note that for each of Cora, Citeseer, Pubmed we use a fixed split. This follows the recent work of (Li et al., 2023). Li et al. (2023) observe that for Cora, Citeseer, Pubmed there exists no unified data split between studies. They find that while recent work (Chamberlain et al., 2022; Wang et al., 2023) use 10 random splits, prior work (Zhu et al., 2021; Velickovic et al., 2017) use a fixed split and train over 10 random seeds. Furthermore, there exists discrepancies in the preprocessing between those works that use the random splits. Chamberlain et al. (2022) only use the largest connected component of each dataset while Wang et al. (2023) use the whole dataset. This makes any comparison of the published results difficult. Due to these discrepancies, we use the performance on the fixed split given by Li et al. (2023), as it’s the only split where all methods are evaluated and compared under the same setting.",
+    "index": 179
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "A5.SS2",
+    "text": "E.2. Omission of ogbl-ddi under the Existing Evaluation",
+    "index": 180
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS2.p1.1",
+    "section": "A5.SS2",
+    "text": "We further omit the results of ogbl-ddi in Table 2. This is due to the observation made by Li et al. (2023) that there exists a poor relationship between the validation and test performance. This extends to recent pairwise MPNNs, including NCN (Wang et al., 2023), Neo-GNN (Yun et al., 2021), and BUDDY (Chamberlain et al., 2022). This makes tuning on the validation set difficult, as it doesn’t guarantee good test performance. Due to this, they observe that when tuning on a fixed set of hyperparameter ranges, they are unable to achieve comparable results to the reported performance. Often they observe that the performance is actually much lower. Due to these concerns we believe ogbl-ddi is not suitable for the task of transductive link prediction and don’t report the performance. For more details and discussion, please see Appendix D in Li et al. (2023). However, they show that this problem does not afflict ogbl-ddi under the newly proposed HeaRT (Li et al., 2023) evaluation setting. As such, we further include the results for our method under HeaRT in Table 5.",
+    "index": 181
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "A5.SS3",
+    "text": "E.3. Computation of the PPR Matrix",
+    "index": 182
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS3.p1.1",
+    "section": "A5.SS3",
+    "text": "We compute the PPR matrix via the efficient approximation algorithm introduced by Andersen et al. (2006). The estimation is controlled by a tolerance parameter \\epsilon . The parameter \\epsilon controls both the speed of computation and the sparsity of the solution (i.e., a higher value of \\epsilon will produce a sparser PPR matrix). We use: \\epsilon=1e^{-7} for Cora and Citeseer, \\epsilon=5e^{-5} for ogbl-collab and ogbl-ppa, \\epsilon=1e-5 for Pubmed, and \\epsilon=5e^{-3} for ogbl-Citation2. The value of \\epsilon is chosen as a trade-off between accuracy and sparsity to allow for ease of storage in GPU memory.",
+    "index": 183
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "A5.SS4",
+    "text": "E.4. Splitting Target Links by LP Factor",
+    "index": 184
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS4.p1.1",
+    "section": "A5.SS4",
+    "text": "In Section 4.3 we demonstrate the performance on samples that correspond to a single LP factor. In this section we further detail the algorithm used to determine the set of samples corresponding to each factor. We consider the three main factors: local structural information, global structural information, and feature proximity. We measure each using a single representative heuristic: CNs (Newman, 2001) for local information, PPR (Brin and Page, 1998) for global information, and cosine feature similarity for feature proximity. For each sample, we check if the score is only high in one heuristic. In this way, it tells us that there is a dominant factor present in the pairwise information.",
+    "index": 185
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS4.p2.1",
+    "section": "A5.SS4",
+    "text": "This determination is done by comparing the the heuristic scores of each target link against a threshold value. For a LP factor i and target link (a,b) , we denote the heuristic score as s^{i}(a,b) . The threshold value for factor i is represented by \\hat{s}^{i} and is chosen such that it corresponds to a higher score. We desire \\hat{s}^{i} to be a higher score such that any score \\geq than it indicates that a plethora of pairwise information exists corresponding to factor i . This is done by setting the threshold equal to the p -th percentile value for that heuristic among all target links. For example, for CNs, the 80th percentile score on one dataset may be 9. The value of p is chosen to be high (e.g., 80%) due to the aforementioned reasoning. Given these inputs, for each target link we compare the score for factor i against the threshold value of that factor. Continuing our example, if (a,b) only has 2 CNs, it is below the previously defined threshold. We only consider a sample as “belonging” to a single factor when it is s^{i}(a,b)\\geq\\hat{s}^{i} is true for one only one factor i . So if the heuristic score for (a,b) is below the p -th percentile threshold for CNs and PPR but above for feature similarity, then feature proximity will be considered the dominant LP factor. However, if it’s above the threshold for both local and structural information, it will not be assigned to any group. This is done as we want to isolate links that only highly express one LP factor. This allows us to better understand how certain methods can model that specific factor. The detailed algorithm is given in Algorithm 1.",
+    "index": 186
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS4.p3.1",
+    "section": "A5.SS4",
+    "text": "We note that each target link may not belong to a category. This can be due to there being no or many dominant LP factor. We further set the percentile equal to 90% on all datasets except for ogbl-collab for which we use 80%. These values were chosen as we wanted the percentile to be suitably high such that we are confident that the corresponding factor is relevant to the target link. Furthermore, we use a lower value for ogbl-collab as we found it produced a more even distribution of links by factor.",
+    "index": 187
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "A5.SS4",
+    "text": "(a) Pubmed",
+    "index": 188
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "A5.SS4",
+    "text": "(b) ogbl-ppa",
+    "index": 189
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "A5.SS4",
+    "text": "Figure 5. Performance for target links when there is only one LP factor strongly expressed. Results are on (a) Pubmed, (b) ogbl-ppa. We note that due the quality of features used, we omit the feature proximity factor for ogbl-ppa from our analysis",
+    "index": 190
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "A5.SS5",
+    "text": "E.5. Additional Results for the LP Factor Experiments",
+    "index": 191
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS5.p1.1",
+    "section": "A5.SS5",
+    "text": "In Section 4.3 we observed the performance of various methods on target links where only a single LP factor is expressed. This is done through the use of heuristic scores. We further demonstrate the results on the Pubmed and ogbl-ppa datasets. Of note is that for ogbl-ppa the initial node features are one-hot vectors that signify the species that the protein belongs to. We observe that due to the sparseness of these features, feature proximity measures are unable to properly predict any target links on their own. As such, the factor corresponding to feature proximity is not expressed. We therefore exclude that factor for this analysis on ogbl-ppa.",
+    "index": 192
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS5.p2.1",
+    "section": "A5.SS5",
+    "text": "The results for both Pubmed and ogbl-ppa datasets are given in Figure 5. As shown earlier in Figure 3, LPFormer can most consistently perform well across each factor. This suggests that LPFormer is best able to both model a variety of factors and adapt accordingly for each target link.",
+    "index": 193
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "A5.SS6",
+    "text": "E.6. Performance on Heterophilic Datasets",
+    "index": 194
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS6.p1.1",
+    "section": "A5.SS6",
+    "text": "In this section we evaluate LPFormer on multiple heterophilic datasets. Heterophily refers to the tendency of dissimilar nodes to be connected. This is as opposed to homophily, in which nodes with similar attributed are more likely to be connected. Since most graphs used for benchmark datasets tend to contain homophilic patterns, heterophilic graphs present an interesting challenge regarding the effectiveness of graph-based methods. For a more detailed discussion on heterophilic graphs, please see (Mao et al., 2024).",
+    "index": 195
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS6.p2.1",
+    "section": "A5.SS6",
+    "text": "We test on two prominent heterophilic datasets, Squirrel and Chameleon (Rozemberczki et al., 2021). The statistics for each are in Table 6. We limit our comparison to those LP methods that tend achieve the best results, including GCN, BUDDY, and NCNC. In Table 7, we report the MRR over five random seeds. Note that we test under the original evaluation setting and not HeaRT. We observe that LPFormer can achieve a large increase over other methods, with a 14% and 9% increase in performance on Squirrel and Chameleon, respectively. These results indicate the superior ability of LPFormer to accurately model LP on heterophilic graphs, as compared to other methods.",
+    "index": 196
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "A5.SS6",
+    "text": "Table 6. Heterophilic Dataset Statistics.",
+    "index": 197
+  },
+  {
+    "tag": "table",
+    "id": "A5.T6.5",
+    "section": "A5.SS6",
+    "text": "| | Squirrel | Chameleon | #Nodes | 5201 | 2277 | #Edges | 198,353 | 31,371 | Split Ratio | 85/5/10 | 85/5/10",
+    "index": 198
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "A5.SS6",
+    "text": "Table 7. Results on Heterophilic Datasets.",
+    "index": 199
+  },
+  {
+    "tag": "table",
+    "id": "A5.T7.5",
+    "section": "A5.SS6",
+    "text": "| Method | Squirrel | Chameleon | GCN | 22.77 ± 4.54 | 20.74 ± 8.08 | BUDDY | 9.69 ± 0.99 | 6.30 ± 2.40 | NCNC | 32.37 ± 5.46 | 26.24 ± 3.37 | LPFormer | 36.77 ± 2.77 | 28.61 ± 6.68 | % Improvement | 14% | 9%",
+    "index": 200
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "section": "A5.SS7",
+    "text": "E.7. More Efficiently Incorporating the PPR Scores",
+    "index": 201
+  },
+  {
+    "tag": "p",
+    "id": "A5.SS7.p1.1",
+    "section": "A5.SS7",
+    "text": "In Figure 4 we compare the training time between LPFormer and NCNC. We observe that on the denser datasets, ogbl-ppa and ogbl-ddi, LPFormer is considerably more efficient. Furthermore, on ogbl-collab, both methods have a fast runtime. However, we find that LPFormer struggles on ogbl-citation2 in comparison to NCNC. We observe that this is due to the need of the PPR matrix, which while sparse, requires a large amount of memory and processing time. In the future, we plan to fix this problem by performing a simple and efficient pre-processing step. Specifically, before training, we can iterate over all target links and extract the relevant PPR scores. This would obviate the need to store the PPR matrix and determine the nodes for each link. Furthermore, this only needs to be done once before tuning the model. This would greatly reduce the storage and time needed to train LPFormer on all datasets and is an avenue we plan to explore in the future.",
+    "index": 202
+  },
+  {
+    "tag": "figcaption",
+    "id": null,
+    "section": "A5.SS7",
+    "text": "Algorithm 1 Determining Samples by LP Factor",
+    "index": 203
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "section": null,
+    "text": "Instructions for reporting errors",
+    "index": 204
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "section": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:",
+    "index": 205
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "section": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report.",
+    "index": 206
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "section": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all.",
+    "index": 207
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "section": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.",
+    "index": 208
+  }
+]
