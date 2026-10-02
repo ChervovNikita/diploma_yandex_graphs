@@ -44,3 +44,7 @@ Conservative reservations after acquisition admission: 133201.601915 / 133340 ph
 - `literature_memory/index_v2/LITERATURE_INDEX.json`
 
 - `coordinate_conformal_execution_root_v1/ACQUISITION_ASSESSMENT_v3.json`
+
+## Verified source publication
+
+Commit `1751bc993446d95f4172def1bee35c39a47060e5` was pushed and GitHub advertised the same branch revision. Source and result summaries are published; binary evidence remains in the project archive. The research goal remains incomplete. See `publication/PUSH_VERIFIED_20261002_v1.json`.
