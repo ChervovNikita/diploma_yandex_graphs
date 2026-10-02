@@ -1,0 +1,334 @@
+{
+  "schema": "f1-official-sampler-scoped-source-notes-v1",
+  "created_UTC": "2026-10-02T13:54:32.788743+00:00",
+  "scope": "Scoped source contracts and precise independent changes, not numerical/runtime qualification",
+  "source_passages": [
+    {
+      "source": "sources/legacy_examples_gnn_node.py",
+      "sha256": "555aea3ab01768041e3c32823d2e0da2babcdde525909c675c686702f8f849a4",
+      "line_ranges": [
+        [
+          26,
+          51
+        ],
+        [
+          53,
+          94
+        ],
+        [
+          103,
+          120
+        ],
+        [
+          123,
+          150
+        ],
+        [
+          153,
+          212
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 26,
+          "end": 51,
+          "text": "parser = argparse.ArgumentParser()\nparser.add_argument(\"--dataset\", type=str, default=\"rel-event\")\nparser.add_argument(\"--task\", type=str, default=\"user-attendance\")\nparser.add_argument(\"--lr\", type=float, default=0.005)\nparser.add_argument(\"--epochs\", type=int, default=10)\nparser.add_argument(\"--batch_size\", type=int, default=512)\nparser.add_argument(\"--channels\", type=int, default=128)\nparser.add_argument(\"--aggr\", type=str, default=\"sum\")\nparser.add_argument(\"--num_layers\", type=int, default=2)\nparser.add_argument(\"--num_neighbors\", type=int, default=128)\nparser.add_argument(\"--temporal_strategy\", type=str, default=\"uniform\")\nparser.add_argument(\"--max_steps_per_epoch\", type=int, default=2000)\nparser.add_argument(\"--num_workers\", type=int, default=0)\nparser.add_argument(\"--seed\", type=int, default=42)\nparser.add_argument(\n    \"--cache_dir\",\n    type=str,\n    default=os.path.expanduser(\"~/.cache/relbench_examples\"),\n)\nargs = parser.parse_args()\n\n\ndevice = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\nif torch.cuda.is_available():\n    torch.set_num_threads(1)\nseed_everything(args.seed)"
+        },
+        {
+          "start": 53,
+          "end": 94,
+          "text": "dataset: Dataset = get_dataset(args.dataset, download=True)\ntask: EntityTask = get_task(args.dataset, args.task, download=True)\n\n\nstypes_cache_path = Path(f\"{args.cache_dir}/{args.dataset}/stypes.json\")\ntry:\n    with open(stypes_cache_path, \"r\") as f:\n        col_to_stype_dict = json.load(f)\n    for table, col_to_stype in col_to_stype_dict.items():\n        for col, stype_str in col_to_stype.items():\n            col_to_stype[col] = stype(stype_str)\nexcept FileNotFoundError:\n    col_to_stype_dict = get_stype_proposal(dataset.get_db())\n    Path(stypes_cache_path).parent.mkdir(parents=True, exist_ok=True)\n    with open(stypes_cache_path, \"w\") as f:\n        json.dump(col_to_stype_dict, f, indent=2, default=str)\n\ndata, col_stats_dict = make_pkey_fkey_graph(\n    dataset.get_db(),\n    col_to_stype_dict=col_to_stype_dict,\n    text_embedder_cfg=TextEmbedderConfig(\n        text_embedder=GloveTextEmbedding(device=device), batch_size=256\n    ),\n    cache_dir=f\"{args.cache_dir}/{args.dataset}/materialized\",\n)\n\nclamp_min, clamp_max = None, None\nif task.task_type == TaskType.BINARY_CLASSIFICATION:\n    out_channels = 1\n    loss_fn = BCEWithLogitsLoss()\n    tune_metric = \"roc_auc\"\n    higher_is_better = True\nelif task.task_type == TaskType.REGRESSION:\n    out_channels = 1\n    loss_fn = L1Loss()\n    tune_metric = \"mae\"\n    higher_is_better = False\n    # Get the clamp value at inference time\n    train_table = task.get_table(\"train\")\n    clamp_min, clamp_max = np.percentile(\n        train_table.df[task.target_col].to_numpy(), [2, 98]\n    )"
+        },
+        {
+          "start": 103,
+          "end": 120,
+          "text": "loader_dict: Dict[str, NeighborLoader] = {}\nfor split in [\"train\", \"val\", \"test\"]:\n    table = task.get_table(split)\n    table_input = get_node_train_table_input(table=table, task=task)\n    entity_table = table_input.nodes[0]\n    loader_dict[split] = NeighborLoader(\n        data,\n        num_neighbors=[int(args.num_neighbors / 2**i) for i in range(args.num_layers)],\n        time_attr=\"time\",\n        input_nodes=table_input.nodes,\n        input_time=table_input.time,\n        transform=table_input.transform,\n        batch_size=args.batch_size,\n        temporal_strategy=args.temporal_strategy,\n        shuffle=split == \"train\",\n        num_workers=args.num_workers,\n        persistent_workers=args.num_workers > 0,\n    )"
+        },
+        {
+          "start": 123,
+          "end": 150,
+          "text": "def train() -> float:\n    model.train()\n\n    loss_accum = count_accum = 0\n    steps = 0\n    total_steps = min(len(loader_dict[\"train\"]), args.max_steps_per_epoch)\n    for batch in tqdm(loader_dict[\"train\"], total=total_steps):\n        batch = batch.to(device)\n\n        optimizer.zero_grad()\n        pred = model(\n            batch,\n            task.entity_table,\n        )\n        pred = pred.view(-1) if pred.size(1) == 1 else pred\n\n        loss = loss_fn(pred.float(), batch[entity_table].y.float())\n        loss.backward()\n        optimizer.step()\n\n        loss_accum += loss.detach().item() * pred.size(0)\n        count_accum += pred.size(0)\n\n        steps += 1\n        if steps > args.max_steps_per_epoch:\n            break\n\n    return loss_accum / count_accum"
+        },
+        {
+          "start": 153,
+          "end": 212,
+          "text": "@torch.no_grad()\ndef test(loader: NeighborLoader) -> np.ndarray:\n    model.eval()\n\n    pred_list = []\n    for batch in loader:\n        batch = batch.to(device)\n        pred = model(\n            batch,\n            task.entity_table,\n        )\n        if task.task_type == TaskType.REGRESSION:\n            assert clamp_min is not None\n            assert clamp_max is not None\n            pred = torch.clamp(pred, clamp_min, clamp_max)\n\n        if task.task_type in [\n            TaskType.BINARY_CLASSIFICATION,\n            TaskType.MULTILABEL_CLASSIFICATION,\n        ]:\n            pred = torch.sigmoid(pred)\n\n        pred = pred.view(-1) if pred.size(1) == 1 else pred\n        pred_list.append(pred.detach().cpu())\n    return torch.cat(pred_list, dim=0).numpy()\n\n\nmodel = Model(\n    data=data,\n    col_stats_dict=col_stats_dict,\n    num_layers=args.num_layers,\n    channels=args.channels,\n    out_channels=out_channels,\n    aggr=args.aggr,\n    norm=\"batch_norm\",\n).to(device)\noptimizer = torch.optim.Adam(model.parameters(), lr=args.lr)\nstate_dict = None\nbest_val_metric = -math.inf if higher_is_better else math.inf\nfor epoch in range(1, args.epochs + 1):\n    train_loss = train()\n    val_pred = test(loader_dict[\"val\"])\n    val_metrics = task.evaluate(val_pred, task.get_table(\"val\"))\n    print(f\"Epoch: {epoch:02d}, Train loss: {train_loss}, Val metrics: {val_metrics}\")\n\n    if (higher_is_better and val_metrics[tune_metric] > best_val_metric) or (\n        not higher_is_better and val_metrics[tune_metric] < best_val_metric\n    ):\n        best_val_metric = val_metrics[tune_metric]\n        state_dict = copy.deepcopy(model.state_dict())\n\n\nmodel.load_state_dict(state_dict)\nval_pred = test(loader_dict[\"val\"])\nval_metrics = task.evaluate(val_pred, task.get_table(\"val\"))\nprint(f\"Best Val metrics: {val_metrics}\")\n\ntest_pred = test(loader_dict[\"test\"])\ntest_metrics = task.evaluate(test_pred)\nprint(f\"Best test metrics: {test_metrics}\")"
+        }
+      ]
+    },
+    {
+      "source": "sources/legacy_examples_model.py",
+      "sha256": "815c2eb6a5957c57112755950c728a17a210d6b5187ae4d562343fe389f59004",
+      "line_ranges": [
+        [
+          32,
+          58
+        ],
+        [
+          81,
+          106
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 32,
+          "end": 58,
+          "text": "        self.encoder = HeteroEncoder(\n            channels=channels,\n            node_to_col_names_dict={\n                node_type: data[node_type].tf.col_names_dict\n                for node_type in data.node_types\n            },\n            node_to_col_stats=col_stats_dict,\n        )\n        self.temporal_encoder = HeteroTemporalEncoder(\n            node_types=[\n                node_type for node_type in data.node_types if \"time\" in data[node_type]\n            ],\n            channels=channels,\n        )\n        self.gnn = HeteroGraphSAGE(\n            node_types=data.node_types,\n            edge_types=data.edge_types,\n            channels=channels,\n            aggr=aggr,\n            num_layers=num_layers,\n        )\n        self.head = MLP(\n            channels,\n            out_channels=out_channels,\n            norm=norm,\n            num_layers=1,\n        )"
+        },
+        {
+          "start": 81,
+          "end": 106,
+          "text": "    def forward(\n        self,\n        batch: HeteroData,\n        entity_table: NodeType,\n    ) -> Tensor:\n        seed_time = batch[entity_table].seed_time\n        x_dict = self.encoder(batch.tf_dict)\n\n        rel_time_dict = self.temporal_encoder(\n            seed_time, batch.time_dict, batch.batch_dict\n        )\n\n        for node_type, rel_time in rel_time_dict.items():\n            x_dict[node_type] = x_dict[node_type] + rel_time\n\n        for node_type, embedding in self.embedding_dict.items():\n            x_dict[node_type] = x_dict[node_type] + embedding(batch[node_type].n_id)\n\n        x_dict = self.gnn(\n            x_dict,\n            batch.edge_index_dict,\n            batch.num_sampled_nodes_dict,\n            batch.num_sampled_edges_dict,\n        )\n\n        return self.head(x_dict[entity_table][: seed_time.size(0)])"
+        }
+      ]
+    },
+    {
+      "source": "sources/legacy_relbench_modeling_graph.py",
+      "sha256": "a713c85527efb70617ade533fd36cd2eaa2be77ec8ac876edece2ffaa4ebb902",
+      "line_ranges": [
+        [
+          48,
+          111
+        ],
+        [
+          114,
+          178
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 48,
+          "end": 111,
+          "text": "    for table_name, table in db.table_dict.items():\n        # Materialize the tables into tensor frames:\n        df = table.df\n        # Ensure that pkey is consecutive.\n        if table.pkey_col is not None:\n            assert (df[table.pkey_col].values == np.arange(len(df))).all()\n\n        col_to_stype = col_to_stype_dict[table_name]\n\n        # Remove pkey, fkey columns since they will not be used as input\n        # feature.\n        remove_pkey_fkey(col_to_stype, table)\n\n        if len(col_to_stype) == 0:  # Add constant feature in case df is empty:\n            col_to_stype = {\"__const__\": stype.numerical}\n            # We need to add edges later, so we need to also keep the fkeys\n            fkey_dict = {key: df[key] for key in table.fkey_col_to_pkey_table}\n            df = pd.DataFrame({\"__const__\": np.ones(len(table.df)), **fkey_dict})\n\n        path = (\n            None if cache_dir is None else os.path.join(cache_dir, f\"{table_name}.pt\")\n        )\n\n        dataset = Dataset(\n            df=df,\n            col_to_stype=col_to_stype,\n            col_to_text_embedder_cfg=text_embedder_cfg,\n        ).materialize(path=path)\n\n        data[table_name].tf = dataset.tensor_frame\n        col_stats_dict[table_name] = dataset.col_stats\n\n        # Add time attribute:\n        if table.time_col is not None:\n            data[table_name].time = torch.from_numpy(\n                to_unix_time(table.df[table.time_col])\n            )\n\n        # Add edges:\n        for fkey_name, pkey_table_name in table.fkey_col_to_pkey_table.items():\n            pkey_index = df[fkey_name]\n            # Filter out dangling foreign keys\n            mask = ~pkey_index.isna()\n            fkey_index = torch.arange(len(pkey_index))\n            # Filter dangling foreign keys:\n            pkey_index = torch.from_numpy(pkey_index[mask].astype(int).values)\n            fkey_index = fkey_index[torch.from_numpy(mask.values)]\n            # Ensure no dangling fkeys\n            assert (pkey_index < len(db.table_dict[pkey_table_name])).all()\n\n            # fkey -> pkey edges\n            edge_index = torch.stack([fkey_index, pkey_index], dim=0)\n            edge_type = (table_name, f\"f2p_{fkey_name}\", pkey_table_name)\n            data[edge_type].edge_index = sort_edge_index(edge_index)\n\n            # pkey -> fkey edges.\n            # \"rev_\" is added so that PyG loader recognizes the reverse edges\n            edge_index = torch.stack([pkey_index, fkey_index], dim=0)\n            edge_type = (pkey_table_name, f\"rev_f2p_{fkey_name}\", table_name)\n            data[edge_type].edge_index = sort_edge_index(edge_index)\n\n    data.validate()\n\n    return data, col_stats_dict"
+        },
+        {
+          "start": 114,
+          "end": 178,
+          "text": "class AttachTargetTransform:\n    r\"\"\"Attach the target label to the heterogeneous mini-batch.\n\n    The batch consists of disjoins subgraphs loaded via temporal sampling. The same\n    input node can occur multiple times with different timestamps, and thus different\n    subgraphs and labels. Hence labels cannot be stored in the graph object directly,\n    and must be attached to the batch after the batch is created.\n    \"\"\"\n\n    def __init__(self, entity: str, target: Tensor):\n        self.entity = entity\n        self.target = target\n\n    def __call__(self, batch: HeteroData) -> HeteroData:\n        batch[self.entity].y = self.target[batch[self.entity].input_id]\n        return batch\n\n\nclass NodeTrainTableInput(NamedTuple):\n    r\"\"\"Training table input for node prediction.\n\n    - nodes is a Tensor of node indices.\n    - time is a Tensor of node timestamps.\n    - target is a Tensor of node labels.\n    - transform attaches the target to the batch.\n    \"\"\"\n\n    nodes: Tuple[NodeType, Tensor]\n    time: Optional[Tensor]\n    target: Optional[Tensor]\n    transform: Optional[AttachTargetTransform]\n\n\ndef get_node_train_table_input(\n    table: Table,\n    task: EntityTask,\n) -> NodeTrainTableInput:\n    r\"\"\"Get the training table input for node prediction.\"\"\"\n\n    nodes = torch.from_numpy(table.df[task.entity_col].astype(int).values)\n\n    time: Optional[Tensor] = None\n    if table.time_col is not None:\n        time = torch.from_numpy(to_unix_time(table.df[table.time_col]))\n\n    target: Optional[Tensor] = None\n    transform: Optional[AttachTargetTransform] = None\n    if task.target_col in table.df:\n        target_type = float\n        if task.task_type == TaskType.MULTICLASS_CLASSIFICATION:\n            target_type = int\n        if task.task_type == TaskType.MULTILABEL_CLASSIFICATION:\n            target = torch.from_numpy(np.stack(table.df[task.target_col].values))\n        else:\n            target = torch.from_numpy(\n                table.df[task.target_col].values.astype(target_type)\n            )\n        transform = AttachTargetTransform(task.entity_table, target)\n\n    return NodeTrainTableInput(\n        nodes=(task.entity_table, nodes),\n        time=time,\n        target=target,\n        transform=transform,\n    )"
+        }
+      ]
+    },
+    {
+      "source": "sources/legacy_relbench_modeling_nn.py",
+      "sha256": "235bbd234c24d40e4180199513a867f4525751df667cb09471ae40e01f81771b",
+      "line_ranges": [
+        [
+          34,
+          86
+        ],
+        [
+          89,
+          122
+        ],
+        [
+          125,
+          173
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 34,
+          "end": 86,
+          "text": "    def __init__(\n        self,\n        channels: int,\n        node_to_col_names_dict: Dict[NodeType, Dict[torch_frame.stype, List[str]]],\n        node_to_col_stats: Dict[NodeType, Dict[str, Dict[StatType, Any]]],\n        torch_frame_model_cls=ResNet,\n        torch_frame_model_kwargs: Dict[str, Any] = {\n            \"channels\": 128,\n            \"num_layers\": 4,\n        },\n        default_stype_encoder_cls_kwargs: Dict[torch_frame.stype, Any] = {\n            torch_frame.categorical: (torch_frame.nn.EmbeddingEncoder, {}),\n            torch_frame.numerical: (torch_frame.nn.LinearEncoder, {}),\n            torch_frame.multicategorical: (\n                torch_frame.nn.MultiCategoricalEmbeddingEncoder,\n                {},\n            ),\n            torch_frame.embedding: (torch_frame.nn.LinearEmbeddingEncoder, {}),\n            torch_frame.timestamp: (torch_frame.nn.TimestampEncoder, {}),\n        },\n    ):\n        super().__init__()\n\n        self.encoders = torch.nn.ModuleDict()\n\n        for node_type in node_to_col_names_dict.keys():\n            stype_encoder_dict = {\n                stype: default_stype_encoder_cls_kwargs[stype][0](\n                    **default_stype_encoder_cls_kwargs[stype][1]\n                )\n                for stype in node_to_col_names_dict[node_type].keys()\n            }\n            torch_frame_model = torch_frame_model_cls(\n                **torch_frame_model_kwargs,\n                out_channels=channels,\n                col_stats=node_to_col_stats[node_type],\n                col_names_dict=node_to_col_names_dict[node_type],\n                stype_encoder_dict=stype_encoder_dict,\n            )\n            self.encoders[node_type] = torch_frame_model\n\n    def reset_parameters(self):\n        for encoder in self.encoders.values():\n            encoder.reset_parameters()\n\n    def forward(\n        self,\n        tf_dict: Dict[NodeType, torch_frame.TensorFrame],\n    ) -> Dict[NodeType, Tensor]:\n        x_dict = {\n            node_type: self.encoders[node_type](tf) for node_type, tf in tf_dict.items()\n        }\n        return x_dict"
+        },
+        {
+          "start": 89,
+          "end": 122,
+          "text": "class HeteroTemporalEncoder(torch.nn.Module):\n    def __init__(self, node_types: List[NodeType], channels: int):\n        super().__init__()\n\n        self.encoder_dict = torch.nn.ModuleDict(\n            {node_type: PositionalEncoding(channels) for node_type in node_types}\n        )\n        self.lin_dict = torch.nn.ModuleDict(\n            {node_type: torch.nn.Linear(channels, channels) for node_type in node_types}\n        )\n\n    def reset_parameters(self):\n        for encoder in self.encoder_dict.values():\n            encoder.reset_parameters()\n        for lin in self.lin_dict.values():\n            lin.reset_parameters()\n\n    def forward(\n        self,\n        seed_time: Tensor,\n        time_dict: Dict[NodeType, Tensor],\n        batch_dict: Dict[NodeType, Tensor],\n    ) -> Dict[NodeType, Tensor]:\n        out_dict: Dict[NodeType, Tensor] = {}\n\n        for node_type, time in time_dict.items():\n            rel_time = seed_time[batch_dict[node_type]] - time\n            rel_time = rel_time / (60 * 60 * 24)  # Convert seconds to days.\n\n            x = self.encoder_dict[node_type](rel_time)\n            x = self.lin_dict[node_type](x)\n            out_dict[node_type] = x\n\n        return out_dict"
+        },
+        {
+          "start": 125,
+          "end": 173,
+          "text": "class HeteroGraphSAGE(torch.nn.Module):\n    def __init__(\n        self,\n        node_types: List[NodeType],\n        edge_types: List[EdgeType],\n        channels: int,\n        aggr: str = \"mean\",\n        num_layers: int = 2,\n    ):\n        super().__init__()\n\n        self.convs = torch.nn.ModuleList()\n        for _ in range(num_layers):\n            conv = HeteroConv(\n                {\n                    edge_type: SAGEConv((channels, channels), channels, aggr=aggr)\n                    for edge_type in edge_types\n                },\n                aggr=\"sum\",\n            )\n            self.convs.append(conv)\n\n        self.norms = torch.nn.ModuleList()\n        for _ in range(num_layers):\n            norm_dict = torch.nn.ModuleDict()\n            for node_type in node_types:\n                norm_dict[node_type] = LayerNorm(channels, mode=\"node\")\n            self.norms.append(norm_dict)\n\n    def reset_parameters(self):\n        for conv in self.convs:\n            conv.reset_parameters()\n        for norm_dict in self.norms:\n            for norm in norm_dict.values():\n                norm.reset_parameters()\n\n    def forward(\n        self,\n        x_dict: Dict[NodeType, Tensor],\n        edge_index_dict: Dict[NodeType, Tensor],\n        num_sampled_nodes_dict: Optional[Dict[NodeType, List[int]]] = None,\n        num_sampled_edges_dict: Optional[Dict[EdgeType, List[int]]] = None,\n    ) -> Dict[NodeType, Tensor]:\n        for _, (conv, norm_dict) in enumerate(zip(self.convs, self.norms)):\n            x_dict = conv(x_dict, edge_index_dict)\n            x_dict = {key: norm_dict[key](x) for key, x in x_dict.items()}\n            x_dict = {key: x.relu() for key, x in x_dict.items()}\n\n        return x_dict"
+        }
+      ]
+    },
+    {
+      "source": "sources/legacy_relbench_base_dataset.py",
+      "sha256": "9552c4c72dbc333d652d89a25542d6ae5f6d2756febc050886c9c5f3b6827c14",
+      "line_ranges": [
+        [
+          71,
+          118
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 71,
+          "end": 118,
+          "text": "    @lru_cache(maxsize=None)\n    def get_db(self, upto_test_timestamp=True) -> Database:\n        r\"\"\"Return the database object.\n\n        The returned database object is cached in memory.\n\n        Args:\n            upto_test_timestamp: If True, only return rows upto test_timestamp.\n\n        Returns:\n            Database: The database object.\n\n        `upto_test_timestamp` is True by default to prevent test leakage.\n        \"\"\"\n\n        db_path = f\"{self.cache_dir}/db\"\n        if self.cache_dir and Path(db_path).exists() and any(Path(db_path).iterdir()):\n            print(f\"Loading Database object from {db_path}...\")\n            tic = time.time()\n            db = Database.load(db_path)\n            toc = time.time()\n            print(f\"Done in {toc - tic:.2f} seconds.\")\n\n        else:\n            print(\"Making Database object from scratch...\")\n            print(\n                \"(You can also use `get_dataset(..., download=True)` \"\n                \"for datasets prepared by the RelBench team.)\"\n            )\n            tic = time.time()\n            db = self.make_db()\n            db.reindex_pkeys_and_fkeys()\n            toc = time.time()\n            print(f\"Done in {toc - tic:.2f} seconds.\")\n\n            if self.cache_dir:\n                print(f\"Caching Database object to {db_path}...\")\n                tic = time.time()\n                db.save(db_path)\n                toc = time.time()\n                print(f\"Done in {toc - tic:.2f} seconds.\")\n\n        if upto_test_timestamp:\n            db = db.upto(self.test_timestamp)\n\n        self.validate_and_correct_db(db)\n\n        return db"
+        }
+      ]
+    },
+    {
+      "source": "sources/pyg261_neighbor_sampler.py",
+      "sha256": "300569856a8d7f4f9cc251d1bdd894f1d7bce9d071c239b73226a6ffab357a9e",
+      "line_ranges": [
+        [
+          305,
+          314
+        ],
+        [
+          358,
+          413
+        ],
+        [
+          529,
+          545
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 305,
+          "end": 314,
+          "text": "    def is_temporal(self) -> bool:\n        return self.node_time is not None or self.edge_time is not None\n\n    @property\n    def disjoint(self) -> bool:\n        return self._disjoint or self.is_temporal\n\n    @disjoint.setter\n    def disjoint(self, disjoint: bool):\n        self._disjoint = disjoint"
+        },
+        {
+          "start": 358,
+          "end": 413,
+          "text": "            # TODO Support induced subgraph sampling in `pyg-lib`.\n            if (torch_geometric.typing.WITH_PYG_LIB\n                    and self.subgraph_type != SubgraphType.induced):\n                # TODO (matthias) Ideally, `seed` inherits dtype from `colptr`\n                colptrs = list(self.colptr_dict.values())\n                dtype = colptrs[0].dtype if len(colptrs) > 0 else torch.int64\n                seed = {k: v.to(dtype) for k, v in seed.items()}\n\n                args = (\n                    self.node_types,\n                    self.edge_types,\n                    self.colptr_dict,\n                    self.row_dict,\n                    seed,\n                    self.num_neighbors.get_mapped_values(self.edge_types),\n                    self.node_time,\n                )\n                if torch_geometric.typing.WITH_EDGE_TIME_NEIGHBOR_SAMPLE:\n                    args += (self.edge_time, )\n                args += (seed_time, )\n                if torch_geometric.typing.WITH_WEIGHTED_NEIGHBOR_SAMPLE:\n                    args += (self.edge_weight, )\n                args += (\n                    True,  # csc\n                    self.replace,\n                    self.subgraph_type != SubgraphType.induced,\n                    self.disjoint,\n                    self.temporal_strategy,\n                    # TODO (matthias) `return_edge_id` if edge features present\n                    True,  # return_edge_id\n                )\n\n                out = torch.ops.pyg.hetero_neighbor_sample(*args)\n                row, col, node, edge, batch = out[:4] + (None, )\n\n                # `pyg-lib>0.1.0` returns sampled number of nodes/edges:\n                num_sampled_nodes = num_sampled_edges = None\n                if len(out) >= 6:\n                    num_sampled_nodes, num_sampled_edges = out[4:6]\n\n                if self.disjoint:\n                    node = {k: v.t().contiguous() for k, v in node.items()}\n                    batch = {k: v[0] for k, v in node.items()}\n                    node = {k: v[1] for k, v in node.items()}\n\n            elif torch_geometric.typing.WITH_TORCH_SPARSE:\n                if self.disjoint:\n                    if self.subgraph_type == SubgraphType.induced:\n                        raise ValueError(\"'disjoint' sampling not supported \"\n                                         \"for neighbor sampling with \"\n                                         \"`subgraph_type='induced'`\")\n                    else:\n                        raise ValueError(\"'disjoint' sampling not supported \"\n                                         \"for neighbor sampling via \"\n                                         \"'torch-sparse'. Please install \"\n                                         \"'pyg-lib' for improved and \""
+        },
+        {
+          "start": 529,
+          "end": 545,
+          "text": "    r\"\"\"Performs sampling from a :class:`NodeSamplerInput`, leveraging a\n    sampling function that accepts a seed and (optionally) a seed time as\n    input. Returns the output of this sampling procedure.\n    \"\"\"\n    if inputs.input_type is not None:  # Heterogeneous sampling:\n        seed = {inputs.input_type: inputs.node}\n        seed_time = None\n        if inputs.time is not None:\n            seed_time = {inputs.input_type: inputs.time}\n    else:  # Homogeneous sampling:\n        seed = inputs.node\n        seed_time = inputs.time\n\n    out = sample_fn(seed, seed_time)\n    out.metadata = (inputs.input_id, inputs.time)\n\n    return out"
+        }
+      ]
+    },
+    {
+      "source": "sources/pyg261_neighbor_loader.py",
+      "sha256": "ab98bb014cc1b4c81b473da81f2347ff7bbf2af8c1cc33fc5731eb5da9ad6ddb",
+      "line_ranges": [
+        [
+          132,
+          167
+        ],
+        [
+          223,
+          247
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 132,
+          "end": 167,
+          "text": "        input_time (torch.Tensor, optional): Optional values to override the\n            timestamp for the input nodes given in :obj:`input_nodes`. If not\n            set, will use the timestamps in :obj:`time_attr` as default (if\n            present). The :obj:`time_attr` needs to be set for this to work.\n            (default: :obj:`None`)\n        replace (bool, optional): If set to :obj:`True`, will sample with\n            replacement. (default: :obj:`False`)\n        subgraph_type (SubgraphType or str, optional): The type of the returned\n            subgraph.\n            If set to :obj:`\"directional\"`, the returned subgraph only holds\n            the sampled (directed) edges which are necessary to compute\n            representations for the sampled seed nodes.\n            If set to :obj:`\"bidirectional\"`, sampled edges are converted to\n            bidirectional edges.\n            If set to :obj:`\"induced\"`, the returned subgraph contains the\n            induced subgraph of all sampled nodes.\n            (default: :obj:`\"directional\"`)\n        disjoint (bool, optional): If set to :obj: `True`, each seed node will\n            create its own disjoint subgraph.\n            If set to :obj:`True`, mini-batch outputs will have a :obj:`batch`\n            vector holding the mapping of nodes to their respective subgraph.\n            Will get automatically set to :obj:`True` in case of temporal\n            sampling. (default: :obj:`False`)\n        temporal_strategy (str, optional): The sampling strategy when using\n            temporal sampling (:obj:`\"uniform\"`, :obj:`\"last\"`).\n            If set to :obj:`\"uniform\"`, will sample uniformly across neighbors\n            that fulfill temporal constraints.\n            If set to :obj:`\"last\"`, will sample the last `num_neighbors` that\n            fulfill temporal constraints.\n            (default: :obj:`\"uniform\"`)\n        time_attr (str, optional): The name of the attribute that denotes\n            timestamps for either the nodes or edges in the graph.\n            If set, temporal sampling will be used such that neighbors are\n            guaranteed to fulfill temporal constraints, *i.e.* neighbors have\n            an earlier or equal timestamp than the center node.\n            (default: :obj:`None`)"
+        },
+        {
+          "start": 223,
+          "end": 247,
+          "text": "        if input_time is not None and time_attr is None:\n            raise ValueError(\"Received conflicting 'input_time' and \"\n                             \"'time_attr' arguments: 'input_time' is set \"\n                             \"while 'time_attr' is not set.\")\n\n        if neighbor_sampler is None:\n            neighbor_sampler = NeighborSampler(\n                data,\n                num_neighbors=num_neighbors,\n                replace=replace,\n                subgraph_type=subgraph_type,\n                disjoint=disjoint,\n                temporal_strategy=temporal_strategy,\n                time_attr=time_attr,\n                weight_attr=weight_attr,\n                is_sorted=is_sorted,\n                share_memory=kwargs.get('num_workers', 0) > 0,\n                directed=directed,\n            )\n\n        super().__init__(\n            data=data,\n            node_sampler=neighbor_sampler,\n            input_nodes=input_nodes,\n            input_time=input_time,"
+        }
+      ]
+    },
+    {
+      "source": "sources/frame023_dataset.py",
+      "sha256": "73caee91c2623adfb9692636e1bfffeae42553a7e9380b4c0900f91951826898",
+      "line_ranges": [
+        [
+          553,
+          635
+        ],
+        [
+          748,
+          751
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 553,
+          "end": 635,
+          "text": "    def materialize(\n        self,\n        device: torch.device | None = None,\n        path: str | None = None,\n    ) -> Dataset:\n        r\"\"\"Materializes the dataset into a tensor representation. From this\n        point onwards, the dataset should be treated as read-only.\n\n        Args:\n            device (torch.device, optional): Device to load the\n                :class:`TensorFrame` object. (default: :obj:`None`)\n            path (str, optional): If path is specified and a cached file\n                exists, this will try to load the saved the\n                :class:`TensorFrame` object and :obj:`col_stats`.\n                If :obj:`path` is specified but a cached file does not exist,\n                this will perform materialization and then save the\n                :class:`TensorFrame` object and :obj:`col_stats` to\n                :obj:`path`. If :obj:`path` is :obj:`None`, this will\n                materialize the dataset without caching.\n                (default: :obj:`None`)\n        \"\"\"\n        if self.is_materialized:\n            # Materialized without specifying path at first and materialize\n            # again by specifying the path\n            if path is not None and not osp.isfile(path):\n                torch_frame.save(self._tensor_frame, self._col_stats, path)\n            return self\n\n        if path is not None and osp.isfile(path):\n            # Load tensor_frame and col_stats\n            self._tensor_frame, self._col_stats = torch_frame.load(\n                path, device)\n            # Instantiate the converter\n            self._to_tensor_frame_converter = self._get_tensorframe_converter()\n            # Mark the dataset has been materialized\n            self._is_materialized = True\n            return self\n\n        # 1. Fill column statistics:\n        for col, stype in self.col_to_stype.items():\n            ser = self.df[col]\n            self._col_stats[col] = compute_col_stats(\n                ser,\n                stype,\n                sep=self.col_to_sep.get(col, None),\n                time_format=self.col_to_time_format.get(col, None),\n            )\n            # For a target column, sort categories lexicographically such that\n            # we do not accidentally swap labels in binary classification\n            # tasks.\n            if col == self.target_col and stype == torch_frame.categorical:\n                index, value = self._col_stats[col][StatType.COUNT]\n                if len(index) == 2:\n                    ser = pd.Series(index=index, data=value).sort_index()\n                    index, value = ser.index.tolist(), ser.values.tolist()\n                    self._col_stats[col][StatType.COUNT] = (index, value)\n\n        # 2. Create the `TensorFrame`:\n        self._to_tensor_frame_converter = self._get_tensorframe_converter()\n        self._tensor_frame = self._to_tensor_frame_converter(self.df, device)\n\n        # 3. Update col stats based on `TensorFrame`\n        self._update_col_stats()\n\n        # 4. Mark the dataset as materialized:\n        self._is_materialized = True\n\n        if path is not None:\n            # Cache the dataset if user specifies the path\n            torch_frame.save(self._tensor_frame, self._col_stats, path)\n\n        return self\n\n    def _get_tensorframe_converter(self) -> DataFrameToTensorFrameConverter:\n        return DataFrameToTensorFrameConverter(\n            col_to_stype=self.col_to_stype,\n            col_stats=self._col_stats,\n            target_col=self.target_col,\n            col_to_sep=self.col_to_sep,\n            col_to_text_embedder_cfg=self.col_to_text_embedder_cfg,\n            col_to_text_tokenizer_cfg=self.col_to_text_tokenizer_cfg,\n            col_to_image_embedder_cfg=self.col_to_image_embedder_cfg,\n            col_to_time_format=self.col_to_time_format,"
+        },
+        {
+          "start": 748,
+          "end": 751,
+          "text": "    @property\n    @requires_post_materialization\n    def convert_to_tensor_frame(self) -> DataFrameToTensorFrameConverter:\n        return self._to_tensor_frame_converter"
+        }
+      ]
+    },
+    {
+      "source": "sources/legacy_pyproject.toml",
+      "sha256": "ca64d555e3e878999d250926477a4811a7fdd6023ebf861806279e77ed74c46d",
+      "line_ranges": [
+        [
+          5,
+          37
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 5,
+          "end": 37,
+          "text": "[project]\nname = \"relbench\"\nversion = \"1.1.0\"\ndescription = \"RelBench: Relational Deep Learning Benchmark\"\nauthors = [{name = \"RelBench Team\", email = \"relbench@cs.stanford.edu\"}]\nreadme = \"README.md\"\nlicense = {file = \"LICENSE\"}\nclassifiers = [\n\t\"License :: OSI Approved :: MIT License\",\n]\nrequires-python=\">=3.8\"\nkeywords=[]\ndependencies=[\n\t\"pandas\",\n\t\"pooch\",\n\t\"pyarrow\",\n\t\"numpy\",\n\t\"duckdb\",\n\t\"scikit-learn\",\n\t\"typing-extensions\",\n]\n\n[project.optional-dependencies]\nfull=[\n\t\"pytorch_frame>=0.2.3\",\n\t\"torch_geometric\",\n]\nexample=[\n\t\"sentence-transformers\",\n\t\"pytorch_frame[full]\",\n\t\"torch_geometric\",\n\t\"tqdm\",\n]"
+        }
+      ]
+    }
+  ],
+  "engineered_view": {
+    "source_stypes": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/industrial_followup_task_scout_v1/sources/user_study_inferred_stypes.py",
+    "source_stypes_sha256": "2d5f69b05922b6b22f1e4e7eeeb80ffc7ff8182ff33481714b1926e01ba5901b",
+    "removed_future_columns": [
+      "upcoming_1_round",
+      "upcoming_1_circuit_id",
+      "upcoming_2_round",
+      "upcoming_2_circuit_id",
+      "upcoming_3_round",
+      "upcoming_3_circuit_id"
+    ],
+    "44_history_engineered_columns": [
+      "week_of_year",
+      "driver_ref",
+      "driver_age",
+      "driver_nationality",
+      "driver_position",
+      "driver_points",
+      "driver_wins",
+      "driver_points_lag",
+      "driver_points_lead",
+      "days_since_last_race",
+      "constructor_ref",
+      "constructor_nationality",
+      "constructor_position",
+      "constructor_points",
+      "constructor_wins",
+      "constructor_points_lag",
+      "constructor_points_lead",
+      "position_diff",
+      "points_ratio",
+      "wins_ratio",
+      "past_1_driver_position",
+      "past_1_driver_points",
+      "past_1_driver_grid",
+      "past_1_position_gain",
+      "past_1_driver_rank",
+      "past_1_pct_laps_completed",
+      "past_1_dnf",
+      "past_1_constructor_points",
+      "past_2_driver_position",
+      "past_2_driver_points",
+      "past_2_driver_grid",
+      "past_2_position_gain",
+      "past_2_driver_rank",
+      "past_2_pct_laps_completed",
+      "past_2_dnf",
+      "past_2_constructor_points",
+      "past_3_driver_position",
+      "past_3_driver_points",
+      "past_3_driver_grid",
+      "past_3_position_gain",
+      "past_3_driver_rank",
+      "past_3_pct_laps_completed",
+      "past_3_dnf",
+      "past_3_constructor_points"
+    ],
+    "retained_key_predictors": [
+      "driverId",
+      "date"
+    ],
+    "non_target_predictors": 46,
+    "materialized_view_verified": false
+  },
+  "key_dropping_caveat": "User-study trainer drops explicit args.drop_cols in val_df at lines199–200, then map_preds requests identifier_cols at244. Dropping keys without separate map adaptation causes missing-key access. Preferred view retains keys.",
+  "source_implementation_changed": false
+}
