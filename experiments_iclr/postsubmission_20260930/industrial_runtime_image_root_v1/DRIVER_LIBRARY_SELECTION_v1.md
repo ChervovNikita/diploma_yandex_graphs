@@ -1,0 +1,3 @@
+# Driver library selection
+
+The ldconfig cache lists both CUDA 12.3 compatibility libcuda and the system NVIDIA driver. The assembler allows explicit system driver libraries. The prospective image selects `/usr/lib/x86_64-linux-gnu/libcuda.so.1`, `libnvidia-ml.so.1`, and `libnvidia-ptxjitcompiler.so.1`, plus their resolved targets. It does not copy `/usr/local/cuda-12.3/compat`. CUDA runtime qualification inside the image is required before any useful training. The failed ambiguity check is retained; this is a disclosed runtime selection, not an exact byte reproduction of the host dynamic loader choice.

@@ -1,0 +1,2462 @@
+[
+  {
+    "index": 1,
+    "tag": "h5",
+    "id": "modal-title",
+    "text": "Report GitHub Issue"
+  },
+  {
+    "index": 2,
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "index": 3,
+    "tag": "h1",
+    "id": null,
+    "text": "Relational Graph Transformer"
+  },
+  {
+    "index": 4,
+    "tag": "h6",
+    "id": null,
+    "text": "Abstract"
+  },
+  {
+    "index": 5,
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Relational Deep Learning (RDL) is a promising approach for building state-of-the-art predictive models on multi-table relational data by representing it as a heterogeneous temporal graph. However, commonly used Graph Neural Network models suffer from fundamental limitations in capturing complex structural patterns and long-range dependencies that are inherent in relational data. While Graph Transformers have emerged as powerful alternatives to GNNs on general graphs, applying them to relational entity graphs presents unique challenges: (i) Traditional positional encodings fail to generalize to massive, heterogeneous graphs; (ii) existing architectures cannot model the temporal dynamics and schema constraints of relational data; (iii) existing tokenization schemes lose critical structural information. Here we introduce the Relational Graph Transformer ( RelGT ), the first graph transformer architecture designed specifically for relational tables. RelGT employs a novel multi-element tokenization strategy that decomposes each node into five components (features, type, hop distance, time, and local structure), enabling efficient encoding of heterogeneity, temporality, and topology without expensive precomputation. Our architecture combines local attention over sampled subgraphs with global attention to learnable centroids, incorporating both local and database-wide representations. Across 21 tasks from the RelBench benchmark, RelGT consistently matches or outperforms GNN baselines by up to 18%, establishing Graph Transformers as a powerful architecture for Relational Deep Learning 1 1 1 https://github.com/snap-stanford/relgt ."
+  },
+  {
+    "index": 6,
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "index": 7,
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Real-world enterprise data, such as financial transactions, supply chain data, e-commerce records, product catalogs, customer interactions, and electronic health records, are predominantly stored in relational databases ( Codd, 1970 ) . These databases typically consist of multiple tables, each dedicated to different entity types, interconnected through primary-foreign key links. This abstraction underpins large quantities of complex, dynamically updated data that scale with business volume, storing potentially immense, unexploited knowledge ( Fey et al., 2024 ) . However, extracting predictive patterns from such data has traditionally depended on manual feature engineering within complex machine learning pipelines, requiring the transformation of multi-table records into flat feature vectors suitable for models like deep neural networks and decision trees ( Chen & Guestrin, 2016 ) ."
+  },
+  {
+    "index": 8,
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "Relational Deep Learning. To enable end-to-end deep learning, relational databases can be represented as relational entity graphs ( Fey et al., 2024 ) , where nodes correspond to entities and edges capture primary-foreign key relationships. This graph-based representation allows Graph Neural Networks (GNNs) to learn abstract features directly from the underlying data structure, effectively modeling complex dependencies for various downstream prediction tasks. With this setup, which is termed as Relational Deep Learning (RDL), GNNs reduce or eliminate the need for manual feature engineering and often lead to better performance ( Robinson et al., 2024 ) , at a fraction of the traditional model development cost."
+  },
+  {
+    "index": 9,
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "Existing gaps. Despite their effectiveness, standard message-passing GNN architectures ( Gilmer et al., 2017 ; Kipf & Welling, 2016 ; Hamilton et al., 2017 ; Velickovic et al., 2017 ) have notable limitations, such as insufficient structural expressiveness ( Xu et al., 2019 ; Morris et al., 2019 ; Loukas, 2019 ) and restricted long-range modeling capabilities ( Alon & Yahav, 2020 ) . For example, consider an e-commerce database with three tables: customers , transactions , and products , which can be represented as a relational entity graph as in Figure 1 . In a standard GNN, transactions are always two hops away from each other, connected only through shared customers. This creates an information bottleneck: transaction -to- transaction patterns require multiple layers of message passing, while product relationships remain entirely indirect in shallow networks. Furthermore, products would never directly interact in a two-layer GNN ( Robinson et al., 2024 ) , as their messages must pass through both a transaction and a customer, highlighting the inherent structural constraints of GNN architectures that restrict capturing long-range dependencies."
+  },
+  {
+    "index": 10,
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "Graph Transformers (GTs) have emerged as more expressive models for graph learning, utilizing self-attention in the full graph to increase the range of information flow and additionally, incorporating positional and structural encodings (PEs/SEs) to better capture graph topology ( Dwivedi & Bresson, 2021 ; Ying et al., 2021 ; Rampášek et al., 2022 ) . These advances have produced strong results across domains ( Müller et al., 2023 ) , including foundation models for molecular graphs ( Sypetkowski et al., 2024 ) . However, many GT designs are limited to non-temporal, homogeneous, and small-scale graphs, assumptions that do not hold for relational entity graphs (REGs) ( Fey et al., 2024 ) , which are typically (i) heterogeneous, with different tables representing distinct node types; (ii) temporal, with entities often associated with timestamps and requiring careful handling to prevent data leakage; (iii) large-scale, containing millions or more records across multiple interconnected tables. In particular, existing PEs often require precomputation, depend on graph size, and typically do not scale well to large, heterogeneous, or dynamic graphs ( Cantürk et al., 2023 ; Kanatsoulis et al., 2025 ) . For instance, node2vec ( Grover & Leskovec, 2016 ) , while more efficient than Laplacian or random walk PEs, can become prohibitively expensive and impractical to compute on massive graphs ( Postăvaru et al., 2020 ) . These limitations, along with the inability to capture the multi-dimensional complexity of relational structures, render current GTs inadequate for relational databases."
+  },
+  {
+    "index": 11,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Figure 1: Overview of the RelGT architecture. First, the input relational entity graph (REG) is converted into tokens where each training seed node (such as the customer node in this example) gets a fixed number of neighboring nodes, which are encoded with a multi-element tokenization strategy. These tokens are then passed through a Transformer network that builds both local and global representations, which are then fed to downstream prediction layers."
+  },
+  {
+    "index": 12,
+    "tag": "p",
+    "id": "S1.p5.1",
+    "text": "Present work. We introduce the Relational Graph Transformer ( RelGT ) , the first Graph Transformer specifically designed for relational entity graphs. RelGT addresses key gaps in existing methods by enabling effective graph representation learning within the RDL framework. It is a unified model that explicitly captures the temporality, heterogeneity, and structural complexity inherent to relational graphs. We summarize the architecture as follows (Figure 1 ):"
+  },
+  {
+    "index": 13,
+    "tag": "p",
+    "id": "S1.I1.i1.p1.1",
+    "text": "Tokenization: We develop a multi-element tokenization scheme that converts each node into structurally enriched tokens. By sampling fixed-size subgraphs as local context windows and encoding each node’s features, type, hop distance, time, and local structure, RelGT captures fine-grained graph properties without expensive precomputation at the subgraph or graph level."
+  },
+  {
+    "index": 14,
+    "tag": "p",
+    "id": "S1.I1.i2.p1.1",
+    "text": "Attention: We develop a transformer network that combines local and global representations, adapting existing GT architectures ( Rampášek et al., 2022 ) . The model extracts features from the local tokens while simultaneously attending to learnable global tokens that act as soft centroids, effectively balancing fine-grained structural modeling with database-wide patterns."
+  },
+  {
+    "index": 15,
+    "tag": "p",
+    "id": "S1.I1.i3.p1.1",
+    "text": "Validation: We showcase RelGT ’s effectiveness through a comprehensive evaluation on 21 tasks from RelBench ( Robinson et al., 2024 ) . RelGT consistently outperforms GNN baselines, with gains of up to 18%, establishing transformers as a powerful architecture for relational deep learning. Compared to HGT, a strong GT baseline for heterogeneous graphs, RelGT achieves better results without added computational cost, even when HGT uses Laplacian eigenvectors for PE."
+  },
+  {
+    "index": 16,
+    "tag": "h2",
+    "id": null,
+    "text": "2 Background"
+  },
+  {
+    "index": 17,
+    "tag": "h3",
+    "id": null,
+    "text": "2.1 Relational Deep Learning"
+  },
+  {
+    "index": 18,
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "Relational Deep Learning is an end-to-end learning framework that converts relational databases into graph structures, enabling direct use of GNNs for representation learning ( Fey et al., 2024 ) ."
+  },
+  {
+    "index": 19,
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "Definitions. Formally, we can define a relational database as the tuple ( T , R ) (T,R) comprising a collection of tables T = { T 1 , … , T n } T=\\{T_{1},\\ldots,T_{n}\\} connected through inter-table relationships R ⊆ T × T R\\subseteq T\\times T . A link ( T fkey , T pkey ) ∈ R (T_{\\text{fkey}},T_{\\text{pkey}})\\in R denotes a foreign key in one table referencing a primary key in another. Each table contains entities (rows) { v 1 , … , v n T } \\{v_{1},\\ldots,v_{n_{T}}\\} , with each entity typically consisting of: (1) a unique identifier (primary key), (2) references to other entities (foreign keys), (3) entity-specific attributes, and (4) timestamp information indicating when the entity was created or modified. The structure of relational databases inherently forms a graph representation, called as relational entity graphs (REGs). An REG is formally defined as a heterogeneous temporal graph G = ( V , E , ϕ , ψ , τ ) G=(V,E,\\phi,\\psi,\\tau) , where nodes V V represent entities from the database tables, edges E E represent primary-foreign key relationships, ϕ \\phi maps nodes to their respective types based on source tables, ψ \\psi assigns relation types to edges, and τ \\tau captures the temporal dimension through timestamps ( Fey et al., 2024 ) ."
+  },
+  {
+    "index": 20,
+    "tag": "p",
+    "id": "S2.SS1.p3.1",
+    "text": "Challenges. Relational entity graphs exhibit three distinctive properties that set them apart from conventional graph data. First, their structure is fundamentally schema-defined, with topology shaped by primary-foreign keys rather than arbitrary connections, creating specific patterns of information flow that require specialized modeling approaches. Second, they incorporate temporal dynamics, as relational databases track events and interactions over time, necessitating techniques like time-aware neighbor sampling to prevent future information from leaking into past predictions. Third, they display multi-type heterogeneity, as different tables correspond to different entity types with diverse attribute schemas and data modalities, presenting challenges in creating unified representations that effectively integrate information across diverse node and edge types ( Schlichtkrull et al., 2018 ; Wang et al., 2019 ) . These characteristics create both challenges and opportunities for GNN architectures, requiring models that can simultaneously address temporal evolution, heterogeneous information, and schema-constrained structures while processing potentially massive multi-table datasets."
+  },
+  {
+    "index": 21,
+    "tag": "h3",
+    "id": null,
+    "text": "2.2 RDL Methods"
+  },
+  {
+    "index": 22,
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "The baseline GNN approach introduced by ( Robinson et al., 2024 ) for RDL uses a heterogeneous GraphSAGE ( Hamilton et al., 2017 ) model with temporal-aware neighbor sampling, which demonstrates significant improvements compared to traditional tabular methods like LightGBM ( Ke et al., 2017 ) across most of the tasks in the RelBench benchmark. This baseline architecture leverages PyTorch Frame’s multi-modal feature encoders ( Hu et al., 2024 ) to transform diverse entity attributes into initial feature embeddings that serve as input to the GNN. Several specialized architectures have been developed to address specific challenges in relational entity graphs. RelGNN ( Chen et al., 2025 ) introduces composite message-passing with atomic routes to facilitate direct information exchange between neighbors of bridge and hub nodes, commonly found in relational structures. Similarly, ContextGNN ( Yuan et al., 2024 ) employs a hybrid approach, combining pair-wise and two-tower representations, specifically optimized for recommendation tasks in RelBench."
+  },
+  {
+    "index": 23,
+    "tag": "p",
+    "id": "S2.SS2.p2.1",
+    "text": "Beyond pure GNN approaches, retrieval-augmented generation techniques ( Wydmuch et al., 2024 ) and hybrid tabular-GNN methods ( Lachi et al., 2024 ) have also demonstrated comparable or superior performance to the standard GNN baseline, while showing the use of LLMs ( Grattafiori et al., 2024 ) and inference speedups, respectively. These approaches confirm the effectiveness of graph, tabular, and LLM-based methods for downstream predictions in RDL. However, these methods typically optimize specific aspects of the problem, failing to incorporate broader advances from GTs in general."
+  },
+  {
+    "index": 24,
+    "tag": "h3",
+    "id": null,
+    "text": "2.3 Graph Transformers"
+  },
+  {
+    "index": 25,
+    "tag": "p",
+    "id": "S2.SS3.p1.1",
+    "text": "Graph Transformers extend the self-attention mechanism from sequence modeling ( Vaswani et al., 2017 ) to graph-structured data, offering powerful alternatives to traditional GNNs ( Dwivedi & Bresson, 2021 ) . These models typically restrict attention to local neighborhoods, functioning as message-passing networks with attention-based aggregation ( Joshi, 2020 ; Bronstein et al., 2021 ) , while positional encodings are developed based on Laplacian eigenvectors ( Dwivedi et al., 2020 ) . Subsequent Graph Transformers incorporate global attention mechanisms, allowing all nodes to attend to one another ( Ying et al., 2021 ; Mialon et al., 2021 ; Kreuzer et al., 2021 ) . This moves beyond the local neighborhood limitations of standard GNNs ( Alon & Yahav, 2020 ) , albeit at the cost of significantly increased computational complexity."
+  },
+  {
+    "index": 26,
+    "tag": "p",
+    "id": "S2.SS3.p2.1",
+    "text": "Modern GT architectures have improved the aforementioned early works by creating effective structural encodings and ensuring scalability to medium and large-scale graphs. For structural expressiveness of the node tokens, several positional and structural encoding methods have been developed ( Dwivedi et al., 2022 ; Cantürk et al., 2023 ; Lim et al., 2022 ; Huang et al., ; Kanatsoulis et al., 2025 ) to inject the input graph topology. For scalability, various strategies have emerged including hierarchical clustering that coarsens graphs ( Zhang et al., 2022 ; Zhu et al., 2023 ) , sparse attention mechanisms that reduce computational cost ( Rampášek et al., 2022 ; Shirzad et al., 2023 ) , and neighborhood sampling techniques for processing massive graphs ( Zhao et al., 2021 ; Chen et al., 2022 ; Dwivedi et al., 2023 ) . Models like GraphGPS ( Rampášek et al., 2022 ) combine these advances through hybrid local-global designs that maintain Transformers’ global context advantages while ensuring practical efficiency when scaling to medium and large graph datasets. However, these approaches exhibit several key limitations: they are largely confined to static graphs, and lack mechanisms to handle multiple node and edge types. While specialized Transformers for heterogeneous graphs exist ( Hu et al., 2020 ; Mao et al., 2023 ; Zhu et al., 2023 ; Zhai et al., 2024 ) , integrating them, alongside other aforementioned methods, into the RDL pipeline remains challenging. This is primarily because adapting PEs under precomputation constraints is difficult, compounded by the complexity of modeling large-scale, temporal, and heterogeneous relational entity graphs (REGs)."
+  },
+  {
+    "index": 27,
+    "tag": "h3",
+    "id": null,
+    "text": "2.4 Addressing Challenges"
+  },
+  {
+    "index": 28,
+    "tag": "p",
+    "id": "S2.SS4.p1.1",
+    "text": "While heterogeneous graph transformers ( Hu et al., 2020 ) and temporal graph methods exist, no prior GT architecture effectively handles relational entity graphs where heterogeneity, temporality, and rich entity attributes co-occur within schema-defined database structures. Heterogeneous Temporal Graph Transformers like HTGformer ( Wang, 2025 ) process heterogeneity and temporality through separate, iterative modules without graph positional encodings, a component now considered essential in modern GTs ( Rampášek et al., 2022 ; Müller et al., 2023 ) , and do not address the multimodal attributes or schema constraints inherent to relational databases ( Hu et al., 2024 ) . Existing subgraph-based GTs ( Zhao et al., 2021 ; Chen et al., 2022 ) focus on scalability for homogeneous graphs without mechanisms for heterogeneity or temporal dynamics."
+  },
+  {
+    "index": 29,
+    "tag": "p",
+    "id": "S2.SS4.p2.1",
+    "text": "We address these limitations by recognizing that relational entity graphs require a rethinking on how their multimodal attributes and comprehensive graph structure are jointly processed. We systematically decompose the information coming from the REGs into specialized components that can be independently learned and composed, as we describe in detail in Section 3 . This principled design enables GTs to handle the unique combination of heterogeneity, temporality, and schema-defined structures in relational databases without expensive global precomputation."
+  },
+  {
+    "index": 30,
+    "tag": "h2",
+    "id": null,
+    "text": "3 RelGT : Relational Graph Transformer"
+  },
+  {
+    "index": 31,
+    "tag": "h3",
+    "id": null,
+    "text": "3.1 Tokenization"
+  },
+  {
+    "index": 32,
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "Traditional Transformers in NLP represent text through tokens with two primary elements: (i) token identifiers (or features) that denotes the token from a vocabulary set and (ii) positional encodings that represent sequential structure ( Vaswani et al., 2017 ) . For example, a token can correspond to a word and its positional encoding can correspond to its order in the input sentence. Similarly, Graph Transformers generally adapt this two-element representation to graphs, where nodes are tokens with features, and graph positional encodings provide structural information. Although this two-element approach works well for homogeneous static graphs, it becomes computationally inefficient when trying to encode multiple aspects of graph structural information for REGs."
+  },
+  {
+    "index": 33,
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "text": "In particular, capturing heterogeneity, temporality, and schema-defined structure (as defined in Section 2.1 ) through a single positional encoding scheme would either require complex, multi-stage encoding or result in significant information loss about the rich relational context. For instance, if we were to extend existing PEs for REGs, several practical challenges emerge: (i) standard Laplacian or random walk-based PEs would need significant modification to differentiate between multiple node types ( e.g. , customers vs. products vs. transactions), (ii) these encodings lack mechanisms to incorporate temporal dynamics critical for time-sensitive predictions ( e.g. , capturing that a user’s recent purchases are more relevant than older ones), and (iii) the scale of relational databases makes global PE computation in REGs prohibitively expensive. With millions of records across tables, precomputation would only be feasible on small subgraphs, resulting in incomplete structural context."
+  },
+  {
+    "index": 34,
+    "tag": "h4",
+    "id": null,
+    "text": "3.1.1 Proposed Approach"
+  },
+  {
+    "index": 35,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p1.1",
+    "text": "RelGT overcomes these limitations through a multi-element token representation approach, without any computational overhead concerning the dependency on the number of nodes in the input REG. Rather than trying to compress all structural information into a single positional encoding, we decompose the token representation into distinct elements that explicitly model different aspects of relational data. This decoupled design allows each component to capture a specific characteristic of REGs: node features represent entity attributes, node types encode table-based heterogeneity, hop distance preserves relative distances among nodes in a local context, time encodings capture temporal dynamics, and GNN-based positional encodings preserve local graph structure."
+  },
+  {
+    "index": 36,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p2.1",
+    "text": "Sampling and token elements. The tokenization process in RelGT converts a REG G = ( V , E , ϕ , ψ , τ ) G=(V,E,\\phi,\\psi,\\tau) into sets of tokens suitable for processing by the Transformer network. Specifically, as shown in Fig 2 , for each training seed node v i ∈ V v_{i}\\in V , we first sample a fixed set of K K neighboring nodes v j v_{j} from within 2 hops of the local neighborhood using temporal-aware sampling 2 2 2 When fewer than K K neighbors are available within 2 hops, we use randomly selected nodes as fallback tokens to maintain the fixed size K K , ensuring consistent computational complexity regardless of local structure. , ensuring that only nodes with timestamps τ ⁡ ( v j ) ≤ τ ⁡ ( v i ) \\tau(v_{j})\\leq\\tau(v_{i}) are included to prevent temporal leakage. Each token in this set is represented by a 5-tuple : ( x v j , ϕ ⁡ ( v j ) , p ⁡ ( v i , v j ) , τ ⁡ ( v j ) − τ ⁡ ( v i ) , GNN-PE v j ) (x_{v_{j}},\\phi(v_{j}),p(v_{i},v_{j}),\\tau(v_{j})-\\tau(v_{i}),\\text{GNN-PE}_{v_{j}}) , where, (i) node feature ( x v j x_{v_{j}} ) denotes the raw features derived from entity attributes in the database, (ii) node type ( ϕ ⁡ ( v j ) \\phi(v_{j}) ) is a categorical identifier corresponding to the entity’s originating table, (iii) relative hop distance ( p ⁡ ( v i , v j ) p(v_{i},v_{j}) ) captures the structural distance between the seed node v i v_{i} and the neighbor node v j v_{j} , (iv) relative time ( τ ⁡ ( v j ) − τ ⁡ ( v i ) \\tau(v_{j})-\\tau(v_{i}) ) represents the temporal difference between the neighbor and seed node, and (v) finally, subgraph based PE ( GNN-PE v j \\text{GNN-PE}_{v_{j}} ) provides a graph PE for each node within the sampled subgraph, generated by applying a lightweight GNN to the subgraph’s adjacency matrix with random node feature initialization ( Sato et al., 2021 ; Kanatsoulis et al., 2025 ) ."
+  },
+  {
+    "index": 37,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Figure 2: The tokenization procedure. A temporal-aware subgraph sampling step extracts a fixed set of local tokens for each training seed node, denoted by the node in black. Each token incorporates its respective graph structure information, which are element-wise transformed to a common embedding space and combined to form the effective token representation to be fed to the Transformer network."
+  },
+  {
+    "index": 38,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p3.1",
+    "text": "Encoders. Each element in the 5-tuple is processed by a specialized encoder before being combined into the final token representation, as illustrated in Figure 2 ."
+  },
+  {
+    "index": 39,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p4.1",
+    "text": "1. Node Feature Encoder. The node features x v j x_{v_{j}} , representing the columnar attributes of the node v j v_{j} in REG (which corresponds to a table row in a database), are encoded into a d d -dimensional embedding. Each modality, such as numerical, categorical, multi-categorical, text, and image data, is encoded separately using modality-specific encoders following ( Hu et al., 2024 ) , and the resulting representations are then aggregated into a unified d d -dimensional embedding."
+  },
+  {
+    "index": 40,
+    "tag": "tr",
+    "id": null,
+    "text": "h feat ​ ( v j ) = MultiModalEncoder ​ ( x v j ) ∈ ℝ d h_{\\text{feat}}(v_{j})=\\text{MultiModalEncoder}(x_{v_{j}})\\in\\mathbb{R}^{d} (1)"
+  },
+  {
+    "index": 41,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p4.2",
+    "text": "where MultiModalEncoder ​ ( ⋅ ) \\text{MultiModalEncoder}(\\cdot) is unified feature encoder adapted from ( Hu et al., 2024 ) ."
+  },
+  {
+    "index": 42,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p5.1",
+    "text": "2. Node Type Encoder. The node type encoding steps converts each table-specific entity type ϕ ⁡ ( v j ) \\phi(v_{j}) to a d d -dimensional representation, incorporating the heterogeneous information from the input data."
+  },
+  {
+    "index": 43,
+    "tag": "tr",
+    "id": null,
+    "text": "h type ​ ( v j ) = W type ⋅ onehot ​ ( ϕ ⁡ ( v j ) ) ∈ ℝ d h_{\\text{type}}(v_{j})=W_{\\text{type}}\\cdot\\text{onehot}(\\phi(v_{j}))\\in\\mathbb{R}^{d} (2)"
+  },
+  {
+    "index": 44,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p5.2",
+    "text": "where ϕ ⁡ ( v j ) \\phi(v_{j}) is the node type of v j v_{j} , W type ∈ ℝ d × | T | W_{\\text{type}}\\in\\mathbb{R}^{d\\times|T|} is the learnable weight matrix, | T | |T| is the number of node types, and onehot ​ ( ⋅ ) \\text{onehot}(\\cdot) is the one-hot encoding function."
+  },
+  {
+    "index": 45,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p6.1",
+    "text": "3. Hop Encoder. The relative hop distance p ⁡ ( v i , v j ) p(v_{i},v_{j}) , that captures the structural proximity between the seed node v i v_{i} and a neighbor node v j v_{j} , is encoded into a d d -dimensional embedding as:"
+  },
+  {
+    "index": 46,
+    "tag": "tr",
+    "id": null,
+    "text": "h hop ​ ( v i , v j ) = W hop ⋅ onehot ​ ( p ⁡ ( v i , v j ) ) ∈ ℝ d h_{\\text{hop}}(v_{i},v_{j})=W_{\\text{hop}}\\cdot\\text{onehot}(p(v_{i},v_{j}))\\in\\mathbb{R}^{d} (3)"
+  },
+  {
+    "index": 47,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p6.2",
+    "text": "with p ⁡ ( v i , v j ) p(v_{i},v_{j}) being the relative hop distance between seed node v i v_{i} and neighbor node v j v_{j} , and W hop ∈ ℝ d × h max W_{\\text{hop}}\\in\\mathbb{R}^{d\\times h_{\\text{max}}} the learnable matrix mapping hop distances (up to h max h_{\\text{max}} )."
+  },
+  {
+    "index": 48,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p7.1",
+    "text": "4. Time Encoder. The time encoder linearly transforms the time difference τ ⁡ ( v j ) − τ ⁡ ( v i ) \\tau(v_{j})-\\tau(v_{i}) between a neighbor node v j v_{j} and the seed node v i v_{i} :"
+  },
+  {
+    "index": 49,
+    "tag": "tr",
+    "id": null,
+    "text": "h time ​ ( v i , v j ) = W time ⋅ ( τ ⁡ ( v j ) − τ ⁡ ( v i ) ) ∈ ℝ d h_{\\text{time}}(v_{i},v_{j})=W_{\\text{time}}\\cdot(\\tau(v_{j})-\\tau(v_{i}))\\in\\mathbb{R}^{d} (4)"
+  },
+  {
+    "index": 50,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p7.2",
+    "text": "where τ ⁡ ( v j ) − τ ⁡ ( v i ) \\tau(v_{j})-\\tau(v_{i}) is the relative time difference, and W time ∈ ℝ d × 1 W_{\\text{time}}\\in\\mathbb{R}^{d\\times 1} are learnable parameters."
+  },
+  {
+    "index": 51,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p8.1",
+    "text": "5. Subgraph PE Encoder. Finally, for capturing local graph structure that can otherwise not be represented by other token elements, we apply a light-weight GNN to the subgraph. This GNN encoder effectively preserves important structural relationships, such as complex cycles and quasi-cliques between entities ( Kanatsoulis & Ribeiro, 2024 ) , as well as parent-child relationships (e.g., a product node within the local subgraph corresponding to specific transactions ), and can be written as:"
+  },
+  {
+    "index": 52,
+    "tag": "tr",
+    "id": null,
+    "text": "h pe ​ ( v j ) = GNN ​ ( A local , Z random ) j ∈ ℝ d h_{\\text{pe}}(v_{j})=\\text{GNN}(A_{\\text{local}},Z_{\\text{random}})_{j}\\in\\mathbb{R}^{d} (5)"
+  },
+  {
+    "index": 53,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p8.2",
+    "text": "where GNN ​ ( ⋅ , ⋅ ) j \\text{GNN}(\\cdot,\\cdot)_{j} is a light-weight GNN applied to the local subgraph yielding the encoding for node v j v_{j} , A local ∈ ℝ K × K A_{\\text{local}}\\in\\mathbb{R}^{K\\times K} is the adjacency matrix of the sampled subgraph of K K nodes, and Z random ∈ ℝ K × d init Z_{\\text{random}}\\in\\mathbb{R}^{K\\times d_{\\text{init}}} are randomly initialized node features for the GNN (with d init d_{\\text{init}} as the initial feature dimension)."
+  },
+  {
+    "index": 54,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p9.1",
+    "text": "One key advantage of using random node features in this GNN encoder is that it breaks structural symmetries between the subgraph topology and node attributes, thereby increasing the expressiveness of GNN layers ( Sato et al., 2021 ) . However, a fixed random initialization would destroy permutation equivariance, a critical property for generalization. To address this, we resample Z random Z_{\\text{random}} independently at every training step. This ‘stochastic initialization’ approach can be viewed as a relaxed version of the learnable PE method described in Kanatsoulis et al. (2025) , thus approximately preserving permutation equivariance while retaining the expressivity gains afforded by the randomization."
+  },
+  {
+    "index": 55,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p10.1",
+    "text": "At last, the effective token representation is formed by combining all encoded elements:"
+  },
+  {
+    "index": 56,
+    "tag": "tr",
+    "id": null,
+    "text": "h token ​ ( v j ) = O ⋅ [ h feat ​ ( v j ) ​ ‖ h type ​ ( v j ) ‖ ​ h hop ​ ( v i , v j ) ​ ‖ h time ​ ( v i , v j ) ‖ ​ h pe ​ ( v j ) ] {h}_{\\text{token}}(v_{j})=O\\cdot\\left[{h}_{\\text{feat}}(v_{j})\\,||\\,{h}_{\\text{type}}(v_{j})\\,||\\,{h}_{\\text{hop}}(v_{i},v_{j})\\,||\\,{h}_{\\text{time}}(v_{i},v_{j})\\,||\\,{h}_{\\text{pe}}(v_{j})\\right] (6)"
+  },
+  {
+    "index": 57,
+    "tag": "p",
+    "id": "S3.SS1.SSS1.p10.2",
+    "text": "where | ⁣ | || denotes the concatenation of the individual encoder outputs, and O ∈ ℝ 5 ​ d × d O\\in\\mathbb{R}^{5d\\times d} is a learnable matrix to mix the embeddings. This multi-element approach provides a comprehensive token representation that explicitly captures node features, type information, structural position, temporal dynamics, and local topology without requiring expensive computation on the graph structure."
+  },
+  {
+    "index": 58,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Figure 3: The Transformer network which processes the input tokens by first building local representations using the local tokens, then incorporating global context by attending to centroids that are dynamically updated during training. The final node representations combine both local structural details and global database context, enabling effective prediction across downstream tasks."
+  },
+  {
+    "index": 59,
+    "tag": "h3",
+    "id": null,
+    "text": "3.2 Transformer Network"
+  },
+  {
+    "index": 60,
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "The Transformer network in RelGT , shown in Fig. 3 , processes the tokenized relational entity graph using a combination of local and global attention mechanisms, following the successful designs used in modern GTs ( Rampášek et al., 2022 ; Wu et al., 2023 ; Kong et al., 2023 ; Dwivedi et al., 2023 ) ."
+  },
+  {
+    "index": 61,
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "text": "Local module. The local attention mechanism allows each seed node to attend to its K K local tokens selected during tokenization, capturing the fine-grained relationships defined by the database schema. This mechanism is different from a GNN used in RDL ( Robinson et al., 2024 ) in two key aspects: self-attention is used as the message-passing scheme and the attention is all-pair, i.e. , all nodes in the local K set attend to each other. This is implemented using an L layer Transformer ( Vaswani et al., 2017 ) and provides a broader structural coverage compared to a baseline GNN ( Robinson et al., 2024 ) . A practical application of this improvement can be seen in the e-commerce example introduced in Sec. 1 , where the proposed full-attention mechanism can directly connect seemingly unrelated products by identifying relationships through shared transactions or customer behaviors. This capability enables the model to capture subtle associations, such as customers frequently purchasing unexpected combinations of items. The local node representation h local ​ ( v i ) h_{\\text{local}}(v_{i}) is obtained as:"
+  },
+  {
+    "index": 62,
+    "tag": "tr",
+    "id": null,
+    "text": "h local ​ ( v i ) = Pool ​ ( FFN ​ ( Attention ​ ( v i , { v j } j = 1 K ) ) L ) h_{\\text{local}}(v_{i})=\\text{Pool}(\\text{FFN}(\\text{Attention}(v_{i},\\{v_{j}\\}_{j=1}^{K}))_{L}) (7)"
+  },
+  {
+    "index": 63,
+    "tag": "p",
+    "id": "S3.SS2.p2.2",
+    "text": "where, L L denotes the layers, FFN and Attention are standard components in a Transformer ( Vaswani et al., 2017 ) , and Pool denotes the aggregation of { v j } j = 1 K \\{v_{j}\\}_{j=1}^{K} and v i v_{i} using a learnable linear combination."
+  },
+  {
+    "index": 64,
+    "tag": "p",
+    "id": "S3.SS2.p3.1",
+    "text": "Global module. The global attention mechanism enables each seed node to attend to a set of B B global tokens representing centroids of all nodes in the graph, conceptually and is adapted from prior works ( Kong et al., 2023 ; Dwivedi et al., 2023 ) . These centroids are updated during training using an Exponential Moving Average (EMA) K-Means algorithm applied to seed node features in each mini-batch, providing a broader contextual view beyond the local neighborhood. The global representation is formulated as:"
+  },
+  {
+    "index": 65,
+    "tag": "tr",
+    "id": null,
+    "text": "h global ​ ( v i ) = Attention ​ ( v i , { c b } b = 1 B ) h_{\\text{global}}(v_{i})=\\text{Attention}(v_{i},\\{c_{b}\\}_{b=1}^{B}) (8)"
+  },
+  {
+    "index": 66,
+    "tag": "p",
+    "id": "S3.SS2.p3.2",
+    "text": "The final output representation of each node v i v_{i} is obtained by combining local and global embeddings:"
+  },
+  {
+    "index": 67,
+    "tag": "tr",
+    "id": null,
+    "text": "h output ( v i ) = FFN ( [ h local ( v i ) | | h global ( v i ) ] ) h_{\\text{output}}(v_{i})=\\text{FFN}([h_{\\text{local}}(v_{i})\\,||\\,h_{\\text{global}}(v_{i})]) (9)"
+  },
+  {
+    "index": 68,
+    "tag": "p",
+    "id": "S3.SS2.p3.3",
+    "text": "with FFN being a feed forward network. The components of the Transformer in all stages follow standard instantiations with normalization and residual connections."
+  },
+  {
+    "index": 69,
+    "tag": "p",
+    "id": "S3.SS2.p4.1",
+    "text": "For downstream prediction, the combined representation of the seed node is passed through a task-specific prediction head. The model is trained end-to-end using suitable task specific loss functions. By leveraging multi-element token representations within a hybrid local-global Transformer architecture, RelGT effectively addresses the challenges of heterogeneity, temporal dynamics, and schema-defined structures inherent in relational entity graphs."
+  },
+  {
+    "index": 70,
+    "tag": "h2",
+    "id": null,
+    "text": "4 Experiments"
+  },
+  {
+    "index": 71,
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "RelGT is evaluated on the recently introduced RDL Benchmark (RelBench) ( Robinson et al., 2024 ) . RelBench consists of 7 datasets from diverse relational database domains, including e-commerce, clinical records, social networks, and sports, among others. These datasets are curated from their respective source domains and consist a wide range of sizes, from 1.3K to 5.4M records in the training set for the prediction tasks, with a total of 47M training records. For each dataset, multiple predictive tasks are defined, such as predicting a user’s engagement with an advertisement within the next four days or determining whether a clinical trial will achieve its primary outcome within the next year. In total, RelBench has 30 tasks across the 7 datasets, covering entity classification, entity regression, and recommendation. For our evaluation, we focus on 21 tasks on entity classification and regression 3 3 3 We exclude recommendation tasks in this work since they involve specific considerations, such as identifying target nodes ( You et al., 2021 ) or using pair-wise learning architectures ( Yuan et al., 2024 ) . Details in Sec. A.1 ."
+  },
+  {
+    "index": 72,
+    "tag": "h3",
+    "id": null,
+    "text": "4.1 Setup and Baselines"
+  },
+  {
+    "index": 73,
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "We implement RelGT within the RDL pipeline ( Robinson et al., 2024 ) by replacing the original GNN component, while preserving the learning mechanisms, database loaders, and task evaluators. The model has between 10-20M parameters, and we use a learning rate of 1 ​ e − 4 1e-4 . For tasks with fewer than 1M training nodes, we tune the number of layers L ∈ 1 , 4 , 8 L\\in{1,4,8} and use dropout rates of 0.3 , 0.4 , 0.5 {0.3,0.4,0.5} . For tasks with more than 1M training nodes, we fix the number of layers to L = 4 L=4 due to compute budgets. For the sampling during the token preparation stage, we use K = 300 K=300 local neighbors and set B = 4096 B=4096 as the number of tokens for global centroids. For smaller datasets (under one million training nodes), we use a batch size of 256 to ensure sufficient training steps. For larger datasets, we use a batch size of 1024. We do not perform exhaustive hyperparameter tuning; rather, our goal is to showcase the benefits of using RelGT in place of GNNs within the RDL framework. As shown in our ablation of the multi-element tokenization and global module in RelGT (Tab. 2 ), and context size (Fig. 4 ), careful tuning may further improve performance across different tasks."
+  },
+  {
+    "index": 74,
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "text": "In addition to the HeteroGNN baseline used in RDL, we report results for two variants of the Heterogeneous Graph Transformer (HGT) ( Hu et al., 2020 ) to highlight the advantages of RelGT over existing GT models. Notably, many GTs, such as GraphGPS ( Rampášek et al., 2022 ) , are not directly applicable to heterogeneous graphs. Therefore, we adopt HGT and an enhanced version, HGT+PE, which incorporates Laplacian PE. These positional encodings are computed on the sampled subgraphs rather than the entire graph. Additional details are included in Appendix A.5 ."
+  },
+  {
+    "index": 75,
+    "tag": "h3",
+    "id": null,
+    "text": "4.2 Results and Discussion"
+  },
+  {
+    "index": 76,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 1: Test set results on the entity regression and classification tasks in RelBench. Best values are in bold . RDL: HeteroGNN baseline ( Robinson et al., 2024 ) , HGT: Heterogeneous GT ( Hu et al., 2020 ) , PE: Laplacian PE. Relative gains are expressed as percentage improvement over RDL baseline."
+  },
+  {
+    "index": 77,
+    "tag": "figcaption",
+    "id": null,
+    "text": "(a) MAE for entity regression. Lower is better"
+  },
+  {
+    "index": 78,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.1",
+    "text": "Dataset Task RDL HGT HGT +PE RelGT (ours) % Rel. Gain"
+  },
+  {
+    "index": 79,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.2",
+    "text": "rel-f1 driver-position 4.022 4.2263 4.3921 3.9170 2.61"
+  },
+  {
+    "index": 80,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.3",
+    "text": "rel-avito ad-ctr 0.041 0.0462 0.0483 0.0345 15.85"
+  },
+  {
+    "index": 81,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.4",
+    "text": "rel-event user-attendance 0.258 0.2635 0.2611 0.2502 2.79"
+  },
+  {
+    "index": 82,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.5",
+    "text": "rel-trial study-adverse 44.473 45.1692 42.6484 43.9923 1.08"
+  },
+  {
+    "index": 83,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.6",
+    "text": "site-success 0.400 0.4428 0.4396 0.3263 18.43"
+  },
+  {
+    "index": 84,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.7",
+    "text": "rel-amazon user-ltv 14.313 15.4120 15.8643 14.2665 0.32"
+  },
+  {
+    "index": 85,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.8",
+    "text": "item-ltv 50.053 55.8683 55.8493 48.9222 2.26"
+  },
+  {
+    "index": 86,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.9",
+    "text": "rel-stack post-votes 0.065 0.0679 0.0680 0.0654 -0.62"
+  },
+  {
+    "index": 87,
+    "tag": "tr",
+    "id": "S4.T1.st1.2.1.10",
+    "text": "rel-hm item-sales 0.056 0.0641 0.0639 0.0536 4.29"
+  },
+  {
+    "index": 88,
+    "tag": "figcaption",
+    "id": null,
+    "text": "(b) AUC for entity classification. Higher is better."
+  },
+  {
+    "index": 89,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.1",
+    "text": "Dataset Task RDL HGT HGT +PE RelGT (ours) % Rel. Gain"
+  },
+  {
+    "index": 90,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.2",
+    "text": "rel-f1 driver-dnf 0.7262 0.7077 0.7117 0.7587 4.48"
+  },
+  {
+    "index": 91,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.3",
+    "text": "driver-top3 0.7554 0.7075 0.7627 0.8352 10.56"
+  },
+  {
+    "index": 92,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.4",
+    "text": "rel-avito user-clicks 0.6590 0.6376 0.6457 0.6830 3.64"
+  },
+  {
+    "index": 93,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.5",
+    "text": "user-visits 0.6620 0.6432 0.6495 0.6678 0.88"
+  },
+  {
+    "index": 94,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.6",
+    "text": "rel-event user-repeat 0.7689 0.6496 0.6536 0.7609 -1.04"
+  },
+  {
+    "index": 95,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.7",
+    "text": "user-ignore 0.8162 0.8247 0.8161 0.8157 -0.06"
+  },
+  {
+    "index": 96,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.8",
+    "text": "rel-trial study-outcome 0.6860 0.5837 0.5921 0.6861 0.01"
+  },
+  {
+    "index": 97,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.9",
+    "text": "rel-amazon user-churn 0.7042 0.6643 0.6619 0.7039 -0.04"
+  },
+  {
+    "index": 98,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.10",
+    "text": "item-churn 0.8281 0.7797 0.7803 0.8255 -0.31"
+  },
+  {
+    "index": 99,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.11",
+    "text": "rel-stack user-engagement 0.9021 0.8847 0.8817 0.9053 0.35"
+  },
+  {
+    "index": 100,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.12",
+    "text": "user-badge 0.8986 0.8608 0.8566 0.8632 -3.94"
+  },
+  {
+    "index": 101,
+    "tag": "tr",
+    "id": "S4.T1.st2.2.1.13",
+    "text": "rel-hm user-churn 0.6988 0.6695 0.6569 0.6927 -0.87"
+  },
+  {
+    "index": 102,
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "RelGT improves over GNN in RDL. The experimental results in Tables 1(a) and 1(b) demonstrate that RelGT consistently matches or outperforms the standard GNN baseline used in RDL ( Robinson et al., 2024 ) across multiple datasets and tasks. Using a ±1% threshold to assess comparable performance, RelGT shows: (i) clear improvements (more than a 1% relative gain) on 10 tasks, (ii) comparable results (within ±1%) on 9 tasks, and (iii) competitive but lower performance (more than a 1% relative loss) on 2 tasks. We observe the largest improvements in rel-trial site-success (18.43%), rel-avito ad-ctr (15.85%), and rel-f1 driver-top3 (10.56%), while on rel-stack user-badge , RelGT performs below the RDL baseline by a margin of -3.94%. For all other tasks, RelGT consistently improves or matches the performance of the baseline GNN. We attribute the overall performance improvement to two key factors: (i) the broader structural coverage enabled by RelGT ’s attention mechanisms as described in Section 3.2 , and (ii) the fine-grained encodings employed in our tokenization scheme, which are further studied as follows and presented in Table 2 ."
+  },
+  {
+    "index": 103,
+    "tag": "p",
+    "id": "S4.SS2.p2.1",
+    "text": "Subgraph GNN PE is critical in RelGT . In Table 2 , we highlight the importance of several components in RelGT by conducting ablation studies. We remove one component at a time while preserving all others, and report the relative performance drop compared to the full RelGT model. Our results show that removing the subgraph GNN (PE), which encodes local subgraph structure (Section 3.1 ), leads to consistent performance degradation across all tasks. This component proves critical for disambiguating parent-child relationships when full-attention is applied, thanks to the random node features initialization ( Sato et al., 2021 ; Kanatsoulis et al., 2025 ) . For instance, without the GNN (PE), products belonging to specific transactions (Figure 1 ) cannot be effectively captured, even when other encodings remain."
+  },
+  {
+    "index": 104,
+    "tag": "p",
+    "id": "S4.SS2.p3.1",
+    "text": "Global module can bring gains depending on the task. In the same Table 2 , our results of removing the global attention to the learnable centroids (Section 3.2 ) reveal task-dependent patterns that align with the findings reported in ( Kong et al., 2023 ; Dwivedi et al., 2023 ) . For some tasks, such as rel-trial site-success , removing the attention to the centroids tokens leads to a substantial performance drop (-19.08%), indicating that the global database-wide context provides crucial information beyond the local neighborhood. However, for certain tasks such as rel-avito user-clicks , removing the global module actually improves performance (7.79% relative gain), suggesting that for some prediction targets, local information is sufficient, and the global context might introduce noise. These mixed results highlight the complementary nature of local and global information in relational graphs, with the latter being optional depending on the task."
+  },
+  {
+    "index": 105,
+    "tag": "p",
+    "id": "S4.SS2.p4.1",
+    "text": "Ablation of other encodings. The remaining ablations in Table 2 reveal mixed results across different components. While removing explicit fine-grained encodings (node type, hop distance, and relative time) degrades performance on some tasks, it improves performance on others. For tasks with specific temporal dependencies (detailed in Sec. A.1 ), our current temporal encodings may inadvertently introduce noise. Similarly, for node type and hop distance encodings, their information might already be partially captured by other model components. Despite these variations, the full RelGT model still shows consistently superior results when averaged across all tasks. However, our findings suggest that RelGT ’s scores could be further enhanced by careful tuning of these encoding components based on their task-specific importance. In particular, additional gains can be achieved by incorporating more effective temporal encodings ( Clauset & Eagle, 2012 ; Huang et al., 2024 ; Jiang & Pu, 2023 ) ."
+  },
+  {
+    "index": 106,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 2: Relative drop (%) in performance in RelGT after removing a model component. Negative scores suggest the component is critical in RelGT , and vice-versa. Full results in Table 9 ."
+  },
+  {
+    "index": 107,
+    "tag": "tr",
+    "id": "S4.T2.6.1.1",
+    "text": "Dataset Task No Global Module No GNN PE No Node Type No Hop Distance No Relative Time"
+  },
+  {
+    "index": 108,
+    "tag": "tr",
+    "id": "S4.T2.6.1.2",
+    "text": "rel-avito ad-ctr -6.00 -1.14 -7.14 -3.43 -9.14"
+  },
+  {
+    "index": 109,
+    "tag": "tr",
+    "id": "S4.T2.6.1.3",
+    "text": "rel-avito user-clicks 7.85 -15.15 5.01 5.77 8.37"
+  },
+  {
+    "index": 110,
+    "tag": "tr",
+    "id": "S4.T2.6.1.4",
+    "text": "rel-avito user-visits -0.35 -2.38 -0.11 0.39 -0.75"
+  },
+  {
+    "index": 111,
+    "tag": "tr",
+    "id": "S4.T2.6.1.5",
+    "text": "rel-event user-ignore -1.30 0.12 -0.11 0.66 -0.09"
+  },
+  {
+    "index": 112,
+    "tag": "tr",
+    "id": "S4.T2.6.1.6",
+    "text": "rel-trial study-outcome -2.14 -1.72 3.74 -0.43 2.48"
+  },
+  {
+    "index": 113,
+    "tag": "tr",
+    "id": "S4.T2.6.1.7",
+    "text": "rel-trial site-success -19.01 -9.17 -2.88 -21.49 -0.71"
+  },
+  {
+    "index": 114,
+    "tag": "tr",
+    "id": "S4.T2.6.1.8",
+    "text": "rel-amazon user-churn -0.64 -0.78 0.16 0.06 -2.20"
+  },
+  {
+    "index": 115,
+    "tag": "tr",
+    "id": "S4.T2.6.1.9",
+    "text": "rel-hm item-sales -9.33 -17.35 -12.69 0.93 -77.24"
+  },
+  {
+    "index": 116,
+    "tag": "tr",
+    "id": "S4.T2.6.1.10",
+    "text": "Average -3.87 -5.95 -1.75 -2.19 -9.91"
+  },
+  {
+    "index": 117,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Figure 4: Left: Epoch runtime comparison of HGT ( Hu et al., 2020 ) and HGT+PE, with Laplacian PE (see Figure 5 for all tasks). The red portion shows the additional time consumed by the precomputation of Laplacian PE against the base HGT time (blue). Right: Ablation for different K K values as the local context size in RelGT . Results using K = 300 K=300 serve as the baseline (100% performance), with K = 100 K=100 and K = 500 K=500 runs measured as % of performance relative to K = 300 K=300 ."
+  },
+  {
+    "index": 118,
+    "tag": "p",
+    "id": "S4.SS2.p5.1",
+    "text": "HGT, a GT baseline, underperforms with significant overhead. As shown in Tables 1(a) and 1(b) , HGT ( Hu et al., 2020 ) underperforms compared to the HeteroGNN baseline of RDL ( Robinson et al., 2024 ) across most tasks, with only two exceptions: rel-trial study-adverse and rel-event user-ignore . Notably, the integration of Laplacian PEs in HGT improves performance in 8 (of 21) tasks. Moreover, as illustrated in Figure 4 , the computational overhead required for precomputing the Laplacian PEs substantially increases per-epoch runtime across various tasks. These empirical findings clearly reveal the difficulties of directly applying existing GT architectures to relational entity graphs, emphasizing the importance and need for our contributions with RelGT ."
+  },
+  {
+    "index": 119,
+    "tag": "p",
+    "id": "S4.SS2.p6.1",
+    "text": "Local context size K . In our main RelGT experiments, we set the local context size at 300 300 nodes (Section 3.1 ), however, we study its variability in Figure 4 for context sizes K ∈ { 100,300,500 } K\\in\\{100,300,500\\} . Although K = 300 K=300 generally produces the best results, optimal values vary across specific tasks. For instance, rel-avito ad-ctr benefits from a larger context size, whereas rel-trial study-outcome achieves better performance with a smaller context window. These findings suggest that RelGT ’s performance could be further enhanced by task-specific tuning of the context size, allowing for better model expressivity based on the structural characteristics of each dataset."
+  },
+  {
+    "index": 120,
+    "tag": "h2",
+    "id": null,
+    "text": "5 Conclusion"
+  },
+  {
+    "index": 121,
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "In this work, we introduce the first Graph Transformer designed specifically for relational entity graphs: the Relational Graph Transformer. It addresses key challenges faced by existing models, such as incorporating heterogeneity, temporality, and comprehensive structural modeling within a unified GT framework. RelGT represents nodes as multi-element tokens enriched with fine-grained graph context and combines local attention over sampled subgraph tokens with global attention to learnable centroids, enabling effective representation learning on relational data. Experiments on the RelBench benchmark show that RelGT consistently outperforms GNN and GT baselines across multiple tasks. Moreover, our analysis highlights the critical role of subgraph-based positional encodings as a lightweight and effective alternative to traditional graph positional encodings. This work establishes RelGT as a powerful architecture for relational deep learning and opens new avenues for advancing and scaling such architectures toward foundation models tailored for relational data."
+  },
+  {
+    "index": 122,
+    "tag": "h4",
+    "id": null,
+    "text": "Acknowledgments"
+  },
+  {
+    "index": 123,
+    "tag": "p",
+    "id": "S5.SS0.SSSx1.p1.1",
+    "text": "We thank Eric Chen, Shenyang Huang and Fang Wu for their helpful feedbacks and members of the Stanford SNAP group for their suggestions during the project. We also gratefully acknowledge the support of NSF under Nos. OAC-1835598 (CINES), CCF-1918940 (Expeditions), DMS-2327709 (IHBEM), IIS-2403318 (III); Stanford Data Applications Initiative, Wu Tsai Neurosciences Institute, Stanford Institute for Human-Centered AI, Chan Zuckerberg Initiative, Amazon, Genentech, Hitachi, and SAP. The content is solely the responsibility of the authors and does not necessarily represent the official views of the funding entities."
+  },
+  {
+    "index": 124,
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "index": 125,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A Appendix"
+  },
+  {
+    "index": 126,
+    "tag": "h3",
+    "id": null,
+    "text": "A.1 Benchmark Details"
+  },
+  {
+    "index": 127,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 3: Dataset and task statistics from RelBench used for our evaluation."
+  },
+  {
+    "index": 128,
+    "tag": "tr",
+    "id": "A1.T3.2.1",
+    "text": "Dataset Task Task type #Rows of training table #Unique %train/test"
+  },
+  {
+    "index": 129,
+    "tag": "tr",
+    "id": "A1.T3.2.2",
+    "text": "Train Validation Test Entities Entity Overlap"
+  },
+  {
+    "index": 130,
+    "tag": "tr",
+    "id": "A1.T3.2.3",
+    "text": "rel-amazon user-churn classification 4,732,555 409,792 351,885 1,585,983 88.0"
+  },
+  {
+    "index": 131,
+    "tag": "tr",
+    "id": "A1.T3.2.4",
+    "text": "item-churn classification 2,559,264 177,689 166,842 416,352 93.1"
+  },
+  {
+    "index": 132,
+    "tag": "tr",
+    "id": "A1.T3.2.5",
+    "text": "user-ltv regression 4,732,555 409,792 351,885 1,585,983 88.0"
+  },
+  {
+    "index": 133,
+    "tag": "tr",
+    "id": "A1.T3.2.6",
+    "text": "item-ltv regression 2,707,679 166,978 178,334 427,537 93.5"
+  },
+  {
+    "index": 134,
+    "tag": "tr",
+    "id": "A1.T3.2.7",
+    "text": "rel-avito user-clicks classification 59,454 21,183 47,996 66,449 45.3"
+  },
+  {
+    "index": 135,
+    "tag": "tr",
+    "id": "A1.T3.2.8",
+    "text": "user-visits classification 86,619 29,979 36,129 63,405 64.6"
+  },
+  {
+    "index": 136,
+    "tag": "tr",
+    "id": "A1.T3.2.9",
+    "text": "ad-ctr regression 5,100 1,766 1,816 4,997 59.8"
+  },
+  {
+    "index": 137,
+    "tag": "tr",
+    "id": "A1.T3.2.10",
+    "text": "rel-event user-repeat classification 3,842 268 246 1,514 11.5"
+  },
+  {
+    "index": 138,
+    "tag": "tr",
+    "id": "A1.T3.2.11",
+    "text": "user-ignore classification 19,239 4,185 4,010 9,799 21.1"
+  },
+  {
+    "index": 139,
+    "tag": "tr",
+    "id": "A1.T3.2.12",
+    "text": "user-attendance regression 19,261 2,014 2,006 9,694 14.6"
+  },
+  {
+    "index": 140,
+    "tag": "tr",
+    "id": "A1.T3.2.13",
+    "text": "rel-f1 driver-dnf classification 11,411 566 702 821 50.0"
+  },
+  {
+    "index": 141,
+    "tag": "tr",
+    "id": "A1.T3.2.14",
+    "text": "driver-top3 classification 1,353 588 726 134 50.0"
+  },
+  {
+    "index": 142,
+    "tag": "tr",
+    "id": "A1.T3.2.15",
+    "text": "driver-position regression 7,453 499 760 826 44.6"
+  },
+  {
+    "index": 143,
+    "tag": "tr",
+    "id": "A1.T3.2.16",
+    "text": "rel-hm user-churn classification 3,871,410 76,556 74,575 1,002,984 89.7"
+  },
+  {
+    "index": 144,
+    "tag": "tr",
+    "id": "A1.T3.2.17",
+    "text": "item-sales regression 5,488,184 105,542 105,542 105,542 100.0"
+  },
+  {
+    "index": 145,
+    "tag": "tr",
+    "id": "A1.T3.2.18",
+    "text": "rel-stack user-engagement classification 1,360,850 85,838 88,137 88,137 97.4"
+  },
+  {
+    "index": 146,
+    "tag": "tr",
+    "id": "A1.T3.2.19",
+    "text": "user-badge classification 3,386,276 247,398 255,360 255,360 96.9"
+  },
+  {
+    "index": 147,
+    "tag": "tr",
+    "id": "A1.T3.2.20",
+    "text": "post-votes regression 2,453,921 156,216 160,903 160,903 97.1"
+  },
+  {
+    "index": 148,
+    "tag": "tr",
+    "id": "A1.T3.2.21",
+    "text": "rel-trial study-outcome classification 11,994 960 825 13,779 0.0"
+  },
+  {
+    "index": 149,
+    "tag": "tr",
+    "id": "A1.T3.2.22",
+    "text": "study-adverse regression 43,335 3,596 3,098 50,029 0.0"
+  },
+  {
+    "index": 150,
+    "tag": "tr",
+    "id": "A1.T3.2.23",
+    "text": "site-success regression 151,407 19,740 22,617 129,542 42.0"
+  },
+  {
+    "index": 151,
+    "tag": "p",
+    "id": "A1.SS1.p1.1",
+    "text": "In this section, we include the details on the datasets and the tasks in RelBench ( Robinson et al., 2024 ) which we use for our evaluation. RelBench consists of 7 datasets from diverse relational database domains, including e-commerce, clinical records, social networks, and sports, among others. These datasets are curated from their respective source domains and consist a wide range of sizes, from 1.3K to 5.4M records in the training set for the prediction tasks, with a total of 47M training records. For each dataset, multiple predictive tasks are defined, such as predicting a user’s engagement with an advertisement within the next four days or determining whether a clinical trial will achieve its primary outcome within the next year. In total, RelBench has 30 tasks across the 7 datasets, covering entity classification, entity regression, and recommendation. For our evaluation, we focus on 21 tasks on entity classification and regression as RelGT primarily serves as a node representation learning model in RDL. We exclude recommendation tasks in this work since they involve specific considerations, such as identifying target nodes ( You et al., 2021 ) or using pair-wise learning architectures ( Yuan et al., 2024 ) and using RelGT trivially in RDL is sub-optimal. We detail the dataset and task statistics in Table 3 ."
+  },
+  {
+    "index": 152,
+    "tag": "h4",
+    "id": null,
+    "text": "A.1.1 Datasets"
+  },
+  {
+    "index": 153,
+    "tag": "h5",
+    "id": null,
+    "text": "rel-amazon ."
+  },
+  {
+    "index": 154,
+    "tag": "p",
+    "id": "A1.SS1.SSS1.Px1.p1.1",
+    "text": "The Amazon E-commerce dataset consists of product details, user information, and review interactions from Amazon’s platform, including metadata like pricing and categories, along with review ratings and content."
+  },
+  {
+    "index": 155,
+    "tag": "h5",
+    "id": null,
+    "text": "rel-avito ."
+  },
+  {
+    "index": 156,
+    "tag": "p",
+    "id": "A1.SS1.SSS1.Px2.p1.1",
+    "text": "Avito’s marketplace dataset contains search queries, advertisement characteristics, and contextual information from this major online trading platform that facilitates transactions across various categories including real estate and vehicles."
+  },
+  {
+    "index": 157,
+    "tag": "h5",
+    "id": null,
+    "text": "rel-event ."
+  },
+  {
+    "index": 158,
+    "tag": "p",
+    "id": "A1.SS1.SSS1.Px3.p1.1",
+    "text": "The Event Recommendation dataset from Hangtime mobile app tracks users’ social planning, capturing interactions, event details, demographic data, and social connections to reveal how relationships impact user behavior."
+  },
+  {
+    "index": 159,
+    "tag": "h5",
+    "id": null,
+    "text": "rel-f1 ."
+  },
+  {
+    "index": 160,
+    "tag": "p",
+    "id": "A1.SS1.SSS1.Px4.p1.1",
+    "text": "The F1 dataset provides comprehensive Formula 1 racing information since 1950, documenting drivers, constructors, manufacturers, and circuits with detailed records of race results, standings, and specific data on various racing sessions and pit stops."
+  },
+  {
+    "index": 161,
+    "tag": "h5",
+    "id": null,
+    "text": "rel-hm ."
+  },
+  {
+    "index": 162,
+    "tag": "p",
+    "id": "A1.SS1.SSS1.Px5.p1.1",
+    "text": "H&M’s dataset contains customer-product interactions from their e-commerce platform, featuring customer demographics, product descriptions, and purchase histories."
+  },
+  {
+    "index": 163,
+    "tag": "h5",
+    "id": null,
+    "text": "rel-stack ."
+  },
+  {
+    "index": 164,
+    "tag": "p",
+    "id": "A1.SS1.SSS1.Px6.p1.1",
+    "text": "The Stack Exchange dataset documents activity from this network of Q&A websites, including user biographies, posts, comments, edits, votes, and question relationships where users earn reputation through contributions."
+  },
+  {
+    "index": 165,
+    "tag": "h5",
+    "id": null,
+    "text": "rel-trial ."
+  },
+  {
+    "index": 166,
+    "tag": "p",
+    "id": "A1.SS1.SSS1.Px7.p1.1",
+    "text": "The clinical trial dataset from the AACT initiative has study protocols and outcomes, containing trial designs, participant information, intervention details, and results metrics, serving as a key resource for medical research."
+  },
+  {
+    "index": 167,
+    "tag": "h4",
+    "id": null,
+    "text": "A.1.2 Tasks"
+  },
+  {
+    "index": 168,
+    "tag": "p",
+    "id": "A1.SS1.SSS2.p1.1",
+    "text": "The following entity classification and regression tasks are defined in RelBench for the above datasets."
+  },
+  {
+    "index": 169,
+    "tag": "p",
+    "id": "A1.I1.i1.p1.1",
+    "text": "rel-amazon"
+  },
+  {
+    "index": 170,
+    "tag": "p",
+    "id": "A1.I1.i1.I1.i1.p1.1",
+    "text": "user-churn : Predict whether a user will discontinue reviewing products within the next three months."
+  },
+  {
+    "index": 171,
+    "tag": "p",
+    "id": "A1.I1.i1.I1.i2.p1.1",
+    "text": "item-churn : Predict if a product will have no reviews in the next three months."
+  },
+  {
+    "index": 172,
+    "tag": "p",
+    "id": "A1.I1.i1.I1.i3.p1.1",
+    "text": "user-ltv : Estimate the total monetary value of merchandise in dolloar that a user will purchase and review within the next three months."
+  },
+  {
+    "index": 173,
+    "tag": "p",
+    "id": "A1.I1.i1.I1.i4.p1.1",
+    "text": "item-ltv : Estimate the total monetary value of purchases and reviews a product will receive during the next three months."
+  },
+  {
+    "index": 174,
+    "tag": "p",
+    "id": "A1.I1.i2.p1.1",
+    "text": "rel-avito"
+  },
+  {
+    "index": 175,
+    "tag": "p",
+    "id": "A1.I1.i2.I1.i1.p1.1",
+    "text": "user-visits : Predict if a user will engage with several (advertisements) ads within the upcoming four days."
+  },
+  {
+    "index": 176,
+    "tag": "p",
+    "id": "A1.I1.i2.I1.i2.p1.1",
+    "text": "user-clicks : Predict whether a user will interact with multiple ads through clicking within the upcoming four days."
+  },
+  {
+    "index": 177,
+    "tag": "p",
+    "id": "A1.I1.i2.I1.i3.p1.1",
+    "text": "ad-ctr : Estimate the interaction probability for an ad, assuming it receives an interaction within four days."
+  },
+  {
+    "index": 178,
+    "tag": "p",
+    "id": "A1.I1.i3.p1.1",
+    "text": "rel-event"
+  },
+  {
+    "index": 179,
+    "tag": "p",
+    "id": "A1.I1.i3.I1.i1.p1.1",
+    "text": "user-attendance : Estimate the number of of events a user will confirm attendance to (RSVP yes or maybe) within the upcoming seven days."
+  },
+  {
+    "index": 180,
+    "tag": "p",
+    "id": "A1.I1.i3.I1.i2.p1.1",
+    "text": "user-repeat : Predict whether a user will join an event (RSVP yes or maybe) within the upcoming seven days, provided they attended in an event during the previous fourteen days."
+  },
+  {
+    "index": 181,
+    "tag": "p",
+    "id": "A1.I1.i3.I1.i3.p1.1",
+    "text": "user-ignore : Predict whether a user will disregard or ignore more than two events invitations within the upcoming seven days."
+  },
+  {
+    "index": 182,
+    "tag": "p",
+    "id": "A1.I1.i4.p1.1",
+    "text": "rel-f1"
+  },
+  {
+    "index": 183,
+    "tag": "p",
+    "id": "A1.I1.i4.I1.i1.p1.1",
+    "text": "driver-dnf : Predict if a driver will not finish a race within the upcoming month."
+  },
+  {
+    "index": 184,
+    "tag": "p",
+    "id": "A1.I1.i4.I1.i2.p1.1",
+    "text": "driver-top3 : Determine if a driver will achieve a top-three qualifying position in a race within the upcoming month."
+  },
+  {
+    "index": 185,
+    "tag": "p",
+    "id": "A1.I1.i4.I1.i3.p1.1",
+    "text": "driver-position : Estimate a driver’s average finishing placement across all races in the upcoming two months."
+  },
+  {
+    "index": 186,
+    "tag": "p",
+    "id": "A1.I1.i5.p1.1",
+    "text": "rel-hm"
+  },
+  {
+    "index": 187,
+    "tag": "p",
+    "id": "A1.I1.i5.I1.i1.p1.1",
+    "text": "user-churn : Predict whether a customer will not perform any transactions in the upcoming week."
+  },
+  {
+    "index": 188,
+    "tag": "p",
+    "id": "A1.I1.i5.I1.i2.p1.1",
+    "text": "item-sales : Estimate total revenue generated by a product in the upcoming week."
+  },
+  {
+    "index": 189,
+    "tag": "p",
+    "id": "A1.I1.i6.p1.1",
+    "text": "rel-stack"
+  },
+  {
+    "index": 190,
+    "tag": "p",
+    "id": "A1.I1.i6.I1.i1.p1.1",
+    "text": "user-engagement : Predict whether a user will contribute through voting, posting, or commenting within the upcoming three months."
+  },
+  {
+    "index": 191,
+    "tag": "p",
+    "id": "A1.I1.i6.I1.i2.p1.1",
+    "text": "user-badge : Predict whether a user will secure a new badge within the upcoming three months."
+  },
+  {
+    "index": 192,
+    "tag": "p",
+    "id": "A1.I1.i6.I1.i3.p1.1",
+    "text": "post-votes : Estimate the number of votes a user’s post will accumulate over the upcoming three months."
+  },
+  {
+    "index": 193,
+    "tag": "p",
+    "id": "A1.I1.i7.p1.1",
+    "text": "rel-trial"
+  },
+  {
+    "index": 194,
+    "tag": "p",
+    "id": "A1.I1.i7.I1.i1.p1.1",
+    "text": "study-outcome : Predict whether a clinical trial will achieve its principal outcome within the upcoming year."
+  },
+  {
+    "index": 195,
+    "tag": "p",
+    "id": "A1.I1.i7.I1.i2.p1.1",
+    "text": "study-adverse : Estimate the number of patients who will experience significant adverse effects or mortality in a clinical trial over the upcoming year."
+  },
+  {
+    "index": 196,
+    "tag": "p",
+    "id": "A1.I1.i7.I1.i3.p1.1",
+    "text": "site-success : Estimate the success rate of a clinical trial site in the upcoming year."
+  },
+  {
+    "index": 197,
+    "tag": "h3",
+    "id": null,
+    "text": "A.2 Node initialization for Subgraph GNN PE in RelGT"
+  },
+  {
+    "index": 198,
+    "tag": "p",
+    "id": "A1.SS2.p1.1",
+    "text": "As described in Section 3.1 , we employ a lightweight GNN PE to capture local graph structures that cannot be represented by other elements of the token, particularly the parent-child relationships among nodes in the local subgraph. The GNN is implemented as:"
+  },
+  {
+    "index": 199,
+    "tag": "tr",
+    "id": null,
+    "text": "h pe ​ ( v j ) = GNN ​ ( A local , Z random ) j ∈ ℝ d h_{\\text{pe}}(v_{j})=\\text{GNN}(A_{\\text{local}},Z_{\\text{random}})_{j}\\in\\mathbb{R}^{d} (10)"
+  },
+  {
+    "index": 200,
+    "tag": "p",
+    "id": "A1.SS2.p1.2",
+    "text": "where GNN ​ ( ⋅ , ⋅ ) j \\text{GNN}(\\cdot,\\cdot)_{j} is a lightweight GNN applied to the local subgraph, yielding the encoding for node v j v_{j} . Here, A local ∈ ℝ K × K A_{\\text{local}}\\in\\mathbb{R}^{K\\times K} represents the adjacency matrix of the sampled subgraph containing K K nodes, and Z random ∈ ℝ K × d init Z_{\\text{random}}\\in\\mathbb{R}^{K\\times d_{\\text{init}}} denotes randomly initialized node features for the GNN (with d init d_{\\text{init}} as the initial feature dimension). In RelGT , we set d init = 1 d_{\\text{init}}=1 ."
+  },
+  {
+    "index": 201,
+    "tag": "p",
+    "id": "A1.SS2.p2.1",
+    "text": "The randomly initialized node features ( Z random Z_{\\text{random}} ) provide enhanced properties as discussed in Section 3.1 . We investigate the alternative approach of using Laplacian PE ( Z LapPE Z_{\\text{LapPE}} ) computed over the subgraph instead of random initialization and report these results in Table 4 . For these results, we utilized a positional encoding dimension size of 4 4 . Our findings indicate that Z LapPE Z_{\\text{LapPE}} consistently underperforms compared to Z random Z_{\\text{random}} , while also introducing additional computational overhead ranging from 1.02 × \\times to 3.38 × \\times across the 8 selected tasks in our study. This shows the challenges of using existing PEs such as Laplacian PE in relational entity graphs and signify the use of GNN PE as part of RelGT ’s tokenization strategy."
+  },
+  {
+    "index": 202,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 4: Study of node initialization in Subgraph GNN PE. Relative drop is expressed as percentage drop of using Z LapPE Z_{\\text{LapPE}} vs. Z random Z_{\\text{random}} and runtime ratio compares the time for Z LapPE Z_{\\text{LapPE}} vs. Z random Z_{\\text{random}} ."
+  },
+  {
+    "index": 203,
+    "tag": "tr",
+    "id": "A1.T4.2.1.1",
+    "text": "Performance Epoch time (m)"
+  },
+  {
+    "index": 204,
+    "tag": "tr",
+    "id": "A1.T4.2.1.2",
+    "text": "Dataset Task (# train) MAE ↓ \\downarrow Z random Z_{\\text{random}} Z LapPE Z_{\\text{LapPE}} % Rel Drop Z random Z_{\\text{random}} Z LapPE Z_{\\text{LapPE}} Runtime Ratio"
+  },
+  {
+    "index": 205,
+    "tag": "tr",
+    "id": "A1.T4.2.1.3",
+    "text": "rel-avito ad-ctr Test 0.035 0.0369 -5.43 0.76 2.57 3.38"
+  },
+  {
+    "index": 206,
+    "tag": "tr",
+    "id": "A1.T4.2.1.4",
+    "text": "Val 0.0314 0.0314"
+  },
+  {
+    "index": 207,
+    "tag": "tr",
+    "id": "A1.T4.2.1.5",
+    "text": "rel-trial site-success Test 0.326 0.3452 -5.89 32.88 36.09 1.1"
+  },
+  {
+    "index": 208,
+    "tag": "tr",
+    "id": "A1.T4.2.1.6",
+    "text": "Val 0.359 0.3683"
+  },
+  {
+    "index": 209,
+    "tag": "tr",
+    "id": "A1.T4.2.1.7",
+    "text": "rel-hm item-sales Test 0.0536 0.0573 -6.9 49.26 53.8 1.09"
+  },
+  {
+    "index": 210,
+    "tag": "tr",
+    "id": "A1.T4.2.1.8",
+    "text": "Val 0.0627 0.0667"
+  },
+  {
+    "index": 211,
+    "tag": "tr",
+    "id": "A1.T4.2.1.9",
+    "text": "Dataset Task (# train) AUC ↑ \\uparrow Z random Z_{\\text{random}} Z LapPE Z_{\\text{LapPE}} % Rel Drop Z random Z_{\\text{random}} Z LapPE Z_{\\text{LapPE}} Runtime Ratio"
+  },
+  {
+    "index": 212,
+    "tag": "tr",
+    "id": "A1.T4.2.1.10",
+    "text": "rel-avito user-clicks Test 0.607 0.583 -3.95 6.42 7.43 1.16"
+  },
+  {
+    "index": 213,
+    "tag": "tr",
+    "id": "A1.T4.2.1.11",
+    "text": "Val 0.656 0.6564"
+  },
+  {
+    "index": 214,
+    "tag": "tr",
+    "id": "A1.T4.2.1.12",
+    "text": "user-visits Test 0.664 0.6626 -0.21 9.26 10.50 1.13"
+  },
+  {
+    "index": 215,
+    "tag": "tr",
+    "id": "A1.T4.2.1.13",
+    "text": "Val 0.699 0.7002"
+  },
+  {
+    "index": 216,
+    "tag": "tr",
+    "id": "A1.T4.2.1.14",
+    "text": "rel-event user-ignore Test 0.8 0.7988 -0.15 1.85 2.77 1.5"
+  },
+  {
+    "index": 217,
+    "tag": "tr",
+    "id": "A1.T4.2.1.15",
+    "text": "Val 0.881 0.8916"
+  },
+  {
+    "index": 218,
+    "tag": "tr",
+    "id": "A1.T4.2.1.16",
+    "text": "rel-trial study-outcome Test 0.674 0.6532 -3.09 1.41 1.52 1.08"
+  },
+  {
+    "index": 219,
+    "tag": "tr",
+    "id": "A1.T4.2.1.17",
+    "text": "Val 0.689 0.6719"
+  },
+  {
+    "index": 220,
+    "tag": "tr",
+    "id": "A1.T4.2.1.18",
+    "text": "rel-amazon user-churn Test 0.7039 0.7044 0.07 168.00 170.55 1.02"
+  },
+  {
+    "index": 221,
+    "tag": "tr",
+    "id": "A1.T4.2.1.19",
+    "text": "Val 0.7036 0.7036"
+  },
+  {
+    "index": 222,
+    "tag": "h3",
+    "id": null,
+    "text": "A.3 Learnable Spatio-Temporal PE"
+  },
+  {
+    "index": 223,
+    "tag": "p",
+    "id": "A1.SS3.p1.1",
+    "text": "In this section, we explore a learnable spatio-temporal positional encoding (PE) for RelGT . Instead of using the relative time encoder (Eqn. 4 ), we use the ‘relative time’ term to initialize nodes in the Subgraph GNN PE, where relative time τ ⁡ ( v j ) − τ ⁡ ( v i ) \\tau(v_{j})-\\tau(v_{i}) denotes the temporal difference between neighbor node v j v_{j} and seed node v i v_{i} . This approach repurposes the Subgraph GNN PE as a learnable spatio-temporal PE, which is defined as:"
+  },
+  {
+    "index": 224,
+    "tag": "tr",
+    "id": null,
+    "text": "h stpe ​ ( v j ) = GNN ​ ( A local , Z relative_time ) j ∈ ℝ d h_{\\text{stpe}}(v_{j})=\\text{GNN}(A_{\\text{local}},Z_{\\text{relative\\_time}})_{j}\\in\\mathbb{R}^{d} (11)"
+  },
+  {
+    "index": 225,
+    "tag": "p",
+    "id": "A1.SS3.p1.2",
+    "text": "where z j , relative_time = τ ⁡ ( v j ) − τ ⁡ ( v i ) z_{j,\\text{relative\\_time}}=\\tau(v_{j})-\\tau(v_{i}) . The token representation, then, becomes:"
+  },
+  {
+    "index": 226,
+    "tag": "tr",
+    "id": null,
+    "text": "h token ​ ( v j ) = O ⋅ [ h feat ​ ( v j ) ​ | | h type ​ ( v j ) | ​ | h hop ​ ( v i , v j ) | | ​ h stpe ​ ( v j ) ] {h}_{\\text{token}}(v_{j})=O\\cdot\\left[{h}_{\\text{feat}}(v_{j})\\,||\\,{h}_{\\text{type}}(v_{j})\\,||\\,{h}_{\\text{hop}}(v_{i},v_{j})\\,||\\,{h}_{\\text{stpe}}(v_{j})\\right] (12)"
+  },
+  {
+    "index": 227,
+    "tag": "p",
+    "id": "A1.SS3.p1.3",
+    "text": "where | ⁣ | || denotes the concatenation of the individual encoder outputs, and O ∈ ℝ 4 ​ d × d O\\in\\mathbb{R}^{4d\\times d} is a learnable matrix to mix the embeddings."
+  },
+  {
+    "index": 228,
+    "tag": "p",
+    "id": "A1.SS3.p2.1",
+    "text": "Table 5 presents our evaluation results over three regression and five classification tasks in RelBench. Across all tasks, replacing the original temporal encoder and subgraph GNN PE encoder with the Spatio-Temporal PE leads to a consistent performance decline in RelGT ."
+  },
+  {
+    "index": 229,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 5: Performance comparison of RelGT (Full) with the Spatio-Temporal PE (Eqns. 11 - 12 ). Negative scores suggest performance drop with the spatio-temporal PE in RelGT ."
+  },
+  {
+    "index": 230,
+    "tag": "tr",
+    "id": "A1.T5.6.1.1",
+    "text": "Dataset Task MAE ↓ \\downarrow RelGT (Full) RelGT (Spatio-Temporal PE) % Rel. Diff"
+  },
+  {
+    "index": 231,
+    "tag": "tr",
+    "id": "A1.T5.6.1.2",
+    "text": "rel-avito ad-ctr Test 0.0345 0.0355 -2.90"
+  },
+  {
+    "index": 232,
+    "tag": "tr",
+    "id": "A1.T5.6.1.3",
+    "text": "Val 0.0314 0.0315"
+  },
+  {
+    "index": 233,
+    "tag": "tr",
+    "id": "A1.T5.6.1.4",
+    "text": "rel-trial site-success Test 0.3262 0.3554 -8.95"
+  },
+  {
+    "index": 234,
+    "tag": "tr",
+    "id": "A1.T5.6.1.5",
+    "text": "Val 0.3593 0.3883"
+  },
+  {
+    "index": 235,
+    "tag": "tr",
+    "id": "A1.T5.6.1.6",
+    "text": "rel-hm item-sales Test 0.0536 0.0630 -17.54"
+  },
+  {
+    "index": 236,
+    "tag": "tr",
+    "id": "A1.T5.6.1.7",
+    "text": "Val 0.0627 0.0718"
+  },
+  {
+    "index": 237,
+    "tag": "tr",
+    "id": "A1.T5.6.1.8",
+    "text": "Dataset Task AUC ↑ \\uparrow RelGT (Full) RelGT (Spatio-Temporal PE) % Rel. Diff"
+  },
+  {
+    "index": 238,
+    "tag": "tr",
+    "id": "A1.T5.6.1.9",
+    "text": "rel-avito user-clicks Test 0.6830 0.6465 -5.34"
+  },
+  {
+    "index": 239,
+    "tag": "tr",
+    "id": "A1.T5.6.1.10",
+    "text": "Val 0.6649 0.6519"
+  },
+  {
+    "index": 240,
+    "tag": "tr",
+    "id": "A1.T5.6.1.11",
+    "text": "user-visits Test 0.6678 0.6641 -0.55"
+  },
+  {
+    "index": 241,
+    "tag": "tr",
+    "id": "A1.T5.6.1.12",
+    "text": "Val 0.7024 0.7017"
+  },
+  {
+    "index": 242,
+    "tag": "tr",
+    "id": "A1.T5.6.1.13",
+    "text": "rel-event user-ignore Test 0.8157 0.8152 -0.06"
+  },
+  {
+    "index": 243,
+    "tag": "tr",
+    "id": "A1.T5.6.1.14",
+    "text": "Val 0.8868 0.8870"
+  },
+  {
+    "index": 244,
+    "tag": "tr",
+    "id": "A1.T5.6.1.15",
+    "text": "rel-trial study-outcome Test 0.6861 0.6537 -4.72"
+  },
+  {
+    "index": 245,
+    "tag": "tr",
+    "id": "A1.T5.6.1.16",
+    "text": "Val 0.6678 0.6757"
+  },
+  {
+    "index": 246,
+    "tag": "tr",
+    "id": "A1.T5.6.1.17",
+    "text": "rel-amazon user-churn Test 0.7039 0.7036 -0.04"
+  },
+  {
+    "index": 247,
+    "tag": "tr",
+    "id": "A1.T5.6.1.18",
+    "text": "Val 0.7036 0.7037"
+  },
+  {
+    "index": 248,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 6: RelGT results on entity classification tasks in RelBench compared with Griffin ( Wang et al., 2025 ) . AUC is the performance metric. Higher is better."
+  },
+  {
+    "index": 249,
+    "tag": "tr",
+    "id": "A1.T6.4.1.1",
+    "text": "Dataset Task Griffin RelGT (ours) % Rel. Gain"
+  },
+  {
+    "index": 250,
+    "tag": "tr",
+    "id": "A1.T6.4.1.2",
+    "text": "rel-f1 driver-dnf 0.745 0.7587 1.84"
+  },
+  {
+    "index": 251,
+    "tag": "tr",
+    "id": "A1.T6.4.1.3",
+    "text": "driver-top3 0.825 0.8352 1.24"
+  },
+  {
+    "index": 252,
+    "tag": "tr",
+    "id": "A1.T6.4.1.4",
+    "text": "rel-avito user-clicks 0.630 0.6830 8.41"
+  },
+  {
+    "index": 253,
+    "tag": "tr",
+    "id": "A1.T6.4.1.5",
+    "text": "user-visits 0.650 0.6678 2.74"
+  },
+  {
+    "index": 254,
+    "tag": "tr",
+    "id": "A1.T6.4.1.6",
+    "text": "rel-trial study-outcome 0.689 0.6861 -0.42"
+  },
+  {
+    "index": 255,
+    "tag": "tr",
+    "id": "A1.T6.4.1.7",
+    "text": "rel-amazon user-churn 0.700 0.7039 0.56"
+  },
+  {
+    "index": 256,
+    "tag": "tr",
+    "id": "A1.T6.4.1.8",
+    "text": "item-churn 0.811 0.8255 1.79"
+  },
+  {
+    "index": 257,
+    "tag": "tr",
+    "id": "A1.T6.4.1.9",
+    "text": "rel-stack user-engagement 0.898 0.9053 0.81"
+  },
+  {
+    "index": 258,
+    "tag": "tr",
+    "id": "A1.T6.4.1.10",
+    "text": "user-badge 0.870 0.8632 -0.78"
+  },
+  {
+    "index": 259,
+    "tag": "tr",
+    "id": "A1.T6.4.1.11",
+    "text": "rel-hm user-churn 0.683 0.6927 1.42"
+  },
+  {
+    "index": 260,
+    "tag": "h3",
+    "id": null,
+    "text": "A.4 Comparison with Griffin"
+  },
+  {
+    "index": 261,
+    "tag": "p",
+    "id": "A1.SS4.p1.1",
+    "text": "In this section, we compare RelGT with Griffin ( Wang et al., 2025 ) , which is a GNN based relational foundation model that integrates unified feature encoders, cross-attention and hierarchical message passing to process relational entity graphs from diverse domains. We report the results in Table 6 for 10 entity classification tasks in RelBench, where Griffin is finetuned on each task following the same procedure used to train RelGT . RelGT outperforms Griffin on 8 out of 10 tasks with relative gains of up to 8.41%, demonstrating the advantages of a Graph Transformer backbone for processing relational entity graphs."
+  },
+  {
+    "index": 262,
+    "tag": "h3",
+    "id": null,
+    "text": "A.5 HGT Baseline"
+  },
+  {
+    "index": 263,
+    "tag": "p",
+    "id": "A1.SS5.p1.1",
+    "text": "In the main experiments (Section 4 ), we use the Heterogeneous Graph Transformer (HGT) ( Hu et al., 2020 ) as a graph transformer (GT) baseline, and report results for two variants to demonstrate the advantages of RelGT over existing GT models. Specifically, we consider the standard HGT model and an enhanced version, HGT+PE, which incorporates Laplacian positional encodings (LapPE). These positional encodings are computed on sampled subgraphs rather than the full graph."
+  },
+  {
+    "index": 264,
+    "tag": "p",
+    "id": "A1.SS5.p2.1",
+    "text": "For implementation, we use the HGTConv layer from PyTorch Geometric ( Fey & Lenssen, 2019 ) and integrate it into the RDL pipeline ( Robinson et al., 2024 ) by replacing the default GNN module. Both variants use 4 attention heads and 2 layers, similar to the configuration of the GNN module in RDL, with residual connections and layer normalization applied between layers. For the HGT+PE variant, we use LapPE of dimension 4 for all tasks, except for rel-amazon item-ltv and rel-hm item-sales , where we use dimension 2. Notably, because the relational entity graphs are heterogeneous, the Laplacian positional encodings is computed multiple times for each node type, unlike the original homogeneous setting for which LapPE was designed ( Dwivedi et al., 2020 ) ."
+  },
+  {
+    "index": 265,
+    "tag": "p",
+    "id": "A1.SS5.p3.1",
+    "text": "In addition to the main results in Table 1(b) , we report per-epoch runtimes in Figure 5 and Table 7 . We observe a significant computational overhead from precomputing Laplacian positional encodings, with slowdowns ranging from 1.8× to 8.62×, highlighting the challenge of directly applying existing graph PE techniques as is to relational entity graphs, and signifying the contributions of RelGT ."
+  },
+  {
+    "index": 266,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Figure 5: Runtime Comparison of HGT and HGT+PE baseline. Adding the Laplacian Positional Encoding increases computational overhead, with penalties on average training time per epoch. The overhead for PE reaches up to 761% relative to the training time of HGT on the same dataset."
+  },
+  {
+    "index": 267,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 7: Relative performance drop (%) when position encoding (PE) is removed from HGT+PE models and average training time per epoch of HGT and HGT+PE. Negative scores suggest the PE is critical, and vice-versa. HGT+PE consistently requires more training time per epoch compared to HGT without PE across all datasets."
+  },
+  {
+    "index": 268,
+    "tag": "tr",
+    "id": "A1.T7.2.1.1",
+    "text": "Dataset Task No PE HGT(s) HGT+PE(s)"
+  },
+  {
+    "index": 269,
+    "tag": "tr",
+    "id": "A1.T7.2.1.2",
+    "text": "rel-f1 driver-position 1.79 1.47 4.56"
+  },
+  {
+    "index": 270,
+    "tag": "tr",
+    "id": "A1.T7.2.1.3",
+    "text": "rel-avito ad-ctr 10.73 1.63 4.00"
+  },
+  {
+    "index": 271,
+    "tag": "tr",
+    "id": "A1.T7.2.1.4",
+    "text": "rel-event user-attendance -2.85 4.36 37.57"
+  },
+  {
+    "index": 272,
+    "tag": "tr",
+    "id": "A1.T7.2.1.5",
+    "text": "rel-trial study-adverse -2.03 9.72 15.02"
+  },
+  {
+    "index": 273,
+    "tag": "tr",
+    "id": "A1.T7.2.1.6",
+    "text": "rel-trial site-success 1.29 45.73 63.41"
+  },
+  {
+    "index": 274,
+    "tag": "tr",
+    "id": "A1.T7.2.1.7",
+    "text": "rel-amazon user-ltv 3.45 73.59 106.21"
+  },
+  {
+    "index": 275,
+    "tag": "tr",
+    "id": "A1.T7.2.1.8",
+    "text": "rel-amazon item-ltv -0.93 73.68 110.33"
+  },
+  {
+    "index": 276,
+    "tag": "tr",
+    "id": "A1.T7.2.1.9",
+    "text": "rel-stack post-votes 0.15 191.23 528.25"
+  },
+  {
+    "index": 277,
+    "tag": "tr",
+    "id": "A1.T7.2.1.10",
+    "text": "rel-hm item-sales -2.18 94.66 135.05"
+  },
+  {
+    "index": 278,
+    "tag": "tr",
+    "id": "A1.T7.2.1.11",
+    "text": "rel-f1 driver-dnf 0.46 2.54 6.84"
+  },
+  {
+    "index": 279,
+    "tag": "tr",
+    "id": "A1.T7.2.1.12",
+    "text": "rel-f1 driver-top3 -23.39 0.38 1.38"
+  },
+  {
+    "index": 280,
+    "tag": "tr",
+    "id": "A1.T7.2.1.13",
+    "text": "rel-avito user-clicks 3.08 11.09 24.66"
+  },
+  {
+    "index": 281,
+    "tag": "tr",
+    "id": "A1.T7.2.1.14",
+    "text": "rel-avito user-visits -1.24 17.16 40.07"
+  },
+  {
+    "index": 282,
+    "tag": "tr",
+    "id": "A1.T7.2.1.15",
+    "text": "rel-event user-repeat 1.93 1.35 5.16"
+  },
+  {
+    "index": 283,
+    "tag": "tr",
+    "id": "A1.T7.2.1.16",
+    "text": "rel-event user-ignore 2.29 4.49 651.10"
+  },
+  {
+    "index": 284,
+    "tag": "tr",
+    "id": "A1.T7.2.1.17",
+    "text": "rel-trial study-outcome -0.21 4.09 4.83"
+  },
+  {
+    "index": 285,
+    "tag": "tr",
+    "id": "A1.T7.2.1.18",
+    "text": "rel-amazon user-churn 0.29 78.56 115.53"
+  },
+  {
+    "index": 286,
+    "tag": "tr",
+    "id": "A1.T7.2.1.19",
+    "text": "rel-amazon item-churn -0.20 75.51 152.06"
+  },
+  {
+    "index": 287,
+    "tag": "tr",
+    "id": "A1.T7.2.1.20",
+    "text": "rel-stack user-engagement 0.52 175.16 356.07"
+  },
+  {
+    "index": 288,
+    "tag": "tr",
+    "id": "A1.T7.2.1.21",
+    "text": "rel-stack user-badge 1.57 153.68 212.21"
+  },
+  {
+    "index": 289,
+    "tag": "tr",
+    "id": "A1.T7.2.1.22",
+    "text": "rel-hm user-churn 4.34 77.73 127.04"
+  },
+  {
+    "index": 290,
+    "tag": "tr",
+    "id": "A1.T7.2.1.23",
+    "text": "Average -0.05 52.28 128.64"
+  },
+  {
+    "index": 291,
+    "tag": "h3",
+    "id": null,
+    "text": "A.6 Detailed Results"
+  },
+  {
+    "index": 292,
+    "tag": "p",
+    "id": "A1.SS6.p1.1",
+    "text": "In Table 8 , we report the full results of different configurations we tuned for RelGT , particularly on the smaller datasets with lesser than a million training nodes. Table 9 provides the full scores for the RelGT component study in Table 2 , while Table 10 provides the supporting results for Figure 4 . Finally, we provide the elaborated version of the Tables 1(a) and 1(b) in Tables 11 and 12 , respectively."
+  },
+  {
+    "index": 293,
+    "tag": "h3",
+    "id": null,
+    "text": "A.7 Computational Complexity and Resource Information."
+  },
+  {
+    "index": 294,
+    "tag": "p",
+    "id": "A1.SS7.p1.1",
+    "text": "RelGT has O ⁡ ( K 2 ⋅ d ) O(K^{2}\\cdot d) complexity for local attention and O ⁡ ( K ⋅ B ⋅ d ) O(K\\cdot B\\cdot d) for global attention per node, where K K is local context size, B B is number of global centroids, and d d is hidden dimension. We implement RelGT using PyTorch framework ( Paszke, 2019 ) , PyTorch Geometric framework ( Fey & Lenssen, 2019 ) and adapt the codebase of relational deep learning ( Robinson et al., 2024 ) https://github.com/snap-stanford/relbench . All our experiments are conducted on an NVIDIA A100 GPU server with 8 GPU nodes."
+  },
+  {
+    "index": 295,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 8: RelGT results using L ∈ 1 , 4 , 8 L\\in{1,4,8} and dropout ∈ 0.3 , 0.4 , 0.5 \\in{0.3,0.4,0.5} for the smaller datasets with less than a million training nodes."
+  },
+  {
+    "index": 296,
+    "tag": "tr",
+    "id": "A1.T8.4.1.1",
+    "text": "Dataset Task (# train) MAE ↓ \\downarrow L1 0.3 L1 0.4 L1 0.5 L4 0.3 L4 0.4 L4 0.5 L8 0.3 L8 0.4 L8 0.5"
+  },
+  {
+    "index": 297,
+    "tag": "tr",
+    "id": "A1.T8.4.1.2",
+    "text": "rel-f1 driver-position (7k) Test 4.942 5.6431 3.917 4.6316 4.0851 4.0042 5.5273 5.5569 4.6085"
+  },
+  {
+    "index": 298,
+    "tag": "tr",
+    "id": "A1.T8.4.1.3",
+    "text": "Val 3.1897 3.1817 3.3257 3.1046 3.3352 3.1276 3.1589 3.2907 3.1843"
+  },
+  {
+    "index": 299,
+    "tag": "tr",
+    "id": "A1.T8.4.1.4",
+    "text": "rel-avito ad-ctr (5k) Test 0.0358 0.0352 0.0345 0.035 0.0366 0.038 0.0354 0.0358 0.0356"
+  },
+  {
+    "index": 300,
+    "tag": "tr",
+    "id": "A1.T8.4.1.5",
+    "text": "Val 0.0322 0.0313 0.0314 0.0314 0.0322 0.0335 0.0317 0.0322 0.0324"
+  },
+  {
+    "index": 301,
+    "tag": "tr",
+    "id": "A1.T8.4.1.6",
+    "text": "rel-event user-attendance (19k) Test 0.2635 0.2595 0.2635 0.2502 0.2543 0.2584 0.2635 0.2637 0.2635"
+  },
+  {
+    "index": 302,
+    "tag": "tr",
+    "id": "A1.T8.4.1.7",
+    "text": "Val 0.2618 0.2558 0.2618 0.2548 0.2534 0.253 0.2618 0.2599 0.2618"
+  },
+  {
+    "index": 303,
+    "tag": "tr",
+    "id": "A1.T8.4.1.8",
+    "text": "rel-trial study-adverse (43k) Test 44.8553 44.2260 44.848 44.8893 44.4310 43.9923 44.2245 44.5878 44.5013"
+  },
+  {
+    "index": 304,
+    "tag": "tr",
+    "id": "A1.T8.4.1.9",
+    "text": "Val 46.3538 46.3193 46.2056 46.1031 45.9498 46.2148 46.1804 46.1381 46.4332"
+  },
+  {
+    "index": 305,
+    "tag": "tr",
+    "id": "A1.T8.4.1.10",
+    "text": "site-success (151k) Test 0.3490 0.3652 0.3830 0.4019 0.386 0.3262 0.3783 0.3431 0.3644"
+  },
+  {
+    "index": 306,
+    "tag": "tr",
+    "id": "A1.T8.4.1.11",
+    "text": "Val 0.3493 0.3455 0.3550 0.3771 0.392 0.3593 0.3848 0.3643 0.3669"
+  },
+  {
+    "index": 307,
+    "tag": "tr",
+    "id": "A1.T8.4.1.12",
+    "text": "Dataset Task (# train) AUC ↑ \\uparrow L1 0.3 L1 0.4 L1 0.5 L4 0.3 L4 0.4 L4 0.5 L8 0.3 L8 0.4 L8 0.5"
+  },
+  {
+    "index": 308,
+    "tag": "tr",
+    "id": "A1.T8.4.1.13",
+    "text": "rel-f1 driver-dnf (11k) Test 0.7434 0.7587 0.7521 0.7587 0.745 0.6957 0.7349 0.7393 0.741"
+  },
+  {
+    "index": 309,
+    "tag": "tr",
+    "id": "A1.T8.4.1.14",
+    "text": "Val 0.6877 0.6761 0.6896 0.6804 0.6762 0.6768 0.6702 0.6803 0.6865"
+  },
+  {
+    "index": 310,
+    "tag": "tr",
+    "id": "A1.T8.4.1.15",
+    "text": "driver-top3 (1k) Test 0.7845 0.8203 0.8 0.8171 0.8157 0.8352 0.7871 0.8217 0.8222"
+  },
+  {
+    "index": 311,
+    "tag": "tr",
+    "id": "A1.T8.4.1.16",
+    "text": "Val 0.7775 0.783 0.7764 0.7841 0.79 0.7958 0.7893 0.7847 0.7829"
+  },
+  {
+    "index": 312,
+    "tag": "tr",
+    "id": "A1.T8.4.1.17",
+    "text": "rel-avito user-clicks (59k) Test 0.6524 0.6233 0.6212 0.6067 0.5893 0.596 0.6245 0.683 0.6507"
+  },
+  {
+    "index": 313,
+    "tag": "tr",
+    "id": "A1.T8.4.1.18",
+    "text": "Val 0.6649 0.6616 0.6501 0.6564 0.6608 0.6579 0.6587 0.6649 0.6648"
+  },
+  {
+    "index": 314,
+    "tag": "tr",
+    "id": "A1.T8.4.1.19",
+    "text": "user-visits (86k) Test 0.6627 0.6663 0.665 0.6615 0.6584 0.6642 0.6647 0.6678 0.664"
+  },
+  {
+    "index": 315,
+    "tag": "tr",
+    "id": "A1.T8.4.1.20",
+    "text": "Val 0.7005 0.6993 0.7001 0.6954 0.6958 0.699 0.6995 0.7024 0.7011"
+  },
+  {
+    "index": 316,
+    "tag": "tr",
+    "id": "A1.T8.4.1.21",
+    "text": "rel-event user-repeat (3k) Test 0.6981 0.7403 0.7452 0.7563 0.7236 0.7432 0.7609 0.7316 0.7418"
+  },
+  {
+    "index": 317,
+    "tag": "tr",
+    "id": "A1.T8.4.1.22",
+    "text": "Val 0.7172 0.7386 0.7319 0.7245 0.7207 0.736 0.7285 0.7209 0.7064"
+  },
+  {
+    "index": 318,
+    "tag": "tr",
+    "id": "A1.T8.4.1.23",
+    "text": "user-ignore (19k) Test 0.8006 0.802 0.7986 0.799 0.787 0.8002 0.7956 0.8076 0.8157"
+  },
+  {
+    "index": 319,
+    "tag": "tr",
+    "id": "A1.T8.4.1.24",
+    "text": "Val 0.8739 0.8721 0.8729 0.878 0.8731 0.881 0.8757 0.8801 0.8868"
+  },
+  {
+    "index": 320,
+    "tag": "tr",
+    "id": "A1.T8.4.1.25",
+    "text": "rel-trial study-outcome (11k) Test 0.6808 0.6753 0.6837 0.6488 0.6818 0.6744 0.6861 0.6562 0.6649"
+  },
+  {
+    "index": 321,
+    "tag": "tr",
+    "id": "A1.T8.4.1.26",
+    "text": "Val 0.6815 0.6792 0.6751 0.6737 0.676 0.689 0.6678 0.6746 0.6768"
+  },
+  {
+    "index": 322,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 9: Relative drop (%) in performance in RelGT after removing a model component. Negative scores suggest the component is critical in RelGT , and vice-versa."
+  },
+  {
+    "index": 323,
+    "tag": "tr",
+    "id": "A1.T9.6.1.1",
+    "text": "Dataset Task (# train) MAE ↓ \\downarrow RelGT (Full) RelGT (No Global) % Rel. Drop RelGT (No GNN) % Rel. Drop RelGT (No Type) % Rel. Drop RelGT (No Hop) % Rel. Drop RelGT (No Time) % Rel. Drop"
+  },
+  {
+    "index": 324,
+    "tag": "tr",
+    "id": "A1.T9.6.1.2",
+    "text": "rel-avito ad-ctr Test 0.0350 0.0371 -6.0 0.0354 -1.14 0.0375 -7.14 0.0362 -3.43 0.0382 -9.14"
+  },
+  {
+    "index": 325,
+    "tag": "tr",
+    "id": "A1.T9.6.1.3",
+    "text": "Val 0.0314 0.0323 0.0315 0.0328 0.0322 0.0337"
+  },
+  {
+    "index": 326,
+    "tag": "tr",
+    "id": "A1.T9.6.1.4",
+    "text": "rel-trial site-success Test 0.3262 0.3882 -19.01 0.3561 -9.17 0.3356 -2.88 0.3963 -21.49 0.3285 -0.71"
+  },
+  {
+    "index": 327,
+    "tag": "tr",
+    "id": "A1.T9.6.1.5",
+    "text": "Val 0.3593 0.3342 0.3637 0.3655 0.3614 0.3615"
+  },
+  {
+    "index": 328,
+    "tag": "tr",
+    "id": "A1.T9.6.1.6",
+    "text": "rel-hm item-sales Test 0.0536 0.0586 -9.33 0.0629 -17.35 0.0604 -12.69 0.0531 0.93 0.095 -77.24"
+  },
+  {
+    "index": 329,
+    "tag": "tr",
+    "id": "A1.T9.6.1.7",
+    "text": "Val 0.0627 0.0676 0.073 0.0696 0.0623 0.1025"
+  },
+  {
+    "index": 330,
+    "tag": "tr",
+    "id": "A1.T9.6.1.8",
+    "text": "Dataset Task (# train) AUC ↑ \\uparrow RelGT (Full) RelGT (No Global) % Rel. Drop RelGT (No GNN) % Rel. Drop RelGT (No Type) % Rel. Drop RelGT (No Hop) % Rel. Drop RelGT (No Time) % Rel. Drop"
+  },
+  {
+    "index": 331,
+    "tag": "tr",
+    "id": "A1.T9.6.1.9",
+    "text": "rel-avito user-clicks Test 0.6067 0.6543 7.85 0.5148 -15.15 0.6371 5.01 0.6417 5.77 0.6575 8.37"
+  },
+  {
+    "index": 332,
+    "tag": "tr",
+    "id": "A1.T9.6.1.10",
+    "text": "Val 0.6564 0.6496 0.6551 0.6559 0.6482 0.6579"
+  },
+  {
+    "index": 333,
+    "tag": "tr",
+    "id": "A1.T9.6.1.11",
+    "text": "user-visits Test 0.6642 0.6619 -0.35 0.6484 -2.38 0.6635 -0.11 0.6668 0.39 0.6592 -0.75"
+  },
+  {
+    "index": 334,
+    "tag": "tr",
+    "id": "A1.T9.6.1.12",
+    "text": "Val 0.699 0.6892 0.6879 0.6991 0.7016 0.7005"
+  },
+  {
+    "index": 335,
+    "tag": "tr",
+    "id": "A1.T9.6.1.13",
+    "text": "rel-event user-ignore Test 0.8002 0.7898 -1.3 0.8012 0.12 0.7993 -0.11 0.8055 0.66 0.7995 -0.09"
+  },
+  {
+    "index": 336,
+    "tag": "tr",
+    "id": "A1.T9.6.1.14",
+    "text": "Val 0.881 0.8575 0.8637 0.8873 0.8852 0.8789"
+  },
+  {
+    "index": 337,
+    "tag": "tr",
+    "id": "A1.T9.6.1.15",
+    "text": "rel-trial study-outcome Test 0.6744 0.66 -2.14 0.6628 -1.72 0.6996 3.74 0.6715 -0.43 0.6911 2.48"
+  },
+  {
+    "index": 338,
+    "tag": "tr",
+    "id": "A1.T9.6.1.16",
+    "text": "Val 0.689 0.664 0.6775 0.6728 0.6705 0.6578"
+  },
+  {
+    "index": 339,
+    "tag": "tr",
+    "id": "A1.T9.6.1.17",
+    "text": "rel-amazon user-churn Test 0.7039 0.6994 -0.64 0.6984 -0.78 0.705 0.16 0.7043 0.06 0.6884 -2.2"
+  },
+  {
+    "index": 340,
+    "tag": "tr",
+    "id": "A1.T9.6.1.18",
+    "text": "Val 0.7036 0.6994 0.6994 0.7042 0.704 0.6882"
+  },
+  {
+    "index": 341,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 10: Ablation of context size K K in RelGT ."
+  },
+  {
+    "index": 342,
+    "tag": "tr",
+    "id": "A1.T10.4.1.1",
+    "text": "Dataset Task (# train) MAE ↓ \\downarrow RelGT K=100 RelGT K=300 RelGT K=500"
+  },
+  {
+    "index": 343,
+    "tag": "tr",
+    "id": "A1.T10.4.1.2",
+    "text": "rel-avito ad-ctr Test 0.0375 0.0374 0.0351"
+  },
+  {
+    "index": 344,
+    "tag": "tr",
+    "id": "A1.T10.4.1.3",
+    "text": "Val 0.0329 0.0319 0.031"
+  },
+  {
+    "index": 345,
+    "tag": "tr",
+    "id": "A1.T10.4.1.4",
+    "text": "rel-trial site-success Test 0.3739 0.3674 0.3842"
+  },
+  {
+    "index": 346,
+    "tag": "tr",
+    "id": "A1.T10.4.1.5",
+    "text": "Val 0.3708 0.372 0.376"
+  },
+  {
+    "index": 347,
+    "tag": "tr",
+    "id": "A1.T10.4.1.6",
+    "text": "rel-hm item-sales Test 0.055 0.0532 0.052"
+  },
+  {
+    "index": 348,
+    "tag": "tr",
+    "id": "A1.T10.4.1.7",
+    "text": "Val 0.0643 0.0619 0.061"
+  },
+  {
+    "index": 349,
+    "tag": "tr",
+    "id": "A1.T10.4.1.8",
+    "text": "Dataset Task (# train) AUC ↑ \\uparrow RelGT K=100 RelGT K=300 RelGT K=500"
+  },
+  {
+    "index": 350,
+    "tag": "tr",
+    "id": "A1.T10.4.1.9",
+    "text": "rel-avito user-clicks Test 0.6628 0.6491 0.6334"
+  },
+  {
+    "index": 351,
+    "tag": "tr",
+    "id": "A1.T10.4.1.10",
+    "text": "Val 0.6437 0.6622 0.6632"
+  },
+  {
+    "index": 352,
+    "tag": "tr",
+    "id": "A1.T10.4.1.11",
+    "text": "user-visits Test 0.6664 0.6653 0.6627"
+  },
+  {
+    "index": 353,
+    "tag": "tr",
+    "id": "A1.T10.4.1.12",
+    "text": "Val 0.7013 0.701 0.7005"
+  },
+  {
+    "index": 354,
+    "tag": "tr",
+    "id": "A1.T10.4.1.13",
+    "text": "rel-event user-ignore Test 0.7674 0.8105 0.8068"
+  },
+  {
+    "index": 355,
+    "tag": "tr",
+    "id": "A1.T10.4.1.14",
+    "text": "Val 0.8682 0.8853 0.8843"
+  },
+  {
+    "index": 356,
+    "tag": "tr",
+    "id": "A1.T10.4.1.15",
+    "text": "rel-trial study-outcome Test 0.7078 0.6526 0.666"
+  },
+  {
+    "index": 357,
+    "tag": "tr",
+    "id": "A1.T10.4.1.16",
+    "text": "Val 0.6575 0.663 0.6877"
+  },
+  {
+    "index": 358,
+    "tag": "tr",
+    "id": "A1.T10.4.1.17",
+    "text": "rel-amazon user-churn Test 0.7038 0.7054 0.7043"
+  },
+  {
+    "index": 359,
+    "tag": "tr",
+    "id": "A1.T10.4.1.18",
+    "text": "Val 0.7033 0.7044 0.7042"
+  },
+  {
+    "index": 360,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 11: Results on the entity regression tasks in RelBench. Lower is better. Best values are in bold . Relative gains are expressed as percentage improvement over RDL baseline."
+  },
+  {
+    "index": 361,
+    "tag": "tr",
+    "id": "A1.T11.4.1.1",
+    "text": "Dataset Task MAE ↓ \\downarrow RDL Baseline HGT HGT +PE RelGT (ours) % Rel. Gain"
+  },
+  {
+    "index": 362,
+    "tag": "tr",
+    "id": "A1.T11.4.1.2",
+    "text": "rel-f1 driver-position Test 4.022 ± \\pm 0.119 4.2263 ± \\pm 0.0580 4.3921 ± \\pm 0.1382 3.9170 ± \\pm 0.3448 2.61"
+  },
+  {
+    "index": 363,
+    "tag": "tr",
+    "id": "A1.T11.4.1.3",
+    "text": "Val 3.193 ± \\pm 0.024 3.1543 ± \\pm 0.1455 3.1116 ± \\pm 0.1120 3.3257 ± \\pm 0.5618"
+  },
+  {
+    "index": 364,
+    "tag": "tr",
+    "id": "A1.T11.4.1.4",
+    "text": "rel-avito ad-ctr Test 0.041 ± \\pm 0.001 0.0462 ± \\pm 0.0021 0.0483 ± \\pm 0.0027 0.0345 ± \\pm 0.0009 15.85"
+  },
+  {
+    "index": 365,
+    "tag": "tr",
+    "id": "A1.T11.4.1.5",
+    "text": "Val 0.037 ± \\pm 0.000 0.0433 ± \\pm 0.0019 0.0444 ± \\pm 0.0024 0.0314 ± \\pm 0.0010"
+  },
+  {
+    "index": 366,
+    "tag": "tr",
+    "id": "A1.T11.4.1.6",
+    "text": "rel-event user-attendance Test 0.258 ± \\pm 0.006 0.2635 ± \\pm 0.0000 0.2611 ± \\pm 0.0043 0.2502 ± \\pm 0.0033 2.79"
+  },
+  {
+    "index": 367,
+    "tag": "tr",
+    "id": "A1.T11.4.1.7",
+    "text": "Val 0.255 ± \\pm 0.007 0.2616 ± \\pm 0.0001 0.2603 ± \\pm 0.0020 0.2548 ± \\pm 0.0018"
+  },
+  {
+    "index": 368,
+    "tag": "tr",
+    "id": "A1.T11.4.1.8",
+    "text": "rel-trial study-adverse Test 44.473 ± \\pm 0.209 45.1692 ± \\pm 2.6927 42.6484 ± \\pm 0.2785 43.9923 ± \\pm 0.5928 1.08"
+  },
+  {
+    "index": 369,
+    "tag": "tr",
+    "id": "A1.T11.4.1.9",
+    "text": "Val 46.290 ± \\pm 0.304 47.3913 ± \\pm 1.7936 45.7910 ± \\pm 0.0051 46.2148 ± \\pm 0.7210"
+  },
+  {
+    "index": 370,
+    "tag": "tr",
+    "id": "A1.T11.4.1.10",
+    "text": "site-success Test 0.400 ± \\pm 0.020 0.4428 ± \\pm 0.0047 0.4396 ± \\pm 0.0083 0.3263 ± \\pm 0.0306 18.43"
+  },
+  {
+    "index": 371,
+    "tag": "tr",
+    "id": "A1.T11.4.1.11",
+    "text": "Val 0.401 ± \\pm 0.009 0.4275 ± \\pm 0.0062 0.4292 ± \\pm 0.0069 0.3593 ± \\pm 0.0372"
+  },
+  {
+    "index": 372,
+    "tag": "tr",
+    "id": "A1.T11.4.1.12",
+    "text": "rel-amazon user-ltv Test 14.313 ± \\pm 0.013 15.4120 ± \\pm 0.0447 15.8643 ± \\pm 0.0924 14.2665 ± \\pm 0.0154 0.32"
+  },
+  {
+    "index": 373,
+    "tag": "tr",
+    "id": "A1.T11.4.1.13",
+    "text": "Val 12.132 ± \\pm 0.007 13.2295 ± \\pm 0.1402 13.4886 ± \\pm 0.0713 12.1151 ± \\pm 0.0218"
+  },
+  {
+    "index": 374,
+    "tag": "tr",
+    "id": "A1.T11.4.1.14",
+    "text": "item-ltv Test 50.053 ± \\pm 0.163 55.8683 ± \\pm 0.6003 55.8493 ± \\pm 0.3226 48.9222 ± \\pm 0.7006 2.26"
+  },
+  {
+    "index": 375,
+    "tag": "tr",
+    "id": "A1.T11.4.1.15",
+    "text": "Val 45.140 ± \\pm 0.068 51.0303 ± \\pm 0.2230 50.6522 ± \\pm 0.6141 43.8161 ± \\pm 0.0548"
+  },
+  {
+    "index": 376,
+    "tag": "tr",
+    "id": "A1.T11.4.1.16",
+    "text": "rel-stack post-votes Test 0.065 ± \\pm 0.000 0.0679 ± \\pm 0.0000 0.0680 ± \\pm 0.0000 0.0654 ± \\pm 0.0002 -0.62"
+  },
+  {
+    "index": 377,
+    "tag": "tr",
+    "id": "A1.T11.4.1.17",
+    "text": "Val 0.059 ± \\pm 0.000 0.0615 ± \\pm 0.0000 0.0617 ± \\pm 0.0000 0.0592 ± \\pm 0.0002"
+  },
+  {
+    "index": 378,
+    "tag": "tr",
+    "id": "A1.T11.4.1.18",
+    "text": "rel-hm item-sales Test 0.056 ± \\pm 0.000 0.0641 ± \\pm 0.0012 0.0639 ± \\pm 0.0003 0.0536 ± \\pm 0.0006 4.29"
+  },
+  {
+    "index": 379,
+    "tag": "tr",
+    "id": "A1.T11.4.1.19",
+    "text": "Val 0.065 ± \\pm 0.000 0.0739 ± \\pm 0.0008 0.0739 ± \\pm 0.0010 0.0627 ± \\pm 0.0008"
+  },
+  {
+    "index": 380,
+    "tag": "figcaption",
+    "id": null,
+    "text": "Table 12: Results on the entity classification tasks in RelBench. Higher is better. Best values are in bold . Relative gains are expressed as percentage improvement over RDL baseline."
+  },
+  {
+    "index": 381,
+    "tag": "tr",
+    "id": "A1.T12.4.1.1",
+    "text": "Dataset Task AUC ↑ \\uparrow RDL Baseline HGT HGT +PE RelGT (ours) % Rel. Gain"
+  },
+  {
+    "index": 382,
+    "tag": "tr",
+    "id": "A1.T12.4.1.2",
+    "text": "rel-f1 driver-dnf Test 0.7262 ± \\pm 0.0027 0.7077 ± \\pm 0.0153 0.7117 ± \\pm 0.0084 0.7587 ± \\pm 0.0413 4.48"
+  },
+  {
+    "index": 383,
+    "tag": "tr",
+    "id": "A1.T12.4.1.3",
+    "text": "Val 0.7136 ± \\pm 0.0154 0.7765 ± \\pm 0.0066 0.7340 ± \\pm 0.0018 0.6804 ± \\pm 0.0420"
+  },
+  {
+    "index": 384,
+    "tag": "tr",
+    "id": "A1.T12.4.1.4",
+    "text": "driver-top3 Test 0.7554 ± \\pm 0.0063 0.7075 ± \\pm 0.1156 0.7627 ± \\pm 0.1390 0.8352 ± \\pm 0.0342 10.56"
+  },
+  {
+    "index": 385,
+    "tag": "tr",
+    "id": "A1.T12.4.1.5",
+    "text": "Val 0.7764 ± \\pm 0.0316 0.6457 ± \\pm 0.0147 0.6486 ± \\pm 0.0287 0.7958 ± \\pm 0.0513"
+  },
+  {
+    "index": 386,
+    "tag": "tr",
+    "id": "A1.T12.4.1.6",
+    "text": "rel-avito user-clicks Test 0.6590 ± \\pm 0.0195 0.6376 ± \\pm 0.0298 0.6457 ± \\pm 0.0099 0.6830 ± \\pm 0.0602 3.64"
+  },
+  {
+    "index": 387,
+    "tag": "tr",
+    "id": "A1.T12.4.1.7",
+    "text": "Val 0.6473 ± \\pm 0.0032 0.5999 ± \\pm 0.0022 0.5886 ± \\pm 0.0231 0.6649 ± \\pm 0.0610"
+  },
+  {
+    "index": 388,
+    "tag": "tr",
+    "id": "A1.T12.4.1.8",
+    "text": "user-visits Test 0.6620 ± \\pm 0.0010 0.6432 ± \\pm 0.0002 0.6495 ± \\pm 0.0022 0.6678 ± \\pm 0.0015 0.88"
+  },
+  {
+    "index": 389,
+    "tag": "tr",
+    "id": "A1.T12.4.1.9",
+    "text": "Val 0.6965 ± \\pm 0.0004 0.6652 ± \\pm 0.0040 0.6649 ± \\pm 0.0060 0.7024 ± \\pm 0.0009"
+  },
+  {
+    "index": 390,
+    "tag": "tr",
+    "id": "A1.T12.4.1.10",
+    "text": "rel-event user-repeat Test 0.7689 ± \\pm 0.0159 0.6496 ± \\pm 0.0220 0.6536 ± \\pm 0.0137 0.7609 ± \\pm 0.0219 -1.04"
+  },
+  {
+    "index": 391,
+    "tag": "tr",
+    "id": "A1.T12.4.1.11",
+    "text": "Val 0.7125 ± \\pm 0.0253 0.6082 ± \\pm 0.0148 0.6148 ± \\pm 0.0172 0.7285 ± \\pm 0.0108"
+  },
+  {
+    "index": 392,
+    "tag": "tr",
+    "id": "A1.T12.4.1.12",
+    "text": "user-ignore Test 0.8162 ± \\pm 0.0111 0.8247 ± \\pm 0.0096 0.8161 ± \\pm 0.0001 0.8157 ± \\pm 0.0040 -0.06"
+  },
+  {
+    "index": 393,
+    "tag": "tr",
+    "id": "A1.T12.4.1.13",
+    "text": "Val 0.9170 ± \\pm 0.0033 0.8997 ± \\pm 0.0114 0.8940 ± \\pm 0.0000 0.8868 ± \\pm 0.0032"
+  },
+  {
+    "index": 394,
+    "tag": "tr",
+    "id": "A1.T12.4.1.14",
+    "text": "rel-trial study-outcome Test 0.6860 ± \\pm 0.0101 0.5837 ± \\pm 0.0141 0.5921 ± \\pm 0.0303 0.6861 ± \\pm 0.0040 0.01"
+  },
+  {
+    "index": 395,
+    "tag": "tr",
+    "id": "A1.T12.4.1.15",
+    "text": "Val 0.6818 ± \\pm 0.0049 0.6037 ± \\pm 0.0040 0.6025 ± \\pm 0.0071 0.6678 ± \\pm 0.0038"
+  },
+  {
+    "index": 396,
+    "tag": "tr",
+    "id": "A1.T12.4.1.16",
+    "text": "rel-amazon user-churn Test 0.7042 ± \\pm 0.0005 0.6643 ± \\pm 0.0041 0.6619 ± \\pm 0.0042 0.7039 ± \\pm 0.0008 -0.04"
+  },
+  {
+    "index": 397,
+    "tag": "tr",
+    "id": "A1.T12.4.1.17",
+    "text": "Val 0.7045 ± \\pm 0.0006 0.6680 ± \\pm 0.0029 0.6652 ± \\pm 0.0030 0.7036 ± \\pm 0.0008"
+  },
+  {
+    "index": 398,
+    "tag": "tr",
+    "id": "A1.T12.4.1.18",
+    "text": "item-churn Test 0.8281 ± \\pm 0.0003 0.7797 ± \\pm 0.0039 0.7803 ± \\pm 0.0053 0.8255 ± \\pm 0.0006 -0.31"
+  },
+  {
+    "index": 399,
+    "tag": "tr",
+    "id": "A1.T12.4.1.19",
+    "text": "Val 0.8239 ± \\pm 0.0002 0.7816 ± \\pm 0.0031 0.7803 ± \\pm 0.0030 0.8220 ± \\pm 0.0010"
+  },
+  {
+    "index": 400,
+    "tag": "tr",
+    "id": "A1.T12.4.1.20",
+    "text": "rel-stack user-engagement Test 0.9021 ± \\pm 0.0007 0.8847 ± \\pm 0.0044 0.8817 ± \\pm 0.0046 0.9053 ± \\pm 0.0005 0.35"
+  },
+  {
+    "index": 401,
+    "tag": "tr",
+    "id": "A1.T12.4.1.21",
+    "text": "Val 0.9059 ± \\pm 0.0009 0.8863 ± \\pm 0.0039 0.8811 ± \\pm 0.0034 0.9033 ± \\pm 0.0013"
+  },
+  {
+    "index": 402,
+    "tag": "tr",
+    "id": "A1.T12.4.1.22",
+    "text": "user-badge Test 0.8986 ± \\pm 0.0008 0.8608 ± \\pm 0.0044 0.8566 ± \\pm 0.0068 0.8632 ± \\pm 0.0018 -3.94"
+  },
+  {
+    "index": 403,
+    "tag": "tr",
+    "id": "A1.T12.4.1.23",
+    "text": "Val 0.8886 ± \\pm 0.0008 0.8732 ± \\pm 0.0025 0.8710 ± \\pm 0.0016 0.8741 ± \\pm 0.0050"
+  },
+  {
+    "index": 404,
+    "tag": "tr",
+    "id": "A1.T12.4.1.24",
+    "text": "rel-hm user-churn Test 0.6988 ± \\pm 0.0021 0.6695 ± \\pm 0.0067 0.6569 ± \\pm 0.0109 0.6927 ± \\pm 0.0019 -0.87"
+  },
+  {
+    "index": 405,
+    "tag": "tr",
+    "id": "A1.T12.4.1.25",
+    "text": "Val 0.7042 ± \\pm 0.0009 0.6727 ± \\pm 0.0062 0.6605 ± \\pm 0.0103 0.6988 ± \\pm 0.0034"
+  },
+  {
+    "index": 406,
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "index": 407,
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "index": 408,
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "index": 409,
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "index": 410,
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions ."
+  }
+]

@@ -1,0 +1,69 @@
+REMOTE_PHASE = '/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930'
+EXPECTED_IMAGE_SHA = '043bee193d892cee98d6235dc3d1bbfb8c3ddf4e9461560dc06d1c85b961f8d0'
+
+import datetime, hashlib, json, os, pathlib, subprocess, sys, time, traceback
+phase = pathlib.Path(REMOTE_PHASE)
+packet = phase / 'industrial_native_pilot_execution_preparation_v2'
+runtime = phase / 'industrial_runtime_image_root_v1/runtime_image_v1'
+root = phase / 'industrial_runtime_image_root_v1/public_probe_run_v1'
+root.mkdir(mode=0o700, exist_ok=False)
+record = {'schema': 'root-public-only-isolation-launch-v1',
+          'start_UTC': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          'scientific_imports_or_updates': False, 'test_labels': 'CLOSED', 'steps': []}
+def save():
+    (root / 'ROOT_LAUNCH.json').write_text(json.dumps(record, indent=2) + '\n')
+def step(name, argv, cap):
+    begin = time.monotonic()
+    result = subprocess.run(argv, capture_output=True, text=True, timeout=cap,
+                            stdin=subprocess.DEVNULL, close_fds=True)
+    (root / (name + '.stdout')).write_text(result.stdout)
+    (root / (name + '.stderr')).write_text(result.stderr)
+    record['steps'].append({'name': name, 'argv': argv, 'exit_code': result.returncode,
+                            'seconds': time.monotonic() - begin})
+    save()
+    if result.returncode:
+        raise RuntimeError(name + ' exited ' + str(result.returncode))
+    return result.stdout
+save()
+try:
+    uuid = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+    visible = step('gpu_route', ['nvidia-smi', '--query-gpu=uuid', '--format=csv,noheader'], 20)
+    if visible.strip().splitlines() != [uuid]:
+        raise RuntimeError('Authorized one-GPU route mismatch')
+    import xml.etree.ElementTree as ET
+    xml = ET.fromstring(step('gpu_device', ['nvidia-smi', '-q', '-x'], 20))
+    gpus = xml.findall('gpu')
+    if len(gpus) != 1 or gpus[0].findtext('uuid') != uuid or gpus[0].findtext('minor_number') != '7':
+        raise RuntimeError('Authorized physical device identity changed')
+    if hashlib.sha256((runtime / 'RUNTIME_IMAGE_MANIFEST.json').read_bytes()).hexdigest() != EXPECTED_IMAGE_SHA:
+        raise RuntimeError('Assembled runtime manifest changed')
+    sys.path.insert(0, str(packet))
+    from runtime_fingerprint import verify_source_packet
+    record['source_identity'] = verify_source_packet(packet)
+    record['runtime_manifest_sha256'] = EXPECTED_IMAGE_SHA
+    record['library_payload_entries'] = 26061
+    record['gpu_uuid'] = uuid
+    record['gpu_device'] = '/dev/nvidia7'
+    save()
+    inputs = root / 'public_inputs'
+    step('public_export', [sys.executable, str(packet / 'custodian_export.py'), 'public',
+                          '--archive', str(phase / 'industrial_dataset_acquisition_root_v1/tolokers2_run01/tolokers-2.zip'),
+                          '--output', str(inputs)], 60)
+    outputs = root / 'probe_outputs'
+    outputs.mkdir(mode=0o700)
+    step('isolation_probe', [sys.executable, str(packet / 'launch_isolated.py'), 'isolation-probe',
+                            '--runtime-image', str(runtime), '--inputs', str(inputs),
+                            '--outputs', str(outputs), '--namespace-root', str(root / 'namespace_probe'),
+                            '--device', 'cuda:0', '--gpu-device', '/dev/nvidia7', '--gpu-uuid', uuid], 600)
+    receipt = json.loads((outputs / 'isolation_probe/receipt.json').read_text())
+    if receipt.get('status') != 'PASSED' or receipt.get('scientific_imports_or_updates') is not False:
+        raise RuntimeError('Actual probe receipt does not authorize the next stage')
+    record['status'] = 'PUBLIC_ONLY_ISOLATION_PASSED'
+    record['receipt_sha256'] = hashlib.sha256((outputs / 'isolation_probe/receipt.json').read_bytes()).hexdigest()
+except BaseException:
+    record['status'] = 'FAILED_NO_DEPENDENT_LABEL_OR_MODEL_PHASE'
+    record['error'] = traceback.format_exc()
+    raise
+finally:
+    record['terminal_UTC'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    save()

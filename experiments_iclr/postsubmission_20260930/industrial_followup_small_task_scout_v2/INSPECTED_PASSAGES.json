@@ -1,0 +1,976 @@
+{
+  "schema": "industrial-small-followup-scoped-passages-v1",
+  "created_UTC": "2026-10-02T13:16:44.488438+00:00",
+  "scope": "Selected paper HTML blocks and source lines; no full-paper/figure inspection or execution. Other unrelated benchmark rows in printed search output do not extend this declared read scope.",
+  "papers": [
+    {
+      "canonical_id": "arXiv:2505.10960v2",
+      "source": "sources/relgt_v2.html",
+      "sha256": "4d6bdece1a7607244354098b1de31527afac97eba5d2637fee2ae1e5426011b0",
+      "block_ranges": [
+        [
+          5,
+          5
+        ],
+        [
+          19,
+          20
+        ],
+        [
+          30,
+          79
+        ],
+        [
+          126,
+          129
+        ],
+        [
+          142,
+          142
+        ],
+        [
+          159,
+          160
+        ],
+        [
+          182,
+          185
+        ],
+        [
+          291,
+          298
+        ],
+        [
+          360,
+          363
+        ]
+      ],
+      "blocks": [
+        {
+          "index": 5,
+          "tag": "p",
+          "id": "abstract1.1",
+          "text": "Relational Deep Learning (RDL) is a promising approach for building state-of-the-art predictive models on multi-table relational data by representing it as a heterogeneous temporal graph. However, commonly used Graph Neural Network models suffer from fundamental limitations in capturing complex structural patterns and long-range dependencies that are inherent in relational data. While Graph Transformers have emerged as powerful alternatives to GNNs on general graphs, applying them to relational entity graphs presents unique challenges: (i) Traditional positional encodings fail to generalize to massive, heterogeneous graphs; (ii) existing architectures cannot model the temporal dynamics and schema constraints of relational data; (iii) existing tokenization schemes lose critical structural information. Here we introduce the Relational Graph Transformer ( RelGT ), the first graph transformer architecture designed specifically for relational tables. RelGT employs a novel multi-element tokenization strategy that decomposes each node into five components (features, type, hop distance, time, and local structure), enabling efficient encoding of heterogeneity, temporality, and topology without expensive precomputation. Our architecture combines local attention over sampled subgraphs with global attention to learnable centroids, incorporating both local and database-wide representations. Across 21 tasks from the RelBench benchmark, RelGT consistently matches or outperforms GNN baselines by up to 18%, establishing Graph Transformers as a powerful architecture for Relational Deep Learning 1 1 1 https://github.com/snap-stanford/relgt ."
+        },
+        {
+          "index": 19,
+          "tag": "p",
+          "id": "S2.SS1.p2.1",
+          "text": "Definitions. Formally, we can define a relational database as the tuple ( T , R ) (T,R) comprising a collection of tables T = { T 1 , … , T n } T=\\{T_{1},\\ldots,T_{n}\\} connected through inter-table relationships R ⊆ T × T R\\subseteq T\\times T . A link ( T fkey , T pkey ) ∈ R (T_{\\text{fkey}},T_{\\text{pkey}})\\in R denotes a foreign key in one table referencing a primary key in another. Each table contains entities (rows) { v 1 , … , v n T } \\{v_{1},\\ldots,v_{n_{T}}\\} , with each entity typically consisting of: (1) a unique identifier (primary key), (2) references to other entities (foreign keys), (3) entity-specific attributes, and (4) timestamp information indicating when the entity was created or modified. The structure of relational databases inherently forms a graph representation, called as relational entity graphs (REGs). An REG is formally defined as a heterogeneous temporal graph G = ( V , E , ϕ , ψ , τ ) G=(V,E,\\phi,\\psi,\\tau) , where nodes V V represent entities from the database tables, edges E E represent primary-foreign key relationships, ϕ \\phi maps nodes to their respective types based on source tables, ψ \\psi assigns relation types to edges, and τ \\tau captures the temporal dimension through timestamps ( Fey et al., 2024 ) ."
+        },
+        {
+          "index": 20,
+          "tag": "p",
+          "id": "S2.SS1.p3.1",
+          "text": "Challenges. Relational entity graphs exhibit three distinctive properties that set them apart from conventional graph data. First, their structure is fundamentally schema-defined, with topology shaped by primary-foreign keys rather than arbitrary connections, creating specific patterns of information flow that require specialized modeling approaches. Second, they incorporate temporal dynamics, as relational databases track events and interactions over time, necessitating techniques like time-aware neighbor sampling to prevent future information from leaking into past predictions. Third, they display multi-type heterogeneity, as different tables correspond to different entity types with diverse attribute schemas and data modalities, presenting challenges in creating unified representations that effectively integrate information across diverse node and edge types ( Schlichtkrull et al., 2018 ; Wang et al., 2019 ) . These characteristics create both challenges and opportunities for GNN architectures, requiring models that can simultaneously address temporal evolution, heterogeneous information, and schema-constrained structures while processing potentially massive multi-table datasets."
+        },
+        {
+          "index": 30,
+          "tag": "h2",
+          "id": null,
+          "text": "3 RelGT : Relational Graph Transformer"
+        },
+        {
+          "index": 31,
+          "tag": "h3",
+          "id": null,
+          "text": "3.1 Tokenization"
+        },
+        {
+          "index": 32,
+          "tag": "p",
+          "id": "S3.SS1.p1.1",
+          "text": "Traditional Transformers in NLP represent text through tokens with two primary elements: (i) token identifiers (or features) that denotes the token from a vocabulary set and (ii) positional encodings that represent sequential structure ( Vaswani et al., 2017 ) . For example, a token can correspond to a word and its positional encoding can correspond to its order in the input sentence. Similarly, Graph Transformers generally adapt this two-element representation to graphs, where nodes are tokens with features, and graph positional encodings provide structural information. Although this two-element approach works well for homogeneous static graphs, it becomes computationally inefficient when trying to encode multiple aspects of graph structural information for REGs."
+        },
+        {
+          "index": 33,
+          "tag": "p",
+          "id": "S3.SS1.p2.1",
+          "text": "In particular, capturing heterogeneity, temporality, and schema-defined structure (as defined in Section 2.1 ) through a single positional encoding scheme would either require complex, multi-stage encoding or result in significant information loss about the rich relational context. For instance, if we were to extend existing PEs for REGs, several practical challenges emerge: (i) standard Laplacian or random walk-based PEs would need significant modification to differentiate between multiple node types ( e.g. , customers vs. products vs. transactions), (ii) these encodings lack mechanisms to incorporate temporal dynamics critical for time-sensitive predictions ( e.g. , capturing that a user’s recent purchases are more relevant than older ones), and (iii) the scale of relational databases makes global PE computation in REGs prohibitively expensive. With millions of records across tables, precomputation would only be feasible on small subgraphs, resulting in incomplete structural context."
+        },
+        {
+          "index": 34,
+          "tag": "h4",
+          "id": null,
+          "text": "3.1.1 Proposed Approach"
+        },
+        {
+          "index": 35,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p1.1",
+          "text": "RelGT overcomes these limitations through a multi-element token representation approach, without any computational overhead concerning the dependency on the number of nodes in the input REG. Rather than trying to compress all structural information into a single positional encoding, we decompose the token representation into distinct elements that explicitly model different aspects of relational data. This decoupled design allows each component to capture a specific characteristic of REGs: node features represent entity attributes, node types encode table-based heterogeneity, hop distance preserves relative distances among nodes in a local context, time encodings capture temporal dynamics, and GNN-based positional encodings preserve local graph structure."
+        },
+        {
+          "index": 36,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p2.1",
+          "text": "Sampling and token elements. The tokenization process in RelGT converts a REG G = ( V , E , ϕ , ψ , τ ) G=(V,E,\\phi,\\psi,\\tau) into sets of tokens suitable for processing by the Transformer network. Specifically, as shown in Fig 2 , for each training seed node v i ∈ V v_{i}\\in V , we first sample a fixed set of K K neighboring nodes v j v_{j} from within 2 hops of the local neighborhood using temporal-aware sampling 2 2 2 When fewer than K K neighbors are available within 2 hops, we use randomly selected nodes as fallback tokens to maintain the fixed size K K , ensuring consistent computational complexity regardless of local structure. , ensuring that only nodes with timestamps τ ⁡ ( v j ) ≤ τ ⁡ ( v i ) \\tau(v_{j})\\leq\\tau(v_{i}) are included to prevent temporal leakage. Each token in this set is represented by a 5-tuple : ( x v j , ϕ ⁡ ( v j ) , p ⁡ ( v i , v j ) , τ ⁡ ( v j ) − τ ⁡ ( v i ) , GNN-PE v j ) (x_{v_{j}},\\phi(v_{j}),p(v_{i},v_{j}),\\tau(v_{j})-\\tau(v_{i}),\\text{GNN-PE}_{v_{j}}) , where, (i) node feature ( x v j x_{v_{j}} ) denotes the raw features derived from entity attributes in the database, (ii) node type ( ϕ ⁡ ( v j ) \\phi(v_{j}) ) is a categorical identifier corresponding to the entity’s originating table, (iii) relative hop distance ( p ⁡ ( v i , v j ) p(v_{i},v_{j}) ) captures the structural distance between the seed node v i v_{i} and the neighbor node v j v_{j} , (iv) relative time ( τ ⁡ ( v j ) − τ ⁡ ( v i ) \\tau(v_{j})-\\tau(v_{i}) ) represents the temporal difference between the neighbor and seed node, and (v) finally, subgraph based PE ( GNN-PE v j \\text{GNN-PE}_{v_{j}} ) provides a graph PE for each node within the sampled subgraph, generated by applying a lightweight GNN to the subgraph’s adjacency matrix with random node feature initialization ( Sato et al., 2021 ; Kanatsoulis et al., 2025 ) ."
+        },
+        {
+          "index": 37,
+          "tag": "figcaption",
+          "id": null,
+          "text": "Figure 2: The tokenization procedure. A temporal-aware subgraph sampling step extracts a fixed set of local tokens for each training seed node, denoted by the node in black. Each token incorporates its respective graph structure information, which are element-wise transformed to a common embedding space and combined to form the effective token representation to be fed to the Transformer network."
+        },
+        {
+          "index": 38,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p3.1",
+          "text": "Encoders. Each element in the 5-tuple is processed by a specialized encoder before being combined into the final token representation, as illustrated in Figure 2 ."
+        },
+        {
+          "index": 39,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p4.1",
+          "text": "1. Node Feature Encoder. The node features x v j x_{v_{j}} , representing the columnar attributes of the node v j v_{j} in REG (which corresponds to a table row in a database), are encoded into a d d -dimensional embedding. Each modality, such as numerical, categorical, multi-categorical, text, and image data, is encoded separately using modality-specific encoders following ( Hu et al., 2024 ) , and the resulting representations are then aggregated into a unified d d -dimensional embedding."
+        },
+        {
+          "index": 40,
+          "tag": "tr",
+          "id": null,
+          "text": "h feat ​ ( v j ) = MultiModalEncoder ​ ( x v j ) ∈ ℝ d h_{\\text{feat}}(v_{j})=\\text{MultiModalEncoder}(x_{v_{j}})\\in\\mathbb{R}^{d} (1)"
+        },
+        {
+          "index": 41,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p4.2",
+          "text": "where MultiModalEncoder ​ ( ⋅ ) \\text{MultiModalEncoder}(\\cdot) is unified feature encoder adapted from ( Hu et al., 2024 ) ."
+        },
+        {
+          "index": 42,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p5.1",
+          "text": "2. Node Type Encoder. The node type encoding steps converts each table-specific entity type ϕ ⁡ ( v j ) \\phi(v_{j}) to a d d -dimensional representation, incorporating the heterogeneous information from the input data."
+        },
+        {
+          "index": 43,
+          "tag": "tr",
+          "id": null,
+          "text": "h type ​ ( v j ) = W type ⋅ onehot ​ ( ϕ ⁡ ( v j ) ) ∈ ℝ d h_{\\text{type}}(v_{j})=W_{\\text{type}}\\cdot\\text{onehot}(\\phi(v_{j}))\\in\\mathbb{R}^{d} (2)"
+        },
+        {
+          "index": 44,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p5.2",
+          "text": "where ϕ ⁡ ( v j ) \\phi(v_{j}) is the node type of v j v_{j} , W type ∈ ℝ d × | T | W_{\\text{type}}\\in\\mathbb{R}^{d\\times|T|} is the learnable weight matrix, | T | |T| is the number of node types, and onehot ​ ( ⋅ ) \\text{onehot}(\\cdot) is the one-hot encoding function."
+        },
+        {
+          "index": 45,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p6.1",
+          "text": "3. Hop Encoder. The relative hop distance p ⁡ ( v i , v j ) p(v_{i},v_{j}) , that captures the structural proximity between the seed node v i v_{i} and a neighbor node v j v_{j} , is encoded into a d d -dimensional embedding as:"
+        },
+        {
+          "index": 46,
+          "tag": "tr",
+          "id": null,
+          "text": "h hop ​ ( v i , v j ) = W hop ⋅ onehot ​ ( p ⁡ ( v i , v j ) ) ∈ ℝ d h_{\\text{hop}}(v_{i},v_{j})=W_{\\text{hop}}\\cdot\\text{onehot}(p(v_{i},v_{j}))\\in\\mathbb{R}^{d} (3)"
+        },
+        {
+          "index": 47,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p6.2",
+          "text": "with p ⁡ ( v i , v j ) p(v_{i},v_{j}) being the relative hop distance between seed node v i v_{i} and neighbor node v j v_{j} , and W hop ∈ ℝ d × h max W_{\\text{hop}}\\in\\mathbb{R}^{d\\times h_{\\text{max}}} the learnable matrix mapping hop distances (up to h max h_{\\text{max}} )."
+        },
+        {
+          "index": 48,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p7.1",
+          "text": "4. Time Encoder. The time encoder linearly transforms the time difference τ ⁡ ( v j ) − τ ⁡ ( v i ) \\tau(v_{j})-\\tau(v_{i}) between a neighbor node v j v_{j} and the seed node v i v_{i} :"
+        },
+        {
+          "index": 49,
+          "tag": "tr",
+          "id": null,
+          "text": "h time ​ ( v i , v j ) = W time ⋅ ( τ ⁡ ( v j ) − τ ⁡ ( v i ) ) ∈ ℝ d h_{\\text{time}}(v_{i},v_{j})=W_{\\text{time}}\\cdot(\\tau(v_{j})-\\tau(v_{i}))\\in\\mathbb{R}^{d} (4)"
+        },
+        {
+          "index": 50,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p7.2",
+          "text": "where τ ⁡ ( v j ) − τ ⁡ ( v i ) \\tau(v_{j})-\\tau(v_{i}) is the relative time difference, and W time ∈ ℝ d × 1 W_{\\text{time}}\\in\\mathbb{R}^{d\\times 1} are learnable parameters."
+        },
+        {
+          "index": 51,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p8.1",
+          "text": "5. Subgraph PE Encoder. Finally, for capturing local graph structure that can otherwise not be represented by other token elements, we apply a light-weight GNN to the subgraph. This GNN encoder effectively preserves important structural relationships, such as complex cycles and quasi-cliques between entities ( Kanatsoulis & Ribeiro, 2024 ) , as well as parent-child relationships (e.g., a product node within the local subgraph corresponding to specific transactions ), and can be written as:"
+        },
+        {
+          "index": 52,
+          "tag": "tr",
+          "id": null,
+          "text": "h pe ​ ( v j ) = GNN ​ ( A local , Z random ) j ∈ ℝ d h_{\\text{pe}}(v_{j})=\\text{GNN}(A_{\\text{local}},Z_{\\text{random}})_{j}\\in\\mathbb{R}^{d} (5)"
+        },
+        {
+          "index": 53,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p8.2",
+          "text": "where GNN ​ ( ⋅ , ⋅ ) j \\text{GNN}(\\cdot,\\cdot)_{j} is a light-weight GNN applied to the local subgraph yielding the encoding for node v j v_{j} , A local ∈ ℝ K × K A_{\\text{local}}\\in\\mathbb{R}^{K\\times K} is the adjacency matrix of the sampled subgraph of K K nodes, and Z random ∈ ℝ K × d init Z_{\\text{random}}\\in\\mathbb{R}^{K\\times d_{\\text{init}}} are randomly initialized node features for the GNN (with d init d_{\\text{init}} as the initial feature dimension)."
+        },
+        {
+          "index": 54,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p9.1",
+          "text": "One key advantage of using random node features in this GNN encoder is that it breaks structural symmetries between the subgraph topology and node attributes, thereby increasing the expressiveness of GNN layers ( Sato et al., 2021 ) . However, a fixed random initialization would destroy permutation equivariance, a critical property for generalization. To address this, we resample Z random Z_{\\text{random}} independently at every training step. This ‘stochastic initialization’ approach can be viewed as a relaxed version of the learnable PE method described in Kanatsoulis et al. (2025) , thus approximately preserving permutation equivariance while retaining the expressivity gains afforded by the randomization."
+        },
+        {
+          "index": 55,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p10.1",
+          "text": "At last, the effective token representation is formed by combining all encoded elements:"
+        },
+        {
+          "index": 56,
+          "tag": "tr",
+          "id": null,
+          "text": "h token ​ ( v j ) = O ⋅ [ h feat ​ ( v j ) ​ ‖ h type ​ ( v j ) ‖ ​ h hop ​ ( v i , v j ) ​ ‖ h time ​ ( v i , v j ) ‖ ​ h pe ​ ( v j ) ] {h}_{\\text{token}}(v_{j})=O\\cdot\\left[{h}_{\\text{feat}}(v_{j})\\,||\\,{h}_{\\text{type}}(v_{j})\\,||\\,{h}_{\\text{hop}}(v_{i},v_{j})\\,||\\,{h}_{\\text{time}}(v_{i},v_{j})\\,||\\,{h}_{\\text{pe}}(v_{j})\\right] (6)"
+        },
+        {
+          "index": 57,
+          "tag": "p",
+          "id": "S3.SS1.SSS1.p10.2",
+          "text": "where | ⁣ | || denotes the concatenation of the individual encoder outputs, and O ∈ ℝ 5 ​ d × d O\\in\\mathbb{R}^{5d\\times d} is a learnable matrix to mix the embeddings. This multi-element approach provides a comprehensive token representation that explicitly captures node features, type information, structural position, temporal dynamics, and local topology without requiring expensive computation on the graph structure."
+        },
+        {
+          "index": 58,
+          "tag": "figcaption",
+          "id": null,
+          "text": "Figure 3: The Transformer network which processes the input tokens by first building local representations using the local tokens, then incorporating global context by attending to centroids that are dynamically updated during training. The final node representations combine both local structural details and global database context, enabling effective prediction across downstream tasks."
+        },
+        {
+          "index": 59,
+          "tag": "h3",
+          "id": null,
+          "text": "3.2 Transformer Network"
+        },
+        {
+          "index": 60,
+          "tag": "p",
+          "id": "S3.SS2.p1.1",
+          "text": "The Transformer network in RelGT , shown in Fig. 3 , processes the tokenized relational entity graph using a combination of local and global attention mechanisms, following the successful designs used in modern GTs ( Rampášek et al., 2022 ; Wu et al., 2023 ; Kong et al., 2023 ; Dwivedi et al., 2023 ) ."
+        },
+        {
+          "index": 61,
+          "tag": "p",
+          "id": "S3.SS2.p2.1",
+          "text": "Local module. The local attention mechanism allows each seed node to attend to its K K local tokens selected during tokenization, capturing the fine-grained relationships defined by the database schema. This mechanism is different from a GNN used in RDL ( Robinson et al., 2024 ) in two key aspects: self-attention is used as the message-passing scheme and the attention is all-pair, i.e. , all nodes in the local K set attend to each other. This is implemented using an L layer Transformer ( Vaswani et al., 2017 ) and provides a broader structural coverage compared to a baseline GNN ( Robinson et al., 2024 ) . A practical application of this improvement can be seen in the e-commerce example introduced in Sec. 1 , where the proposed full-attention mechanism can directly connect seemingly unrelated products by identifying relationships through shared transactions or customer behaviors. This capability enables the model to capture subtle associations, such as customers frequently purchasing unexpected combinations of items. The local node representation h local ​ ( v i ) h_{\\text{local}}(v_{i}) is obtained as:"
+        },
+        {
+          "index": 62,
+          "tag": "tr",
+          "id": null,
+          "text": "h local ​ ( v i ) = Pool ​ ( FFN ​ ( Attention ​ ( v i , { v j } j = 1 K ) ) L ) h_{\\text{local}}(v_{i})=\\text{Pool}(\\text{FFN}(\\text{Attention}(v_{i},\\{v_{j}\\}_{j=1}^{K}))_{L}) (7)"
+        },
+        {
+          "index": 63,
+          "tag": "p",
+          "id": "S3.SS2.p2.2",
+          "text": "where, L L denotes the layers, FFN and Attention are standard components in a Transformer ( Vaswani et al., 2017 ) , and Pool denotes the aggregation of { v j } j = 1 K \\{v_{j}\\}_{j=1}^{K} and v i v_{i} using a learnable linear combination."
+        },
+        {
+          "index": 64,
+          "tag": "p",
+          "id": "S3.SS2.p3.1",
+          "text": "Global module. The global attention mechanism enables each seed node to attend to a set of B B global tokens representing centroids of all nodes in the graph, conceptually and is adapted from prior works ( Kong et al., 2023 ; Dwivedi et al., 2023 ) . These centroids are updated during training using an Exponential Moving Average (EMA) K-Means algorithm applied to seed node features in each mini-batch, providing a broader contextual view beyond the local neighborhood. The global representation is formulated as:"
+        },
+        {
+          "index": 65,
+          "tag": "tr",
+          "id": null,
+          "text": "h global ​ ( v i ) = Attention ​ ( v i , { c b } b = 1 B ) h_{\\text{global}}(v_{i})=\\text{Attention}(v_{i},\\{c_{b}\\}_{b=1}^{B}) (8)"
+        },
+        {
+          "index": 66,
+          "tag": "p",
+          "id": "S3.SS2.p3.2",
+          "text": "The final output representation of each node v i v_{i} is obtained by combining local and global embeddings:"
+        },
+        {
+          "index": 67,
+          "tag": "tr",
+          "id": null,
+          "text": "h output ( v i ) = FFN ( [ h local ( v i ) | | h global ( v i ) ] ) h_{\\text{output}}(v_{i})=\\text{FFN}([h_{\\text{local}}(v_{i})\\,||\\,h_{\\text{global}}(v_{i})]) (9)"
+        },
+        {
+          "index": 68,
+          "tag": "p",
+          "id": "S3.SS2.p3.3",
+          "text": "with FFN being a feed forward network. The components of the Transformer in all stages follow standard instantiations with normalization and residual connections."
+        },
+        {
+          "index": 69,
+          "tag": "p",
+          "id": "S3.SS2.p4.1",
+          "text": "For downstream prediction, the combined representation of the seed node is passed through a task-specific prediction head. The model is trained end-to-end using suitable task specific loss functions. By leveraging multi-element token representations within a hybrid local-global Transformer architecture, RelGT effectively addresses the challenges of heterogeneity, temporal dynamics, and schema-defined structures inherent in relational entity graphs."
+        },
+        {
+          "index": 70,
+          "tag": "h2",
+          "id": null,
+          "text": "4 Experiments"
+        },
+        {
+          "index": 71,
+          "tag": "p",
+          "id": "S4.p1.1",
+          "text": "RelGT is evaluated on the recently introduced RDL Benchmark (RelBench) ( Robinson et al., 2024 ) . RelBench consists of 7 datasets from diverse relational database domains, including e-commerce, clinical records, social networks, and sports, among others. These datasets are curated from their respective source domains and consist a wide range of sizes, from 1.3K to 5.4M records in the training set for the prediction tasks, with a total of 47M training records. For each dataset, multiple predictive tasks are defined, such as predicting a user’s engagement with an advertisement within the next four days or determining whether a clinical trial will achieve its primary outcome within the next year. In total, RelBench has 30 tasks across the 7 datasets, covering entity classification, entity regression, and recommendation. For our evaluation, we focus on 21 tasks on entity classification and regression 3 3 3 We exclude recommendation tasks in this work since they involve specific considerations, such as identifying target nodes ( You et al., 2021 ) or using pair-wise learning architectures ( Yuan et al., 2024 ) . Details in Sec. A.1 ."
+        },
+        {
+          "index": 72,
+          "tag": "h3",
+          "id": null,
+          "text": "4.1 Setup and Baselines"
+        },
+        {
+          "index": 73,
+          "tag": "p",
+          "id": "S4.SS1.p1.1",
+          "text": "We implement RelGT within the RDL pipeline ( Robinson et al., 2024 ) by replacing the original GNN component, while preserving the learning mechanisms, database loaders, and task evaluators. The model has between 10-20M parameters, and we use a learning rate of 1 ​ e − 4 1e-4 . For tasks with fewer than 1M training nodes, we tune the number of layers L ∈ 1 , 4 , 8 L\\in{1,4,8} and use dropout rates of 0.3 , 0.4 , 0.5 {0.3,0.4,0.5} . For tasks with more than 1M training nodes, we fix the number of layers to L = 4 L=4 due to compute budgets. For the sampling during the token preparation stage, we use K = 300 K=300 local neighbors and set B = 4096 B=4096 as the number of tokens for global centroids. For smaller datasets (under one million training nodes), we use a batch size of 256 to ensure sufficient training steps. For larger datasets, we use a batch size of 1024. We do not perform exhaustive hyperparameter tuning; rather, our goal is to showcase the benefits of using RelGT in place of GNNs within the RDL framework. As shown in our ablation of the multi-element tokenization and global module in RelGT (Tab. 2 ), and context size (Fig. 4 ), careful tuning may further improve performance across different tasks."
+        },
+        {
+          "index": 74,
+          "tag": "p",
+          "id": "S4.SS1.p2.1",
+          "text": "In addition to the HeteroGNN baseline used in RDL, we report results for two variants of the Heterogeneous Graph Transformer (HGT) ( Hu et al., 2020 ) to highlight the advantages of RelGT over existing GT models. Notably, many GTs, such as GraphGPS ( Rampášek et al., 2022 ) , are not directly applicable to heterogeneous graphs. Therefore, we adopt HGT and an enhanced version, HGT+PE, which incorporates Laplacian PE. These positional encodings are computed on the sampled subgraphs rather than the entire graph. Additional details are included in Appendix A.5 ."
+        },
+        {
+          "index": 75,
+          "tag": "h3",
+          "id": null,
+          "text": "4.2 Results and Discussion"
+        },
+        {
+          "index": 76,
+          "tag": "figcaption",
+          "id": null,
+          "text": "Table 1: Test set results on the entity regression and classification tasks in RelBench. Best values are in bold . RDL: HeteroGNN baseline ( Robinson et al., 2024 ) , HGT: Heterogeneous GT ( Hu et al., 2020 ) , PE: Laplacian PE. Relative gains are expressed as percentage improvement over RDL baseline."
+        },
+        {
+          "index": 77,
+          "tag": "figcaption",
+          "id": null,
+          "text": "(a) MAE for entity regression. Lower is better"
+        },
+        {
+          "index": 78,
+          "tag": "tr",
+          "id": "S4.T1.st1.2.1.1",
+          "text": "Dataset Task RDL HGT HGT +PE RelGT (ours) % Rel. Gain"
+        },
+        {
+          "index": 79,
+          "tag": "tr",
+          "id": "S4.T1.st1.2.1.2",
+          "text": "rel-f1 driver-position 4.022 4.2263 4.3921 3.9170 2.61"
+        },
+        {
+          "index": 126,
+          "tag": "h3",
+          "id": null,
+          "text": "A.1 Benchmark Details"
+        },
+        {
+          "index": 127,
+          "tag": "figcaption",
+          "id": null,
+          "text": "Table 3: Dataset and task statistics from RelBench used for our evaluation."
+        },
+        {
+          "index": 128,
+          "tag": "tr",
+          "id": "A1.T3.2.1",
+          "text": "Dataset Task Task type #Rows of training table #Unique %train/test"
+        },
+        {
+          "index": 129,
+          "tag": "tr",
+          "id": "A1.T3.2.2",
+          "text": "Train Validation Test Entities Entity Overlap"
+        },
+        {
+          "index": 142,
+          "tag": "tr",
+          "id": "A1.T3.2.15",
+          "text": "driver-position regression 7,453 499 760 826 44.6"
+        },
+        {
+          "index": 159,
+          "tag": "h5",
+          "id": null,
+          "text": "rel-f1 ."
+        },
+        {
+          "index": 160,
+          "tag": "p",
+          "id": "A1.SS1.SSS1.Px4.p1.1",
+          "text": "The F1 dataset provides comprehensive Formula 1 racing information since 1950, documenting drivers, constructors, manufacturers, and circuits with detailed records of race results, standings, and specific data on various racing sessions and pit stops."
+        },
+        {
+          "index": 182,
+          "tag": "p",
+          "id": "A1.I1.i4.p1.1",
+          "text": "rel-f1"
+        },
+        {
+          "index": 183,
+          "tag": "p",
+          "id": "A1.I1.i4.I1.i1.p1.1",
+          "text": "driver-dnf : Predict if a driver will not finish a race within the upcoming month."
+        },
+        {
+          "index": 184,
+          "tag": "p",
+          "id": "A1.I1.i4.I1.i2.p1.1",
+          "text": "driver-top3 : Determine if a driver will achieve a top-three qualifying position in a race within the upcoming month."
+        },
+        {
+          "index": 185,
+          "tag": "p",
+          "id": "A1.I1.i4.I1.i3.p1.1",
+          "text": "driver-position : Estimate a driver’s average finishing placement across all races in the upcoming two months."
+        },
+        {
+          "index": 291,
+          "tag": "h3",
+          "id": null,
+          "text": "A.6 Detailed Results"
+        },
+        {
+          "index": 292,
+          "tag": "p",
+          "id": "A1.SS6.p1.1",
+          "text": "In Table 8 , we report the full results of different configurations we tuned for RelGT , particularly on the smaller datasets with lesser than a million training nodes. Table 9 provides the full scores for the RelGT component study in Table 2 , while Table 10 provides the supporting results for Figure 4 . Finally, we provide the elaborated version of the Tables 1(a) and 1(b) in Tables 11 and 12 , respectively."
+        },
+        {
+          "index": 293,
+          "tag": "h3",
+          "id": null,
+          "text": "A.7 Computational Complexity and Resource Information."
+        },
+        {
+          "index": 294,
+          "tag": "p",
+          "id": "A1.SS7.p1.1",
+          "text": "RelGT has O ⁡ ( K 2 ⋅ d ) O(K^{2}\\cdot d) complexity for local attention and O ⁡ ( K ⋅ B ⋅ d ) O(K\\cdot B\\cdot d) for global attention per node, where K K is local context size, B B is number of global centroids, and d d is hidden dimension. We implement RelGT using PyTorch framework ( Paszke, 2019 ) , PyTorch Geometric framework ( Fey & Lenssen, 2019 ) and adapt the codebase of relational deep learning ( Robinson et al., 2024 ) https://github.com/snap-stanford/relbench . All our experiments are conducted on an NVIDIA A100 GPU server with 8 GPU nodes."
+        },
+        {
+          "index": 295,
+          "tag": "figcaption",
+          "id": null,
+          "text": "Table 8: RelGT results using L ∈ 1 , 4 , 8 L\\in{1,4,8} and dropout ∈ 0.3 , 0.4 , 0.5 \\in{0.3,0.4,0.5} for the smaller datasets with less than a million training nodes."
+        },
+        {
+          "index": 296,
+          "tag": "tr",
+          "id": "A1.T8.4.1.1",
+          "text": "Dataset Task (# train) MAE ↓ \\downarrow L1 0.3 L1 0.4 L1 0.5 L4 0.3 L4 0.4 L4 0.5 L8 0.3 L8 0.4 L8 0.5"
+        },
+        {
+          "index": 297,
+          "tag": "tr",
+          "id": "A1.T8.4.1.2",
+          "text": "rel-f1 driver-position (7k) Test 4.942 5.6431 3.917 4.6316 4.0851 4.0042 5.5273 5.5569 4.6085"
+        },
+        {
+          "index": 298,
+          "tag": "tr",
+          "id": "A1.T8.4.1.3",
+          "text": "Val 3.1897 3.1817 3.3257 3.1046 3.3352 3.1276 3.1589 3.2907 3.1843"
+        },
+        {
+          "index": 360,
+          "tag": "figcaption",
+          "id": null,
+          "text": "Table 11: Results on the entity regression tasks in RelBench. Lower is better. Best values are in bold . Relative gains are expressed as percentage improvement over RDL baseline."
+        },
+        {
+          "index": 361,
+          "tag": "tr",
+          "id": "A1.T11.4.1.1",
+          "text": "Dataset Task MAE ↓ \\downarrow RDL Baseline HGT HGT +PE RelGT (ours) % Rel. Gain"
+        },
+        {
+          "index": 362,
+          "tag": "tr",
+          "id": "A1.T11.4.1.2",
+          "text": "rel-f1 driver-position Test 4.022 ± \\pm 0.119 4.2263 ± \\pm 0.0580 4.3921 ± \\pm 0.1382 3.9170 ± \\pm 0.3448 2.61"
+        },
+        {
+          "index": 363,
+          "tag": "tr",
+          "id": "A1.T11.4.1.3",
+          "text": "Val 3.193 ± \\pm 0.024 3.1543 ± \\pm 0.1455 3.1116 ± \\pm 0.1120 3.3257 ± \\pm 0.5618"
+        }
+      ]
+    },
+    {
+      "canonical_id": "arXiv:2407.20060v1",
+      "source": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/industrial_followup_task_scout_v1/sources/relbench_v1.html",
+      "sha256": "f933604d45fa863819902b13f5b65f7ea684c7f9f9b74a61f2229c7c2f73f1fc",
+      "block_ranges": [
+        [
+          29,
+          29
+        ],
+        [
+          50,
+          50
+        ],
+        [
+          71,
+          71
+        ],
+        [
+          141,
+          142
+        ],
+        [
+          239,
+          241
+        ],
+        [
+          308,
+          309
+        ],
+        [
+          432,
+          432
+        ]
+      ],
+      "blocks": [
+        {
+          "index": 29,
+          "tag": "tr",
+          "id": "S2.T1.8.6",
+          "class": "ltx_tr",
+          "text": "rel-f1 Sports 3 9 74,063 67 1950-05-13 2005-01-01 2010-01-01"
+        },
+        {
+          "index": 50,
+          "tag": "p",
+          "id": "S4.p3.1",
+          "class": "ltx_p",
+          "text": "rel-f1 . The F1 database tracks all-time Formula 1 racing data and statistics since 1950. It provides detailed information for various stakeholders including drivers, constructors, engine manufacturers, and tyre manufacturers. Highlights include data on all circuits ( e.g. geographical details), and full historical data from every season. This includes overall standings, race results, and more specific data like practice sessions, qualifying positions, sprints, and pit stops."
+        },
+        {
+          "index": 71,
+          "tag": "tr",
+          "id": "S4.T2.4.19",
+          "class": "ltx_tr",
+          "text": "driver-position entity-reg 7,453 499 760 826 44.6 —"
+        },
+        {
+          "index": 141,
+          "tag": "tr",
+          "id": "S5.T4.4.10",
+          "class": "ltx_tr",
+          "text": "rel-f1 driver-position Val 11.083 11.083 4.334 4.334 4.136 4.136 7.181 7.181 7.114 7.114 3.450 3.450 3.193 \\bm{3.193} 7.44 7.44 %"
+        },
+        {
+          "index": 142,
+          "tag": "tr",
+          "id": "S5.T4.4.11",
+          "class": "ltx_tr",
+          "text": "Test 11.926 11.926 4.513 4.513 4.399 4.399 8.501 8.501 8.519 8.519 4.170 4.170 4.022 \\bm{4.022} 3.56 3.56 %"
+        },
+        {
+          "index": 239,
+          "tag": "p",
+          "id": "A1.I1.i3.p1.1",
+          "class": "ltx_p",
+          "text": "rel-f1"
+        },
+        {
+          "index": 240,
+          "tag": "p",
+          "id": "A1.I1.i3.p2.1",
+          "class": "ltx_p",
+          "text": "Node-level tasks:"
+        },
+        {
+          "index": 241,
+          "tag": "p",
+          "id": "A1.I1.i3.I1.i1.p1.1",
+          "class": "ltx_p",
+          "text": "driver-position : Predict the average finishing position of each driver all races in the next 2 months."
+        },
+        {
+          "index": 308,
+          "tag": "tr",
+          "id": "A2.T7.4.10",
+          "class": "ltx_tr",
+          "text": "rel-f1 driver-position Val 11.083 11.083 4.334 4.334 4.136 4.136 7.181 7.181 7.114 7.114 3.450 ± 0.030 3.450_{\\pm 0.030} 3.193 ± 0.024 \\bm{3.193}_{\\pm 0.024}"
+        },
+        {
+          "index": 309,
+          "tag": "tr",
+          "id": "A2.T7.4.11",
+          "class": "ltx_tr",
+          "text": "Test 11.926 11.926 4.513 4.513 4.399 4.399 8.501 8.501 8.519 8.519 4.170 ± 0.137 \\bm{4.170}_{\\pm 0.137} 4.022 ± 0.119 \\bm{4.022}_{\\pm 0.119}"
+        },
+        {
+          "index": 432,
+          "tag": "p",
+          "id": "A4.p5.1",
+          "class": "ltx_p",
+          "text": "rel-f1 . Data was sourced from the Ergast API ( https://ergast.com/mrd/ ) in February 2024. The Ergast Developer API is an experimental web service which provides a historical record of motor racing data for non-commercial purposes. As far as we are able to determine the data is public and license is not specified."
+        }
+      ],
+      "scope": "Named F1 follow-up revisit; other benchmark conclusions reused"
+    }
+  ],
+  "author_source": [
+    {
+      "path": "sources/relgt_main_node_ddp.py",
+      "sha256": "13aadf626e0ac95c491cbb9ea37cab71172d543d57e07c72cf351849908fdf87",
+      "line_ranges": [
+        [
+          43,
+          80
+        ],
+        [
+          85,
+          112
+        ],
+        [
+          117,
+          154
+        ],
+        [
+          199,
+          213
+        ],
+        [
+          269,
+          340
+        ],
+        [
+          342,
+          457
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 43,
+          "end": 80,
+          "text": "parser = argparse.ArgumentParser()\nparser.add_argument(\"--dataset\", type=str, default=\"rel-f1\")\nparser.add_argument(\"--task\", type=str, default=\"driver-top3\")\nparser.add_argument(\"--precompute\", action=\"store_true\", default=True)\nparser.add_argument(\"--lr\", type=float, default=0.0001)\nparser.add_argument(\"--warmup_steps\", type=int, default=1000)\nparser.add_argument(\"--epochs\", type=int, default=10)\nparser.add_argument(\"--batch_size\", type=int, default=512)\nparser.add_argument(\"--channels\", type=int, default=512)\nparser.add_argument(\"--aggr\", type=str, default=\"sum\")\nparser.add_argument(\"--num_layers\", type=int, default=1)\nparser.add_argument(\"--num_heads\", type=int, default=4)\nparser.add_argument(\"--gt_conv_type\", type=str, default=\"full\")\nparser.add_argument(\"--ablate\", type=str, default=\"none\")\nparser.add_argument(\"--gnn_pe_dim\", type=int, default=0)\nparser.add_argument(\"--num_neighbors\", type=int, default=300)\nparser.add_argument(\"--num_centroids\", type=int, default=4096)\nparser.add_argument(\"--ff_dropout\", type=float, default=0.1)\nparser.add_argument(\"--attn_dropout\", type=float, default=0.1)\nparser.add_argument(\"--weight_decay\", type=float, default=0.00001)\nparser.add_argument(\"--temporal_strategy\", type=str, default=\"uniform\")\nparser.add_argument(\"--pos_enc\", type=str, default=\"none\")\nparser.add_argument(\"--max_degree\", type=int, default=10000)\nparser.add_argument(\"--pos_enc_dim\", type=int, default=128)\nparser.add_argument(\"--max_steps_per_epoch\", type=int, default=3000)\nparser.add_argument(\"--num_workers\", type=int, default=2)\nparser.add_argument(\"--seed\", type=int, default=42)\nparser.add_argument(\"--out_dir\", type=str, default=\"results/debug\")\nparser.add_argument(\"--run_name\", type=str, default=\"debug\")\nparser.add_argument('--model_parameters', type=int, default=0, help='Number of model parameters')\nparser.add_argument(\n    \"--cache_dir\",\n    type=str,\n    default=os.path.expanduser(\"~/.cache/relbench_examples\"),\n)\nparser.add_argument(\"--train_stage\", type=str, default=\"finetune\", choices=[\"finetune\"])\n\nargs = parser.parse_args()"
+        },
+        {
+          "start": 85,
+          "end": 112,
+          "text": "dist.init_process_group(backend=\"nccl\")\n# local_rank = args.local_rank\nlocal_rank = int(os.environ[\"LOCAL_RANK\"])\ndevice = torch.device(\"cuda\", local_rank)\ntorch.cuda.set_device(device)\n\n# Only the main process (rank 0) initializes wandb and prints logs.\nif local_rank == 0:\n    args.run_name = f\"{args.dataset}-{args.task}-{args.run_name}\"\n\ndef init_gpu_utilization(device_index):\n    pynvml.nvmlInit()\n    handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)\n    return handle\n\ndef get_gpu_stats(handle, device):\n    util = pynvml.nvmlDeviceGetUtilizationRates(handle)\n    gpu_util = util.gpu\n    mem_allocated = torch.cuda.memory_allocated(device) / 1024**2\n    mem_reserved = torch.cuda.memory_reserved(device) / 1024**2\n    return gpu_util, mem_allocated, mem_reserved\n\nprint(f\"Using device: {device}\")\nif torch.cuda.is_available():\n    torch.set_num_threads(1)\nseed_everything(args.seed)\n\ngpu_handle = init_gpu_utilization(local_rank)"
+        },
+        {
+          "start": 117,
+          "end": 154,
+          "text": "dataset: Dataset = get_dataset(args.dataset, download=True)\ntask: EntityTask = get_task(args.dataset, args.task, download=True)\n\nstypes_cache_path = Path(f\"{args.cache_dir}/{args.dataset}/stypes.json\")\ntry:\n    with open(stypes_cache_path, \"r\") as f:\n        col_to_stype_dict = json.load(f)\n    for table, col_to_stype in col_to_stype_dict.items():\n        for col, stype_str in col_to_stype.items():\n            col_to_stype[col] = stype(stype_str)\nexcept FileNotFoundError:\n    col_to_stype_dict = get_stype_proposal(dataset.get_db())\n    Path(stypes_cache_path).parent.mkdir(parents=True, exist_ok=True)\n    with open(stypes_cache_path, \"w\") as f:\n        json.dump(col_to_stype_dict, f, indent=2, default=str)\n\ndata, col_stats_dict = make_pkey_fkey_graph(\n    dataset.get_db(),\n    col_to_stype_dict=col_to_stype_dict,\n    text_embedder_cfg=TextEmbedderConfig(\n        text_embedder=GloveTextEmbedding(device=f\"cuda:{local_rank}\"), batch_size=256\n    ),\n    cache_dir=f\"{args.cache_dir}/{args.dataset}/materialized\",\n)\n\ndata = {\n    split: RelGTTokens(\n        data=data, \n        task=task,\n        K=args.num_neighbors, \n        split=split, \n        undirected=True, \n        precompute=args.precompute,\n        precomputed_dir=f\"{args.cache_dir}/precomputed/{args.dataset}/{args.task}\",\n        num_workers=args.num_workers,\n        train_stage=args.train_stage)\n        for split in [\"train\", \"val\", \"test\"]\n    }"
+        },
+        {
+          "start": 199,
+          "end": 213,
+          "text": "clamp_min, clamp_max = None, None\nif task.task_type == TaskType.BINARY_CLASSIFICATION:\n    out_channels = 1\n    loss_fn = BCEWithLogitsLoss()\n    tune_metric = \"roc_auc\"\n    higher_is_better = True\nelif task.task_type == TaskType.REGRESSION:\n    out_channels = 1\n    loss_fn = L1Loss()\n    tune_metric = \"mae\"\n    higher_is_better = False\n    train_table = task.get_table(\"train\")\n    clamp_min, clamp_max = np.percentile(\n        train_table.df[task.target_col].to_numpy(), [2, 98]\n    )"
+        },
+        {
+          "start": 269,
+          "end": 340,
+          "text": "output_path = os.path.join(args.out_dir, args.dataset, args.task)\nos.makedirs(output_path, exist_ok=True)\n\nworld_size = dist.get_world_size()\nbase_lr = args.lr * world_size\noptimizer = torch.optim.Adam(model.parameters(), lr=base_lr, weight_decay=args.weight_decay)\n\nglobal_step = 0\n\n############################\n# 7. Training and Evaluation Loops\n############################\ndef train_supervised(epoch) -> float:\n    global global_step\n    model.train()\n    loss_accum = count_accum = 0\n    total_steps = min(len(loader_dict[\"train\"]), args.max_steps_per_epoch)\n    \n    train_sampler.set_epoch(epoch)\n    \n    for step, batch in enumerate(tqdm(loader_dict[\"train\"], total=total_steps, desc=\"Train\"), start=1):\n        # Move tensors to the proper device.\n        neighbor_types = batch[\"neighbor_types\"].to(device)\n        node_indices = batch[\"node_indices\"].to(device)\n        neighbor_hops = batch[\"neighbor_hops\"].to(device)\n        neighbor_times = batch[\"neighbor_times\"].to(device)\n        edge_index = batch[\"edge_index\"].to(device)\n        batch_vec = batch[\"batch\"].to(device)\n\n        grouped_tf_dict = {\n            'grouped_tfs': batch['grouped_tfs'],\n            'grouped_indices': batch['grouped_indices'],\n            'flat_batch_idx': batch['flat_batch_idx'],\n            'flat_nbr_idx': batch['flat_nbr_idx']\n        }\n        labels = batch[\"labels\"].to(device)\n\n        optimizer.zero_grad()\n        pred = model(\n            neighbor_types,\n            node_indices,\n            neighbor_hops,\n            neighbor_times,\n            grouped_tf_dict,\n            edge_index=edge_index,\n            batch=batch_vec\n        )\n        pred = pred.view(-1) if pred.size(1) == 1 else pred        \n        loss = loss_fn(pred.float(), labels)\n        loss.backward()\n        clip_grad_norm_(model.parameters(), max_norm=1.0)\n        optimizer.step()\n\n        loss_value = loss.detach().item()\n        gpu_util, mem_allocated, mem_reserved = get_gpu_stats(gpu_handle, device)\n        # Only rank 0 logs training metrics.\n        if local_rank == 0:\n            wandb.log({\"train_loss\": loss_value,\n                       \"global_step\": global_step,\n                       \"lr\": optimizer.param_groups[0][\"lr\"],\n                       \"gpu_util_percent\": gpu_util,\n                       \"gpu_mem_allocated_MB\": mem_allocated,\n                       \"gpu_mem_reserved_MB\": mem_reserved})\n\n        loss_accum += loss_value * pred.size(0)\n        count_accum += pred.size(0)\n        global_step += 1\n\n        if step >= args.max_steps_per_epoch:\n            break\n\n    return loss_accum / count_accum if count_accum > 0 else float('inf')"
+        },
+        {
+          "start": 342,
+          "end": 457,
+          "text": "@torch.no_grad()\ndef test(loader: DataLoader, eval_model, epoch, desc) -> np.ndarray:\n    if loader.sampler is not None and hasattr(loader.sampler, 'set_epoch'):\n        loader.sampler.set_epoch(epoch)\n        \n    eval_model.eval()\n    pred_list = []\n    idx_list = []\n    \n    for batch in tqdm(loader, desc=desc, disable=(local_rank != 0)):\n        neighbor_types = batch[\"neighbor_types\"].to(device)\n        node_indices = batch[\"node_indices\"].to(device)\n        neighbor_hops = batch[\"neighbor_hops\"].to(device)\n        neighbor_times = batch[\"neighbor_times\"].to(device)\n        edge_index = batch[\"edge_index\"].to(device)\n        batch_vec = batch[\"batch\"].to(device)\n        \n        grouped_tf_dict = {\n            'grouped_tfs': batch['grouped_tfs'],\n            'grouped_indices': batch['grouped_indices'],\n            'flat_batch_idx': batch['flat_batch_idx'],\n            'flat_nbr_idx': batch['flat_nbr_idx']\n        }\n        pred = eval_model(\n            neighbor_types,\n            node_indices,\n            neighbor_hops,\n            neighbor_times,\n            grouped_tf_dict,\n            edge_index=edge_index,\n            batch=batch_vec\n        )\n        if task.task_type == TaskType.REGRESSION:\n            pred = torch.clamp(pred, clamp_min, clamp_max)\n        if task.task_type in [TaskType.BINARY_CLASSIFICATION, TaskType.MULTILABEL_CLASSIFICATION]:\n            pred = torch.sigmoid(pred)\n        pred = pred.view(-1) if pred.size(1) == 1 else pred\n        pred_list.append(pred.detach().cpu().numpy())\n        idx_list.append(batch[\"global_idx\"].cpu().numpy())\n    \n    # Concatenate local predictions & indices\n    local_preds = np.concatenate(pred_list, axis=0) if pred_list else np.array([])\n    local_idxs  = np.concatenate(idx_list,  axis=0) if idx_list  else np.array([])\n\n    # Gather on rank 0\n    gathered = [None for _ in range(world_size)] if local_rank == 0 else None\n    dist.gather_object((local_idxs, local_preds), object_gather_list=gathered, dst=0)\n\n    if local_rank == 0:\n        all_preds = np.full((len(loader.dataset),), -100.0)\n        for i in range(world_size):\n            g_idx, g_pred = gathered[i]\n            for idx, pred in zip(g_idx, g_pred):\n                all_preds[idx] = pred\n        return all_preds\n    else:\n        return None\n\nif args.train_stage == \"finetune\":\n    # Supervised Finetuning Stage:\n    best_val_metric = -math.inf if higher_is_better else math.inf\n    state_dict = None\n\n    for epoch in range(1, args.epochs + 1):\n        # use supervised training loop.\n        train_loss = train_supervised(epoch)\n        # scheduler.step()\n        \n        dist.barrier()\n        eval_model = model.module  # get the underlying model\n        \n        # Run evaluation on the validation set.\n        val_pred = test(loader_dict[\"val\"], eval_model=eval_model, epoch=epoch, desc=\"Val\")\n        if local_rank == 0:\n            val_metrics = task.evaluate(val_pred, task.get_table(\"val\"))\n            print(f\"Epoch: {epoch:02d}, Train loss: {train_loss}, Val metrics: {val_metrics}\")\n            wandb.log({\n                \"epoch\": epoch,\n                \"epoch_train_loss\": train_loss,\n                **{f\"val_{k}\": v for k, v in val_metrics.items()}\n            })\n            \n            if (higher_is_better and val_metrics[tune_metric] >= best_val_metric) or (\n                not higher_is_better and val_metrics[tune_metric] <= best_val_metric\n            ):\n                best_val_metric = val_metrics[tune_metric]\n                state_dict = copy.deepcopy(model.module.state_dict())\n                torch.save(state_dict, os.path.join(output_path, \"finetuned.pt\"))\n        dist.barrier()\n\n    if local_rank == 0 and state_dict is not None:\n        model.module.load_state_dict(state_dict)\n    for param in model.parameters():\n        dist.broadcast(param.data, src=0)\n    for buf in model.buffers():\n        dist.broadcast(buf.data, src=0)\n    dist.barrier()\n\n    # Final evaluation after finetuning:\n    final_val_preds = test(loader_dict[\"val\"], eval_model=model.module, epoch=0, desc=\"Val\")\n    final_test_preds = test(loader_dict[\"test\"], eval_model=model.module, epoch=0, desc=\"Test\")\n\n    if local_rank == 0:\n        val_metrics = task.evaluate(final_val_preds, task.get_table(\"val\"))\n        print(f\"Best Val metrics: {val_metrics}\")\n\n        test_metrics = task.evaluate(final_test_preds)\n        print(f\"Best Test metrics: {test_metrics}\")\n\n        best_metrics_dict = {\n            \"val_metrics\": val_metrics,\n            \"test_metrics\": test_metrics\n        }\n        file_path = os.path.join(output_path, str(args.seed) + \".json\")\n        with open(file_path, \"w\") as f:\n            json.dump(best_metrics_dict, f, indent=4)"
+        }
+      ]
+    },
+    {
+      "path": "sources/relgt_utils.py",
+      "sha256": "e68587e2722ca68c70ec58d915559d13211dedae187145e39814bd5ff9baccc5",
+      "line_ranges": [
+        [
+          137,
+          180
+        ],
+        [
+          215,
+          274
+        ],
+        [
+          303,
+          332
+        ],
+        [
+          364,
+          373
+        ],
+        [
+          399,
+          454
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 137,
+          "end": 180,
+          "text": "def _process_one_seed(args):\n    \"\"\"\n    Worker function: gather neighbors for a single seed node + time,\n    perform local nodes expansions up to K, apply fallback if necessary,\n    then return a final list of neighbor tokens.\n    \"\"\"\n    global GLOBAL_ADJ, GLOBAL_ALL_NODES\n\n    (data, K, seed_node_type, seed_node_idx, seed_time, seed_val) = args\n    random.seed(seed_val)\n\n    # 1. gather 1-hop and 2-hop\n    T_hat = gather_1_and_2_hop_with_seed_time(\n        GLOBAL_ADJ, data, seed_node_type, seed_node_idx, seed_time\n    )\n    T_hat_list = list(T_hat)\n    size_th = len(T_hat_list)\n    K_minus_1 = K - 1\n\n    # separate 1-hop, 2-hop\n    one_hop_neighbors = [n for n in T_hat_list if n[2] == 1]\n    two_hop_neighbors = [n for n in T_hat_list if n[2] == 2]\n    combined_neighbors = one_hop_neighbors + two_hop_neighbors\n\n    # 2. If we have enough neighbors => random.sample\n    #    If not => random.choices\n    if size_th >= K_minus_1:\n        chosen_neighbors = random.sample(combined_neighbors, K_minus_1)\n    elif 0 < size_th < K_minus_1:\n        chosen_neighbors = random.choices(combined_neighbors, k=K_minus_1)\n    else:\n        # fallback from GLOBAL_ALL_NODES\n        if K_minus_1 <= len(GLOBAL_ALL_NODES):\n            fallback = random.sample(GLOBAL_ALL_NODES, K_minus_1)\n        else:\n            fallback = random.choices(GLOBAL_ALL_NODES, k=K_minus_1)\n        chosen_neighbors = []\n        for (ft, fi) in fallback:\n            if hasattr(data[ft], \"time\"):\n                ft_time = data[ft].time[fi].item()\n                rel_time = (seed_time - ft_time) / (60 * 60 * 24)\n            else:\n                rel_time = 0\n            chosen_neighbors.append((ft, fi, 3, rel_time, None))"
+        },
+        {
+          "start": 215,
+          "end": 274,
+          "text": "def local_nodes_hetero(\n    data: HeteroData,\n    K: int,\n    table_input_nodes: tuple,\n    table_input_time: torch.Tensor,\n    undirected: bool = True,\n    num_workers: int = None\n):\n    \"\"\"\n    Produces a dictionary S[seed_node_type][idx] for each node in `table_input_nodes[1]`.\n    local neighbor sampling up to 2-hop, with fallback if needed, in parallel.\n    \"\"\"\n    global GLOBAL_ADJ, GLOBAL_ALL_NODES\n\n    # 1) Build adjacency once\n    if GLOBAL_ADJ is None:\n        adjacency = build_adjacency_hetero(data, undirected=undirected)\n        GLOBAL_ADJ = adjacency\n    else:\n        adjacency = GLOBAL_ADJ\n\n    # 2) Build fallback list of all nodes ONCE\n    if GLOBAL_ALL_NODES is None:\n        all_nodes_all_types = []\n        for nt in data.node_types:\n            for i in range(data[nt].num_nodes):\n                all_nodes_all_types.append((nt, i))\n        GLOBAL_ALL_NODES = all_nodes_all_types\n    else:\n        all_nodes_all_types = GLOBAL_ALL_NODES\n\n    seed_node_type, seed_node_idxs = table_input_nodes\n    assert len(seed_node_idxs) == len(table_input_time), \"Mismatch in seed_node_idxs vs table_input_time\"\n\n    # 3) Prepare tasks\n    tasks = []\n    for i, node_idx_t in enumerate(seed_node_idxs):\n        node_idx = node_idx_t.item()\n        seed_t = table_input_time[i].item()\n        seed_val = hash((seed_node_type, node_idx, seed_t, K)) & 0xffffffff\n        tasks.append((data, K, seed_node_type, node_idx, seed_t, seed_val))\n\n    if num_workers is None:\n        from multiprocessing import cpu_count\n        num_workers = min(cpu_count()-20, len(tasks))\n\n    # 4) Run neighbor sampling for each node in parallel\n    with Pool(\n        processes=num_workers,\n        initializer=init_worker_globals,\n        initargs=(adjacency, all_nodes_all_types)  # pass both adjacency and fallback\n    ) as pool:\n        results = pool.map(_process_one_seed, tasks)\n\n    # 5) Build the final dictionary S\n    S = {seed_node_type: {}}\n    for (nt, idx, final_list, edge_index) in results:\n        S[nt][idx] = (final_list, edge_index)\n\n    return S"
+        },
+        {
+          "start": 303,
+          "end": 332,
+          "text": "        # Retrieve the table and the seeds/targets\n        self.table = self.task.get_table(split=self.split)\n        self.table_input = get_node_train_table_input(self.table, self.task)\n        self.node_type, self.node_idxs = self.table_input.nodes\n        self.target = self.table_input.target if self.table_input.target is not None else None\n\n        self.time = getattr(self.table_input, \"time\", None)\n        self.transform = getattr(self.table_input, \"transform\", None)\n\n        # type <-> index mappings\n        self.node_types = self.data.node_types\n        self.node_type_to_index = {nt: idx for idx, nt in enumerate(self.node_types)}\n        self.index_to_node_type = {idx: nt for idx, nt in enumerate(self.node_types)}\n        \n        self.max_neighbor_hop = 2 + 1  # 2 for hop neighbors + 1 for random fallback\n\n        # Create global index mappings for (type_id, local_id)\n        self._create_global_mappings()\n\n        # HDF5 path\n        self.precomputed_path = self._construct_precomputed_path()\n        \n        self.train_stage = train_stage\n\n        if self.precompute:\n            if os.path.exists(self.precomputed_path):\n                print(f\"[{self.split}] Found existing HDF5 at {self.precomputed_path}\")\n            else:\n                print(f\"[{self.split}] Precomputing neighbor sampling (K={self.K})...\")\n                self._precompute_sampling()"
+        },
+        {
+          "start": 364,
+          "end": 373,
+          "text": "    def _construct_precomputed_path(self) -> str:\n        if not self.precomputed_dir:\n            raise ValueError(\"must provide a 'precomputed_dir' to store expansions.\")\n        path = os.path.join(\n            self.precomputed_dir,\n            str(self.K),\n            f\"{self.split}.h5\"\n        )\n        os.makedirs(os.path.dirname(path), exist_ok=True)\n        return path"
+        },
+        {
+          "start": 399,
+          "end": 454,
+          "text": "    def _precompute_sampling(self):\n        \"\"\"\n        run local_nodes_hetero(...) in chunks and store expansions in HDF5,\n        but NOT labels (we'll retrieve from self.target at runtime).\n        \"\"\"\n        total = len(self.node_idxs)\n        chunk_size = 10000\n\n        with h5py.File(self.precomputed_path, 'w') as hf:\n            datasets = self._create_datasets(hf, total)\n            \n            adjacency_all = [None] * total\n\n            with tqdm(total=total, desc=f\"Precomputing '{self.split}'\") as pbar:\n                for start_idx in range(0, total, chunk_size):\n                    end_idx = min(start_idx + chunk_size, total)\n                    size_chunk = end_idx - start_idx\n\n                    # Slice node indices for this chunk\n                    chunk_node_idxs = self.node_idxs[start_idx:end_idx]\n                    chunk_times = None\n                    if self.time is not None:\n                        chunk_times = self.time[start_idx:end_idx]\n\n                    # neighbors sampling\n                    S_chunk = local_nodes_hetero(\n                        data=self.data.to(\"cpu\"),  # or keep on CPU\n                        K=self.K,\n                        table_input_nodes=(self.node_type, chunk_node_idxs),\n                        table_input_time=chunk_times,\n                        undirected=self.undirected,\n                        num_workers=self.num_workers\n                    )\n\n                    # arrays to fill\n                    c_types = np.zeros((size_chunk, self.K), dtype=np.int16)\n                    c_indices = np.zeros((size_chunk, self.K), dtype=np.int32)\n                    c_hops = np.zeros((size_chunk, self.K), dtype=np.int8)\n                    c_times = np.zeros((size_chunk, self.K), dtype=np.float32)\n\n                    # fill arrays row-by-row\n                    for i, node_id in enumerate(chunk_node_idxs):\n                        final_nodes, edge_index = S_chunk[self.node_type][int(node_id)]\n                        for j, (t_str, nbr_loc_idx, hop, t_val, c1hops) in enumerate(final_nodes):\n                            c_types[i, j] = self.node_type_to_index[t_str]\n                            c_indices[i, j] = nbr_loc_idx\n                            c_hops[i, j] = hop\n                            c_times[i, j] = t_val\n                        adjacency_all[start_idx + i] = edge_index\n\n                    # write chunk to HDF5\n                    datasets[\"types\"][start_idx:end_idx] = c_types\n                    datasets[\"indices\"][start_idx:end_idx] = c_indices\n                    datasets[\"hops\"][start_idx:end_idx] = c_hops\n                    datasets[\"times\"][start_idx:end_idx] = c_times\n"
+        }
+      ]
+    },
+    {
+      "path": "sources/relgt_expts_run-hyperparam-sweep-small-experiments.sh",
+      "sha256": "5810ce29b4940c58ee9427788703aab6b35076ee70db4dcc7c7cdd3b91aa53e2",
+      "line_ranges": [
+        [
+          15,
+          35
+        ],
+        [
+          67,
+          108
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 15,
+          "end": 35,
+          "text": "datasets=(\"rel-avito\" \"rel-f1\" \"rel-event\" \"rel-trial\" \"rel-f1\" \"rel-f1\" \"rel-avito\" \"rel-avito\" \"rel-event\" \"rel-event\" \"rel-trial\" \"rel-trial\")\ntasks=(\"ad-ctr\" \"driver-dnf\" \"user-repeat\" \"study-outcome\" \"driver-position\" \"driver-top3\" \"user-clicks\" \"user-visits\" \"user-attendance\" \"user-ignore\" \"study-adverse\" \"site-success\")\n\ncheck_array_lengths \"${datasets[@]}\" \"${tasks[@]}\"\n\n# GPU IDs\ngpu_nodes=(0 1 2 3 4 5 6 7)\n\n# Dropout and num_layers combos\ndropouts=(0.3 0.4 0.5)\nnum_layers=(1 4 8)\n\n# Build the list of all experiment configurations\nexpt_configs=()\nfor d in \"${dropouts[@]}\"; do\n    for l in \"${num_layers[@]}\"; do\n        for i in \"${!datasets[@]}\"; do\n            expt_configs+=(\"${datasets[$i]}|${tasks[$i]}|$d|$l\")\n        done\n    done\ndone"
+        },
+        {
+          "start": 67,
+          "end": 108,
+          "text": "    # Decide the number of epochs\n    local epochs=100\n    if [[ \"$dataset\" == \"rel-trial\" && \"$task\" == \"site-success\" ]]; then\n        epochs=50\n    fi\n\n    local batch_size=256\n    local max_steps_per_epoch=3000\n\n    local run_name=\"relgt-l${layers}-512-dropout${dro}-BS${batch_size}-MAX${max_steps_per_epoch}\"\n    local out_dir=\"results/${run_name}\"\n    mkdir -p \"$out_dir\"\n\n    log_message \"[GPU ${gpu_id}] Launching $dataset($task) with dropout=$dropout, layers=$layers, epochs=$epochs\"\n\n    # Create a lockfile to indicate this GPU is in use\n    local lockfile=\"/tmp/gpu_${gpu_id}.lock\"\n    echo \"experiment: $dataset-$task\" > \"$lockfile\"\n\n    # Launch the job\n    CUDA_VISIBLE_DEVICES=${gpu_id} \\\n    torchrun \\\n        --nproc_per_node=1 \\\n        --master_port=\"${port}\" \\\n        main_node_ddp.py \\\n        --dataset \"${dataset}\" \\\n        --task \"${task}\" \\\n        --precompute \\\n        --seed 0 \\\n        --batch_size \"${batch_size}\" \\\n        --num_neighbors 300 \\\n        --num_layers \"${layers}\" \\\n        --channels 512 \\\n        --max_steps_per_epoch \"${max_steps_per_epoch}\" \\\n        --num_workers 8 \\\n        --epochs \"${epochs}\" \\\n        --lr 0.0001 \\\n        --warmup_steps 100 \\\n        --ff_dropout \"${dropout}\" \\\n        --attn_dropout \"${dropout}\" \\\n        --run_name \"${run_name}\" \\\n        --out_dir \"${out_dir}\" &"
+        }
+      ]
+    },
+    {
+      "path": "sources/relgt_model.py",
+      "sha256": "293f69d215ee5dbd53ea4a10f059532d549ba213611a55d9816b3fa8d863740b",
+      "line_ranges": [
+        [
+          114,
+          151
+        ],
+        [
+          243,
+          312
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 114,
+          "end": 151,
+          "text": "    def global_forward(self, x, batch_idx):\n        d, h = self.out_channels, self.heads\n        scale = 1.0 / math.sqrt(d)\n\n        q_x = self.lin_proj_g(x)\n\n        k_buf = self.vq.get_k()\n        k_x = k_buf.detach().clone()\n        v_buf = self.vq.get_v()\n        v_x = v_buf.detach().clone()\n\n\n        q = self.lin_query_g(q_x)\n        k = self.lin_key_g(k_x)\n        v = self.lin_value_g(v_x)\n\n        q, k, v = map(lambda t: rearrange(t, \"n (h d) -> h n d\", h=h), (q, k, v))\n        dots = torch.einsum(\"h i d, h j d -> h i j\", q, k) * scale\n\n        c, c_count = self.c_idx.unique(return_counts=True)\n\n        centroid_count = torch.zeros(self.num_centroids, dtype=torch.long).to(x.device)\n        centroid_count[c.to(torch.long)] = c_count\n\n        dots = dots + torch.log(centroid_count.view(1, 1, -1))\n\n        attn = self.attn_fn(dots, dim=-1)\n        attn = F.dropout(attn, p=self.attn_dropout, training=self.training)\n\n        out = torch.einsum(\"h i j, h j d -> h i d\", attn, v)\n        out = rearrange(out, \"h n d -> n (h d)\")\n\n        # Update the centroids\n        if self.training:\n            x_idx = self.vq.update(q_x)\n            self.c_idx[batch_idx] = x_idx.squeeze().to(torch.long)\n\n        return out"
+        },
+        {
+          "start": 243,
+          "end": 312,
+          "text": "            h_times = 2 if conv_type == \"full\" else 1\n\n            self.ffs.append(\n                nn.Sequential(\n                    nn.BatchNorm1d(hidden_channels * h_times), # BN in\n                    nn.Linear(h_times * hidden_channels, hidden_channels * 2),\n                    nn.GELU(),\n                    nn.Dropout(ff_dropout),\n                    nn.Linear(hidden_channels * 2, hidden_channels),\n                    nn.Dropout(ff_dropout),\n                    nn.BatchNorm1d(hidden_channels), # BN out\n                )\n            )\n\n        # supervised task head\n        self.head = MLP(\n            channels,\n            hidden_channels=channels,\n            out_channels=out_channels,\n            num_layers=2,\n        )\n\n    def reset_parameters(self):\n        self.type_encoder.reset_parameters()\n        self.hop_encoder.reset_parameters()\n        self.time_encoder.reset_parameters()\n        self.tfs_encoder.reset_parameters()\n        self.pe_encoder.reset_parameters()\n\n        for layer in self.in_mixture:\n            if hasattr(layer, 'reset_parameters'):\n                layer.reset_parameters()\n\n        for conv in self.convs:\n            conv.reset_parameters()\n        for ff in self.ffs:\n            if hasattr(ff, 'reset_parameters'):\n                ff.reset_parameters()\n\n        self.head.reset_parameters()\n\n    def forward(self, \n                neighbor_types,\n                node_indices,\n                neighbor_hops,\n                neighbor_times,\n                grouped_tf_dict,\n                edge_index=None,\n                batch=None,\n                ):\n        \n        neighbor_tfs = self.layer_norm_tfs(self.tfs_encoder(grouped_tf_dict, neighbor_types))\n        neighbor_types = self.layer_norm_type(self.type_encoder(neighbor_types.long()))\n        neighbor_hops = self.layer_norm_hop(self.hop_encoder(neighbor_hops.long()))\n        neighbor_times = self.layer_norm_time(self.time_encoder(neighbor_times.float()))\n        neighbor_subgraph_pe = self.layer_norm_pe(self.pe_encoder(edge_index, batch))\n        \n        cat_list = [neighbor_types, neighbor_hops, neighbor_times, neighbor_tfs, neighbor_subgraph_pe]\n        if self.ablate_idx is not None:\n            cat_list.pop(self.ablate_idx)\n        x_set = torch.cat(cat_list, dim=-1)        \n        x_set = self.in_mixture(x_set)\n        \n        x = x_set[:, 0, :] # select seed token representation\n        for i, conv in enumerate(self.convs):\n            x_set = conv(x_set, x, node_indices)\n            x_set = self.ffs[i](x_set)\n        x_set = self.head(x_set)\n\n        return x_set"
+        }
+      ]
+    },
+    {
+      "path": "sources/relgt_encoders.py",
+      "sha256": "bd137dfdbde37264cd9a311bd82b89f2849bd04ca376154bb03045b8af49ba58",
+      "line_ranges": [
+        [
+          262,
+          355
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 262,
+          "end": 355,
+          "text": "class GNNPEEncoder(nn.Module):\n    \"\"\"\n    A GNN-based positional encoder that:\n      1) Assigns each node a random scalar feature from a Normal(0,1).\n      2) Linearly projects it to embedding_dim.\n      3) Runs a small GIN GNN on (x, edge_index, batch).\n      4) Aggregates the intermediate outputs of the GNN using one of:\n        - \"none\": use only the final layer's output,\n        - \"cat\": concatenate all layer outputs,\n        - \"mean\": average all layer outputs,\n        - \"max\": max pool across all layer outputs.\n      5) Returns a [B, K, embedding_dim] shaped embedding to match the rest of the pipeline.\n    \"\"\"\n    def __init__(self, embedding_dim: int, num_layers: int = 4, pooling: str = 'none', pe_dim: int = 0):\n        super().__init__()\n        self.pooling = pooling.lower()\n        self.num_layers = num_layers\n        self.layer_embedding_dim = embedding_dim // 4\n        self.pe_dim = pe_dim\n        \n        if self.pe_dim > 0:\n            self.input_proj = nn.Linear(self.pe_dim, self.layer_embedding_dim)\n        else:\n           self.input_proj = nn.Linear(1, self.layer_embedding_dim)\n\n        self.conv = nn.ModuleList()\n        for _ in range(num_layers):\n            mlp = nn.Sequential(\n                nn.Linear(self.layer_embedding_dim, self.layer_embedding_dim*2),\n                nn.BatchNorm1d(self.layer_embedding_dim*2),\n                nn.ReLU(),\n                nn.Linear(self.layer_embedding_dim*2, self.layer_embedding_dim)\n            )\n            self.conv.append(GINConv(mlp, train_eps=True))\n        \n        self.bns = nn.ModuleList()\n        for _ in range(num_layers):\n            self.bns.append(nn.BatchNorm1d(self.layer_embedding_dim))\n        \n        if self.pooling == 'cat':\n            final_input_dim = self.layer_embedding_dim * num_layers\n        elif self.pooling in ['none', 'mean', 'max']:\n            final_input_dim = self.layer_embedding_dim\n        else:\n            raise ValueError(\"Invalid pooling method. Choose from 'none', 'cat', 'mean', 'max'.\")\n        \n        self.final_transform = nn.Linear(final_input_dim, embedding_dim)\n        \n        self.reset_parameters()\n\n    def reset_parameters(self):\n        nn.init.xavier_uniform_(self.input_proj.weight)\n        if self.input_proj.bias is not None:\n            nn.init.zeros_(self.input_proj.bias)\n\n        for conv in self.conv:\n            for layer in conv.nn:\n                if hasattr(layer, 'reset_parameters'):\n                    layer.reset_parameters()\n        \n        nn.init.xavier_uniform_(self.final_transform.weight)\n        if self.final_transform.bias is not None:\n            nn.init.zeros_(self.final_transform.bias)\n\n    def forward(self, edge_index, batch):\n        \"\"\"\n        Args:\n            edge_index (torch.Tensor): shape [2, E], the adjacency for the subgraph(s).\n            batch (torch.Tensor): shape [total_nodes], specifying subgraph membership for each node.\n\n        Returns:\n            (torch.Tensor): shape [B, K, embedding_dim], a node-level embedding for each node\n                            in the subgraph, where B is the batch size, K is the # of nodes in\n                            each subgraph if each subgraph is the same size, or sum(K_i) if variable.\n        \"\"\"\n        device = edge_index.device\n        total_nodes = batch.size(0) \n\n        if self.pe_dim > 0:\n            data = Data(edge_index=edge_index, num_nodes=total_nodes)\n            transform = T.AddLaplacianEigenvectorPE(k=self.pe_dim)\n            data = transform(data)\n            x_input = data.laplacian_eigenvector_pe.to(device)\n        else:\n            x_input = torch.randn(total_nodes, 1, device=device)\n            \n        x = self.input_proj(x_input)\n        \n        outputs = []\n        for i, conv in enumerate(self.conv):\n            x_res = x  \n            x_new = conv(x, edge_index)\n            x_new = self.bns[i](x_new)\n            x_new = F.relu(x_new)"
+        }
+      ]
+    },
+    {
+      "path": "sources/legacy_relbench_f1_task.py",
+      "sha256": "a9cb6ec5f07c21cb7966c8bb9743d9cbb18c16c9c969e4c8ca629897c7de335c",
+      "line_ranges": [
+        [
+          8,
+          62
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 8,
+          "end": 62,
+          "text": "class DriverPositionTask(EntityTask):\n    r\"\"\"Predict the average finishing position of each driver all races in the next 2\n    months.\"\"\"\n\n    task_type = TaskType.REGRESSION\n    entity_col = \"driverId\"\n    entity_table = \"drivers\"\n    time_col = \"date\"\n    target_col = \"position\"\n    timedelta = pd.Timedelta(days=60)\n    metrics = [r2, mae, rmse]\n    num_eval_timestamps = 40\n\n    def make_table(self, db: Database, timestamps: \"pd.Series[pd.Timestamp]\") -> Table:\n        timestamp_df = pd.DataFrame({\"timestamp\": timestamps})\n\n        results = db.table_dict[\"results\"].df\n        drivers = db.table_dict[\"drivers\"].df\n        races = db.table_dict[\"races\"].df\n\n        df = duckdb.sql(\n            f\"\"\"\n                SELECT\n                    t.timestamp as date,\n                    dri.driverId as driverId,\n                    mean(re.positionOrder) as position,\n                FROM\n                    timestamp_df t\n                LEFT JOIN\n                    results re\n                ON\n                    re.date <= t.timestamp + INTERVAL '{self.timedelta}'\n                    and re.date  > t.timestamp\n                LEFT JOIN\n                    drivers dri\n                ON\n                    re.driverId = dri.driverId\n                WHERE\n                    dri.driverId IN (\n                        SELECT DISTINCT driverId\n                        FROM results\n                        WHERE date > t.timestamp - INTERVAL '1 year'\n                    )\n                GROUP BY t.timestamp, dri.driverId\n\n            ;\n            \"\"\"\n        ).df()\n\n        return Table(\n            df=df,\n            fkey_col_to_pkey_table={self.entity_col: self.entity_table},\n            pkey_col=None,\n            time_col=self.time_col,\n        )"
+        }
+      ]
+    },
+    {
+      "path": "sources/legacy_relbench_f1_dataset.py",
+      "sha256": "51608a63a55d2f198558fc4dda87ecc59cd089a26fa94dc94b50cccade3fad84",
+      "line_ranges": [
+        [
+          11,
+          17
+        ],
+        [
+          165,
+          238
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 11,
+          "end": 17,
+          "text": "class F1Dataset(Dataset):\n    val_timestamp = pd.Timestamp(\"2005-01-01\")\n    test_timestamp = pd.Timestamp(\"2010-01-01\")\n\n    def make_db(self) -> Database:\n        r\"\"\"Process the raw files into a database.\"\"\"\n        url = \"https://relbench.stanford.edu/data/relbench-f1-raw.zip\""
+        },
+        {
+          "start": 165,
+          "end": 238,
+          "text": "        tables[\"races\"] = Table(\n            df=pd.DataFrame(races),\n            fkey_col_to_pkey_table={\n                \"circuitId\": \"circuits\",\n            },\n            pkey_col=\"raceId\",\n            time_col=\"date\",\n        )\n\n        tables[\"circuits\"] = Table(\n            df=pd.DataFrame(circuits),\n            fkey_col_to_pkey_table={},\n            pkey_col=\"circuitId\",\n            time_col=None,\n        )\n\n        tables[\"drivers\"] = Table(\n            df=pd.DataFrame(drivers),\n            fkey_col_to_pkey_table={},\n            pkey_col=\"driverId\",\n            time_col=None,\n        )\n\n        tables[\"results\"] = Table(\n            df=pd.DataFrame(results),\n            fkey_col_to_pkey_table={\n                \"raceId\": \"races\",\n                \"driverId\": \"drivers\",\n                \"constructorId\": \"constructors\",\n            },\n            pkey_col=\"resultId\",\n            time_col=\"date\",\n        )\n\n        tables[\"standings\"] = Table(\n            df=pd.DataFrame(standings),\n            fkey_col_to_pkey_table={\"raceId\": \"races\", \"driverId\": \"drivers\"},\n            pkey_col=\"driverStandingsId\",\n            time_col=\"date\",\n        )\n\n        tables[\"constructors\"] = Table(\n            df=pd.DataFrame(constructors),\n            fkey_col_to_pkey_table={},\n            pkey_col=\"constructorId\",\n            time_col=None,\n        )\n\n        tables[\"constructor_results\"] = Table(\n            df=pd.DataFrame(constructor_results),\n            fkey_col_to_pkey_table={\"raceId\": \"races\", \"constructorId\": \"constructors\"},\n            pkey_col=\"constructorResultsId\",\n            time_col=\"date\",\n        )\n\n        tables[\"constructor_standings\"] = Table(\n            df=pd.DataFrame(constructor_standings),\n            fkey_col_to_pkey_table={\"raceId\": \"races\", \"constructorId\": \"constructors\"},\n            pkey_col=\"constructorStandingsId\",\n            time_col=\"date\",\n        )\n\n        tables[\"qualifying\"] = Table(\n            df=pd.DataFrame(qualifying),\n            fkey_col_to_pkey_table={\n                \"raceId\": \"races\",\n                \"driverId\": \"drivers\",\n                \"constructorId\": \"constructors\",\n            },\n            pkey_col=\"qualifyId\",\n            time_col=\"date\",\n        )\n\n        return Database(tables)"
+        }
+      ]
+    },
+    {
+      "path": "sources/legacy_relbench_lightgbm_node.py",
+      "sha256": "dddff9fe7cffca73a215e67b3ba2e2baf3c42e835d314bec1ece9650eace4475",
+      "line_ranges": [
+        [
+          24,
+          55
+        ],
+        [
+          100,
+          125
+        ],
+        [
+          133,
+          192
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 24,
+          "end": 55,
+          "text": "parser = argparse.ArgumentParser()\nparser.add_argument(\"--dataset\", type=str, default=\"rel-stack\")\nparser.add_argument(\"--task\", type=str, default=\"user-engage\")\nparser.add_argument(\"--num_trials\", type=int, default=10)\n# Use auto-regressive label as hand-crafted feature as input to LightGBM\nparser.add_argument(\"--use_ar_label\", action=\"store_true\", default=False)\nparser.add_argument(\"--no-use_ar_label\", dest=\"use_ar_label\", action=\"store_false\")\nparser.add_argument(\n    \"--sample_size\",\n    type=int,\n    default=50_000,\n    help=\"Subsample the specified number of training data to train lightgbm model.\",\n)\nparser.add_argument(\"--seed\", type=int, default=42)\nparser.add_argument(\n    \"--cache_dir\",\n    type=str,\n    default=os.path.expanduser(\"~/.cache/relbench_examples\"),\n)\nargs = parser.parse_args()\n\ndevice = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\nif torch.cuda.is_available():\n    torch.set_num_threads(1)\nseed_everything(args.seed)\n\ndataset: Dataset = get_dataset(args.dataset, download=True)\ntask: EntityTask = get_task(args.dataset, args.task, download=True)\n\ntrain_table = task.get_table(\"train\")\nval_table = task.get_table(\"val\")\ntest_table = task.get_table(\"test\")"
+        },
+        {
+          "start": 100,
+          "end": 125,
+          "text": "entity_df = entity_table.df\n\nstypes_cache_path = Path(f\"{args.cache_dir}/{args.dataset}/stypes.json\")\ntry:\n    with open(stypes_cache_path, \"r\") as f:\n        col_to_stype_dict = json.load(f)\n    for table, col_to_stype in col_to_stype_dict.items():\n        for col, stype_str in col_to_stype.items():\n            col_to_stype[col] = stype(stype_str)\nexcept FileNotFoundError:\n    col_to_stype_dict = get_stype_proposal(dataset.get_db())\n    Path(stypes_cache_path).parent.mkdir(parents=True, exist_ok=True)\n    with open(stypes_cache_path, \"w\") as f:\n        json.dump(col_to_stype_dict, f, indent=2, default=str)\n\ncol_to_stype = col_to_stype_dict[task.entity_table]\nremove_pkey_fkey(col_to_stype, entity_table)\n\nif task.task_type == TaskType.BINARY_CLASSIFICATION:\n    col_to_stype[task.target_col] = torch_frame.categorical\n    for ar_label in ar_label_cols:\n        col_to_stype[ar_label] = torch_frame.categorical\nelif task.task_type == TaskType.REGRESSION:\n    col_to_stype[task.target_col] = torch_frame.numerical\n    for ar_label in ar_label_cols:\n        col_to_stype[ar_label] = torch_frame.numerical"
+        },
+        {
+          "start": 133,
+          "end": 192,
+          "text": "# randomly subsample in case training data size is too large.\nif args.sample_size > 0 and args.sample_size < len(train_table):\n    sampled_idx = np.random.permutation(len(train_table))[: args.sample_size]\n    train_table.df = train_table.df.iloc[sampled_idx]\n\nfor split, table in [\n    (\"train\", train_table),\n    (\"val\", val_table),\n    (\"test\", test_table),\n]:\n    left_entity = list(table.fkey_col_to_pkey_table.keys())[0]\n    entity_df = entity_df.astype({entity_table.pkey_col: table.df[left_entity].dtype})\n    dfs[split] = table.df.merge(\n        entity_df,\n        how=\"left\",\n        left_on=left_entity,\n        right_on=entity_table.pkey_col,\n    )\n\ntrain_dataset = torch_frame.data.Dataset(\n    df=dfs[\"train\"],\n    col_to_stype=col_to_stype,\n    target_col=task.target_col,\n    col_to_text_embedder_cfg=TextEmbedderConfig(\n        text_embedder=GloveTextEmbedding(device=device),\n        batch_size=256,\n    ),\n)\npath = Path(\n    f\"{args.cache_dir}/{args.dataset}/tasks/{args.task}/materialized/node_train.pt\"\n)\npath.parent.mkdir(parents=True, exist_ok=True)\ntrain_dataset = train_dataset.materialize(path=path)\n\ntf_train = train_dataset.tensor_frame\ntf_val = train_dataset.convert_to_tensor_frame(dfs[\"val\"])\ntf_test = train_dataset.convert_to_tensor_frame(dfs[\"test\"])\n\nif task.task_type in [\n    TaskType.BINARY_CLASSIFICATION,\n    TaskType.MULTILABEL_CLASSIFICATION,\n]:\n    tune_metric = Metric.ROCAUC\nelif task.task_type == TaskType.REGRESSION:\n    tune_metric = Metric.MAE\nelse:\n    raise ValueError(f\"Task task type is unsupported {task.task_type}\")\n\nif task.task_type in [TaskType.BINARY_CLASSIFICATION, TaskType.REGRESSION]:\n    model = LightGBM(task_type=train_dataset.task_type, metric=tune_metric)\n    model.tune(tf_train=tf_train, tf_val=tf_val, num_trials=args.num_trials)\n\n    pred = model.predict(tf_test=tf_train).numpy()\n    train_metrics = task.evaluate(pred, train_table)\n\n    pred = model.predict(tf_test=tf_val).numpy()\n    val_metrics = task.evaluate(pred, val_table)\n\n    pred = model.predict(tf_test=tf_test).numpy()\n    test_metrics = task.evaluate(pred)"
+        }
+      ]
+    },
+    {
+      "path": "sources/user_study_f1_driver_position.sql",
+      "sha256": "2b3639da1df6f4a3fc1968579accb675878b60ad3a5e37da730f43a8c7e98a22",
+      "line_ranges": [
+        [
+          1,
+          177
+        ]
+      ],
+      "snippets": [
+        {
+          "start": 1,
+          "end": 177,
+          "text": "create or replace table driver_position_{{ set }}_feats as -- noqa\n\nwith labels as materialized (\n    -- driverId, date, position\n    {% if (set == 'train') and (subsample > 0) %} -- noqa\n    select * from driver_position_{{ set }} using sample {{ subsample }} -- noqa\n    {% else %}\n    select * from driver_position_{{ set }} -- noqa\n    {% endif %}\n),\n\nstandings2 as (\n    select\n        *,\n        points - lag(points, 1) over (partition by raceId order by position asc) as points_lag,\n        points - lead(points, 1) over (partition by raceId order by position asc) as points_lead\n    from standings\n),\n\nconstructor_standings2 as (\n    select\n        *,\n        points - lag(points, 1) over (partition by raceId order by position asc) as points_lag,\n        points - lead(points, 1) over (partition by raceId order by position asc) as points_lead\n    from constructor_standings\n),\n\n-- results has duplicates\nresults_dd as materialized (\n    select distinct on (raceId, driverId)\n        raceId,\n        driverId,\n        constructorId,\n        position,\n        points,\n        grid,\n        rank,\n        laps,\n        statusId,\n        date\n    from results\n),\n\nbasic_feats as (\n    select\n        labels.driverId,\n        labels.date,\n        date_part('week', labels.date) as week_of_year,\n        -- driver features\n        drivers.driverRef as driver_ref, -- use as categorical\n        date_diff('year', drivers.dob::date, labels.date) as driver_age,\n        drivers.nationality as driver_nationality,\n        -- driver standings\n        standings2.position as driver_position,\n        standings2.points as driver_points,\n        standings2.wins as driver_wins,\n        standings2.points_lag as driver_points_lag,\n        standings2.points_lead as driver_points_lead,\n        date_diff('day', standings2.date, labels.date) as days_since_last_race,\n        -- constructor features\n        constructors.constructorRef as constructor_ref,\n        constructors.nationality as constructor_nationality,\n        -- constructor standings\n        constructor_standings2.position as constructor_position,\n        constructor_standings2.points as constructor_points,\n        constructor_standings2.wins as constructor_wins,\n        constructor_standings2.points_lag as constructor_points_lag,\n        constructor_standings2.points_lead as constructor_points_lead,\n        -- driver contribution\n        driver_position - constructor_position as position_diff,\n        driver_points / nullif(constructor_points, 0) as points_ratio,\n        driver_wins / nullif(constructor_wins, 0) as wins_ratio\n    from labels\n    left join drivers\n        on labels.driverId = drivers.driverId\n    asof left join standings2\n        on\n            labels.driverId = standings2.driverId\n            and labels.date > standings2.date\n    left join results_dd -- use it to join constructor_standings\n        on\n            standings2.raceId = results_dd.raceId\n            and labels.driverId = results_dd.driverId\n    left join constructor_standings2\n        on\n            standings2.raceId = constructor_standings2.raceId\n            and results_dd.constructorId = constructor_standings2.constructorId\n    left join constructors\n        on constructor_standings2.constructorId = constructors.constructorId\n),\n\npast_race_features as (\n    select\n        labels.driverId,\n        labels.date,\n        (last_race.raceId - results_dd.raceId + 1) as races_ago,\n        -- results_dd\n        results_dd.position as driver_position,\n        results_dd.points as driver_points,\n        results_dd.grid as driver_grid,\n        results_dd.position - results_dd.grid as position_gain,\n        results_dd.rank as driver_rank,\n        results_dd.laps\n        / max(results_dd.laps) over (partition by results_dd.raceId) as pct_laps_completed,\n        (results_dd.statusId != 1)::int as dnf,\n        -- constructor results_dd\n        constructor_results.points as constructor_points\n    from labels\n    asof left join races as last_race\n        on labels.date > last_race.date\n    left join results_dd\n        on\n            labels.driverId = results_dd.driverId\n            and (last_race.raceId - results_dd.raceId) between 0 and 2 -- last 3 races\n            -- exclude races from last season\n            and results_dd.date >= (labels.date - interval '2 month')\n    left join constructor_results\n        on\n            results_dd.raceId = constructor_results.raceId\n            and results_dd.constructorId = constructor_results.constructorId\n),\n\nupcoming_race_features as (\n    select\n        labels.driverId,\n        labels.date,\n        (upcoming.raceId - last_race.raceId) as races_ahead,\n        upcoming.round,\n        circuits.circuitId\n    from labels\n    asof left join races as last_race\n        on labels.date > last_race.date\n    left join races as upcoming\n        on\n            (upcoming.raceId - last_race.raceId) between 1 and 3 -- next 3 races\n            and upcoming.date <= (labels.date + interval '1 month')\n    left join circuits\n        on upcoming.circuitId = circuits.circuitId\n)\n\nselect\n    labels.driverId,\n    labels.date,\n    {% if set != 'test' +%} -- noqa\n        labels.position,\n    {% endif %}\n    basic_feats.* exclude(driverId, date),\n    {% for i in [1, 2, 3] %}\n        past_{{ i }}.driver_position as past_{{ i }}_driver_position,\n        past_{{ i }}.driver_points as past_{{ i }}_driver_points,\n        past_{{ i }}.driver_grid as past_{{ i }}_driver_grid,\n        past_{{ i }}.position_gain as past_{{ i }}_position_gain,\n        past_{{ i }}.driver_rank as past_{{ i }}_driver_rank,\n        past_{{ i }}.pct_laps_completed as past_{{ i }}_pct_laps_completed,\n        past_{{ i }}.dnf as past_{{ i }}_dnf,\n        past_{{ i }}.constructor_points as past_{{ i }}_constructor_points,\n        upcoming_{{ i }}.round as upcoming_{{ i }}_round,\n        upcoming_{{ i }}.circuitId as upcoming_{{ i }}_circuit_id\n        {%- if not loop.last %},{% endif %} -- noqa\n    {% endfor %}\nfrom labels\nleft join basic_feats\n    on\n        labels.driverId = basic_feats.driverId\n        and labels.date = basic_feats.date\n{% for i in [1, 2, 3] %}\n    left join past_race_features as past_{{ i }}\n        on\n            labels.driverId = past_{{ i }}.driverId\n            and labels.date = past_{{ i }}.date\n            and past_{{ i }}.races_ago = {{ i }}\n    left join upcoming_race_features as upcoming_{{ i }}\n        on\n            labels.driverId = upcoming_{{ i }}.driverId\n            and labels.date = upcoming_{{ i }}.date\n            and upcoming_{{ i }}.races_ahead = {{ i }}\n{% endfor %}"
+        }
+      ]
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/industrial_followup_task_scout_v1/sources/relgnn_task_base.py",
+      "sha256": "44a5f3faa423c605dd71af52e750c829a6d0a7aacec917b8ba19431b9ec38088",
+      "line_ranges": [
+        [
+          103,
+          155
+        ]
+      ],
+      "reuse": true,
+      "snippets": [
+        {
+          "start": 103,
+          "end": 155,
+          "text": "        r\"\"\"Helper function to get a table for a split.\"\"\"\n\n        db = self.dataset.get_db(upto_test_timestamp=split != \"test\")\n\n        if split == \"train\":\n            start = self.dataset.val_timestamp - self.timedelta\n            end = db.min_timestamp\n            freq = -self.timedelta\n\n        elif split == \"val\":\n            if self.dataset.val_timestamp + self.timedelta > db.max_timestamp:\n                raise RuntimeError(\n                    \"val timestamp + timedelta is larger than max timestamp! \"\n                    \"This would cause val labels to be generated with \"\n                    \"insufficient aggregation time.\"\n                )\n\n            start = self.dataset.val_timestamp\n            end = min(\n                self.dataset.val_timestamp\n                + self.timedelta * (self.num_eval_timestamps - 1),\n                self.dataset.test_timestamp - self.timedelta,\n            )\n            freq = self.timedelta\n\n        elif split == \"test\":\n            if self.dataset.test_timestamp + self.timedelta > db.max_timestamp:\n                raise RuntimeError(\n                    \"test timestamp + timedelta is larger than max timestamp! \"\n                    \"This would cause test labels to be generated with \"\n                    \"insufficient aggregation time.\"\n                )\n\n            start = self.dataset.test_timestamp\n            end = min(\n                self.dataset.test_timestamp\n                + self.timedelta * (self.num_eval_timestamps - 1),\n                db.max_timestamp - self.timedelta,\n            )\n            freq = self.timedelta\n\n        timestamps = pd.date_range(start=start, end=end, freq=freq)\n\n        if split == \"train\" and len(timestamps) < 3:\n            raise RuntimeError(\n                f\"The number of training time frames is too few. \"\n                f\"({len(timestamps)} given)\"\n            )\n\n        table = self.make_table(db, timestamps)\n        table = self.filter_dangling_entities(table)\n\n        return table"
+        }
+      ]
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/industrial_followup_task_scout_v1/sources/user_study_train_gbdt.py",
+      "sha256": "5ab9c3c77a03d1942015b1b98e47da2dcb90441041d42e759ab5cbc2de398f0f",
+      "line_ranges": [
+        [
+          99,
+          105
+        ],
+        [
+          148,
+          159
+        ],
+        [
+          162,
+          251
+        ]
+      ],
+      "reuse": true,
+      "snippets": [
+        {
+          "start": 99,
+          "end": 105,
+          "text": "    'rel-f1-driver-position': {\n        'dir': 'f1/driver-position',\n        'target_col': 'position',\n        'table_prefix': 'driver_position',\n        'identifier_cols': ['driverId', 'date'],\n        'tune_metric': Metric.MAE,\n        'task_type': TaskType.REGRESSION,"
+        },
+        {
+          "start": 148,
+          "end": 159,
+          "text": "NUM_TRIALS = 10\n\n\ndef map_preds(feats_df, labels, identifier_cols, preds):\n    \"\"\" Corrects shuffling that may have occurred during feature generation. \"\"\"\n    idx_map = {\n        tuple(row.to_list()): i for i, (_, row) in enumerate(feats_df[identifier_cols].iterrows())\n    }\n    new_preds = np.array(\n        [preds[idx_map[tuple(row.to_list())]] for _, row in labels[identifier_cols].iterrows()]\n    )\n    return new_preds"
+        },
+        {
+          "start": 162,
+          "end": 251,
+          "text": "if __name__ == '__main__':\n    parser = argparse.ArgumentParser(description='Argument Parser')\n    parser.add_argument('--dataset', '-d', type=str, help='Relbench dataset name')\n    parser.add_argument('--task', '-t', type=str, help='Relbench task name')\n    parser.add_argument('--booster', '-b', type=str, default='lgbm', help='One of \"xgb\" or \"lgbm\"')\n    parser.add_argument('--subsample', '-s', type=int, default=0,\n                        help=(\n                            'If provided, use a subset of the training set to speed up training. '\n                            'If generate_feats is set, features will only be generated for this '\n                            'subset. '\n                        ))\n    parser.add_argument('--generate_feats', action='store_true',\n                        help='Whether to (re)generate features specified in feats.sql')\n    parser.add_argument('--drop_cols', nargs='+', default=[], help='Columns to drop')\n    args = parser.parse_args()\n    full_task_name = f'{args.dataset}-{args.task}'\n    task_params = TASK_PARAMS[full_task_name]\n    conn = duckdb.connect(DATASET_TO_DB[args.dataset])\n    if args.generate_feats:\n        print('Generating features.')\n        start = time.time()\n        with open(os.path.join(task_params['dir'], 'feats.sql')) as f:\n            template = f.read()\n        # create train, val and test features\n        for s in ['train', 'val', 'test']:\n            print(f'Creating {s} table')\n            query = utils.render_jinja_sql(template, dict(set=s, subsample=args.subsample))\n            conn.sql(query)\n            print(f'{s} table created')\n        print(f'Features generated in {time.time() - start:,.0f} seconds.')\n\n    train_df = conn.sql(f'select * from {task_params[\"table_prefix\"]}_train_feats').df()\n    val_df = conn.sql(f'select * from {task_params[\"table_prefix\"]}_val_feats').df()\n    test_df = conn.sql(f'select * from {task_params[\"table_prefix\"]}_test_feats').df()\n    conn.close()\n    col_to_stype = task_to_stypes[full_task_name]\n    drop_cols = task_params['identifier_cols'] + args.drop_cols\n    train_df = train_df.drop(args.drop_cols, axis=1)\n    val_df = val_df.drop(args.drop_cols, axis=1)\n    for col in args.drop_cols:\n        del col_to_stype[col]\n    if args.subsample > 0 and not args.generate_feats:\n        train_df = train_df.sample(args.subsample, replace=False, random_state=SEED)\n    print('Materializing torch-frame dataset.')\n    start = time.time()\n    # TODO add support for text embeddings\n    for k, v in col_to_stype.items():\n        if v == stype.text_embedded:\n            raise NotImplementedError(\n                'Embeddings for text columns not supported for speed considerations. Either drop'\n                'them with the --drop_cols flag or see relbench/examples for how to use embeddings.'\n            )\n    train_dset = Dataset(\n        train_df,\n        col_to_stype=col_to_stype,\n        target_col=task_params['target_col'],\n    ).materialize()\n    val_tf = train_dset.convert_to_tensor_frame(val_df)\n    print(f'Materialized torch-frame dataset in {time.time() - start:,.0f} seconds.')\n    print(\n        f'Train Size: {train_dset.tensor_frame.num_rows:,} x {train_dset.tensor_frame.num_cols:,}'\n    )\n\n    booster = LightGBM if args.booster == 'lgbm' else XGBoost\n    if task_params['task_type'] == TaskType.BINARY_CLASSIFICATION:\n        gbdt = booster(task_params['task_type'], num_classes=2, metric=task_params['tune_metric'])\n    elif task_params['task_type'] == TaskType.REGRESSION:\n        gbdt = booster(task_params['task_type'], metric=task_params['tune_metric'])\n    print('Starting hparam tuning.')\n    start = time.time()\n    gbdt.tune(tf_train=train_dset.tensor_frame, tf_val=val_tf, num_trials=NUM_TRIALS)\n    print(f'Hparam tuning completed in {time.time() - start:,.0f} seconds.')\n    model_path = os.path.join(task_params['dir'], f'{full_task_name}_{args.booster}.json')\n    print(f'Saving model to \"{model_path}\".')\n    gbdt.save(model_path)\n    print()\n\n    print('Evaluating model.')\n    task = get_task(args.dataset, args.task, download=True)\n    print()\n    pred = gbdt.predict(tf_test=val_tf).numpy()\n    assert len(task.get_table(\"val\").df) == len(val_df), 'Val: feats df doesn\\'t match label df!'\n    pred = map_preds(val_df, task.get_table(\"val\").df, task_params['identifier_cols'], pred)\n    print(f'Val: {task.evaluate(pred, task.get_table(\"val\"))}')\n    print()\n    test_tf = train_dset.convert_to_tensor_frame(test_df)\n    assert len(task.get_table(\"test\").df) == len(test_df), 'Test: feats df doesn\\'t match label df!'\n    pred = gbdt.predict(tf_test=test_tf).numpy()\n    pred = map_preds(test_df, task.get_table(\"test\").df, task_params['identifier_cols'], pred)\n    print(f'Test: {task.evaluate(pred)}')"
+        }
+      ]
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/industrial_followup_task_scout_v1/sources/user_study_inferred_stypes.py",
+      "sha256": "2d5f69b05922b6b22f1e4e7eeeb80ffc7ff8182ff33481714b1926e01ba5901b",
+      "line_ranges": [
+        [
+          495,
+          549
+        ]
+      ],
+      "reuse": true,
+      "snippets": [
+        {
+          "start": 495,
+          "end": 549,
+          "text": "    'rel-f1-driver-position': {\n        'driverId': stype.numerical,\n        'date': stype.timestamp,\n        'position': stype.numerical,\n        'week_of_year': stype.categorical,\n        'driver_ref': stype.categorical,\n        'driver_age': stype.numerical,\n        'driver_nationality': stype.categorical,\n        'driver_position': stype.numerical,\n        'driver_points': stype.numerical,\n        'driver_wins': stype.numerical,\n        'driver_points_lag': stype.numerical,\n        'driver_points_lead': stype.numerical,\n        'days_since_last_race': stype.numerical,\n        'constructor_ref': stype.categorical,\n        'constructor_nationality': stype.categorical,\n        'constructor_position': stype.numerical,\n        'constructor_points': stype.numerical,\n        'constructor_wins': stype.numerical,\n        'constructor_points_lag': stype.numerical,\n        'constructor_points_lead': stype.numerical,\n        'position_diff': stype.numerical,\n        'points_ratio': stype.numerical,\n        'wins_ratio': stype.numerical,\n        'past_1_driver_position': stype.numerical,\n        'past_1_driver_points': stype.numerical,\n        'past_1_driver_grid': stype.numerical,\n        'past_1_position_gain': stype.numerical,\n        'past_1_driver_rank': stype.numerical,\n        'past_1_pct_laps_completed': stype.numerical,\n        'past_1_dnf': stype.categorical,\n        'past_1_constructor_points': stype.numerical,\n        'upcoming_1_round': stype.categorical,\n        'upcoming_1_circuit_id': stype.categorical,\n        'past_2_driver_position': stype.numerical,\n        'past_2_driver_points': stype.numerical,\n        'past_2_driver_grid': stype.numerical,\n        'past_2_position_gain': stype.numerical,\n        'past_2_driver_rank': stype.numerical,\n        'past_2_pct_laps_completed': stype.numerical,\n        'past_2_dnf': stype.categorical,\n        'past_2_constructor_points': stype.numerical,\n        'upcoming_2_round': stype.categorical,\n        'upcoming_2_circuit_id': stype.categorical,\n        'past_3_driver_position': stype.numerical,\n        'past_3_driver_points': stype.numerical,\n        'past_3_driver_grid': stype.numerical,\n        'past_3_position_gain': stype.numerical,\n        'past_3_driver_rank': stype.numerical,\n        'past_3_pct_laps_completed': stype.numerical,\n        'past_3_dnf': stype.categorical,\n        'past_3_constructor_points': stype.numerical,\n        'upcoming_3_round': stype.categorical,\n        'upcoming_3_circuit_id': stype.categorical\n    },"
+        }
+      ]
+    }
+  ]
+}

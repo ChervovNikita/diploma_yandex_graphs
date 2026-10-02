@@ -1,0 +1,3 @@
+# Source verification scope
+
+The full static ancestry checker binds absolute Mac paths in SOURCE_BINDINGS.json and is intended for local source review. Its remote invocation failed on those Mac paths. They will not be created outside the authorized remote repository. The independent local audit verified the complete ancestry, and the remote verify_source_packet check verified all 40 payload files, the manifest, seal and matrix. A metadata helper generated one Python bytecode cache before the no-bytecode environment was sourced; that derivative was preserved in a separate repo-owned evidence folder, leaving all sealed payload bytes unchanged and restoring exact packet membership. Existing failure receipts remain.

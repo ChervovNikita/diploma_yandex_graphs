@@ -1,39 +1,31 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-02T12:40:46.569747+00:00. The research goal remains incomplete.
+Updated: 2026-10-02T13:42:09.917527+00:00. The research goal remains incomplete.
 
-## Experiment registration and training
+## Running experiment
 
-“Registration succeeded” means the fixed experiment plan was saved and verified on the authorized server. It does not refer to conference registration or a successful result.
+The fixed graph-initialization study is running on the authorized one-GPU allocation. Verified completion counts are 6/6 complete-graph numerical checks, 6/6 warm training trajectories, 30/30 initializations and 10/30 continuation fits. The warm trajectories performed 900 optimizer updates. Completed phases consumed 3212.5 whole supervised seconds; this excludes running phases and is not an ETA. Final labels remain closed. No predictive improvement is claimed.
 
-The precision study is now executing. Verified local receipts contain 6 of six successful complete-graph numerical checks and 3 of six completed warm training trajectories. The completed warm trajectories have performed 150 optimizer updates. These checkpoints are initial conditions for the five-arm comparison, not evidence of improvement. All six numerical checks passed using the disclosed precision measurement; the original failed study is preserved.
+The candidate uses graph-filtered training errors to initialize private BatchEnsemble factors after a shared warm start. Five fixed arms compare graph guidance, common descent, random directions, permuted topology and warm copying on PolyFormer-Mono/Squirrel and Polynormer-r/Photo, with seeds 17/29/43 paired to splits 0/1/2. The full cohort has 72 phases. Its 425,700-second cap sum is a maximum bound, not expected runtime. Do not restart the live coordinator on an observation timeout.
 
-The fixed study compares graph-guided factor initialization with common descent, random directions, permuted topology, and warm copying on PolyFormer-Mono/Squirrel and Polynormer-r/Photo. Seeds 17, 29, and 43 are paired with source splits 0, 1, and 2. Its 72 phases comprise six numerical checks, six warm trajectories, 30 initializations, and 30 continuation fits. The coordinator stops on failure and does not retry. Real warm states must pass their own checks before initialization. Final labels remain closed during training.
+## Scientific assessment
 
-The candidate builds private BatchEnsemble directions from graph-filtered training errors after a shared warm start. Their additional pooled-logit change cancels to first order at equal step length. Whether the directions improve subsequent learning is the question the controls test; utility and methodological novelty remain unproven.
+SSD already selects balanced-copy residual curvature; BGNN already fits ensemble components to graph-dependent gradient updates. LoRA-GA and functional repulsive ensembles further constrain broad initialization claims. The unresolved premise is whether correctly aligned graph-error bands yield useful private-route learning beyond the controls. First-order band construction alone cannot guarantee favorable curvature or graph-frequency-restricted predictions. Distinct analysis checks whether a curvature-selected extension would add anything beyond generic curvature selection.
 
-## Parallel research
+Literature conclusions and exact reading limits are saved in literature_memory/index_v13, with 76 conclusion records rather than that many full-paper reads. The small RelBench F1 task has a recent RelGT trainer, but inspected forecast-time context collisions, unfiltered fallback sampling and unresolved selection prevent native execution readiness. A correct temporal baseline route is being assessed before dataset execution.
 
-Tolokers2 is a separate industrial-graph candidate. A repo-owned Python 3.12 runtime passed package/CUDA import checks. The native runner source is undergoing an independent audit; its runtime image, isolation, model qualification, and useful fits remain pending. GPU work will be serialized with the current study. Relational retail prediction is being evaluated as another dataset lead using source and metadata only.
+## Industrial graph preparation
 
-Distinct method analysis examines the initializer's falsifiable predictions and closest prior work. Literature conclusions are saved for reuse. Independent source checks are engineering reviews and do not count as paper acceptance recommendations.
+The Tolokers2 source packet passed independent source review and the dedicated candidate runtime passed earlier package/CUDA imports. Its allowlist image was assembled successfully. The public-only extraction succeeded without opening target values. Actual worker isolation failed before model imports: unshare denied root filesystem propagation. User/mount/PID/network namespaces themselves work with automatic propagation disabled; manual root-private propagation still fails. Minimal safe mount capabilities are being diagnosed. Label export, full-graph model qualification and useful fits remain unadmitted until actual isolation passes. No sudo or unisolated fallback is used. GPU science will serialize after the current study.
 
-## Preserved failures and earlier findings
+## Preserved findings and publication
 
-The old graph-initialization study stopped at a Photo finite-difference check before useful training. An exact-state diagnostic reproduced the failure and isolated a loss-reduction precision issue. The new measurement promotes per-example FP32 losses for FP64 mean/difference calculations; it does not change the model, training gradient, initializer, fixed directions, step sizes, or tolerances.
+The earlier 54-fit coordinate screen remains STAGE1_NO_GO. The original initialization study failed a Photo scalar finite-difference check before useful training. The exact-state diagnostic and reduction-only precision amendment, metadata registration failure, missing predecessor logs and prelaunch cap-field exceptions remain preserved. New numerical checks passing does not convert old failures into favorable outcomes. Original paper scores remain unchanged.
 
-The first new metadata registration failed because four predecessor supervisor logs were missing from the local inventory. A complete inventory wrapper then registered the current cohort. Two local prelaunch cap-field exceptions were retained before any scientific claim. A separately reviewed continuation amendment corrected the START/TERMINAL cap binding and launched the same registered cohort. Every source version and failure remains recorded.
+Latest verified pushed revision: 3cb4b100e712c1b33848d3b5afcbba7662dd8fe0 on codex/postsubmission-research-20260930. New assembly/probe/literature progress is recorded locally pending its next source/evidence publication. Explicit fetches through 160 are retained. Independent source audits are engineering reviews, not paper acceptance recommendations.
 
-The earlier 54-fit coordinate screen remains STAGE1_NO_GO; its larger continuation is not admitted. Unsuccessful ideas and wrong-allocation evidence are retained and are not promoted as successful results. Original paper scores remain unchanged.
+## Scope and outcome
 
-## Resources and publication
+Work remains inside the local project and authorized remote repository. Only anogena-2 on port 2222 and GPU UUID GPU-44039938-fd82-41d2-fefd-de71514e2fac are authorized. Its physical minor is 7; it is one device. Never access the seven-GPU account. The 18.77 route remains unresolved. No sudo, PDF compilation, GENLINK, Desktop access or original-score recalculation.
 
-Only anogena-2 on port 2222 and GPU UUID GPU-44039938-fd82-41d2-fefd-de71514e2fac are authorized here. The seven-GPU account must never be accessed. The 18.77 route remains unresolved. Work stays inside the local project and authorized remote repository. No sudo, PDF compilation, GENLINK, Desktop access, or original-score recalculation.
-
-The study's 425,700-second cap sum is a maximum bound, not an ETA or measured use. The current receipt snapshot records 246.6 whole supervised seconds for completed phases; running work is excluded. Disk/memory forecasts remain provisional.
-
-Latest verified public revision: a7e8867db8ff47e26a113e8b797aff1657a4b2a4 on codex/postsubmission-research-20260930. New launch/training evidence is being prepared for publication. Explicit fetches through 156 are retained; next unused is 157. The coordinator also preserves per-phase metadata fetch receipts.
-
-## Outcome boundary
-
-No new predictive improvement, established novelty, revised manuscript, or acceptance recommendation is claimed. Fresh independent paper review requires a complete defensible manuscript and evidence packet.
+No new predictive advantage, established novelty, revised manuscript or acceptance verdict is claimed. Fresh independent paper review requires a complete defensible manuscript/evidence packet and no author history or requested verdict.

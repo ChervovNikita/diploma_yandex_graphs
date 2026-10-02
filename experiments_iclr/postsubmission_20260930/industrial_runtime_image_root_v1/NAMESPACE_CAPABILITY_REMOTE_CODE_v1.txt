@@ -1,0 +1,30 @@
+REMOTE_PHASE = '/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930'
+
+import datetime, json, os, pathlib, subprocess, sys
+path = pathlib.Path(REMOTE_PHASE) / 'industrial_runtime_image_root_v1/NAMESPACE_CAPABILITY_v1.json'
+if path.exists():
+    raise RuntimeError('Preserve prior diagnosis')
+record = {'UTC': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          'scientific_execution': False, 'data_access': False, 'GPU_access': False,
+          'host_mount_namespace': os.readlink('/proc/self/ns/mnt'), 'tests': []}
+commands = [
+    ('user_namespace', ['unshare', '--user', '--map-root-user', sys.executable, '-c',
+                       'import os; print(os.getuid(), os.readlink("/proc/self/ns/user"))']),
+    ('mount_namespace_without_automatic_propagation', ['unshare', '--user', '--map-root-user',
+        '--mount', '--propagation', 'unchanged', sys.executable, '-c',
+        'import os; print(os.getuid(), os.readlink("/proc/self/ns/mnt"))']),
+    ('manual_private_propagation_in_new_namespace', ['unshare', '--user', '--map-root-user',
+        '--mount', '--propagation', 'unchanged', sys.executable, '-c',
+        'import os,subprocess,sys; assert os.readlink("/proc/self/ns/mnt") != sys.argv[1]; '
+        'r=subprocess.run(["mount","--make-rprivate","/"],capture_output=True,text=True); '
+        'print(r.stdout); print(r.stderr,file=sys.stderr); raise SystemExit(r.returncode)',
+        record['host_mount_namespace']]),
+    ('all_namespaces_without_automatic_propagation', ['unshare', '--user', '--map-root-user',
+        '--mount', '--propagation', 'unchanged', '--pid', '--fork', '--net', '--ipc', '--uts',
+        sys.executable, '-c', 'import os; print(os.getpid(),os.getuid(),os.readlink("/proc/self/ns/mnt"),os.readlink("/proc/self/ns/net"))'])]
+for name, argv in commands:
+    result = subprocess.run(argv, capture_output=True, text=True, timeout=20,
+                            stdin=subprocess.DEVNULL, close_fds=True)
+    record['tests'].append({'name': name, 'argv': argv, 'exit_code': result.returncode,
+                            'stdout': result.stdout, 'stderr': result.stderr})
+path.write_text(json.dumps(record, indent=2) + '\n')
