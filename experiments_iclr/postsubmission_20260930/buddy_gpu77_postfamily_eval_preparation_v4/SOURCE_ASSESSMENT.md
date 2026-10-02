@@ -1,0 +1,9 @@
+# Source assessment: normal-runtime v4 adaptation
+
+The user explicitly permits small incidental standard runtime caches outside the repository and requests ordinary execution without host changes. V4 reuses launcher-v3/root_family_v2's existing ROOT_ADMISSION authorization and SHA-bound normal data-free Torch/CUDA receipt. It accepts its empty external profile and records a null external-proof SHA. Normal audit/evaluation/export stages require no namespace vars, proof, current namespace-ID checks, absolute-argv proof restriction or new admission file.
+
+The existing three scientific stage admission files/schemas and all repository/interpreter/GPU/source/CPU/data/cache/terminal/cohort/epoch/fit/lock/selected-envelope/test/export checks remain. Production audit/lock/scoring functions and exporter scientific try block are AST-identical to v3. Source helper/official archive-binding/receipt fixtures are byte-identical. Optional external mode preserves its prior metadata checks.
+
+Normal-mode metadata is checked against the actual root family admission and its existing receipt schema buddy77-normal-runtime-qualification-v1: passed, Torch2.7.1, both intended UUIDs and data-free matrix checks, no scientific data or fitting. No new runtime qualification is executed by this source preparation. Source validation uses fifteen project-only stdlib fixture groups, AST/compile/JSON and predecessor payload hashes. Three fixture additions address only normal boundary behavior.
+
+No active training, launcher, scientific source, root status/ledger or server setting was edited. No real archive, label, checkpoint, tensor, model, Torch, GPU or SSH work was done. The v3 preparation remains preserved. Full fresh family closure and existing later scientific admissions remain future gates; no predictive claim is made.

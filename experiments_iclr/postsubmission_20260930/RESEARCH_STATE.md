@@ -1,6 +1,6 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-02T20:04:59.559940+00:00. The research goal remains incomplete.
+Updated: 2026-10-02T20:39:15+00:00. The research goal remains incomplete.
 
 ## Additional GPU connection
 
@@ -12,7 +12,7 @@ The saved runtime is Python 3.12.11, Torch 2.7.1 and PyG 2.4.0. BUDDY dependenci
 
 ## Active graph-initialization experiment
 
-The one-GPU execution handle 51929 was confirmed live. Canonical local metadata now contains 18 of 30 continuation completion receipts, plus all six numerical checks, six warm trajectories and 30 initializations. The latest outcome-free remote observation (19:48 UTC) recorded Photo seed17/warm-copy continuation 10/950, actual update 260, and 100% utilization. Copied remote coordinator counts lag the canonical local coordinator. All 72 phase terminals require a separate complete-cohort audit before scientific comparisons or final scoring. Final labels remain closed; no new comparison or predictive advantage is claimed.
+The one-GPU execution handle 51929 was confirmed live. Canonical local metadata now contains 18 of 30 continuation completion receipts, plus all six numerical checks, six warm trajectories and 30 initializations. The latest outcome-free remote observation (20:29 UTC) recorded Photo seed17/warm-copy continuation 451/950, actual update 701, and 100% utilization. Copied remote coordinator counts lag the canonical local coordinator. All 72 phase terminals require a separate complete-cohort audit before scientific comparisons or final scoring. Final labels remain closed; no new comparison or predictive advantage is claimed.
 
 Five fixed arms compare graph-filtered training-error initialization with common descent, random tangent directions, altered topology and warm copying on modern backbones. The exploratory context and decisions are retained. Report and final-label access require the complete registered cohort. Remote copies of coordinator receipts are publication snapshots; local receipts own live counts.
 
@@ -20,7 +20,7 @@ Five fixed arms compare graph-filtered training-error initialization with common
 
 **Normal execution restored, 20:02 UTC:** the user clarified that incidental standard runtime caches outside the repo are allowed and requested normal execution. The filesystem namespace guard is retired from active execution. Normal PyTorch/CUDA checks passed on both intended A100 GPUs in 4.26 seconds. No host mounts, settings or other users' jobs were changed.
 
-The unchanged five-arm ogbl-collab family restarted in a fresh repository output directory. At 20:03 UTC, both fit workers were alive, with both GPUs at 97% utilization. No runtime error was observed. The first epoch records were not yet present at that observation; this is liveness evidence, not a completed fit or a predictive result. The 15-cell, three-seed, 100-epoch schedule retains 24 optimizer fits and all original scientific settings.
+The unchanged five-arm ogbl-collab family restarted in a fresh repository output directory. At 20:30 UTC, both fit workers were alive with 20 and 22 completed epoch records for native1024/seed0 and single256/seed0. Both GPUs were at 96–97% utilization and no runtime error was observed. These are partial training records, this is liveness evidence, not a completed fit or a predictive result. The 15-cell, three-seed, 100-epoch schedule retains 24 optimizer fits and all original scientific settings.
 
 The earlier partial fits (39 and 40 epoch records) remain preserved and excluded from comparisons. Their costs and all failed guard checks remain recorded. The guard blocked CUDA initialization; the server's normal runtime works. The exact causative blocked syscall was not established. Source, data, checkpoints and deliberate outputs remain in the authorized repository; incidental automatic runtime caches are permitted by the user.
 
@@ -34,6 +34,8 @@ The repaired 21-cell stronger node-classification control fitter has passed sour
 
 ## Literature and scientific claims
 
-Literature index_v19 contains 92 conclusion records across 48 normalized paper identifiers and 2 software documentation identifiers. These counts were checked against the index metadata and normalization groups. Scoped method reads, retained notes and revisits are not full-paper reads; a cumulative full-paper-read total is not certified. Prior conclusions and unresolved novelty limitations remain retained.
+Literature index_v20 contains 98 conclusion records across 54 normalized paper identifiers and 2 software documentation identifiers. These counts were checked against the index metadata and normalization groups. Scoped method reads, retained notes and revisits are not full-paper reads; a cumulative full-paper-read total is not certified. Prior conclusions and unresolved novelty limitations remain retained.
+
+An independent source review found no scientific correctness blocker in the normal-runtime BUDDY evaluation/export v4. It does not certify actual training completion or results. A source-only paired analyzer now prepares all three existing comparisons, seed differences, conditional t intervals and multiplicity-adjusted sign references. No real outcomes were opened for that preparation.
 
 Original paper scores remain unchanged. No new predictive superiority, methodological novelty, revised manuscript or paper acceptance is claimed. Future paper reviewers receive immutable evidence and fresh context through the requested skill. Source audits are engineering checks. No sudo, PDF compilation or GENLINK is used; research artifacts and deliberate file operations remain in the authorized folders; incidental standard runtime caches outside them are allowed by the user. The old automation was absent; an active replacement with the same id was successfully created and monitors every thirty minutes.
