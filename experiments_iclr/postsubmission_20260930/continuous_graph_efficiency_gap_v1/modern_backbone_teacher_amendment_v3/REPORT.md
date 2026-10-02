@@ -1,0 +1,15 @@
+# Source-only v3 repair delivery
+
+Created a new immutable v3 packet for Q_BINDING_1 and REPLAY_1 from modern_teacher_source_audit_v2. The original v1/v2 sources/evidence remain byte-identical; v2 audit evidence and predecessor identity receipts are copied exactly into the new packet.
+
+Qualification now has schema-specific partial-to-tested-run linkage. Native v2 partials must match their emitted admission/input/preprocessing/source seal and implementation/config to the external tested case. Legacy v1 partials use a typed original root request/terminal/cell freeze/optimizer chain with validated request/admission/receipt hashes, exact role/source-label/config/specification and actual frozen selection/preprocessing payload linkage. The certificate stores that validated linkage and distinguishes tested config from authorized four-config scope. Existing seed17-only numerical qualification, exact target coverage17/29/43, external optimizer/member/Adam/parity/replay supplement, failure history and separate full-schedule feasibility requirements remain.
+
+Correction fitting and every cold/warm serving replay now reject shape/dtype/nonfinite values and any raw-logit discrepancy outside unchanged rtol1e-5/atol1e-6 against the selected teacher's saved FP32 member logits, before replay becomes inputs. Pass/failure diagnostics remain; successful costs include comparison IO/hash/transfers and existing measured failures/immutable terminal propagation apply.
+
+Only modern_custody.py and correction_screen_driver.py source bodies changed. All eight neural/scoring sources, native teacher protocol, deterministic CPU APS, checkpoint safe-load policy, schedules/optimizers/initialization and primary pooling/selection/tolerances remain exact. All prospective attempt/failure/closure/source-pairing/six-freeze/final-release constraints are retained.
+
+Verification is source/JSON/byte/AST only. No prototype module was imported or executed or compiled; no scientific data, arrays or checkpoint were loaded; no GPU, SSH, training or numerical qualification occurred. Original root JSON artifacts were inspected for schema/linkage fields only. Root reports its independent exact source-pack audit passed; this child did not repeat it, inspect source label vectors or read final pool packs. The packet supplies source repairs and no scientific admission, numerical pass, resource feasibility or utility claim. Root owns runtime evidence and a fresh engineering audit before scientific admission.
+
+## Static receipt
+
+All13 prototype sources parse as ASTs; all48 pre-receipt JSON files parse. All8 neural/scoring hashes and8 exact retained native slices match; retained author SHA256/Git blobs match. Every original v1/v2 payload/hash/length and manifest/seal remains unchanged. Exactly2 prototype files changed. AST identities for source pairing, registry/claims/terminals/closure and shared release remain unchanged; strict replay and exact partial linkage precede their dependent inputs/certificate writes. No prototype interfaces were executed.

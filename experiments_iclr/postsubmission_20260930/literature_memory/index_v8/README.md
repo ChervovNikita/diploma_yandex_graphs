@@ -1,0 +1,118 @@
+# Literature memory
+
+Consult by canonical ID/title before fetching or rereading. Revisit only a named unresolved passage, new version or changed scientific question. Keep prior conclusions and failures. Attributed ingredients can support an extension; novelty requires a precise supported delta.
+
+## Paper-specific conclusions
+
+- **arXiv:2609.26310v1**: PreGS: A Parameter-Transfer-Based Multi-Expert Graph Neural Network for Node Classification — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arXiv:2605.15888v1**: CHoE: Cross-Domain Heterogeneous Graph Prompt Learning via Structure-Conditioned Experts — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arXiv:2609.08709v1**: Chimaera: A Mixture-of-Graph-Experts Architecture for Cross-Task and Cross-Dataset Graph Learning — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arXiv:2106.10994v1**: BernNet: Learning Arbitrary Graph Spectral Filters via Bernstein Approximation — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arXiv:2010.13993v1**: Combining Label Propagation and Simple Models Out-performs Graph Neural Networks — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arXiv:2410.24210v3**: TabM: Advancing Tabular Deep Learning with Parameter-Efficient Ensembling — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arXiv:2412.11085v1**: GraphMoRE: Mitigating Topological Heterogeneity via Mixture of Riemannian Experts — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arXiv:2010.13993v2**: Combining Label Propagation and Simple Models Out-performs Graph Neural Networks — `continuous_method_gap_search_v1/round15_graph_route_initialization/PAPER_CONCLUSIONS.json`
+- **arxiv:2002.06715**: BatchEnsemble: An alternative approach to Efficient Ensemble and Lifelong Learning — `continuous_graph_efficiency_gap_v1/gnnm_vectorized_eval_source_v1/PRIMARY_CONCLUSIONS.json`
+- **pyg:SAGEConv/MessagePassing/MeanAggregation**: PyTorch Geometric native SAGE and aggregation implementation — `continuous_graph_efficiency_gap_v1/gnnm_vectorized_eval_source_v1/PRIMARY_CONCLUSIONS.json`
+- **pytorch:Linear/LayerNorm**: PyTorch selected Linear and feature LayerNorm implementation — `continuous_graph_efficiency_gap_v1/gnnm_vectorized_eval_source_v1/PRIMARY_CONCLUSIONS.json`
+- **arxiv:2407.14459;doi:10.1145/3637528.3671849**: PolyFormer: Scalable Node-wise Filters via Polynomial Graph Transformer — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2403.01232**: Polynormer: Polynomial-Expressive Graph Transformer in Linear Time — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2412.15302;doi:10.1609/aaai.v39i12.33466**: Tokenphormer: Structure-aware Multi-token Graph Transformer for Node Classification — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2409.05755**: Re-evaluating the Advancements of Heterophilic Graph Learning — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/custody/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i12.33461**: GRAIN: Multi-Granular and Implicit Information Aggregation Graph Neural Network for Heterophilous Graphs — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/custody/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i18.34146**: AutoSGNN: Automatic Propagation Mechanism Discovery for Spectral Graph Neural Networks — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2002.06715**: BatchEnsemble: An alternative approach to Efficient Ensemble and Lifelong Learning — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2407.14459;doi:10.1145/3637528.3671849**: PolyFormer: Scalable Node-wise Filters via Polynomial Graph Transformer — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2403.01232**: Polynormer: Polynomial-Expressive Graph Transformer in Linear Time — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2412.15302;doi:10.1609/aaai.v39i12.33466**: Tokenphormer: Structure-aware Multi-token Graph Transformer for Node Classification — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2409.05755**: Re-evaluating the Advancements of Heterophilic Graph Learning — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/custody/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i12.33461**: GRAIN: Multi-Granular and Implicit Information Aggregation Graph Neural Network for Heterophilous Graphs — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/custody/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i18.34146**: AutoSGNN: Automatic Propagation Mechanism Discovery for Spectral Graph Neural Networks — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2002.06715**: BatchEnsemble: An alternative approach to Efficient Ensemble and Lifelong Learning — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2407.14459;doi:10.1145/3637528.3671849**: PolyFormer: Scalable Node-wise Filters via Polynomial Graph Transformer — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2403.01232**: Polynormer: Polynomial-Expressive Graph Transformer in Linear Time — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2412.15302;doi:10.1609/aaai.v39i12.33466**: Tokenphormer: Structure-aware Multi-token Graph Transformer for Node Classification — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2409.05755**: Re-evaluating the Advancements of Heterophilic Graph Learning — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/custody/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i12.33461**: GRAIN: Multi-Granular and Implicit Information Aggregation Graph Neural Network for Heterophilous Graphs — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/custody/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i18.34146**: AutoSGNN: Automatic Propagation Mechanism Discovery for Spectral Graph Neural Networks — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/custody/PAPER_CONCLUSIONS.json`
+- **arxiv:2002.06715**: BatchEnsemble: An alternative approach to Efficient Ensemble and Lifelong Learning — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/custody/PAPER_CONCLUSIONS.json`
+- **arXiv:2303.03374v3**: To Stay or Not to Stay in the Pre-train Basin: Insights on Ensembling in Transfer Learning — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/PAPER_CONCLUSIONS.json`
+- **DOI:10.1007/978-3-032-37657-2_35**: FAGEL: Fast and Accurate Graph Ensemble Learning Using Staged Training and Diversified Sampling — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/PAPER_CONCLUSIONS.json`
+- **arXiv:2609.26310v1**: PreGS: A Parameter-Transfer-Based Multi-Expert Graph Neural Network for Node Classification — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2605.15888v1**: CHoE: Cross-Domain Heterogeneous Graph Prompt Learning via Structure-Conditioned Experts — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2609.08709v1**: Chimaera: A Mixture-of-Graph-Experts Architecture for Cross-Task and Cross-Dataset Graph Learning — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2106.10994v1**: BernNet: Learning Arbitrary Graph Spectral Filters via Bernstein Approximation — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2010.13993v1**: Combining Label Propagation and Simple Models Out-performs Graph Neural Networks — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2410.24210v3**: TabM: Advancing Tabular Deep Learning with Parameter-Efficient Ensembling — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2412.11085v1**: GraphMoRE: Mitigating Topological Heterogeneity via Mixture of Riemannian Experts — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2010.13993v2**: Combining Label Propagation and Simple Models Out-performs Graph Neural Networks — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2306.02775v3**: Input-gradient space particle inference for neural network ensembles — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v40i28.39553**:  — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REUSED_CONCLUSIONS.json`
+- **DOI:10.1609/aaai.v40i28.39553**: MORGAN: To Bridge Mixture of Experts and Spectral Graph Neural Network — `coordinate_source_independent_review_v1/morgan_primary_resolution_v1/PAPER_CONCLUSIONS.json`
+- **arxiv:2407.14459;doi:10.1145/3637528.3671849**: PolyFormer: Scalable Node-wise Filters via Polynomial Graph Transformer — `coordinate_source_independent_review_v1/strong_backbones_v1/PAPER_CONCLUSIONS.json`
+- **arxiv:2403.01232**: Polynormer: Polynomial-Expressive Graph Transformer in Linear Time — `coordinate_source_independent_review_v1/strong_backbones_v1/PAPER_CONCLUSIONS.json`
+- **arxiv:2412.15302;doi:10.1609/aaai.v39i12.33466**: Tokenphormer: Structure-aware Multi-token Graph Transformer for Node Classification — `coordinate_source_independent_review_v1/strong_backbones_v1/PAPER_CONCLUSIONS.json`
+- **arxiv:2409.05755**: Re-evaluating the Advancements of Heterophilic Graph Learning — `coordinate_source_independent_review_v1/strong_backbones_v1/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i12.33461**: GRAIN: Multi-Granular and Implicit Information Aggregation Graph Neural Network for Heterophilous Graphs — `coordinate_source_independent_review_v1/strong_backbones_v1/PAPER_CONCLUSIONS.json`
+- **doi:10.1609/aaai.v39i18.34146**: AutoSGNN: Automatic Propagation Mechanism Discovery for Spectral Graph Neural Networks — `coordinate_source_independent_review_v1/strong_backbones_v1/PAPER_CONCLUSIONS.json`
+- **arxiv:2002.06715**: BatchEnsemble: An alternative approach to Efficient Ensemble and Lifelong Learning — `coordinate_source_independent_review_v1/strong_backbones_v1/PAPER_CONCLUSIONS.json`
+- **arXiv:2510.18370v1**: Training Diverse Graph Experts for Ensembles: A Systematic Empirical Study — `literature_root_followup_20261002_v1/REUSED_CONCLUSIONS.json`
+- **arXiv:2605.22593v1**: Do Deep Ensembles Actually Capture Uncertainty in Graph Neural Networks? — `literature_root_followup_20261002_v1/graph_uncertainty_collapse_v1/PAPER_CONCLUSIONS.json`
+
+## Existing research packets
+
+These reports retain earlier conclusions and source-reading limits. The index does not turn retrieval into a full read.
+
+- Round 10: shared/private committee privacy accounting — `continuous_method_gap_search_v1/round10_private_committee_accounting/REPORT.md`
+- Round 11: coherent member uncertainty for structured risk decisions — `continuous_method_gap_search_v1/round11_joint_risk_decisions/REPORT.md`
+- Round 12: member-supported robust and causal recourse — `continuous_method_gap_search_v1/round12_robust_causal_recourse/REPORT.md`
+- Round 13: sequential adaptation of shared/private models — `continuous_method_gap_search_v1/round13_sequential_private_adaptation/REPORT.md`
+- Round14: shared/private ensemble generalization and graph dependence — `continuous_method_gap_search_v1/round14_graph_generalization/REPORT.md`
+- Graph-band supervised route initialization — `continuous_method_gap_search_v1/round15_graph_route_initialization/REPORT.md`
+- Derived-role amendment v2 — `continuous_method_gap_search_v1/round16_derived_roles_amendment_v2/REPORT.md`
+- Round17 — versioned graph-initialization training integration — `continuous_method_gap_search_v1/round17_graph_init_driver_integration_v1/REPORT.md`
+- Round17 — versioned graph-initialization training integration — `continuous_method_gap_search_v1/round17_graph_init_driver_integration_v1/review_evidence/draft01/REPORT.md`
+- Round17 — versioned graph-initialization training integration — `continuous_method_gap_search_v1/round17_graph_init_driver_integration_v2/REPORT.md`
+- Round17 — versioned graph-initialization training integration — `continuous_method_gap_search_v1/round17_graph_init_driver_integration_v2/review_evidence/draft01/REPORT.md`
+- Continuous method search, round 1: constrained topology uncertainty — `continuous_method_gap_search_v1/round1_topology_uncertainty/REPORT.md`
+- Continuous method search, round 2: heterophilic trajectory compatibility — `continuous_method_gap_search_v1/round2_heterophily_uncertainty/REPORT.md`
+- Continuous method search, round 3: isolated private factors for label unlearning — `continuous_method_gap_search_v1/round3_label_unlearning/REPORT.md`
+- Round 4: low-bit shared weights with private-factor correction — `continuous_method_gap_search_v1/round4_low_bit_private_correction/REPORT.md`
+- Round5 follow-up: aligned member information in graph conformal correction — `continuous_method_gap_search_v1/round5_alignment_followup_v1/REPORT.md`
+- Round 5: member alignment for conformal graph score correction — `continuous_method_gap_search_v1/round5_conformal_member_information/REPORT.md`
+- Round 6: certified structural robustness and member information — `continuous_method_gap_search_v1/round6_certified_structural_robustness/REPORT.md`
+- Round 7: ensemble joint-field distillation — `continuous_method_gap_search_v1/round7_joint_field_distillation/REPORT.md`
+- Round 8: one reduced graph for private ensemble fields — `continuous_method_gap_search_v1/round8_shared_graph_reduction/REPORT.md`
+- Round 9: aligned private members for joint label acquisition — `continuous_method_gap_search_v1/round9_joint_label_acquisition/REPORT.md`
+- Vectorized evaluation of the selected original GNNM/SAGE — source only — `continuous_graph_efficiency_gap_v1/gnnm_vectorized_eval_source_v1/REPORT.md`
+- Source-only delivery — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v1/REPORT.md`
+- Source-only v2 repair delivery — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/REPORT.md`
+- Independent source audit of modern native teacher amendment v1 — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v2/audit_evidence/REPORT.md`
+- Source-only v3 repair delivery — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/REPORT.md`
+- Independent source audit of modern native teacher amendment v1 — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/audit_evidence/REPORT.md`
+- Independent engineering source audit: modern native teacher amendment v2 — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/audit_v2_evidence/REPORT.md`
+- Source-only v2 repair delivery — `continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/v2_evidence/REPORT.md`
+- Independent source audit of modern native teacher amendment v1 — `continuous_graph_efficiency_gap_v1/modern_teacher_source_audit_v1/REPORT.md`
+- Round 02 — member-tagged incremental deployment — `continuous_graph_efficiency_gap_v1/round02_incremental_trajectories/REPORT.md`
+- Round 03 — complementary complete-solution search — `continuous_graph_efficiency_gap_v1/round03_neural_search/REPORT.md`
+- Round 03 — complementary complete-solution search — `continuous_graph_efficiency_gap_v1/round03_neural_search/interpretation_revision_v1/REPORT.md`
+- Round 03 targeted closure — multiple-choice learning and team credit — `continuous_graph_efficiency_gap_v1/round03_neural_search/mcl_team_credit_closure/REPORT.md`
+- Round 04 — private graph adaptation trajectories — `continuous_graph_efficiency_gap_v1/round04_graph_adaptation/REPORT.md`
+- Round 05 — symmetry-respecting atomistic graph committees — `continuous_graph_efficiency_gap_v1/round05_atomistic_committees/REPORT.md`
+- Round 06 — private recurrent graph constraint search — `continuous_graph_efficiency_gap_v1/round06_graph_constraint_search/REPORT.md`
+- Round 07 — distributed personalized graph learning — `continuous_graph_efficiency_gap_v1/round07_federated_graph_personalization/REPORT.md`
+- Round 08 — paired coarse/fine graph estimation — `continuous_graph_efficiency_gap_v1/round08_multifidelity_graph_estimation/REPORT.md`
+- Round 09 — graph-conditioned joint proposal mixtures — `continuous_graph_efficiency_gap_v1/round09_graphical_model_inference/REPORT.md`
+- Round 10 — complete graph decoder trajectories — `continuous_graph_efficiency_gap_v1/round10_graph_decoder_trajectories/REPORT.md`
+- Round 11 — equivariant molecular generative graph trajectories — `continuous_graph_efficiency_gap_v1/round11_equivariant_molecular_generation/REPORT.md`
+- Round 12 — graph active sensing and complete experimental design — `continuous_graph_efficiency_gap_v1/round12_graph_active_sensing/REPORT.md`
+- Round 13 — graph sequential data assimilation and neural parameter coordinates — `continuous_graph_efficiency_gap_v1/round13_graph_data_assimilation/REPORT.md`
+- Targeted Round13 qualification — shared graph coordinates for neural EnKF — `continuous_graph_efficiency_gap_v1/round13_neural_enkf_qualification_v1/REPORT.md`
+- Round 14 — multi-agent graph control, policy specialization and ensemble decisions — `continuous_graph_efficiency_gap_v1/round14_multiagent_graph_control/REPORT.md`
+- Round 15 — graph inverse problems and complete posterior transport — `continuous_graph_efficiency_gap_v1/round15_graph_inverse_posterior/REPORT.md`
+- Round 16 — complete physical graph rollouts, conservation and stability — `continuous_graph_efficiency_gap_v1/round16_graph_conservative_rollouts/REPORT.md`
+- Round 17: graph neural preconditioners and complete linear solves — `continuous_graph_efficiency_gap_v1/round17_graph_linear_solvers/REPORT.md`
+- Round 18: complete MIP solver steering and certified cut generation — `continuous_graph_efficiency_gap_v1/round18_graph_mip_solver_steering/REPORT.md`
+- Round 19 — graph certified robustness — `continuous_graph_efficiency_gap_v1/round19_graph_certified_robustness/REPORT.md`
+- Graph tangent initialization: targeted literature and control review — `coordinate_source_independent_review_v1/graph_tangent_initialization_review_v1/REPORT.md`
+- MORGAN full-primary resolution attempt — `coordinate_source_independent_review_v1/morgan_primary_resolution_v1/REPORT.md`

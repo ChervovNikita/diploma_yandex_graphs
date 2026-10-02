@@ -1,0 +1,8 @@
+# Round17 v2 source amendment
+
+V1 was sealed before the root's final provenance steering arrived. V2 preserves that33file sealed candidate and fixes two pre-runtime metadata issues.
+
+1. `independent_of_stage1_outcomes` is scoped to source-pack evidence custody: no reuse/binding/selection of Stage1 fitted outputs or labels as this study evidence. The study's idea/cohort design followed negative screening outcomes; Photo/Squirrel families are previously exposed. Templates retain explicit disclosure and leave the boolean false until root certifies its narrow meaning. This is an exploratory study, not an unseen confirmatory cohort.
+2. `verified` accepts exact path/SHA with optional nonnegative integer `bytes`, checks size when present, and preserves the complete original objects. The six issued modern GNNM certificates retain optional bytes in source-role/source-label descriptors. Root/admission-builder identified this compatibility blocker without running Round17. Exact object equality with the extraction bundle must remain intact. This author did not open issued certificate/data/model files; independent root recheck should inspect the actual descriptors.
+
+No scientific code was imported or executed. The initializer, neural bodies, adapter,5arms/cfg0, schedules, tolerances and final-report claims remain unchanged. Only driver descriptor guards and a provenance docstring changed from v1. Existing accepted-alpha reporting remains present. V1 was a source candidate, not a Round17 numerical registry/attempt; future lineage therefore distinguishes previous source versions from any actual attempted-registry history.

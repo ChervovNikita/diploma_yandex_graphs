@@ -1,0 +1,297 @@
+--- modern_backbone_teacher_amendment_v2/prototype/correction_screen_driver.py
++++ modern_backbone_teacher_amendment_v3/prototype/correction_screen_driver.py
+@@ -435,6 +435,32 @@
+         raise
+ 
+ 
++def strict_teacher_replay(np, torch, logits, reference_record, receipt_path):
++    """Reject disagreement before these raw member logits become correction inputs."""
++    receipt = dict(schema='modern-correction-teacher-replay-v3',saved_raw_member_logits=reference_record,
++        rtol=1e-5,atol=1e-6,passed=False,
++        policy='Exact FP32 shape/dtype and finite values; frozen strict logit tolerance; no retry or tolerance rescue')
++    try:
++        reference = np.load(verified(reference_record),allow_pickle=False)
++        actual = logits.detach().cpu()
++        receipt.update(reference_shape=list(reference.shape),actual_shape=list(actual.shape),
++            reference_dtype=str(reference.dtype),actual_dtype=str(actual.dtype))
++        require(reference.dtype == np.dtype('float32') and actual.dtype == torch.float32 and
++            reference.ndim == 3 and tuple(reference.shape) == tuple(actual.shape),
++            'Selected saved/replayed raw member logits must have exact FP32 shape/dtype')
++        require(bool(np.isfinite(reference).all()) and bool(torch.isfinite(actual).all()),
++            'Selected saved/replayed raw member logits contain nonfinite values')
++        receipt['max_absolute_logit_difference'] = float(np.abs(actual.numpy()-reference).max())
++        torch.testing.assert_close(actual,torch.from_numpy(reference),rtol=1e-5,atol=1e-6)
++        receipt['passed'] = True
++    except Exception as error:
++        receipt.update(error_type=type(error).__name__,message=str(error))
++        write_json(receipt_path,receipt,exclusive=True)
++        raise
++    write_json(receipt_path,receipt,exclusive=True)
++    return receipt
++
++
+ def fit_body(args, admission, out, admission_record, started, attempt_binding):
+     np, torch, env = runtime(admission['device'])
+     device = admission['device']
+@@ -477,14 +503,14 @@
+     with torch.no_grad():
+         logits, inference_cost = measured(torch, device, lambda: teacher(graph, x).detach())
+     np.save(out / 'teacher_member_logits.npy', logits.cpu().numpy(), allow_pickle=False)
+-    reference = np.load(verified(source.selected['saved_logits']), allow_pickle=False)
+-    replay_difference = np.abs(logits.cpu().numpy()-reference)
+-    write_json(out/'TEACHER_REPLAY.json', dict(max_absolute_logit_difference=float(replay_difference.max()),
+-        policy='Save actual replay logits; disclose differences; no tolerance rescue or favorable retry'), exclusive=True)
++    replay_receipt, replay_cost = measured(torch,device,lambda:
++        strict_teacher_replay(np,torch,logits,source.selected['saved_logits'],out/'TEACHER_REPLAY.json'))
++    write_json(out/'TEACHER_REPLAY_COST.json',dict(measured=replay_cost,
++        scope='Selected saved-logit loading/hash, device-to-CPU transfer, exact FP32 shape/dtype, finiteness, frozen tolerance comparison and replay receipt write'),exclusive=True)
+     with torch.no_grad():
+         secondary = logits.softmax(-1).mean(0)
+     np.save(out/'secondary_mean_probability_point.npy', secondary.cpu().numpy(), allow_pickle=False)
+-    del reference, replay_difference, secondary
++    del secondary
+     from aligned_score_correction import (prepare_fixed_inputs, SymmetricEdgeGate, fit_source_gate,
+                     head_family_scores, _development_metrics, randomized_aps)
+     inputs, feature_cost = measured(torch, device, lambda: prepare_fixed_inputs(logits, edges, uniforms, permutations))
+@@ -555,7 +581,8 @@
+                                                                     out, device, seed))
+         write_json(out / 'SOURCE_ATTEMPTS.json', attempts)
+         write_json(out / 'QUALIFICATION_ONLY.json', dict(environment=env, teacher_cost=teacher_cost,
+-                   teacher_inference_cost=inference_cost, feature_cost=feature_cost, cf_cost=cf_cost,
++                   teacher_inference_cost=inference_cost, teacher_replay_comparison_cost=replay_cost,
++                   feature_cost=feature_cost, cf_cost=cf_cost,
+                    head_cost=head_cost, all_gate_attempts_completed=all(row['status']=='completed' for row in attempts),
+                    complete_graph=True, teacher_updates=0, frozen_teacher_replay=True, gate_updates_per_config=2,
+                    cf_updates_per_config=2, cf_branch_epochs=[1, 1001], trained_utility=False,
+@@ -618,6 +645,7 @@
+     np.save(out / 'communities.npy', np.load(cell / 'communities.npy', allow_pickle=False), allow_pickle=False)
+     write_json(out / 'SOURCE_SELECTION.json', chosen)
+     write_json(out / 'COSTS.json', dict(teacher_checkpoint_preprocess_replay=teacher_cost, teacher_inference=inference_cost,
++               teacher_replay_comparison=replay_cost,
+                 external_teacher_family_cells=[row['costs'] for row in source.all_teacher_cells],
+                 teacher_family_selection=source.selection_record,
+                preparation_all_features=feature_cost, head_transforms=head_cost, source_attempts=attempts,
+@@ -655,7 +683,6 @@
+                                          randomized_aps, head_variant_scores)
+     from cf_gnn_source_adapter import PooledGraphCorrection
+     device, seed = admission['device'], roles['seed']
+-    reference_logits = np.load(out/'teacher_member_logits.npy', allow_pickle=False)
+     costs = {}
+     for arm in PRIMARY:
+         context = {}
+@@ -669,7 +696,7 @@
+             context['u'] = torch.from_numpy(np.load(cell/'aps_uniforms.npy', allow_pickle=False)).to(device)
+             if arm in ('aligned', 'marginal', 'shuffled', 'pooled') and not chosen[arm]['selected_zero_diffusion']:
+                 context['perm'] = torch.from_numpy(np.load(cell/'member_permutations.npy', allow_pickle=False)).to(device)
+-            context['capture_replay'] = True
++            context['replay_receipt_path'] = out/f'SERVING_TEACHER_REPLAY_{arm}_cold.json'
+             row = source.selected
+             prepared = source.adapter.prepare_graph(context['x'], context['e'], row['specification']['backbone'],
+                 row['preprocessing']['environment'], row['preprocessing']['input_binding'])
+@@ -691,8 +718,8 @@
+         def serve():
+             with torch.no_grad():
+                 z = context['teacher'](context['graph'], context['x'])
+-                if context['capture_replay']:
+-                    context['last_member_logits'] = z.detach()
++                context['last_replay_receipt'] = strict_teacher_replay(np,torch,z,
++                    source.selected['saved_logits'],context['replay_receipt_path'])
+                 p = z.mean(0).softmax(-1)
+                 if chosen[arm]['selected_zero_diffusion']:
+                     return randomized_aps(p, context['u'])
+@@ -708,16 +735,15 @@
+                 inp = prepare_fixed_inputs(z, context['e'], context['u'], context['perm'], feature_mode=mode)
+                 return corrected_scores(inp, context['correction'], arm)
+         _, cold = measured(torch, device, cold_setup)
+-        replay_difference = np.abs(context['last_member_logits'].cpu().numpy()-reference_logits)
+-        del context['last_member_logits']
+-        context['capture_replay'] = False
++        cold_difference = context['last_replay_receipt']['max_absolute_logit_difference']
+         samples = []
+-        for _ in range(10):
++        for sample in range(10):
++            context['replay_receipt_path'] = out/f'SERVING_TEACHER_REPLAY_{arm}_warm{sample}.json'
+             _, warm = measured(torch, device, serve)
+             samples.append(warm)
+         costs[arm] = dict(cold=cold, warm=samples,
+-                         cold_teacher_replay_max_absolute_logit_difference=float(replay_difference.max()),
+-                         replay_policy='Report numeric differences and saved-logit metric recomputation; no bitwise claim, no hidden retry/tolerance rescue',
++                         cold_teacher_replay_max_absolute_logit_difference=cold_difference,
++                         replay_policy='Every fresh cold/warm forward passes exact FP32 shape/dtype, finite values and rtol1e-5/atol1e-6 against selected saved raw logits before score/correction inputs; loading/hash/transfers/comparison/receipts are charged',
+                          warm_mean_seconds=sum(row['seconds'] for row in samples)/len(samples),
+                          teacher_member_trajectories_per_request=4,
+                          scope='Full local graph/checkpoint loading in cold; full fresh teacher forward and correction in every warm sample; no cached-logit serving')
+--- modern_backbone_teacher_amendment_v2/prototype/modern_custody.py
++++ modern_backbone_teacher_amendment_v3/prototype/modern_custody.py
+@@ -1,4 +1,4 @@
+-"""Interface-only custody v2. Stdlib metadata/hashes; no scientific imports.
++"""Interface-only custody v3. Stdlib metadata/hashes; no scientific imports.
+ 
+ Prospective registries and exclusive claim/terminal records forbid a second
+ attempt at a registered cell, including a retry in a fresh output directory.
+@@ -110,6 +110,109 @@
+     return dict(identity=identity_hash,**binding)
+ 
+ 
++def registered_specification(admission, seed):
++    """Reconstruct frozen specification metadata without importing a model."""
++    recipe = protocol()
++    config = admission['config']
++    require(config in range(4) and seed in recipe['seeds'] and admission['family'] in recipe['families'],
++        'Unregistered tested specification')
++    native = dict(recipe['native'][admission['backbone']])
++    configuration = recipe['configurations'][config]
++    native['dropout'] = max(0.0,native['dropout']+configuration['dropout_delta'])
++    if admission['backbone'] == 'polynormer_r':
++        native['global_dropout'] = max(0.0,native['global_dropout']+configuration['dropout_delta'])
++    return dict(backbone=admission['backbone'],family=admission['family'],config=config,seed=seed,
++        members=1 if admission['family']=='single_author' else 4,native=native,
++        lr_multiplier=configuration['lr_multiplier'],
++        initialization='paired native core seed; independent member m seed+100003*m; GNNM stem R Rademacher',
++        primary_pooling=recipe['primary_pooling'],protocol_version=recipe['version'])
++
++
++def qualification_run_linkage(request, partial, audit, tested_admission, tested_identity, tested_preprocessing):
++    """Prove the partial and supplement describe one exact tested attempt."""
++    require(partial['implementation_sha256'] == tested_admission['implementation_sha256'] and
++        tested_preprocessing == preprocessing(tested_admission,tested_identity),
++        'Partial implementation/tested preprocessing differs from the original admission')
++    schema = partial['schema']
++    if schema == 'modern-teacher-partial-qualification-v2':
++        require(partial['admission_eligible'] is False and
++            partial['admission'] == audit['tested_admission'] and
++            partial['input_identity'] == tested_identity and
++            partial['preprocessing'] == tested_preprocessing and
++            partial['source_seal'] == audit['tested_source_seal'] and partial['model_sha256'] == models(),
++            'Native partial is not linked to the exact audited admission/input/preprocessing/source seal')
++        emitted_admission = read(verified(partial['admission']))
++        require(emitted_admission == tested_admission and
++            emitted_admission['config'] == tested_admission['config'] and
++            partial.get('config',emitted_admission['config']) == tested_admission['config'],
++            'Native partial tested configuration differs')
++        binding = dict(kind='native-v2',emitted_admission=partial['admission'])
++    else:
++        require(schema == 'modern-teacher-qualification-v1', 'Unsupported partial qualification schema')
++        binding = audit['partial_run_binding']
++        require(binding['schema'] == 'modern-legacy-qualification-run-binding-v3',
++            'Typed original legacy run binding required')
++        request_path = verified(binding['original_root_request'])
++        terminal_path = verified(binding['root_terminal'])
++        cell_path = verified(binding['teacher_cell_freeze'])
++        optimizer_path = verified(binding['original_optimizer_audit'])
++        root_request, terminal, cell, optimizer = map(read,(request_path,terminal_path,cell_path,optimizer_path))
++        run = Path(root_request['output']).resolve()
++        cell_root = run/'cell'
++        require(root_request['root_admitted'] is True and root_request['action'] == 'qualification' and
++            root_request['full_fit_admitted'] is False and root_request['heldout_scoring_admitted'] is False and
++            root_request['teacher_admission'] == audit['tested_admission'] and
++            root_request['deterministic'] is True and root_request['aps_score_backend'] == 'cpu_fixed_algorithm',
++            'Original root request does not authorize this exact tested legacy admission/backend')
++        require(terminal_path == run/'TERMINAL.json' and cell_path == cell_root/'TEACHER_CELL_FREEZE.json' and
++            verified(request['partial_receipt']) == cell_root/'QUALIFICATION_RECEIPT.json' and
++            optimizer_path == run/'EXTERNAL_OPTIMIZER_AUDIT.json' and
++            terminal['complete'] is True and terminal['report_eligible'] is False and terminal['final_labels_read'] is False and
++            terminal['request_sha256'] == binding['original_root_request']['sha256'] and
++            terminal['qualification_receipt_sha256'] == request['partial_receipt']['sha256'] and
++            terminal['optimizer_audit_sha256'] == binding['original_optimizer_audit']['sha256'],
++            'Legacy terminal/request/partial/optimizer artifacts are not one completed tested run')
++        require(cell['schema'] == 'modern-teacher-cell-freeze-v1' and
++            cell['admission'] == audit['tested_admission'] and cell['role_freeze'] == tested_admission['role_freeze'] and
++            cell['graph'] == tested_identity['graph'] and cell['environment'] == tested_admission['environment'] and
++            cell['implementation_sha256'] == tested_admission['implementation_sha256'] and
++            cell['teacher_protocol'] == tested_admission['teacher_protocol'] == protocol() and
++            cell['specification'] == registered_specification(tested_admission,tested_identity['seed']) and
++            cell['label_scope'] == ['train','validation'] and cell['report_eligible'] is False and cell['final_labels_read'] is False,
++            'Legacy cell freeze admission/role/config/specification/source identity differs')
++        selection_path = verified(audit['preprocessing_evidence'])
++        selection = read(selection_path)
++        payload = {row['path']:row for row in cell['payload']}
++        require(len(payload) == len(cell['payload']) and selection_path == cell_root/'teacher_selection.json' and
++            payload['QUALIFICATION_RECEIPT.json']['sha256'] == request['partial_receipt']['sha256'] and
++            payload['teacher_selection.json']['sha256'] == audit['preprocessing_evidence']['sha256'] and
++            cell['selection'] == selection and selection['specification'] == cell['specification'] and
++            selection['preprocessing'] == tested_preprocessing and selection['qualification_only'] is True and
++            selection['report_eligible'] is False and partial['updates_completed'] == selection['updates_completed'] == terminal['training_steps'] and
++            partial['global_stage'] == selection['global_stage'],
++            'Legacy partial/preprocessing metadata is not linked through the actual frozen cell payload')
++        source_manifest_path = verified(root_request['source_manifest'])
++        tested_seal_path = verified(audit['tested_source_seal'])
++        require(source_manifest_path.parent == tested_seal_path.parent == Path(root_request['source_packet']).resolve() and
++            read(tested_seal_path)['manifest_sha256'] == root_request['source_manifest']['sha256'] and
++            any(row['path'] == audit['tested_source_seal']['path'] and row['sha256'] == audit['tested_source_seal']['sha256']
++                for row in root_request['protected_files']) and
++            any(Path(row['path']).resolve() == Path(root_request['entry_script']).resolve() and
++                any(Path(original['path']).resolve() == Path(row['path']).resolve() and original['sha256'] == row['sha256']
++                    for original in root_request['protected_files']) for row in audit['instrumentation_sources']),
++            'Legacy root request lacks the tested source seal/manifest/instrumentation linkage')
++        original_custody = optimizer['exact_input_custody']
++        require(all(original_custody[k] == tested_admission[k] for k in
++            ('role_freeze','source_labels','environment','backbone','family','implementation_sha256')) and
++            original_custody['graph_input'] == tested_identity['graph_input'] and
++            original_custody['source_manifest'] == root_request['source_manifest'],
++            'Original optimizer audit exact role/label/source custody differs from the tested admission')
++    return dict(schema='modern-partial-run-linkage-v3',partial_schema=schema,
++        partial_receipt=request['partial_receipt'],tested_admission=audit['tested_admission'],
++        tested_input=tested_identity,tested_preprocessing=tested_preprocessing,
++        tested_source_seal=audit['tested_source_seal'],tested_config=tested_admission['config'],binding=binding)
++
++
+ def qualification_gate(admission, identity):
+     certificate = read(verified(admission['qualification_receipt']))
+     require(certificate['schema'] == 'modern-teacher-qualification-certificate-v2' and certificate['admission_eligible'] is True and
+@@ -120,6 +223,18 @@
+         certificate['implementation_sha256'] == implementations() == admission['implementation_sha256'],
+         'Exact graph/role/label/source-bound supplemented qualification required')
+     verified(certificate['partial_receipt']); verified(certificate['external_audit']); verified(certificate['source_seal'])
++    linkage = certificate['partial_run_linkage']
++    require(linkage['schema'] == 'modern-partial-run-linkage-v3' and
++        linkage['partial_receipt'] == certificate['partial_receipt'] and
++        linkage['tested_admission'] == certificate['tested_admission'] and
++        linkage['tested_input'] == certificate['tested_seed17_input'] and
++        linkage['tested_preprocessing'] == certificate['tested_preprocessing'] and
++        linkage['tested_source_seal'] == certificate['tested_source_seal'] and
++        linkage['tested_config'] == certificate['qualified_config'] and
++        certificate['numerical_tested_configurations'] == [linkage['tested_config']] and
++        certificate['registered_configuration_scope'] == list(range(4)) and
++        admission['config'] in certificate['registered_configuration_scope'],
++        'Supplemented certificate lacks exact partial-to-tested-run linkage')
+     coverage = read(verified(certificate['coverage_authorization']))
+     require(certificate['authorized_target_input'] == identity and certificate['numerical_tested_seeds'] == [17] and
+         certificate['tested_seed17_input']['seed'] == 17 and
+@@ -175,6 +290,7 @@
+     for record in coverage['evidence']: verified(record)
+     require(bool(coverage['evidence']), 'Independent coverage audit evidence is missing')
+     require(partial['report_eligible'] is False and partial['final_labels_read'] is False and
++        partial['labels_read'] == ['train','validation'] and
+         partial.get('partial_checks_passed',partial.get('passed')) is True and
+         partial['backbone'] == admission['backbone'] and partial['family'] == admission['family'] and
+         partial['environment'] == admission['environment'] and
+@@ -191,7 +307,8 @@
+     require(audit['frozen_tolerances'] == dict(logit_rtol=1e-5,logit_atol=1e-6,gradient_rtol=1e-4,gradient_atol=1e-6),
+         'Qualification tolerance amendment is outside this interface repair')
+     verified(audit['tested_source_seal'])
+-    compatible_seals = {read(ROOT/'V1_MODEL_IDENTITY.json')['v1_seal_sha256'],sha(ROOT/'SEAL.json')}
++    compatible_seals = {read(ROOT/'V1_MODEL_IDENTITY.json')['v1_seal_sha256'],
++        read(ROOT/'V2_SOURCE_IDENTITY.json')['v2_seal_sha256'],sha(ROOT/'SEAL.json')}
+     require(audit['tested_source_seal']['sha256'] in compatible_seals, 'Tested immutable source seal is incompatible')
+     tested_preprocessing = read(verified(audit['preprocessing_evidence']))['preprocessing']
+     expected_preprocessing = preprocessing(admission,identity)
+@@ -203,6 +320,7 @@
+     tested_binding = {k:v for k,v in tested_preprocessing.items() if k != 'identity'}
+     require(tested_preprocessing['identity'] == hashlib.sha256(json.dumps(tested_binding,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+         'Tested preprocessing identity is not canonical')
++    run_linkage = qualification_run_linkage(request,partial,audit,tested_admission,tested_identity,tested_preprocessing)
+     require(audit['failed_attempts_and_fresh_version_retries_retained'] is True and bool(audit['attempt_history']) and
+         bool(audit['instrumentation_sources']), 'External qualification attempt/instrumentation custody is missing')
+     for record in audit['attempt_history'] + audit['instrumentation_sources']: verified(record)
+@@ -217,7 +335,10 @@
+         model_sha256=models(),implementation_sha256=implementations(),source_seal=descriptor(ROOT/'SEAL.json'),
+         tested_source_seal=audit['tested_source_seal'],admission_eligible=True,report_eligible=False,
+         tested_admission=audit['tested_admission'],qualified_config=admission['config'],
++        partial_run_linkage=run_linkage,
+         registered_configuration_scope=list(range(4)),
++        numerical_tested_configurations=[tested_admission['config']],
++        configuration_scope_is_authorization_not_four_config_numerical_testing=True,
+         score_backend='randomized_APS_CPU_preserve_FP32_fixed_uniforms_v2',
+         preprocessing_evidence=audit['preprocessing_evidence'],tested_preprocessing=tested_preprocessing,
+         neural_operation_changed=False,full_schedule_feasibility_separately_required=True))

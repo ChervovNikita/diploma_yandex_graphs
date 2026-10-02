@@ -1,52 +1,42 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-02T02:02:10.843993+00:00. Goal incomplete.
 
-PUBLIC_STATUS.md gives the current status. research_ledger.json retains prior study records. The prior coordination state is preserved in coordination_snapshots/20261002_publication_before_state_v1/.
+Updated: 2026-10-02T08:58:06.538293+00:00. The research goal remains incomplete.
 
-## Completed representative comparison
+## Latest completed work
 
-All 54 fits completed normally: nine arms, Amazon Photo and Coauthor CS, three paired model seeds on core0. All 54 passed the fixed fit, provenance and competence assessment. The prospectively fixed decision is **STAGE1_NO_GO**. No 108-fit continuation is admitted. Test labels remain sealed and the original five-dataset scores remain unchanged.
+Six full graph runtime qualifications completed and their receipts passed the root audit: PolyFormer-Mono on filtered Squirrel and Polynormer-r on Amazon Photo, each as a native single model, GNNM with four boundary-factor routes, and four independent models at native width. These checks used seed17 only. They exercised all native blocks, both Photo stages, finite member gradients, exact selected model/Adam restoration, fixed output/gradient tolerances and strict checkpoint replay. Identity outputs and replay differences were zero under the tested deterministic runtime. The three/four-update checks are not scientific performance results or full-schedule resource evidence.
 
-Added factors do not establish benefit beyond permutation-only: relative mean validation NLL gain is +0.101% on Photo and -0.034% on CS. Combined factors and permutations beat factors alone by 1.285% on Photo (only 1/3 seed wins) and 13.487% on CS, but lose to Photo's strongest byte-matched untied control by 6.996%. This is exploratory three-seed, one-partition evidence. Byte matching does not match compute or learned capacity. Complete unsuccessful results are retained.
+The native Photo model itself varied by around 2.6e-6 across identical local-stage calls under the original CUDA reductions. Deterministic algorithms and a fixed CUBLAS workspace removed that discrepancy. Neural source and tolerances were preserved. Torch2.1 does not support deterministic CUDA cumulative sums used by APS; the same score algorithm now runs on CPU. Earlier metadata-loading, nondeterministic parity, unsupported cumulative-sum and prechild occupied-GPU failures remain recorded.
 
-## Selected-state integrity replay
+An independent source audit verified provider feature/edge row order and re-extracted all six train/validation label pairs exactly. Published raw label vectors were decoded solely to access the frozen source indices. Final compact pool packs were not opened; no non-source label statistic, fit or metric was calculated by that audit. Two descriptor compatibility failures were retained before the successful audit.
 
-The 54-case replay terminated normally under supervision in 20.116 seconds: 15 cases verified; 39 exceeded the frozen selected-forward logit tolerance. Differences were 2.86e-6 to 8.58e-6. These cases remain inconclusive; no tolerance was widened and no primary score was replaced. Checkpoint, deployment, provenance, validation ordering and independent saved-logit metric checks precede the forward comparison. No training or test-label reading occurred.
+## Current scientific work
 
-## Current method work
+The graph guided initialization hypothesis copies one warm predictor into four routes, uses labeled-node errors filtered over the graph to seed different small private-factor updates, and then resumes ordinary training. Five fixed arms distinguish graph information from warm copying, common descent, random directions and permuted topology. The native full schedules and three paired seeds are prospective. Actual warm-state automatic differentiation and optimizer equivalence checks remain pending.
 
-The next pilot tests whether same-member covariance across neighboring nodes can make graph prediction sets smaller while retaining independently calibrated coverage. It includes full-marginal, alignment-shuffled, pooled, HeAD and CF-GNN controls. This is a hypothesis, not an established contribution.
+Fresh engineering audits identified two modern-interface defects and three initializer-workflow defects. The two modern-interface repairs passed an independent sealed-source recheck. The initializer repairs are being finalized before scientific admission: exact partial-qualification linkage, a fail-closed checkpoint-logit replay check, registry-owned final release, predecessor-registry custody and diagnostic time naming. Source audits establish no accuracy, novelty or acceptance recommendation. All eighteen metadata-only target certificates were issued under corrected-route supervision, with seed17/config0 numerical testing explicitly separate from exact same-graph seed29/43 and fixed-config authorization. No native full fit or final label release was authorized by issuance.
 
-The first Squirrel/Photo acquisition attempt failed during label-blind role preparation, before model training. The published Squirrel validation masks contain 718, 700 and 726 nodes; the frozen derived source reservoir allowed 667. The separate derived-role v2 amendment uniformly moves surplus published validation nodes into the final pool, preserves every original test node and retains the fixed total label budget. The final pool is mixed; results will not be called official-split accuracy. New acquisition completed in 20.634 supervised seconds. An independent payload/partition audit verified all six source partitions. No model fitting or held-out scoring took place. The failed v1 attempt and an initially unsupported Fortran-mask parser attempt are retained.
+The separate graph prediction-set hypothesis tests whether consistent member behavior across neighboring nodes improves calibrated sets. It remains unexecuted. Four-route vectorized evaluation and neural ensemble assimilation remain source-only; no speed or memory benefit has been measured for them.
 
-Recent backbone sources are being assessed before new primary fits. The released PolyFormer filtered-Squirrel schedule and Polynormer-r Photo schedule are concrete candidates; their reported paper scores do not transfer to this pilot's derived supervision roles. The user permits modest, fair validation tuning. Published ingredients can support a useful extension; the extension still needs a precise distinction and representative evidence.
+No new full scientific fit or heldout scoring is admitted at this update. All original paper scores remain unchanged. No new methodological gain or improved manuscript is claimed.
 
-A second source packet batches the four GNNM hidden-state paths for evaluation, with equally optimized untied/head controls. It has only syntax/source checks. No numerical equivalence, speedup or reduced memory has been measured. Graph-aware initialization and useful predictive diversity remain under literature assessment. Neural ensemble assimilation remains a source-only backup with unresolved native solver dependencies.
+## Retained completed negative evidence
 
-Paper conclusions are indexed in `literature_memory/`. Consult saved conclusions before rereading; revisit only a new version or an explicit unresolved passage. No new methodological novelty, manuscript improvement or acceptance recommendation is established. No remote scientific job is live at the latest recorded terminal observation.
+The 54-fit coordinate screen completed on Photo/Coauthor CS with three paired seeds and nine arms. Its frozen decision remains **STAGE1_NO_GO**; no 108-fit continuation or test scoring is admitted. Added factors did not establish benefit beyond permutations. Selected-state replay retained 15 verified and 39 inconclusive cases at the frozen tolerance; no score/tolerance rescue occurred.
 
-## Scope and resources
+## Literature memory
 
-Only the anogena-2 port 2222 route and GPU UUID 44039938-fd82-41d2-fefd-de71514e2fac are authorized. Never connect to the seven-GPU account. 18.77 remains unresolved. Work stays in this local phase and the remote project repository. No sudo, PDF compilation, GENLINK, Desktop/unrelated files or original-score recalculation.
+`literature_memory/index_v6/` indexes 53 conclusion entries including reused/versioned notes. This is not a count of full papers read. A new scoped primary read, arXiv2605.22593v1, reports limited functional diversity/uncertainty gains in conventional GCN/GATv2 ensembles; its probability pooling and message-passing-only scope differ from the current pilot. Functional convexity remains the authors' hypothesis, not a theorem. GraphLand Tolokers2/Artnetviews are future dataset leads, not acquired or trained. Consult saved conclusions before rereading. StarSSE supplies direct warm-copy ancestry and motivated the unchanged-copy control. FAGEL is publisher-abstract/pinned-source evidence; MORGAN now has a verified pinned author-source comparison but its full paper remains inaccessible. The exact access limits and source discrepancies are retained. Neither partial access nor source differences establishes global absence or originality.
 
-Conservative reservations after acquisition admission: 133201.601915 / 133340 phase seconds, 100315.729657 / 100320 diagnostic seconds and 134810842784 / 214748364800 disk bytes. These are reservations, not actual GPU time. Earlier failed reservations remain charged. The acquisition failed after 9.1514 supervised seconds. Fetches 118–121 are complete; next unused fetch is 122.
+## Scope, resources and publication
 
-## Evidence
+Only the anogena-2 port 2222 route and GPU UUID 44039938-fd82-41d2-fefd-de71514e2fac are authorized. Never connect to the seven-GPU account. 18.77 remains unresolved. Work remains in the local project and authorized remote repository. No sudo, PDF compilation, GENLINK, Desktop/unrelated files or original-score recalculation.
 
-- `coordinate_ensemble_execution_root_v1/stage1_assessment_run01/ASSESSMENT.json`
-- `coordinate_ensemble_execution_root_v1/stage1_assessment_run01/ALL54_CELLS.csv`
-- `coordinate_ensemble_execution_root_v1/TENSOR_REPLAY_EVIDENCE_INDEX_v1.json`
-- `coordinate_ensemble_execution_root_v1/tensor_replay_selected_v1_run01/TERMINAL.json`
-- `coordinate_ensemble_execution_root_v1/STAGE1_ASSESSMENT_AND_REPLAY_TERMINAL_v1.json`
-- `coordinate_conformal_execution_root_v1/acquisition_run01/FAILED_ATTEMPT.json`
-- `coordinate_conformal_execution_root_v1/acquisition_run01/Squirrel/PREPARATION.log`
-- `protocols/PUBLICATION_METADATA_v1.json`
-- `continuous_graph_efficiency_gap_v1/gnnm_vectorized_eval_source_v1/REPORT.md`
-- `literature_memory/index_v2/LITERATURE_INDEX.json`
+Current conservative reservations are in `modern_teacher_execution_root_v1/SOURCE_PACK_AUDIT_ALLOCATION_v3.json`; these bounds are not measured GPU time or physical disk use. Earlier failed reservations remain charged. The latest source audit and six runtime checks are terminal; no new training job is live. Fetches through139 are retained, including failed130; next unused is140. The separate metadata certificate issuance closed in5.377 supervised seconds; no GPU training job is live.
 
-- `coordinate_conformal_execution_root_v1/ACQUISITION_ASSESSMENT_v3.json`
+Latest verified public branch revision: `2ac000e04740df22c7e601cf84d9c7639de0c1d7` on `codex/postsubmission-research-20260930`. The reviewed qualification/source/literature record was committed and pushed; GitHub advertised that exact branch head. New v3 certification and subsequent notes will be included in the next reviewed update. Binary evidence and credentials remain outside publication inventories.
 
-## Verified source publication
+## Mechanism analysis
 
-Commit `1751bc993446d95f4172def1bee35c39a47060e5` was pushed and GitHub advertised the same branch revision. Source and result summaries are published; binary evidence remains in the project archive. The research goal remains incomplete. See `publication/PUSH_VERIFIED_20261002_v1.json`.
+An independently checked conditional analysis shows common training descent and cancellation of the centered tangent contribution in pooled logits to first order at the same step length. Actual arms can accept different step lengths, so their comparison concerns the complete safeguarded operation. FP32 identities are tolerance-bounded. No generalization, uncertainty benefit or accuracy gain follows from these local facts. The corrected note is graph_init_mechanism_analysis_root_v1/ANALYSIS_v2.md; the original note and independent corrections are preserved.
