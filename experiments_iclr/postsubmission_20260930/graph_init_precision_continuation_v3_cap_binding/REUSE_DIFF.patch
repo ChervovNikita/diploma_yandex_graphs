@@ -1,0 +1,115 @@
+--- graph_init_precision_execution_root_v2/continuation_support.py
++++ graph_init_precision_continuation_v3_cap_binding/continuation_support.py
+@@ -376,12 +376,25 @@
+     require(registry['prior_attempt_registries'] == prior_registries(), 'All failed v2 registries must be preserved')
+     launch = read(bound(decision['registration_launch_request']))
+     whole = read(bound(decision['registration_whole_supervision_terminal']))
++    start_record = decision['registration_whole_supervision_start']
++    start = read(bound(start_record))
++    require(start_record['path'] == str(Path(launch['outer_supervisor_directory'])/'START.json') and
++            decision['registration_whole_supervision_terminal']['path'] == str(Path(launch['outer_supervisor_directory'])/'TERMINAL.json') and
++            whole['schema'] == 'gnnm-whole-process-bound-terminal-v1' and
++            start['schema'] == 'gnnm-whole-process-bound-start-v1' and
++            whole['START_sha256'] == start_record['sha256'] and
++            start['whole_cap_seconds'] == launch['whole_cap_seconds'] == 600 and
++            start['outer_output'] == launch['outer_supervisor_directory'] and
++            start['inner_supervisor_directory'] == launch['supervisor_directory'] and
++            start['root_request'] == {'path':str(Path(decision['registration_launch_request']['path']).relative_to(REMOTE_PHASE)),
++                                     'sha256':decision['registration_launch_request']['sha256']},
++            'Successful registration cap must bind signed600launch and terminal-hashed START')
+     root = read(bound(decision['registration_root_terminal']))
+     require(launch['action'] == 'register' and launch['root_admitted'] is True and
+             launch['phase_payload'] == registry['request'] and launch['output'] == decision['attempt_registry']['path'] and
+             launch['source_seals'] == source_descriptors() and
+             whole['complete'] is True and whole['within_whole_cap'] is True and
+-            whole['root_request_unchanged'] is True and whole['whole_cap_seconds'] == 600 and
++            whole['root_request_unchanged'] is True and launch['whole_cap_seconds'] == 600 and
+             root['completed'] is True and root['child_exit_code'] == 0 and root['action'] == 'register' and
+             root['output'] == decision['attempt_registry']['path'] and
+             root['request_sha256'] == decision['registration_launch_request']['sha256'],
+--- graph_init_precision_execution_root_v2/build_continuation.py
++++ graph_init_precision_continuation_v3_cap_binding/build_continuation.py
+@@ -10,14 +10,17 @@
+     R17_REL, GPU_UUID, LOGIN, deployment_ancillary)
+ 
+ REGISTRY_PATH = str(REMOTE_PHASE/'graph_init_precision_execution_root_v2/study_v2/GRAPH_INIT_ATTEMPT_REGISTRY.json')
+-RUN_ROOT = str(REMOTE_PHASE/'graph_init_precision_execution_root_v2/coordinator_run_v2')
++RUN_ROOT = str(REMOTE_PHASE/'graph_init_precision_continuation_v3_cap_binding/coordinator_run_v3')
+ 
+ 
+ def protected():
+-    from build_admissions import protected_metadata
+-    records = protected_metadata()+deployment_ancillary()
+-    for name in ('build_admissions.py', 'build_continuation.py', 'continuation_support.py',
+-                 'continuation_entry.py', 'finite_coordinator.py', 'lineage_support.py', 'launch_registration.py'):
++    records = source_descriptors()+deployment_ancillary()+read(HERE/'CUSTODY_BINDINGS.json')['protected_files']
++    records += [descriptor(HERE/name) for name in ('CUSTODY_BINDINGS.json','LINEAGE_BINDINGS.json','REPAIR_BINDINGS.json')]
++    if (HERE/'MANIFEST.json').is_file() and (HERE/'SEAL.json').is_file():
++        records += list(own_sources())
++        records += [descriptor(HERE/row['path']) for row in read(HERE/'MANIFEST.json')['payload']]
++    for name in ('admission_support.py', 'build_continuation.py', 'continuation_support.py',
++                 'continuation_entry.py', 'finite_coordinator.py', 'lineage_support.py'):
+         records.append(descriptor(HERE/name))
+     unique = {r['path']: r for r in records}
+     return [unique[key] for key in sorted(unique)]
+@@ -37,9 +40,10 @@
+         'attempt_registry': {'path': REGISTRY_PATH, 'sha256': None}, 'study_id': None,
+         'anchor_directory': str(Path(REGISTRY_PATH).parent), 'contexts_sha256': None,
+         'finite_plan': [], 'finite_plan_sha256': None,
+-        'registration_launch_request': {'path': str(REMOTE_PHASE/HERE.name/'admitted_v1/ROOT_REGISTER_REQUEST.json'), 'sha256': None},
+-        'registration_whole_supervision_terminal': {'path': str(REMOTE_PHASE/HERE.name/'supervision/register_v2_outer/TERMINAL.json'), 'sha256': None},
+-        'registration_root_terminal': {'path': str(REMOTE_PHASE/HERE.name/'root_receipts/register_v2/TERMINAL.json'), 'sha256': None},
++        'registration_launch_request': {'path': str(REMOTE_PHASE/'graph_init_precision_execution_root_v2/admitted_v1/ROOT_REGISTER_REQUEST.json'), 'sha256': None},
++        'registration_whole_supervision_terminal': {'path': str(REMOTE_PHASE/'graph_init_precision_execution_root_v2/supervision/register_v2_outer/TERMINAL.json'), 'sha256': None},
++        'registration_whole_supervision_start': {'path': str(REMOTE_PHASE/'graph_init_precision_execution_root_v2/supervision/register_v2_outer/START.json'), 'sha256': None},
++        'registration_root_terminal': {'path': str(REMOTE_PHASE/'graph_init_precision_execution_root_v2/root_receipts/register_v2/TERMINAL.json'), 'sha256': None},
+         'coordinator_run_root': RUN_ROOT, 'protected_files': protected(),
+         'remaining_attempt_counts': {'qualify': 6, 'warm': 6, 'initialize': 30, 'fit': 30},
+         'schedule_rule': 'All six fresh cold qualifiers first; then all warm; then all five initialized arms per context; then all same-arm fits. Every cap equals its registered resource forecast.',
+@@ -53,7 +57,7 @@
+         decision.update({'attempt_registry': record, 'study_id': registry['study_id'],
+             'anchor_directory': registry['anchor_directory'], 'contexts_sha256': object_hash(registry['contexts']),
+             'finite_plan': plan, 'finite_plan_sha256': object_hash(plan)})
+-        for name in ('registration_launch_request', 'registration_whole_supervision_terminal', 'registration_root_terminal'):
++        for name in ('registration_launch_request', 'registration_whole_supervision_terminal', 'registration_whole_supervision_start', 'registration_root_terminal'):
+             if mirror(decision[name]['path']).is_file():
+                 decision[name] = descriptor(decision[name]['path'])
+     return decision
+@@ -72,7 +76,7 @@
+     decision.update({'attempt_registry': record, 'study_id': registry['study_id'],
+         'anchor_directory': registry['anchor_directory'], 'contexts_sha256': object_hash(registry['contexts']),
+         'finite_plan': plan, 'finite_plan_sha256': object_hash(plan)})
+-    for name in ('registration_launch_request', 'registration_whole_supervision_terminal', 'registration_root_terminal'):
++    for name in ('registration_launch_request', 'registration_whole_supervision_terminal', 'registration_whole_supervision_start', 'registration_root_terminal'):
+         decision[name] = descriptor(decision[name]['path'])
+     whole = read(decision['registration_whole_supervision_terminal']['path'])
+     root = read(decision['registration_root_terminal']['path'])
+--- graph_init_precision_execution_root_v2/finite_coordinator.py
++++ graph_init_precision_continuation_v3_cap_binding/finite_coordinator.py
+@@ -101,7 +101,7 @@
+         source_root = bound(source_manifest).parent
+         for item in read(source_root/'MANIFEST.json')['payload']:
+             records.append(descriptor(source_root/item['path']))
+-    from build_admissions import protected_metadata
++    from build_continuation import protected as protected_metadata
+     records += protected_metadata()
+     records += deployment_ancillary()
+     unique = {r['path']: r for r in records}
+@@ -141,7 +141,7 @@
+                         add(out/rel)
+     if run_root:
+         root = confined(run_root)
+-        require(root.is_relative_to(PHASE/'graph_init_precision_execution_root_v2') and
++        require(root.is_relative_to(PHASE/HERE.name) and
+                 not root.is_relative_to(anchor), 'Exact continuation receipt root required')
+         if root.is_dir():
+             for path in root.rglob('*.json'):
+@@ -152,7 +152,7 @@
+ 
+ 
+ def sync_metadata(registry_path, run_root=None):
+-    argv = [str(REMOTE_REPO/'.venv/bin/python'), str(REMOTE_PHASE/'graph_init_precision_execution_root_v2/finite_coordinator.py'),
++    argv = [str(REMOTE_REPO/'.venv/bin/python'), str(REMOTE_PHASE/HERE.name/'finite_coordinator.py'),
+             'export-metadata', '--registry', remote(registry_path)]
+     if run_root:
+         argv += ['--run-root', remote(run_root)]
