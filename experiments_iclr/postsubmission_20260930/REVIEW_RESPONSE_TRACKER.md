@@ -2,6 +2,21 @@
 
 Original benchmark scores remain fixed. This phase must establish a useful methodological extension through new, prospectively specified experiments. An implementation gate, a training-loss gain or a favorable pilot cannot by itself justify an acceptance recommendation.
 
+## Active evidence obligations, 2 October 2026
+
+The current method candidate is graph-band training-error initialization of private factors from a warm shared predictor. The previous coordinate screen remains STAGE1_NO_GO. All three Squirrel cold checks passed, but Photo17 stopped the complete first study before useful training. A separate exact-state diagnostic now supports FP32 loss-reduction precision as the local cause. A disclosed reduction-only measurement amendment is sealed and its new six-context study wrapper is in preparation. No predictive advantage, methodological novelty or new manuscript is established.
+
+| Required conclusion | Decisive evidence still needed |
+| --- | --- |
+| The graph-informed initializer adds useful decisions. | Complete three paired seeds/splits on both modern backbones; graph must improve over common descent, norm-matched random directions, shuffled topology and unchanged warm copying. More disagreement alone does not count. |
+| The operation differs meaningfully from published methods. | Precisely attribute TabM/BatchEnsemble, PreGS, graph residual propagation, gradient diversity and warm-copy ancestry. MORGAN/FAGEL full-text access remains unresolved; missing access provides no absence evidence. |
+| The result is useful beyond the development graphs. | A competent industrial baseline on official Tolokers2 roles, then prospective qualified extension comparisons; test labels remain sealed until complete selection and freeze. Published scores are context, never spliced into the new experiment. |
+| The method is efficient in a relevant setting. | Measure complete preparation, warm acquisition, AD/line search, all continuations, selection, storage and serving. Shared weights retain private graph paths. Do not infer latency or memory gains from stored parameter counts. |
+| Statistical support reflects the actual data. | Report all paired outcomes and intervals with declared multiplicity and split scope. Three seeds on one task cannot establish graph-population generalization. No statistical significance is asserted from source gates. |
+| Evidence is inspectable. | Release exact admitted source, complete costs/failures and selected checkpoint/logit replay after valid study closure. Source-only commits and disposable numerical checks do not establish reproducible predictive performance. |
+
+The unchanged concerns table below records the wider historical campaign and requirements; references to molecular lanes are historical, not the currently admitted experiment queue. The newly pushed source/evidence branch head is28d95833fb86f56e96ce07e64a79d49f2954994e. Public source publication is verified, while a complete new trained evidence package remains pending.
+
 | Reviewer concern | Current evidence | Remaining requirement |
 | --- | --- | --- |
 | The contribution largely applies established BatchEnsemble to graphs. | Closest published graph-ensemble and efficient-ensemble sources are retained. Trainable low-rank GINE is explicitly a prior-inspired control. Neither private-layer selection nor optimizer lookahead is currently claimed as novel. | A precise distinction from the nearest published method, a falsifiable mechanism, and a representative predictive advantage against that method. |
