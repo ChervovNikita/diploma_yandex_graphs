@@ -1,0 +1,381 @@
+--- immutable_parent/correction_screen_driver.py
++++ modern_amendment_v1/correction_screen_driver.py
+@@ -1,4 +1,4 @@
+-"""Future correction screen CLI, derived roles v2. SOURCE TEXT ONLY: never imported/run in authoring.
++"""Modern teacher correction screen CLI, amendment v1; derived roles v2 retained. SOURCE TEXT ONLY: never imported/run in authoring.
+ 
+ prepare reads graph/masks but no labels; fit reads only compact source-role labels;
+ report alone reads compact final-pool labels, after verifying an immutable freeze.
+@@ -24,14 +24,9 @@
+ 
+ PRIMARY = ('aligned', 'marginal', 'shuffled', 'pooled', 'head', 'cf')
+ SEEDS = (17, 29, 43)
+-MODEL_SHA = 'a74a87dc26b7675a2d3fa0aaf0e7734b4786fa6c49411ef52f9bb21c0516dbc1'
+-FROZEN_SHA = '07a6c1c452486802713a1a040ab24f9e9f8504660d731eb5b6417e2357f0f303'
+-TEACHER = dict(members=4, hidden_dim=128, num_layers=3, dropout=0.5,
+-               hidden_dim_multiplier=1.0, normalization='layer', num_heads=4,
+-               optimizer='AdamW', lr=0.001, weight_decay=0.01,
+-               betas=[0.9, 0.999], eps=1e-8, max_epochs=2000,
+-               min_epochs=300, patience=200, eval_every=1,
+-               loss='mean_member_cross_entropy', selector='mean_raw_logit_validation_nll')
++PARENT_PREPARE_SHA = '376e8b779d8d71cf21785a62b8543ecadc9c09c9db8174dc230b55b8d0dbd253'
++TEACHER = dict(version='modern_native_teacher_v1', fit_mode='externally_frozen_equal_grid',
++               primary_pooling='softmax(mean raw member logits)', members=4)
+ 
+ 
+ def require(condition, message):
+@@ -73,8 +68,7 @@
+ 
+ def implementation_bindings():
+     directory = Path(__file__).resolve().parent
+-    return {name: sha(directory/name) for name in ('correction_screen_driver.py',
+-             'aligned_score_correction.py', 'cf_gnn_source_adapter.py')}
++    return {p.name: sha(p) for p in sorted(directory.glob('*.py'))}
+ 
+ 
+ def check_implementation(expected):
+@@ -96,12 +90,13 @@
+     import numpy as np
+     import torch
+     import torch_geometric
++    import scipy
+     require(device == 'cpu' or (device.startswith('cuda') and torch.cuda.is_available()),
+             'Requested execution device unavailable')
+     # CUDA indexed graph reductions may be nondeterministic. No cross-device
+     # bitwise reproducibility is claimed; exact environment/random arrays are saved.
+     torch.set_default_dtype(torch.float32)
+-    env = dict(python=platform.python_version(), numpy=np.__version__,
++    env = dict(python=platform.python_version(), numpy=np.__version__, scipy=scipy.__version__,
+                torch=torch.__version__, torch_geometric=torch_geometric.__version__,
+                cuda=torch.version.cuda, device=device,
+                gpu=torch.cuda.get_device_name(device) if device.startswith('cuda') else None,
+@@ -269,14 +264,54 @@
+ 
+ 
+ def load_model_source(admission):
+-    path = verified(admission['model_source'])
+-    require(sha(path) == MODEL_SHA, 'Wrong qualified original wrapper')
+-    dependency = path.parent.parent / 'propagation_cost_impl_v1/_pinned/frozen_models.py'
+-    require(sha(dependency) == FROZEN_SHA, 'Wrong immutable model dependency')
+-    spec = importlib.util.spec_from_file_location('screen_original_model_source', path)
+-    module = importlib.util.module_from_spec(spec)
+-    spec.loader.exec_module(module)
+-    return module
++    from types import SimpleNamespace
++    import modern_teacher_adapter as adapter
++    from modern_teacher_driver import verify_cell, protocol
++    record = admission['teacher_selection_freeze']
++    selection = read_json(verified(record))
++    study = read_json(verified(admission['teacher_study_selection_freeze']))
++    require(study['schema'] == 'modern-teacher-study-selection-v1' and
++            study['source_selection_closed'] is True and study['complete_family_cells'] == 72 and
++            study['teacher_protocol'] == protocol() and
++            study['implementation_sha256'] == admission['implementation_sha256'] and
++            study['environment'] == admission['environment'] and
++            any(row['selection'] == record for row in study['family_selections']),
++            'All paired control family source selections must close before correction')
++    require(selection['schema'] == 'modern-teacher-family-selection-v1' and
++            selection['teacher_protocol'] == protocol() == adapter.PROTOCOL and
++            selection['implementation_sha256'] == admission['implementation_sha256'] and
++            selection['environment'] == admission['environment'] and selection['graph'] == admission['graph'],
++            'Wrong modern teacher family selection freeze')
++    require(selection['family'] in ('gnnm_boundary_4', 'independent_author_4_same_width'),
++            'Multi-member correction requires one admitted four-member family; single has teacher-only APS control')
++    require(len(selection['all_cells']) == 12 and len(selection['selected_teachers']) == 3,
++            'Equal twelve-cell grid must precede correction')
++    expected = {(config, seed) for config in range(4) for seed in SEEDS}
++    actual = set()
++    for row in selection['all_cells']:
++        freeze, root = verify_cell(row['freeze'])
++        require(freeze['specification'] == row['specification'] and
++                freeze['selection']['primary_validation_nll'] == row['primary_validation_nll'] and
++                row['checkpoint'] == descriptor(root/'teacher_checkpoint.pt') and
++                row['saved_logits'] == descriptor(root/'teacher_member_logits.npy') and
++                row['role_freeze'] == freeze['role_freeze'],
++                'Changed cell selection metadata')
++        actual.add((row['specification']['config'], row['specification']['seed']))
++    require(actual == expected, 'Incomplete equal tuning grid')
++    values = [sum(row['primary_validation_nll'] for row in selection['all_cells']
++                  if row['specification']['config'] == config)/3 for config in range(4)]
++    chosen = min(range(4), key=lambda config: (values[config], config))
++    require(selection['mean_validation_nll_by_config'] == values and selection['selected_config'] == chosen,
++            'Configuration selector differs')
++    candidates = [row for row in selection['selected_teachers'] if row['role_freeze'] == admission['role_freeze']]
++    require(len(candidates) == 1, 'Selected checkpoint must match this exact role freeze')
++    row = candidates[0]
++    require(row['specification'] == adapter.specification(selection['backbone'], selection['family'],
++             chosen, row['specification']['seed']), 'Selected teacher specification differs')
++    require(row in selection['all_cells'], 'Selected checkpoint is outside the admitted grid')
++    verified(row['checkpoint']); verified(row['saved_logits'])
++    return SimpleNamespace(adapter=adapter, selected=row, selection_record=record,
++                           all_teacher_cells=selection['all_cells'])
+ 
+ 
+ def tensor_bytes(model):
+@@ -284,50 +319,21 @@
+ 
+ 
+ def fit_teacher(torch, source, graph, x, train, validation, seed, qualify, out):
+-    model = source.build_model(arm='original', input_dim=x.shape[1], output_dim=graph.classes,
+-              seed=seed, permutation_seed=seed + 70000,
+-              **{k: TEACHER[k] for k in ('members', 'hidden_dim', 'num_layers', 'dropout',
+-                                        'hidden_dim_multiplier', 'normalization', 'num_heads')}).to(x.device)
+-    optimizer = torch.optim.AdamW(model.parameters(), lr=TEACHER['lr'],
+-                weight_decay=TEACHER['weight_decay'], betas=tuple(TEACHER['betas']), eps=TEACHER['eps'])
+-    best_nll, best_epoch, selected = float('inf'), None, None
+-    epochs = 3 if qualify else TEACHER['max_epochs']
+-    with open(out / 'teacher_trace.jsonl', 'x') as trace:
+-        for epoch in range(1, epochs+1):
+-            model.train()
+-            optimizer.zero_grad(set_to_none=True)
+-            logits = model(graph, x)
+-            require(logits.shape == (4, x.shape[0], graph.classes), 'Teacher [K,N,C] contract')
+-            selected_logits = logits[:, train.nodes]
+-            loss = torch.nn.functional.cross_entropy(selected_logits.reshape(-1, graph.classes), train.labels.repeat(4))
+-            require(bool(torch.isfinite(loss)), 'Nonfinite teacher loss')
+-            loss.backward()
+-            grad_count = sum(int(p.grad is not None and bool((p.grad != 0).any())) for p in model.parameters())
+-            require(grad_count > 0, 'No nonzero teacher gradients')
+-            optimizer.step()
+-            model.eval()
+-            with torch.no_grad():
+-                validation_logits = model(graph, x).mean(0)[validation.nodes]
+-                nll = float(torch.nn.functional.cross_entropy(validation_logits, validation.labels))
+-            require(math.isfinite(nll), 'Nonfinite teacher validation loss')
+-            trace.write(json.dumps(dict(epoch=epoch, loss=float(loss.detach()), validation_nll=nll,
+-                                        nonzero_gradient_tensors=grad_count))+'\n')
+-            trace.flush()
+-            if nll < best_nll:
+-                best_nll, best_epoch = nll, epoch
+-                selected = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+-            if not qualify and epoch >= TEACHER['min_epochs'] and epoch-best_epoch >= TEACHER['patience']:
+-                break
+-    model.load_state_dict(selected)
+-    model.eval()
+-    for parameter in model.parameters():
+-        parameter.requires_grad_(False)
+-    torch.save(selected, out / 'teacher_state.pt')
+-    write_json(out / 'teacher_selection.json', dict(selected_epoch=best_epoch, epochs_completed=epoch,
+-               source_validation_nll=best_nll, specification=model.specification,
+-               schedule=TEACHER, model_tensor_bytes=tensor_bytes(model),
+-               label_scope='train and predictor-validation only', qualification_only=qualify))
+-    del optimizer
++    # Native full schedules and equal train/validation-only tuning are already
++    # sealed. Correction consumes exactly one jointly selected family checkpoint.
++    import shutil
++    row = source.selected
++    require(row['specification']['seed'] == seed, 'Teacher/role seed differs')
++    prepared = source.adapter.prepare_graph(x, graph.edge_index[:, :graph.edge_index.shape[1]//2],
++        row['specification']['backbone'], row['preprocessing']['environment'], row['preprocessing']['input_binding'])
++    for name in ('teacher_backbone','teacher_input','teacher_edge_index','preprocessing'):
++        setattr(graph, name, getattr(prepared, name))
++    checkpoint = verified(row['checkpoint'])
++    model = source.adapter.restore_teacher(checkpoint, graph, row['specification'])
++    shutil.copyfile(checkpoint, out/'teacher_checkpoint.pt')
++    write_json(out/'teacher_selection.json', dict(selected=row, teacher_family_selection=source.selection_record,
++        label_scope='No teacher refit; checkpoint/config were selected from train and predictor-validation only',
++        correction_qualification_only=qualify, external_teacher_costs=[r['costs'] for r in source.all_teacher_cells]), exclusive=True)
+     return model
+ 
+ 
+@@ -418,8 +424,9 @@
+     require(env == admission['environment'], 'Freeze the actual runtime fingerprint before qualification/fit')
+     role_path = verified(admission['role_freeze'])
+     role_freeze, cell = read_json(role_path), role_path.parent
+-    require(role_freeze['preparation_driver_sha256'] == admission['implementation_sha256']['correction_screen_driver.py'],
+-            'Role preparation used different driver source')
++    require(role_freeze['role_derivation_version'] == 'derived_roles_v2' and
++            role_freeze['preparation_driver_sha256'] in (PARENT_PREPARE_SHA, admission['implementation_sha256']['correction_screen_driver.py']),
++            'Role preparation must retain the immutable derived_roles_v2 rule')
+     verify_tree(cell, role_freeze['payload'])
+     graph_manifest = read_json(verified(role_freeze['graph_input']))
+     x_np, edge_np = canonical_graph(np, graph_manifest)
+@@ -451,6 +458,14 @@
+     with torch.no_grad():
+         logits, inference_cost = measured(torch, device, lambda: teacher(graph, x).detach())
+     np.save(out / 'teacher_member_logits.npy', logits.cpu().numpy(), allow_pickle=False)
++    reference = np.load(verified(source.selected['saved_logits']), allow_pickle=False)
++    replay_difference = np.abs(logits.cpu().numpy()-reference)
++    write_json(out/'TEACHER_REPLAY.json', dict(max_absolute_logit_difference=float(replay_difference.max()),
++        policy='Save actual replay logits; disclose differences; no tolerance rescue or favorable retry'), exclusive=True)
++    with torch.no_grad():
++        secondary = logits.softmax(-1).mean(0)
++    np.save(out/'secondary_mean_probability_point.npy', secondary.cpu().numpy(), allow_pickle=False)
++    del reference, replay_difference, secondary
+     from aligned_score_correction import (prepare_fixed_inputs, SymmetricEdgeGate, fit_source_gate,
+                     head_family_scores, _development_metrics, randomized_aps)
+     inputs, feature_cost = measured(torch, device, lambda: prepare_fixed_inputs(logits, edges, uniforms, permutations))
+@@ -523,7 +538,7 @@
+         write_json(out / 'QUALIFICATION_ONLY.json', dict(environment=env, teacher_cost=teacher_cost,
+                    teacher_inference_cost=inference_cost, feature_cost=feature_cost, cf_cost=cf_cost,
+                    head_cost=head_cost, all_gate_attempts_completed=all(row['status']=='completed' for row in attempts),
+-                   complete_graph=True, teacher_updates=3, gate_updates_per_config=2,
++                   complete_graph=True, teacher_updates=0, frozen_teacher_replay=True, gate_updates_per_config=2,
+                    cf_updates_per_config=2, cf_branch_epochs=[1, 1001], trained_utility=False,
+                    final_pool_labels_read=False, report_eligible=False,
+                    resource_extrapolation='Multiply measured complete-update times by capped schedules; not a measured completion forecast'), exclusive=True)
+@@ -583,7 +598,9 @@
+         np.save(out / f'{name}_quartiles.npy', group, allow_pickle=False)
+     np.save(out / 'communities.npy', np.load(cell / 'communities.npy', allow_pickle=False), allow_pickle=False)
+     write_json(out / 'SOURCE_SELECTION.json', chosen)
+-    write_json(out / 'COSTS.json', dict(teacher_fit=teacher_cost, teacher_inference=inference_cost,
++    write_json(out / 'COSTS.json', dict(teacher_checkpoint_preprocess_replay=teacher_cost, teacher_inference=inference_cost,
++                external_teacher_family_cells=[row['costs'] for row in source.all_teacher_cells],
++                teacher_family_selection=source.selection_record,
+                preparation_all_features=feature_cost, head_transforms=head_cost, source_attempts=attempts,
+                accounting='All attempts and traces retained; no matched-compute claim'))
+     del results, cf_probabilities, scores, cp, inputs, logits, teacher, roles, pool, uniforms, permutations
+@@ -607,6 +624,8 @@
+                source_split_index=role_freeze['source_split_index'], primary_methods=list(PRIMARY),
+                final_allocations=20, alpha=.1, selected=chosen,
+                canonical_point='softmax(mean raw member logits), first-index argmax',
++                modern_teacher=source.selected, teacher_family_selection=source.selection_record,
++                fixed_secondary='mean member probabilities from saved/replayed logits; no selection',
+                final_labels_read=False, payload=payload), exclusive=True)
+ 
+ 
+@@ -631,11 +650,12 @@
+             if arm in ('aligned', 'marginal', 'shuffled', 'pooled') and not chosen[arm]['selected_zero_diffusion']:
+                 context['perm'] = torch.from_numpy(np.load(cell/'member_permutations.npy', allow_pickle=False)).to(device)
+             context['capture_replay'] = True
+-            model = source.build_model(arm='original', input_dim=x_np.shape[1], output_dim=graph_manifest['num_classes'],
+-                    seed=seed, permutation_seed=seed+70000,
+-                    **{k: TEACHER[k] for k in ('members', 'hidden_dim', 'num_layers', 'dropout',
+-                                              'hidden_dim_multiplier', 'normalization', 'num_heads')}).to(device)
+-            model.load_state_dict(torch.load(out/'teacher_state.pt', map_location=device, weights_only=True))
++            row = source.selected
++            prepared = source.adapter.prepare_graph(context['x'], context['e'], row['specification']['backbone'],
++                row['preprocessing']['environment'], row['preprocessing']['input_binding'])
++            for name in ('teacher_backbone','teacher_input','teacher_edge_index','preprocessing'):
++                setattr(context['graph'], name, getattr(prepared, name))
++            model = source.adapter.restore_teacher(out/'teacher_checkpoint.pt', context['graph'], row['specification'])
+             context['teacher'] = model.eval()
+             if arm in ('aligned', 'marginal', 'shuffled', 'pooled') and not chosen[arm]['selected_zero_diffusion']:
+                 node_dim = 6*graph_manifest['num_classes']+1
+@@ -757,6 +777,8 @@
+         reference_logits = saved_logits.mean(0)
+         reference_exp = np.exp(reference_logits-reference_logits.max(1, keepdims=True))
+         reference_probabilities = reference_exp/reference_exp.sum(1, keepdims=True)
++        member_exp = np.exp(saved_logits-saved_logits.max(2, keepdims=True))
++        secondary_reference = (member_exp/member_exp.sum(2, keepdims=True)).mean(0)
+         stratum = {name: np.load(root/f'{name}.npy', allow_pickle=False)
+                    for name in ('degree_quartiles', 'disagreement_quartiles', 'communities')}
+         stratum['class'] = np.full(point.shape[0], -1, dtype=np.int64)
+@@ -796,6 +818,10 @@
+                                      calibration_seconds=calibration_seconds,
+                                      overall=main, groups=groups)
+             allocations.append(dict(allocation=j, calibration_count=len(cal), test_count=len(test), methods=methods,
++                     fixed_secondary_mean_probability_point=dict(
++                     accuracy=float((secondary_reference[test].argmax(1)==label_by_node[test]).mean()),
++                     nll=float(-np.log(np.maximum(secondary_reference[test,label_by_node[test]],np.finfo(np.float64).tiny)).mean()),
++                     selected=False, input='same saved logits; no second teacher fit or correction selector'),
+                      allocation_wall_seconds=time.perf_counter()-allocation_started,
+                      saved_logit_cpu64_point_reference=dict(
+                      accuracy=float((reference_probabilities[test].argmax(1)==label_by_node[test]).mean()),
+@@ -822,6 +848,7 @@
+         ratio = serving['aligned']['warm_mean_seconds']/serving['marginal']['warm_mean_seconds']
+         result = dict(score_freeze=descriptor(frozen_path), graph=freeze['graph'], seed=freeze['seed'],
+                  source_split_index=freeze['source_split_index'], selected=freeze['selected'], allocations=allocations,
++                 modern_teacher=freeze['modern_teacher'], primary_pooling=freeze['canonical_point'],
+                  necessary_gates=necessary_gates, serving_latency_ratio_to_marginal=ratio,
+                  latency_gate=bool(ratio <= 1.1), coverage_interpretation='Marginal random-allocation procedure; no node-IID intervals or realized90% requirement',
+                  promotion='Cannot promote automatically: six cells must be complete and validity/coverage reviewed; crossed split/seed confirmation remains conditional',
+@@ -837,27 +864,21 @@
+ 
+ 
+ def forecast(args):
+-    """Metadata-only prospective byte/work forecast, with no scientific arrays."""
++    """Metadata-only native cell/byte forecast; no fabricated runtime duration."""
+     graph = read_json(args.input)
+-    n, e, f, c = (graph[k] for k in ('num_nodes', 'num_edges', 'num_features', 'num_classes'))
+-    require(all(type(v) is int and v > 0 for v in (n, e, f, c)), 'Complete source metadata dimensions first')
++    n, e, f, c = (graph[k] for k in ('num_nodes','num_edges','num_features','num_classes'))
++    require(all(type(v) is int and v > 0 for v in (n,e,f,c)), 'Complete metadata first')
+     node_dim = 6*c+1
+-    gate_parameters = (2*node_dim+2)*32+32 + 32*32+32 + 32+1
+-    result = dict(graph=graph['graph'], teacher_fits=3, teacher_epoch_cap_per_graph=6000,
+-          gate_fits_per_graph=24, gate_epoch_cap_per_graph=48000,
+-          cf_fits_per_graph=6, cf_epoch_cap_per_graph=30000,
+-          two_graph_training_epoch_cap=168000,
+-          immutable_array_bytes=dict(features=4*n*f, canonical_edges=16*e,
+-             directed_teacher_edges=32*e, teacher_logits=16*n*c, member_probabilities=16*n*c,
+-             aps_uniforms=4*n*c, member_permutations=32*n,
+-             full_node_features=4*n*node_dim, aligned_and_shuffled_features=16*e,
+-             one_class_score_table=4*n*c, ten_frozen_score_tables=40*n*c,
+-             twenty_final_partition_masks=160*n),
+-          gate_parameters=gate_parameters, gate_fp32_weight_bytes=4*gate_parameters,
+-          teacher_activation_note='K=4 complete propagations; saved autograd messages and residual activations need measured full-graph peak',
+-          gate_training_activation_lower_order_bytes=2*e*32*4*2,
+-          gate_activation_note='Illustrative two directional first/second hidden activations only; autograd inputs, masks, gradients, diffusion and optimizer add cost. Chunking retains state.',
+-          time_forecast='Unmeasured. Qualification uses full graph/update and loss branches. Extrapolate measured per-update time to caps, add selection/inference/reporting; report uncertainty, no numeric duration invented.')
++    result = dict(graph=graph['graph'], modern_family_cells_per_graph=36,
++        modern_family_cells_two_graphs=72, native_member_trajectory_cells_per_graph=108, native_model_cores_per_graph=72,
++        squirrel_family_update_cap=72000, photo_family_updates=43200,
++        source_schedule='Squirrel max2000/patience250; Photo200local+1000global actual updates',
++        independent_accounting='All four full models/trajectories; synchronized family checkpoint/config selection',
++        immutable_array_bytes=dict(features=4*n*f, canonical_edges=16*e,
++            teacher_logits=16*n*c, primary_and_secondary_probabilities=8*n*c,
++            polynomial_tokens_if_squirrel=4*n*13*f, full_node_features=4*n*node_dim),
++        runtime='Unmeasured; root complete-graph qualification must measure full local/global stages, token preprocessing, optimizer/model memory, checkpoint IO and serving',
++        all_attempts_charged=True, matched_compute_claim=False)
+     write_json(args.output, result, exclusive=True)
+ 
+ 
+--- literature_draft/backbone_boundary_adapter.py
++++ modern_amendment_v1/backbone_boundary_adapter.py
+@@ -6,6 +6,7 @@
+ Ancestry: GNNM boundary projectors and BatchEnsemble input/output factor algebra.
+ """
+ 
++import copy
+ import torch
+ from torch import nn
+ from torch.nn import functional as F
+@@ -106,3 +107,47 @@
+         return torch.stack(
+             [self.forward_member(features, edge_index, m) for m in range(self.members)], dim=0
+         )
++
++
++def set_boundary_identity_(family):
++    """Prospective graph-init helper: preserve the copied native W/bias function.
++
++    Call directly after wrapping a warmed native single predictor. All R/S become
++    one and B remains the copied native bias. This is NOT the baseline GNNM
++    initialization, whose stem R is independently Rademacher. No reset follows.
++    """
++    with torch.no_grad():
++        for module in family.modules():
++            if isinstance(module, BoundaryProjector):
++                module.R.fill_(1)
++                module.S.fill_(1)
++    return family
++
++
++def copy_member_function_(family, source_member=0):
++    """Clone one warmed boundary member into all K rows without changing W/body."""
++    with torch.no_grad():
++        for module in family.modules():
++            if isinstance(module, BoundaryProjector):
++                if not 0 <= source_member < module.members:
++                    raise IndexError("member outside admitted range")
++                for value in (module.R, module.S, module.B):
++                    value.copy_(value[source_member].clone().expand_as(value))
++    return family
++
++
++def clone_warm_native_boundary(warm_native_model, backbone, members=4):
++    """Copy a warm native predictor without consuming/resetting the donor.
++
++    Copying must precede wrapping because boundary transfer replaces native
++    owners with Identity. Charge both donor and clone at their transient peak.
++    The returned raw wrapper has identity R/S and copied warm native B; its
++    train/eval mode and Photo stage follow the donor. Baseline fits do not call it.
++    """
++    if backbone not in ('polyformer_mono', 'polynormer_r') or members != 4:
++        raise ValueError("Only the registered native pair and four copies are admitted")
++    cloned_native = copy.deepcopy(warm_native_model)
++    wrapper = PolyFormerBoundaryFamily if backbone == 'polyformer_mono' else PolynormerBoundaryFamily
++    family = set_boundary_identity_(wrapper(cloned_native, members=members))
++    family.train(warm_native_model.training)
++    return family

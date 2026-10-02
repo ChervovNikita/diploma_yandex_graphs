@@ -1,0 +1,890 @@
+--- immutable_v1/correction_screen_driver.py
++++ interface_v2/correction_screen_driver.py
+@@ -18,6 +18,8 @@
+ import sys
+ import time
+ import traceback
++import modern_custody as custody
++import score_backend
+ 
+ # Future execution must not write Python cache files beside immutable sources.
+ sys.dont_write_bytecode = True
+@@ -97,7 +99,7 @@
+     # bitwise reproducibility is claimed; exact environment/random arrays are saved.
+     torch.set_default_dtype(torch.float32)
+     env = dict(python=platform.python_version(), numpy=np.__version__, scipy=scipy.__version__,
+-               torch=torch.__version__, torch_geometric=torch_geometric.__version__,
++               torch=str(torch.__version__), torch_geometric=str(torch_geometric.__version__),
+                cuda=torch.version.cuda, device=device,
+                gpu=torch.cuda.get_device_name(device) if device.startswith('cuda') else None,
+                deterministic_algorithms=torch.are_deterministic_algorithms_enabled(),
+@@ -105,6 +107,10 @@
+                cuda_matmul_allow_tf32=torch.backends.cuda.matmul.allow_tf32,
+                cudnn_allow_tf32=torch.backends.cudnn.allow_tf32,
+                cublas_workspace_config=os.environ.get('CUBLAS_WORKSPACE_CONFIG'))
++    # Version subclasses such as TorchVersion must not enter weights_only
++    # checkpoint metadata. Keep safe loading; primitive serialization only.
++    env = json.loads(json.dumps(env, allow_nan=False))
++    score_backend.install()
+     return np, torch, env
+ 
+ 
+@@ -270,14 +276,15 @@
+     record = admission['teacher_selection_freeze']
+     selection = read_json(verified(record))
+     study = read_json(verified(admission['teacher_study_selection_freeze']))
+-    require(study['schema'] == 'modern-teacher-study-selection-v1' and
++    custody.closure(study['attempt_closure'], 'teacher')
++    require(study['schema'] == 'modern-teacher-study-selection-v2' and
+             study['source_selection_closed'] is True and study['complete_family_cells'] == 72 and
+             study['teacher_protocol'] == protocol() and
+             study['implementation_sha256'] == admission['implementation_sha256'] and
+             study['environment'] == admission['environment'] and
+             any(row['selection'] == record for row in study['family_selections']),
+             'All paired control family source selections must close before correction')
+-    require(selection['schema'] == 'modern-teacher-family-selection-v1' and
++    require(selection['schema'] == 'modern-teacher-family-selection-v2' and
+             selection['teacher_protocol'] == protocol() == adapter.PROTOCOL and
+             selection['implementation_sha256'] == admission['implementation_sha256'] and
+             selection['environment'] == admission['environment'] and selection['graph'] == admission['graph'],
+@@ -294,8 +301,10 @@
+                 freeze['selection']['primary_validation_nll'] == row['primary_validation_nll'] and
+                 row['checkpoint'] == descriptor(root/'teacher_checkpoint.pt') and
+                 row['saved_logits'] == descriptor(root/'teacher_member_logits.npy') and
+-                row['role_freeze'] == freeze['role_freeze'],
++                row['role_freeze'] == freeze['role_freeze'] and row['source_labels'] == freeze['source_labels'] and
++                row['source_identity'] == freeze['source_identity'],
+                 'Changed cell selection metadata')
++        custody.closed_artifact(study['attempt_closure'], row['freeze'], 'teacher')
+         actual.add((row['specification']['config'], row['specification']['seed']))
+     require(actual == expected, 'Incomplete equal tuning grid')
+     values = [sum(row['primary_validation_nll'] for row in selection['all_cells']
+@@ -406,19 +415,27 @@
+     require(admission['execution_authorized'] is True and admission['teacher_schedule'] == TEACHER,
+             'A separate completed admission must authorize this exact prospective schedule')
+     out = Path(args.output).resolve()
+-    out.mkdir(parents=True, exist_ok=False)
+-    write_json(out / 'ATTEMPT_STARTED.json', dict(admission=admission_record,
+-               mode=args.command, timestamp=time.time()), exclusive=True)
++    binding = custody.begin(descriptor(args.attempt_registry), admission_record, out, 'correction') if args.command == 'fit' else None
++    created = False
+     try:
+-        fit_body(args, admission, out, admission_record, started)
++        out.mkdir(parents=True, exist_ok=False); created = True
++        write_json(out/'ATTEMPT_STARTED.json', dict(admission=admission_record,
++            mode=args.command, timestamp=time.time(), attempt_binding=binding), exclusive=True)
++        fit_body(args, admission, out, admission_record, started, binding)
++        if binding is not None:
++            custody.finish(binding, artifact=descriptor(out/'SCORE_FREEZE.json'),
++                costs=dict(measured=read_json(out/'COSTS.json'),wall=read_json(out/'FIT_WALL_RECEIPT.json')))
+     except Exception as error:
+-        write_json(out / 'FAILED_ATTEMPT.json', dict(error_type=type(error).__name__, message=str(error),
+-                   traceback=traceback.format_exc(), fit_wall_seconds=time.perf_counter()-started,
+-                   automatic_retry=False), exclusive=True)
++        failure = dict(error_type=type(error).__name__,message=str(error),traceback=traceback.format_exc(),
++            fit_wall_seconds=time.perf_counter()-started,measured_cost=getattr(error,'screen_cost',None),automatic_retry=False)
++        if created:write_json(out/'FAILED_ATTEMPT.json',failure,exclusive=True)
++        if binding is not None:
++            custody.finish(binding,failure=descriptor(out/'FAILED_ATTEMPT.json') if created else failure,
++                costs=dict(seconds=failure['fit_wall_seconds'],measured=failure['measured_cost']))
+         raise
+ 
+ 
+-def fit_body(args, admission, out, admission_record, started):
++def fit_body(args, admission, out, admission_record, started, attempt_binding):
+     np, torch, env = runtime(admission['device'])
+     device = admission['device']
+     require(env == admission['environment'], 'Freeze the actual runtime fingerprint before qualification/fit')
+@@ -441,6 +458,8 @@
+     # All label-independent roles, random arrays and source hashes were frozen
+     # before opening compact labels. The admission itself binds their hashes.
+     source = load_model_source(admission)
++    input_identity = custody.source_identity(admission, role_freeze, graph_manifest)
++    require(source.selected['source_identity'] == input_identity, 'Correction train/validation labels differ from selected teacher')
+     expected = {k: np.load(cell / f'{k}_nodes.npy', allow_pickle=False) for k in admission['source_labels']}
+     roles = {k: load_source(np, torch, admission['source_labels'][k], expected[k], device,
+                            graph_manifest['num_classes']) for k in expected}
+@@ -624,6 +643,7 @@
+                source_split_index=role_freeze['source_split_index'], primary_methods=list(PRIMARY),
+                final_allocations=20, alpha=.1, selected=chosen,
+                canonical_point='softmax(mean raw member logits), first-index argmax',
++                source_identity=input_identity, attempt_binding=attempt_binding, score_backend=score_backend.POLICY,
+                 modern_teacher=source.selected, teacher_family_selection=source.selection_record,
+                 fixed_secondary='mean member probabilities from saved/replayed logits; no selection',
+                final_labels_read=False, payload=payload), exclusive=True)
+@@ -755,7 +775,10 @@
+     role_path = verified(freeze['role_freeze'])
+     roles, cell = read_json(role_path), role_path.parent
+     verify_tree(cell, roles['payload'])
++    release_record = descriptor(args.final_release)
++    custody.verify_release(release_record, descriptor(frozen_path))
+     labels_record = read_json(args.pool_labels)
++    require(labels_record['final_label_release'] == release_record, 'Pool manifest must bind the shared six-cell release')
+     require(labels_record['score_freeze_sha256'] == sha(frozen_path), 'Pool labels must bind this score freeze')
+     out = Path(args.output).resolve()
+     out.mkdir(parents=True, exist_ok=False)
+@@ -909,8 +932,8 @@
+     sub = parser.add_subparsers(dest='command', required=True)
+     p = sub.add_parser('prepare'); p.add_argument('--input', required=True); p.add_argument('--output', required=True)
+     for command in ('qualify', 'fit'):
+-        p = sub.add_parser(command); p.add_argument('--admission', required=True); p.add_argument('--output', required=True)
+-    p = sub.add_parser('report'); p.add_argument('--frozen', required=True); p.add_argument('--pool-labels', required=True); p.add_argument('--output', required=True)
++        p = sub.add_parser(command); p.add_argument('--admission', required=True); p.add_argument('--output', required=True); p.add_argument('--attempt-registry', required=command == 'fit')
++    p = sub.add_parser('report'); p.add_argument('--frozen', required=True); p.add_argument('--pool-labels', required=True); p.add_argument('--output', required=True); p.add_argument('--final-release', required=True)
+     p = sub.add_parser('forecast'); p.add_argument('--input', required=True); p.add_argument('--output', required=True)
+     p = sub.add_parser('environment'); p.add_argument('--device', required=True); p.add_argument('--output', required=True)
+     p = sub.add_parser('summarize'); p.add_argument('--reports', nargs='+', required=True); p.add_argument('--output', required=True)
+--- immutable_v1/modern_custody.py
++++ interface_v2/modern_custody.py
+@@ -0,0 +1,420 @@
++"""Interface-only custody v2. Stdlib metadata/hashes; no scientific imports.
++
++Prospective registries and exclusive claim/terminal records forbid a second
++attempt at a registered cell, including a retry in a fresh output directory.
++Failures remain in closure and block selection/release for this protocol.
++"""
++from __future__ import annotations
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import re
++import time
++
++ROOT = Path(__file__).resolve().parent.parent
++AUDITS = ('optimizer_exact_live_membership', 'native_parameter_grouping',
++    'all_graph_logits_finite', 'all_active_parameter_gradients_finite',
++    'every_member_connected', 'boundary_bias_copies_and_dormant_owner_removal',
++    'exact_local_model_and_adam_restore_including_step_counters',
++    'frozen_tolerance_identity_logits_shared_weight_and_private_bias_gradients',
++    'selected_checkpoint_restore_and_replay', 'primitive_metadata_weights_only_safe_load')
++COVERAGE_CHECKS = ('identical_graph_provider_and_rows','exact_role_nodes_and_source_pack_hashes',
++    'independent_train_validation_label_extraction','target_label_shapes_ranges_and_node_alignment',
++    'numerical_runtime_tested_seed17_only')
++
++
++def require(value, message):
++    if not value:
++        raise ValueError(message)
++
++
++def read(path):
++    return json.loads(Path(path).read_text())
++
++
++def sha(path):
++    digest = hashlib.sha256()
++    with open(path, 'rb') as handle:
++        for block in iter(lambda: handle.read(1 << 20), b''):
++            digest.update(block)
++    return digest.hexdigest()
++
++
++def descriptor(path):
++    return dict(path=str(Path(path).resolve()), sha256=sha(path))
++
++
++def verified(record):
++    require(isinstance(record, dict) and set(record) >= {'path','sha256'} and
++        isinstance(record['path'],str) and isinstance(record['sha256'],str) and len(record['sha256']) == 64,
++        'Complete descriptor required')
++    path = Path(record['path']).resolve()
++    require(sha(path) == record['sha256'], 'Custody hash mismatch: '+str(path))
++    return path
++
++
++def write(path, value):
++    with open(path,'x') as handle:
++        json.dump(value,handle,indent=2,allow_nan=False)
++        handle.write('\n')
++
++
++def implementations():
++    return {p.name:sha(p) for p in sorted((ROOT/'prototype').glob('*.py'))}
++
++
++def models():
++    values = read(ROOT/'MODEL_IMPLEMENTATION_BINDINGS.json')
++    require(all(sha(ROOT/'prototype'/name) == value for name,value in values.items()), 'Model code identity changed')
++    return values
++
++
++def protocol():
++    return read(ROOT/'TEACHER_PROTOCOL.json')
++
++
++def source_identity(admission, roles, manifest):
++    """Verify the one independent extraction bundle before opening label arrays."""
++    bundle_record = admission['source_label_binding']
++    bundle = read(verified(bundle_record))
++    require(bundle['schema'] == 'modern-source-label-bindings-v2' and len(bundle['pairs']) == 6,
++        'One frozen independently extracted pair per graph/seed required')
++    pair = [r for r in bundle['pairs'] if (r['backbone'],r['seed']) == (admission['backbone'],roles['seed'])]
++    require(len(pair) == 1, 'Missing/repeated source label pair')
++    pair = pair[0]
++    packs = {k:admission['source_labels'][k] for k in ('train','validation')}
++    require(pair['role_freeze'] == admission['role_freeze'] and pair['graph_input'] == roles['graph_input'] and
++        pair['source_labels'] == packs and pair['independently_extracted_and_row_verified'] is True,
++        'Train/validation pack descriptors or extraction provenance differ')
++    verified(pair['provider_row_identity']); verified(pair['extraction_provenance'])
++    for record in packs.values(): verified(record)
++    for key in ('features','edges'): verified(manifest[key])
++    return dict(graph=admission['graph'], backbone=admission['backbone'], seed=roles['seed'],
++        graph_input=roles['graph_input'], role_freeze=admission['role_freeze'],
++        source_labels=packs, source_label_binding=bundle_record,
++        provider_row_identity=pair['provider_row_identity'], extraction_provenance=pair['extraction_provenance'],
++        dimensions={k:manifest[k] for k in ('num_nodes','num_features','num_classes','num_edges')})
++
++
++def preprocessing(admission, identity):
++    backbone = admission['backbone']
++    recipe = ('raw features; to_undirected; native gcn_norm+SciPy COO FP32; X..Ahat^12X' if backbone == 'polyformer_mono'
++        else 'verified provider raw features; PyG NormalizeFeatures once; undirected; remove/add loops once')
++    binding = dict(backbone=backbone, input_binding=dict(graph_input=identity['graph_input'],
++        implementation_sha256=admission['implementation_sha256']), recipe=recipe,
++        environment=admission['environment'],order=12 if backbone == 'polyformer_mono' else None,
++        dtype='FP32',cache_policy='no persistent reuse; full recomputation',
++        source_commit=protocol()['native'][backbone]['author_commit'])
++    identity_hash = hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(',',':')).encode()).hexdigest()
++    return dict(identity=identity_hash,**binding)
++
++
++def qualification_gate(admission, identity):
++    certificate = read(verified(admission['qualification_receipt']))
++    require(certificate['schema'] == 'modern-teacher-qualification-certificate-v2' and certificate['admission_eligible'] is True and
++        certificate['input_identity'] == identity and certificate['preprocessing'] == preprocessing(admission,identity) and
++        certificate['backbone'] == admission['backbone'] and certificate['family'] == admission['family'] and
++        certificate['environment'] == admission['environment'] and certificate['model_sha256'] == models() and
++        certificate['score_backend'] == 'randomized_APS_CPU_preserve_FP32_fixed_uniforms_v2' and
++        certificate['implementation_sha256'] == implementations() == admission['implementation_sha256'],
++        'Exact graph/role/label/source-bound supplemented qualification required')
++    verified(certificate['partial_receipt']); verified(certificate['external_audit']); verified(certificate['source_seal'])
++    coverage = read(verified(certificate['coverage_authorization']))
++    require(certificate['authorized_target_input'] == identity and certificate['numerical_tested_seeds'] == [17] and
++        certificate['tested_seed17_input']['seed'] == 17 and
++        coverage['schema'] == 'modern-exact-role-label-coverage-v2' and
++        identity in coverage['authorized_target_inputs'] and coverage['tested_seed17_input'] == certificate['tested_seed17_input'] and
++        coverage['numerical_tests_on_untested_seeds'] is False,
++        'Exact authorized target coverage must remain distinct from tested seed17')
++    feasibility = read(verified(admission['full_schedule_feasibility']))
++    require(feasibility['schema'] == 'modern-full-schedule-feasibility-v2' and feasibility['approved'] is True and
++        feasibility['input_identity'] == identity and feasibility['backbone'] == admission['backbone'] and
++        feasibility['family'] == admission['family'] and feasibility['environment'] == admission['environment'] and
++        feasibility['model_sha256'] == models() and feasibility['teacher_protocol'] == protocol() and
++        feasibility['short_qualification_is_not_full_fit_evidence'] is True,
++        'Separate full-schedule feasibility evidence required')
++    for record in feasibility['resource_evidence']: verified(record)
++    require(bool(feasibility['resource_evidence']), 'Resource evidence is missing')
++    return certificate
++
++
++def certify(request_path, output):
++    request = read(request_path)
++    admission = request['target']
++    require(admission['implementation_sha256'] == implementations() and admission['teacher_protocol'] == protocol(), 'Wrong target interfaces')
++    roles = read(verified(admission['role_freeze']))
++    manifest = read(verified(roles['graph_input']))
++    identity = source_identity(admission,roles,manifest)
++    partial = read(verified(request['partial_receipt']))
++    audit = read(verified(request['external_audit']))
++    tested_admission = read(verified(audit['tested_admission']))
++    tested_roles = read(verified(tested_admission['role_freeze']))
++    tested_target = dict(tested_admission,source_label_binding=admission['source_label_binding'])
++    tested_identity = source_identity(tested_target,tested_roles,read(verified(tested_roles['graph_input'])))
++    coverage = read(verified(audit['coverage_authorization']))
++    require(coverage['schema'] == 'modern-exact-role-label-coverage-v2' and
++        coverage['tested_seed17_input'] == tested_identity and tested_identity['seed'] == 17 and
++        coverage['backbone'] == admission['backbone'] and coverage['family'] == admission['family'] and
++        coverage['environment'] == admission['environment'] and coverage['model_sha256'] == models() and
++        set(coverage['checks']) == set(COVERAGE_CHECKS) and all(v is True for v in coverage['checks'].values()) and
++        coverage['numerical_tests_on_untested_seeds'] is False and
++        len(coverage['authorized_target_inputs']) == 3,
++        'Explicit same-graph role/label coverage authorization required')
++    seen_targets = set()
++    for case in coverage['authorized_target_inputs']:
++        case_admission = dict(admission,role_freeze=case['role_freeze'],source_labels=case['source_labels'],
++            source_label_binding=case['source_label_binding'])
++        case_roles = read(verified(case['role_freeze']))
++        require(source_identity(case_admission,case_roles,read(verified(case_roles['graph_input']))) == case and
++            all(case[k] == tested_identity[k] for k in ('graph','backbone','graph_input','source_label_binding','provider_row_identity','dimensions')),
++            'Authorized target differs from exact graph/provider/source extraction')
++        seen_targets.add(case['seed'])
++    require(seen_targets == set(protocol()['seeds']) and identity in coverage['authorized_target_inputs'],
++        'Coverage must enumerate the three exact authorized target cases')
++    for record in coverage['evidence']: verified(record)
++    require(bool(coverage['evidence']), 'Independent coverage audit evidence is missing')
++    require(partial['report_eligible'] is False and partial['final_labels_read'] is False and
++        partial.get('partial_checks_passed',partial.get('passed')) is True and
++        partial['backbone'] == admission['backbone'] and partial['family'] == admission['family'] and
++        partial['environment'] == admission['environment'] and
++        all(partial['implementation_sha256'][n] == value for n,value in models().items()), 'Partial evidence/model identity differs')
++    require(audit['schema'] == 'modern-external-runtime-audit-v2' and audit['partial_receipt'] == request['partial_receipt'] and
++        audit['score_backend'] == 'randomized_APS_CPU_preserve_FP32_fixed_uniforms_v2' and
++        audit['tested_seed17_input'] == tested_identity and audit['model_sha256'] == models() and
++        audit['environment'] == admission['environment'] and
++        tested_admission['backbone'] == admission['backbone'] and tested_admission['family'] == admission['family'] and
++        tested_admission['environment'] == admission['environment'] and tested_admission['config'] == admission['config'],
++        'External evidence must bind the tested graph/role/label packs/config')
++    require(tested_roles['graph_input'] == identity['graph_input'], 'Qualified graph input differs')
++    require(set(audit['checks']) == set(AUDITS) and all(value is True for value in audit['checks'].values()), 'External optimizer/member/Adam checks incomplete')
++    require(audit['frozen_tolerances'] == dict(logit_rtol=1e-5,logit_atol=1e-6,gradient_rtol=1e-4,gradient_atol=1e-6),
++        'Qualification tolerance amendment is outside this interface repair')
++    verified(audit['tested_source_seal'])
++    compatible_seals = {read(ROOT/'V1_MODEL_IDENTITY.json')['v1_seal_sha256'],sha(ROOT/'SEAL.json')}
++    require(audit['tested_source_seal']['sha256'] in compatible_seals, 'Tested immutable source seal is incompatible')
++    tested_preprocessing = read(verified(audit['preprocessing_evidence']))['preprocessing']
++    expected_preprocessing = preprocessing(admission,identity)
++    require(tested_preprocessing == audit['tested_preprocessing'] and
++        tested_preprocessing['input_binding']['graph_input'] == identity['graph_input'] and
++        all(tested_preprocessing[k] == expected_preprocessing[k] for k in
++            ('backbone','recipe','environment','order','dtype','cache_policy','source_commit')),
++        'Tested preprocessing/graph contract differs')
++    tested_binding = {k:v for k,v in tested_preprocessing.items() if k != 'identity'}
++    require(tested_preprocessing['identity'] == hashlib.sha256(json.dumps(tested_binding,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
++        'Tested preprocessing identity is not canonical')
++    require(audit['failed_attempts_and_fresh_version_retries_retained'] is True and bool(audit['attempt_history']) and
++        bool(audit['instrumentation_sources']), 'External qualification attempt/instrumentation custody is missing')
++    for record in audit['attempt_history'] + audit['instrumentation_sources']: verified(record)
++    for record in audit['evidence']: verified(record)
++    require(bool(audit['evidence']), 'External audit evidence is missing')
++    write(output,dict(schema='modern-teacher-qualification-certificate-v2',request=descriptor(request_path),
++        partial_receipt=request['partial_receipt'],external_audit=request['external_audit'],
++        input_identity=identity,preprocessing=preprocessing(admission,identity),
++        authorized_target_input=identity,tested_seed17_input=tested_identity,numerical_tested_seeds=[17],
++        coverage_authorization=audit['coverage_authorization'],numerical_tests_on_target_seed=identity['seed']==17,
++        backbone=admission['backbone'],family=admission['family'],environment=admission['environment'],
++        model_sha256=models(),implementation_sha256=implementations(),source_seal=descriptor(ROOT/'SEAL.json'),
++        tested_source_seal=audit['tested_source_seal'],admission_eligible=True,report_eligible=False,
++        tested_admission=audit['tested_admission'],qualified_config=admission['config'],
++        registered_configuration_scope=list(range(4)),
++        score_backend='randomized_APS_CPU_preserve_FP32_fixed_uniforms_v2',
++        preprocessing_evidence=audit['preprocessing_evidence'],tested_preprocessing=tested_preprocessing,
++        neural_operation_changed=False,full_schedule_feasibility_separately_required=True))
++
++
++def registry(record):
++    value = read(verified(record))
++    require(value['schema'] == 'modern-attempt-registry-v2' and value['implementation_sha256'] == implementations(), 'Wrong attempt registry')
++    identity = read(verified(value['study_identity']))
++    require(identity['schema'] == 'modern-study-identity-v2' and identity['study_id'] == value['study_id'] and
++        identity['teacher_protocol'] == protocol() and identity['custody_version'] == 2,
++        'Wrong prospective study identity')
++    name = 'TEACHER_ATTEMPT_REGISTRY.json' if value['kind'] == 'teacher' else 'CORRECTION_ATTEMPT_REGISTRY.json'
++    require(Path(record['path']).resolve() == Path(identity['anchor_directory']).resolve()/name, 'Registry moved outside fixed study anchor')
++    expected = {(b,f,c,s) for b in protocol()['native'] for f in protocol()['families'] for c in range(4) for s in protocol()['seeds']} if value['kind']=='teacher' else {
++        (b,'gnnm_boundary_4',None,s) for b in protocol()['native'] for s in protocol()['seeds']}
++    keys = {(e['cell']['backbone'],e['cell']['family'],e['cell'].get('config'),e['cell']['seed']) for e in value['entries']}
++    require(keys==expected and len(value['entries'])==len(expected) and
++        len({e['attempt_id'] for e in value['entries']})==len(expected) and value['model_sha256']==models(),
++        'Registry is not the complete unique fixed model grid')
++    return value
++
++
++def freeze_registry(request_path, output):
++    request = read(request_path)
++    identity = read(verified(request['study_identity']))
++    require(identity['schema'] == 'modern-study-identity-v2' and identity['custody_version'] == 2 and
++        identity['teacher_protocol'] == protocol(), 'Freeze a separate v2 study identity first')
++    verified(identity['source_label_binding'])
++    require(identity['separate_declared_protocol_for_any_retry'] is True and bool(identity['prior_exposure_disclosure']),
++        'Study must disclose predecessor exposure and forbid undeclared retry')
++    for record in identity['prior_attempt_history']: verified(record)
++    kind = request['kind']; require(kind in ('teacher','correction'), 'Unknown registry kind')
++    expected = {(b,f,c,s) for b in protocol()['native'] for f in protocol()['families'] for c in range(4) for s in protocol()['seeds']} if kind == 'teacher' else {
++        (b,'gnnm_boundary_4',None,s) for b in protocol()['native'] for s in protocol()['seeds']}
++    seen,ids,outputs = set(),set(),set()
++    for entry in request['entries']:
++        admission = read(verified(entry['admission']))
++        cell = entry['cell'];key=(cell['backbone'],cell['family'],cell.get('config'),cell['seed'])
++        require(key in expected and key not in seen and entry['attempt_id'] not in ids and
++            re.fullmatch('[a-z][a-z0-9_-]{1,80}',entry['attempt_id']) and
++            admission['attempt_id'] == entry['attempt_id'] and admission['study_id'] == identity['study_id'] and
++            admission['execution_authorized'] is True and admission['implementation_sha256'] == implementations() and
++            admission['source_label_binding'] == identity['source_label_binding'], 'Wrong/duplicate registered attempt or source extraction bundle')
++        role = read(verified(admission['role_freeze']))
++        require(role['seed'] == cell['seed'] and admission['backbone'] == cell['backbone'], 'Registry role/cell mismatch')
++        if kind == 'teacher': require(admission['family'] == cell['family'] and admission['config'] == cell['config'], 'Wrong teacher cell')
++        source_identity(admission,role,read(verified(role['graph_input'])))
++        path = str(Path(entry['output']).resolve())
++        require(path == entry['output'] and path not in outputs and not Path(path).exists(), 'Output must be a unique fresh registered absolute directory')
++        seen.add(key);ids.add(entry['attempt_id']);outputs.add(path)
++    require(seen == expected, 'Register the complete prospective grid; no partial registry')
++    anchor = Path(identity['anchor_directory']).resolve()
++    name = 'TEACHER_ATTEMPT_REGISTRY.json' if kind == 'teacher' else 'CORRECTION_ATTEMPT_REGISTRY.json'
++    require(Path(output).resolve() == anchor/name and anchor.is_dir(), 'Fixed study anchor output required')
++    ledger = anchor/(kind+'_attempt_ledger');ledger.mkdir(exist_ok=False)
++    write(output,dict(schema='modern-attempt-registry-v2',kind=kind,study_id=identity['study_id'],study_identity=request['study_identity'],
++        request=descriptor(request_path),implementation_sha256=implementations(),model_sha256=models(),
++        entries=request['entries'],ledger_directory=str(ledger),retry_policy='none; source repair/retry requires a new declared protocol preserving predecessor registry/closure',
++        prospective=True))
++
++
++def ledger_paths(value, attempt_id):
++    key = hashlib.sha256(attempt_id.encode()).hexdigest()
++    return Path(value['ledger_directory'])/(key+'.claim.json'),Path(value['ledger_directory'])/(key+'.terminal.json')
++
++
++def begin(record, admission_record, output, kind):
++    value = registry(record); admission = read(verified(admission_record))
++    entries = [e for e in value['entries'] if e['attempt_id'] == admission['attempt_id']]
++    require(value['kind'] == kind and len(entries) == 1 and entries[0]['admission'] == admission_record and
++        entries[0]['output'] == str(Path(output).resolve()) and admission['study_id'] == value['study_id'], 'Attempt/output differs from prospective registry')
++    claim_path,terminal_path = ledger_paths(value,admission['attempt_id'])
++    require(not terminal_path.exists(), 'Registered attempt already terminal; fresh-directory retry forbidden')
++    write(claim_path,dict(schema='modern-attempt-claim-v2',registry=record,entry=entries[0],timestamp=time.time()))
++    return dict(registry=record,attempt_id=admission['attempt_id'],claim=descriptor(claim_path),entry=entries[0])
++
++
++def finish(binding, artifact=None, failure=None, costs=None):
++    value = registry(binding['registry'])
++    claim_path,path = ledger_paths(value,binding['attempt_id'])
++    require(descriptor(claim_path) == binding['claim'], 'Attempt claim differs')
++    write(path,dict(schema='modern-attempt-terminal-v2',binding=binding,state='completed' if artifact else 'failed',
++        artifact=artifact,failure=failure,costs=costs,timestamp=time.time(),automatic_retry=False))
++
++
++def close_registry(record, output):
++    value = registry(record); rows=[];allowed=set()
++    for entry in value['entries']:
++        claim_path,terminal_path = ledger_paths(value,entry['attempt_id']);allowed.update((claim_path.name,terminal_path.name))
++        claim_record = descriptor(claim_path) if claim_path.exists() else None
++        terminal_record = descriptor(terminal_path) if terminal_path.exists() else None
++        terminal = read(terminal_path) if terminal_record else None
++        if terminal:
++            require(terminal['binding']['registry'] == record and terminal['binding']['entry'] == entry and terminal['binding']['claim'] == claim_record,
++                'Terminal attempt differs from registry')
++            if terminal['artifact']:verified(terminal['artifact'])
++            if terminal['failure'] and isinstance(terminal['failure'],dict) and set(terminal['failure']) >= {'path','sha256'}:verified(terminal['failure'])
++        rows.append(dict(entry=entry,claim=claim_record,terminal=terminal_record,
++            state=terminal['state'] if terminal else ('incomplete' if claim_record else 'not_started'),
++            costs=terminal['costs'] if terminal else None))
++    require(all(p.name in allowed for p in Path(value['ledger_directory']).iterdir()), 'Unregistered attempt ledger content')
++    write(output,dict(schema='modern-attempt-closure-v2',registry=record,kind=value['kind'],rows=rows,
++        all_registered_attempts_enumerated=True,all_completed=all(r['state']=='completed' for r in rows),
++        failures_and_incomplete_count=sum(r['state'] != 'completed' for r in rows),retry_policy=value['retry_policy']))
++
++
++def closure(record, kind):
++    value=read(verified(record));reg=registry(value['registry'])
++    require(value['schema']=='modern-attempt-closure-v2' and value['kind']==kind and reg['kind']==kind and
++        value['all_registered_attempts_enumerated'] is True and value['all_completed'] is True and
++        len(value['rows'])==len(reg['entries']) and value['failures_and_incomplete_count']==0,'Complete registered terminal closure required')
++    require([r['entry'] for r in value['rows']]==reg['entries'],'Attempt closure omits/reorders entries')
++    for row in value['rows']:
++        terminal=read(verified(row['terminal']));verified(row['claim'])
++        require(terminal['state']=='completed' and terminal['binding']['entry']==row['entry'] and
++            terminal['binding']['registry']==value['registry'] and terminal['binding']['claim']==row['claim'],'Wrong terminal closure')
++        verified(terminal['artifact'])
++    return value
++
++
++def closed_artifact(closure_record, artifact_record, kind):
++    value=closure(closure_record,kind)
++    rows=[r for r in value['rows'] if read(verified(r['terminal']))['artifact']==artifact_record]
++    require(len(rows)==1,'Artifact is not the one registered completed terminal attempt')
++    terminal=read(verified(rows[0]['terminal']));artifact=read(verified(artifact_record))
++    require(artifact['admission']==rows[0]['entry']['admission'] and artifact['attempt_binding']==terminal['binding'],
++        'Frozen artifact differs from its one registered admission/claim/terminal')
++    return rows[0]
++
++
++def release(request_path,output):
++    import correction_screen_driver as core
++    request=read(request_path);study=read(verified(request['teacher_study_selection_freeze']))
++    require(study['schema']=='modern-teacher-study-selection-v2' and study['source_selection_closed'] is True,'Teacher source selection is not closed')
++    closure(study['attempt_closure'],'teacher');closure(request['correction_attempt_closure'],'correction')
++    require(len(request['score_freezes'])==6,'All six primary correction freezes required')
++    expected={(b,s) for b in protocol()['native'] for s in protocol()['seeds']};seen=set();cells=[]
++    for record in request['score_freezes']:
++        closed_artifact(request['correction_attempt_closure'],record,'correction')
++        path=verified(record);score=read(path);core.verify_tree(path.parent,score['payload'])
++        admission=read(verified(score['admission']));role=read(verified(score['role_freeze']))
++        spec=score['modern_teacher']['specification'];key=(spec['backbone'],spec['seed'])
++        require(key in expected and key not in seen and spec['family']=='gnnm_boundary_4' and
++            score['final_labels_read'] is False and score['implementation_sha256']==implementations() and
++            score['score_backend']=='randomized_APS_CPU_preserve_FP32_fixed_uniforms_v2' and
++            admission['teacher_study_selection_freeze']==request['teacher_study_selection_freeze'] and
++            admission['role_freeze']==score['role_freeze'] and role['seed']==spec['seed'], 'Wrong/repeated primary correction freeze')
++        identity=source_identity(admission,role,read(verified(role['graph_input'])))
++        require(identity==score['source_identity'],'Correction input/label custody differs')
++        cells.append(dict(score_freeze=record,admission=score['admission'],role_freeze=score['role_freeze'],
++            backbone=spec['backbone'],seed=spec['seed'],source_identity=identity));seen.add(key)
++    require(seen==expected,'Six exact graph/seed source freezes required')
++    write(output,dict(schema='modern-final-label-release-v2',request=descriptor(request_path),
++        teacher_study_selection_freeze=request['teacher_study_selection_freeze'],teacher_attempt_closure=study['attempt_closure'],
++        correction_attempt_closure=request['correction_attempt_closure'],cells=cells,
++        implementation_sha256=implementations(),final_labels_not_opened=True,release_eligible=True))
++
++
++def verify_release(record,target_score=None):
++    import correction_screen_driver as core
++    value=read(verified(record))
++    require(value['schema']=='modern-final-label-release-v2' and value['release_eligible'] is True and
++        value['implementation_sha256']==implementations() and len(value['cells'])==6,'Shared six-cell final release certificate required')
++    closure(value['teacher_attempt_closure'],'teacher');closure(value['correction_attempt_closure'],'correction')
++    study=read(verified(value['teacher_study_selection_freeze']))
++    require(study['schema']=='modern-teacher-study-selection-v2' and study['implementation_sha256']==implementations() and
++        study['attempt_closure']==value['teacher_attempt_closure'] and study['source_selection_closed'] is True,'Study closure differs')
++    seen=set()
++    for cell in value['cells']:
++        path=verified(cell['score_freeze']);score=read(path);core.verify_tree(path.parent,score['payload'])
++        closed_artifact(value['correction_attempt_closure'],cell['score_freeze'],'correction')
++        admission=read(verified(cell['admission']));role=read(verified(cell['role_freeze']))
++        spec=score['modern_teacher']['specification']
++        require(score['admission']==cell['admission'] and score['role_freeze']==cell['role_freeze'] and
++            spec['backbone']==cell['backbone'] and spec['seed']==cell['seed'] and spec['family']=='gnnm_boundary_4' and
++            score['implementation_sha256']==implementations() and
++            score['score_backend']=='randomized_APS_CPU_preserve_FP32_fixed_uniforms_v2' and
++            admission['teacher_study_selection_freeze']==value['teacher_study_selection_freeze'] and
++            source_identity(admission,role,read(verified(role['graph_input'])))==cell['source_identity']==score['source_identity'] and
++            score['final_labels_read'] is False,'Release cell/admission/role/label binding differs')
++        seen.add((cell['backbone'],cell['seed']))
++    require(seen=={(b,s) for b in protocol()['native'] for s in protocol()['seeds']},'Release is not the six paired cells')
++    if target_score is not None:require(any(c['score_freeze']==target_score for c in value['cells']),'Target score freeze is outside shared release')
++    return value
++
++
++def main():
++    parser=argparse.ArgumentParser(description=__doc__);sub=parser.add_subparsers(dest='command',required=True)
++    for name in ('certify-qualification','freeze-registry','release-final-labels'):
++        command=sub.add_parser(name);command.add_argument('--request',required=True);command.add_argument('--output',required=True)
++    command=sub.add_parser('close-registry');command.add_argument('--registry',required=True);command.add_argument('--output',required=True)
++    args=parser.parse_args()
++    if args.command=='certify-qualification':certify(args.request,args.output)
++    elif args.command=='freeze-registry':freeze_registry(args.request,args.output)
++    elif args.command=='close-registry':close_registry(descriptor(args.registry),args.output)
++    else:release(args.request,args.output)
++
++
++if __name__=='__main__':main()
+--- immutable_v1/modern_teacher_control_report.py
++++ interface_v2/modern_teacher_control_report.py
+@@ -13,6 +13,7 @@
+ import traceback
+ sys.dont_write_bytecode = True
+ import correction_screen_driver as core
++import modern_custody as custody
+ from modern_teacher_driver import verify_cell, protocol
+ 
+ 
+@@ -23,27 +24,15 @@
+     study = core.read_json(args.study_freeze)
+     request_record = core.descriptor(args.pool_labels)
+     request = core.read_json(args.pool_labels)
+-    core.require(study['schema'] == 'modern-teacher-study-selection-v1' and
++    core.require(study['schema'] == 'modern-teacher-study-selection-v2' and
+         study['teacher_protocol'] == protocol() and study['source_selection_closed'] is True and
+         study['complete_family_cells'] == 72, 'Source study selection must close first')
+     core.check_implementation(study['implementation_sha256'])
+-    core.require(request['study_freeze'] == study_record and len(request['correction_score_freezes']) == 6 and
+-        len(request['labels']) == 6, 'All primary correction score freezes must precede final labels')
++    release = custody.verify_release(request['final_label_release'])
++    core.require(request['study_freeze'] == study_record and
++        release['teacher_study_selection_freeze'] == study_record and len(request['labels']) == 6,
++        'One shared six-cell final-label release must bind the control report')
+     expected = {(b,s) for b in protocol()['native'] for s in protocol()['seeds']}
+-    seen = set()
+-    for record in request['correction_score_freezes']:
+-        score_path = core.verified(record)
+-        score = core.read_json(score_path)
+-        core.verify_tree(score_path.parent, score['payload'])
+-        admission = core.read_json(core.verified(score['admission']))
+-        spec = score['modern_teacher']['specification']
+-        key = (spec['backbone'], spec['seed'])
+-        core.require(key not in seen and spec['family'] == 'gnnm_boundary_4' and
+-            score['final_labels_read'] is False and
+-            score['implementation_sha256'] == study['implementation_sha256'] and
+-            admission['teacher_study_selection_freeze'] == study_record, 'Wrong/repeated correction score freeze')
+-        seen.add(key)
+-    core.require(seen == expected, 'Six primary correction score freezes required')
+     label_records = {(r['backbone'],r['seed']):r for r in request['labels']}
+     core.require(set(label_records) == expected and len(label_records) == 6, 'Six compact pool packs required')
+     out = Path(args.output).resolve()
+--- immutable_v1/modern_teacher_driver.py
++++ interface_v2/modern_teacher_driver.py
+@@ -13,6 +13,8 @@
+ import traceback
+ sys.dont_write_bytecode = True
+ import correction_screen_driver as core
++import modern_custody as custody
++import score_backend
+ 
+ PARENT_PREPARE_SHA = '376e8b779d8d71cf21785a62b8543ecadc9c09c9db8174dc230b55b8d0dbd253'
+ 
+@@ -24,10 +26,17 @@
+ def verify_cell(record):
+     path = core.verified(record)
+     freeze = core.read_json(path)
+-    core.require(freeze['schema'] == 'modern-teacher-cell-freeze-v1' and freeze['report_eligible'],
++    core.require(freeze['schema'] == 'modern-teacher-cell-freeze-v2' and freeze['report_eligible'],
+         'Only completed full schedule teacher cells are selectable')
++    core.require(freeze['score_backend'] == score_backend.POLICY, 'Teacher APS backend differs')
+     core.check_implementation(freeze['implementation_sha256'])
+     core.verify_tree(path.parent, freeze['payload'])
++    admission = core.read_json(core.verified(freeze['admission']))
++    roles = core.read_json(core.verified(freeze['role_freeze']))
++    identity = custody.source_identity(admission, roles, core.read_json(core.verified(roles['graph_input'])))
++    core.require(identity == freeze['source_identity'] and admission['source_labels'] == freeze['source_labels'],
++        'Frozen teacher label pack binding differs from admission')
++    core.require(freeze['attempt_binding'] is not None, 'Unregistered scientific teacher cell')
+     return freeze, path.parent
+ 
+ 
+@@ -36,12 +45,14 @@
+     request = core.read_json(args.request)
+     core.require(request['teacher_protocol'] == protocol(), 'Wrong frozen teacher protocol')
+     core.check_implementation(request['implementation_sha256'])
++    custody.closure(request['attempt_closure'], 'teacher')
+     family, backbone = request['family'], request['backbone']
+     core.require(family in protocol()['families'] and backbone in protocol()['native'], 'Unknown family/backbone')
+     core.require(len(request['cells']) == 12, 'Equal four configs by three paired seeds required')
+     cells, seen = [], set()
+     for record in request['cells']:
+         freeze, root = verify_cell(record)
++        custody.closed_artifact(request['attempt_closure'], record, 'teacher')
+         spec = freeze['specification']
+         key = (spec['config'], spec['seed'])
+         core.require(spec['family'] == family and spec['backbone'] == backbone and key not in seen,
+@@ -54,6 +65,8 @@
+             'Wrong teacher label scope')
+         seen.add(key)
+         cells.append(dict(freeze=record, specification=spec, role_freeze=freeze['role_freeze'],
++            source_labels=freeze['source_labels'], source_identity=freeze['source_identity'],
++            attempt_binding=freeze['attempt_binding'],
+             primary_validation_nll=freeze['selection']['primary_validation_nll'],
+             checkpoint=core.descriptor(root/'teacher_checkpoint.pt'),
+             saved_logits=core.descriptor(root/'teacher_member_logits.npy'),
+@@ -61,15 +74,16 @@
+     expected = {(c,s) for c in range(4) for s in protocol()['seeds']}
+     core.require(seen == expected, 'Complete paired grid required; no partial/favorable selection')
+     for seed in protocol()['seeds']:
+-        roles = [row['role_freeze'] for row in cells if row['specification']['seed'] == seed]
++        roles = [(row['role_freeze'],row['source_labels'],row['source_identity']) for row in cells if row['specification']['seed'] == seed]
+         core.require(all(record == roles[0] for record in roles), 'Config roles are not paired')
+     values = [sum(row['primary_validation_nll'] for row in cells
+         if row['specification']['config'] == config)/3 for config in range(4)]
+     core.require(all(math.isfinite(v) for v in values), 'Nonfinite selection value')
+     chosen = min(range(4), key=lambda config: (values[config], config))
+-    result = dict(schema='modern-teacher-family-selection-v1', request=request_record,
++    result = dict(schema='modern-teacher-family-selection-v2', request=request_record,
+         family=family, backbone=backbone, graph=request['graph'], teacher_protocol=request['teacher_protocol'],
+         implementation_sha256=request['implementation_sha256'], environment=request['environment'],
++        attempt_closure=request['attempt_closure'],
+         selected_config=chosen, mean_validation_nll_by_config=values, all_cells=cells,
+         selected_teachers=[row for row in cells if row['specification']['config'] == chosen],
+         label_scope=['train', 'validation'], final_labels_read=False, secondary_selected=False,
+@@ -82,35 +96,40 @@
+     """Close all 72 equal cells before any control/correction final reporting."""
+     request_record = core.descriptor(args.request)
+     request = core.read_json(args.request)
++    custody.closure(request['attempt_closure'], 'teacher')
+     core.require(len(request['selections']) == 6, 'Two graphs by three paired families required')
+     expected = {(b,f) for b in protocol()['native'] for f in protocol()['families']}
+     seen, role_pairs, records = set(), {}, []
+     for record in request['selections']:
+         selection = core.read_json(core.verified(record))
+         key = (selection['backbone'], selection['family'])
+-        core.require(selection['schema'] == 'modern-teacher-family-selection-v1' and key in expected and
++        core.require(selection['schema'] == 'modern-teacher-family-selection-v2' and key in expected and
+             key not in seen and selection['teacher_protocol'] == protocol() and
+             selection['implementation_sha256'] == request['implementation_sha256'] and
+-            selection['environment'] == request['environment'], 'Wrong/repeated family selection or mixed runtime')
++            selection['environment'] == request['environment'] and selection['attempt_closure'] == request['attempt_closure'],
++            'Wrong/repeated family selection, closure or mixed runtime')
+         core.require(len(selection['all_cells']) == 12 and len(selection['selected_teachers']) == 3,
+             'Full grid required')
+         cell_keys = set()
+         for row in selection['all_cells']:
+             freeze, root = verify_cell(row['freeze'])
++            custody.closed_artifact(request['attempt_closure'], row['freeze'], 'teacher')
+             spec = row['specification']
+             cell_keys.add((spec['config'], spec['seed']))
+             core.require(freeze['specification'] == spec and spec['backbone'] == key[0] and spec['family'] == key[1],
+                 'Mixed cell family')
+             core.require(row['checkpoint'] == core.descriptor(root/'teacher_checkpoint.pt') and
+                 row['saved_logits'] == core.descriptor(root/'teacher_member_logits.npy') and
+-                row['role_freeze'] == freeze['role_freeze'] and
++                row['role_freeze'] == freeze['role_freeze'] and row['source_labels'] == freeze['source_labels'] and
++                row['source_identity'] == freeze['source_identity'] and
+                 row['primary_validation_nll'] == freeze['selection']['primary_validation_nll'],
+                 'Cell payload/selection record differs')
+             pair = (key[0], spec['seed'])
+             if pair in role_pairs:
+-                core.require(role_pairs[pair] == row['role_freeze'], 'Cross-family controls must share exact roles')
++                core.require(role_pairs[pair] == (row['role_freeze'],row['source_labels'],row['source_identity']),
++                    'Cross-family controls must share exact roles and train/validation bytes/provenance')
+             else:
+-                role_pairs[pair] = row['role_freeze']
++                role_pairs[pair] = (row['role_freeze'],row['source_labels'],row['source_identity'])
+         core.require(cell_keys == {(c,s) for c in range(4) for s in protocol()['seeds']}, 'Incomplete family grid')
+         values = [sum(row['primary_validation_nll'] for row in selection['all_cells']
+             if row['specification']['config'] == c)/3 for c in range(4)]
+@@ -123,10 +142,10 @@
+     core.require(seen == expected, 'Missing family/graph control')
+     core.check_implementation(request['implementation_sha256'])
+     core.verified(request_record)
+-    core.write_json(Path(args.output).resolve(), dict(schema='modern-teacher-study-selection-v1',
++    core.write_json(Path(args.output).resolve(), dict(schema='modern-teacher-study-selection-v2',
+         request=request_record, teacher_protocol=protocol(), implementation_sha256=request['implementation_sha256'],
+         environment=request['environment'],
+-        family_selections=records, complete_family_cells=72, source_selection_closed=True,
++        family_selections=records, attempt_closure=request['attempt_closure'], complete_family_cells=72, source_selection_closed=True,
+         label_scope=['train','validation'], final_labels_read=False, secondary_selected=False), exclusive=True)
+ 
+ 
+@@ -179,17 +198,11 @@
+         checks=rows, native_vs_identity_boundary_passed=True, shortened_fit_report_eligible=False)
+ 
+ 
+-def fit_body(args, admission, out, admission_record, started):
++def fit_body(args, admission, out, admission_record, started, attempt_binding):
+     core.check_implementation(admission['implementation_sha256'])
+     core.require(admission['execution_authorized'] is True and admission['teacher_protocol'] == protocol(),
+         'Complete exact prospective teacher admission required')
+     qualify = args.command == 'teacher-qualify'
+-    if not qualify:
+-        gate = core.read_json(core.verified(admission['qualification_receipt']))
+-        core.require(gate['schema'] == 'modern-teacher-qualification-v1' and gate['passed'] is True and
+-            gate['backbone'] == admission['backbone'] and gate['family'] == admission['family'] and
+-            gate['environment'] == admission['environment'] and
+-            gate['implementation_sha256'] == admission['implementation_sha256'], 'Matching qualification required')
+     np, torch, environment = core.runtime(admission['device'])
+     core.require(environment == admission['environment'], 'Runtime fingerprint differs')
+     import modern_teacher_adapter as adapter
+@@ -209,11 +222,17 @@
+     core.require(admission['graph'] == roles['graph'] == manifest['graph'], 'Wrong graph')
+     spec = adapter.specification(admission['backbone'], admission['family'], admission['config'], roles['seed'])
+     core.require(manifest['num_classes'] == spec['native']['classes'], 'Wrong classes')
++    input_identity = custody.source_identity(admission, roles, manifest)
++    certificate = custody.qualification_gate(admission, input_identity) if not qualify else None
+     x_np, edges_np = core.canonical_graph(np, manifest)
+     x, edges = torch.from_numpy(x_np.copy()).to(admission['device']), torch.from_numpy(edges_np.copy()).to(admission['device'])
+     binding = dict(graph_input=roles['graph_input'], implementation_sha256=admission['implementation_sha256'])
+     graph, prep_cost = core.measured(torch, admission['device'], lambda:
+         adapter.prepare_graph(x, edges, admission['backbone'], environment, binding))
++    core.require(graph.preprocessing == custody.preprocessing(admission, input_identity),
++        'Actual preprocessing identity differs from certificate metadata')
++    if certificate is not None:
++        core.require(graph.preprocessing == certificate['preprocessing'], 'Qualified preprocessing differs')
+     source = {}
+     for key in ('train','validation'):
+         nodes = np.load(cell/f'{key}_nodes.npy', allow_pickle=False)
+@@ -248,11 +267,13 @@
+     from aligned_score_correction import randomized_aps
+     uniforms = torch.from_numpy(np.load(cell/'aps_uniforms.npy', allow_pickle=False)).to(admission['device'])
+     with torch.no_grad():
+-        control_scores = randomized_aps(views['primary'], uniforms)
++        control_scores, aps_cost = core.measured(torch, admission['device'], lambda:
++            randomized_aps(views['primary'], uniforms))
+     np.save(out/'primary_aps_scores.npy', control_scores.cpu().numpy(), allow_pickle=False)
+     del control_scores, uniforms
+     costs = dict(preprocessing=prep_cost, fit=fit_cost, selected_full_inference=inference_cost,
+         qualification_parity=parity_cost, qualification_checkpoint_replay=replay_cost,
++        primary_aps_postprocessing=aps_cost, score_backend=score_backend.POLICY,
+         member_trajectories=spec['members'], independent_width='native same width per member',
+         all_attempts_charged=True, matched_compute_claim=False)
+     core.write_json(out/'COSTS.json', costs, exclusive=True)
+@@ -260,18 +281,22 @@
+     core.verified(admission_record)
+     core.verified(admission['role_freeze'])
+     if qualify:
+-        core.write_json(out/'QUALIFICATION_RECEIPT.json', dict(schema='modern-teacher-qualification-v1',
+-            passed=True, backbone=spec['backbone'], family=spec['family'], environment=environment,
+-            implementation_sha256=admission['implementation_sha256'], parity=parity,
++        core.write_json(out/'QUALIFICATION_RECEIPT.json', dict(schema='modern-teacher-partial-qualification-v2',
++            partial_checks_passed=True, admission_eligible=False, backbone=spec['backbone'], family=spec['family'], environment=environment,
++            implementation_sha256=admission['implementation_sha256'], model_sha256=custody.models(),
++            source_seal=core.descriptor(Path(__file__).resolve().parent.parent/'SEAL.json'),
++            input_identity=input_identity, preprocessing=graph.preprocessing, admission=admission_record, parity=parity,
+             updates_completed=selection['updates_completed'], global_stage=selection['global_stage'],
+             labels_read=['train','validation'], final_labels_read=False, report_eligible=False,
+-            scope='Full native parity/mean common-body gradient check; full-graph finite training and stage restoration'), exclusive=True)
++            scope='Partial identity/mean common-weight gradient, finite aggregate loss and selected replay checks only; external optimizer/member/Adam supplement and separate feasibility required'), exclusive=True)
+     core.write_json(out/'FIT_WALL_RECEIPT.json', dict(seconds=time.perf_counter()-started,
+         scope='Residual inclusive admission/input loading, preprocessing, construction, parity if qualified, updates, selection, saves and inference; excludes final freeze serialization',
+         final_labels_read=False, report_eligible=not qualify), exclusive=True)
+-    core.write_json(out/'TEACHER_CELL_FREEZE.json', dict(schema='modern-teacher-cell-freeze-v1',
++    core.write_json(out/'TEACHER_CELL_FREEZE.json', dict(schema='modern-teacher-cell-freeze-v2',
+         admission=admission_record, teacher_protocol=protocol(), implementation_sha256=admission['implementation_sha256'],
+         role_freeze=admission['role_freeze'], graph=admission['graph'], environment=environment,
++        source_labels=admission['source_labels'], source_identity=input_identity, attempt_binding=attempt_binding,
++        score_backend=score_backend.POLICY,
+         specification=spec, selection=selection, costs=costs, label_scope=['train','validation'],
+         final_labels_read=False, report_eligible=not qualify, payload=core.tree_records(out)), exclusive=True)
+ 
+@@ -280,17 +305,27 @@
+     record = core.descriptor(args.admission)
+     admission = core.read_json(args.admission)
+     out = Path(args.output).resolve()
+-    out.mkdir(parents=True, exist_ok=False)
+     started = time.perf_counter()
+-    core.write_json(out/'ATTEMPT_STARTED.json', dict(admission=record, command=args.command,
+-        timestamp=time.time(), automatic_retry=False), exclusive=True)
++    scientific = args.command == 'teacher-fit'
++    binding = custody.begin(core.descriptor(args.attempt_registry), record, out, 'teacher') if scientific else None
++    created = False
+     try:
+-        fit_body(args, admission, out, record, started)
++        out.mkdir(parents=True, exist_ok=False); created = True
++        core.write_json(out/'ATTEMPT_STARTED.json', dict(admission=record, command=args.command,
++            timestamp=time.time(), automatic_retry=False, attempt_binding=binding), exclusive=True)
++        fit_body(args, admission, out, record, started, binding)
++        if binding is not None:
++            custody.finish(binding, artifact=core.descriptor(out/'TEACHER_CELL_FREEZE.json'),
++                costs=dict(measured=core.read_json(out/'COSTS.json'), wall=core.read_json(out/'FIT_WALL_RECEIPT.json')))
+     except Exception as error:
+-        core.write_json(out/'FAILED_ATTEMPT.json', dict(error_type=type(error).__name__, message=str(error),
+-            traceback=traceback.format_exc(), seconds=time.perf_counter()-started,
+-            measured_cost=getattr(error, 'screen_cost', None),
+-            automatic_retry=False, final_labels_read=False), exclusive=True)
++        failure = dict(error_type=type(error).__name__, message=str(error), traceback=traceback.format_exc(),
++            seconds=time.perf_counter()-started, measured_cost=getattr(error, 'screen_cost', None),
++            automatic_retry=False, final_labels_read=False)
++        if created:
++            core.write_json(out/'FAILED_ATTEMPT.json', failure, exclusive=True)
++        if binding is not None:
++            custody.finish(binding, failure=core.descriptor(out/'FAILED_ATTEMPT.json') if created else failure,
++                costs=dict(seconds=failure['seconds'],measured=failure['measured_cost']))
+         raise
+ 
+ 
+@@ -301,6 +336,7 @@
+         command = sub.add_parser(name)
+         command.add_argument('--admission', required=True)
+         command.add_argument('--output', required=True)
++        command.add_argument('--attempt-registry', required=name == 'teacher-fit')
+     command = sub.add_parser('select-config')
+     command.add_argument('--request', required=True)
+     command.add_argument('--output', required=True)
+--- immutable_v1/score_backend.py
++++ interface_v2/score_backend.py
+@@ -0,0 +1,29 @@
++"""Explicit deterministic CPU APS postprocessor, preserving native score formula.
++
++No neural forward/backward, precision, tolerance or selection change. Do not
++disable deterministic algorithms or use warn_only. Copies/CPU work are charged.
++SOURCE ONLY: never imported/executed in child authoring.
++"""
++import sys
++
++POLICY = 'randomized_APS_CPU_preserve_FP32_fixed_uniforms_v2'
++
++
++def install():
++    import aligned_score_correction as aligned
++    if not hasattr(aligned, '_modern_native_randomized_aps'):
++        aligned._modern_native_randomized_aps = aligned.randomized_aps
++    native = aligned._modern_native_randomized_aps
++
++    def cpu_aps(probabilities, uniforms):
++        device = probabilities.device
++        # Preserve dtype and the native stable tie/cumsum/randomization formula.
++        # Device copies remain differentiable if a future caller needs gradients.
++        return native(probabilities.to('cpu'), uniforms.to('cpu')).to(device)
++
++    aligned.randomized_aps = cpu_aps
++    # A previously imported CF module may hold its original from-import alias.
++    cf = sys.modules.get('cf_gnn_source_adapter')
++    if cf is not None:
++        cf.randomized_aps = cpu_aps
++    return POLICY
