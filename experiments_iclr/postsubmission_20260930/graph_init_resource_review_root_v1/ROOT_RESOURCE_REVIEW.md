@@ -1,0 +1,15 @@
+# Prospective resource review for the graph initialization study
+
+The authorized route was checked on 2 October 2026 at 09:19:50 UTC. It exposed exactly the specified A100 UUID, with 0 MiB used and 81,053 MiB free. The repository had 2,438,042,091,520 available filesystem bytes. The new study anchor was absent. This is a resource snapshot, not an execution or feasibility result.
+
+The proposed six-context registry reserves 425,700 seconds across its phase caps. This is a conservative prospective horizon, not measured GPU use or admission to execute the complete schedule. The first numerical authorization is limited to the Squirrel seed17 cold qualifier, capped at 1,800 seconds. Previous reservations and failed attempts remain in their original accounting; none is reclaimed or silently replaced by this new study.
+
+The complete-graph native Squirrel qualifications used at most 4,991,221,760 reserved GPU bytes. The Photo qualifications used at most 32,912,703,488 reserved bytes. These measurements include short training, identity and replay checks, but do not measure the initialization driver or its differentiation operations. They provide scale information only.
+
+The source inspection covered simultaneous native, K1 and K4 predictors, disposable optimizer-equivalence copies, actual nonzero Adam states, functional differentiation, graph filtering, line-search candidates and installed-route checks. Model states and checkpoints are copied to CPU where prescribed. K4 continuations retain all four member computation graphs for their mean loss. Differentiation retains additional activation state; it is not safe to equate its peak with a native forward pass. The Squirrel reservation of 60 GiB and Photo reservation of 75 GiB are provisional operational estimates with room above the retained native measurements. Neither is a proven upper bound.
+
+Registration may preserve those forecasts before measurements exist. The cold qualifier is the experiment that will measure whether the actual Squirrel operations fit. A failure, timeout or out-of-memory event remains a failed registered attempt and blocks this study's closure. No tolerance, cohort, step-count or method change is authorized as a numerical rescue. Photo and useful scientific fits need separate execution admission; actual warm-state derivative and Adam tests remain mandatory.
+
+For disk, a new 20 GiB prospective reserve covers this study's source, receipts, warm states, initialized states, selected checkpoints and logits. This is a provisional storage budget, not a computed upper bound; no checkpoint payload was opened for this note. This reserve is separately recorded alongside the old accounting and does not admit unrelated storage. Measured file sizes and process/phase costs must accompany scientific results. The current filesystem snapshot has room for both old retained bounds and this prospective reserve.
+
+The resource review supports metadata registration and one bounded numerical qualifier. It establishes no speed improvement, full-schedule feasibility, accuracy gain or need for extra GPUs.

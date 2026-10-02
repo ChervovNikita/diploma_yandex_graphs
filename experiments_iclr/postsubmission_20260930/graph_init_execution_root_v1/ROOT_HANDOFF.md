@@ -1,0 +1,37 @@
+# Initial graph-initialization root handoff
+
+This packet is source and unapproved metadata only. The builder and checker were run with stdlib AST/hash/JSON work. Neither the entry nor the R17 driver was run. No arrays, label packs, checkpoints, GPU work or scientific modules were opened. All root, resource, registry, phase and lineage approval flags in `prepared_v1` are false. The two provenance booleans are narrow source-pack facts, with the outcome-aware design history disclosed in every context.
+
+## Concrete initial scope
+
+The immutable target is R17 v2, manifest `2a4208581e67e44f8941a43b696fd8ee141b2eec6533893862c1f0dfbe8c0345`, seal `d21fc53935ef20e7f9278039a9a4a26fea4f3248c3a75157401fb0d95c345203`. The six exact GNNM cfg0 contexts preserve original acquisition descriptor objects, including `bytes`, and the exact certified native environment. Target seeds17/29/43 have split indices0/1/2; only seed17 has retained modern numerical qualification. Future R17 qualification is separate.
+
+`graph_init_root_entry.py` accepts the unchanged launcher's `--request` and `--supervisor`. Its allowlist is metadata `register` and the first TRAIN-only disposable `qualify` on Squirrel17. It verifies exact remote repo/venv/cwd/route, the active declared supervisor, GPU UUID, protected source/metadata descriptors, sealed R17v2/modernv3 payloads, signed root decision and exact admission before invoking the driver through an argument list. It passes `CUBLAS_WORKSPACE_CONFIG=:4096:8` before child Python initializes CUDA and makes no native recipe changes. Native deterministic settings and fingerprint checks remain in the sealed driver. Existing `bounded_run_v1.py` and `run_authorized_v2.py` supervise the entire process without changes. Entry source/seals/protected metadata are rechecked after the child. Nonzero child status is retained.
+
+Root START/TERMINAL/FAILED receipts are in `root_receipts`; they never pre-create the driver's output. Registration creates the new `study_v1` anchor; no one should pre-create it or its phase directories. Registered failures forbid automatic retry and block closure. Outer process-group cap remains authoritative even if a child cannot write its terminal.
+
+## Forecasts to review
+
+`PROSPECTIVE_RESOURCE_EVIDENCE.json` binds actual native COSTS for all six seed17/cfg0 qualification families, original terminal/cell freezes, six-run audit and source copy/AD operations. Native fits are short3/4-update qualifiers; aggregate timings are not R17 stage rates. No R17 AD cost or full-schedule feasibility pass is asserted. Proposed GPU reservations are60GiB Squirrel and75GiB Photo with a75GiB usable budget, not measured current free memory or proven upper bounds. Root must review live memory and source-copy demand before accepting the forecast. Full scientific admission remains separate.
+
+| Graph | qualify | warm | initialize, each of5 | fit, each of5 | cell budget |
+|---|---:|---:|---:|---:|---:|
+| Squirrel |1800s|900s|1800s|6000s|41700s|
+| Photo |3600s|3600s|3600s|15000s|100200s|
+
+All whole-phase caps are <=28800s. Full cohort cap arithmetic is425700s. Approval of these prospective budgets does not establish a measured bound or approve warm/initialize/fit.
+
+## Root actions, in order
+
+1. Independently accept the fresh sealed-R17-v2 source audit. Review `CONTEXTS_DRAFT.json`, original descriptors, prospective costs and `PREDECESSOR_HISTORY_DRAFT.json`. The previous R17 v1 is source-only with draft audit; no numerical R17 predecessor registry exists. Native failures and the previous negative, exposed Photo/Squirrel research screen remain disclosed. `independent_of_stage1_outcomes` means source evidence custody only, not independence of idea choice from those outcomes.
+2. Copy `ROOT_REGISTRATION_DECISION_TEMPLATE.json` to a new root decision file outside this sealed packet's payload. Bind the actual fresh source audit descriptor, signer and UTC; explicitly accept resources/source-copy memory/lineage and registration. Leave cold qualification, full fit and heldout flags false. The signed decision binds exact draft contexts plus six accepted forecasts. Do not mutate the sealed template.
+3. Run the metadata finalizer with that decision and a fresh output, e.g. `build_admissions.py finalize-registration --decision <root_decision> --output <admitted_v1>`. It freezes contexts with admitted resources, recomputes all72canonical attempt hashes and exact lineage, then emits `ROOT_REGISTER_REQUEST.json`. Draft IDs change when resource approval/evidence changes; only the final inventory is registerable. All72prospective output names remain fixed under the same new declared anchor. Finalization does not execute the registry or scientific code.
+4. Root transfers the sealed source packet and final metadata, verifies hashes on the authorized allocation, and launches the registration request with `protocols/launch_modern_root_v1.py`. It expects phase-relative `--request --outer --inner --receipt`; exact paths are in the emitted request. Parent directories for outer supervision/local launch receipt may be created, but their outputs themselves must be new. Example path shape: request `graph_init_execution_root_v1/admitted_v1/ROOT_REGISTER_REQUEST.json`, outer `graph_init_execution_root_v1/supervision/register_v1_outer`, inner `graph_init_execution_root_v1/supervision/register_v1_inner`, receipt `graph_init_execution_root_v1/supervision/register_v1_LAUNCH.json`.
+5. Retrieve the actual `study_v1/GRAPH_INIT_ATTEMPT_REGISTRY.json`; its SHA does not exist before successful registration. Copy the fresh qualifier decision template emitted by finalization to a new root decision; bind this exact registry descriptor and the admitted Squirrel17 context hash. Independently set cold qualification/source-audit approval, signer/UTC and leave full fit/heldout flags false. Then run metadata `build_admissions.py make-qualify --decision <cold_decision> --output <admitted_qualify_v1>`. It checks the realized72-attempt registry and emits exact admission plus `ROOT_SQUIRREL17_QUALIFY_REQUEST.json`.
+6. Root launches that request through the same unchanged launcher with outer `graph_init_execution_root_v1/supervision/qualify_Squirrel_seed17_v1_outer`, inner `.../qualify_Squirrel_seed17_v1_inner`, receipt `.../qualify_Squirrel_seed17_v1_LAUNCH.json`. Whole cap1800s. Qualification is cold, disposable, TRAIN-only and report-ineligible; it checks native/K1/K4 logits, nonzero-history Adam transport, AD and initializer installation. It exports no useful fitted checkpoint.
+
+After the first qualifier, root must separately admit further qualifications and all scientific phases through future reviewed source/request work. This wrapper does not expose them. All30selected fits, all72successful terminals, source comparison closure and separate report admission are required before any final-pool access. Cold qualification cannot substitute for actual-warm checks or full-schedule feasibility.
+
+## Local verification and sealing
+
+`STATIC_CHECKS.json` records AST/import allowlists, full immutable text payload hashes, exact six context schemas/certificates/environments, original optional-byte descriptor preservation, exact72rows, draft lineage/phase/root false approvals, resource evidence and root/driver receipt separation. It is not an independent scientific/source-method audit or numerical result. Repairs after this packet is sealed require a new packet version. Future root decisions and final metadata live in new directories and are not edits to sealed payloads.

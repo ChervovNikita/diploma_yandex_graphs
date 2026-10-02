@@ -1,0 +1,67 @@
+323: Appendix C Architecture and Training Configuration
+324: All five backbones use three graph layers with hidden dimension 128; the GTs use eight attention heads. Tables 8 and 9 list the detailed settings for HeteroGNN and THGFM in the controlled study. Both use the same materialized table features and temporally sampled neighborhoods. We sample three hops with fanouts of 128, 64, and 32 at the first, second, and third hops, respectively.
+325: Attribute processing.
+326: Primary and foreign keys define graph structure and are excluded from attribute features. The PyTorch Frame encoders in Table 7 map each remaining column to 128 dimensions. Parameters are specific to each table, with separate embeddings or maps for its columns. Tables without attributes receive a constant numerical feature. Text vectors are precomputed with average_word_embeddings_glove.6B.300d and remain fixed; the column-specific maps from 300 to 128 dimensions are trainable. Timestamp attributes encode year, month, day, day of week, hour, minute, and second, with median-timestamp imputation for missing values. These calendar features are separate from the record-age encoding in TimeMix.
+327: Table 7: Column encoders used by both backbones. Only types present in a table are instantiated; all outputs have dimension 128.
+328: | Attribute type | PyTorch Frame encoder | Operation
+329: | Categorical | EmbeddingEncoder | Learned category lookup.
+330: | Numerical | LinearEncoder | Standardize using column statistics, then apply a learned affine map. Missing values are imputed with the column mean.
+331: | Multicategorical | MultiCategoricalEmbeddingEncoder | Average learned embeddings of the categories in a cell.
+332: | Vector / text embedding | LinearEmbeddingEncoder | Apply a learned affine map to the input vector.
+333: | Timestamp | TimestampEncoder | Encode the year positionally and other calendar fields cyclically, then apply a learned linear map with bias.
+334: For a row v in table a=\phi(v) with m_{a} attribute columns, let b_{v,j}\in\mathbb{R}^{128} be the embedding of column j . We concatenate these embeddings in a fixed column order and apply the table’s ResNet:
+335: | | b_{v}=[b_{v,1}\|\cdots\|b_{v,m_{a}}]\in\mathbb{R}^{128m_{a}},\qquad x_{v}=\operatorname{ResNet}_{a}(b_{v})\in\mathbb{R}^{128}, | | (11)
+336: where \| denotes concatenation. Each table uses a four-layer ResNet with hidden dimension 128 to produce its row representations. The column encoders, ResNets, graph layers, and enabled temporal modules are trained jointly with the current objective’s head.
+337: Table 8: Architecture settings for the selected GNN and GT. Temporal settings apply when the corresponding proposed encoding is enabled.
+338: | Setting | GNN (HeteroGNN) | GT (THGFM)
+339: | Graph layers / hidden width | 3 / 128 | 3 / 128
+340: | Table feature encoder | 4-layer ResNet, width 128 | 4-layer ResNet, width 128
+341: | Table-encoder dropout | 0.2 | 0.2
+342: | Text embedding / learned mapping | Fixed GloVe / 300\rightarrow 128 | Fixed GloVe / 300\rightarrow 128
+343: | Heads per attention branch | Not applicable | 8 (16 dimensions each)
+344: | Graph-operator dropout | None | 0.05
+345: | Across-relation aggregation | Sum | Sum
+346: | Post-layer normalization / activation | Node-wise LayerNorm / ReLU | Node-wise LayerNorm / ReLU
+347: | Downstream head | Linear, 128\rightarrow C | Linear, 128\rightarrow C
+348: | Temporal sampling / hop fanouts | Uniform / (128,64,32) | Uniform / (128,64,32)
+349: | TimeMix dimension / fusion | 128 / addition | 128 / addition
+350: | TimeRoPE mode / time unit / phase cap | Symmetric / 1 hour / 16 | Symmetric / 1 hour / 16
+351: C is the number of classes for multiclass classification and 1 for binary classification or regression. Graph-operator dropout refers to the graph module, separately from the table encoder. The temporal operators are detailed in Appendix D.
+352: Table 9: Training settings shared by the selected GNN and GT. Single- and two-stage pretraining each receive 100,000 steps in total.
+353: | Setting | GNN and GT
+354: | Optimizer / learning rate / weight decay | AdamW / 2\times 10^{-3} / 10^{-5}
+355: | Learning-rate schedule | Constant; no warmup or decay
+356: | Single-stage pretraining epochs / steps per epoch | 10 / 10,000
+357: | Two-stage pretraining epochs / steps per epoch (each stage) | 10 / 5,000
+358: | Total pretraining steps (either schedule) | 100,000
+359: | Pretraining batch size | 256; 512 for the H&M curricula
+360: | Downstream epochs / steps per epoch | 10 / 10,000
+361: | Downstream batch size | 1,024 for Arxiv and F1; 512 for Avito, H&M, and Event
+362: | Fine-tuning scope | Full encoder and newly initialized task head
+363: | Downstream losses | Cross-entropy (multiclass), binary cross-entropy with logits (binary), L_{1} (regression)
+364: | Validation frequency | Every downstream epoch
+365: | Downstream checkpoint criterion | Maximum validation accuracy or ROC–AUC; minimum validation MAE
+366: | Random seeds | 42, 43, 44, 45
+367: | Reported task statistics | Mean and standard deviation across four runs
+368: Training and evaluation.
+369: We optimize all models using AdamW at the constant learning rate and weight decay in Table 9. Single-stage pretraining uses 10 epochs with 10,000 sampled steps per epoch, for a total budget of 100,000 steps. Two-stage pretraining allocates 10 epochs with 5,000 sampled steps per epoch to each stage, giving 50,000 steps per stage and the same total budget of 100,000 steps. These budgets apply to both our objectives and the pretraining baselines, including their staged variants. Each downstream fine-tuning run uses 10 epochs with 10,000 steps per epoch, totaling 100,000 steps; models trained directly on downstream tasks without pretraining use the same budget. There is no patience-based early stopping. For all pretraining strategies, we select the checkpoint with the lowest training loss. The next stage loads the selected encoder and initializes its objective-specific modules and AdamW optimizer afresh. For each seed in \{42,43,44,45\} , we run pretraining where applicable, fine-tuning, validation-based checkpoint selection, and test evaluation independently, using the same chronological splits. The mean validation ranks used to choose one study backbone per family, as a trade-off to reduce computational cost, are described in Appendix B.1. Reported means and standard deviations summarize these runs; relative gains are computed from the task means.
+370: Objective settings.
+371: Rel-Hist uses K_{\mathrm{neg}}=4 negative destinations per positive link. Rel-Future uses K_{\mathrm{fut}}=2 negatives, candidate horizons \mathcal{H}=\{1,7,30,90,365\} days, count-loss weight \lambda_{\mathrm{count}}=0.25 , and Smooth L1 transition threshold \beta_{\mathrm{SL}}=1 . Temp-Sub uses edge-drop probability p_{\mathrm{edge}}=0.2 , feature-mask probability p_{\mathrm{mask}}=0.2 , and contrastive temperature T=0.2 . Its graph and seed contrastive losses both have unit weight. The seed regularizer uses variance weight \lambda_{\mathrm{var}}=1 , covariance weight \lambda_{\mathrm{cov}}=0.01 , target standard deviation \gamma=1 , and variance stabilizer \epsilon_{\mathrm{var}}=10^{-4} ; its full definition is in Appendix E. These settings are shared across backbones and stages. We performed no hyperparameter search; the values here and in Appendix D are fixed experimental choices, and their optimality has not been evaluated.
+372: Horizon eligibility and window boundaries.
+373: A horizon \delta is eligible only if the seed is available at \tau=t_{\mathrm{evt}}-\delta . Events at \tau belong to the history and are excluded from the target count; events at \tau+\delta are included. A negative seed must be available at \tau and have no events of the selected relation in this window. An event at the seed’s first observation cannot define a positive example for any positive horizon.
+374: Appendix D Temporal Encoding Details
+375: TimeMix parameterization.
+376: TimeMix uses K_{\mathrm{time}}=4 trainable log-scales \eta_{k} , initialized so that the scales \exp(\eta_{k}) equal 1 second, 1 minute, 1 hour, and 1 day, respectively. Durations are represented in seconds, with positive scales s_{k}=\operatorname{clip}(\exp(\eta_{k}),s_{\min},s_{\max}) , where s_{\min}=1 second and s_{\max}=2592000 seconds (30 days). The bounds constrain the scales, not the record ages. The mixture weights are
+377: | | \pi_{k}=\frac{\exp(\gamma_{k})}{\sum_{j=1}^{K_{\mathrm{time}}}\exp(\gamma_{j})}, | | (12)
+378: where \gamma_{k} is a trainable logit, initialized equally across scales to give uniform weights. Parameter sharing and missing-timestamp handling follow Section 3.1.
+379: TimeRoPE implementation.
+380: TimeRoPE computes the bounded, signed log-interval \rho_{uv} defined in Section 3.1, with time scale s_{\mathrm{R}}=3600 seconds (1 hour) and phase cap \rho_{\max}=16 . For a feature dimension d , let d_{\mathrm{even}} be the largest even integer no greater than d . Consecutive dimension pairs are rotated with frequencies \omega_{j}=10000^{-2j/d_{\mathrm{even}}} , j=0,\ldots,d_{\mathrm{even}}/2-1 . For pair (x_{2j},x_{2j+1}) ,
+381: | | R_{j}(\rho)\begin{bmatrix}x_{2j}\\ x_{2j+1}\end{bmatrix}=\begin{bmatrix}\cos(\omega_{j}\rho)&-\sin(\omega_{j}\rho)\\ \sin(\omega_{j}\rho)&\cos(\omega_{j}\rho)\end{bmatrix}\begin{bmatrix}x_{2j}\\ x_{2j+1}\end{bmatrix}. | | (13)
+382: An unmatched final dimension is unchanged. GNN messages use the feature width; GT rotations use the attention-head width.
+383: GNN message construction.
+384: This message construction extends temporal rotation to GNN aggregation without query–key attention.
+385: GT attention weighting.
+386: We retain the query–key rotation mechanism of THGFM’s Rotary Temporal Attention (Peng et al., 2026), using our bounded, signed log-interval \rho_{uv} as its phase input. For a fixed relation r and attention head, let q_{v},k_{u},p_{u}\in\mathbb{R}^{d_{h}} be the query, key, and value projected from the current layer inputs y_{v} and y_{u} , with any branch-specific endpoint adapters applied before projection. Relation, branch, and head indices are omitted for clarity. The symmetric qk mode computes
+387: | | \displaystyle\widehat{q}_{uv} | \displaystyle=R(+\rho_{uv}/2)q_{v},\qquad\widehat{k}_{uv}=R(-\rho_{uv}/2)k_{u}, | | (14)
+388: | | \displaystyle\alpha_{uv} | \displaystyle=\operatorname{softmax}_{u\in\mathcal{N}_{r}(v)}\left(\frac{\widehat{q}_{uv}^{\top}\widehat{k}_{uv}}{\sqrt{d_{h}}}\right). |
+389: Here \mathcal{N}_{r}(v) contains incoming neighbors under relation r . Values remain unrotated, and the head output is \sum_{u\in\mathcal{N}_{r}(v)}\alpha_{uv}p_{u} . For THGFM, rotation is applied separately in the relation-specific attention branch and the shared-space branch with endpoint adapters. Their outputs are then combined by the backbone’s type-conditioned gated sum.
