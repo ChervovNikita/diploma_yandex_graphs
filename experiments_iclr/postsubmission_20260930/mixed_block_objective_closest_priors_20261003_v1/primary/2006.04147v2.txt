@@ -1,0 +1,963 @@
+=== PDF PAGE 1 ===
+Peer Collaborative Learning for Online Knowledge Distillation
+Guile Wu, Shaogang Gong
+Queen Mary University of London
+guile.wu@qmul.ac.uk, s.gong@qmul.ac.uk
+Abstract
+Traditional knowledge distillation uses a two-stage training
+strategy to transfer knowledge from a high-capacity teacher
+model to a compact student model, which relies heavily on
+the pre-trained teacher. Recent online knowledge distilla-
+tion alleviates this limitation by collaborative learning, mu-
+tual learning and online ensembling, following a one-stage
+end-to-end training fashion. However, collaborative learning
+and mutual learning fail to construct an online high-capacity
+teacher, whilst online ensembling ignores the collaboration
+among branches and its logit summation impedes the further
+optimisation of the ensemble teacher. In this work, we pro-
+pose a novel Peer Collaborative Learning method for online
+knowledge distillation, which integrates online ensembling
+and network collaboration into a uniﬁed framework. Specif-
+ically, given a target network, we construct a multi-branch
+network for training, in which each branch is called a peer.
+We perform random augmentation multiple times on the in-
+puts to peers and assemble feature representations outputted
+from peers with an additional classiﬁer as the peer ensem-
+ble teacher. This helps to transfer knowledge from a high-
+capacity teacher to peers, and in turn further optimises the
+ensemble teacher. Meanwhile, we employ the temporal mean
+model of each peer as the peer mean teacher to collaboratively
+transfer knowledge among peers, which helps each peer to
+learn richer knowledge and facilitates to optimise a more sta-
+ble model with better generalisation. Extensive experiments
+on CIFAR-10, CIFAR-100 and ImageNet show that the pro-
+posed method signiﬁcantly improves the generalisation of
+various backbone networks and outperforms the state-of-the-
+art methods.
+Introduction
+Deep learning has achieved incredible success in many com-
+puter vision tasks in recent years. Whilst many studies focus
+on developing deeper and/or wider networks for improving
+the performance (He et al. 2016; Zagoruyko and Komodakis
+2016; Xie et al. 2017), these cumbersome networks require
+more computational resources, which hinders their deploy-
+ments in resource-limited scenarios. To alleviate this prob-
+lem, knowledge distillation is developed to transfer knowl-
+edge from a stronger teacher (Hinton, Vinyals, and Dean
+Copyright © 2021, Association for the Advancement of Artiﬁcial
+Intelligence (www.aaai.org). All rights reserved.
+2015) or an online ensemble (Lan, Zhu, and Gong 2018)
+to a student model, which is more suitable for deployment.
+Traditionally, knowledge distillation (KD) requires to pre-
+train a high-capacity teacher model in the ﬁrst stage, and
+then transfer the knowledge of the teacher to a smaller stu-
+dent model in the second stage (Hinton, Vinyals, and Dean
+2015; Romero et al. 2015; Phuong and Lampert 2019). Via
+aligning soft predictions (Hinton, Vinyals, and Dean 2015)
+or feature representations (Romero et al. 2015) between the
+teacher and the student, a student model usually signiﬁ-
+cantly reduces the model complexity for deployment but still
+achieves competitive accuracy as the teacher model. How-
+ever, since the teacher and the student are trained in two sep-
+arate stages, this traditional strategy usually requires more
+training time and computational cost.
+Recent online knowledge distillation (Lan, Zhu, and
+Gong 2018; Zhang et al. 2018; Chen et al. 2020) alleviates
+this limitation by directly optimising a target network, fol-
+lowing a one-stage end-to-end training fashion. Instead of
+pre-training a high-capacity teacher, online knowledge dis-
+tillation typically integrates the teacher into the student us-
+ing a hierarchical network with shared intermediate-level
+representations (Song and Chai 2018) (Fig. 1(a)), multi-
+ple parallel networks (Zhang et al. 2018)(Fig. 1(b)), or a
+multi-branch network with online ensembling (Lan, Zhu,
+and Gong 2018) (Fig. 1(c)). Although these methods have
+shown their superiority over the traditional counterparts, col-
+laborative learning and mutual learning fail to construct an
+online high-capacity teacher to facilitate the optimisation of
+the student, whilst online ensembling ignores the collabora-
+tion among branches and its logit summation impedes the
+further optimisation of the ensemble teacher.
+In this work, we propose a novel Peer Collaborative
+Learning (PCL) method for online knowledge distillation.
+As shown in Fig. 1(d), we integrate online ensembling
+and network collaboration into a uniﬁed framework to take
+full advantage of them for improving the quality of online
+knowledge distillation. Speciﬁcally, in training, we construct
+a multi-branch network by adding auxiliary branches (high-
+level layers) to a given target network. We call each branch
+“ a peer” and design two types of online teachers for peer
+collaborative learning to improve the generalisation of a tar-
+get network. The ﬁrst teacher, peer ensemble teacher, is an
+online high-capacity model, which helps to distil knowledge
+arXiv:2006.04147v2  [cs.CV]  3 Mar 2021
+
+=== PDF PAGE 2 ===
+………
+…
+…
+…
+……
+……
+…
+…
+…
+(a) (b) (c) (d)
+InputNetwork (layers)LogitKnowledge distillationClass classificationAugmentationTemporal mean modelFeature
+Figure 1: Comparing four online knowledge distillation mechanisms: (a) Collaborative learning. (b) Mutual learning. (c) On-
+line ensembling. (d) Peer collaborative learning (Proposed). Our method integrates two types of peer collaborations ( i.e. peer
+ensemble teacher and peer mean teacher) into a uniﬁed framework to improve the quality of online knowledge distillation.
+from a stronger ensemble teacher to each peer, and in turn
+further improves the ensemble teacher. Instead of using peer
+logit summation to construct the ensemble teacher (Lan,
+Zhu, and Gong 2018), we perform random augmentation
+multiple times on the inputs to peers and then assemble fea-
+ture representations outputted from peers with an additional
+classiﬁer as the peer ensemble teacher. This design helps to
+learn discriminative information among feature representa-
+tions of peers and facilitates to assemble a stronger teacher
+for online knowledge distillation. Furthermore, to generate
+a more stable model with better generalisation, we use the
+second teacher, peer mean teacher, to collaboratively distil
+knowledge among peers. Instead of directly distilling knowl-
+edge among peers using mutual learning (Zhang et al. 2018),
+we utilise the temporal mean model of each peer to construct
+the peer mean teacher which can produce more stable pre-
+dictions. As a result, this design helps each peer to learn
+richer knowledge and facilitates to optimise a more stable
+model with better generalisation for deployment. In testing,
+we use a temporal mean model of a peer for deployment,
+which has the same number of parameters as the given tar-
+get network, so there is no extra inference cost for deploy-
+ment. Besides, the outputted feature representations from
+peer mean teachers plus the additional classiﬁer can form
+a high-capacity ensemble for deployment to get better per-
+formance in the scenarios where computational cost is less
+constrained.
+Our contributions are: (I) We propose a novel Peer Col-
+laborative Learning method for online knowledge distilla-
+tion, which integrates online ensembling and network col-
+laboration into a uniﬁed framework;(II) We construct a peer
+ensemble teacher via performing random augmentation mul-
+tiple times on the inputs to peers and assembling feature rep-
+resentations outputted from peers with an additional clas-
+siﬁer. This helps to simultaneously optimise peers and the
+ensemble teacher for online knowledge distillation.(III) We
+utilise the temporal mean model of each peer to construct the
+peer mean teacher for peer collaborative distillation, result-
+ing in a more stable model with better generalisation; (IV)
+Extensive experiments on CIFAR-10 (Krizhevsky and Hin-
+ton 2009), CIFAR-100 (Krizhevsky and Hinton 2009) and
+ImageNet (Russakovsky et al. 2015) using a variety of back-
+bone networks show that the proposed method signiﬁcantly
+improves the generalisation of the backbone networks and
+outperforms the state-of-the-art alternative methods.
+Related Work
+Traditional Knowledge Distillation (Hinton, Vinyals, and
+Dean 2015) is one of the most effective solutions to com-
+press a cumbersome model or an ensemble of models into
+a smaller model for deployment. In (Hinton, Vinyals, and
+Dean 2015), Hinton, Vinyals, and Dean propose to dis-
+til the knowledge from a high-capacity teacher model to a
+compact student model, which is accomplished by align-
+ing soft output predictions between the teacher and the stu-
+dent. In recent years, many promising methods have been
+designed to transfer various “knowledge”, such as interme-
+diate representations (Romero et al. 2015), ﬂow between
+layers (Yim et al. 2017), attention maps (Zagoruyko and Ko-
+modakis 2017), structural relations (Park et al. 2019) and
+activation similarity (Tung and Mori 2019), to facilitate the
+optimisation process of distillation. Although these meth-
+ods have shown competitive performance for compressing
+a model, they typically follow a two-stage training solution
+by pre-training a high-capacity teacher model for transfer-
+ring knowledge to a compact student model, which requires
+more training time and computational cost.
+Online Knowledge Distillation (Lan, Zhu, and Gong 2018;
+Chen et al. 2020; Zhang et al. 2018) proposes to directly
+optimise a target network via distilling knowledge among
+multiple networks or branches without pre-training a high-
+capacity teacher, which follows a one-stage end-to-end
+training strategy. Since online KD directly optimises a tar-
+get network, there is no need to store or download a teacher
+model, which saves time and computational cost. In (Song
+and Chai 2018), Song and Chai propose to distil knowledge
+among multiple classiﬁer heads of a hierarchical network for
+improving the generalisation of a target network. In (Zhang
+et al. 2018), Zhang et al. introduce a mutual learning solu-
+tion to distil knowledge among multiple parallel networks
+with the same input. Although these methods help to im-
+prove the generalisation of the target network, they only dis-
+til limited knowledge among parallel networks or heads and
+fail to construct a stronger online teacher to further improve
+the student. In (Guo et al. 2020), Guo et al. employ multiple
+
+=== PDF PAGE 3 ===
+XRandom augmentationX1
+Xm…Low-level layer
+…High-level layer
+…Feature
+LogitTemporal mean network
+ℒce
+ℒce
+ℒce
+ℒpe
+ℒpe
+ℒpm
+ℒpm
+Branch-1
+Branch-m
+…
+FC layer
+p
+t
+p
+Figure 2: An overview of Peer Collaborative Learning (PCL) for online knowledge distillation.
+parallel networks and aggregate logits from all student net-
+works based on the cross-entropy loss to generate soft tar-
+gets for online distillation. More similar to our work, Lan,
+Zhu, and Gong (Lan, Zhu, and Gong 2018) use a multi-
+branch network and assemble logits from multiple branches
+(students) as the teacher to improve the generalisation of
+each student. However, logit aggregation impedes the fur-
+ther optimisation of the ensemble teacher and online ensem-
+bling ignores the collaboration among branches, resulting in
+suboptimal performance. In (Kim et al. 2020), Kim et al. in-
+tegrate feature representations of multiple branches into the
+online ensembling, but their method requires more convo-
+lutional operations for the feature fusion and also fails to
+exploit the collaboration among branches. To address these
+limitations, in our work: (1) we assemble feature represen-
+tations from peers with an additional classiﬁer as the peer
+ensemble teacher, which helps to distil knowledge from an
+online high-capacity teacher to each peer (student) and in
+turn further optimises the teacher; (2) we exploit the tempo-
+ral mean model of each peer as thepeer mean teacher to dis-
+til knowledge among peers, which helps each peer to learn
+richer knowledge and facilitates to optimise a more stable
+model. Integrating these two teachers into a uniﬁed frame-
+work signiﬁcantly improves the generalisation of each peer
+and the ensemble, resulting in better performance.
+Neural Network Ensembling is a simple and effective so-
+lution for improving the generalisation performance of a
+model (Hansen and Salamon 1990; Zhou, Wu, and Tang
+2002; Moghimi et al. 2016). Although this can usually bring
+better performance, training multiple neural networks to cre-
+ate an ensemble requires signiﬁcantly more training time
+and computational cost. The recent trend in neural network
+ensembling focuses on training a single model and exploit-
+ing different training phases of a model as an ensemble.
+In (Huang et al. 2017a), Huang et al. force the model to visit
+multiple local minima and use the corresponding models as
+the snapshots for neural network ensembling. In (Laine and
+Aila 2017), Laine and Aila propose to use temporal ensem-
+bling of network predictions over multiple training epochs as
+the teacher to facilitate the optimisation of the current model
+for semi-supervised learning. Our work differs from these
+works in that we use feature representations of peers from a
+multi-branch network with an additional classiﬁer as the en-
+semble teacher for online knowledge distillation, rather than
+using the network predictions from different phases or gen-
+erating multiple networks for ensembling. In our method,
+the peer mean teacher shares the merit of the traditional
+Mean Teacher (Tarvainen and Valpola 2017). In (Tarvainen
+and Valpola 2017), network weights over previous training
+epochs are aggregated as a teacher to minimise the distance
+of predictions between the student and the teacher as the
+consistency regularisation for semi-supervised learning. In
+contrast, our method uses the shared low-level layers and
+multiple separated high-level layers to construct multiple
+peer mean teachers for aligning soft prediction distributions
+between the peer and its counterparts’ mean teacher, result-
+ing in a more stable model for improving the quality of on-
+line knowledge distillation.
+Peer Collaborative Learning
+Approach Overview
+The overview of the proposed Peer Collaborative Learning
+(PCL) is depicted in Fig. 2. We employ an m-branch net-
+work for model training and call each branch “a peer”. Since
+the low-level layers across different branches usually con-
+tain similar low-level features regarding minor details of im-
+ages, sharing them enables to reduce the training cost and
+improve the collaboration among peers (Lan, Zhu, and Gong
+2018). We therefore share the low-level layers and separate
+the high-level layers in them-branch network.
+As shown in Fig. 2, to facilitate online knowledge dis-
+tillation, we assemble the feature representation of peers
+with an additional classiﬁer as the peer ensemble teacher
+and use the temporal mean model of each peer as the peer
+mean teacher. The training optimisation objective of PCL
+contains three components: The ﬁrst component is the stan-
+dard cross-entropy loss for classiﬁcation of the peers (Lp
+ce)
+and the peer ensemble teacher ( Lt
+ce); The second compo-
+nent is the peer ensemble teacher distillation loss Lpe for
+transferring knowledge from a stronger teacher to a student,
+
+=== PDF PAGE 4 ===
+which in turn further improves the ensemble teacher; The
+third component is the peer mean teacher distillation loss
+Lpm for collaboratively distilling knowledge among peers.
+Thus, the overall objectiveL is formulated as:
+L =Lp
+ce +Lt
+ce +Lpe +Lpm. (1)
+In testing, we use a temporal mean model of a peer for
+deployment, which has the same number of parameters as
+the backbone network, so there is no extra inference cost
+for deployment. In the scenarios where computational cost
+is less constrained, feature representations from peer mean
+teachers plus the additional classiﬁer can form an ensemble
+model for deployment to get better performance.
+Peer Ensemble Teacher
+Input Augmentation for Peers. Suppose there are n sam-
+ples in a training dataset{(xi,y i)}n
+i=1, wherexi is thei-th
+input sample, yi∈{ 1, 2,...,C} is the corresponding label,
+and C is the number of classes in the dataset ( C≤n). Ex-
+isting multi-branch online distillation methods (Lan, Zhu,
+and Gong 2018; Chen et al. 2020) directly use xi (ap-
+plying random augmentation once) as the input to all the
+branches, which causes the homogenisation among peers
+and decreases the generalisation of the network. To allevi-
+ate this problem, we perform random augmentationm times
+toxi to generatem counterparts ofxi (i.e.{x1
+i,x 2
+i,...,x m
+i},
+and use each counterpart as the input to each peer. This
+stochastic augmentation fashion is similar to (Laine and Aila
+2017), but we perform it multiple times to assemble discrim-
+inative features as the ensemble teacher in a multi-branch
+network, rather than to generate two predictions for consis-
+tency regularisation or distillation.
+Online Ensembling. To construct a stronger online teacher
+for online knowledge distillation, logits from multiple net-
+works/branches are usually aggregated (w/ or w/o attention
+gates) (Lan, Zhu, and Gong 2018; Chen et al. 2020). How-
+ever, this impedes the ensemble teacher from further opti-
+mising the ensemble model and ignores the discriminative
+information among feature representations of peers, which
+might lead to a suboptimal solution since the logit summa-
+tion is not further learned. In our work, we concatenate the
+features outputted from peers and use an additional fully
+connected layer for classiﬁcation to construct a learnable
+stronger online teacher. Thus, the multi-class classiﬁcation
+is performed for both the peers and the ensemble teacher as:
+Lp
+ce =−
+m∑
+j=1
+C∑
+c=1
+yclog
+exp(zp
+j,c)
+∑C
+k=1exp(zp
+j,k)
+, (2)
+Lt
+ce =−
+C∑
+c=1
+yclog exp(zt
+c)∑C
+k=1exp(zt
+k)
+, (3)
+where zp
+j,c is the output logit from the last fully connected
+layer of the j-th peer over a class c, yc is the ground-truth
+label indicator,zt
+c is the output logit from the fully connected
+layer of the peer ensemble teacher over a classc.
+Then, to transfer knowledge from the ensemble teacher to
+each peer, we compute the soft prediction of the j-th peer
+and the ensemble teacher as:
+pp
+j,c =
+exp(zp
+j,c/T )
+∑C
+k=1exp(zp
+j,k/T )
+, pt
+c = exp(zt
+c/T )∑C
+k=1exp(zt
+k/T )
+, (4)
+where T is a temperature parameter (Hinton, Vinyals, and
+Dean 2015),pp
+j,c is the soft prediction of the j-th peer over
+a classc, andpt
+c is the soft prediction of the ensemble teacher
+over a classc. Using Kullback Leibler (KL) divergence, the
+peer ensemble distillation lossLpe is formulated as:
+Lpe =ω(e)·T 2
+m∑
+j=1
+C∑
+c=1
+pt
+c·log pt
+c
+pp
+j,c
+, (5)
+whereT 2 ensures contributions of ground-truth and teacher
+probability distributions keep roughly unchanged (Hinton,
+Vinyals, and Dean 2015), e is the current training epoch,
+ω(·) is a weight ramp-up function (Laine and Aila 2017)
+stabilises model training, which is deﬁned as:
+ω(e) =
+{
+λ·exp(−5∗ (1− e
+α )2) ,e≤α;
+λ ,e>α ;
+(6)
+whereα is the epoch threshold for the ramp-up function and
+λ is a parameter weighting the gradient magnitude.
+Remarks. The proposed peer ensemble teacher differs from
+existing feature fusion (Hou, Liu, and Wang 2017; Kim
+et al. 2020; Chen, Zhu, and Gong 2017) in that we construct
+an online high-capacity teacher model by performing ran-
+dom augmentation multiple times on the input to peers and
+assembling feature representations from peers of a multi-
+branch network with an additional classiﬁer, without using
+additional convolutional operations or multiple networks.
+This helps to effectively distil knowledge from a stronger
+ensemble teacher to each peer, and in turn further improves
+the ensemble teacher.
+Peer Mean Teacher
+Online ensembling helps to construct a stronger teacher
+for online knowledge distillation, but it ignores the col-
+laboration among peers. On the other hand, mutual learn-
+ing (Zhang et al. 2018) and collaborative learning (Song and
+Chai 2018) beneﬁt from mutual distillation among networks
+or heads, but they fail to construct a high-capacity teacher
+for online distillation. In our work, we further use peer mu-
+tual distillation for improving collaboration among peers.
+Instead of directly distilling knowledge among peers, we use
+the temporal mean model (Tarvainen and Valpola 2017) of
+each peer as the peer mean teacher for peer collaborative
+distillation. We denote the weights of the shared low-level
+layers asθl and the weights of the separated high-level lay-
+ers of the j-th peer asθh,j. At the g-th global training step
+1, thej-th peer mean teacher{θt
+l,g,θ t
+h,j,g} is formulated as:
+{
+θt
+l,g =φ(g)·θt
+l,g−1 + (1−φ(g))·θl,g,
+θt
+h,j,g =φ(g)·θt
+h,j,g−1 + (1−φ(g))·θh,j,g, (7)
+1Here, g = e·Batchnum + Batch ind, where Batch num is the
+total number of training mini-batches in each epoch and Batch ind
+is the index of the current mini-batch.
+
+=== PDF PAGE 5 ===
+whereθt
+l,g are the weights of the shared low-level layers of
+the peer mean teachers, θt
+h,j,g are the weights of the sepa-
+rated high-level layers of the j-th peer mean teacher, φ(g)
+is a smoothing coefﬁcient function deﬁned as:
+φ(g) = min(1− 1
+g,β ), (8)
+whereβ is the smoothing coefﬁcient hyper-parameter. Note
+that, the additional classiﬁer of the peer ensemble teacher is
+also aggregated for the ensemble deployment. We compute
+the soft predictionpmt
+j,c of thej-th mean teacher over a class
+c as Eq. (4) with the output logit zmt
+l,c of this mean teacher.
+Thus, the peer mean teacher distillation lossLpm is formu-
+lated as:
+Lpm =ω(e)· T 2
+m− 1
+m∑
+j=1
+m∑
+l=1,l̸=j
+C∑
+c=1
+pmt
+l,c·log
+pmt
+l,c
+pp
+j,c
+. (9)
+Remarks. The traditional mean teacher is used for semi-
+supervised/unsupervised learning (Tarvainen and Valpola
+2017; Mittal, Tatarchenko, and Brox 2019; Ge, Chen, and
+Li 2020), which mainly enforces the distance between the
+model predictions to be close. In contrast, we employ the
+temporal mean model of each peer in a multi-branch net-
+work as the peer mean teacher, and use it for peer collabora-
+tive distillation by aligning the soft distributions between the
+peer and its counterparts’ mean teacher. Compared with mu-
+tual distillation among peers (Zhang et al. 2018), averaging
+model weights temporally over training epochs enables the
+peer mean teacher to stabilise soft predictions for improving
+peer collaboration and generating a more stable network.
+Summary. As shown in Algorithm 1, PCL follows a one-
+stage training fashion without pre-training a high-capacity
+teacher. In test, we use a single peer mean model as the target
+model (PCL) without adding extra inference cost. Besides,
+the ensemble of peer mean teachers (with the additional clas-
+siﬁer) can be used as a high-capacity ensemble (PCL-E).
+Experiment
+Datasets. We used three image classiﬁcation benchmarks
+for evaluation: (1) CIFAR-10 (Krizhevsky and Hinton 2009)
+contains 60000 images in 10 classes, with 5000 train-
+ing images and 1000 test images per class. (2) CIFAR-
+100 (Krizhevsky and Hinton 2009) consists of 60000 im-
+ages in 100 classes, with 500 training images and 100 test
+images per class. (3) ImageNet ILSVRC 2012 (Russakovsky
+et al. 2015) contains 1.2 million training images and 50000
+validation images in 1000 classes.
+Implementation Details. To verify the effectiveness of our
+method, we used a variety of backbone networks, including
+ResNet (He et al. 2016), VGG (Simonyan and Zisserman
+2015), DenseNet (Huang et al. 2017b), WRN (Zagoruyko
+and Komodakis 2016), and ResNeXt (Xie et al. 2017). Fol-
+lowing (Lan, Zhu, and Gong 2018), the last block of each
+backbone network was separated from the parameter shar-
+ing (on ImageNet, the last two blocks were separated), while
+the other low-level layers were shared. We set m=3 peers
+in the multi-branch architecture. We used standard random
+Algorithm 1 Peer Collaborative Learning for Online KD.
+Input: Training data{(xi,y i)}n
+i=1.
+Output: A trained target model{θt
+l,θ t
+h,1},
+and a trained ensemble model{θt
+l,θ t
+h,j}m
+j=1.
+1: /* Training */
+2: Initialisation: Randomly initialise model parameters
+3: fore = 0→Epochmax do /* Mini-Batch SGD */
+4: Randomly transformxi to get counterparts{xi}m
+j=1
+5: Compute features and logits of peers
+6: Assembling features as the peer ensemble teacher
+7: Compute the logits of the teachers
+8: Compute peer classiﬁcation lossLp
+ce (Eq.(2))
+9: Compute ensemble classiﬁcation lossLt
+ce (Eq.(3))
+10: Compute peer ensemble distillation lossLpe(Eq.(5))
+11: Compute mean teacher distillation lossLpm(Eq.(9))
+12: Update peer models with Eq.(1)
+13: Update peer mean teachers with Eq.(7)
+14: end for
+15: /* Testing */
+16: Deploy with a single target model{θt
+l,θ t
+h,1}
+17: Deploy with an ensemble model{θt
+l,θ t
+h,j}m
+j=1
+crop and horizontal ﬂip for the random augmentation in
+training, and did not use random augmentation in testing.
+We used SGD as the optimiser with Nesterov momentum
+0.9 and weight decay 5e-4. We trained the network for
+Epochmax=300 epochs on CIFAR-10/100 and 90 epochs
+on ImageNet. We set the initial learning rate to 0.1, which
+decayed to{0.01, 0.001} at{150, 225} epochs on CIFAR-
+10/100 and at {30, 60} epochs on ImageNet. We set the
+batch size to 128, the temperature T =3,α=80 for ramp-up
+weighting,β=0.999 to learn temporal mean models, λ=1.0
+for CIFAR-10/100 and λ=0.1 for ImageNet. By default, in
+PCL, we used the ﬁrst branch as the target network. Our
+models were implemented with Python 3.6 and PyTorch 0.4,
+and trained on TESLA V100 GPU (32GB).
+Evaluation Metrics. We used the top-1 classiﬁcation error
+rate (%) and reported the average results with the standard
+deviation over 3 runs.
+Comparison with the State-of-the-Arts
+Competitors. We compared PCL with backbone networks
+(Baseline) and six online KD state-of-the-arts (DML (Zhang
+et al. 2018), CL (Song and Chai 2018), ONE (Lan, Zhu, and
+Gong 2018), FFL-S (Kim et al. 2020), OKDDip (Chen et al.
+2020), KDCL(-Naive) (Guo et al. 2020)).
+Setting. For fair comparisons, following (Lan, Zhu, and
+Gong 2018), we used three-branch architectures in com-
+pared methods (ONE, CL, FFL-S, OKDDip and PCL) unless
+they have to be used with network-based architectures (three
+parallel networks in DML and KDCL). Here, although the
+network-based OKDDip usually yields better performance
+than the branch-based one, the former one uses more param-
+eters for training, so we used the branch-based OKDDip.
+Results. As shown in Table 1, the proposed PCL improves
+the performance of various backbone networks (baseline) by
+
+=== PDF PAGE 6 ===
+Dataset Network DML CL ONE FFL-S OKDDip KDCL Baseline PCL(ours)
+C10
+ResNet32 6.06±0.07 5.98 ±0.28 5.80 ±0.12 5.99 ±0.11 5.83 ±0.15 5.99 ±0.08 6.74±0.15 5.67±0.12
+ResNet110 5.47±0.25 4.81 ±0.11 4.84 ±0.30 5.28 ±0.06 4.86 ±0.10 4.89 ±0.16 5.31±0.10 4.47±0.16
+VGG16 5.87±0.07 5.86 ±0.15 5.86 ±0.23 6.78 ±0.08 6.02 ±0.06 5.91 ±0.12 6.04±0.13 5.26±0.02
+DenseNet40-12 6.41±0.26 6.95 ±0.25 6.92 ±0.21 6.72 ±0.16 7.36 ±0.22 6.13 ±0.08 6.81±0.02 5.87±0.13
+WRN20-8 4.80±0.13 5.41 ±0.08 5.30 ±0.14 5.28 ±0.13 5.17 ±0.15 4.73 ±0.16 5.32±0.01 4.58±0.04
+ResNeXt29 4.46±0.16 4.45 ±0.18 4.27 ±0.10 4.67 ±0.04 4.34 ±0.02 4.02 ±0.27 4.72±0.03 3.93±0.09
+C100
+ResNet32 26.32±0.14 27.67 ±0.46 26.21 ±0.41 27.82 ±0.11 26.75 ±0.38 26.24 ±0.34 28.72±0.19 25.86±0.16
+ResNet110 22.14±0.50 21.17 ±0.58 21.60 ±0.36 22.78 ±0.41 21.46 ±0.26 21.72 ±0.32 23.79±0.57 20.02±0.55
+VGG16 24.48±0.10 25.67 ±0.08 25.63 ±0.39 29.13 ±0.99 25.32 ±0.05 24.33 ±0.22 25.68±0.19 23.11±0.25
+DenseNet40-12 26.94±0.31 28.55 ±0.34 28.40 ±0.38 28.75 ±0.35 28.77 ±0.14 27.48 ±0.42 28.97±0.15 26.91±0.16
+WRN20-8 20.23±0.07 20.60 ±0.12 20.90 ±0.39 21.78 ±0.14 21.17 ±0.06 20.63 ±0.30 21.97±0.40 19.49±0.49
+ResNeXt29 18.94±0.01 18.41 ±0.07 18.60 ±0.25 20.18 ±0.33 18.50 ±0.11 18.64 ±0.18 20.57±0.43 17.38±0.23
+ImgNet ResNet18 30.18±0.08 29.96 ±0.05 29.82 ±0.13† 31.15±0.07 30.07 ±0.06 30.40 ±0.05 30.49±0.14 29.58±0.13
+Table 1: Comparisons with the state-of-the-arts on CIFAR-10, CIFAR-100 and ImageNet. Top-1 error rates (%) are reported.
+ResNeXt29: ResNeXt29-2×64d. Implementations of all methods are mainly based on 1 and 2.†: Reported result 29.45±0.23.
+Component CIFAR-100
+Backbone 23.79±0.57
+Proposed
+Backbone+Lp
+ce 23.56±0.50
+Backbone+Lp
+ce+Lt
+ce 23.48±0.99
+Backbone+Lp
+ce+Lt
+ce+Lpe 21.19±0.62
+Backbone+Lp
+ce+Lt
+ce+Lpe+Lpm (full) 20.02±0.55
+Variant
+P.E.+Mutual Distillation 21.09±0.18
+P.E.+Traditional Mean Model(weighted) 21.36±0.73
+Logit Sum + P.M. 20.43±0.71
+P.E. + P.M. (full model) 20.02±0.55
+Table 2: Component effectiveness evaluation with ResNet-
+110 on CIFAR-100. Top-1 error rates (%). P.E.: Peer En-
+semble teacher. P.M.: Peer Mean teacher.
+approximately 1% and 2% on CIFAR-10 and CIFAR-100,
+respectively. This shows the effectiveness of PCL for im-
+proving the generalisation performance of various backbone
+networks. On CIFAR-10 and CIFAR-100, PCL achieves the
+best top-1 error rates compared with the state-of-the-art on-
+line distillation methods. For example, on CIFAR-10, PCL
+improves the state-of-the-arts by approximately 0.1% and
+0.3% with ResNet-32 and ResNet-110, respectively; Whilst
+on CIFAR-100, PCL improves the state-of-the-arts by about
+0.3% and 1.1% with ResNet-32 and ResNet-110, respec-
+tively. These improvements attribute to the integration of the
+peer mean teacher and the peer ensemble teacher into a uni-
+ﬁed framework. When extended to the large-scale ImageNet
+benchmark, as shown in Table 1, PCL improves the baseline
+by approximately 0.9% with ResNet-18. Compared with the
+state-of-the-art alternative methods, PCL still achieves com-
+petitive top-1 error rate (about 29.6% with ResNet-18).
+Discussion. These results show the performance advantages
+of PCL for online KD. Note that with the peer ensemble
+teacher and the peer mean teachers, PCL requires extra com-
+putational cost but: (1) the inference cost of PCL is the same
+as the target backbone because we only use a single peer
+mean model as the target model for test; (2) the peer mean
+teachers are updated with Eq.(7) without the need to per-
+form backpropagation (Tarvainen and Valpola 2017); (3) the
+0
+20
+40
+60
+80
+100
+0 50100150200250300
+Base-Train
+Base-Test
+PCL-Train
+PCL-Test
+PCL w/o ℒpm-Train
+PCL w/o ℒpm-Test
+PCL w/o ℒpm ℒpe-Train
+PCL w/o ℒpm ℒpe-Test
+PCL w/o ℒpm ℒpe ℒtce-Train
+PCL w/o ℒpm ℒpe ℒtce-Test
+(Top-1error 
+rate %)
+(epochs)
+Figure 3: Component effectiveness comparison during train-
+ing and testing with ResNet-110 on CIFAR-100.
+peer ensemble teacher is a multi-branch model and the extra
+computational cost is mainly to train the additional classiﬁer.
+Component Effectiveness Evaluation
+From Table 2, we can see that: (1) With all components, PCL
+(full model) achieves the best result, demonstrating the ef-
+fectiveness of integrating of peer ensemble teacher and peer
+mean teacher into a uniﬁed framework for online KD. (2)
+Backbone+Lp
+ce+Lt
+ce+Lpe signiﬁcantly improves the perfor-
+mance of Backbone by about 2.6%, showing the effective-
+ness of the peer ensemble teacher. (3) PCL (full model) im-
+proves Backbone+Lp
+ce+Lt
+ce+Lpe by about 1.1%, which in-
+dicates the effectiveness of the peer mean teacher. (4) Re-
+placing P.E. or P.M. with some contemporary variants causes
+performance degradation, which demonstrates the superior-
+ity of the proposed PCL. Besides, from Fig. 3, we can see
+that PCL with all components (red curve) gets better gener-
+alisation. Interestingly, the test top-1 error rate (red curve)
+of PCL (full model) drops rapidly from 0 to 50 epochs,
+and then gradually reaches to the optimal value; In contrast,
+other methods (w/o Lpm) ﬂuctuate dramatically, especially
+from 0 to 225 epochs. This shows the importance of the peer
+1https://github.com/DefangChen/OKDDip-AAAI2020
+2https://github.com/Lan1991Xu/ONE NeurIPS2018
+
+=== PDF PAGE 7 ===
+Method CIFAR-10 CIFAR-100
+Top-1 Param. Top-1 Param.
+ONE-E 4.75±0.27 2.89M 20.10±0.24 2.96M
+FFL (fused) 4.99±0.07 3.10M 21.78±0.28 3.19M
+OKDDip-E 4.79±0.12 2.91M 20.93±0.57 2.98M
+PCL-E(ours) 4.42±0.12 2.90M 19.49±0.49 3.04M
+Table 3: Ensemble effectiveness evaluation with ResNet-110
+on CIFAR-10/100. Top-1 error rates (%) and the number of
+model parameters are reported.
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0
+20
+40
+60
+80
+100
+050100150200250300
+ONE-E
+OKDDip-E
+PCL-E
+ONE-BranVar
+OKDDip-BranVar
+PCL-BranVar
+(Top-1acc %)(Distance)
+(epochs)
+Figure 4: Peer variance for online ensembling analysis with
+ResNet-110 on CIFAR-100. ‘-BranVar’: the branch vari-
+ance. Here, we use top-1 accuracy for better visualisation.
+mean teacher for learning richer knowledge among peers
+and optimising a more stable model.
+Ensemble Effectiveness Evaluation
+We compare our PCL-E with three online KD ensembles:
+ONE-E (ensemble of all branches) (Lan, Zhu, and Gong
+2018), FFL (FFL-S with fused ensembles) (Kim et al. 2020),
+and OKDDip-E (ensemble of peers) (Chen et al. 2020). As
+shown in Table 3, PCL-E improves the state-of-the-arts by
+about 0.3% and 0.6% on CIFAR-10 and CIFAR-100, re-
+spectively. Besides, compared with ONE-E (the alternative
+method with the fewest model parameters), PCL-E achieves
+signiﬁcantly better performance but only increases the num-
+ber of model parameters by 0.01M and 0.08M with ResNet-
+110 on CIFAR-10 and CIFAR-100, respectively.
+Peer Variance for Online Ensembling Analysis
+In Fig. 4, we analyse the peer (branch) variance for online
+ensembling over the training epochs. Here, we computed the
+average Euclidean distance between the predictions of every
+two branches as the branch diversity and used the average
+diversity ofm branches as the branch variance. From Fig. 4,
+we can see that: (1) From 0 to 150 epochs, the top-1 accuracy
+of PCL-E soars to a high level outperforming other methods,
+and meanwhile, the branch variance of PCL (PCL-BranVar)
+is larger than other methods. This indicates that at the early
+stage, although the generalisation capability of the model is
+poor, each branch in PCL collaborates better to facilitate on-
+line knowledge distillation. (2) From 150 to 300 epochs, the
+top-1 accuracy of PCL-E is still better than the alternatives,
+whilst the branch variance of PCL becomes smaller than the
+alternatives. The main reason is that at this stage, the gen-
+eralisation of each peer is signiﬁcantly improved and the
+temporally aggregated model of each peer becomes stable
+Dataset Baseline KD † PCL
+CIFAR-10 6.74±0.15 5.82 ±0.12 5.67±0.12
+CIFAR-100 28.72±0.19 26.23 ±0.21 25.86±0.16
+Table 4: Comparison with two-stage distillation with
+ResNet-32 on CIFAR-10/100. Top-1 error rates (%).†: Use
+ResNet-110 as the teacher model.
+(a) Branch Number Impact (b) Input Augmentation Impact
+23.79
+20.5 20.0219.81
+19
+21
+23
+25
+1 2 3 4
+(Top-1error rate %)
+(Branch)
+23.79
+20.75 20.02
+19
+21
+23
+25
+BaselinePCL w/o InAuPCL
+(Top-1 errorrate %)
+Figure 5: Evaluating the impact of (a) different number of
+branches and (b) input augmentation for PCL with ResNet-
+110 on CIFAR-100.
+(with accurate and similar predictions). This also results in
+a stronger ensemble model (see Table 3) and a more gener-
+alised target model (see Table 1).
+Further Analysis and Discussion
+Comparison with Two-Stage Distillation. In Table 4, we
+compare PCL with the traditional two-stage KD (Hin-
+ton, Vinyals, and Dean 2015). We can see that although
+PCL does not pre-train a high-capacity teacher model
+(e.g. ResNet-110), it still achieves better performance than
+the two-stage KD. This attributes to the integration of the
+peer ensemble teacher and the peer mean teacher into a uni-
+ﬁed framework for online knowledge distillation.
+Branch Number .As shown in Fig. 5(a), the performance of
+PCL improves when more branches are used. In the four-
+branch setting, PCL (19.8%) still performs competitively
+against OKDDip (21.1% as reported in (Chen et al. 2020)).
+Input Augmentation. As shown in Fig. 5(b), without us-
+ing multiple input augmentation (PCL w/o InAu), the per-
+formance of PCL decreases (by approximately 0.7%), but it
+still achieves compelling performance. This further veriﬁes
+the effectiveness of the model design in PCL.
+Conclusion
+In this work, we presented a novel Peer Collaborative Learn-
+ing (PCL) method for online knowledge distillation, which
+integrates online ensembling and network collaboration into
+a uniﬁed framework. We assembled feature representa-
+tions from peers as the online high-capacity peer ensemble
+teacher and used the temporal mean model of each peer as
+the peer mean teacher. Doing so allows improving the qual-
+ity of online knowledge distillation in a one-stage end-to-
+end trainable fashion. Extensive experiments with a vari-
+ety of backbone networks show the superiority of the pro-
+posed method over the state-of-the-art methods on CIFAR-
+10, CIFAR-100 and ImageNet.
+
+=== PDF PAGE 8 ===
+Acknowledgements
+This work is supported by Vision Semantics Limited, Alan
+Turing Institute Turing Fellowship, and Innovate UK Indus-
+trial Challenge Project on Developing and Commercialis-
+ing Intelligent Video Analytics Solutions for Public Safety
+(98111-571149), Queen Mary University of London Princi-
+pal’s Scholarship.
+References
+Chen, D.; Mei, J.-P.; Wang, C.; Feng, Y .; and Chen, C. 2020.
+Online Knowledge Distillation with Diverse Peers. In Pro-
+ceedings of the AAAI Conference on Artiﬁcial Intelligence.
+Chen, Y .; Zhu, X.; and Gong, S. 2017. Person re-
+identiﬁcation by deep learning multi-scale representations.
+In Proceedings of the IEEE International Conference on
+Computer Vision Workshop, 2590–2600.
+Ge, Y .; Chen, D.; and Li, H. 2020. Mutual Mean-Teaching:
+Pseudo Label Reﬁnery for Unsupervised Domain Adapta-
+tion on Person Re-identiﬁcation. In International Confer-
+ence on Learning Representations.
+Guo, Q.; Wang, X.; Wu, Y .; Yu, Z.; Liang, D.; Hu, X.; and
+Luo, P. 2020. Online knowledge distillation via collabora-
+tive learning. In Proceedings of the IEEE Conference on
+Computer Vision and Pattern Recognition, 11020–11029.
+Hansen, L. K.; and Salamon, P. 1990. Neural network en-
+sembles. IEEE Transactions on Pattern Analysis and Ma-
+chine Intelligence 12(10): 993–1001.
+He, K.; Zhang, X.; Ren, S.; and Sun, J. 2016. Deep residual
+learning for image recognition. In Proceedings of the IEEE
+Conference on Computer Vision and Pattern Recognition ,
+770–778.
+Hinton, G.; Vinyals, O.; and Dean, J. 2015. Distill-
+ing the knowledge in a neural network. arXiv preprint
+arXiv:1503.02531 .
+Hou, S.; Liu, X.; and Wang, Z. 2017. Dualnet: Learn com-
+plementary features for image recognition. In Proceedings
+of the IEEE International Conference on Computer Vision ,
+502–510.
+Huang, G.; Li, Y .; Pleiss, G.; Liu, Z.; Hopcroft, J. E.; and
+Weinberger, K. Q. 2017a. Snapshot ensembles: Train 1, get
+m for free. In International Conference on Learning Repre-
+sentations.
+Huang, G.; Liu, Z.; Van Der Maaten, L.; and Weinberger,
+K. Q. 2017b. Densely connected convolutional networks.
+In Proceedings of the IEEE Conference on Computer Vision
+and Pattern Recognition, 4700–4708.
+Kim, J.; Hyun, M.; Chung, I.; and Kwak, N. 2020. Feature
+Fusion for Online Mutual Knowledge Distillation. In Inter-
+national Conference on Pattern Recognition.
+Krizhevsky, A.; and Hinton, G. 2009. Learning multiple lay-
+ers of features from tiny images. Technical report.
+Laine, S.; and Aila, T. 2017. Temporal ensembling for semi-
+supervised learning. In International Conference on Learn-
+ing Representations.
+Lan, X.; Zhu, X.; and Gong, S. 2018. Knowledge distilla-
+tion by on-the-ﬂy native ensemble. In Advances in Neural
+Information Processing Systems, 7517–7527.
+Mittal, S.; Tatarchenko, M.; and Brox, T. 2019. Semi-
+supervised semantic segmentation with high-and low-level
+consistency. IEEE Transactions on Pattern Analysis and
+Machine Intelligence .
+Moghimi, M.; Belongie, S. J.; Saberian, M. J.; Yang, J.; Vas-
+concelos, N.; and Li, L.-J. 2016. Boosted convolutional neu-
+ral networks. In British Machine Vision Conference.
+Park, W.; Kim, D.; Lu, Y .; and Cho, M. 2019. Relational
+knowledge distillation. In Proceedings of the IEEE Confer-
+ence on Computer Vision and Pattern Recognition , 3967–
+3976.
+Phuong, M.; and Lampert, C. 2019. Towards understand-
+ing knowledge distillation. In International Conference on
+Machine Learning, 5142–5151.
+Romero, A.; Ballas, N.; Kahou, S. E.; Chassang, A.; Gatta,
+C.; and Bengio, Y . 2015. Fitnets: Hints for thin deep nets.
+In International Conference on Learning Representations.
+Russakovsky, O.; Deng, J.; Su, H.; Krause, J.; Satheesh, S.;
+Ma, S.; Huang, Z.; Karpathy, A.; Khosla, A.; Bernstein, M.;
+et al. 2015. ImageNet large scale visual recognition chal-
+lenge. International Journal of Computer Vision 115(3):
+211–252.
+Simonyan, K.; and Zisserman, A. 2015. Very deep convolu-
+tional networks for large-scale image recognition. In Inter-
+national Conference on Learning Representations.
+Song, G.; and Chai, W. 2018. Collaborative learning for
+deep neural networks. In Advances in Neural Information
+Processing Systems, 1832–1841.
+Tarvainen, A.; and Valpola, H. 2017. Mean teachers are
+better role models: Weight-averaged consistency targets im-
+prove semi-supervised deep learning results. In Advances in
+Neural Information Processing Systems, 1195–1204.
+Tung, F.; and Mori, G. 2019. Similarity-preserving knowl-
+edge distillation. In Proceedings of the IEEE International
+Conference on Computer Vision, 1365–1374.
+Xie, S.; Girshick, R.; Doll´ar, P.; Tu, Z.; and He, K. 2017. Ag-
+gregated residual transformations for deep neural networks.
+In Proceedings of the IEEE Conference on Computer Vision
+and Pattern Recognition, 1492–1500.
+Yim, J.; Joo, D.; Bae, J.; and Kim, J. 2017. A gift from
+knowledge distillation: Fast optimization, network mini-
+mization and transfer learning. In Proceedings of the IEEE
+Conference on Computer Vision and Pattern Recognition ,
+4133–4141.
+Zagoruyko, S.; and Komodakis, N. 2016. Wide residual net-
+works. In British Machine Vision Conference.
+Zagoruyko, S.; and Komodakis, N. 2017. Paying more at-
+tention to attention: Improving the performance of convolu-
+tional neural networks via attention transfer. InInternational
+Conference on Learning Representations.
+
+=== PDF PAGE 9 ===
+Zhang, Y .; Xiang, T.; Hospedales, T. M.; and Lu, H. 2018.
+Deep mutual learning. In Proceedings of the IEEE Confer-
+ence on Computer Vision and Pattern Recognition , 4320–
+4328.
+Zhou, Z.-H.; Wu, J.; and Tang, W. 2002. Ensembling neural
+networks: many could be better than all. Artiﬁcial Intelli-
+gence 137(1-2): 239–263.

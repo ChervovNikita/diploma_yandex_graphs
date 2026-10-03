@@ -1,0 +1,38 @@
+import datetime,json,pathlib,subprocess,time
+phase=pathlib.Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930')
+r=subprocess.run(['nvidia-smi','--query-gpu=uuid,utilization.gpu,memory.used','--format=csv,noheader,nounits'],capture_output=True,text=True,check=True)
+rows=r.stdout.strip().splitlines()
+if len(rows)!=1 or rows[0].split(',')[0].strip()!='GPU-44039938-fd82-41d2-fefd-de71514e2fac':raise ValueError('Authorized UUID route differs')
+traces=sorted((phase/'graph_init_precision_execution_root_v2/study_v2/fit').glob('Photo_seed*/*/continuation_trace.jsonl'),key=lambda p:p.stat().st_mtime,reverse=True)
+last=None;trace=traces[0] if traces else None
+if trace:
+ for line in trace.read_text().splitlines():
+  try:d=json.loads(line)
+  except ValueError:continue
+  if 'continuation_epoch' in d:last={k:d[k] for k in ['continuation_epoch','actual_update','stage','event'] if k in d}
+print(json.dumps({'UTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'GPU_inventory_and_utilization':rows[0],'latest_Photo_trace':str(trace.relative_to(phase)) if trace else None,'trace_age_seconds':time.time()-trace.stat().st_mtime if trace else None,'progress_only':last,'validation_metrics_disclosed':False,'final_labels_read':False}))
+
+import sys
+from pathlib import Path
+helper=phase/'graph_init_precision_continuation_v3_cap_binding'
+sys.path.insert(0,str(helper))
+import continuation_support as custody
+registry_path=phase/'graph_init_precision_execution_root_v2/study_v2/GRAPH_INIT_ATTEMPT_REGISTRY.json'
+registry_record=custody.descriptor(registry_path)
+registry=custody.registry_guard(registry_record)
+anchor=Path(registry['anchor_directory'])
+counts={};pending=[];failures=[]
+for row in registry['attempts']:
+ terminal=anchor/'terminals'/(row['key']+'.json')
+ if not terminal.is_file():
+  pending.append({'phase':row['phase'],'arm':row['arm'],'output':row['output'],'claim_present':(anchor/'claims'/(row['key']+'.json')).is_file()})
+  continue
+ try:
+  custody.completed_phase(registry_record,registry,row)
+  counts[row['phase']]=counts.get(row['phase'],0)+1
+ except Exception as error:
+  failures.append({'key':row['key'],'phase':row['phase'],'error_type':type(error).__name__,'reason':str(error)})
+print(json.dumps({'canonical_phase_counts':counts,'valid_canonical_phases':sum(counts.values()),'required_phases':72,
+ 'pending':pending,'custody_failures':failures,'registry_sha256':registry_record['sha256'],
+ 'validation_metrics_disclosed':False,'final_labels_read':False,
+ 'scope':'canonical claim/terminal/freeze and text custody; tensor payload audit remains required before scoring'}))
