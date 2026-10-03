@@ -1,0 +1,40 @@
+/usr/bin/python3 - <<'RUN'
+from pathlib import Path
+from datetime import datetime,timezone
+import json,hashlib,subprocess,os,time,socket
+repo=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+phase=repo/'experiments_iclr/postsubmission_20260930'
+source=phase/'forde_graph_direct_streaming_engineering_20261003_v1'
+reference=phase/'forde_graph_source_style_engineering_20261003_v1'
+native=phase/'graph_conditional_response_native_source_preparation_20261003_v4'
+root=phase/'forde_graph_direct_streaming_cpu_execution_20261003_v1'
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert os.environ['SSH_CONNECTION'].split()[2]=='192.168.18.77'
+adoption=json.loads((root/'SOURCE_REVIEW_ADOPTION.json').read_text())
+assert adoption['status']=='ROOT_ADOPTED_FOR_SYNTHETIC_CPU'
+manifest_sha=hashlib.sha256((source/'MANIFEST.json').read_bytes()).hexdigest()
+assert manifest_sha=='e5189838683bb854014e00c77449f725b1300e7ac8152b0555ab76b5cadd779a'
+assert adoption['source_manifest_sha256']==manifest_sha
+for row in json.loads((source/'MANIFEST.json').read_text())['files']:
+ assert hashlib.sha256((source/row['path']).read_bytes()).hexdigest()==row['sha256']
+contract=json.loads((source/'EXECUTION_CONTRACT.json').read_text())
+python=Path(contract['interpreter'])
+assert hashlib.sha256(python.read_bytes()).hexdigest()==contract['interpreter_sha256']
+for name,key in [('forde_graph.py','reference_forde_graph_sha256'),('run_oracles.py','reference_runner_sha256')]:
+ assert hashlib.sha256((reference/name).read_bytes()).hexdigest()==contract[key]
+assert hashlib.sha256((native/'MANIFEST.json').read_bytes()).hexdigest()==contract['native_manifest_sha256']
+for row in json.loads((native/'MANIFEST.json').read_text())['files']:
+ assert hashlib.sha256((native/row['path']).read_bytes()).hexdigest()==row['sha256']
+preflight=json.loads((root/'PREFLIGHT_RECEIPT.json').read_text())
+for row in preflight['runtime']['files']:
+ assert hashlib.sha256(Path(row['path']).read_bytes()).hexdigest()==row['sha256']
+assert not (root/'run01').exists()
+env=os.environ.copy();env.update(CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',PYTHONPATH=str(native))
+argv=[str(python),'-B',str(source/'run_streaming_oracles.py'),'--reference-source',str(reference),'--native-source',str(native),'--output',str(root/'run01')]
+t=time.monotonic()
+result=subprocess.run(argv,cwd=source,env=env,capture_output=True,text=True,timeout=60)
+record=dict(UTC=datetime.now(timezone.utc).isoformat(),hostname=socket.gethostname(),SSH_server_IP=os.environ['SSH_CONNECTION'].split()[2],repository_root=str(repo),argv=argv,exit_code=result.returncode,wall_seconds=time.monotonic()-t,stdout=result.stdout,stderr=result.stderr,CPU_only=True,no_environment_changes_or_installs=True,no_other_jobs_changed=True,source_manifest_sha256=manifest_sha,interpreter_sha256=contract['interpreter_sha256'],source_review_adoption=adoption,native_payloads_verified=37,original_reference_unchanged=True)
+with (root/'PROCESS_RECEIPT.json').open('x') as f:f.write(json.dumps(record,indent=2)+'\n')
+with (root/'CONSOLE.txt').open('x') as f:f.write(result.stdout+'\n'+result.stderr)
+print(json.dumps(record))
+RUN

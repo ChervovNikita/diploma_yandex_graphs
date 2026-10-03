@@ -1,0 +1,75 @@
+--- forde_graph_streaming_B128_resource_preparation_20261003_v1/profile_streaming_resource.py
++++ forde_graph_streaming_B128_resource_preparation_20261003_v2/profile_streaming_resource.py
+@@ -130,7 +130,7 @@
+     return release, descriptor(release_path), bindings, output
+ 
+ 
+-def numerical_imports(release, bindings):
++def numerical_imports(release, bindings, diagnostic_receipt):
+     sys.dont_write_bytecode = True
+     # Do not reuse a conflicting numerical/native module from the runner process.
+     for prefix in ("torch", "numpy", "scipy", "torch_geometric", "core", "native_source",
+@@ -142,6 +142,7 @@
+     common = importlib.util.module_from_spec(spec)
+     spec.loader.exec_module(common)
+     torch, actual = common.configure_runtime(release["device"])
++    diagnostic_receipt["actual_runtime"] = actual
+     supplied = json.loads(verify(release["runtime_receipt"]).read_text())
+     require(supplied == bindings["retained_runtime"] and supplied["runtime"] == actual,
+             "Fresh actual numerical files/settings/device differ from bound runtime")
+@@ -225,6 +226,8 @@
+     @contextmanager
+     def stage(self, name):
+         torch, device = self.torch, self.device
++        self.receipt["active_stage"] = name
++        self.save()
+         torch.cuda.synchronize(device)
+         torch.cuda.reset_peak_memory_stats(device)
+         record = {"name": name, "status": "RUNNING", "start": self.snapshot()}
+@@ -275,13 +278,16 @@
+     adapter, tokens = modules["native_source.adapter"], modules["native_source.tokens"]
+     graph, streaming = modules["forde_graph"], modules["direct_streaming"]
+     torch, device = profile.torch, profile.device
+-    free, _ = torch.cuda.mem_get_info(device)
+-    require(free >= release["minimum_free_device_bytes"], "Root memory availability precondition failed before recipe")
+     case = {"recipe": recipe, "status": "RUNNING", "stages": [], "logical_B": 128, "members": 4,
+             "resource_only_state": STATE_RECEIPT, "scientific_donor_eligible": False}
+     profile.receipt["cases"].append(case)
+     profile.case = case
++    profile.receipt["active_recipe"] = recipe
++    profile.receipt["active_stage"] = "before_recipe_memory_precondition"
++    profile.save()
+     started = time.monotonic()
++    free, _ = torch.cuda.mem_get_info(device)
++    require(free >= release["minimum_free_device_bytes"], "Root memory availability precondition failed before recipe")
+     with profile.stage("cold_CPU_model_and_fixed_all_private_state"):
+         fields = bindings["recipes"][recipe]
+         spec = adapter.NativeSpec(dataset="amazon-ratings", num_features=300, num_classes=5,
+@@ -297,6 +303,7 @@
+                         coordinates = torch.arange(value.numel(), dtype=torch.float32)
+                         value.copy_(1 + .17 * torch.sin((member + 1) * (coordinates + 1)
+                                                        + (site_index + 1) * (factor_index + 1)))
++        del factor, value, coordinates
+         names = graph.setup_all_private(model, bank_receipt=STATE_RECEIPT)
+         before = state_image(model, graph)
+         case.update(spec=fields, all_private_names=list(names), all_private_tensor_count=len(names),
+@@ -382,6 +389,9 @@
+     case["after_own_cleanup"] = profile.snapshot()
+     profile.save()
+     profile.case = None
++    profile.receipt["active_recipe"] = None
++    profile.receipt["active_stage"] = None
++    profile.save()
+ 
+ 
+ def main():
+@@ -403,7 +413,8 @@
+     started = time.monotonic()
+     try:
+         global torch
+-        torch, runtime, modules = numerical_imports(release, bindings)
++        receipt["active_stage"] = "runtime_binding"
++        torch, runtime, modules = numerical_imports(release, bindings, receipt)
+         torch_local = torch
+         receipt["actual_runtime"] = runtime
+         profile = Profile(torch, torch.device(release["device"]), receipt, output)

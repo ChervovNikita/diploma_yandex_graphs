@@ -1,6 +1,6 @@
 # Current research status
 
-Updated: 2026-10-03T12:21:34.723126+00:00. The goal is incomplete. No new verified predictive advantage, established methodological novelty, revised manuscript or independent acceptance verdict. Original paper scores remain unchanged.
+Updated: 2026-10-03T14:46:57.047576+00:00. The goal is incomplete. No new verified predictive advantage, established methodological novelty, revised manuscript or independent acceptance verdict. Original paper scores remain unchanged.
 
 ## Completed quality comparisons
 
@@ -50,3 +50,45 @@ The official Amazon raw release is pinned to Yandex commit a431395582e929d882713
 The first Amazon runtime capture failed because three declared provenance files were not transferred. All69 present dependencies matched their seals. Exact missing files were copied, the failed attempt was retained, and unchanged source was rerun into a separate output root. A console exit writer appended a literal backslash-n; its original bytes and a separately bound valid JSON correction are preserved. Scientific resource output was valid and both recipe processes exited successfully. No host isolation, drivers, base environment or other users' jobs were changed during these repairs.
 
 The new primary Amazon baseline packet preserves differences in reported split/label protocols and author code. Reported literature scores with different protocols are context, not interchangeable competence thresholds. Original paper results remain frozen, failed studies remain recorded, and fresh manuscript review follows useful audited scientific evidence.
+
+## Follow-up at12:56 UTC
+
+The initializer family has closed all72 prescribed phases and30 fits, with all original processes exited. The unchanged reviewed source comparator then completed once with exit0 at12:56:08 UTC; all30 source rows and canonical freezes are retained. Independent saved-array numerical/selection recomputation and reopening serialized checkpoints for inference replay remain outstanding. No heldout report or quality claim is admitted by this structural comparison. An explicit companion lineage successor is being prepared without altering the preserved failed coordinator.
+
+The latest read-only18.77 check at12:51:49 UTC succeeded: uptime198 days, both authorized GPUs100%, original BUDDY workers at epochs95/59. Project setup/isolation and own-process restart mistakes are recorded in SERVER77_ACCOUNTABILITY_20261003.md; the earlier connection-reset cause remains unestablished. Normal execution continues. The explicit FoRDE streamed backend has passed independent static source review and is now separately released for existing synthetic CPU fixtures only; numerical passage and production resources are not inferred.
+
+## Complete-six Amazon evaluation and next quality comparison
+
+At13:52UTC, the unchanged evaluator completed all six native selected-state replays and metric reductions with exit0. The independent inference reopened serialized checkpoints on the original GPU/runtime, reproduced compact VALID logits bitwise, verified strict-accuracy selection/patience, and recomputed fit/control/VALID metrics exactly. Both recipes and all three blocks are retained. Mean validation accuracy was42.7024% for defaults and44.0851% for the Roman transfer. Roman-minus-default paired accuracy differences were+0.768,+0.915,+2.466 percentage points; mean+1.383. The descriptive three-block t interval was[-0.955,3.721]points, with overlapping-split/normality assumptions explicitly unestablished. Mean validation NLL was1.165nats higher for Roman transfer. No confirmatory significance, comparable published competence threshold, TEST result or GNNM quality win follows. Full metrics and limits are in amazon_ratings_native_warm_execution_root_20261003_v3/RESULTS_SUMMARY_v1.md and EVALUATION_ADOPTION_v1.json.
+
+The next priority is the already fixed source-authored Amazon Polynormer-r GNNM-versus-independent comparison, using exact native model bodies, raw features and authored schedule. The former Photo trainer has different preprocessing, seeds, selector and stage logic; it is not reused as an Amazon trainer. The new source contract is being prepared without a new recipe grid.
+
+## Current source/audit and running-family follow-up
+
+Initializer structural comparison closed at12:56UTC with all30rows. Saved-array numerical/selector recomputation and serialized-checkpoint inference are still missing. Descriptor-only provisional differences do not establish consistent graph-specific benefit. Source reviews rejected V5 custody/terminal handling, V6's Popen.kill reaping fallback and V7's seal count discrepancy. Preserved V8 metadata successor corrects the count while retaining reviewed V7 executable bytes and unused execution contract; fresh review remains pending. No numerical audit has run.
+
+At13:50UTC, mixed-objective study had28/40 selected cases with exact original supervisor379192/child379193 live;12ACM slots remained. At13:51UTC, NCNC's seed0 private/pooled units and seed1 private unit had completed100epochs, with original queues live. At13:45UTC, BUDDY had advanced to matched-single seed1 after factorized seed1's100epoch trace; independent seed1 had63epoch records. Partial outcomes remain unscored.
+
+The explicit FoRDE streamer passed Q01's existing tiny native/coefficient CPU fixtures, including severe float32 cancellation. Root verified all40execution payloads and physical exit0. Q02 v2's fresh review accepted its measurement repairs. Exact source/metadata files were transferred to18.77 without differing overwrites, and one full-Amazon M4/B128 all-private CE+R resource attempt for both retained recipes began normally on GPU1 at14:19UTC. No optimizer step, trained checkpoint donor or validation/test scoring is authorized by that profile; GPU numerical equivalence remains separate.
+
+Literature index_v36 preserves all prior149records and appends7scoped method conclusions:156records,107normalized paper identities,2software identities. These counts do not certify whole-paper reads. Partial structural responses can vary at fixed native risk; the saved squared-cosine response witness has a flat contrast direction, and symmetric probes duplicate. Neither response measurement nor generic response repulsion establishes methodological novelty.
+
+The server check at16:45Moscow confirmed198days uptime and GPUs98%/100%, with training progressing. Unnecessary child isolation and the earlier restart of our own BUDDY processes were agent mistakes; recorded evidence does not establish a host failure. See SERVER77_ACCOUNTABILITY_20261003.md.
+
+## Verified follow-up at14:42UTC
+
+The six Amazon native fits and serialized-checkpoint/logit/metric audit are complete. Defaults and Roman transfer average 42.7024% and 44.0851% validation accuracy; the transfer has worse mean NLL and substantial overfit. Both recipes remain recorded. The fixed next comparison uses source-authored Polynormer-r, raw features and its local/global schedule, with GNNM boundaries against four genuinely independent members. The new driver is under preparation.
+
+All72 initializer phases/30fits and structural comparison are closed. The V8 CPU audit's source review passed, but execution exited1 because system Python lacks NumPy, before array recomputation. The failed attempt is preserved; V9 will explicitly use repository .venv Python and fresh outputs. Saved-array selection/metric audit and serialized-checkpoint inference remain open. No consistent graph-specific gain follows from descriptor-only results.
+
+At14:41UTC, mixed common/private objectives were30/40 complete with original supervisor379192/child379193 alive. NCNC seed0/1 private and pooled units had completed100epochs; native banks were at86/51. Its original queues/children remain alive. At14:38UTC, BUDDY independent/matched-single seed1 traces reached78/79; supervisors and workers were live. Complete-family quality scoring remains withheld.
+
+FoRDE's explicit streamer passed tiny CPU oracles and the full-Amazon M4/B128 two-recipe derivative resource check (exit0). Peak allocated memory was1.350/2.319GiB; body time54.633seconds. This is feasibility only. A full-input GPU numerical oracle is being prepared before fitting.
+
+Literature memory index_v36 preserves156 scoped conclusion records across107 normalized paper identities and2software identities; these are not whole-paper-read counts. Structural-response probes expose measurement limits but establish no novel learner or loss.
+
+[Current detail](PUBLIC_STATUS.md), [research ledger](research_ledger.json), source packets and failed attempts retain the research history. Latest verified pushed/synchronized head: ce1fc99df174bdb33924fbe2bde3aeab54665225 on codex/postsubmission-research-20260930.
+
+Ordinary execution continues inside the authorized repositories; incidental caches are allowed. The seven-GPU account is MacLink forwarding only. No filesystem isolation, sudo, PDF compilation, GENLINK or unrelated changes. Fresh skill-based manuscript reviews use immutable evidence without author history or a requested verdict; engineering reviews do not count as acceptance.
+
+Earlier paragraphs are timestamped historical observations; this follow-up supersedes their live/pending states.

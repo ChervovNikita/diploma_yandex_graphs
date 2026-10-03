@@ -1,0 +1,48 @@
+/usr/bin/python3 - <<'VERIFY'
+from pathlib import Path
+from datetime import datetime, timezone
+import hashlib,json,subprocess,socket,os
+repo=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+phase=repo/'experiments_iclr/postsubmission_20260930'
+root=phase/'forde_graph_direct_streaming_cpu_execution_20261003_v1'
+assert not root.exists(), 'New execution root must not exist yet'
+actual=subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()
+assert actual==str(repo)
+reference=phase/'forde_graph_source_style_engineering_20261003_v1'
+native=phase/'graph_conditional_response_native_source_preparation_20261003_v4'
+expected={'forde_graph.py':'4318be9ab77437ca6725a6e49ceba81385c9bd1483621e72cf6d7cd664f8c0e3','run_oracles.py':'cc66de96fafde1f2b857281452ad51277e347c1f127ebeaab1473b021cc68f0d'}
+reference_verified=[]
+for name,sha in expected.items():
+ value=hashlib.sha256((reference/name).read_bytes()).hexdigest()
+ assert value==sha
+ reference_verified.append(dict(path=str(reference/name),sha256=value))
+manifest=native/'MANIFEST.json'
+assert hashlib.sha256(manifest.read_bytes()).hexdigest()=='cdece1f2a5e317de54d509d6b961ca41235cab880c3becb959b792aa75e03d72'
+rows=json.loads(manifest.read_text())['files']
+assert len(rows)==37
+for row in rows:
+ f=native/row['path']
+ assert hashlib.sha256(f.read_bytes()).hexdigest()==row['sha256']
+python=Path('/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12')
+python_sha=hashlib.sha256(python.read_bytes()).hexdigest()
+assert python_sha=='14776d98474f987919376922a9995a20733e13b51d7d122873b068bf2e47d1b2'
+env=os.environ.copy()
+env.update(CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',PYTHONPATH=str(native))
+inner="""import torch,json,hashlib,sys
+from pathlib import Path
+assert not torch.cuda.is_initialized()
+torch.set_num_threads(1);torch.set_num_interop_threads(1);torch.set_float32_matmul_precision('highest')
+expected={str(Path(torch.__file__).resolve()):'9801e75447c7f585545f989f8a21940b60e0c4cc888effb2f08e739664b4b904',str(Path(torch._C.__file__).resolve()):'3df8cbfb1b47dd174bd0d9e6535aaf2cabff1e5dd0c6dfa028fb69d2307041db'}
+files=[]
+for p,sha in expected.items():
+ a=hashlib.sha256(Path(p).read_bytes()).hexdigest();assert a==sha;files.append(dict(path=p,sha256=a))
+assert torch.__version__=='2.7.1'
+print(json.dumps(dict(torch_version=torch.__version__,python_version=sys.version,files=files,threads=torch.get_num_threads(),interop_threads=torch.get_num_interop_threads(),matmul_precision=torch.get_float32_matmul_precision(),autocast=torch.is_autocast_enabled(),CUDA_initialized=torch.cuda.is_initialized(),data_model_checkpoint_accessed=False)))
+"""
+proc=subprocess.run([str(python),'-B','-c',inner],cwd=repo,env=env,capture_output=True,text=True,timeout=45)
+assert proc.returncode==0,proc.stderr
+runtime=json.loads(proc.stdout)
+ssh_connection=os.environ.get('SSH_CONNECTION','').split()
+assert len(ssh_connection)==4 and ssh_connection[2]=='192.168.18.77', 'Remote SSH endpoint mismatch'
+print(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),hostname=socket.gethostname(),SSH_server_IP=ssh_connection[2],repository_root=actual,git_head=subprocess.run(['git','rev-parse','HEAD'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip(),git_branch=subprocess.run(['git','branch','--show-current'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip(),reference_verified=reference_verified,native_manifest_sha256='cdece1f2a5e317de54d509d6b961ca41235cab880c3becb959b792aa75e03d72',native_payloads_verified=37,interpreter=str(python),interpreter_sha256=python_sha,runtime=runtime,CUDA_or_data_access=False,new_root_absent=True)))
+VERIFY
