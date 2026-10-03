@@ -1,0 +1,13 @@
+# Independent pooling analysis source review
+
+**GO for source analysis. No unresolved blocker.**
+
+Reviewed repaired `analysis.py`: SHA-256 `60ff91f9d59fd8775fb318a84cb7c894ccd80b9bc745689f6e9534183c5a46d5`, 10,947 bytes.
+
+The analyzer matches the adopted frozen 35 and launched canonical STUDY interface. It requires all 35 unique selected/replayed cases, preserved complete development closure, the exact freeze and closed final labels before opening prediction/label payloads. It verifies bound selection/trace/logits, matches terminal metadata, and reconstructs the native latest tied post-update validation minimum. Raw logits are finite FP32 with native 1 or ensemble 4 members, 4057 target nodes and 4 classes. Full mean-logit pooling followed by frozen validation indexing matches the exact v2 metric source. Label reads use only the bound TRAIN_VAL_ONLY development file and bound frozen splits; the archive and heldout labels remain unopened.
+
+All 35 case diagnostics and 30 paired CP/control records are retained. The FP64 mean-member NLL minus ambiguity identity, CP-minus-control sign, node rescue/harm accounting, and member error summaries are correct in source. The identity remains attributed to Wood et al.; FP64 accounting does not replace source scoring. Outputs identify selected validation observations and exclude causal, heldout and new-theorem claims. Member coverage is correctly disclaimed as a pooled-accuracy upper bound. The adopted gate and predictor remain unchanged.
+
+One narrow provenance issue was found and repaired by root. The original source accepted a recomputed FP32 NLL within 1e-7 of the recorded selection score, then reported it as the source value. A tolerated one-ULP difference could turn a recorded tie into a diagnostic source strict win. The repaired source uses the original SELECTION.validation_NLL for source values and paired deltas; recomputation is retained as replayed_NLL_FP32. AST assignments were checked. Reversing only this patch reconstructs the exact original CPU-fixture-qualified source SHA-256 `07f60d932ec0af5f45cf7004975e97d484cf30da061b96eff28b28b73516f5d2`. Numerical functions are unchanged, so the retained root synthetic CPU fixtures remain applicable; no numerical rerun was needed for the assignment repair.
+
+Evidence: `CHECKS.json` and the resolved fabricated scalar counterexample in `PROVENANCE_COUNTEREXAMPLE.json`. This review read source, frozen schema metadata and retained synthetic fixture receipts only. No original labels, checkpoints, logits, training outcomes or final labels were opened. No model/remote work or prior cancellation/runtime/algebra qualification was repeated.

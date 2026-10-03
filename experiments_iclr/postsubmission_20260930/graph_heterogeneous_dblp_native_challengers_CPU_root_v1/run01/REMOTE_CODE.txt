@@ -1,0 +1,29 @@
+
+import base64,hashlib,json,os,pathlib,subprocess,sys,time
+repo=pathlib.Path(sys.argv[1]);request=json.load(sys.stdin)
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+phase=repo/'experiments_iclr/postsubmission_20260930'
+for row in request['files']:
+ rel=pathlib.PurePosixPath(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+ path=phase/rel;assert path.resolve().is_relative_to(phase)
+ data=base64.b64decode(row['data']);assert hashlib.sha256(data).hexdigest()==row['sha256']
+ if path.exists():assert path.read_bytes()==data,str(rel)
+ else:path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+packet=phase/'graph_heterogeneous_dblp_native_challengers_preparation_20261003_v2'
+assert hashlib.sha256((packet/'MANIFEST.json').read_bytes()).hexdigest()=='5956ed69b1c9646aedda0ce67d950081b23ca6ca77796ac7f98c4b900544af43'
+out=phase/'graph_heterogeneous_dblp_native_challengers_CPU_root_v1/run01';out.mkdir(parents=True,exist_ok=False)
+env=dict(os.environ,CUDA_VISIBLE_DEVICES='',DGLBACKEND='pytorch',OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',PYTHONPATH=str(repo/'.gnnm_runtime/hgb_dgl_cpu_v1/site'),PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1')
+py=str(repo/'.venv/bin/python')
+verify=subprocess.run([py,'-I','-S','-B',str(packet/'verify_source.py')],cwd=repo,capture_output=True,text=True,timeout=30)
+start=time.monotonic();run=None
+if verify.returncode==0:
+ run=subprocess.run([py,'-B',str(packet/'cpu_fixtures.py')],cwd=packet,env=env,capture_output=True,text=True,timeout=60)
+receipt=dict(exit_code=verify.returncode if run is None else run.returncode,wall_seconds=time.monotonic()-start,
+ source_verification=dict(exit_code=verify.returncode,stdout=verify.stdout,stderr=verify.stderr),
+ stdout='' if run is None else run.stdout,stderr='' if run is None else run.stderr,
+ prepared_manifest_sha256=request['manifest_sha256'],uploaded_files=len(request['files']),
+ scope=dict(remote_CPU_execution=True,synthetic_optimizer_autograd=True,real_dataset_labels_opened=False,GPU_model_execution=False,training_driver_main_called=False),
+ original_source_hashes_preserved=all(hashlib.sha256((phase/r['path']).read_bytes()).hexdigest()==r['sha256'] for r in request['files']))
+(out/'ORIGINAL_REMOTE_RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+print(json.dumps(receipt));sys.exit(receipt['exit_code'])

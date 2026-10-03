@@ -1,0 +1,13 @@
+import pathlib,subprocess,json,sys,base64,hashlib,os,time
+repo=pathlib.Path(sys.argv[1]);request=json.load(sys.stdin)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+packet=repo/'experiments_iclr/postsubmission_20260930/heterogeneous_pooling_quality_analysis_preparation_20261003_v1';packet.mkdir(exist_ok=True)
+for row in request:
+ rel=pathlib.PurePosixPath(row['path']);assert not rel.is_absolute() and len(rel.parts)==1
+ data=base64.b64decode(row['data']);assert hashlib.sha256(data).hexdigest()==row['sha256'];target=packet/rel
+ if target.exists():assert target.read_bytes()==data
+ else:target.write_bytes(data)
+start=time.monotonic();env=dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1')
+r=subprocess.run([str(repo/'.venv/bin/python'),'-B',str(packet/'cpu_fixtures.py')],cwd=packet,env=env,capture_output=True,text=True,timeout=20)
+v={'exit_code':r.returncode,'wall_seconds':time.monotonic()-start,'stdout':r.stdout,'stderr':r.stderr,'remote_CPU_execution':True,'real_labels_outputs_or_GPU_opened':False,'optimizer_steps':0,'source_inventory':[{'path':x['path'],'sha256':x['sha256']} for x in request]}
+out=packet/'CPU_ROOT_RUN01';out.mkdir(exist_ok=False);(out/'ORIGINAL_REMOTE_RECEIPT.json').write_text(json.dumps(v,indent=2)+'\n');print(json.dumps(v));sys.exit(r.returncode)

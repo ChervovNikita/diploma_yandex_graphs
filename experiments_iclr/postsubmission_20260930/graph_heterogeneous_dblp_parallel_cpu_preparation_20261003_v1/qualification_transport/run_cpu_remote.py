@@ -1,0 +1,101 @@
+"""Exact authorized one-GPU SSH route; CPU qualification with CUDA hidden."""
+import base64
+from datetime import datetime,timezone
+import hashlib
+import json
+from pathlib import Path
+import shlex
+import subprocess
+HERE=Path(__file__).resolve().parent
+REPO='/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs'
+LOGIN='anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru'
+REMOTE=r'''
+import base64,hashlib,json,os,pathlib,resource,subprocess,sys,time
+repo=pathlib.Path(sys.argv[1]);request=json.load(sys.stdin)
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['git','rev-parse','HEAD'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()=='a69fef5306f22b0915f59a17aa3229ae7ec407e4'
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+phase=repo/'experiments_iclr/postsubmission_20260930';name='graph_heterogeneous_dblp_resource_qualification_20261003_v1'
+base=phase/name;base.mkdir(exist_ok=True)
+for row in request['files']:
+ rel=pathlib.PurePosixPath(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+ data=base64.b64decode(row['data']);assert hashlib.sha256(data).hexdigest()==row['sha256']
+ target=base/rel
+ if target.exists():assert target.read_bytes()==data
+ else:target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+run_name='cpu01';parent=base/'transport_cpu01';parent.mkdir(exist_ok=False)
+affinity=len(os.sched_getaffinity(0));load=os.getloadavg()[0];available=None
+for line in pathlib.Path('/proc/meminfo').read_text().splitlines():
+ if line.startswith('MemAvailable:'):available=int(line.split()[1])*1024
+cgroup_available=None
+try:
+ limit=pathlib.Path('/sys/fs/cgroup/memory.max').read_text().strip();used=int(pathlib.Path('/sys/fs/cgroup/memory.current').read_text())
+ if limit!='max':cgroup_available=int(limit)-used
+except (OSError,ValueError):pass
+free=min(x for x in (available,cgroup_available) if x is not None)
+preflight=dict(affinity_CPU_count=affinity,one_minute_load=load,host_available_bytes=available,cgroup_available_bytes=cgroup_available,
+ CPU_threads=1,CUDA_VISIBLE_DEVICES='',memory_limit_bytes=8*2**30,wall_limit_seconds=600,GPU_computation=False)
+(parent/'PREFLIGHT.json').write_text(json.dumps(preflight,indent=2)+'\n')
+assert free>=12*2**30 and load<=.75*affinity,'CPU resource screen deferred; no qualification launched'
+env=dict(os.environ,CUDA_VISIBLE_DEVICES='',PYTHONPATH='',PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',
+ OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',NUMEXPR_NUM_THREADS='1')
+def limits():
+ resource.setrlimit(resource.RLIMIT_AS,(8*2**30,8*2**30));resource.setrlimit(resource.RLIMIT_CPU,(600,605))
+argv=[str(repo/'.venv/bin/python'),'-B',str(base/'qualify_resource.py'),'--freeze',str(phase/'graph_heterogeneous_dblp_execution_root_v1/FROZEN_STUDY.json'),'--run-name',run_name,'--device','cpu']
+start=time.monotonic();status='running';peak=0
+with (parent/'stdout.log').open('w') as sout,(parent/'stderr.log').open('w') as serr:
+ child=subprocess.Popen(argv,cwd=repo,env=env,stdout=sout,stderr=serr,preexec_fn=limits)
+ print(json.dumps(dict(status='CPU_qualification_started',pid=child.pid,preflight=preflight)),flush=True)
+ last_report=0
+ while child.poll() is None:
+  elapsed=time.monotonic()-start
+  try:
+   for line in pathlib.Path('/proc',str(child.pid),'status').read_text().splitlines():
+    if line.startswith('VmRSS:'):peak=max(peak,int(line.split()[1])*1024)
+  except OSError:pass
+  if elapsed>600 or peak>8*2**30:
+   status='wall_limit' if elapsed>600 else 'RSS_limit';child.terminate()
+   try:child.wait(timeout=5)
+   except subprocess.TimeoutExpired:child.kill();child.wait()
+   break
+  if elapsed-last_report>=15:
+   rows_file=base/'runs'/run_name/'ARM_TERMINALS.jsonl'
+   rows=[json.loads(x) for x in rows_file.read_text().splitlines()] if rows_file.exists() else []
+   print(json.dumps(dict(status='CPU_qualification_running',seconds=elapsed,peak_RSS_bytes=peak,completed_arms=[r['arm'] for r in rows])),flush=True);last_report=elapsed
+  time.sleep(.5)
+code=child.returncode
+receipt=dict(exit_code=code,status='completed' if status=='running' else status,wall_seconds=time.monotonic()-start,
+ peak_observed_RSS_bytes=peak,argv=argv,preflight=preflight,GPU_computation=False,source_inputs_changed=False,
+ qualification_only=True,training_driver_main_called=False,stdout=(parent/'stdout.log').read_text(),stderr=(parent/'stderr.log').read_text())
+result=base/'runs'/run_name/'RESOURCE_QUALIFICATION.json'
+if result.exists():receipt['qualification_result']=json.loads(result.read_text())
+(parent/'REMOTE_RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+print(json.dumps(receipt),flush=True);sys.exit(code if code is not None else 1)
+'''
+
+def main():
+ out=HERE/'remote_cpu01';out.mkdir(exist_ok=False)
+ files=[]
+ for name in ('qualify_resource.py','BINDINGS.json','MANIFEST.json','SEAL.json','CONCLUSION.md'):
+  p=HERE/name;data=p.read_bytes();files.append(dict(path=name,data=base64.b64encode(data).decode(),sha256=hashlib.sha256(data).hexdigest()))
+ (out/'REMOTE_CODE.txt').write_text(REMOTE)
+ ssh=['ssh','-p','2222','-i','/Users/alex/.ssh/mlspace__private_key_anogena.txt','-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','UpdateHostKeys=no','-o','StrictHostKeyChecking=yes',LOGIN]
+ command=shlex.join(['/usr/bin/python3','-I','-S','-B','-c',REMOTE,REPO])
+ # Stream progress to the caller and retain every byte in a receipt.
+ run=subprocess.Popen([*ssh,command],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+ run.stdin.write(json.dumps(dict(files=files)));run.stdin.close()
+ lines=[]
+ for line in run.stdout:lines.append(line);print(line,end='',flush=True)
+ stderr=run.stderr.read();code=run.wait()
+ receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),destination=LOGIN,exit_code=code,stdout=''.join(lines),stderr=stderr,
+  helper_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+ for line in reversed(lines):
+  try:parsed=json.loads(line)
+  except json.JSONDecodeError:continue
+  if 'qualification_result' in parsed or 'argv' in parsed:receipt['remote_receipt']=parsed;break
+ (out/'RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+ if stderr:print(stderr,file=__import__('sys').stderr,end='')
+ raise SystemExit(code)
+
+
+if __name__=='__main__':main()

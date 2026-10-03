@@ -1,0 +1,3 @@
+# Literature memory
+
+119 saved conclusion records, 75 normalized paper identifiers and 2 software identifiers. This update indexes one new scoped read (Wood et al., JMLR 2023, pages9–14) and one named retained ADP revisit on the actual four-member/four-class shape. ADP was previously mentioned in a gap report but absent from index_v26. It is not a new-paper read. No full-paper-read total is certified. The known ambiguity identity and separate matched-initialization control proposal add no outcome or novelty claim. Integration opened no primary paper text. Earlier conclusions/hashes remain preserved.
