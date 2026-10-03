@@ -1,0 +1,35 @@
+--- v4/native_training.py
++++ v5/native_training.py
+@@ -228,7 +228,9 @@
+     c.require(primitives(model) == s['primitives'] and
+               optimizer_names(model, optimizer) == s['optimizer_parameter_names'], 'Model/Adam ownership differs')
+     model.load_state_dict(s['model'], strict=True)
+-    optimizer.load_state_dict(s['optimizer'])
++    # Adam can retain CPU step tensors from its input state by reference.
++    # Give the live optimizer its own tensors, preserving the saved image.
++    optimizer.load_state_dict(cpu_tree(s['optimizer']))
+     c.require(optimizer_names(model, optimizer) == s['optimizer_parameter_names'], 'Restored Adam ownership differs')
+ 
+ 
+@@ -345,6 +347,7 @@
+     cloned = time.perf_counter()
+     image = load_image(checkpoint, bindings)
+     loaded = time.perf_counter()
++    image_state_before = cpu_tree(image['state'])
+     clone_memory = memory(device)
+     try:
+         c.require(exact(state(model, optimizer, device), image['state']),
+@@ -362,9 +365,13 @@
+         restore(reference_model, reference_optimizer, image, device)
+         loss_reference = train_step(reference_model, reference_optimizer, x, edge, roles)
+         after_reference = state(reference_model, reference_optimizer, device)
++        c.require(exact(image['state'], image_state_before),
++                  'Reference replay mutated saved image state')
+         restore(reopened_model, reopened_optimizer, image, device)
+         loss_reopened = train_step(reopened_model, reopened_optimizer, x, edge, roles)
+         after_reopened = state(reopened_model, reopened_optimizer, device)
++        c.require(exact(image['state'], image_state_before),
++                  'Reopened replay mutated saved image state')
+         c.require(exact(loss_reference, loss_reopened) and exact(after_reference, after_reopened),
+                   'Portable next-step full-state bitwise logical-byte equality failed')
+         return {'stage': 'global' if image['selection']['global'] else 'local',

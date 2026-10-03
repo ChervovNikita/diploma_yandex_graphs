@@ -1,7 +1,9 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-03T15:52:44.885263+00:00. Goal remains active and incomplete. Original paper scores remain unchanged.
+Updated: 2026-10-03T18:52:48.711257+00:00. Goal active and incomplete. Original paper scores are unchanged.
 
-The initializer saved-array audit completed all30 cases, but showed no consistent graph-specific gain. Serialized inference replay remains open. FoRDE passed its two fixed full-input B2 numerical endpoints, without a quality result or B128 numerical claim. The fixed authored Amazon Polynormer-r comparison is the next training priority. Mixed32/40, BUDDY and NCNC families remain live and partial outcomes stay unscored.
+Repaired NCNC V3 passed numerical qualification. Complete-graph qualification and the frozen J/F pair remain next. The likelihood is credited to GRAN; the prospective contribution is its graph completion supervision under restricted sharing. No predictive gain or novelty is established. Capable structured singles, independent ensembles, mechanism analysis, paired replication and heldout confirmation remain required.
 
-Literature index_v37 records the scoped prior overlap and zero newly promoted pilots. See [current status](PUBLIC_STATUS.md), [full ledger](research_ledger.json), and preserved source/result/review packets. Latest verified pushed/synchronized head is870bfae124e0606c01039bddccbeba015656fbf0.
+Amazon Polynormer V5 passed complete real-graph numerical qualification. Its 15-fit study has not started. Worst-case checkpoint retention exceeds observed disk availability; a prospective bounded retention successor is being prepared without changing scientific selection or recipe. Mixed 39/40, BUDDY and the NCNC GPU0 queue are advancing. Partial results remain unscored.
+
+Literature index_v40 retains 168 scoped conclusions across 119 paper identities, with earlier unresolved leads preserved. See [status](PUBLIC_STATUS.md), [scientific path](active_graph_hypotheses_scientific_acceptance_path_assessment_20261003_v1/MEMO.md), and [full ledger](research_ledger.json). No new audited winner, revised manuscript or acceptance verdict. New records await publication; latest verified synchronized head is `e2bcb4a61f9e5d8667f4823a102ea69bb70360fb`.

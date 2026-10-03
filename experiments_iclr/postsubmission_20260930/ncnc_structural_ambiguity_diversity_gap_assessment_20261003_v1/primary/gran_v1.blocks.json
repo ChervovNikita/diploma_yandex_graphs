@@ -1,0 +1,457 @@
+[
+  {
+    "index": 0,
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "index": 1,
+    "id": "",
+    "text": "Efficient Graph Generation with Graph Recurrent Attention Networks"
+  },
+  {
+    "index": 2,
+    "id": "abstract1.1",
+    "text": "We propose a new family of efficient and expressive deep generative models of graphs, called Graph Recurrent Attention Networks (GRANs). Our model generates graphs one block of nodes and associated edges at a time. The block size and sampling stride allow us to trade off sample quality for efficiency. Compared to previous RNN-based graph generative models, our framework better captures the auto-regressive conditioning between the already-generated and to-be-generated parts of the graph using Graph Neural Networks (GNNs) with attention. This not only reduces the dependency on node ordering but also bypasses the long-term bottleneck caused by the sequential nature of RNNs. Moreover, we parameterize the output distribution per block using a mixture of Bernoulli, which captures the correlations among generated edges within the block. Finally, we propose to handle node orderings in generation by marginalizing over a family of canonical orderings. On standard benchmarks, we achieve state-of-the-art time efficiency and sample quality compared to previous models. Additionally, we show our model is capable of generating large graphs of up to 5K nodes with good quality. To the best of our knowledge, GRAN is the first deep graph generative model that can scale to this size. Our code is released at: https://github.com/lrjconan/GRAN ."
+  },
+  {
+    "index": 3,
+    "id": "",
+    "text": "1 Introduction"
+  },
+  {
+    "index": 4,
+    "id": "S1.p1.1",
+    "text": "Graphs are the natural data structure to represent relational and structural information in many domains, such as knowledge bases, social networks, molecule structures and even the structure of probabilistic models. The ability to generate graphs therefore has many applications; for example, a generative model of molecular graph structures can be employed for drug design [ 9 , 20 , 18 , 34 ] , generative models for computation graph structures can be useful in model architecture search [ 33 ] , and graph generative models also play a significant role in network science [ 32 , 1 , 17 ] ."
+  },
+  {
+    "index": 5,
+    "id": "S1.p2.1",
+    "text": "The study of generative models for graphs dates back at least to the early work by Erdős and Rényi [ 7 ] in the 1960s. These traditional approaches to graph generation focus on various families of random graph models [ 36 , 7 , 12 , 32 , 2 , 1 ] , which typically formalize a simple stochastic generation process (e.g., random, preferential attachment) and have well-understood mathematical properties. However, due to their simplicity and hand-crafted nature, these random graph models generally have limited capacity to model complex dependencies and are only capable of modeling a few statistical properties of graphs. For example, Erdős–Rényi graphs do not have the heavy-tailed degree distribution that is typical for many real-world networks."
+  },
+  {
+    "index": 6,
+    "id": "S1.p3.1",
+    "text": "More recently, building graph generative models using neural networks has attracted increasing attention [ 25 , 9 , 20 ] . Compared to traditional random graph models, these deep generative models have a greater capacity to learn structural information from data and can model graphs with complicated topology and constrained structural properties, such as molecules."
+  },
+  {
+    "index": 7,
+    "id": "S1.p4.1",
+    "text": "Several paradigms have been developed in the context of graph generative models. The first category of models generates the components of the graph independently or with only weak dependency structure of the generation decisions. Examples of these models include the variational auto-encoder (VAE) model with convolutional neural networks for sequentialized molecule graphs [ 9 ] and Graph VAE models [ 15 , 27 , 22 ] . These models generate the individual entries in the graph adjacency matrix (i.e., edges) independently given the latents; this independence assumption makes the models efficient and generally parallelizable but can seriously compromise the quality of the generated graphs [ 20 , 35 ] ."
+  },
+  {
+    "index": 8,
+    "id": "S1.p5.1",
+    "text": "The second category of deep graph generative models make auto-regressive decisions when generating the graphs. By modeling graph generation as a sequential process, these approaches naturally accommodate complex dependencies between generated edges. Previous work on auto-regressive graph generation utilize recurrent neural networks (RNNs) on domain-specific sequentializations of graphs (e.g., SMILES strings) [ 25 ] , as well as auto-regressive models that sequentially add nodes and edges [ 20 , 35 ] or small graph motifs [ 13 ] (via junction-tree VAEs). However, a key challenge in this line of work is finding a way to exploit the graph structure during the generation process. For instance, while applying RNNs to SMILES strings (as in [ 25 ] ) is computationally efficient, this approach is limited by the domain-specific sequentialization of the molecule graph structure. A similar issue arises in junction tree VAEs that rely on small molecule-specific graph motifs. On the other hand, previous work that exploits general graph structures using graph neural networks (GNNs) [ 20 ] do not scale well, with a maximum size of the generated graphs not exceeding 100 nodes."
+  },
+  {
+    "index": 9,
+    "id": "S1.p6.1",
+    "text": "Currently, the most scalable auto-regressive framework that is both general (i.e., not molecule-specific) and able to exploit graph structure is the GraphRNN model [ 35 ] , where the entries in a graph adjacency matrix are generated sequentially, one entry or one column at a time through an RNN. Without using GNNs in the loop, these models can scale up significantly, to generate graphs with hundreds of nodes. However, the GraphRNN model has some important limitations: (1) the number of generation steps in the full GraphRNN is still very large ( MATH[O(N^{2})] for the best model, where MATH[N] is the number of nodes); (2) due to the sequential ordering, two nodes nearby in the graph could be far apart in the generation process of the RNN, which presents significant bottlenecks in handling such long-term dependencies. In addition, handling permutation invariance is vital for generative models on graphs, since computing the likelihood requires marginalizing out the possible permutations of the node orderings for the adjacency matrix. This becomes more challenging as graphs scale up, since it is impossible to enumerate all permutations as was done in previous methods for molecule graphs [ 20 ] . GraphRNN relies on the random breadth-first search (BFS) ordering of the nodes across all graphs, which is efficient to compute but arguably suboptimal."
+  },
+  {
+    "index": 10,
+    "id": "S1.p7.1",
+    "text": "In this paper, we propose an efficient auto-regressive graph generative model, called Graph Recurrent Attention Network (GRAN), which overcomes the shortcomings of previous approaches. In particular,"
+  },
+  {
+    "index": 11,
+    "id": "S1.I1.i1.p1.1",
+    "text": "Our approach is a generation process with MATH[O(N)] auto-regressive decision steps, where a block of nodes and associated edges are generated at each step, and varying the block size along with the sampling stride allow us to explore the efficiency-quality trade-off."
+  },
+  {
+    "index": 12,
+    "id": "S1.I1.i2.p1.1",
+    "text": "We propose an attention-based GNN that better utilizes the topology of the already generated part of the graph to effectively model complex dependencies between this part and newly added nodes. GNN reduces the dependency on the node ordering as it is permutation equivarient w.r.t. the node representations. Moreover, the attention mechanism helps distinguish multiple newly added nodes."
+  },
+  {
+    "index": 13,
+    "id": "S1.I1.i3.p1.1",
+    "text": "We parameterize the output distribution per generation step using a mixture of Bernoullis, which can capture the correlation between multiple generated edges."
+  },
+  {
+    "index": 14,
+    "id": "S1.I1.i4.p1.1",
+    "text": "We propose a solution to handle node orderings by marginalizing over a family of “canonical” node orderings (e.g., DFS, BFS, or k-core). This formulation has a variational interpretation as adaptively choosing the optimal ordering for each graph."
+  },
+  {
+    "index": 15,
+    "id": "S1.p7.2",
+    "text": "Altogether, we obtain a model that achieves the state-of-the-art performance on standard benchmarks and permits flexible trade-off between generation efficiency and sample quality. Moreover, we successfully apply our model to a large graph dataset with graphs up to 5k nodes, the scale of which is significantly beyond the limits of existing deep graph generative models."
+  },
+  {
+    "index": 16,
+    "id": "",
+    "text": "2 Model"
+  },
+  {
+    "index": 17,
+    "id": "",
+    "text": "2.1 Representation of Graphs and the Generation Process"
+  },
+  {
+    "index": 18,
+    "id": "S2.SS1.p1.1",
+    "text": "We aim to learn a distribution MATH[p(G)] over simple graphs that have at most one edge between any pair of nodes. Given a simple graph MATH[G=(V,E)] and an ordering MATH[\\pi] over the nodes in the graph, we have a bijection MATH[A^{\\pi}\\Leftrightarrow(G,\\pi)] between the set of possible adjacency matrices and the set of node-ordered graphs. We use the superscript MATH[\\pi] in MATH[A^{\\pi}] to emphasize that the adjacency matrix implicitly assumes a node ordering via the order of its rows/columns."
+  },
+  {
+    "index": 19,
+    "id": "S2.SS1.p2.1",
+    "text": "Based on the bijection above, we can model MATH[p(G)=\\sum_{\\pi}p(G,\\pi)=\\sum_{\\pi}p(A^{\\pi})] by modeling the distribution MATH[p(A^{\\pi})] over adjacency matrices. For undirected graphs, MATH[A^{\\pi}] is symmetric, thus we can model only the lower triangular part of MATH[A^{\\pi}] , denoted as MATH[L^{\\pi}] . Intuitively, our approach generates the entries in MATH[L^{\\pi}] one row (or one block of rows) at a time, generating a sequence of vectors MATH[\\{L_{i}^{\\pi}|i=1,\\cdots,|V|\\}] where MATH[L_{i}^{\\pi}\\in\\mathbb{R}^{1\\times|V|}] is the MATH[i] -th row of MATH[L^{\\pi}] padded with zeros. The process continues until we reach the maximum number of time steps (rows). Once MATH[L^{\\pi}] is generated, we have MATH[A^{\\pi}=L^{\\pi}+L^{\\pi\\top}] . 1 1 1 One can easily generalize the aforementioned representation to directed graphs by augmenting one more pass to sequentially generate the upper triangular part."
+  },
+  {
+    "index": 20,
+    "id": "S2.SS1.p3.1",
+    "text": "Note that our approach generates all the entries in one row (or one block of rows) in one pass conditioned on the already generated graph. This significantly shortens the sequence of auto-regressive graph generation decisions by a factor of MATH[O(N)] , where MATH[N=|V|] . By increasing the block size and the stride of generation, we trade-off model expressiveness for speed. We visualize the overall process per generation step in Figure 1 ."
+  },
+  {
+    "index": 21,
+    "id": "",
+    "text": "2.2 Graph Recurrent Attention Networks"
+  },
+  {
+    "index": 22,
+    "id": "S2.SS2.p1.1",
+    "text": "Formally, our model generates one block of MATH[B] rows of MATH[L^{\\pi}] at a time. The MATH[t] -th block contains rows with indices in MATH[\\bm{b_{t}}=\\{B(t-1)+1,...,Bt\\}] . We use bold subscripts to denote a block of rows or vectors, and normal subscripts for individual rows or vectors. The number of steps to generate a graph is therefore MATH[T=\\lceil N/B\\rceil] . We factorize the probability of generating MATH[L^{\\pi}] as"
+  },
+  {
+    "index": 23,
+    "id": "S2.EGx1",
+    "text": "MATH[\\displaystyle p(L^{\\pi})=\\prod_{t=1}^{T}p(L_{\\bm{b_{t}}}^{\\pi}|L_{\\bm{b_{1}}}^{\\pi},\\cdots,L_{\\bm{b_{t-1}}}^{\\pi}).] (1)"
+  },
+  {
+    "index": 24,
+    "id": "S2.SS2.p1.2",
+    "text": "The conditional distribution MATH[p(L_{\\bm{b_{t}}}^{\\pi}|L_{\\bm{b_{1}}}^{\\pi},\\cdots,L_{\\bm{b_{t-1}}}^{\\pi})] defines the probability of generating the current block (all edges from the nodes in this block to each other and to the nodes generated earlier) conditioned on the existing graph. RNNs are standard neural network models for handling this type of sequential dependency structures. However, two nodes which are nearby in terms of graph topology may be far apart in the sequential node ordering. This causes the so called long-term bottleneck for RNNs To improve the conditioning, we propose to use GNNs rather than RNNs to make the generation decisions of the current block directly depend on the graph structure. We do not carry hidden states of GNNs from one generation step to the next. By doing so, we enjoy the parallel training similar to PixelCNN [ 29 ] , which is more efficient than the training method of typical deep auto-regressive models. We now explain the details of one generation step as below."
+  },
+  {
+    "index": 25,
+    "id": "S2.SS2.SSS0.Px1.p1.1",
+    "text": "At the MATH[t] -th generation step, we first compute the initial node representations of the already-generated graph via a linear mapping,"
+  },
+  {
+    "index": 26,
+    "id": "S2.EGx2",
+    "text": "MATH[\\displaystyle h_{\\bm{b_{i}}}^{0}=WL_{\\bm{b_{i}}}^{\\pi}+b,\\qquad\\forall i<t.] (2)"
+  },
+  {
+    "index": 27,
+    "id": "S2.SS2.SSS0.Px1.p1.2",
+    "text": "A block MATH[L^{\\pi}_{\\bm{b_{i}}}] is represented as a vector MATH[[L^{\\pi}_{B(i-1)+1},...,L^{\\pi}_{Bi}]\\in\\mathbb{R}^{BN}] , where MATH[[.]] is the vector concatenation operator and MATH[N] is the maximum allowed graph size for generation; graphs smaller than this size will have the MATH[L^{\\pi}_{i}] vectors padded with 0s. These MATH[h] vectors will then be used as initial node representations in the GNN, hence a superscript of MATH[0] . For the current block MATH[L_{\\bm{b_{t}}}^{\\pi}] , since we have not generated anything yet, we set MATH[h_{\\bm{b_{t}}}^{0}=\\mathbf{0}] . Note also that MATH[h_{\\bm{b_{t}}}\\in\\mathbb{R}^{BH}] contains a representation vector of size MATH[H] for each node in the block MATH[\\bm{b_{t}}] . In practice, computing MATH[h_{\\bm{b_{t-1}}}^{0}] alone at the MATH[t] -th generation step is enough as MATH[\\{h_{\\bm{b_{i}}}^{0}|i<t-1\\}] can be cached from previous steps. The main goal of this linear layer is to reduce the embedding size to better handle large scale graphs."
+  },
+  {
+    "index": 28,
+    "id": "S2.SS2.SSS0.Px2.p1.1",
+    "text": "From these node representations, all the edges associated with the current block are generated using a GNN. These edges include connections within the block as well as edges linking the current block with the previously generated nodes."
+  },
+  {
+    "index": 29,
+    "id": "S2.SS2.SSS0.Px2.p2.1",
+    "text": "For the MATH[t] -th generation step, we construct a graph MATH[G_{t}] that contains the already-generated subgraph of MATH[B(t-1)] nodes and the edges between these nodes, as well as the MATH[B] nodes in the block to be generated. For these MATH[B] new nodes, we add edges to connect them with each other and the previous MATH[B(t-1)] nodes. We call these new edges augmented edges and depict them with dashed lines in Figure 1 . We then use a GNN on this augmented graph MATH[G_{t}] to get updated node representations that encode the graph structure. More concretely, the MATH[r] -th round of message passing in the GNN is implemented with the following equations:"
+  },
+  {
+    "index": 30,
+    "id": "S2.EGx3",
+    "text": "MATH[\\displaystyle m^{r}_{ij}] MATH[\\displaystyle=f(h^{r}_{i}-h^{r}_{j}),] (3) MATH[\\displaystyle\\tilde{h}^{r}_{i}] MATH[\\displaystyle=[h^{r}_{i},x_{i}],] (4)"
+  },
+  {
+    "index": 31,
+    "id": "S2.EGx4",
+    "text": "MATH[\\displaystyle a^{r}_{ij}] MATH[\\displaystyle=\\text{Sigmoid}\\left(g(\\tilde{h}^{r}_{i}-\\tilde{h}^{r}_{j})\\right),] (5) MATH[\\displaystyle h^{r+1}_{i}] MATH[\\displaystyle=\\text{GRU}(h^{r}_{i},\\sum\\nolimits_{j\\in\\mathcal{N}(i)}a^{r}_{ij}m^{r}_{ij}).] (6)"
+  },
+  {
+    "index": 32,
+    "id": "S2.SS2.SSS0.Px2.p5.1",
+    "text": "Here MATH[h^{r}_{i}] is the hidden representation for node MATH[i] after round MATH[r] , and MATH[m_{ij}^{r}] is the message vector from node MATH[i] to MATH[j] . MATH[\\tilde{h}^{r}_{i}] is MATH[h^{r}_{i}] augmented with a MATH[B] -dimensional binary mask MATH[x_{i}] indicating whether node MATH[i] is in the existing MATH[B(t-1)] nodes (in which case MATH[x_{i}=\\mathbf{0}] ), or in the new block of MATH[B] nodes ( MATH[x_{i}] is a one-of- MATH[B] encoding of the relative position of node MATH[i] in this block). MATH[a^{r}_{ij}] is an attention weight associated with edge MATH[(i,j)] . The dependence on MATH[\\tilde{h}^{r}_{i}] and MATH[\\tilde{h}^{r}_{j}] makes it possible for the model to distinguish between existing nodes and nodes in the current block, and to learn different attention weights for different types of edges. Both the message function MATH[f] and the attention function MATH[g] are implemented as 2-layer MLPs with ReLU nonlinearities. Finally, the node representations are updated through a GRU similar to [ 19 ] after aggregating all the incoming messages through an attention-weighted sum over the neighborhood MATH[\\mathcal{N}(i)] for each node MATH[i] . Note that the node representations MATH[h_{\\bm{b_{t-1}}}^{0}] from Eq. 2 are reused as inputs to the GNN for all subsequent generation steps MATH[t^{\\prime}\\geq t] . One can also untie the parameters of the model at each propagation round to improve the model capacity."
+  },
+  {
+    "index": 33,
+    "id": "S2.SS2.SSS0.Px3.p1.1",
+    "text": "After MATH[R] rounds of message passing, we obtain the final node representation vectors MATH[h^{R}_{i}] for each node MATH[i] , and then model the probability of generating edges in the block MATH[L^{\\pi}_{\\bm{b_{t}}}] via a mixture of Bernoulli distributions:"
+  },
+  {
+    "index": 34,
+    "id": "S2.EGx5",
+    "text": "MATH[\\displaystyle p(L^{\\pi}_{\\bm{b_{t}}}|L^{\\pi}_{\\bm{b_{1}}},...,L^{\\pi}_{\\bm{b_{t-1}}})] MATH[\\displaystyle=\\sum_{k=1}^{K}\\alpha_{k}\\prod_{i\\in\\bm{b_{t}}}\\prod_{1\\leq j\\leq i}\\theta_{k,i,j},] (7) MATH[\\displaystyle\\alpha_{1},\\dots,\\alpha_{K}] MATH[\\displaystyle=\\text{Softmax}\\left(\\sum\\nolimits_{i\\in\\bm{b_{t}},1\\leq j\\leq i}\\text{MLP}_{\\alpha}(h^{R}_{i}-h^{R}_{j})\\right),] (8) MATH[\\displaystyle\\theta_{1,i,j},\\dots,\\theta_{K,i,j}] MATH[\\displaystyle=\\text{Sigmoid}\\left(\\text{MLP}_{\\theta}(h^{R}_{i}-h^{R}_{j})\\right)] (9)"
+  },
+  {
+    "index": 35,
+    "id": "S2.SS2.SSS0.Px3.p1.2",
+    "text": "where both MLP α and MLP θ contain two hidden layers with ReLU nonlinearities and have MATH[K] -dimensional outputs. Here MATH[K] is the number of mixture components. When MATH[K=1] , the distribution degenerates to Bernoulli which assumes the independence of each potential edge conditioned on the existing graph. This is a strong assumption and may compromise the model capacity. We illustrate the single Bernoulli output distribution in the middle right of Figure 1 using the line width. When MATH[K>1] , the generation of individual edges are not independent due to the latent mixture components. Therefore, the mixture model provides a cheap way to capture dependence in the output distribution, as within each mixture component the distribution is fully factorial, and all the mixture components can be computed in parallel."
+  },
+  {
+    "index": 36,
+    "id": "S2.SS2.SSS0.Px4.p1.1",
+    "text": "The main limiting factor for graph generation speed is the number of generation steps MATH[T] , as the MATH[T] steps have to be performed sequentially and therefore cannot benefit from parallelization. To improve speed, it is beneficial to use a large block size MATH[B] , as the number of steps needed to generate graphs of size MATH[N] is MATH[\\lceil N/B\\rceil] . On the other hand, as MATH[B] grows, modeling the generation of large blocks becomes increasingly difficult, and the model quality may suffer."
+  },
+  {
+    "index": 37,
+    "id": "S2.SS2.SSS0.Px4.p2.1",
+    "text": "We propose “strided sampling” to allow a trained model to improve its performance without being retrained or fine-tuned. More concretely, after generating a block of size MATH[B] , we may choose to only keep the first MATH[S] rows in the block, and in the next step generate another block starting from the MATH[(S+1)] -th row. We call MATH[S\\,(1\\leq S\\leq B)] the “stride” for generation, inspired by the stride in convolutional neural networks. The standard generation process corresponds to a stride of MATH[S=B] . With MATH[S<B] , neighboring blocks have an overlap of MATH[B-S] rows, and MATH[T=\\lfloor(N-B)/S\\rfloor+1] steps is needed to generate a graph of size MATH[N] . During training, we train with block size of MATH[B] and stride size of MATH[1] , hence learning to generate the next MATH[B] rows conditioned on all possible subgraphs under a particular node ordering; while at test time we can use the model with different stride values. Setting MATH[S] to MATH[B] maximizes speed, and using smaller MATH[S] can improve quality, as the dependency between the rows in a block can be modeled by more than 1 steps."
+  },
+  {
+    "index": 38,
+    "id": "",
+    "text": "2.3 Learning with Families of Canonical Orderings"
+  },
+  {
+    "index": 39,
+    "id": "S2.SS3.p1.1",
+    "text": "Ordering is important for an auto-regressive model. Previous work [ 20 , 35 ] explored learning and generation under a canonical ordering (e.g., based on BFS), and Li et al. [ 20 ] also explored training with a uniform random ordering. Here, we propose to train under a chosen family of canonical orderings, allowing the model to consider multiple orderings with different structural biases while avoiding the intractable full space of factorially-many orderings. Concretely, we aim to maximize the log-likelihood MATH[\\log p(G)=\\log\\sum_{\\pi}p(G,\\pi)] . However this computation is intractable due to the number of orderings MATH[\\pi] being factorial in the graph size. We therefore limit the set of orderings to a family of canonical orderings MATH[\\mathcal{Q}=\\{\\pi_{1},...,\\pi_{M}\\}] , and learn to maximize a lower bound"
+  },
+  {
+    "index": 40,
+    "id": "S2.E10",
+    "text": "MATH[\\log p(G)\\geq\\log\\sum_{\\pi\\in\\mathcal{Q}}p(G,\\pi)] (10)"
+  },
+  {
+    "index": 41,
+    "id": "S2.SS3.p1.2",
+    "text": "instead. Since MATH[\\mathcal{Q}] is a strict subset of the MATH[N!] orderings, MATH[\\log\\sum_{\\pi\\in\\mathcal{Q}}p(G,\\pi)] is a valid lower bound of the true log-likelihood, and it is a tighter bound than any single term MATH[\\log p(G,\\pi)] , which is the objective for picking a single arbitrary ordering and maximizing the log-likelihood under that ordering, a popular training strategy [ 35 , 20 ] . On the other hand, increasing the size of MATH[\\mathcal{Q}] can make the bound tighter. Choosing a set MATH[\\mathcal{Q}] of the right size can therefore achieve a good trade-off between tightness of the bound (which usually correlates with better model quality) and computational cost."
+  },
+  {
+    "index": 42,
+    "id": "S2.SS3.SSS0.Px1.p1.1",
+    "text": "This new objective has an intuitive variational interpretation. To see this, we write out the variational evidence lower bound (ELBO) on the log-likelihood,"
+  },
+  {
+    "index": 43,
+    "id": "S2.E11",
+    "text": "MATH[\\log p(G)\\geq\\mathbb{E}_{q(\\pi|G)}[\\log p(G,\\pi)]+\\mathcal{H}(q(\\pi|G)),] (11)"
+  },
+  {
+    "index": 44,
+    "id": "S2.SS3.SSS0.Px1.p1.2",
+    "text": "where MATH[q(\\pi|G)] is a variational posterior over orderings given the graph MATH[G] . When restricting MATH[\\pi] to a set of MATH[M] canonical distributions, MATH[q(\\pi|G)] is simply a categorical distribution over MATH[M] items, and the optimal MATH[q^{*}(\\pi|G)] can be solved analytically with Lagrange multipliers, as"
+  },
+  {
+    "index": 45,
+    "id": "S2.E12",
+    "text": "MATH[q^{\\ast}(\\pi|G)=p(G,\\pi)/\\left(\\sum\\nolimits_{\\pi\\in\\mathcal{Q}}p(G,\\pi)\\right)\\qquad\\forall\\pi\\in\\mathcal{Q}.] (12)"
+  },
+  {
+    "index": 46,
+    "id": "S2.SS3.SSS0.Px1.p1.3",
+    "text": "Substituting MATH[q(\\pi|G)] into Eq. 11 , we get back to the objective defined in Eq. 10 . In other words, by optimizing the objective in Eq. 10 , we are implicitly picking the optimal (combination of) node orderings from the set MATH[\\mathcal{Q}] and maximizing the log-likelihood of the graph under this optimal ordering."
+  },
+  {
+    "index": 47,
+    "id": "S2.SS3.SSS0.Px2.p1.1",
+    "text": "Different types or domains of graphs may favor different node orderings. For example, some canonical orderings are more effective compared to others in molecule generation, as shown in [ 20 ] . Therefore, incorporating prior knowledge in designing MATH[\\mathcal{Q}] would help in domain-specific applications. Since we aim at a universal deep generative model of graphs, we consider the following canonical node orderings which are solely based on graph properties: the default ordering used in the data 2 2 2 In our case, it is the default ordering used by NetworkX [ 11 ] , the node degree descending ordering, ordering of the BFS/DFS tree rooted at the largest degree node (similar to [ 35 ] ), and a novel core descending ordering. We present the details of the core node ordering in the appendix. In our experiments, we explore different combinations of orderings from this generic set to form our MATH[\\mathcal{Q}] ."
+  },
+  {
+    "index": 48,
+    "id": "",
+    "text": "3 Related Work"
+  },
+  {
+    "index": 49,
+    "id": "S3.p1.1",
+    "text": "In addition to the graph generation approaches mentioned in Sec. 1 , there are a number of other notable works that our research builds upon."
+  },
+  {
+    "index": 50,
+    "id": "S3.p2.1",
+    "text": "Traditional approaches . Exponential random graphs model (ERGMs) [ 31 ] are an early approach to learning a generative graph models from data. ERGMs rely on an expressive probabilistic model that learns weights over node features to model edge likelihoods, but in practice, this approach is limited by the fact that it only captures a set of hand-engineered graph-sufficient statistics. The Kronecker graph model [ 17 ] relies on Kronecker matrix products to efficiently generate large adjacency matrices. While scalable and able to learn some graph properties (e.g., degree distributions) from data, this approach remains highly-constrained in terms of the graph structures that it can represent."
+  },
+  {
+    "index": 51,
+    "id": "S3.p3.1",
+    "text": "Non-autoregressive deep models . A number of approaches have been proposed to improve non-auto-regressive deep graph generative models. For example, Grover et al. [ 10 ] use a graph neural network encoder and an iterative decoding procedure to define a generative model over a single fixed set of nodes. Ma et al. [ 23 ] , on the other hand, propose to regularize the graph VAE objective with domain-specific constraints; however, as with other previous work on non-autoregressive, graph VAE approaches, they are only able to scale to graphs with less than one hundred nodes. Relying on the reversible GNNs and graph attention networks [ 30 ] , Liu et al. [ 21 ] propose a normalizing flow based prior within the framework of graphVAE. However, the graph in the latent space is assumed to be fully connected which significantly limits the scalability."
+  },
+  {
+    "index": 52,
+    "id": "S3.p4.1",
+    "text": "Auto-regressive deep models . For auto-regressive models, Dai et al. [ 5 ] chose to model the sequential graphs using RNNs, and enforced constraints in the output space using attribute grammars to ensure the syntactic and semantic validity. Similarly, Kusner et al. [ 16 ] predicted the logits of different graph components independently but used syntactic constraints that depend on context to guarantee validity. Jin et al. [ 13 ] proposed a different approach to molecule graph generation by converting molecule graphs into equivalent junction trees. This approach works well for molecules but is not efficient for modeling large tree-width graphs. The molecule generation model of Li et al. [ 18 ] is the most similar to ours, where one column of the adjacency matrix is also generated at each step, and the generation process is modeled as either Markovian or recurrent using a global RNN, which works well for molecule generation. Chu et al. [ 4 ] improve GraphRNN with a random-walk based encoder and successfully apply the model to road layout generation. Unlike these previous works, which focus on generating domain-specific and relatively small graphs, e.g . , molecules, we target the problem of efficiently generating large and generic graphs."
+  },
+  {
+    "index": 53,
+    "id": "",
+    "text": "4 Experiments"
+  },
+  {
+    "index": 54,
+    "id": "S4.p1.1",
+    "text": "In this section we empirically verify the effectiveness of our model on both synthetic and real graph datasets with drastically varying sizes and characteristics."
+  },
+  {
+    "index": 55,
+    "id": "",
+    "text": "4.1 Dataset and Evaluation Metrics"
+  },
+  {
+    "index": 56,
+    "id": "S4.SS1.p1.1",
+    "text": "Our experiment setup closely follows You et al. [ 35 ] . To benchmark our GRAN against the models proposed in the literature, we utilize one synthetic dataset containing random grid graphs and two real world datasets containing protein and 3D point clouds respectively."
+  },
+  {
+    "index": 57,
+    "id": "S4.SS1.SSS0.Px1.p1.1",
+    "text": "(1) Grid: We generate MATH[100] standard 2D grid graphs with MATH[100\\leq|V|\\leq 400] . (2) Protein: This dataset contains MATH[918] protein graphs [ 6 ] with MATH[100\\leq|V|\\leq 500] . Each protein is represented by a graph, where nodes are amino acids and two nodes are connected by an edge if they are less than MATH[6] Angstroms away. (3) Point Cloud: FirstMM-DB is a dataset of MATH[41] simulated 3D point clouds of household objects [ 24 ] with an average graph size of over 1k nodes, and maximum graph size over 5k nodes. Each object is represented by a graph where nodes represent points. Edges are connected for k-nearest neighbors which are measured w.r.t. Euclidean distance of the points in 3D space. We use the same protocol as [ 35 ] and create random MATH[80\\%] and MATH[20\\%] splits of the graphs in each dataset for training and testing. MATH[20\\%] of the training data in each split is used as the validation set. We generate the same amount of samples as the test set for each dataset."
+  },
+  {
+    "index": 58,
+    "id": "S4.SS1.SSS0.Px2.p1.1",
+    "text": "Evaluating generative models is known to be challenging [ 28 ] . Since it is difficult to measure likelihoods for any auto-regressive graph generative model that relies on an ordering, we follow [ 35 , 20 ] and evaluate model performance by comparing the distributions of graph statistics between the generated and ground truth graphs. In previous work, You et al. [ 35 ] computed degree distributions, clustering coefficient distributions, and the number of occurrence of all orbits with MATH[4] nodes, and then used the maximum mean discrepancy (MMD) over these graph statistics, relying on Gaussian kernels with the first Wasserstein distance, i.e . , earth mover’s distance (EMD), in the MMD. In practice, we found computing this MMD with the Gaussian EMD kernel to be very slow for moderately large graphs. Therefore, we use the total variation (TV) distance, which greatly speeds up the evaluation and is still consistent with EMD. In addition to the node degree, clustering coefficient and orbit counts (used by [ 34 ] ), we also compare the spectra of the graphs by computing the eigenvalues of the normalized graph Laplacian (quantized to approximate a probability density). This spectral comparison provides a view of the global graph properties, whereas the previous metrics focus on local graph statistics."
+  },
+  {
+    "index": 59,
+    "id": "",
+    "text": "4.2 Benchmarking Sample Quality"
+  },
+  {
+    "index": 60,
+    "id": "S4.F2.2.2.1.1.1",
+    "text": "Grid"
+  },
+  {
+    "index": 61,
+    "id": "S4.F2.2.3.1.1.1",
+    "text": "Grid"
+  },
+  {
+    "index": 62,
+    "id": "S4.F2.2.4.1.1.1",
+    "text": "Protein"
+  },
+  {
+    "index": 63,
+    "id": "S4.F2.2.5.1.1.1",
+    "text": "Protein"
+  },
+  {
+    "index": 64,
+    "id": "S4.SS2.p1.1",
+    "text": "In the first experiment we compare the quality of our GRAN model against other existing models in the literature including GraphVAE [ 27 ] , GraphRNN and its variant GraphRNN-S [ 35 ] . We also add a Erdos-Renyi baseline of which the edge probability is estimated via maximum likelihood over the training graphs. For a fair comparison, we control the data split to be exactly same for all methods. We implement a GraphVAE model where the encoder is a MATH[3] -layer GCN and decoder is a MLP with MATH[2] hidden layers. All hidden dimensions are set to MATH[128] . For GraphRNN and GraphRNN-S, we use the best setting reported in the paper and re-trained the model with our split. We also tried to run DeepGMG model [ 20 ] but failed to obtain results in a reasonable amount of time due to its scalability issue on these datasets. For our GRAN, hidden dimensions are set to MATH[128] , MATH[512] and MATH[256] on three datasets respectively. Block size and stride are both set to MATH[1] . The number of Bernoulli mixtures is MATH[20] for all experiments. We stack MATH[7] layers of GNNs and unroll each layer for MATH[1] step. All of our models are trained with Adam optimizer [ 14 ] and constant learning rate MATH[1] e-4. We choose the best model based on the validation set. The sample evaluation results on the test set are reported in Table 1 , with a few sample graphs generated by the models shown in Figure 2 . For all the metrics, smaller is better."
+  },
+  {
+    "index": 65,
+    "id": "S4.SS2.p2.1",
+    "text": "Note that none of the Graph-VAE, GraphRNN and GraphRNN-S models were able to scale to the point cloud dataset due to out-of-memory issues, and the running time of GraphRNN models becomes prohibitively long for large graphs. Overall, our proposed GRAN model achieves the state-of-the-art performance on all benchmarks in terms of sample quality. On the other hand, from Figure 2 , we can see that even though the quantitative metric of GraphRNN is similar to ours, the visual difference of the generated grid graphs is particularly noticeable. This implies that the current set of graph statistics may not give us a complete picture of model performance. We show more visual examples and results on one more synthetic random lobster graph dataset in the appendix."
+  },
+  {
+    "index": 66,
+    "id": "",
+    "text": "4.3 Efficiency vs. Sample Quality"
+  },
+  {
+    "index": 67,
+    "id": "S4.SS3.p1.1",
+    "text": "Another important feature of GRAN is its efficiency. In this experiment, we quantify the graph generation efficiency and show the efficiency-quality trade-off by varying the generation stride. The main results are reported in Figure 3 , where the models are trained with block size MATH[16] . We trained our models on grid graphs and evaluated model quality on the validation set. To measure the run time for each setting we used a single GTX 1080Ti GPU. We measure the speed improvement by computing the ratio of GraphRNN average time per graph to that of ours. GraphRNN takes around MATH[9.5] seconds to generate one grid graph on average. Our best performing model with stride MATH[1] is about MATH[6] times as fast as GraphRNN, increasing the sampling stride trades-off quality for speed. With a stride of MATH[16] , our model is more than MATH[80] x faster than GraphRNN, but the model quality is also noticeably worse. We leave the full details of quantitative results in the appendix."
+  },
+  {
+    "index": 68,
+    "id": "",
+    "text": "4.4 Ablation Study"
+  },
+  {
+    "index": 69,
+    "id": "S4.SS4.p1.1",
+    "text": "In this experiment we isolate the contributions of different parts of our model and present an ablation study. We again trained all models on the random grid graphs and report results on the validation set. From Table 2 , we can see that increasing the number of Bernoulli mixtures improves the performance, especially w.r.t. the orbit metric. Note that since grid graphs are somewhat simple in terms of the topology, the clustering coefficients and degree distribution are not discriminative enough to reflect the changes. We also tried different mixtures on protein graphs and confirmed that increasing the number of Bernoulli mixtures does bring significant gain of performance. We set it to MATH[20] for all experiments as it achieves a good balance between performance and computational cost. We also compare with different families of canonical node orderings. We found that using all orderings and DFS ordering alone are similarly good on grid graphs. Therefore, we choose to use DFS ordering due to its lower computational cost. In general, the optimal set of canonical orderings MATH[\\mathcal{Q}] is application/dataset dependent. For example, for molecule generation, adding SMILE string ordering would boost the performance of using DFS alone. More importantly, our learning scheme is simple yet flexible to support different choices of MATH[\\mathcal{Q}] . Finally, we test different block sizes while fixing the stride as MATH[1] . It is clear that the larger the block size, the worse the performance, which indicates the learning task becomes more difficult."
+  },
+  {
+    "index": 70,
+    "id": "",
+    "text": "5 Conclusion"
+  },
+  {
+    "index": 71,
+    "id": "S5.p1.1",
+    "text": "In this paper, we propose the Graph Recurrent Attention Network (GRAN) for efficient graph generation. Our model generates one block of the adjacency matrix at a time through an MATH[O(N)] step generation process. The model uses GNNs with attention to condition the generation of a block on the existing graph, and we further propose a mixture of Bernoulli output distribution to capture correlations among generated edges per step. Varying the block size and sampling stride permits effective exploration of the efficiency-quality trade-off. We achieve state-of-the-art performance on standard benchmarks and show impressive results on a large graph dataset of which the scale is beyond the limit of any other deep graph generative models. In the future, we would like to explore this model in applications where graphs are latent or partially observed."
+  },
+  {
+    "index": 72,
+    "id": "",
+    "text": "Acknowledgments"
+  },
+  {
+    "index": 73,
+    "id": "S5.SS0.SSSx1.p1.1",
+    "text": "RL was supported by Connaught International Scholarship and RBC Fellowship. WLH was supported by a Canada CIFAR Chair in AI. RL, RU and RZ were supported in part by the Intelligence Advanced Research Projects Activity (IARPA) via Department of Interior/Interior Business Center (DoI/IBC) contract number D16PC00003. The U.S. Government is authorized to reproduce and distribute reprints for Governmental purposes notwithstanding any copyright annotation thereon. Disclaimer: the views and conclusions contained herein are those of the authors and should not be interpreted as necessarily representing the official policies or endorsements, either expressed or implied, of IARPA, DoI/IBC, or the U.S. Government."
+  },
+  {
+    "index": 74,
+    "id": "",
+    "text": "References"
+  },
+  {
+    "index": 75,
+    "id": "",
+    "text": "6 Appendix"
+  },
+  {
+    "index": 76,
+    "id": "",
+    "text": "6.1 K-Core Node Ordering"
+  },
+  {
+    "index": 77,
+    "id": "S6.SS1.p1.1",
+    "text": "The MATH[k] -core graph decomposition has been shown to be very useful for modeling cohesive groups in social networks [ 26 ] . The MATH[k] -core of a graph MATH[G] is a maximal subgraph that contains nodes of degree MATH[k] or more. Cores are nested, i.e . , MATH[i] -core belongs to MATH[j] -core if MATH[i>j] , but they are not necessarily connected subgraphs. Most importantly, the core decomposition, i.e . , all cores ranked based on their orders, can be found in linear time (w.r.t. MATH[|E|] ) [ 3 ] . Based on the largest core number per node, we can uniquely determine a partition of all nodes, i.e . , disjoint sets of nodes which share the same largest core number. We then assign the core number of each disjoint set by the largest core number of its nodes. Starting from the set with the largest core number, we rank all nodes within the set in node degree descending order. Then we move to the second largest core and so on to obtain the final ordering of all nodes. We call this core descending ordering as k-core node ordering ."
+  },
+  {
+    "index": 78,
+    "id": "",
+    "text": "6.2 Lobster Graphs"
+  },
+  {
+    "index": 79,
+    "id": "S6.SS2.p1.1",
+    "text": "We also compare our GRAN with other methods on another synthetic dataset, i.e . , random lobster graphs. A lobster graph [ 8 ] is a tree where each node is at most 2 hops away from a backbone path. Based on this property, one can easily verify whether a given graph is a lobster graph. Therefore, we add another evaluation metric, i.e . , the accuracy of the generated graph being a lobster graph. We generate MATH[100] random lobster graphs [ 8 ] with MATH[10\\leq|V|\\leq 100] . We adopt the same training and testing protocol and report the results in Table 3 . From the table, we can see that our GRAN performs slightly worse compared to GraphRNN on this small-size dataset. Potential reasons could be that (1) the size of the graph is small such that the long-term bottleneck problem is not significant for GraphRNN; (2) Our model neither carries over hidden states between consecutive generation steps like GraphRNN and nor exploits other memory mechanism. Therefore, it may be hard for our model to capture the global property of the graph which affects the accuracy metric."
+  },
+  {
+    "index": 80,
+    "id": "S6.F4.2.2.1.1.1",
+    "text": "Protein"
+  },
+  {
+    "index": 81,
+    "id": "S6.F4.2.3.1.1.1",
+    "text": "Protein"
+  },
+  {
+    "index": 82,
+    "id": "",
+    "text": "6.3 Full Ablation Study & Visual Examples"
+  },
+  {
+    "index": 83,
+    "id": "S6.SS3.p1.1",
+    "text": "We provide the full details of the ablation study in Table 4 . We also show more visual examples of generated graphs in Figure 5 , Figure 4 , and Figure 6 ."
+  },
+  {
+    "index": 84,
+    "id": "S6.F6.2.1.1.1.1",
+    "text": "Train"
+  },
+  {
+    "index": 85,
+    "id": "S6.F6.2.2.1.1.1",
+    "text": "GRAN (Ours)"
+  },
+  {
+    "index": 86,
+    "id": "",
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "index": 87,
+    "id": "",
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "index": 88,
+    "id": "",
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "index": 89,
+    "id": "",
+    "text": "Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "index": 90,
+    "id": "",
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions ."
+  }
+]

@@ -1,0 +1,95 @@
+16 
+2 Model
+
+17 
+2.1 Representation of Graphs and the Generation Process
+
+18 S2.SS1.p1.1
+We aim to learn a distribution MATH[p(G)] over simple graphs that have at most one edge between any pair of nodes. Given a simple graph MATH[G=(V,E)] and an ordering MATH[\pi] over the nodes in the graph, we have a bijection MATH[A^{\pi}\Leftrightarrow(G,\pi)] between the set of possible adjacency matrices and the set of node-ordered graphs. We use the superscript MATH[\pi] in MATH[A^{\pi}] to emphasize that the adjacency matrix implicitly assumes a node ordering via the order of its rows/columns.
+
+19 S2.SS1.p2.1
+Based on the bijection above, we can model MATH[p(G)=\sum_{\pi}p(G,\pi)=\sum_{\pi}p(A^{\pi})] by modeling the distribution MATH[p(A^{\pi})] over adjacency matrices. For undirected graphs, MATH[A^{\pi}] is symmetric, thus we can model only the lower triangular part of MATH[A^{\pi}] , denoted as MATH[L^{\pi}] . Intuitively, our approach generates the entries in MATH[L^{\pi}] one row (or one block of rows) at a time, generating a sequence of vectors MATH[\{L_{i}^{\pi}|i=1,\cdots,|V|\}] where MATH[L_{i}^{\pi}\in\mathbb{R}^{1\times|V|}] is the MATH[i] -th row of MATH[L^{\pi}] padded with zeros. The process continues until we reach the maximum number of time steps (rows). Once MATH[L^{\pi}] is generated, we have MATH[A^{\pi}=L^{\pi}+L^{\pi\top}] . 1 1 1 One can easily generalize the aforementioned representation to directed graphs by augmenting one more pass to sequentially generate the upper triangular part.
+
+20 S2.SS1.p3.1
+Note that our approach generates all the entries in one row (or one block of rows) in one pass conditioned on the already generated graph. This significantly shortens the sequence of auto-regressive graph generation decisions by a factor of MATH[O(N)] , where MATH[N=|V|] . By increasing the block size and the stride of generation, we trade-off model expressiveness for speed. We visualize the overall process per generation step in Figure 1 .
+
+21 
+2.2 Graph Recurrent Attention Networks
+
+22 S2.SS2.p1.1
+Formally, our model generates one block of MATH[B] rows of MATH[L^{\pi}] at a time. The MATH[t] -th block contains rows with indices in MATH[\bm{b_{t}}=\{B(t-1)+1,...,Bt\}] . We use bold subscripts to denote a block of rows or vectors, and normal subscripts for individual rows or vectors. The number of steps to generate a graph is therefore MATH[T=\lceil N/B\rceil] . We factorize the probability of generating MATH[L^{\pi}] as
+
+23 S2.EGx1
+MATH[\displaystyle p(L^{\pi})=\prod_{t=1}^{T}p(L_{\bm{b_{t}}}^{\pi}|L_{\bm{b_{1}}}^{\pi},\cdots,L_{\bm{b_{t-1}}}^{\pi}).] (1)
+
+24 S2.SS2.p1.2
+The conditional distribution MATH[p(L_{\bm{b_{t}}}^{\pi}|L_{\bm{b_{1}}}^{\pi},\cdots,L_{\bm{b_{t-1}}}^{\pi})] defines the probability of generating the current block (all edges from the nodes in this block to each other and to the nodes generated earlier) conditioned on the existing graph. RNNs are standard neural network models for handling this type of sequential dependency structures. However, two nodes which are nearby in terms of graph topology may be far apart in the sequential node ordering. This causes the so called long-term bottleneck for RNNs To improve the conditioning, we propose to use GNNs rather than RNNs to make the generation decisions of the current block directly depend on the graph structure. We do not carry hidden states of GNNs from one generation step to the next. By doing so, we enjoy the parallel training similar to PixelCNN [ 29 ] , which is more efficient than the training method of typical deep auto-regressive models. We now explain the details of one generation step as below.
+
+25 S2.SS2.SSS0.Px1.p1.1
+At the MATH[t] -th generation step, we first compute the initial node representations of the already-generated graph via a linear mapping,
+
+26 S2.EGx2
+MATH[\displaystyle h_{\bm{b_{i}}}^{0}=WL_{\bm{b_{i}}}^{\pi}+b,\qquad\forall i<t.] (2)
+
+27 S2.SS2.SSS0.Px1.p1.2
+A block MATH[L^{\pi}_{\bm{b_{i}}}] is represented as a vector MATH[[L^{\pi}_{B(i-1)+1},...,L^{\pi}_{Bi}]\in\mathbb{R}^{BN}] , where MATH[[.]] is the vector concatenation operator and MATH[N] is the maximum allowed graph size for generation; graphs smaller than this size will have the MATH[L^{\pi}_{i}] vectors padded with 0s. These MATH[h] vectors will then be used as initial node representations in the GNN, hence a superscript of MATH[0] . For the current block MATH[L_{\bm{b_{t}}}^{\pi}] , since we have not generated anything yet, we set MATH[h_{\bm{b_{t}}}^{0}=\mathbf{0}] . Note also that MATH[h_{\bm{b_{t}}}\in\mathbb{R}^{BH}] contains a representation vector of size MATH[H] for each node in the block MATH[\bm{b_{t}}] . In practice, computing MATH[h_{\bm{b_{t-1}}}^{0}] alone at the MATH[t] -th generation step is enough as MATH[\{h_{\bm{b_{i}}}^{0}|i<t-1\}] can be cached from previous steps. The main goal of this linear layer is to reduce the embedding size to better handle large scale graphs.
+
+28 S2.SS2.SSS0.Px2.p1.1
+From these node representations, all the edges associated with the current block are generated using a GNN. These edges include connections within the block as well as edges linking the current block with the previously generated nodes.
+
+29 S2.SS2.SSS0.Px2.p2.1
+For the MATH[t] -th generation step, we construct a graph MATH[G_{t}] that contains the already-generated subgraph of MATH[B(t-1)] nodes and the edges between these nodes, as well as the MATH[B] nodes in the block to be generated. For these MATH[B] new nodes, we add edges to connect them with each other and the previous MATH[B(t-1)] nodes. We call these new edges augmented edges and depict them with dashed lines in Figure 1 . We then use a GNN on this augmented graph MATH[G_{t}] to get updated node representations that encode the graph structure. More concretely, the MATH[r] -th round of message passing in the GNN is implemented with the following equations:
+
+30 S2.EGx3
+MATH[\displaystyle m^{r}_{ij}] MATH[\displaystyle=f(h^{r}_{i}-h^{r}_{j}),] (3) MATH[\displaystyle\tilde{h}^{r}_{i}] MATH[\displaystyle=[h^{r}_{i},x_{i}],] (4)
+
+31 S2.EGx4
+MATH[\displaystyle a^{r}_{ij}] MATH[\displaystyle=\text{Sigmoid}\left(g(\tilde{h}^{r}_{i}-\tilde{h}^{r}_{j})\right),] (5) MATH[\displaystyle h^{r+1}_{i}] MATH[\displaystyle=\text{GRU}(h^{r}_{i},\sum\nolimits_{j\in\mathcal{N}(i)}a^{r}_{ij}m^{r}_{ij}).] (6)
+
+32 S2.SS2.SSS0.Px2.p5.1
+Here MATH[h^{r}_{i}] is the hidden representation for node MATH[i] after round MATH[r] , and MATH[m_{ij}^{r}] is the message vector from node MATH[i] to MATH[j] . MATH[\tilde{h}^{r}_{i}] is MATH[h^{r}_{i}] augmented with a MATH[B] -dimensional binary mask MATH[x_{i}] indicating whether node MATH[i] is in the existing MATH[B(t-1)] nodes (in which case MATH[x_{i}=\mathbf{0}] ), or in the new block of MATH[B] nodes ( MATH[x_{i}] is a one-of- MATH[B] encoding of the relative position of node MATH[i] in this block). MATH[a^{r}_{ij}] is an attention weight associated with edge MATH[(i,j)] . The dependence on MATH[\tilde{h}^{r}_{i}] and MATH[\tilde{h}^{r}_{j}] makes it possible for the model to distinguish between existing nodes and nodes in the current block, and to learn different attention weights for different types of edges. Both the message function MATH[f] and the attention function MATH[g] are implemented as 2-layer MLPs with ReLU nonlinearities. Finally, the node representations are updated through a GRU similar to [ 19 ] after aggregating all the incoming messages through an attention-weighted sum over the neighborhood MATH[\mathcal{N}(i)] for each node MATH[i] . Note that the node representations MATH[h_{\bm{b_{t-1}}}^{0}] from Eq. 2 are reused as inputs to the GNN for all subsequent generation steps MATH[t^{\prime}\geq t] . One can also untie the parameters of the model at each propagation round to improve the model capacity.
+
+33 S2.SS2.SSS0.Px3.p1.1
+After MATH[R] rounds of message passing, we obtain the final node representation vectors MATH[h^{R}_{i}] for each node MATH[i] , and then model the probability of generating edges in the block MATH[L^{\pi}_{\bm{b_{t}}}] via a mixture of Bernoulli distributions:
+
+34 S2.EGx5
+MATH[\displaystyle p(L^{\pi}_{\bm{b_{t}}}|L^{\pi}_{\bm{b_{1}}},...,L^{\pi}_{\bm{b_{t-1}}})] MATH[\displaystyle=\sum_{k=1}^{K}\alpha_{k}\prod_{i\in\bm{b_{t}}}\prod_{1\leq j\leq i}\theta_{k,i,j},] (7) MATH[\displaystyle\alpha_{1},\dots,\alpha_{K}] MATH[\displaystyle=\text{Softmax}\left(\sum\nolimits_{i\in\bm{b_{t}},1\leq j\leq i}\text{MLP}_{\alpha}(h^{R}_{i}-h^{R}_{j})\right),] (8) MATH[\displaystyle\theta_{1,i,j},\dots,\theta_{K,i,j}] MATH[\displaystyle=\text{Sigmoid}\left(\text{MLP}_{\theta}(h^{R}_{i}-h^{R}_{j})\right)] (9)
+
+35 S2.SS2.SSS0.Px3.p1.2
+where both MLP α and MLP θ contain two hidden layers with ReLU nonlinearities and have MATH[K] -dimensional outputs. Here MATH[K] is the number of mixture components. When MATH[K=1] , the distribution degenerates to Bernoulli which assumes the independence of each potential edge conditioned on the existing graph. This is a strong assumption and may compromise the model capacity. We illustrate the single Bernoulli output distribution in the middle right of Figure 1 using the line width. When MATH[K>1] , the generation of individual edges are not independent due to the latent mixture components. Therefore, the mixture model provides a cheap way to capture dependence in the output distribution, as within each mixture component the distribution is fully factorial, and all the mixture components can be computed in parallel.
+
+36 S2.SS2.SSS0.Px4.p1.1
+The main limiting factor for graph generation speed is the number of generation steps MATH[T] , as the MATH[T] steps have to be performed sequentially and therefore cannot benefit from parallelization. To improve speed, it is beneficial to use a large block size MATH[B] , as the number of steps needed to generate graphs of size MATH[N] is MATH[\lceil N/B\rceil] . On the other hand, as MATH[B] grows, modeling the generation of large blocks becomes increasingly difficult, and the model quality may suffer.
+
+37 S2.SS2.SSS0.Px4.p2.1
+We propose “strided sampling” to allow a trained model to improve its performance without being retrained or fine-tuned. More concretely, after generating a block of size MATH[B] , we may choose to only keep the first MATH[S] rows in the block, and in the next step generate another block starting from the MATH[(S+1)] -th row. We call MATH[S\,(1\leq S\leq B)] the “stride” for generation, inspired by the stride in convolutional neural networks. The standard generation process corresponds to a stride of MATH[S=B] . With MATH[S<B] , neighboring blocks have an overlap of MATH[B-S] rows, and MATH[T=\lfloor(N-B)/S\rfloor+1] steps is needed to generate a graph of size MATH[N] . During training, we train with block size of MATH[B] and stride size of MATH[1] , hence learning to generate the next MATH[B] rows conditioned on all possible subgraphs under a particular node ordering; while at test time we can use the model with different stride values. Setting MATH[S] to MATH[B] maximizes speed, and using smaller MATH[S] can improve quality, as the dependency between the rows in a block can be modeled by more than 1 steps.
+
+38 
+2.3 Learning with Families of Canonical Orderings
+
+39 S2.SS3.p1.1
+Ordering is important for an auto-regressive model. Previous work [ 20 , 35 ] explored learning and generation under a canonical ordering (e.g., based on BFS), and Li et al. [ 20 ] also explored training with a uniform random ordering. Here, we propose to train under a chosen family of canonical orderings, allowing the model to consider multiple orderings with different structural biases while avoiding the intractable full space of factorially-many orderings. Concretely, we aim to maximize the log-likelihood MATH[\log p(G)=\log\sum_{\pi}p(G,\pi)] . However this computation is intractable due to the number of orderings MATH[\pi] being factorial in the graph size. We therefore limit the set of orderings to a family of canonical orderings MATH[\mathcal{Q}=\{\pi_{1},...,\pi_{M}\}] , and learn to maximize a lower bound
+
+40 S2.E10
+MATH[\log p(G)\geq\log\sum_{\pi\in\mathcal{Q}}p(G,\pi)] (10)
+
+41 S2.SS3.p1.2
+instead. Since MATH[\mathcal{Q}] is a strict subset of the MATH[N!] orderings, MATH[\log\sum_{\pi\in\mathcal{Q}}p(G,\pi)] is a valid lower bound of the true log-likelihood, and it is a tighter bound than any single term MATH[\log p(G,\pi)] , which is the objective for picking a single arbitrary ordering and maximizing the log-likelihood under that ordering, a popular training strategy [ 35 , 20 ] . On the other hand, increasing the size of MATH[\mathcal{Q}] can make the bound tighter. Choosing a set MATH[\mathcal{Q}] of the right size can therefore achieve a good trade-off between tightness of the bound (which usually correlates with better model quality) and computational cost.
+
+42 S2.SS3.SSS0.Px1.p1.1
+This new objective has an intuitive variational interpretation. To see this, we write out the variational evidence lower bound (ELBO) on the log-likelihood,
+
+43 S2.E11
+MATH[\log p(G)\geq\mathbb{E}_{q(\pi|G)}[\log p(G,\pi)]+\mathcal{H}(q(\pi|G)),] (11)
+
+44 S2.SS3.SSS0.Px1.p1.2
+where MATH[q(\pi|G)] is a variational posterior over orderings given the graph MATH[G] . When restricting MATH[\pi] to a set of MATH[M] canonical distributions, MATH[q(\pi|G)] is simply a categorical distribution over MATH[M] items, and the optimal MATH[q^{*}(\pi|G)] can be solved analytically with Lagrange multipliers, as
+
+45 S2.E12
+MATH[q^{\ast}(\pi|G)=p(G,\pi)/\left(\sum\nolimits_{\pi\in\mathcal{Q}}p(G,\pi)\right)\qquad\forall\pi\in\mathcal{Q}.] (12)
+
+46 S2.SS3.SSS0.Px1.p1.3
+Substituting MATH[q(\pi|G)] into Eq. 11 , we get back to the objective defined in Eq. 10 . In other words, by optimizing the objective in Eq. 10 , we are implicitly picking the optimal (combination of) node orderings from the set MATH[\mathcal{Q}] and maximizing the log-likelihood of the graph under this optimal ordering.
+
+47 S2.SS3.SSS0.Px2.p1.1
+Different types or domains of graphs may favor different node orderings. For example, some canonical orderings are more effective compared to others in molecule generation, as shown in [ 20 ] . Therefore, incorporating prior knowledge in designing MATH[\mathcal{Q}] would help in domain-specific applications. Since we aim at a universal deep generative model of graphs, we consider the following canonical node orderings which are solely based on graph properties: the default ordering used in the data 2 2 2 In our case, it is the default ordering used by NetworkX [ 11 ] , the node degree descending ordering, ordering of the BFS/DFS tree rooted at the largest degree node (similar to [ 35 ] ), and a novel core descending ordering. We present the details of the core node ordering in the appendix. In our experiments, we explore different combinations of orderings from this generic set to form our MATH[\mathcal{Q}] .
