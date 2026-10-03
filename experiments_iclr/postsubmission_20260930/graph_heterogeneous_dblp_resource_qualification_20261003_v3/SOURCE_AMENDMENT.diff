@@ -1,0 +1,128 @@
+--- original1-update qualifier
++++ six-update lifetime qualifier
+@@ -36,10 +36,11 @@
+ 
+ def rss():
+     # Linux KiB; current and process-lifetime peak scopes are reported separately.
+-    current=None
++    observed={}
+     for line in Path('/proc/self/status').read_text().splitlines():
+-        if line.startswith('VmRSS:'):current=int(line.split()[1])*1024
+-    return dict(current_RSS_bytes=current,process_peak_RSS_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024)
++        for field in ('VmRSS:','VmSize:','VmPeak:'):
++            if line.startswith(field):observed[field[:-1]+'_bytes']=int(line.split()[1])*1024
++    return dict(current_RSS_bytes=observed['VmRSS_bytes'],process_peak_RSS_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024,**observed)
+ 
+ 
+ def main():
+@@ -50,7 +51,7 @@
+     out=HERE/'runs'/args.run_name;out.mkdir(parents=True,exist_ok=False)
+     result=dict(status='preparing',device=args.device,rows=[],qualification_only=True,training_driver_main_called=False,
+         validation_or_test_scored=False,model_selection=False,labels_saved=False,scientific_study_outcomes=False,
+-        source_development_pool_opened=True,only_frozen_first_split_TRAIN_targets_materialized=True,
++        source_development_pool_opened=True,consecutive_updates_per_arm=6,exact_fit_style_lifetimes=True,only_frozen_first_split_TRAIN_targets_materialized=True,
+         DGL_import_required=False)
+     originals=[];started=time.perf_counter();torch=None
+     try:
+@@ -63,7 +64,7 @@
+             require(sha(record['path'])==record['sha256'],'Runtime source changed: '+record['path'])
+         originals=list(binding['source_records'])+[dict(path=args.freeze,sha256=binding['freeze']['sha256'])]
+         result['source_custody_before']=True
+-        if args.device=='cpu':require(os.environ.get('CUDA_VISIBLE_DEVICES')=='','CPU qualification requires CUDA hidden')
++        if args.device=='cpu':require(os.environ.get('CUDA_VISIBLE_DEVICES')=='' and resource.getrlimit(resource.RLIMIT_AS)==(16*2**30,)*2,'CPU qualification requires CUDA hidden and preimport16GiB AS')
+         else:
+             require(args.GPU_release is not None,'GPU qualification remains closed without root release')
+             release=json.loads(Path(args.GPU_release).read_text())
+@@ -128,7 +129,7 @@
+         result['paired_CP_global_untied_geometry_verified']=True;result['models_resident_before_arms']=rss()
+         for arm in frozen['arms']:
+             arm_out=out/arm;arm_out.mkdir();row=dict(arm=arm,status='preparing',seed=seed)
+-            model=models[arm];optimizer=scheduler=streams=logits=loss=saved=None
++            model=models[arm];optimizer=scheduler=streams=logits=loss=saved=member_logits=checkpoint=state=None
+             try:
+                 torch.manual_seed(seed+700001)
+                 if device.type=='cuda':torch.cuda.manual_seed(seed+700001);torch.cuda.reset_peak_memory_stats(device)
+@@ -141,21 +142,41 @@
+                     start=time.perf_counter();value=callback()
+                     if device.type=='cuda':torch.cuda.synchronize(device)
+                     return value,time.perf_counter()-start
+-                optimizer.zero_grad();model.train()
+-                logits,row['TRAIN_forward_seconds']=measured(lambda:model(graph,features,'0',streams))
+-                loss=implementation.mean_member_ce(logits,ids,labels)
+-                require(bool(torch.isfinite(logits).all()) and bool(torch.isfinite(loss)),'Nonfinite TRAIN forward/loss')
+-                _,row['TRAIN_backward_seconds']=measured(loss.backward)
+-                require(all(p.grad is None or bool(torch.isfinite(p.grad).all()) for p in model.parameters()),'Nonfinite TRAIN gradients')
+-                row['nonzero_gradient_tensors']=sum(int(p.grad is not None and bool((p.grad!=0).any())) for p in model.parameters())
+-                require(row['nonzero_gradient_tensors']>0,'No TRAIN gradients')
+-                def step():optimizer.step();scheduler.step(1)
+-                _,row['optimizer_scheduler_seconds']=measured(step)
+-                require(all(bool(torch.isfinite(p).all()) for p in model.parameters()),'Nonfinite updated parameters')
+-                del logits,loss;logits=loss=None
+-                model.eval()
+-                with torch.no_grad():logits,row['score_free_eval_forward_seconds']=measured(lambda:model(graph,features,'0'))
+-                require(tuple(logits.shape)[1:]==(4057,classes) and bool(torch.isfinite(logits).all()),'Full target output geometry/finite check')
++                row['per_update_memory']=[]
++                for update in range(1,7):
++                    observed=dict(update=update,before_TRAIN=rss())
++                    # Retain previous eval/checkpoint refs through next TRAIN forward,
++                    # and TRAIN logits/loss through eval, matching unchanged fit.
++                    model.train();optimizer.zero_grad()
++                    logits,observed['TRAIN_forward_seconds']=measured(lambda:model(graph,features,'0',streams))
++                    loss=implementation.mean_member_ce(logits,ids,labels)
++                    require(bool(torch.isfinite(logits).all()) and bool(torch.isfinite(loss)),'Nonfinite TRAIN forward/loss')
++                    _,observed['TRAIN_backward_seconds']=measured(loss.backward)
++                    require(all(p.grad is None or bool(torch.isfinite(p.grad).all()) for p in model.parameters()),'Nonfinite TRAIN gradients')
++                    row['nonzero_gradient_tensors']=sum(int(p.grad is not None and bool((p.grad!=0).any())) for p in model.parameters())
++                    require(row['nonzero_gradient_tensors']>0,'No TRAIN gradients')
++                    def step():optimizer.step();scheduler.step(update)
++                    _,observed['optimizer_scheduler_seconds']=measured(step)
++                    require(all(bool(torch.isfinite(p).all()) for p in model.parameters()),'Nonfinite updated parameters')
++                    observed['after_TRAIN']=rss()
++                    model.eval()
++                    with torch.no_grad():member_logits,observed['score_free_eval_forward_seconds']=measured(lambda:model(graph,features,'0'))
++                    require(tuple(member_logits.shape)[1:]==(4057,classes) and bool(torch.isfinite(member_logits).all()),'Full target output geometry/finite check')
++                    checkpoint=dict(schema='DBLP_resource_qualification_disposable_update_v2',qualification_only=True,arm=arm,seed=seed,update=update,
++                        model=model.state_dict(),optimizer=optimizer.state_dict(),scheduler=onecycle.portable_state(scheduler),
++                        optimizer_parameter_names=[name for name,_ in model.named_parameters()],member_RNG=streams.state_dict(),
++                        torch_CPU_RNG=torch.get_rng_state(),torch_device_RNG=None,
++                        study_freeze_sha256=binding['freeze']['sha256'],training_packet_manifest_sha256=binding['training_manifest_sha256'])
++                    def write_update():
++                        torch.save(checkpoint,arm_out/'DISPOSABLE_CURRENT_UPDATE_STATE.pt')
++                        torch.save(member_logits.detach().cpu(),arm_out/'DISPOSABLE_CURRENT_UNSCORED_LOGITS.pt')
++                    _,observed['state_and_logits_write_seconds']=measured(write_update)
++                    observed['after_eval_and_checkpoint']=rss()
++                    row['per_update_memory'].append(observed)
++                    with (arm_out/'RESOURCE_UPDATES.jsonl').open('a') as stream:stream.write(json.dumps(observed,allow_nan=False)+'\n')
++                for key in ('TRAIN_forward_seconds','TRAIN_backward_seconds','optimizer_scheduler_seconds','score_free_eval_forward_seconds'):
++                    row[key]=sum(item[key] for item in row['per_update_memory'])/6
++                logits=member_logits
+                 state=dict(schema='DBLP_resource_qualification_disposable_state_v1',qualification_only=True,arm=arm,seed=seed,
+                     model=model.state_dict(),optimizer=optimizer.state_dict(),scheduler=onecycle.portable_state(scheduler),
+                     optimizer_parameter_names=[name for name,_ in model.named_parameters()],member_RNG=streams.state_dict(),
+@@ -172,7 +193,7 @@
+                 model.load_state_dict(saved['model']);optimizer.load_state_dict(saved['optimizer']);onecycle.restore_state(scheduler,saved['scheduler'])
+                 streams.load_state_dict(saved['member_RNG']);torch.set_rng_state(saved['torch_CPU_RNG'].cpu())
+                 if device.type=='cuda':torch.cuda.set_rng_state(saved['torch_device_RNG'].cpu(),device)
+-                row.update(status='qualified',optimizer_updates=1,validation_or_test_scored=False,model_selection=False,
++                row.update(status='qualified',optimizer_updates=6,validation_or_test_scored=False,model_selection=False,
+                     full_state_rng_custody=True,checkpoint_sha256=sha(arm_out/'DISPOSABLE_STATE.pt'),after_epoch=rss(),
+                     GPU_peak_allocated_bytes=None if device.type=='cpu' else torch.cuda.max_memory_allocated(device),
+                     GPU_peak_reserved_bytes=None if device.type=='cpu' else torch.cuda.max_memory_reserved(device))
+@@ -182,7 +203,7 @@
+             finally:
+                 write(arm_out/'RECEIPT.json',row);result['rows'].append(row)
+                 with (out/'ARM_TERMINALS.jsonl').open('a') as s:s.write(json.dumps(row,allow_nan=False)+'\n')
+-                del models[arm],model,optimizer,scheduler,streams,logits,loss,saved
++                del models[arm],model,optimizer,scheduler,streams,logits,loss,saved,member_logits,checkpoint,state
+         complete=len(result['rows'])==7 and all(r['status']=='qualified' for r in result['rows'])
+         result['status']='qualified' if complete else 'qualification_incomplete'
+         if complete:
+@@ -190,7 +211,7 @@
+             result['forecast']=dict(cases=35,maximum_epochs_per_case=300,upper_case_epoch_count=10500,
+                 observed_family_cost_maxcap_seconds=observed,safety_factor=2,safety_factor_forecast_seconds=2*observed,
+                 safety_factor_forecast_hours=2*observed/3600,initial_graph_build_seconds=result['stream_materialization_seconds']+result['native_tensor_materialization_seconds'],
+-                scope='Measured first full-graph epoch per family plus one unscored eval forward and worst-case per-epoch checkpoint write, repeated5 seeds x300; safety factor2 is planning allowance, not a guaranteed upper bound. No validation score or fitted comparison.',
++                scope='Measured six full-graph consecutive TRAIN epochs per family with fit-style tensor lifetimes, per-update unscored evaluation/checkpoint writes, repeated5 seeds x300; safety factor2 is planning allowance, not a guaranteed upper bound. No validation score or fitted comparison.',
+                 CPU_estimate_is_not_GPU_measurement=device.type=='cpu')
+     except Exception as error:
+         result.update(status='qualification_failed',error_type=type(error).__name__,error_message=str(error),traceback=traceback.format_exc())
