@@ -1,0 +1,3 @@
+# Complete-graph memory-cap successor
+
+The original supervised attempt failed before the first J update when allocated memory exceeded40GiB and reserved memory exceeded48GiB. This source-only successor preserves the exact V3 driver, complete graph, all34native and6replay updates, both complete five-route VALID traversals, all process controls and predecessor costs. Its only behavior changes are fresh execution paths and prospective70/75GiB CUDA caps. Current free memory supports trying those caps; completion remains unmeasured. Independent source review and fresh resource admission precede a single released attempt. No predictive fit, test access, state donation, unrelated job signals or automatic retry is authorized here.

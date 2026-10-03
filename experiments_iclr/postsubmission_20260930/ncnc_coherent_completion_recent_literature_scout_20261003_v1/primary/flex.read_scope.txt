@@ -1,0 +1,143 @@
+BLOCK 19 h2 None
+3 FLEX
+
+BLOCK 20 p S3.p1.1
+In Section 1 , we introduced the OOD problem for link prediction and how graph generation can serve as a means to solve the problem. That is, we can leverage graph generation to learn to generate counterfactual links, with substructures different from our training links. However, is it possible to generate such counterfactual links? Effectively, there are endless “meaningless” graphs with no relevant structure to an original dataset; which are also likely detrimental to downstream model performance. Therefore, applying graph data augmentation to improve performance requires understanding of the structure within the graph dataset [ 47 ] . It’s thus desirable to build a learnable framework which understands the formation of links and can target aspects of the data that are most relevant to performance (like structural features). To achieve this, we introduce FLEX , the F ramework for L earning to EX trapolate Structures in Link Prediction. As a graph data augmentation framework, FLEX utilizes a variety of techniques to ensure: computability, scalability, and expressiveness.
+
+BLOCK 21 p S3.p2.1
+Following these principles, FLEX then functions in two critical steps, as illustrated in Fig. 2 . First , we pre-train a GNN on the dataset’s full adjacency matrix by optimizing the predictive loss, \mathcal{L}_{\text{LP}} . The intent of pre-training the GNN serves as a means of simulating a real-world scenario, where we may only wish to improve a pre-existing model’s ability to generalize on OOD samples [ 8 , 17 ] . A graph generative model (GGM) is then pre-trained separately to minimize it’s generative loss, \mathcal{L}_{\text{GEN}} . The GGM is conditioned on each sample (i.e., link) via the labeling trick on the k -hop enclosed subgraph [ 26 ] . This ensures that we can generate a new link that is counterfactual to an existing link . Second , we apply both pre-trained models in a co-training framework, where the GGM produces synthetic dataset samples as input for fine-tuning the GNN. The GGM maximizes the distance between posterior and prior while the GNN attempts to minimize it’s prediction loss; much like adversarial-conditioning in GANs and other auto-encoder frameworks [ 48 , 49 , 45 ] . As such, the GNN prediction loss functions as a means of retaining enough information from the original dataset distribution to act as efficient counterfactual conditioning to improve OOD performance.
+
+BLOCK 22 h3 None
+3.1 General Motivation
+
+BLOCK 23 p S3.SS1.p1.1
+The main objective of the FLEX framework is to generate graph samples which retain node feature properties but also produce edge structures which are counterfactual to the original data. This is feasible with any type of well-trained graph generative model (e.g., auto-encoders [ 4 ] or diffusion models [ 33 ] ). To produce relevant counterfactuals for link prediction, we consider the following definitions.
+
+BLOCK 24 h6 None
+Definition 3.1 (Expressive Link Features) .
+
+BLOCK 25 p S3.Thmdefinition1.p1.1
+Consider an edge sample e=(u,v) , and it’s k -hop subgraph \mathbf{A}_{e}^{(k)} . We want to learn an encoder f_{\theta}(\cdot) that can operate on \mathbf{A}_{e}^{(k)} and learn to extract structural features \mathbf{H}_{e} that are specific to the link (u,v) (e.g., link heuristics [ 50 , 51 ] ). We assume that f_{\theta}(\cdot) is expressive such that it can extract link-specific features. We then represent the probability distribution of the features extracted by the encoder to be \mathbb{P}_{H}(\mathbf{A}_{e}^{(k)})=f_{\theta}(\mathbf{A}_{e}^{(k)}) .
+
+BLOCK 26 p S3.SS1.p2.1
+In order to properly generate counterfactual links, we need an understanding of what our generated samples should be counterfactual to. Intuitively, this should be link properties that are known to be relevant and important for link prediction. As shown in the next definition, an encoder f_{\theta}(\cdot) that can extract expressive link features is therefore necessary for producing proper counterfactual links. As if f_{\theta}(\cdot) is not suitably expressive, our generative model will be unable to distinguish link structure and fail to generate counterfactuals relevant to link prediction.
+
+BLOCK 27 h6 None
+Definition 3.2 (Counterfactual Structure) .
+
+BLOCK 28 p S3.Thmdefinition2.p1.1
+For an edge sample e=(u,v) , a meaningfully different sample (counterfactual) – \mathbf{\tilde{A}}_{e}^{(k)} exists where the link feature distribution estimated between the original subgraph and it’s counterfactual are approximately non-equivalent, \mathbb{P}_{H}(\mathbf{A}_{e}^{k})\not\approx\mathbb{P}_{H}(\mathbf{\tilde{A}}_{e}^{(k)}) .
+
+BLOCK 29 p S3.SS1.p3.1
+A proper counterfactual sample should have different underlying link features from the original sample. An example is given in Figure 1 where we assume that we have an encoder that can extract common neighbors (CNs) [ 50 ] , a vital link heuristic. Since the training samples have no or few CNs, the corresponding counterfactuals will then have several CNs. These new samples are thus meaningfully different , in that they differ in an important and realistic feature for link prediction.
+
+BLOCK 30 h6 None
+Corollary 3.2.1 (Feature-Conditional Equivalence) .
+
+BLOCK 31 p S3.Thmdefinition2.Thmcorollary1.p1.1
+Given the previous definition of counterfactual structure, the link features contained within k -hop subgraph \mathbf{A}_{e}^{(k)} are not invariant in isolation as we must consider the node features. Therefore, in order for \mathbf{\tilde{A}}_{e}^{(k)} to maintain a valid counterfactual structure, it must be conditioned on the node features \mathbf{X}_{e}^{k} within the original subgraph. That is, \mathbb{P}_{H}(\mathbf{A}_{e}^{(k)}\mid\mathbf{X}_{e}^{k})=f_{\theta}(\mathbf{A}_{e}^{(k)}\mid\mathbf{X}_{e}^{k})) and \mathbb{P}_{H}(\mathbf{\tilde{A}}_{e}^{(k)}\mid\mathbf{X}_{e}^{k})=f_{\theta}(\mathbf{\tilde{A}}_{e}^{(k)}\mid\mathbf{X}_{e}^{k})) . For convenience, we further write this as \mathbb{P}_{H}(\mathbf{G}_{e}^{(k)})=f_{\theta}(\mathbf{G}_{e}^{(k)}) and \mathbb{P}_{H}(\mathbf{\tilde{G}}_{e}^{(k)})=f_{\theta}(\mathbf{\tilde{G}}_{e}^{(k)}) .
+
+BLOCK 32 p S3.SS1.p4.1
+Therefore, the counterfactual structure is dependent on the compatibility between \mathbf{\tilde{A}} and \mathbf{X} . A failure to properly condition structure on \mathbf{X} will not fulfill the definition for a counterfactual structure since the generated node features will indicate spurious distributional mismatch relative to the original subgraph samples. So, the encoder f_{\theta}(\cdot) must also consider the original node features as input.
+
+BLOCK 33 p S3.SS1.p5.1
+Given these definitions, we can see that to generate proper counterfactuals we first need to extract expressive link features that are conditional on the node features. Then, we need to learn a Generative Graph Model (GGM) which takes said features to output a new sample whose features follow a different distribution. In order to do this, we must ensure three things: (a) Scalability: In order to ensure relevance to real-world problems, the GGMs must operate on large graphs. (b) Expressiveness: First, the extracted features for each link must be suitably expressive. Second, the GGM itself will need to effectively sample from complicated distributions to produce relevant graph structures. (c) Counterfactual: Generated structures must indicate a level of change which does not replicate the training distribution but retains meaningful correlation. In the rest of this section we outline our method for tackling these challenges.
+
+BLOCK 34 h3 None
+3.2 Semi-Implicit Variation for Out-of-Distribution Generation
+
+BLOCK 35 p S3.SS2.p1.1
+Following principle (a.) from Section 3.1 , the scalability of the practical implementation becomes a concern. Computational complexity of more refined GGMs can be restrictive, whereas less computationally-intensive generative models may result in low-quality generations [ 52 , 53 ] . To balance this, we employ semi-implicit variation [ 54 ] , for it’s inherent scalability when implemented in an auto-encoder and it’s expressiveness for modeling complex distributions.
+
+BLOCK 36 p S3.SS2.p2.1
+Let the true data-generating distribution be p(G) , and assume it is modeled via a latent variable model with latent code H and a semi-implicit posterior of the form:
+
+BLOCK 37 table S3.E1
+q_{\phi}(H_{e}\mid{\tilde{X}}_{e}^{(k)},{\tilde{A}}_{e}^{(k)})=\int q_{\phi}(H_{e}\mid\psi)\,q_{\phi}(\psi\mid{X}_{e}^{(k)},{\tilde{A}}_{e}^{(k)})\,d\psi, (1)
+
+BLOCK 38 p S3.SS2.p2.2
+where q_{\phi}(\psi\mid X,A) is a flexible (potentially implicit) distribution. Suppose the model is trained to maximize the semi-implicit evidence lower bound (ELBO) [ 55 ] :
+
+BLOCK 39 table S3.E2
+\mathcal{L}_{\text{SIVI}}=\mathbb{E}_{\psi\sim q_{\phi}(\psi\mid{X}_{e}^{(k)},{A}_{e}^{(k)})}\left[\mathbb{E}_{H\sim q_{\phi}(H\mid\psi)}\left[\log p({A}_{e}^{(k)}\mid H_{e})\right]-\mathrm{KL}(q_{\phi}(H_{e}\mid\psi)\parallel p(H_{e}))\right], (2)
+
+BLOCK 40 p S3.SS2.p2.3
+and assume p(\mathbf{H}_{e}) is a broad prior (e.g., isotropic Gaussian), and p(\mathbf{A_{e}}\mid\mathbf{H}_{e}) defines a valid graph decoder. Then, given an auto-encoder with an expressive architecture capable of distinguishing the structure within samples drawn from q_{\phi} and p , sampling from \mathbf{H_{e}}\sim q_{\phi}(\mathbf{H}_{e}\mid\psi),\quad\psi\sim q_{\phi}(\psi) yields synthetic graphs \mathbf{\tilde{G}_{e}}=(\mathbf{X}_{e},\mathbf{\tilde{A}_{e}}) whose features are derived from the original dataset distribution but reveal emergent out-of-distribution (OOD) structure with respect to the training data \mathcal{D}_{\text{train}}\sim\mathbb{P}(\mathbf{G}) , provided that q_{\phi}(\psi)\not\approx q_{\phi}(\psi\mid\mathcal{D}_{\text{train}}) . That is, the complete generative process follows:
+
+BLOCK 41 table S3.E3
+\mathbf{\tilde{G}_{e}}\sim p_{\theta}(\mathbf{\tilde{G}}_{e}\mid\mathbf{H}_{e}),\quad\mathbf{H}_{e}\sim q_{\phi}(\mathbf{H}_{e}\mid\psi),\ \psi\sim q_{\phi}(\psi), (3)
+
+BLOCK 42 p S3.SS2.p2.4
+Therefore, Eq. ( 3 ) defines a valid procedure for generating OOD graph samples. In scenarios where the sampled distribution is not a broad prior, this process then decomposes further to a standard variational generative process [ 55 , 4 ] .
+
+BLOCK 43 p S3.SS2.p3.1
+As a learnable mechanism, semi-implicit variance ( \psi) often relies on inputting randomness into prior distributions; this randomness can then be treated as an adversarial noise, much like how OOD samples would appear to pre-trained GGMs. As such, an auto-encoder which effectively models semi-implicit variance of training distributions can generate complicated graph samples which mimic input structure, fulfilling the expressiveness principle while maintaining the scalability of an auto-encoder [ 55 , 52 ] . We show in Section 4.3 that the use of a semi-implicit GGM or a standard graph GGM is necessary for strong counterfactual generation.
+
+BLOCK 44 h3 None
+3.3 Link-Specific Subgraph Generation
+
+BLOCK 45 p S3.SS3.p1.1
+Semi-implicit variation assumes that a GGM can learn to generate \mathbf{\tilde{G}_{e}} . However, as noted in Definition 3.1 , to make this task relevant to link-prediction and continue fulfilling the expressiveness principle, we must first learn to extract link-specific features . That is, we want an encoder f_{\theta}(G_{e}^{(k)}) that can extract such features from the k-hop neighborhood of a link e=(u,v) . Only then will our GGM have the suitable amount of information to generate meaningful counterfactuals that differ in key link properties.
+
+BLOCK 46 p S3.SS3.p2.1
+To achieve this, the encoder f_{\theta}(\cdot) should be able to effectively encode the graph conditional on a specific link. The link-specific representations will then be used by the GGM for generation. ( 26 ) show that standard GNNs aren’t expressive to links. To combat this, they introduce the labeling trick that ensures that a given GNN can learn to distinguish target links from other nodes within a graph sample. They demonstrate that the labeling trick can extract a number of different relevant structural features for a link [ 28 ] .
+
+BLOCK 47 p S3.SS3.p3.1
+The labeling trick is defined as a function \ell:\mathbf{A}^{(k)}\to\{0,1\} where for a link e=(u,v) the value for a sampled node x is given by:
+
+BLOCK 48 table S3.E4
+\ell(x)=\begin{cases}1,&\text{if }x=u\textit{ or }x=v\\ 0,&\text{else }\\ \end{cases} (4)
+
+BLOCK 49 p S3.SS3.p3.2
+This results in a labelled subgraph L_{e}^{(k)} which is fed, along with the node features, to a GNN to produce the link-specific representations:
+
+BLOCK 50 table S3.E5
+\mathbf{H}_{e}=\text{GNN}(L_{e}^{(k)},X_{e}^{(k)}). (5)
+
+BLOCK 51 p S3.SS3.p3.3
+Given that all edges within a graph are viable link prediction targets, an effective zero-one labeling requires extracting the k -hop enclosed subgraphs conditioned on a target edge, \mathbf{G}_{e}^{(k)} . When these subgraphs are restricted to a smaller size, this reduces the direct computation required from the GGM to model subgraph distributions, ensuring FLEX’s scalability principle [ 28 ] .
+
+BLOCK 52 h4 None
+3.3.1 Node-Aware Decoder
+
+BLOCK 53 p S3.SS3.SSS1.p1.1
+Furthermore, to continue ensuring scalability and expressiveness. The decoder for FLEX’s GGM is made aware of the independent number of nodes within subgraph samples for a given mini-batch along the block diagonal matrix, A=\mathrm{diag}(A_{1},\dots,A_{K}) with A_{i}\in\mathbb{R}^{\mathcal{N}_{i}\times\mathcal{N}_{i}} . This ensures that generated subgraphs retain the original number of input nodes and prevent message-passing along edges between distinct subgraph samples.
+
+BLOCK 54 p S3.SS3.SSS1.p2.1
+Within early experiments, as shown in Figure 6 , generated subgraph samples suffered from the degree-bias phenomenon [ 56 ] . Wherein, the backbone GNN learns on nodes with a higher number of edges at a much-greater frequency than low-degree nodes, prioritizing learning information from the high-degree nodes [ 57 ] . Therefore, the downstream generation results in subgraphs where the average node had a high degree and are thus very dense, regardless of the node-degree within the input graph. We verify this phenomenon in Appendix F . To account for this, we apply an indicator function to FLEX-generated subgraphs which eliminates edges with lower probability than a threshold, \gamma :
+
+BLOCK 55 table S3.E6
+\tilde{p}(u,v)=p(u,v)\cdot\mathbb{I}[p(u,v)\geq\gamma]. (6)
+
+BLOCK 56 p S3.SS3.SSS1.p2.2
+This function only keeps those links that have a high probability, thus constraining the generative model to choose the links which it is most confident in. As such, the indicator function prevents densely-connected graphs, especially for OOD scenarios where training on dense graphs may not be desirable for downstream performance. The value of the threshold \gamma is treated as a hyperparameter. In Section 4.3 , we show how the value of \gamma impacts performance.
+
+BLOCK 57 h3 None
+3.4 Generating Counterfactual Links
+
+BLOCK 58 p S3.SS4.p1.1
+As part of FLEX, all previous components work to produce meaningful subgraphs. However, it is still necessary for the GGM to learn how to produce subgraph samples which are structurally-dissimilar from training, while retaining relevance to the node features within the training distribution.
+
+BLOCK 59 p S3.SS4.p2.1
+As discussed in Definition 3.2 , in order to ensure that the generated links are structurally-dissimilar (i.e., counterfactual) we want to generate links whose structural feature distribution is different from a target input link. That is, for an input training sample e=(u,v) and it’s counterfactual, we want that \mathbb{P}_{H}(\mathbf{A}_{e}^{k})\not\approx\mathbb{P}_{H}(\mathbf{\tilde{A}}_{e}^{(k)}) where \mathbf{\tilde{A}}_{e}^{(k)}=p_{\theta}(\mathbf{\tilde{G}_{e}}\mid\mathbf{H}_{e}) . Therefore, to achieve this goal of having the GGM produce different structures, we consider maximizing the difference in structure . That is, we optimize the GGM to maximize the difference in input and generated samples; \max\mathcal{L}_{\text{GEN}} where \mathcal{L}_{\text{GEN}} is defined as in Eq. ( 1 ). By doing so, we ensure that the newly generated samples will indeed be structurally different from the input training samples.
+
+BLOCK 60 p S3.SS4.p3.1
+However, just blindly maximizing the generative loss will result in generated subgraphs that are structurally incoherent and meaningless to our training samples. In reality, we really want the generated distribution to modestly differ in key structural features. We ensure this in two ways. First, we apply a quadratic penalty to the generative loss \mathcal{L}_{\text{GEN}} . The penalty is centered around a target value, \tau . This penalty restricts any shifts to the posterior distribution, meaning generated graphs will only deviate slowly from the prior distribution and prevent the samples from devolving into noise. This is given by the following,
+
+BLOCK 61 table S3.E7
+\mathcal{L}_{\text{GEN}}=\mathcal{L}_{\text{SIVI}}-\left(\mathrm{KL}\left(\mathbb{E}_{\psi\sim q_{\phi}(\psi\mid X_{e},A_{e})}\left[q(H_{e}\mid\psi)\right]\,\big\|\,p(H_{e})\right)-\tau\right)^{2}. (7)
+
+BLOCK 62 p S3.SS4.p3.2
+Second, we also attempt to correctly classify the link based on it’s original label. That is, we want to predict the existence of the original link based on the newly generated sample. This serves as a means for inducing learnable counterfactual treatment within the GGM. If the generative model deviates too far from the training distribution or considers useless structural features, the GNN will be unable to cope, thus resulting in poor classification performance. It therefore allows for a “check” on the generation quality, limiting the potential for incoherent generation.
+
+BLOCK 63 p S3.SS4.p4.1
+The final optimization goal of FLEX is given by the following, \mathcal{L}_{\text{LP}} denotes the classification loss (BCE):
+
+BLOCK 64 table S3.E8
+\min_{LP}\max_{GEN}\mathcal{L}_{\text{Flex}}=\alpha\mathcal{L}_{\text{LP}}+\mathcal{L}_{\text{GEN}} (8)
+
+BLOCK 65 p S3.SS4.p4.2
+\alpha represents the weight assigned to the counterfactual predictions produced by the GNN tuned within the FLEX framework. Since the co-trained GNN is tuned on synthetic samples, the minimization of \mathcal{L}_{\text{LP}} ensures that the GNN retains it’s ability to predict on positive and negative samples while also conditioning the maximization of \mathcal{L}_{\text{GEN}} . In tandem, the two function in an adversarial co-optimization to predict on samples with increasingly different structures ( 58 , 45 ) .
+
+BLOCK 66 p S3.SS4.p5.1
+We further illustrate the overall framework in Figure 2 . In the first stage both the GNN and GGM are trained separately. Then in the second stage, the components are co-trained via the objective defined in Eq. ( 8 ). Both procedures are described further in Algorithm 1 . Thus, FLEX is a lightweight and straightforward method for enhancing OOD performance for link prediction. In the next section, we test FLEX, showing it’s ability to improve OOD performance for link prediction.

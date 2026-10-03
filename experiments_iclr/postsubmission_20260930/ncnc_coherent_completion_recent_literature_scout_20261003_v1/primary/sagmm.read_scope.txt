@@ -1,0 +1,200 @@
+BLOCK 23 h3 None
+3.1 Pool of Experts
+
+BLOCK 24 p S3.SS1.p1.1
+A distinctive feature of the SAGMM framework lies in its use of a structurally diverse set of expert models. This choice is motivated by the aim of maximizing architectural heterogeneity, thereby enhancing the expressiveness and representational capacity of the framework. Recent surveys ( Chen et al. 2020 ; Ju et al. 2024 ) categorize GNNs along three key dimensions: propagation strategy (spectral vs. spatial), aggregation mechanism (mean vs. attention), and training setup (transductive vs. inductive). Guided by these dimensions, we include GNNs like GCN ( Kipf and Welling 2016 ) for its spectral filtering and suitability for homophilic graphs, GAT ( Veličković et al. 2017 ) for attention-based neighbor weighting, and GraphSAGE ( Hamilton et al. 2017a ) for its inductive capability through neighborhood sampling, along with additional models in the expert pool. Such heterogeneity enables the router to select experts that align with the structural and statistical properties of individual instances.
+
+BLOCK 25 p S3.SS1.p2.1
+Formally, the embedding update for an expert e_{i} at layer l+1 is given by:
+
+BLOCK 26 table S3.E2
+H_{e_{i}}^{(l+1)}=f_{e_{i}}(H_{e_{i}}^{(l)},A), (2)
+
+BLOCK 27 p S3.SS1.p2.2
+Here f_{e_{i}} denotes the message-passing function of expert e_{i} .
+
+BLOCK 28 p S3.SS1.p3.1
+This design is also motivated by the bias-variance tradeoff ( Yang et al. 2020 ) , where over-parameterized models can improve generalization by reducing variance. By incorporating multiple GNNs, our framework benefits from this property. Moreover, in line with the No Free Lunch theorem ( Goldblum et al. 2023 ) which states that no single model performs optimally across all tasks, our approach accounts for variations in network topology, homophily, and heterophily that affects GNN performance. We show empirically that by pooling experts, each with an unique message-passing mechanism, within MoE framework, our approach dynamically adapts to diverse graph structures, overcoming limitations of a single model.
+
+BLOCK 29 h3 None
+3.2 Gating Network
+
+BLOCK 30 p S3.SS2.p1.1
+In this subsection, we introduce Topology-Aware Attention Gating (TAAG) , a novel gating mechanism for graph data. We begin by highlighting the limitations of existing methods before presenting our proposed approach. Limitations of traditional gating mechanism. Several approaches have been proposed for designing gating networks in MoE architectures ( Jordan and Jacobs 1994 ; Clark et al. 2022 ; Zhou et al. 2022 ) . A widely adopted sparse gating strategy is the noisy top- k gating mechanism ( Shazeer et al. 2017 ) , which applies a softmax over the top- k logits produced by a linear transformation of the input. To encourage expert diversity and prevent load imbalance, this approach injects learnable Gaussian noise into the logits, a modification later adapted for graph data in GMoE model. Despite considerable success of the noisy top- k gating in improving training and inference efficiency, our analysis reveals several key limitations still remain:
+
+BLOCK 31 p S3.I1.i1.p1.1
+The model’s performance is highly dependent on the choice of k , as different datasets exhibit varying optimal values as shown in Figure 2 (a) for GMoE-GCN ( Wang et al. 2023 ) , highlighting the need for extensive hyperparameter tuning. Moreover, using a fixed k forces all nodes to activate the same number of experts, which may not be needed considering structural and feature characteristics. As shown in Figure 2 (b), different nodes activate different number of experts as per their requirement, eventually leading to performance gains.
+
+BLOCK 32 p S3.I1.i2.p1.1
+While prior works on gating strategies select multiple experts, thus implicitly including correlation between them, it is essential to ensure diversity among them for better coverage of the representation space.
+
+BLOCK 33 p S3.I1.i3.p1.1
+Existing methods often rely on simple linear projections of node features to compute gating scores, neglecting structural dependencies within the graph. While DA-MoE ( Yao et al. 2024 ) and GraphMoRE ( Guo et al. 2025 ) attempt to overcome this limitation by leveraging GNN-based gating networks, a fundamental drawback remains: these approaches are still unable to effectively capture global graph structural information, which is vital for informed expert selection.
+
+BLOCK 34 p S3.SS2.p3.1
+To address these limitations, for each node, TAAG selects experts based on the local and global structural information while dynamically adjusting the number of activated experts to improve efficiency and robustness. We leverage the SGA block from SGFormer ( Wu et al. 2023b ) to compute attention scores efficiently. While standard attention mechanisms have a quadratic complexity of O(n^{2}) , SGA operates in linear time O(n) w.r.t. n nodes, making it scalable for medium to large-scale graphs. To incorporate global structural information, we construct the matrix X^{(g)} using the p smallest eigenvectors of the normalized graph Laplacian L (Eq. ( 4 )), providing positional encodings for each node ( Rampášek et al. 2022 ) . We do not use diffusion-based methods ( Gasteiger et al. 2019 ; Chamberlain et al. 2021 ) as they involve expensive preprocessing, assumes homophily and perform poorly in tasks like link prediction. To further strengthen the structural information, we also add local structural features by aggregating 1-hop and 2-hop (approximate) features ( Hamilton et al. 2017a ; Wang et al. 2020a ) . The detailed formulations are provided in Eq. ( 3 ) and Eq. ( 4 ).
+
+BLOCK 35 table S3.E3
+\mathbf{X}^{(1)}=D^{-1}A\mathbf{X},\quad\mathbf{X}^{(2)}=(D^{-1}A)^{2}\mathbf{X}. (3)
+
+BLOCK 36 table S3.E4
+L=I-D^{-1/2}AD^{-1/2}. (4)
+
+BLOCK 37 p S3.SS2.p4.1
+Hence, we define the final input features as:
+
+BLOCK 38 table S3.E5
+\mathbf{X^{\prime}}=\underbrace{\frac{1}{3}(\mathbf{X}+\mathbf{X}^{(1)}+\mathbf{X}^{(2)})}_{\text{Local Term}}\quad||\underbrace{\mathbf{X}^{(g)}}_{\text{Global Positioning of Nodes}}. (5)
+
+BLOCK 39 p S3.SS2.p4.2
+where X^{\prime}\in\mathbb{R}^{n\times(d+p)} . The local term aggregates multi-hop neighborhood information, while X^{(g)} denotes the global positional encodings of the nodes of the graph. To compute gating scores, we first define the Query (Q), Key (K), and Value (V) representations as follows:
+
+BLOCK 40 table S3.E6
+Q=X^{\prime}W_{Q},\quad K=X^{\prime}W_{K},\quad V=X^{\prime}W_{V} (6)
+
+BLOCK 41 p S3.SS2.p4.3
+where: W_{Q},W_{K},W_{V}\in\mathbb{R}^{(d+p)\times N} are learnable projection matrices for query, key, and value, respectively. We compute the attention-based gating scores using the Simple Global Attention (SGA) mechanism ( Wu et al. 2023b ) :
+
+BLOCK 42 table S3.E7
+Q_{\text{norm}}=\frac{Q}{\|Q\|_{F}},\quad K_{\text{norm}}=\frac{K}{\|K\|_{F}} (7)
+
+BLOCK 43 table S3.E8
+D_{g}=\text{diag}\left(1+\frac{1}{N}Q_{\text{norm}}(K_{\text{norm}}^{\top}\mathbf{1})\right). (8)
+
+BLOCK 44 table S3.E9
+Z=\beta D_{g}^{-1}\left(V+\frac{1}{N}Q_{\text{norm}}(K_{\text{norm}}^{\top}V)\right)+(1-\beta)X. (9)
+
+BLOCK 45 p S3.SS2.p5.1
+where \beta is a learnable residual weight controlling the contribution of the original input, and Z is the attention scores for each node and experts in the pool.
+
+BLOCK 46 p S3.SS2.p6.1
+To enforce sparsity in expert selection, we introduce a learnable gating threshold T\in[0,1] , which only activates experts which exceeds scores above T . It is initialized as T_{\text{init}}\sim\{\mathbf{0},\mathcal{U}(0,1)\} , where \mathcal{U}(0,1) denotes a uniform distribution over (0,1). Both T_{\text{init}} and expert scores Z are transformed via a sigmoid function to ensure values in [0,1] . A ReLU-based gating mask is applied for threshold comparison, the final gating scores ( G ) in Eq. ( 13 ) uses a binary selection mask ( M ) allowing only experts above the threshold to contribute.
+
+BLOCK 47 table S3.E10
+M=\operatorname{sign}(\text{ReLU}(Z^{\prime}-T)). (10)
+
+BLOCK 48 table S3.E11
+\text{where, }T=\sigma(T_{\text{init}}),\quad Z^{\prime}=\sigma(Z) (11)
+
+BLOCK 49 p S3.SS2.p6.2
+Since the sign function is non-differentiable, we customize the backpropagation by directly passing the gradient of the binary selection mask to \text{ReLU}(Z^{\prime}-T) , effectively bypassing the sign function. The number of activated experts ( k_{u} ) per node u is defined in Eq. ( 12 ).
+
+BLOCK 50 table S3.E12
+k_{u}=|{\{j\,|\,M_{u,j}>0\}}|. (12)
+
+BLOCK 51 p S3.SS2.p7.1
+where M_{u,j} is value for node u and expert j . For nodes where no expert is selected ( k_{u}=0 ), we assign the expert with the highest attention score to ensure each node is allocated at least one expert: M_{u,\text{argmax}_{j}\,Z^{\prime}_{u,j}}=1 .
+
+BLOCK 52 table S3.E13
+G=Z^{\prime}\odot M. (13)
+
+BLOCK 53 p S3.SS2.p8.1
+Once experts are selected, the valid experts process the input (X,A) , producing expert outputs H_{e_{j}} for expert e_{j} , these outputs are aggregated using the gating scores in Eq ( 13 ). Our ablation study (Section 4.2 ) shows that the proposed gating mechanism outperforms existing alternatives, validating its effectiveness.
+
+BLOCK 54 p alg1.4
+Input: Graph (X,A) with labels Y , expert pool e=\{e_{1},\dots,e_{N_{0}}\} , pruning threshold \eta , pruning interval t . Output: Updated expert pool e^{\prime} , gating weights G .
+
+BLOCK 55 h3 None
+3.3 Adaptive Expert Pruning
+
+BLOCK 56 p S3.SS3.p1.1
+For efficient training and optimizing memory utilization, we also introduce an adaptive expert pruning mechanism that dynamically evaluates and updates the importance of each expert in the pool over time. The importance score I(e_{i}) at pruning interval t for an expert e_{i} is updated based on its contribution in previous intervals as follows:
+
+BLOCK 57 table S3.E14
+I_{t}(e_{i})=(1-\alpha)I_{t-1}(e_{i})+\alpha{\gamma}(e_{i}). (14)
+
+BLOCK 58 p S3.SS3.p1.2
+Here, {\gamma}(e_{i}) represents the contribution score of expert e_{i}\in e , computed as:
+
+BLOCK 59 table S3.E15
+{\gamma(e_{i})}=\left\lVert\sum_{u=1}^{n}\left(G_{e_{i},u}H_{e_{i},u,:}\right)\right\rVert. (15)
+
+BLOCK 60 p S3.SS3.p2.1
+where G_{e_{i},u} are gating weights and H_{e_{i},u,:} represents representation of expert e_{i} and node u . Above equation captures the cumulative weighted contribution of the expert to the overall model output for the selected batch of data.
+
+BLOCK 61 p S3.SS3.p3.1
+The smoothing factor \alpha\in[0,1] controls the balance between previous importance scores and the current contribution, thereby preventing the premature removal of experts that may become useful later in training. The importance scores for all experts are calculated at every epoch, and experts with importance scores below the threshold are removed at prune interval:
+
+BLOCK 62 table S3.E16
+e\leftarrow\{e_{i}\mid I(e_{i})\geq\eta\}. (16)
+
+BLOCK 63 p S3.SS3.p4.1
+The threshold factor \eta , which controls the pruning aggressiveness, is dynamically adjusted based on validation performance.
+
+BLOCK 64 p S3.SS3.p5.1
+As shown in Figure 3 (a), the average k_{u} values differ from the final number of experts N post-pruning, highlighting the dynamic and input-dependent nature of expert selection. The TAAG gating mechanism selectively activates and weighs relevant experts, while the pruning strategy removes persistently underutilized ones. This combination ensures that SAGMM maintains both specialization and computational efficiency. Auxiliary Loss Functions. To ensure balanced expert utilization, we incorporate importance loss and diversity loss from prior works ( Wang et al. 2023 ; Guo et al. 2024 ) . These losses prevent over-reliance on specific experts by encouraging more even and orthogonal expert activation patterns.
+
+BLOCK 65 h3 None
+3.4 Pre-trained Models as Experts
+
+BLOCK 66 p S3.SS4.p1.1
+One variant of SAGMM we experimented is SAGMM Pre-trained Experts (SAGMM-PE), where the expert GNNs are pre-trained independently and kept fixed during the downstream task with only the router and task-specific head being trained. This design reduces computational overhead and allows efficient reuse of specialized or weak models that may not perform well individually but contribute valuable structural signals when combined. As shown in Table 1 , SAGMM-PE achieves competitive or superior performance on node classification task. Furthermore, the results in the pre-training ratios table (see Technical Appendix) show that comparable accuracy is achieved even when the experts and the router are pre-trained on only 50% to 70% of the training data. This highlights the data efficiency of our framework and the robustness of its model-agnostic expert design.
+
+BLOCK 144 h5 None
+Link prediction:
+
+BLOCK 145 p A3.I2.i1.p1.1
+ogbl-ppa : This dataset is an undirected, unweighted graph. Nodes represent proteins from 58 different species, and edges indicate biologically meaningful associations between proteins, e.g., physical interactions, co-expression, homology or genomic neighborhood. Each node contains a 58-dimensional one-hot feature vector that indicates the species that the corresponding protein comes from. The task is to predict new association edges given the training edges. The evaluation is based on how well a model ranks positive test edges over negative test edges. It follows given OGB split.
+
+BLOCK 146 p A3.I2.i2.p1.1
+ogbl-collab : This dataset is an undirected graph, representing a subset of the collaboration network between authors indexed by MAG. Each node represents an author and edges indicate the collaboration between authors. All nodes come with 128-dimensional features, obtained by averaging the word embeddings of papers that are published by the authors. All edges are associated with two meta-information: the year and the edge weight, representing the number of co-authored papers published in that year.The task is to predict the future author collaboration relationships given the past collaborations. The goal is to rank true collaborations higher than false collaborations.
+
+BLOCK 147 p A3.I2.i3.p1.1
+ogbl-ddi : This dataset is a homogeneous, unweighted, undirected graph, representing the drug-drug interaction network. Each node represents an FDA-approved or experimental drug. Edges represent interactions between drugs and can be interpreted as a phenomenon where the joint effect of taking the two drugs together is considerably different from the expected effect in which drugs act independently of each other. The task is to predict drug-drug interactions given information on already known drug-drug interactions. The dataset does not contain any node features, a random tensor is created following the OGB guidelines.
+
+BLOCK 153 h3 None
+C.3 Experiment Settings
+
+BLOCK 154 p A3.SS3.p1.1
+Training Details . This architecture leverages the strengths of multiple GNN designs while dynamically adapting to the input graph through the gating mechanism, enabling robust and versatile learning. The datasets used in our experiments encompass both heterophilic and homophilic graphs. For graphs that fit entirely within GPU memory, we employ full-graph training, while for larger graphs that exceed GPU memory limits, we adopt a mini-batch training scheme. For the datasets listed in Table 6 and Table 7 , full-graph training is employed for ogbn-arxiv and yelpchi in the node classification task, ogbl-ddi and ogbl-ppa in link prediction, and for all datasets in graph classification and regression tasks. In this approach, the entire graph is provided as input to the model during both training and inference. During training, the model processes the full graph to compute forward passes and predict labels for loss computation. Similarly, during inference, the entire graph is inputted, and metrics are computed based on predictions for validation and test nodes. For larger datasets, where the graph sizes prevent full-graph training, we utilize a mini-batch training approach similar to the method in ( Wu et al. 2023a ) . At the beginning of each training epoch, the nodes are shuffled and partitioned into random mini-batches of size B. During each iteration, one mini-batch is selected, and the corresponding subgraph is extracted from the original graph. This subgraph is fed into the model to compute the loss on the training nodes within that batch. For ogbn-products and ogbn-papers100M we employ neighbor sampling training approach. To evaluate model performance, we use the model that achieves the highest accuracy on the validation set. Each experiment is conducted over ten independent trials with different initializations. Training is performed for 1000 epochs by default , with exception made for larger datasets: 150 epochs for ogbn-papers100M, 500 epochs for ogbn-products and 100 epochs for ogbl-ppa. We report the mean and variance of the evaluation metrics across these runs.
+
+BLOCK 155 p A3.SS3.p2.1
+Hyperparameters. The common hyperparameters used for training are summarized in Table 8 . In addition, the following gating mechanism configurations were consistently applied across all GNN models and datasets:
+
+BLOCK 156 p A3.I4.i1.p1.1
+Prune type \in { raw_gates, thresholded_gates }: raw_gates uses the raw gate scores given by router to determine expert pruning, while thresholded_gates applies experts threshold to the gate scores which tells to consider only the activated experts for pruning.
+
+BLOCK 157 p A3.I4.i2.p1.1
+Gate initialization \in { zeros, randn }: Gate values are initialized either with all zeros or drawn from a normal distribution. Zero initialization yields uniform soft selection ( \sigma(0)=0.5 ), assigning equal importance to all experts initially.
+
+BLOCK 158 p A3.I4.i3.p1.1
+Pruning interval: Selected from the range 20–40, depending on the dataset.
+
+BLOCK 159 p A3.I4.i4.p1.1
+Auxilary loss weights \in { 0.05, 0.1 }: Both importance loss weight and diversity loss weight are tuned from this shared range across all datasets.
+
+BLOCK 160 p A3.I4.i5.p1.1
+Fan out: 15,10,5 for ogbn-papers100M and 10,5,2 for ogbn-products
+
+BLOCK 161 p A3.I4.i6.p1.1
+Global Information for Graph-level Tasks : For graph classification and regression tasks, where graphs often contain a small number of nodes (e.g., fewer than 20), we additionally experimented with Graph Mean and its Laplacian-based variants to incorporate global structural information into the gating mechanism.
+
+BLOCK 162 p A3.I4.i7.p1.1
+Weight decay: 1\times 10^{-4} for both ogbn-papers100M and ogbn-products datasets.
+
+BLOCK 163 p A3.I4.i8.p1.1
+Optimizer: Adam optimizer with dataset-specific learning rates.
+
+BLOCK 164 p A3.I4.i9.p1.1
+Importance threshold factor \in { 0.3 - 0.7 }: It determines the pruning threshold
+
+BLOCK 165 h2 None
+Appendix D SAGMM Architecture Components
+
+BLOCK 166 p A4.p1.1
+As illustrated in Figure 1 (main paper), SAGMM comprises five core components: the Node-Context Module , Gating Mechanism , Expert Pool , Pruning Mechanism , and Output Layer . Each component is described below:
+
+BLOCK 167 p A4.I1.i1.p1.1
+Node-Context Module: This module processes the input node feature matrix X\in\mathbb{R}^{N\times D} , where N denotes the number of nodes and D is the feature dimensionality. To enhance the input with global contextual information, the module incorporates multihop and Laplacian-based features for node classification and link prediction tasks, and Graph Mean with Laplacian features for graph-level tasks (e.g., classification and regression). The raw node features are also directly forwarded to the expert pool as part of the forward pass.
+
+BLOCK 168 p A4.I1.i2.p1.1
+Gating Mechanism: The gating network dynamically routes each node to a subset of experts using a thresholded attention mechanism based on SGA ( Wu et al. 2023b ) . Node representations are first transformed using learnable weight matrices and then compared via scaled dot-product similarity. The resulting attention logits are processed using a sigmoid gating function and a learnable threshold vector. A ReLU activation is then applied to retain only positive scores, thereby selecting the most relevant experts per node based on the gated activations.
+
+BLOCK 169 p A4.I1.i3.p1.1
+Expert Pool: SAGMM leverages a diverse pool of GNN experts, each tailored to capture different structural and semantic properties of the graph. For node classification , the expert set includes four to eight models from GCN, GAT, GraphSAGE, SGC, JKNet, GraphCNN, GIN, and MixHopNet. For link prediction , the pool comprises GCN, GraphSAGE, JKNet, and SGC. For graph-level tasks , the experts include GCN, GIN, GraphSAGE, and GAT. Each expert model consists of multiple layers of its respective convolution operator, enhanced with normalization (BatchNorm or LayerNorm) and residual connections where appropriate. The final node embeddings are computed as a weighted combination of outputs from the selected experts, guided by the gating mechanism.
+
+BLOCK 170 p A4.I1.i4.p1.1
+Pruning Mechanism: To improve computational efficiency, SAGMM includes an importance-based pruning module that removes underperforming experts from the pool. This mechanism is designed to reduce both memory and inference time without degrading predictive performance.
+
+BLOCK 171 p A4.I1.i5.p1.1
+Output Layer: The final aggregated node (or graph) embeddings are passed through a fully connected output layer to produce task-specific predictions. This layer maps the learned representations to the appropriate label space for classification or regression.

@@ -1,0 +1,119 @@
+BLOCK 40 h3 None
+4.1. Overview
+
+BLOCK 41 p S4.SS1.p1.1
+Our proposed framework is deeply motivated by the findings from the preliminary study. It consists of two stages: two-branch pretraining and parameter-efficient adaptation. During pretraining, we independently train the node and edge modules on the same dataset to avoid the problem of imbalanced training. To capture the diverse distributions from the pretraining data, an MoE architecture is used to encode different knowledge into distinct experts. During adaptation, we allow different graphs to automatically leverage pretrained knowledge from various experts in a data-driven manner. We detail our design in the following subsections. The overall framework of PALP is illustrated in Figure 4 .
+
+BLOCK 42 h3 None
+4.2. Pretraining with Mixture of Experts
+
+BLOCK 43 p S4.SS2.p1.1
+Two-branch pretraining. Our preliminary study indicates that early fusion hinders effective training of the node module. As a solution, we propose to pretrain the node module and the edge module independently to ensure effective training of both branches. For the node module, we adopt NAGphormer as the backbone. NAGphormer possesses several advantages in the context of LP pretraining: (1) it has a time complexity linear to the number of nodes, enabling large-scale pretraining; (2) it adaptively aggregates information from different localities of a given node, which is favored by link prediction tasks that require personalized receptive fields for different graphs; (3) it adopts a standard Transformer backbone, benefiting from speedup techniques developed specifically for such architecture. Specifically, the node representation given by NAGphormer is:
+
+BLOCK 44 table S4.E4
+(4) h_{i}=\text{NAG}([x_{i}^{0}\mid x_{i}^{1}\mid\dots\mid x_{i}^{K}]),
+
+BLOCK 45 p S4.SS2.p1.2
+where x_{i}^{k} denotes the aggregated neighborhood around node i at the k th hop. To predict the probability of observing an edge (i,j) , h_{i} and h_{j} are pooled through an element-wise product before being fed into an MLP:
+
+BLOCK 46 table S4.E5
+(5) p_{ij}=\sigma(\text{MLP}(h_{i}\odot h_{j})),
+
+BLOCK 47 p S4.SS2.p1.3
+where \sigma denotes the sigmoid function.
+
+BLOCK 48 p S4.SS2.p2.1
+For the edge module, we follow our preliminary study and choose the structural embeddings from BUDDY, as given in Equation ( 6 ).
+
+BLOCK 49 table S4.E6
+(6) \{B_{uv}[d],A_{uv}[d_{u},d_{v}]:\forall d,d_{u},d_{v}\in[k]\}
+
+BLOCK 50 p S4.SS2.p2.2
+where k is the receptive field, A_{uv}[d_{u},d_{v}] denotes the number of nodes at distances exactly d_{u} and d_{v} from u and v respectively, and B_{uv}[d] is computed by:
+
+BLOCK 51 table S4.E7
+(7) B_{uv}[d]=\sum_{d_{v}=k+1}^{\infty}A_{uv}[d,d_{v}]
+
+BLOCK 52 p S4.SS2.p3.1
+The node counts A and B from the above equation can be efficiently approximated with the sketching techniques introduced in ( Wang et al., 2024 ) . Such structural features, sometimes referred to as labeling tricks , have proven effective to increase the expressiveness of link representation obtained by MPNNs and go beyond the Weisfeiler-Leman (WL) graph isomorphism test to capture critical heuristics for LP ( Li et al., 2020 ; Zhang et al., 2021 ) . We do not use learnable edge modules due to two reasons: (1) any learnable model applied to edges will incur an additional operation of at least O(E) , which poses computational challenges for pretraining on large graphs and (2) learnable pairwise embeddings may be too flexible to capture universal LP factors that transfer across datasets. Similar to the node module, we obtain the probabilities of edge existence using an MLP:
+
+BLOCK 53 table S4.E8
+(8) p_{ij}=\sigma(\text{MLP}(e_{ij})).
+
+BLOCK 54 p S4.SS2.p4.1
+We use the BinaryCrossEntropy loss to train the two modules. Specifically,
+
+BLOCK 55 table S4.E9
+(9) \mathcal{L}=-\frac{1}{|E^{+}|+|E^{-}|}\left(\sum_{(i,j)\in E^{+}}\log p_{ij}+\sum_{(i,j)\in E^{-}}\log(1-p_{ij})\right)
+
+BLOCK 56 p S4.SS2.p4.2
+where |E^{+}| and |E^{-}| denotes the sampled set of positive edges and negative edges, respectively.
+
+BLOCK 57 p S4.SS2.p5.1
+MoE architecture. As suggested by previous studies, the benefits from pretraining depend on how much the pretraining distribution matches the downstream data ( Xu et al., 2023 ; Cao et al., 2023 ) . To expedite transferability while encoding a large diversity of distributions, we propose to model the patterns for link formation with multiple expert models and use a gating function to guide the knowledge flow. Specifically, we adopt an edge-level gating mechanism that routes each input edge to a certain expert, depending on the characteristics of the query edge. The edge-level routing is motivated by the observation that edges with distinct properties tend to benefit from different processing strategies ( Ma et al., 2024 ) . When pretraining on a large dataset with billions of edges, such flexibility becomes even more critical for encoding the pretraining knowledge in a finer-grained manner.
+
+BLOCK 58 p S4.SS2.p6.1
+For the node module, we use a shared node encoder and adopt multiple score functions as the experts. The encoder acts as a universal feature extractor, while different experts aim to capture distinct patterns for link formation. This design mimics practices from self-supervised learning methods, where one backbone model is trained to work with multiple projectors for different tasks. We empirically found this strategy effective while significantly reducing the model size, as most parameters reside in the node encoder rather than the score functions. Since the edge encoder in BUDDY is non-parametric, we also include multiple score functions to realize MoE in the edge branch. An illustration of the pretraining framework is given in the left part of Figure 4 .
+
+BLOCK 59 p S4.SS2.p7.1
+To avoid the expert collapse problem in training MoE models, we adopt a cluster-based gating mechanism that assigns input edges to experts based on their distances to the corresponding cluster centers, inspired by ( Kim et al., 2023 ) . This approach ensures that each expert models a subset of training data, preventing cases where certain experts were never trained. Specifically, given an edge (i,j) and its gating feature g_{ij} , we first project g_{ij} to a latent space using an MLP:
+
+BLOCK 60 table S4.E10
+(10) z_{ij}=\text{MLP}(g_{ij}).
+
+BLOCK 61 p S4.SS2.p7.2
+Then, we compute the negative Euclidean distances of z_{ij} to all the cluster centers, and use them as the weights for the corresponding experts:
+
+BLOCK 62 table S4.E11
+(11) w_{ij}^{k}=-\lVert z_{ij}-c_{k}\rVert_{2},
+
+BLOCK 63 p S4.SS2.p7.3
+where c_{k} are learnable clusters in the latent space. In our implementation, we represent each edge feature as the sum of its two endpoint node features and use this representation as input to the gating function:
+
+BLOCK 64 table S4.E12
+(12) g_{ij}=x_{i}+x_{j}.
+
+BLOCK 65 p S4.SS2.p7.4
+This simple sum pooling proves effective due to its discriminative power in determining the relative position of the current edge within the entire pretraining data distribution.
+
+BLOCK 66 p S4.SS2.p8.1
+Given weights for different experts, we use Gumbel-Softmax to approximate sampling from the expert distribution while maintaining differentiability of the entire architecture:
+
+BLOCK 67 table S4.E13
+(13) p_{ij}^{k}=\frac{\exp\left((w_{ij}^{k}+G_{k})/\tau\right)}{\sum_{k^{\prime}}\exp\left((w_{ij}^{k^{\prime}}+G_{k^{\prime}})/\tau\right)},
+
+BLOCK 68 p S4.SS2.p8.2
+where G_{k} are i.i.d. samples from the Gumbel(0,1) distribution, and \tau is the temperature parameter. The temperature is adjusted according to the following schedule:
+
+BLOCK 69 table S4.E14
+(14) \tau_{t}=\max\left(\tau_{\text{final}},\tau_{0}\cdot\alpha^{t}\right),
+
+BLOCK 70 p S4.SS2.p8.3
+where \tau_{0} is the initial temperature, \tau_{\text{final}} is the lower bound, \alpha is the decay rate (a constant less than 1), and t denotes the current training epoch. In the early stages of training, a high temperature encourages exploration by producing more uniform weights across experts. As training progresses, the temperature gradually decreases, making the gating function more selective and enabling the model to focus on the most relevant experts for each input edge. In our implementation, we set \alpha=0.8 , which empirically yields good performance. In short, the cluster-based expert assignment strategy, combined with temperature annealing, ensures effective load distribution across experts while minimizing knowledge conflicts.
+
+BLOCK 71 h3 None
+4.3. Downstream Adaptation
+
+BLOCK 72 p S4.SS3.p1.1
+After pretraining on the large-scale dataset, PALP can be used as a zero-shot link predictor, or adapts to downstream datasets through parameter-efficient tuning.
+
+BLOCK 73 p S4.SS3.p2.1
+Zero-shot learning. In zero-shot setting, we feed the test graph into the node-module and the edge-module independently, and then sum up the sigmoid normalized probablitilies from the two branches as the final predicted scores of link existence. This strategy provides a straightforward way to leverage information from the two branches, while avoiding modifying the pretrained parameters. We denote this approach as PALP-sum , and the predicted probability is given by:
+
+BLOCK 74 table S4.E15
+(15) p_{ij}=\sigma\left(\sigma(l_{ij}^{N})+\sigma(l_{ij}^{E})\right),
+
+BLOCK 75 p S4.SS3.p2.2
+where l_{ij}^{N} and l_{ij}^{E} denote the logits from the node and edge modules, respectively.
+
+BLOCK 76 p S4.SS3.p3.1
+Parameter-efficient tuning. Given the set of pretrained experts, our goal is to find a proper way to combine them that best fits the data at hand. Specifically, different graphs may lean towards the node module or the edge module, or prefer experts trained with specific data distributions. Therefore, a promising solution would allow the downstream data to flexibly select experts from both branches and adaptively merge their outputs. To achieve this, we propose PALP-adapt , which automatically fuses the experts for a given graph:
+
+BLOCK 77 table S4.E16
+(16) p_{ij}=\sigma\left(\sum_{k}p^{k}\cdot l_{ij}^{k}\right),
+
+BLOCK 78 p S4.SS3.p3.2
+where l_{ij}^{k} denotes the logits from the k -th expert for edge (i,j) , and p^{k} are the learnable weights, which constitutes a vector p\in\mathbb{R}^{K} . Note that we use the same weight vector p for all edges in a given test graph. When adapting to new graphs, we keep the pretrained experts frozen and only train the weight vector using binary cross-entropy loss on the training edges. In this way, we allow the downstream dataset to reuse knowledge from a diverse set of link predictors adaptively while maintaining high efficiency.
+
+BLOCK 79 p S4.SS3.p4.1
+We use soft aggregation on downstream datasets rather than taking the prediction from the top-1 expert. Since the set of pretrained experts exhibit distinct characteristics and make non-identical predictions, the collaborative use of them may lead to improved performance compared to the best single one, according to the established theory in model ensembles.

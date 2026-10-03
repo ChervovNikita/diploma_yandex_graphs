@@ -1,0 +1,149 @@
+BLOCK 37 h2 None
+4 Methodology
+
+BLOCK 38 p S4.p1.1
+We now present our SDG that extends the diffusion process for temporal link prediction (Figure 1 ). Given the historical sequence S_{u,t} , SDG first encodes the sequence into the latent space \mathbf{Z}(S_{u,t}) , which serves as contextual guidance to reconstruct the target sequence \mathcal{T}_{u,t} . During inference, SDG iteratively generates the destination sequence from pure Gaussian noise, guided by the context embedding \mathbf{Z}(S_{u,t}) of the source node, and uses the last element of the generated sequence as the target node. By unifying historical context encoding and diffusion-based denoising, SDG captures long-range temporal dependencies and uncertainty in dynamic graphs within a single framework.
+
+BLOCK 39 h3 None
+4.1 Encoding Sequence Interactions
+
+BLOCK 40 p S4.SS1.p1.1
+Given an interaction (u,v,t) , we first extract the historical neighbors S_{u,t} for source node u at timestamp t . In practice, we keep the L most recent 1-hop neighbors, which is sufficient for modeling temporal patterns ( Yu et al., 2023 ) .
+
+BLOCK 41 p S4.SS1.p2.1
+Since most temporal graph benchmarks lack explicit node features for the latent diffusion module to operate on, we assign the interaction sequence with a learnable node embedding lookup table \mathbf{H}\in\mathbb{R}^{N\times d} . The historical embedding of node u is indicated as \mathbf{H}(S_{u,t})=[\mathbf{H}(v_{1}),\ldots,\mathbf{H}(v_{L})] , where we omit timestamps for simplicity as they are not used in the embedding lookup. We then add positional encoding to obtain the initial representation:
+
+BLOCK 42 table S4.EGx5
+\displaystyle\mathbf{Z}^{0}_{1:L}(S_{u,t})=\left[\mathbf{H}(v_{1}),\mathbf{H}(v_{2}),\cdots,\mathbf{H}(v_{L})\right]+\mathbf{PE}, (7)
+
+BLOCK 43 p S4.SS1.p2.2
+where \mathbf{PE} denotes the sinusoidal positional encoding ( Vaswani et al., 2017 ) . We can also obtain the destination embedding \mathbf{H}(v) for prediction.
+
+BLOCK 44 p S4.SS1.p3.1
+Next, we employ a causal Transformer model ( Vaswani et al., 2017 ) to capture the evolving trends from left to right of the historical sequence \mathbf{H}(S_{u,t})\in\mathbb{R}^{L\times d} . Each layer in the model applies multi-head self-attention with a causal mask, followed by a feed-forward network (FFN):
+
+BLOCK 45 table S4.E8
+\mathbf{Z}_{1:L}(S_{u,t})=\text{Transformer}(\mathbf{H}_{1:L}(S_{u,t});\mathbf{M}), (8)
+
+BLOCK 46 p S4.SS1.p3.2
+where \mathbf{M} is the attention mask ensuring position i only allows to attends to positions \leq i . After N_{\text{layers}} of Transformer blocks, the output \mathbf{Z}_{1:L}(S_{u,t}) of this module will be utilized as the condition signal guidance for the diffusion module during the denoising process.
+
+BLOCK 47 h3 None
+4.2 Sequence Diffusion Model
+
+BLOCK 48 p S4.SS2.p1.1
+Instead of adding noise solely to the final destination embedding \mathbf{H}(v) , we add noise to the historical sequence and the final destination embedding. Firstly, we shift the historical interactions by one step and append the destination node to form the target sequence \mathcal{T}_{u,t}=\{(v_{2},t_{2}),\dots,(v,t)\} . Then, the embedding of this sequence can be represented as \mathbf{H}(\mathcal{T}_{u,t})=\left[\mathbf{H}_{2:L}(S_{u,t}),\mathbf{H}(v)\right]\in\mathbb{R}^{L\times d} .
+
+BLOCK 49 p S4.SS2.p2.1
+We set this sequence embedding as the clean embedding for our diffusion as \mathbf{X}^{0}=\mathbf{H}(\mathcal{T}_{u,t}) . Given \mathbf{X}^{0}_{1:L} , we instantiate the forward diffusion process from Section 3.2 at the sequence level. The noisy destination sequence \mathbf{X}^{k}_{1:L} at timestep k is given by:
+
+BLOCK 50 table S4.E9
+\mathbf{X}^{k}_{1:L}=\sqrt{\bar{\alpha}^{k}}\,\mathbf{X}_{1:L}^{0}+\sqrt{1-\bar{\alpha}^{k}}\,\boldsymbol{\epsilon}, (9)
+
+BLOCK 51 p S4.SS2.p2.2
+where \boldsymbol{\epsilon} is sampled from \mathcal{N}(\mathbf{0},\mathbf{I}) with the same shape as \mathbf{X}^{0}_{1:L} . Noising the entire sequence turns the diffusion objective into a sequence-level denoising problem where every position in \mathcal{T}_{u,t} must be reconstructed from its noisy version, conditioning on the previous interactions instead of regressing a single vector \mathbf{H}(v) . This provides a richer supervision signal and effectively pushes the model to approximate a joint distribution over destination sequences.
+
+BLOCK 52 p S4.SS2.p3.1
+The reverse process is now a conditional Markov chain over sequences, which can be defined as follows:
+
+BLOCK 53 table S4.E10
+\displaystyle p_{\theta}(\mathbf{X}_{1:L}^{k-1}\mid\mathbf{X}_{1:L}^{k},\mathbf{Z}_{1:L},k)=\mathcal{N}\Big(\mathbf{X}_{1:L}^{k-1};\,\boldsymbol{\mu}_{\theta}(\mathbf{X}_{1:L}^{k}, (10) \displaystyle\mathbf{Z}_{1:L},k),\,\sigma_{k}^{2}\mathbf{I}\Big),
+
+BLOCK 54 p S4.SS2.p3.2
+where the mean follows the x_{0} -prediction from Equation 5 . In the next section, we provide details on the architecture of the sequence-level denoising network f_{\theta} :
+
+BLOCK 55 table S4.E11
+\hat{\mathbf{X}}^{0}_{1:L}=f_{\theta}(\mathbf{X}^{k}_{1:L},\mathbf{Z}_{1:L},k), (11)
+
+BLOCK 56 h3 None
+4.3 Denoising Network
+
+BLOCK 57 p S4.SS3.p1.1
+The denoising network f_{\theta} jointly reconstructs the target sequence by taking the noisy target sequence \mathbf{X}_{1:L}^{k} , the diffusion step k as input, and the historical context \mathbf{Z}_{1:L}(S_{u,t}) as conditional guidance. The timestep k is first encoded using a sinusoidal time embedding \gamma(\cdot) ( Li et al., 2023 ) , followed by an MLP. The resulting time embedding is added to each position of the noisy sequence:
+
+BLOCK 58 table S4.E12
+\hat{\mathbf{X}}^{k}_{1:L}=\mathbf{X}^{k}_{1:L}+\mathrm{MLP}\big(\gamma(k)\big). (12)
+
+BLOCK 59 p S4.SS3.p1.2
+To model interaction evolution during denoising, we encode the trajectory context with a causal Transformer and use it as queries in cross-attention, while the time-conditioned noisy sequence serves as keys and values to refine noisy destinations. The forward block is presented below:
+
+BLOCK 60 table S4.EGx6
+\displaystyle\mathbf{Z}_{\text{ctx}} \displaystyle=\mathrm{Transformer}\big(\mathbf{Z}_{1:L}(S_{u,t}),\mathbf{M}\big), (13) \displaystyle\hat{\mathbf{X}}_{1:L}^{0} \displaystyle=\mathrm{CrossTransformer}\big(\mathbf{Z}_{\text{ctx}},\hat{\mathbf{X}}_{1:L}^{k}\big), (14)
+
+BLOCK 61 p S4.SS3.p1.3
+where \hat{\mathbf{X}}^{0}\in\mathbb{R}^{L\times d} is the prediction by the network of the clean target sequence \mathbf{X}^{0} . We also set the number of blocks to N_{\text{layers}} . This design lets the history representation guide the denoising at each position, yielding destination embeddings that are temporally coherent and aligned with the observed interaction patterns.
+
+BLOCK 62 h3 None
+4.4 Training Objective
+
+BLOCK 63 p S4.SS4.p1.1
+To train the diffusion model, we adopt the x_{0} prediction scheme rather than standard \epsilon pipeline because the historical interactions contain highly irregular noisy components, thus estimating the noise \epsilon can be more difficult.
+
+BLOCK 64 p S4.SS4.p2.1
+Typically, diffusion models are trained using a mean squared error (MSE). However, ( Hou et al., 2022 ; Liu et al., 2024 ) have shown that MSE is sensitive to vector norms and dimensionality, which is not optimal for our ranking phase. Therefore, we replace the standard MSE term in the ELBO with a cosine-based reconstruction error, which is invariant to embedding scale and better aligned with ranking objectives. We define the diffusion reconstruction loss as:
+
+BLOCK 65 table S4.E15
+\mathcal{L}_{\text{diff}}=\frac{1}{L}\sum_{i=1}^{L}\bigl(1-\cos(\hat{\mathbf{X}}^{0}_{i},\mathbf{X}^{0}_{i})\bigr)^{2}, (15)
+
+BLOCK 66 p S4.SS4.p2.2
+where \cos(\cdot,\cdot) denotes cosine similarity and \hat{\mathbf{X}}_{i} is the i -th element of \hat{\mathbf{X}}^{0} . We show in the Appendix C that this objective corresponds to a valid ELBO variant under a cosine-based similarity measure. This reconstruction loss encourages the diffusion model to match the ground-truth embeddings; however, it is not directly aligned with the ranking objective in temporal link prediction on its own.
+
+BLOCK 67 p S4.SS4.p3.1
+To learn a predictive scoring function, we take the element-wise product between the denoised representation \mathbf{X}^{0} and the destination node embedding, concatenated with temporal features. The final representation is fed to MLP to predict the edge likelihoods between the source and the destination.
+
+BLOCK 68 table S4.EGx7
+\displaystyle\hat{\mathbf{y}}_{t}=\text{MLP}\Big(\text{concat}(\mathbf{X}^{0}\cdot\mathbf{H}(\mathcal{T}_{u,t}),\gamma(\Delta t(\mathcal{T}_{u,t})))\Big), (16)
+
+BLOCK 69 p S4.SS4.p3.2
+where \cdot denote the dot-product operation, \hat{\mathbf{y}}_{t}\in\mathbb{R}^{L\times N} is the score matrix over sequence positions and candidate nodes, and the i -th row \hat{\mathbf{y}}_{t,i}\in\mathbb{R}^{\mathcal{C}_{u,t}} contains the scores for all \mathcal{C}_{u,t} candidate nodes at position i . During training, we adopt random negative sampling, where the candidate set sequence contains one positive sequence \mathcal{T}^{+}_{u,t} and one negative sequence \mathcal{T}^{-}_{u,t} .
+
+BLOCK 70 p S4.SS4.p4.1
+The term \Delta t(\mathcal{T}_{u,t})=t-t(\mathcal{T}_{u,t}) is the elapsed time sequence between the prediction time t and the last activity time of the destination sequence \mathcal{T}_{u,t} . \gamma denotes a linear layer that projects \Delta t to a time-context vector \mathbb{R}^{d} to capture the temporal status of the destination, following ( Yi et al., 2025a ) .
+
+BLOCK 71 p S4.SS4.p5.1
+The scoring network is optimized with either binary cross-entropy (BCE) loss or Bayesian Personalized Ranking ( Rendle et al., 2012 ) (BPR) loss. In the main text, we focus on the BCE case and defer the BPR formulation to the Appendix. To better exploit the sequential structure, we decompose the BCE loss into an intermediate-position loss \mathcal{L}_{\text{inter}} and a final-position loss \mathcal{L}_{\text{last}} , yielding the overall task loss:
+
+BLOCK 72 table S4.EGx8
+\displaystyle\mathcal{L_{\text{task}}}= \displaystyle\underbrace{-\log\sigma(\hat{y}^{+}_{t,L})-\log\big(1-\sigma(\hat{y}^{-}_{t,L})\big)}_{\mathcal{L}_{\text{last}}}+ (17) \displaystyle\lambda_{\text{inter}}\,\underbrace{\frac{1}{L-1}\sum_{i=1}^{L-1}-\log\sigma(\hat{y}^{+}_{t,i})-\log\big(1-\sigma(\hat{y}^{-}_{t,i})\big)}_{\mathcal{L}_{\text{inter}}}, (18)
+
+BLOCK 73 p S4.SS4.p5.2
+where \lambda_{\text{inter}} controls the relative contribution of the intermediate-position supervision. Finally, we combine the ranking loss with the diffusion reconstruction loss to obtain the overall training objective:
+
+BLOCK 74 table S4.E19
+\mathcal{L}=\mathcal{L}_{\text{task}}+\lambda_{\text{diff}}\,\mathcal{L}_{\text{diff}}, (19)
+
+BLOCK 75 p S4.SS4.p5.3
+where \lambda_{\text{diff}} balances the ranking objective and the diffusion reconstruction objective. In this way, the diffusion model is encouraged to produce denoised embeddings that are highly informative for ranking candidate nodes along the sequence. We train SDG in an end-to-end manner; the training procedure is shown in Algorithm 2
+
+BLOCK 76 h3 None
+4.5 Inference Process
+
+BLOCK 77 p S4.SS5.p1.1
+During the inference stage, we first derive the historical representation of the source node \mathbf{H}(S_{u,t}) . Starting from pure Gaussian noise, we then utilize the denoising network f_{\theta} to iteratively generate latent embeddings, following the DDPM samplers ( Ho et al., 2020 ) , until the inferred sequence embedding \mathbf{\hat{X}}^{0} is obtained. More details can be found in Algorithm 1 . Finally, we take out the last position of the destination embedding to produce the ranking scores for each destination node in the candidate set.
+
+BLOCK 130 h3 None
+A.3 Implementation Details
+
+BLOCK 131 p A1.SS3.p1.1
+Experiment Environment We conduct experiments on a server with AMD Ryzen 9 7950X with 16 cores and a NVIDIA RTX 4090 (24GB) GPU. The code is written in Python 3.11, and we use PyTorch 2.0.1 on CUDA 11.8 to train the model.
+
+BLOCK 132 p A1.SS3.p2.1
+Configuration Details. For all baselines except CRAFT, we follow the official configurations of DyGLib 4 4 4 https://github.com/yule-BUAA/DyGLib ( Yu et al., 2023 ) , and TGB-Seq 5 5 5 https://github.com/TGB-Seq/TGB-Seq ( Yi et al., 2025b ) . For CRAFT ( Yi et al., 2025a ) , we follow the original paper and disable shuffle-based training to ensure consistency with other temporal baselines that require the link stream to be processed in chronological order. This constraint leads to a noticeable performance drop compared to the original CRAFT results, but ensures a fair temporal evaluation. For SDG, we set the embedding size to 64 for small datasets and 128 for large ones, while the number of diffusion steps is searched over [32, 64, 96]. The loss weights \lambda_{\text{diff}} and \lambda_{\text{inter}} are tuned in the range [0.2, 0.4, \dots , 1.0]. We also tune the number of neighbors L in the range of [30, 60, 90] for each source node. All hyperparameters are chosen based on validation performance, and the optimal configurations for each dataset are reported in Table 5 .
+
+BLOCK 133 p A1.SS3.p3.1
+Loss Function. We also test SDG Bayesian Personalized Ranking loss, which is widely used and well-suited for ranking tasks. We choose BPR as the main loss for Flickr and Taobao as it give better results compare to BCE Loss. The \mathcal{L}_{task} for BPR version can be expressed as follows:
+
+BLOCK 134 table A1.EGx9
+\displaystyle\mathcal{L_{\text{task}}}= \displaystyle\underbrace{-\log\sigma(\hat{y}^{+}_{t,L}-\hat{y}^{-}_{t,L})}_{\mathcal{L}_{\text{last}}}+\lambda_{\text{inter}}\,\underbrace{\frac{1}{L-1}\sum_{i=1}^{L-1}-\log\sigma(\hat{y}^{+}_{t,i}-\hat{y}^{-}_{t,i})}_{\mathcal{L}_{\text{inter}}}, (20)
+
+BLOCK 135 p A1.SS3.p3.2
+where \hat{y}^{+}_{t,L} and \hat{y}^{-}_{t,i} denote the predicted scores for the positive and negative samples, respectively.
+
+BLOCK 136 p A1.SS3.p4.1
+Negative Sampling. ( Poursafaei et al., 2022 ) proposed two challenging strategies for future link prediction: historical and inductive negative sampling. In this work, we adopt multiple negative samples per positive interaction and follow the random negative sampling protocol used in prior benchmarks. Empirically, using multiple random negatives per instance is sufficiently challenging and provides a fair and consistent basis for comparison across models.
+
+BLOCK 137 p A1.SS3.p5.1
+Settings for Noisy Evaluation. As illustrated in Figure 4 , we assess model robustness by examining resistance to noise in both edges and timestamps. During training, models are learned under a transductive setting using random negative sampling. For evaluation, after neighbor sampling, we inject noise by randomly selecting \sigma\times L positions within each sequence, where both the node identities and timestamps at these positions are randomly perturbed. The noise ratio \sigma is varied from 0.1 to 0.6 to control the severity of corruption.
+
+BLOCK 138 p A1.SS3.p6.1
+Implementation for SDG under recurring datasets. Based on Table 4 , we categorize datasets into recurring ones with repeat ratio \geq 80\% and unseen ones with repeat ratio \leq 20\% . For recurring datasets, we incorporate repeat-time encoding ( Yi et al., 2025a ) into the scoring function in Equation 16 . For datasets with few repeated edges, we apply the default SDG model described in the main text, without repeat-time encoding.

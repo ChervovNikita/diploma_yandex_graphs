@@ -1,0 +1,19 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import base64,hashlib,json,os,subprocess
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930';root=phase/'amazon_polynormer_paired_family_execution_root_20261003_v3'
+os.chdir(repo)
+g=subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,timeout=15)
+assert Path.cwd()==repo and g.returncode==0 and g.stdout.strip()=='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+files=[]
+paths=[root/'V6_CONSUMER_RELEASE_v1.json',root/'v6_releases/runtime_cpu_v1.json',root/'v6_releases/runtime_gpu_v1.json']
+for name in ['v6_runtime_cpu_v1','v6_runtime_cuda0_v1','v6_execution_metadata_preparation_v1/after_runtime_disabled_v1']:
+ paths += [p for p in (root/name).rglob('*') if p.is_file()]
+for p in sorted(paths):
+ assert p.suffix in ('.json','.txt','.log') and p.is_relative_to(root) and not p.is_symlink()
+ raw=p.read_bytes();raw.decode('utf8')
+ files.append(dict(descriptor=dict(path=str(p.relative_to(phase)),sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw)),base64=base64.b64encode(raw).decode()))
+registry=json.loads((root/'registry/REGISTRY.json').read_text())
+absent=not any((phase/row[k]).exists() for row in registry['physical_fits'] for k in ('output','claim_path','release_path'))
+assert absent and not (root/'v6_qualification_block0_cuda0_v1').exists() and not (root/'v6_releases/qualification_v1.json').exists()
+print(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),route=dict(repository=str(repo),GPU_UUID=g.stdout.strip()),files=files,all15_registered_fit_paths_absent=absent,qualification_release_and_output_absent=True,read_only=True,arrays_checkpoints_runtime_binary_values_read=False),separators=(',',':')))
