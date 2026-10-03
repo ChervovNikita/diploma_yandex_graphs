@@ -1,0 +1,32 @@
+"""Read only exact successor execution files over the authorized77 route."""
+from datetime import datetime, timezone
+import base64
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+REPO = Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+PHASE = REPO / 'experiments_iclr/postsubmission_20260930'
+OUT = PHASE / 'source_model_gauge_byte_recheck_20261003_v1'
+assert subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=REPO,
+                      capture_output=True, text=True, check=True).stdout.strip() == str(REPO)
+uuids = subprocess.run(['nvidia-smi', '--query-gpu=uuid', '--format=csv,noheader'],
+                       capture_output=True, text=True, check=True).stdout.splitlines()
+assert set(uuids) == {'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998',
+                      'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'}
+names = ['recheck.py', 'RECHECK.json', 'EXECUTION.json', 'STDOUT.txt', 'STDERR.txt']
+assert set(p.name for p in OUT.iterdir()) == set(names)
+record = dict(schema='gauge-byte-recheck-exact-fetch-v1', UTC=datetime.now(timezone.utc).isoformat(),
+              remote_path=str(OUT), repo=str(REPO), GPU_UUIDs=uuids, files=[], originals=[])
+for name in names:
+    raw = (OUT / name).read_bytes()
+    record['files'].append(dict(path=name, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(),
+                                base64=base64.b64encode(raw).decode()))
+for relative in ['source_model_gauge_probe_20261003_v1/WITNESS.json',
+                 'graph_ncNC_member_completion_qualification_preparation_20261003_v2/MANIFEST.json']:
+    raw = (PHASE / relative).read_bytes()
+    record['originals'].append(dict(path=relative, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest()))
+assert record['originals'][0]['sha256'] == '9a6a738fa48816300b574cba57851d31831004867b1a6f9acf24346e79255bef'
+assert record['originals'][1]['sha256'] == 'a99b0e3b0e8ec597b03e2c390ac176597b5b6422d365fc20624ab98a113d42f9'
+print(json.dumps(record))
