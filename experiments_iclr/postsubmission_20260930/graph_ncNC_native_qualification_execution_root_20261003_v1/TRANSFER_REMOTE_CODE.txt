@@ -1,0 +1,19 @@
+from pathlib import Path
+import base64,zlib,json,sys,subprocess,hashlib
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+phase=repo/'experiments_iclr/postsubmission_20260930'
+packet=phase/'graph_ncNC_member_completion_qualification_preparation_20261003_v1'
+rows=json.loads(zlib.decompress(base64.b64decode(sys.stdin.read())))
+assert not packet.exists()
+for row in rows:
+ rel=Path(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+ p=packet/rel;assert p.resolve().is_relative_to(packet)
+ d=base64.b64decode(row['data']);assert len(d)==row['bytes'] and hashlib.sha256(d).hexdigest()==row['sha256']
+ p.parent.mkdir(parents=True,exist_ok=True)
+ with p.open('xb') as f:f.write(d)
+private=[str(p.relative_to(repo)) for p in (packet/'private_evidence').rglob('*') if p.is_file()]
+ignored=subprocess.run(['git','check-ignore','--',*private],cwd=repo,capture_output=True,text=True,check=True).stdout.splitlines()
+assert set(ignored)==set(private)
+print(json.dumps(dict(files=len(rows),manifest_sha256=hashlib.sha256((packet/'MANIFEST.json').read_bytes()).hexdigest(),private_reference_files=len(private),all_private_reference_files_git_ignored=True,model_imported=False,training_started=False)))

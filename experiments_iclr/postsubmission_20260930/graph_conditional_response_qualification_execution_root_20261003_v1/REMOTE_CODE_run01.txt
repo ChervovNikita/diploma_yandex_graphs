@@ -1,0 +1,22 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,base64,zlib,hashlib,sys,subprocess,os,time,resource
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+phase=repo/'experiments_iclr/postsubmission_20260930';packet=phase/'graph_conditional_response_qualification_preparation_20261003_v1';root=phase/'graph_conditional_response_qualification_execution_root_20261003_v1'
+value=json.loads(zlib.decompress(base64.b64decode(sys.stdin.read())))
+assert not packet.exists() and not root.exists()
+for row in value['files']:
+ rel=Path(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+ p=packet/rel;assert p.resolve().is_relative_to(packet)
+ data=base64.b64decode(row['data']);assert len(data)==row['size'] and hashlib.sha256(data).hexdigest()==row['sha256'];p.parent.mkdir(parents=True,exist_ok=True)
+ with p.open('xb') as f:f.write(data)
+root.mkdir();auth=root/'NUMERICAL_AUTHORIZATION_run01.json';auth.write_text(json.dumps(value['authorization'],indent=2)+chr(10))
+env=os.environ.copy();env.update(CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',MKL_NUM_THREADS='1',PYTHONDONTWRITEBYTECODE='1')
+args=[str(repo/'.venv/bin/python'),'-B',str(packet/'prepared_witnesses.py'),'--execute-prepared-numerical-witnesses','--authorization-file',str(auth)]
+start=time.monotonic();result=subprocess.run(args,cwd=packet,env=env,capture_output=True,text=True,timeout=90)
+(root/'run01.stdout.log').write_text(result.stdout);(root/'run01.stderr.log').write_text(result.stderr)
+receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),exit_code=result.returncode,seconds=time.monotonic()-start,peak_child_RSS_KiB=resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,stdout=result.stdout,stderr=result.stderr,source_manifest_sha256=value['authorization']['source_manifest_sha256'],CPU_only=True,scientific_predictive_experiment=False)
+with (root/'EXECUTION_RECEIPT_run01.json').open('x') as f:json.dump(receipt,f,indent=2);f.write(chr(10))
+print(json.dumps(receipt));sys.exit(result.returncode)

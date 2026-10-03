@@ -1,0 +1,22 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,subprocess,os,sys,time,resource,hashlib
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+phase=repo/'experiments_iclr/postsubmission_20260930';root=phase/'graph_ncNC_native_qualification_execution_root_20261003_v1';packet=phase/'graph_ncNC_member_completion_qualification_preparation_20261003_v1'
+assert hashlib.sha256((packet/'MANIFEST.json').read_bytes()).hexdigest()=='ac04bc7f6f6f37b86c50d38436aee111e987195c5f992816c4a5ef9d175887ae'
+run=root/'run01';run.mkdir(exist_ok=False)
+env=os.environ.copy();env.update(PYTHONPATH=str(root/'runtime_overlay'),CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',MKL_NUM_THREADS='1',PYTHONDONTWRITEBYTECODE='1')
+records=[]
+for name,script in [('source_check','source_check.py'),('engineering_qualification','qualify.py')]:
+ args=[str(repo/'.venv/bin/python'),'-B',str(packet/script),'--output',str(run/(name+'.json'))]
+ start=time.monotonic();r=subprocess.run(args,cwd=packet,env=env,capture_output=True,text=True,timeout=90)
+ (run/(name+'.stdout.log')).write_text(r.stdout);(run/(name+'.stderr.log')).write_text(r.stderr)
+ records.append(dict(stage=name,exit_code=r.returncode,seconds=time.monotonic()-start,stdout=r.stdout,stderr=r.stderr))
+ if r.returncode:break
+receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),process_records=records,peak_child_RSS_KiB=resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,CUDA_visible_devices='',threads=1,scientific_fit_or_data_access_authorized=False,original_studies_modified=False)
+with (run/'EXECUTION_RECEIPT.json').open('x') as f:json.dump(receipt,f,indent=2);f.write(chr(10))
+print(json.dumps(receipt))
+result=run/'engineering_qualification.json'
+if result.exists():print(result.read_text())
+sys.exit(records[-1]['exit_code'])
