@@ -1,0 +1,35 @@
+
+import json,os,pathlib,subprocess,sys
+repo=pathlib.Path(sys.argv[1]);uuid=sys.argv[2]
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+inventory=subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()
+assert inventory==[uuid], 'Wrong allocation'
+packet=repo/'experiments_iclr/postsubmission_20260930/graph_paired_squirrel_continuation_preparation_v2'
+start=json.loads((packet/'launch_root01/START.json').read_text());pid=start['PID']
+assert start['route_uuid']==uuid and start['prepared_manifest_sha256']=='3f2d8faa81039fd6e5ceb5fecf7ea4b46bf725b516dbb040827926a92ddde452'
+proc=pathlib.Path('/proc')/str(pid)
+alive=proc.exists()
+if alive:
+ assert pathlib.Path(os.readlink(proc/'cwd'))==repo
+ assert str(packet/'prototype/continue_squirrel.py') in (proc/'cmdline').read_bytes().decode().split('\0')
+run=packet/'runs/root01';terminal=run/'STAGE1.json'
+progress=[]
+for trace in sorted(run.glob('seed*_split*/*/continuation_trace.jsonl')):
+ lines=trace.read_text().splitlines()
+ last=json.loads(lines[-1]) if lines else {}
+ progress.append(dict(cell=str(trace.parent.relative_to(run)),trace_records=len(lines),continuation_epoch=last.get('continuation_epoch'),actual_update=last.get('actual_update')))
+receipt=dict(alive=alive,PID=pid,progress_only=progress,selected_receipts=len(list(run.glob('seed*_split*/*/SELECTION.json'))),failure_receipts=len(list(run.glob('seed*_split*/*/FAILURE.json'))),terminal_exists=terminal.exists(),validation_comparison_disclosed=False,final_labels_read=False)
+if terminal.exists():
+ result=json.loads(terminal.read_text());receipt['status']=result['status']
+ receipt['error']=result.get('error_message')
+ receipt['block_statuses']=[dict(seed=b['seed'],status=b['status'],error=b.get('error_message'),fits={a:r['status'] for a,r in b['fits'].items()}) for b in result['blocks']]
+ development=result.get('development')
+ if development and development.get('all12_selected_fits') is True and result['status']=='development_comparison_complete':
+  receipt['development']=development;receipt['validation_comparison_disclosed']=True
+  receipt['whole_study_wall_seconds']=result['wall_seconds']
+ else:
+  receipt['development_status']=development.get('status') if development else None
+elif not alive:
+ receipt['unexpected_missing_terminal_log_tail']=(packet/'launch_root01/execution.log').read_text()[-2500:]
+receipt['GPU_utilization']=subprocess.run(['nvidia-smi','--query-gpu=uuid,utilization.gpu,memory.used','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.strip()
+print(json.dumps(receipt))
