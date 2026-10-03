@@ -1,0 +1,40 @@
+
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json,subprocess
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+phase=repo/'experiments_iclr/postsubmission_20260930'
+native=phase/'graph_heterogeneous_dblp_native_challengers_preparation_20261003_v2'
+supervisor=phase/'graph_heterogeneous_dblp_native_cpu_supervisor_preparation_20261003_v1'
+name='root_native_serial_CPU_run01'
+run=native/'runs'/name
+sr=supervisor/'runs'/name
+def desc(p):
+ p=p.resolve();return dict(path=str(p),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+receipt=json.loads((sr/'SUPERVISOR_RECEIPT.json').read_text())
+assert receipt['status']=='child_completed' and receipt['exit_code']==0
+assert receipt['owned_child_reaped'] is True and receipt['originals_preserved'] is True
+study_desc=desc(run/'STUDY.json')
+assert receipt['canonical_study']==study_desc
+assert receipt['root_release']==desc(supervisor/'admissions'/f'{name}.json')
+study=json.loads((run/'STUDY.json').read_text())
+seeds=[131,137,139,149,151];arms=['native_GAT','native_Simple_HGN','native_SeHGNN']
+assert [(r['seed'],r['arm']) for r in study['rows']]==[(s,a) for s in seeds for a in arms]
+assert study['summary']['status']=='complete_development_challengers'
+assert study['summary']['all_frozen_terminals'] is True
+assert study['summary']['TEST_label_reads']==study['summary']['TEST_diagnostics']==0
+assert study['summary']['successful_subset_scored'] is False
+assert study['original_inputs_unchanged'] is True and study['preservation_error'] is None
+cases=[]
+for row in study['rows']:
+ assert row['status']=='selected' and row['selected_state_replay'] is True
+ assert row['TEST_label_reads']==row['TEST_diagnostics']==0
+ cell=run/f"seed{row['seed']}"/row['arm']
+ assert json.loads((cell/'SELECTION.json').read_text())==row
+ cases.append(dict(seed=row['seed'],arm=row['arm'],artifacts={n:desc(cell/n) for n in ['SELECTION.json','TRACE.jsonl','selected.pt','selected_validation_logits.pt']}))
+owned=json.loads((sr/'OWNED_CHILD.json').read_text())
+assert owned['pid']==receipt['owned_child_pid'] and owned['argv']==receipt['argv']
+assert not Path('/proc',str(owned['pid'])).exists(),'Original native child PID remains live'
+print(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),status='closed_selected15_root_metadata_verified',study=study_desc,graph_schema=desc(run/'GRAPH_SCHEMA.json'),supervisor_receipt=desc(sr/'SUPERVISOR_RECEIPT.json'),supervisor_record=receipt,cases=cases,all15_selected=True,training_child_reaped=True,root_observed=True,tensor_payloads_deserialized=False,development_labels_opened=False,heldout_labels_opened=False,numerical_scores_disclosed=False,independent_replay_audit_complete=False)))
