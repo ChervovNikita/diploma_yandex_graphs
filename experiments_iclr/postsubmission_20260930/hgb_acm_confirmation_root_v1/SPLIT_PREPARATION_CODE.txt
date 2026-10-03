@@ -1,0 +1,24 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,hashlib,subprocess,numpy as np,importlib.util
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930'
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+root=phase/'hgb_acm_confirmation_root_v1';schema=json.loads((root/'acquisition01/ACQUISITION_SCHEMA.json').read_text());source=schema['development_labels']
+b=Path(source['path']).read_bytes();assert len(b)==source['bytes'] and hashlib.sha256(b).hexdigest()==source['sha256'];original=json.loads(b)
+lookup={int(k):v for k,v in original['labels'].items()};ids=sorted(lookup);assert len(ids)==907 and original['source_member']=='ACM/label.dat' and original['target_type']==0
+assert original['source_member_sha256']==schema['member_sha256']['ACM/label.dat'];assert set(lookup.values())=={0,1,2}
+out=root/'split_freeze_v1';out.mkdir(exist_ok=False)
+value=dict(scope='TRAIN_VAL_ONLY',archive_sha256=schema['archive_sha256'],source_member='ACM/label.dat',source_member_sha256=original['source_member_sha256'],target_type='0',node_ids=ids,labels=[lookup[n] for n in ids],train_class_schema=[0,1,2])
+path=out/'CANONICAL_DEVELOPMENT_LABELS.json';data=(json.dumps(value,indent=2,sort_keys=True)+'\n').encode();path.write_bytes(data)
+descriptor=dict(path=str(path),sha256=hashlib.sha256(data).hexdigest(),bytes=len(data));(out/'DEVELOPMENT_DESCRIPTOR.json').write_text(json.dumps(descriptor,indent=2)+'\n')
+module_path=phase/'graph_heterogeneous_dblp_training_preparation_20261003_v2/dblp_inputs.py';spec=importlib.util.spec_from_file_location('original_pure_development_reader',module_path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+development=m.read_development_labels(descriptor,schema['archive_sha256']);rows=[]
+for seed in (131,137,139,149,151):
+ shuffled=np.array(ids,dtype=np.int64);np.random.RandomState(seed).shuffle(shuffled);cut=int(.2*len(ids))
+ value=dict(seed=seed,algorithm='NumPy RandomState(seed) shuffle sorted development IDs; first floor(0.2N) validation',development_descriptor=descriptor,train_ids=sorted(shuffled[cut:].tolist()),validation_ids=sorted(shuffled[:cut].tolist()))
+ path=out/f'seed{seed}.json';data=(json.dumps(value,indent=2,sort_keys=True)+'\n').encode();path.write_bytes(data);record=dict(path=str(path),sha256=hashlib.sha256(data).hexdigest(),bytes=len(data))
+ verified,train,validation=m.verify_split(record,development,seed);assert len(train)==726 and len(validation)==181
+ rows.append(dict(seed=seed,descriptor=record,train_nodes=len(train),validation_nodes=len(validation),train_class_counts={str(c):train.count(c) for c in range(3)},validation_class_counts={str(c):validation.count(c) for c in range(3)}))
+receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),splits=rows,development_descriptor=descriptor,NumPy_version=np.__version__,original_reader_sha256=hashlib.sha256(module_path.read_bytes()).hexdigest(),split_rule_unchanged=True,source_train_class_coverage_verified=True,heldout_archive_payload_opened=False,models_executed=False,DBLP_outcomes_read=False,label_values_copied_locally=False)
+(out/'SPLIT_BINDINGS.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt))
