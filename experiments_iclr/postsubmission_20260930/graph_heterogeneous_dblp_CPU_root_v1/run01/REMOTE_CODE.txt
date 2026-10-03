@@ -1,0 +1,23 @@
+
+import base64,hashlib,json,os,pathlib,subprocess,sys,time
+repo=pathlib.Path(sys.argv[1]);request=json.load(sys.stdin)
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+phase=repo/'experiments_iclr/postsubmission_20260930'
+for row in request['files']:
+ rel=pathlib.PurePosixPath(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+ path=phase/rel;body=base64.b64decode(row['data']);assert hashlib.sha256(body).hexdigest()==row['sha256']
+ if path.exists():assert path.read_bytes()==body,str(rel)
+ else:path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body)
+impl=phase/'graph_heterogeneous_dblp_training_preparation_20261003_v1'
+assert hashlib.sha256((impl/'MANIFEST.json').read_bytes()).hexdigest()=='6bb754f75ff6512900b49e85b91fde11a88ae2a63f68969448d7f9c3d1d7d02c'
+out=phase/'graph_heterogeneous_dblp_CPU_root_v1/run01';out.mkdir(parents=True,exist_ok=False)
+env=dict(os.environ,CUDA_VISIBLE_DEVICES='',DGLBACKEND='pytorch',OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',PYTHONPATH=str(repo/'.gnnm_runtime/hgb_dgl_cpu_v1/site'))
+py=str(repo/'.venv/bin/python')
+verify=subprocess.run([py,'-I','-S','-B',str(impl/'verify_source.py')],cwd=repo,capture_output=True,text=True,timeout=20)
+assert verify.returncode==0,verify.stderr
+started=time.monotonic()
+run=subprocess.run([py,'-B',str(impl/'cpu_training_fixtures.py')],cwd=repo,env=env,capture_output=True,text=True,timeout=50)
+receipt=dict(exit_code=run.returncode,wall_seconds=time.monotonic()-started,stdout=run.stdout,stderr=run.stderr,source_verification=json.loads(verify.stdout),uploaded_files=len(request['files']),manifest_sha256=request['manifest_sha256'],scope=dict(remote_CPU_execution=True,synthetic_labels_autograd=True,original_dataset_or_label_payloads=False,GPU_model_execution=False,optimizer_or_training_driver_execution=False))
+(out/'RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+print(json.dumps(receipt));sys.exit(run.returncode)

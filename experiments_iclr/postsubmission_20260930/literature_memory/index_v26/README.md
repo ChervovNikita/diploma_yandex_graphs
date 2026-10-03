@@ -1,0 +1,5 @@
+# Literature memory
+
+117 saved conclusion records cover 73 normalized paper identifiers and 2 software identifiers. This packet adds 6 primary method scopes: GNN-FiLM: Graph Neural Networks with Feature-wise Linear Modulation, Unifying Multi-Domain Multi-Task Learning: Tensor and Neural Network Perspectives, Adaptive Graph Mixture of Residual Experts: Unsupervised Learning on Diverse Graphs with Heterogeneous Specialization, HGEN: Heterogeneous Graph Ensemble Networks, LHGEL: Large Heterogeneous Graph Ensemble Learning using Batch View Aggregation, Self-Routed Tensor Adapters for Parameter-Efficient Universal Visual Adaptation. Neither scoped method reads nor revisits count as full-paper reads. The cumulative full-paper-read total remains uncertified. Integration opened no primary text.
+
+New saved conclusions: hgt_cp_residual_closest_prior_art_20261003_v1/REPORT.md and PAPER_CONCLUSIONS.json. Previously indexed conclusions and their hashes are preserved. Composition assessments are conditional proposals, not predictive results or execution admissions. Known ingredients and current resource limits do not by themselves reject scientific merit.

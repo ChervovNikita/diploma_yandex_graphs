@@ -1,0 +1,19 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json,subprocess,zipfile
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930'
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+archive=phase/'hgb_data_acquisition_root_v1/download01/DBLP.zip';archive_sha=hashlib.sha256(archive.read_bytes()).hexdigest();assert archive_sha=='0d3ea4a74399f9cd3e83af206e8e0b67e1844fe2c8463b424189884dd58ad7c8'
+with zipfile.ZipFile(archive) as z:body=z.read('DBLP/label.dat')
+label_sha=hashlib.sha256(body).hexdigest();assert label_sha=='5f5fd3841ef1ad99de706ac3399e1439b0cb81818bd3d951653c11ac0e94d589'
+labels={}
+for line in body.decode().splitlines():
+ parts=line.split('\t');assert len(parts)==4 and int(parts[2])==0
+ nid,label=int(parts[0]),int(parts[3]);assert 0<=nid<4057 and 0<=label<4 and nid not in labels;labels[nid]=label
+assert len(labels)==1217
+root=phase/'graph_heterogeneous_dblp_execution_root_v1';root.mkdir(exist_ok=False)
+ids=sorted(labels);data=dict(scope='TRAIN_VAL_ONLY',archive_sha256=archive_sha,source_label_member_sha256=label_sha,target_type='0',node_ids=ids,labels=[labels[i] for i in ids],train_class_schema=[0,1,2,3])
+f=root/'DEVELOPMENT_LABELS.json';f.write_text(json.dumps(data,indent=2)+'\n');descriptor=dict(path=str(f),sha256=hashlib.sha256(f.read_bytes()).hexdigest(),bytes=f.stat().st_size)
+(root/'DEVELOPMENT_DESCRIPTOR.json').write_text(json.dumps(descriptor,indent=2)+'\n')
+receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),label_source='DBLP/label.dat only',development_nodes=len(ids),descriptor=descriptor,archive_sha256=archive_sha,heldout_member_decompressed=False,model_or_optimizer_executed=False,study_adopted=False)
+(root/'DEVELOPMENT_EXPORT_RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt))
