@@ -1,0 +1,19 @@
+# Separate root release schema
+
+Schema: `ncnc-selected-state-replay-root-release-v1`. Execution requires `execution_enabled:true`, `authorized_stages:["selected_state_replay"]`, a nonempty root authorization reference and exactly one authorized invocation containing stage, canonical fresh output_directory and physical GPU UUID. Environment CUDA_VISIBLE_DEVICES must equal that UUID. Source packet self-admission is not a release.
+
+Bind this sidecar's exact MANIFEST.json hash, absolute driver/design/prototype/resource roots and original manifest hashes, exact original family_id/family_lock_output_directory, and absolute `{path,bytes,sha256}` descriptors for original data/runtime authorities and immutable FAMILY_LOCK.json. All paths must be canonical, without borrowed symlinks. TRAIN/raw/VALID authority contains exactly four original files; TEST is excluded.
+
+Three independent receipt descriptors are mandatory:
+
+- `independent_source_review`: schema `ncnc-selected-state-replay-source-review-v1`, status PASS, exact sidecar_manifest_sha256 and original identity.
+- `ordinary_runtime_synthetic_qualification`: schema `ncnc-selected-state-replay-synthetic-qualification-v1`, status PASS, exact sidecar hash and original identity. Root must retain the exact trusted fabricated-state QA source/invocation/custody, ordinary-runtime identity and the checks listed in README. The stdlib preparation receipt cannot satisfy this gate.
+- `runtime_resource_admission`: schema `ncnc-selected-state-replay-runtime-resource-admission-v1`, status PASS, exact sidecar hash/original identity, family_lock_sha256, exact authorized invocation and dispatch_recheck_required:true. Root must measure/admit the replay runtime/resource budget and recheck availability immediately before dispatch. The dated monitor observation is not this receipt.
+
+`unit_custody` must contain every20 `(unit,base_seed)` exactly once. Units are native_bank4, factor_private4, factor_pooled4 and native70; seeds0..4. Each row contains original canonical output_directory, disposition COMPLETE or TERMINAL_FAILED, and unit-local basename descriptors for terminal (COMPLETE.json or FAILED.json), attempts (ATTEMPTS.json), journal (JOURNAL.json or null only for failed units) and immutable closure (FAMILY_CLOSURE.json). The journal authenticates its own alternating STATE_SLOT_0.pt or STATE_SLOT_1.pt. COMPLETE authenticates exact selected checkpoint/selection files for every served arm. A COMPLETE row additionally binds an absolute `physical_terminal` descriptor for its original child terminal JSON with unit,base_seed,output_directory and integer exit_code0. No raw selected metric needs to be entered into the release.
+
+Original FAMILY_LOCK.inputs supplies and must match each terminal hash/output/disposition. Terminal failure retirement must carry the original explicit immutable authorization. FAILED attempts/journal pins must equal the original failure receipt's pins. No active attempt is admitted; interrupted prior attempts retain null total time and observed lower bounds. Every marker binds this exact lock path/hash/status and prohibits resume or seed replacement.
+
+The original identity has eight fields: driver_manifest_sha256, design_manifest_sha256, prototype_manifest_sha256, resource_manifest_sha256, data_authority_sha256, runtime_authority_sha256, family_id and family_lock_output_directory. It deliberately remains the driver's identity; sidecar identity is bound separately. No change to original checkpoints, selectors, authority, fit or closure schema is required.
+
+The release template is nonexecutable: execution_enabled:false and empty invocations/unit custody. Filling placeholders is necessary but insufficient without independent source review, ordinary-runtime synthetic qualification and root admission.

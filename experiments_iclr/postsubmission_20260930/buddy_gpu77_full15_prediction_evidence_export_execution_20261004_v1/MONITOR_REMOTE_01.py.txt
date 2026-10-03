@@ -1,0 +1,79 @@
+
+from pathlib import Path
+from datetime import datetime,timezone
+import os,base64,hashlib,json,subprocess
+REPO=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+HERE=REPO/'experiments_iclr/postsubmission_20260930/buddy_gpu77_postfamily_eval_preparation_v4'
+SUP=HERE/'root_predictions_supervision_20261004_v1'
+EVAL=HERE/'root_predictions_v1'
+assert Path.cwd().resolve()==REPO
+def safe(path):
+ assert path.resolve().is_relative_to(REPO) and not path.is_symlink()
+ for parent in path.parents:
+  if parent==REPO:break
+  assert not parent.is_symlink()
+ return path
+def raw(path):
+ safe(path);assert path.is_file() and path.stat().st_size<=2*1024*1024
+ data=path.read_bytes();data.decode('utf-8');assert b'\0' not in data
+ return data
+def read(path):return json.loads(raw(path))
+def handle(value):
+ pid=value['pid'];stat=Path(f'/proc/{pid}/stat')
+ if not stat.exists():return dict(**value,observation='absent')
+ text=stat.read_text();fields=text[text.rfind(')')+2:].split();ticks=int(fields[19])
+ if ticks!=value['start_ticks']:return dict(**value,observation='PID_reused',observed_start_ticks=ticks)
+ return dict(**value,observation='same_identity',state=fields[0],ppid=int(fields[1]),pgid=int(fields[2]),sid=int(fields[3]),
+ observed_argv=[p.decode() for p in Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0') if p],
+ observed_cwd=os.readlink(f'/proc/{pid}/cwd'),user_ticks=int(fields[11]),system_ticks=int(fields[12]),RSS_pages=int(fields[21]))
+launch=read(SUP/'DETACHED_LAUNCH.json')
+assert launch['status']=='LAUNCHED_ONCE' and launch['runner_handle']=={'pid': 3180325, 'start_ticks': 1721586835, 'argv': ['/usr/bin/python3', '-I', '-S', '-B', '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/buddy_gpu77_postfamily_eval_preparation_v4/root_predictions_supervision_20261004_v1/run_prediction_export_once.py']}
+assert launch['admission']['sha256']=='3057f8b7cac62278ec4dfcf8a149cc41d84671cc98157c0af5ffcdbacfc88623'
+assert hashlib.sha256(raw(HERE/'ROOT_PREDICTION_EXPORT_ADMISSION.json')).hexdigest()==launch['admission']['sha256']
+assert hashlib.sha256(raw(SUP/'run_prediction_export_once.py')).hexdigest()=='78943faec665b260d2077123df24c2cfdf6e1665e60a8719e213e22f1f3a225a'
+paths=[HERE/'ROOT_PREDICTION_EXPORT_ADMISSION.json',SUP/'run_prediction_export_once.py',SUP/'DETACHED_LAUNCH.json',
+ SUP/'RUNNER_STARTED.json',SUP/'CHILD_STARTED.json']
+terminal=SUP/'PHYSICAL_TERMINAL.json'
+physical=read(terminal) if terminal.exists() else None
+receipt=read(EVAL/'PREDICTIONS_RECEIPT.json') if physical and (EVAL/'PREDICTIONS_RECEIPT.json').exists() else None
+lock=read(HERE/'root_lock_v1/FAMILY_LOCK.json')
+assert hashlib.sha256(raw(HERE/'root_lock_v1/FAMILY_LOCK.json')).hexdigest()=='4d4041ad0d02a36c94bd9112f4e01029fb722eee75339a5743a0259435c33fd9'
+assert len(lock['runs'])==15
+
+completed_count=len(receipt.get('completed_exports',[])) if receipt else None
+all15=bool(physical and physical['exit_code']==0 and receipt and receipt['status']=='all15_prediction_evidence_replays_exported_once' and completed_count==15 and receipt['extra_forwards']==15)
+server_descriptors=[];server_issues=[]
+def tensor_descriptor(path):
+ safe(path)
+ if not path.is_file():return None
+ h=hashlib.sha256();count=0
+ with path.open('rb') as stream:
+  while chunk:=stream.read(1024*1024):h.update(chunk);count+=len(chunk)
+ return dict(path=str(path.relative_to(REPO)),bytes=count,sha256=h.hexdigest(),tensor_fetched=False)
+if all15:
+ assert {(row['arm'],row['seed']) for row in receipt['completed_exports']}=={(row['arm'],row['seed']) for row in lock['runs']}
+ for item in receipt['completed_exports']:
+  path=EVAL/f"{item['arm']}_seed{item['seed']}.pt";observed=tensor_descriptor(path)
+  if not observed or observed['bytes']!=item['bytes'] or observed['sha256']!=item['file_sha256']:server_issues.append(str(path))
+  if observed:server_descriptors.append(observed)
+ order=tensor_descriptor(EVAL/'CANDIDATE_ORDER.pt')
+ if not order or order['sha256']!=receipt['candidate_order_file_sha256']:server_issues.append(str(EVAL/'CANDIDATE_ORDER.pt'))
+ if order:server_descriptors.append(order)
+if physical:
+ paths += [terminal,SUP/'CHILD.stdout.log',SUP/'CHILD.stderr.log',SUP/'RUNNER.stdout.log',SUP/'RUNNER.stderr.log',
+           EVAL/'EXPORT_CLAIM.json',EVAL/'PREDICTIONS_RECEIPT.json']
+rows=[];missing=[];oversized=[]
+for path in paths:
+ safe(path);relative=str(path.relative_to(REPO))
+ if not path.exists():missing.append(relative);continue
+ if path.stat().st_size>2*1024*1024:oversized.append(dict(path=relative,bytes=path.stat().st_size));continue
+ data=raw(path);rows.append(dict(path=relative,bytes=len(data),sha256=hashlib.sha256(data).hexdigest(),data_base64=base64.b64encode(data).decode()))
+handles=[handle(launch['runner_handle'])]
+if (SUP/'CHILD_STARTED.json').exists():handles.append(handle(read(SUP/'CHILD_STARTED.json')['identity']))
+status='ALL15_PHYSICALLY_COMPLETE' if all15 else ('PHYSICALLY_TERMINATED_WITHOUT_ALL15_SUCCESS' if physical else 'RUNNING_OR_TERMINAL_RECEIPT_PENDING')
+print(json.dumps(dict(schema='buddy77_owned_prediction_export_readonly_monitor_fetch_v1',UTC=datetime.now(timezone.utc).isoformat(),
+ status=status,sequence=1,all15_closure_established=all15,completed_export_rows=completed_count,server_only_export_descriptors=server_descriptors,server_export_retention_issues=server_issues,
+ physical_exit_code=physical['exit_code'] if physical else None,stage_status=receipt['status'] if receipt else None,
+ files=rows,missing=missing,oversized=oversized,owned_handles=handles,
+ export_receipts_fetched_after_physical_closure=True,large_tensor_payloads_fetched=False,
+ scientific_binary_payloads_fetched=False,export_relaunched=False,remote_writes=False)))
