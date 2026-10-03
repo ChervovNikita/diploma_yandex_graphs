@@ -1,13 +1,9 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-03T07:56:20.306712+00:00. The goal remains incomplete. No verified predictive improvement, established methodological novelty or fresh manuscript acceptance is claimed.
+Updated: 2026-10-03T10:05:21.351673+00:00. The complete goal remains active and incomplete. No new verified predictive advantage, established methodological novelty or fresh manuscript acceptance is claimed. Original paper scores remain unchanged.
 
-[Current status](PUBLIC_STATUS.md) contains the latest completed comparisons, live studies and proposal qualifications. RESEARCH_LEDGER.json retains the complete decision and failure history. The preceding state file is preserved in coordination_snapshots/20261003_user_real_progress_update_v1/RESEARCH_STATE.md.
+[Current status](PUBLIC_STATUS.md) reports the live studies and actual implementation qualifications. RESEARCH_LEDGER.json retains decisions, failed attempts, provenance and review history. Previous files are preserved in coordination_snapshots/20261003_full_native_GPU_and_conditional_CPU_actual_pass_v1.
 
-## Current direction
+NCNC's corrected model now passed native full-graph GPU parity and both complete M4 training-resource epochs. The conditional graph-response model passed all 8 native CPU engineering families. Next work is prospectively fixed representative predictive pilots with strong controls, alongside complete-family audits of the running initializer, mixed40 and BUDDY studies. Preparation and engineering checks do not establish scientific success.
 
-Complete the already running graph-initializer, mixed shared/private objective and BUDDY studies. Qualify the NCNC composition that retains each member's completion weights with its own decoder, and the PolyFormer composition that changes graph-conditioned prediction responses through private factors. Stronger baseline comparisons and representative predictive evidence are required before revising methodological claims.
-
-## Authorization
-
-Science runs inside the intended one-GPU project repository or the project repository on 18.77 with two GPUs. The seven-GPU account is only the MacLink forwarding relay. Original paper scores remain unchanged. Normal incidental runtime caches are allowed. No sudo, PDF compilation, GENLINK or unrelated-file changes. Fresh manuscript reviewers use immutable evidence and the supplied skill without author history or a requested verdict.
+Science remains in the explicit one-GPU repository or the authorized 18.77 repository. The seven-GPU account is only the MacLink forwarding relay. Normal incidental caches are allowed. No sudo, PDF compilation, GENLINK or unrelated writes. Fresh manuscript reviewers receive immutable manuscript/evidence through the supplied skill without author history or a requested verdict.

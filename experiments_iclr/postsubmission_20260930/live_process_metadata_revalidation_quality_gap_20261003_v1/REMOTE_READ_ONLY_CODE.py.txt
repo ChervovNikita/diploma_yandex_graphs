@@ -1,0 +1,84 @@
+
+from collections import Counter
+from datetime import datetime, timezone
+import hashlib,json,os
+from pathlib import Path
+import subprocess
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+phase=repo/'experiments_iclr/postsubmission_20260930'
+os.chdir(repo)
+def digest(b): return hashlib.sha256(b).hexdigest()
+def read(p):
+ p=Path(p)
+ assert p.is_absolute() and p.is_relative_to(phase) and '..' not in p.parts
+ assert not any(q.is_symlink() for q in [p,*p.parents] if q.is_relative_to(phase))
+ b=p.read_bytes(); return json.loads(b), {'path':str(p),'sha256':digest(b),'bytes':len(b)}
+def metadata(p,fields):
+ p=Path(p)
+ if not p.is_file(): return {'path':str(p),'exists':False}
+ d,r=read(p); return dict(r,exists=True,metadata={k:d[k] for k in fields if k in d})
+terminal_fields=('schema','UTC','start_UTC','terminal_UTC','completed','complete','exit_code','timed_out','within_whole_cap','root_request_unchanged','automatic_retry','automatic_restart','unrelated_processes_touched','registered_successful_terminals','compare_or_final_labels_executed','compare_report_or_final_labels_executed','final_labels_authorized','final_labels_read','seconds','whole_supervised_seconds','phase_wall_seconds','error_type','this_coordinator_run_blocked','closure_blocked')
+start_fields=('schema','UTC','start_UTC','PID','pid','child_PID','child_pid','child_pgid','supervisor_pid','supervisor_PID','process_group','pgid','whole_cap_seconds','final_labels_authorized','scientific_source_changed','scientific_retry')
+regpath=phase/'graph_init_precision_execution_root_v2/study_v2/GRAPH_INIT_ATTEMPT_REGISTRY.json'
+registry,regrec=read(regpath)
+assert regrec['sha256']=='715c361c82b543d4c436a565ccaa86470a9204433998d410954f2f268300307f'
+anchor=Path(registry['anchor_directory']); known={r['key']:r for r in registry['attempts']}
+claims={p.stem for p in (anchor/'claims').glob('*.json')};terms={p.stem for p in (anchor/'terminals').glob('*.json')}
+counts=Counter(); rows=[];inventory=[];fits=[]
+for key,row in sorted(known.items()):
+ item={'key':key,'phase':row['phase'],'arm':row['arm'],'output':str(Path(row['output']).relative_to(anchor)),'claim_present':key in claims,'terminal_present':key in terms}
+ if key in terms:
+  t,tr=read(anchor/'terminals'/(key+'.json'));item.update(completed=t.get('completed'),final_labels_read=t.get('final_labels_read'),terminal=tr)
+  consistent=False
+  if key in claims and t.get('completed') is True and t.get('final_labels_read') is False:
+   cl,cr=read(anchor/'claims'/(key+'.json'));fr=t.get('freeze',{})
+   if fr.get('path')==str(Path(row['output'])/'FREEZE.json'):
+    f,actual_fr=read(fr['path'])
+    consistent=(t.get('schema')=='graph-init-attempt-terminal-v1' and t.get('claim')=={k:cr[k] for k in ('path','sha256')} and cl.get('attempt_registry')=={k:regrec[k] for k in ('path','sha256')} and cl.get('attempt')==row and cl.get('automatic_retry') is False and fr=={k:actual_fr[k] for k in ('path','sha256')} and f.get('completed') is True and f.get('phase')==row['phase'] and f.get('context_sha256')==row['context_sha256'] and f.get('output_root')==row['output'] and f.get('attempt_registry')=={k:regrec[k] for k in ('path','sha256')} and f.get('attempt_claim')=={k:cr[k] for k in ('path','sha256')} and f.get('final_labels_read') is False and f.get('admission')==cl.get('admission'))
+    if row['phase'] in ('qualify','initialize'):consistent=consistent and f.get('passed') is True
+    item['freeze']=actual_fr
+  item['canonical_identity_metadata_consistent']=consistent
+  status='completed' if consistent else 'terminal_requires_audit'
+  inventory.append({'key':key,'terminal':tr,'freeze':item.get('freeze')})
+  if status=='completed' and row['phase']=='fit': fits.append(item['output'])
+ else:status='unresolved_claim' if key in claims else 'unexecuted'
+ item['status']=status;counts[(row['phase'],status)]+=1;rows.append(item)
+recovery=phase/'graph_init_precision_continuation_v3_cap_binding/coordinator_run_v4_occupied_recovery'
+latest_keys=['852f9e858c30cf6f9c8306ab59d5216ea449c0ecfa8a8d706f857bcde5e4ee92','0d4f0144edcbe4501a953c806a4771d9b911832f18dc2d7f2ba8d701697da861','ba53115ca96c313151ea6af6134bd786ed525f38769fb414d50f1c6a0c1c98df','10bf737620f465b5a283dec1a0ee8fa479c699255a415e2020e34532ff6edea6','890762cfbaacf85438a55f9e7facbcda127da60d2467ced8c7d91fa9106dfb7f','cb8e89094e304def76844ff1be973865aa9bc225a5a7916132675aa3ea8889f1','929bff78202b8b37e0524ff349489184ba4160800dd2d40d63a65566e52cfecd','5b66833ca4b56853db345872727cb6c3fddf6f3ee61637ebd90bcede1fd6d4e6']
+supervision=[]
+for key in latest_keys:
+ for sub in ['root_receipts/'+key,'supervision/'+key+'_outer','supervision/'+key+'_inner']:
+  p=recovery/sub
+  supervision += [metadata(p/'START.json',start_fields),metadata(p/'TERMINAL.json',terminal_fields)]
+initializer={'registry':regrec,'study_id':registry['study_id'],'expected_phases':72,'claims':len(claims),'terminals':len(terms),'unknown_claim_keys':sorted(claims-set(known)),'unknown_terminal_keys':sorted(terms-set(known)),'claims_without_terminals':sorted(claims-terms),'terminals_without_claims':sorted(terms-claims),'phase_status_counts':{p:dict(Counter({s:n for (q,s),n in counts.items() if q==p})) for p in ('qualify','warm','initialize','fit')},'completed_fit_identities':sorted(fits),'canonical_terminal_inventory_sha256':digest(json.dumps(inventory,sort_keys=True).encode()),'latest_eight_fit_rows':[r for r in rows if r['key'] in latest_keys],'remote_coordinator_markers':[metadata(recovery/name,terminal_fields) for name in ('COMPLETED.json','FAILED.json')],'latest_eight_supervision':supervision,'comparison_directory_present':Path(registry['comparison_output']).exists(),'final_report_directory_present':Path(registry['final_report_output']).exists(),'strict_payload_or_numerical_audit_executed':False}
+mixedroot=phase/'graph_mixed_block_execution_root_20261003_v1/transport/root_full40_run01'
+mixedrun=phase/'graph_mixed_block_training_preparation_20261003_v2/runs/root_full40_run01'
+mixed={'supervisor_PID_from_dispatch':379192,'transport_metadata':[metadata(mixedroot/n,start_fields if n!='SUPERVISOR_TERMINAL.json' else terminal_fields) for n in ('STARTED.json','CHILD.json','SUPERVISOR_TERMINAL.json')],'study_started_present':(mixedrun/'STUDY_STARTED.json').is_file(),'study_present':(mixedrun/'STUDY.json').is_file()}
+child=None
+if (mixedroot/'CHILD.json').is_file(): child=read(mixedroot/'CHILD.json')[0].get('PID')
+mixed['child_PID_from_receipt']=child
+case_rows=[]
+casefields=('dataset','seed','policy','status','attempted','final_labels_closed','reused','checkpoint_bindings_verified','successful_subset_scored','error_type')
+for dataset in ('HGB-DBLP','HGB-ACM'):
+ for seed in (131,137,139,149,151):
+  for policy in ('own/own','pool/pool','pool/own','own/pool'):
+   p=mixedrun/dataset/('seed'+str(seed))/policy.replace('/','__')/'TERMINAL.json'
+   row={'dataset':dataset,'seed':seed,'policy':policy,'terminal_present':p.is_file()}
+   if p.is_file():d,r=read(p);row.update({k:d[k] for k in casefields if k in d});row['terminal']=r
+   case_rows.append(row)
+mixed['case_rows']=case_rows;mixed['terminal_status_counts']=dict(Counter(r.get('status','unterminated') for r in case_rows))
+if (mixedrun/'STUDY.json').is_file():
+ d,r=read(mixedrun/'STUDY.json');mixed['study_terminal']=dict(r,metadata={k:d[k] for k in ('schema','originals_preserved','baseline_reuse_mode','final_labels_closed','CP_gate_dependency','inference_changed','scientific_quality_claim') if k in d},summary_status=(d.get('summary') or {}).get('status'),rows=[{k:row[k] for k in casefields if k in row} for row in d.get('rows',[])],error_types=[e.get('error_type') for e in d.get('errors',[])])
+tokens=('graph_init_precision_execution_root_v2/','graph_init_precision_continuation_v3_cap_binding/','graph_init_occupied_launch_recovery_root_v1/resume_remaining.py','graph_mixed_block_execution_root_20261003_v1/training_supervisor_run01.py','graph_mixed_block_training_preparation_20261003_v2/train_policies.py')
+processes=[];exact={379192,child}-{None}
+for p in Path('/proc').iterdir():
+ if not p.name.isdigit() or int(p.name)==os.getpid():continue
+ try:
+  args=p.joinpath('cmdline').read_bytes().decode('utf-8','replace').split('\0');matches=[t for t in tokens if any(t in a and not ('\n' in a) for a in args)]
+  if not matches and int(p.name) not in exact:continue
+  stat=p.joinpath('stat').read_text();tail=stat[stat.rfind(')')+2:].split()
+  processes.append({'PID':int(p.name),'state':tail[0],'PPID':int(tail[1]),'command_scope_matches':matches,'known_exact_PID':int(p.name) in exact,'starttime_ticks':tail[19]})
+ except (FileNotFoundError,ProcessLookupError,PermissionError):pass
+gpu=subprocess.run(['nvidia-smi','--query-gpu=uuid,name,memory.total','--format=csv,noheader,nounits'],capture_output=True,text=True,timeout=15)
+gpu_lines=gpu.stdout.strip().splitlines() if gpu.returncode==0 else []
+print(json.dumps({'schema':'read_only_initializer_mixed40_process_terminal_snapshot_v1','UTC':datetime.now(timezone.utc).isoformat(),'repository_pwd':str(Path.cwd()),'repository_pwd_matches':Path.cwd()==repo,'gpu_query_exit_code':gpu.returncode,'visible_gpu_inventory':gpu_lines,'expected_single_gpu_uuid_matches':len(gpu_lines)==1 and gpu_lines[0].split(',')[0].strip()=='GPU-44039938-fd82-41d2-fefd-de71514e2fac','initializer':initializer,'mixed40':mixed,'matching_remote_processes':processes,'heldout_or_scores_requested_or_emitted':False,'arrays_checkpoints_or_metric_logs_opened':False,'remote_writes':False,'evaluators_started':False,'process_isolation_changed':False}))
