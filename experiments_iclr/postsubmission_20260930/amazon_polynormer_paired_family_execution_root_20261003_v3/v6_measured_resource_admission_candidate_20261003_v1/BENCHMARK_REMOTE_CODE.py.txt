@@ -1,0 +1,82 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json,os,resource,shutil,subprocess,time
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+phase=repo/'experiments_iclr/postsubmission_20260930'
+root=phase/'amazon_polynormer_paired_family_execution_root_20261003_v3'
+bench=root/'v6_resource_filesystem_benchmark_20261003_v1'
+os.chdir(repo)
+g=subprocess.run(['nvidia-smi','--query-gpu=uuid,name,memory.total,memory.free,memory.used,utilization.gpu','--format=csv,noheader,nounits'],capture_output=True,text=True,timeout=15)
+assert Path.cwd()==repo and g.returncode==0 and len(g.stdout.strip().splitlines())==1
+v=[x.strip() for x in g.stdout.strip().split(',')];assert v[0]=='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+def desc(p):
+ h=hashlib.sha256();n=0
+ with p.open('rb') as s:
+  while True:
+   b=s.read(2**20)
+   if not b:break
+   h.update(b);n+=len(b)
+ return dict(path=str(p.relative_to(phase)),sha256=h.hexdigest(),bytes=n)
+def write(p,value):
+ with p.open('x') as s:json.dump(value,s,indent=2,allow_nan=False);s.write('\n');s.flush();os.fsync(s.fileno())
+ return desc(p)
+def append(s,value):
+ started=time.perf_counter();s.write(json.dumps(value,sort_keys=True,allow_nan=False)+'\n');s.flush();os.fsync(s.fileno());return time.perf_counter()-started
+def command(args):
+ if not shutil.which(args[0]):return dict(command=args,available=False,status='unknown',reason='utility unavailable')
+ try:
+  r=subprocess.run(args,capture_output=True,text=True,timeout=20)
+  return dict(command=args,available=True,exit_code=r.returncode,stdout=r.stdout,stderr=r.stderr)
+ except subprocess.TimeoutExpired:return dict(command=args,available=True,status='unknown',reason='read-only query timeout')
+fs=os.statvfs(phase)
+memory={k:int(v.split()[0])*1024 for k,v in (line.split(':',1) for line in Path('/proc/meminfo').read_text().splitlines())}
+cgroup={}
+for n in ('memory.max','memory.current','memory.high'):
+ p=Path('/sys/fs/cgroup')/n
+ if p.is_file():cgroup[n]=p.read_text().strip()
+observation=dict(schema='amazon_polynormer_current_resource_observation_v1',UTC=datetime.now(timezone.utc).isoformat(),route=dict(repository=str(repo),GPU_UUID=v[0]),GPU=dict(name=v[1],total_bytes=int(v[2])*2**20,free_bytes=int(v[3])*2**20,used_bytes=int(v[4])*2**20,utilization_percent=int(v[5])),host=dict(MemTotal_bytes=memory['MemTotal'],MemAvailable_bytes=memory['MemAvailable']),cgroup=cgroup,filesystem=dict(path=str(phase),device=phase.stat().st_dev,available_bytes=fs.f_bavail*fs.f_frsize,total_bytes=fs.f_blocks*fs.f_frsize),mount=command(['findmnt','-T',str(phase),'-o','TARGET,SOURCE,FSTYPE,OPTIONS']),quota_query=command(['quota','-s']),quota_certified=False,quota_limit_bytes=None,quota_remaining_bytes=None,physical_allocation_expiry_UTC=None,physical_allocation_expiry_certified=False,allocation_scheduler_environment={k:os.environ[k] for k in ('SLURM_JOB_END_TIME','SLURM_JOB_ID','PBS_JOBID','LSB_JOBID') if k in os.environ},existing_project_or_filesystem_configuration_changed=False)
+assert not bench.exists() and fs.f_bavail*fs.f_frsize>=2*2**30
+registry=json.loads((root/'registry/REGISTRY.json').read_text())
+assert not any((phase/r[k]).exists() for r in registry['physical_fits'] for k in ('output','claim_path','release_path'))
+assert len(registry['physical_fits'])==15
+qdir=root/'v6_qualification_block0_cuda0_v1'
+terminal=json.loads((qdir/'TERMINAL.json').read_text());assert terminal['status']=='success' and terminal['physical_exit_code']==0
+q=json.loads((qdir/'RESULT.json').read_text());assert q['status']=='passed' and len(q['forms'])==5
+size=max(io['serialized_bytes'] for f in q['forms'] for io in f['checkpoint_io'])
+assert size==148140568 and 3*size<2*2**30
+bench.mkdir();payload_dir=bench/'owned_payloads';payload_dir.mkdir()
+assert bench.stat().st_dev==phase.stat().st_dev==payload_dir.stat().st_dev
+observation_row=write(bench/'RESOURCE_OBSERVATION.json',observation)
+start=time.perf_counter();trace_times=[];trace=bench/'TRACE_FSYNC.jsonl';journal=bench/'OWNED_RETIREMENT.jsonl'
+with trace.open('x') as s:
+ for index in range(64):
+  trace_times.append(append(s,dict(schema='owned_trace_fsync_measurement_v1',index=index,not_scientific=True,payload='metadata-benchmark-'*64)))
+  assert time.perf_counter()-start<300
+samples=[];chunk=bytes(range(256))*(2**15);written=0
+with journal.open('x') as log:
+ for index in range(3):
+  p=payload_dir/('owned_sample_'+str(index)+'.bin');begin=time.perf_counter()
+  with p.open('xb') as s:
+   remaining=size
+   while remaining:
+    part=chunk[:min(len(chunk),remaining)];s.write(part);written+=len(part);remaining-=len(part);assert written<2*2**30
+   s.flush();sync_begin=time.perf_counter();os.fsync(s.fileno());file_fsync=time.perf_counter()-sync_begin
+  write_seconds=time.perf_counter()-begin
+  begin=time.perf_counter();row=desc(p);descriptor_hash_seconds=time.perf_counter()-begin
+  creation_fsync=append(log,dict(schema='owned_payload_created_v1',descriptor=row,index=index,temporary_data_owned_by_this_benchmark=True))
+  retirement_begin=time.perf_counter();hash_begin=time.perf_counter();assert desc(p)==row;hash_seconds=time.perf_counter()-hash_begin
+  assert p.parent==payload_dir and not p.is_symlink() and p.stat().st_size==size
+  intent_fsync=append(log,dict(schema='owned_payload_retirement_intent_v1',index=index,descriptor=row,hash_size_verified=True))
+  unlink_begin=time.perf_counter();p.unlink();unlink_seconds=time.perf_counter()-unlink_begin
+  directory_begin=time.perf_counter();fd=os.open(payload_dir,os.O_RDONLY)
+  try:os.fsync(fd)
+  finally:os.close(fd)
+  directory_fsync=time.perf_counter()-directory_begin
+  assert not p.exists()
+  completion_fsync=append(log,dict(schema='owned_payload_retirement_complete_v1',index=index,descriptor=row,binary_absent=True))
+  samples.append(dict(index=index,descriptor=row,write_including_file_fsync_seconds=write_seconds,file_fsync_seconds=file_fsync,initial_descriptor_hash_seconds=descriptor_hash_seconds,creation_receipt_fsync_seconds=creation_fsync,retirement_recheck_hash_seconds=hash_seconds,intent_fsync_seconds=intent_fsync,unlink_seconds=unlink_seconds,directory_fsync_seconds=directory_fsync,completion_fsync_seconds=completion_fsync,full_retirement_including_completion_seconds=time.perf_counter()-retirement_begin,payload_absent=True))
+  assert time.perf_counter()-start<300
+assert written==3*size and not any(payload_dir.iterdir())
+result=dict(schema='amazon_polynormer_same_filesystem_fsync_retirement_measurement_v1',UTC=datetime.now(timezone.utc).isoformat(),status='success',resource_observation=observation_row,same_filesystem_verified=True,trace_fsync_sample_count=len(trace_times),trace_append_flush_fsync_seconds=trace_times,trace_append_flush_fsync_max_seconds=max(trace_times),owned_payload_samples=samples,cumulative_payload_bytes_written=written,maximum_live_payload_bytes=size,payload_data_bound_bytes=2*2**30,ordinary_stdlib_process=True,whole_benchmark_wall_seconds=time.perf_counter()-start,peak_process_RSS_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024,all_owned_temporary_payloads_removed_after_recorded_exact_descriptor=True,metadata_receipts_preserved=True,existing_arrays_checkpoints_binaries_opened=False,numerical_GPU_fit_TEST_control_scoring_or_registration=False,all15_registered_fit_paths_absent=True,trace_descriptor=desc(trace),retirement_journal_descriptor=desc(journal),unknown_quota_and_physical_allocation_expiry_not_certified=True)
+result_row=write(bench/'RESULT.json',result)
+print(json.dumps(dict(resource_observation=observation,result=result,remote_metadata_descriptors=[observation_row,result_row,desc(trace),desc(journal)])))

@@ -1,0 +1,71 @@
+BLOCK 161 [None] 4.1 Mathematical formulation of X-LoRA
+4.1 Mathematical formulation of X-LoRA
+
+BLOCK 162 [S4.SS1.p1.1] 4.1 Mathematical formulation of X-LoRA
+We define the \mathbf{scalings} to be a matrix containing token and layer level coefficients for LoRA adapters. The X-LoRA \mathbf{scaling} \mathbf{head} takes the hidden states from the base model and applies linear fully-connected layers to predict scalings, after which a softmax function is applied to the final dimension to ensure scalings across all experts add up to one. We use ReLU activation functions and dropout layers intercalated between linear fully-connected layers in the X-LoRA scaling head. The side of the hidden layers can be set, and chosen to be succesfuly reduce the size from the hidden dimension to the scaling dimension, or implement a widening and narrowing approach similar to the feed-forward layer in the transformer block.
+
+BLOCK 163 [S4.SS1.p2.1] 4.1 Mathematical formulation of X-LoRA
+The scalings are a matrix \Lambda\in\mathbb{R}^{s\times l\times n} . Therein, s , l , and n , respectively, denote the sequence length, the number of layers, and the number of adapters. For each layer, the corresponding scalings are extracted: A matrix \lambda\in\mathbb{R}^{s\times n} . The scalings \lambda are then applied to each LoRA adapter by broadcast multiplying the corresponding X-LoRA scaling \lambda_{i}\in\mathbb{R}^{1\times 1\times s} to the input for the decomposition matrices A and B .
+
+BLOCK 164 [S4.SS1.p3.1] 4.1 Mathematical formulation of X-LoRA
+With W_{0}\in\mathbb{R}^{d\times k} and B_{i}\in\mathbb{R}^{d\times r_{i}} and A_{i}\in\mathbb{R}^{r_{i}\times d} with the rank r_{i}\ll{\rm min}(d,k) that are unique to each adapter i , the forward pass of an X-LoRA layer is expressed as the following equation:
+
+BLOCK 165 [S4.E5] 4.1 Mathematical formulation of X-LoRA
+h=W_{0}x+\sum_{i=1}^{n}B_{i}A_{i}(x\cdot\lambda_{i})\alpha_{i} (5)
+
+BLOCK 166 [S4.SS1.p3.2] 4.1 Mathematical formulation of X-LoRA
+Visualizations of the scalings are depicted in the main paper. These were either visualized using bar plots or using the contourf function in Matplotlib [ 48 ] .
+
+BLOCK 167 [None] 4.2 X-LoRA implementation algorithm and code
+4.2 X-LoRA implementation algorithm and code
+
+BLOCK 168 [S4.SS2.p1.1] 4.2 X-LoRA implementation algorithm and code
+The implementation chosen here is driven by ease-of-use and the ability to easily adapt the approach to a variety of models, specifically those available in the Hugging Face ecosystem. The X-LoRA algorithm operates by:
+
+BLOCK 169 [S4.I1.i1.p1.1] 4.2 X-LoRA implementation algorithm and code
+Freezing the base model and adapters, and then tuning performance.
+
+BLOCK 170 [S4.I1.i2.p1.1] 4.2 X-LoRA implementation algorithm and code
+Mixing LoRA adapters according to the predictions of the X-LoRA scaling head.
+
+BLOCK 171 [S4.SS2.p2.1] 4.2 X-LoRA implementation algorithm and code
+All code is written in Python and PyTorch [ 49 ] .
+
+BLOCK 172 [None] 4.2.1 Dual forward pass strategy for self-aware inference
+4.2.1 Dual forward pass strategy for self-aware inference
+
+BLOCK 173 [S4.SS2.SSS1.p1.1] 4.2.1 Dual forward pass strategy for self-aware inference
+Because X-LoRA requires the calculation of the hidden states to predict the scalings, we implement a dual forward pass approach that utilizes a first pass for the model to consider the task, to decide how to reconfigure itself, followed by the inference step. This implements a type of ‘self-awareness’ that endows X-LoRA with the capability to use additional compute for reflection rather than immediate response. We name the first pass the scaling pass and the second pass as the forward pass. We set the scalings \Lambda during the scaling pass to zero. We also experimented with setting the scalings \Lambda to {n}^{-1} and find similar results, indicating stable performance (in the X-LoRA package, this parameter can be set in the configuration). To easily be able to apply X-LoRA to a variety of models, we implement a forward pass hook. This strategy plays an essential role in the relationship between the forward and scaling passes and is the key feature which allows application to all models.
+
+BLOCK 174 [S4.I2.i1.p1.1] 4.2.1 Dual forward pass strategy for self-aware inference
+\mathbf{Scaling} \mathbf{pass} : Implemented by executing the base model with adapters set to constant values. The resulting hidden states are used by the X-LoRA scaling head to generate \Lambda .
+
+BLOCK 175 [S4.I2.i2.p1.1] 4.2.1 Dual forward pass strategy for self-aware inference
+\mathbf{Forward} \mathbf{pass} : Apply \Lambda to mix the adapters during the forward pass of the model. The resulting logits are returned as the output of the X-LoRA model.
+
+BLOCK 176 [S4.SS2.SSS1.p3.1] 4.2.1 Dual forward pass strategy for self-aware inference
+As a note of caution, using the same key-value cache for both the scalings pass and forward pass can potentially interfere with proper inputs to the scaling head. This is because the key-value cache will persist and would accumulate across the two forward passes. As such, we do not use the key-value cache during training or inference and implemented a proper handling of this in Mistral.rs .
+
+BLOCK 177 [None] 4.2.2 Freezing weights and opening segments of the model for training
+4.2.2 Freezing weights and opening segments of the model for training
+
+BLOCK 178 [S4.SS2.SSS2.p1.1] 4.2.2 Freezing weights and opening segments of the model for training
+The base model and adapters are frozen ( i.e. , their weights are not being trained) and as such the X-LoRA scaling head is the only trainable part of an X-LoRA model. It remains an option, in the code presented, to open up all adapters together with the X-LoRA scaling head. One could even opt to train the entire model - X-LoRA scaling head, adapter and the base foundation model jointly (or with different learning rates). Alternatively, future iterations of the concepts proposed here could be used to develop scaling functions between two or more foundation models to implement a traceable manifestation of SLERP-type modeling. This can be explored in future work.
+
+BLOCK 179 [None] 4.2.3 X-LoRA layers
+4.2.3 X-LoRA layers
+
+BLOCK 180 [S4.SS2.SSS3.p1.1] 4.2.3 X-LoRA layers
+An X-LoRA layer is a layer which scales and ultimately combines the outputs of several adapters. Each X-LoRA layer wraps the original LoRA layer and therefore has access to the specific adapters for that layer.
+
+BLOCK 181 [S4.SS2.SSS3.p2.1] 4.2.3 X-LoRA layers
+To effectively apply X-LoRA to any model, the X-LoRA algorithm swaps the original LoRA layers by creating X-LoRA layers and then injects their forward mechanics into the LoRA layer. This leverages aspects of Python’s object model to enable swapping.
+
+BLOCK 182 [S4.SS2.SSS3.p3.1] 4.2.3 X-LoRA layers
+In summary, each X-LoRA layer executes the following steps during the forward pass (see Figure 19 ):
+
+BLOCK 183 [S4.I3.i1.p1.1] 4.2.3 X-LoRA layers
+\mathbf{Scaling} : Multiply the input signal of each LoRA adapter by the scaling value \lambda_{i} .
+
+BLOCK 184 [S4.I3.i2.p1.1] 4.2.3 X-LoRA layers
+\mathbf{Forward} : Run the forward pass for the wrapped LoRA layer.
