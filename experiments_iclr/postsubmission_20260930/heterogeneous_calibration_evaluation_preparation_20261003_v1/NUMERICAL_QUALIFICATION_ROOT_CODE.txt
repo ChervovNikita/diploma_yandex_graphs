@@ -1,0 +1,18 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import subprocess,sys,json,hashlib,importlib.util,os
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');os.chdir(repo)
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+p=repo/'experiments_iclr/postsubmission_20260930/heterogeneous_calibration_evaluation_preparation_20261003_v1'
+manifest=(p/'MANIFEST.json').read_bytes();sha=hashlib.sha256(manifest).hexdigest();assert sha=='17275d544eb048cc719c12b69fb4ea77d6e851b7349539fd11834d81d685a480'
+for row in json.loads(manifest)['payload']:
+ data=(p/row['path']).read_bytes();assert len(data)==row['bytes'] and hashlib.sha256(data).hexdigest()==row['sha256']
+output=p/'NUMERICAL_QUALIFICATION_ROOT.json';assert not output.exists()
+sys.path.insert(0,str(p));import torch;torch.set_num_threads(1);torch.set_num_interop_threads(1)
+assert torch.__version__.split('+')[0]=='2.1.2' and torch.cuda.device_count()==0
+import qualification
+result=qualification.qualify()
+receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),status=result['status'],source_manifest_sha256=sha,qualification=result,actual_execution='authorized one-GPU allocation; CPU one thread; CUDA hidden',actual_remote_execution=True,qualification_scope='synthetic deterministic implementation witness, not a predictive pilot',source_self_declaration_note='The qualification function performs no remote tool calls itself; this root wrapper invokes it remotely. The actual_remote_execution field is authoritative for execution location.',real_data_labels_models_or_outcomes_accessed=False,scientific_training_started=False,original_scores_changed=False)
+with output.open('x') as handle:json.dump(receipt,handle,indent=2,sort_keys=True);handle.write('\n')
+print(json.dumps(receipt));raise SystemExit(0 if result['status']=='PASS' else 1)
