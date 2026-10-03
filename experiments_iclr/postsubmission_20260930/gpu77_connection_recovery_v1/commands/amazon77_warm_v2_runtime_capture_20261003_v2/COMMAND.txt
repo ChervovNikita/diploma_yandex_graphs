@@ -1,0 +1,23 @@
+/usr/bin/python3 -B -c 'from pathlib import Path
+from datetime import datetime,timezone
+import os,json,base64,hashlib,subprocess
+repo=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');phase=repo/'"'"'experiments_iclr/postsubmission_20260930'"'"';root=phase/'"'"'amazon_ratings_native_warm_execution_root_20261003_v3'"'"';source=phase/'"'"'amazon_ratings_native_warm_study_preparation_20261003_v2'"'"'
+os.chdir(repo)
+assert subprocess.run(['"'"'git'"'"','"'"'rev-parse'"'"','"'"'--show-toplevel'"'"'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+uuids=subprocess.run(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid'"'"','"'"'--format=csv,noheader'"'"'],capture_output=True,text=True,check=True).stdout.splitlines()
+assert set(uuids)=={'"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"'}
+assert hashlib.sha256((source/'"'"'MANIFEST.json'"'"').read_bytes()).hexdigest()=='"'"'ae1a30748b4b16b3c68c477e85aaa3cbbe033d9018cdaa6075686c949728ef96'"'"'
+root.mkdir(exist_ok=False)
+env=os.environ.copy();env.update(PYTHONPATH=str(repo/'"'"'.gnnm_runtime/conditional_pyg27_v1/site'"'"')+'"'"':'"'"'+str(repo/'"'"'.gnnm_runtime/conditional_xxhash_v1/site'"'"'),CUDA_VISIBLE_DEVICES='"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"',PYTHONDONTWRITEBYTECODE='"'"'1'"'"',OMP_NUM_THREADS='"'"'1'"'"',MKL_NUM_THREADS='"'"'1'"'"')
+rows=[];files=[]
+for label,device in [('"'"'CPU'"'"','"'"'cpu'"'"'),('"'"'GPU'"'"','"'"'cuda:0'"'"')]:
+ out=root/(label+'"'"'_RUNTIME.json'"'"');argv=['"'"'/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12'"'"','"'"'-B'"'"',str(source/'"'"'capture_runtime.py'"'"'),'"'"'--device'"'"',device,'"'"'--output'"'"',str(out)]
+ p=subprocess.run(argv,cwd=repo,env=env,capture_output=True,text=True)
+ row={'"'"'label'"'"':label,'"'"'exit_code'"'"':p.returncode,'"'"'stdout'"'"':p.stdout,'"'"'stderr'"'"':p.stderr};rows.append(row)
+ if p.returncode:break
+ b=out.read_bytes();files.append({'"'"'path'"'"':str(out.relative_to(phase)),'"'"'bytes'"'"':len(b),'"'"'sha256'"'"':hashlib.sha256(b).hexdigest(),'"'"'base64'"'"':base64.b64encode(b).decode()})
+record={'"'"'schema'"'"':'"'"'amazon-native-warm-runtime-capture-root-v1'"'"','"'"'UTC'"'"':datetime.now(timezone.utc).isoformat(),'"'"'rows'"'"':rows,'"'"'artifacts'"'"':files,'"'"'data_or_model_or_quality_accessed'"'"':False,'"'"'ordinary_host_execution'"'"':True,'"'"'base_environment_mutated'"'"':False}
+with (root/'"'"'RUNTIME_CAPTURE_RECEIPT.json'"'"').open('"'"'x'"'"') as f:json.dump(record,f,indent=2);f.write('"'"'\n'"'"')
+print(json.dumps(record))
+if len(rows)!=2 or any(row['"'"'exit_code'"'"'] for row in rows):raise SystemExit(1)
+'

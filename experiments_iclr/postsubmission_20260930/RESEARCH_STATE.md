@@ -1,9 +1,13 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-03T10:05:21.351673+00:00. The complete goal remains active and incomplete. No new verified predictive advantage, established methodological novelty or fresh manuscript acceptance is claimed. Original paper scores remain unchanged.
+Updated: 2026-10-03T12:19:42.801346+00:00. The goal is active and incomplete. No new verified predictive advantage, established methodological novelty, revised manuscript or fresh acceptance verdict is claimed. Original paper scores remain unchanged.
 
-[Current status](PUBLIC_STATUS.md) reports the live studies and actual implementation qualifications. RESEARCH_LEDGER.json retains decisions, failed attempts, provenance and review history. Previous files are preserved in coordination_snapshots/20261003_full_native_GPU_and_conditional_CPU_actual_pass_v1.
+[Current status](PUBLIC_STATUS.md) reports actual studies and limitations. [research_ledger.json](research_ledger.json) preserves decisions, failed attempts, provenance and review history.
 
-NCNC's corrected model now passed native full-graph GPU parity and both complete M4 training-resource epochs. The conditional graph-response model passed all 8 native CPU engineering families. Next work is prospectively fixed representative predictive pilots with strong controls, alongside complete-family audits of the running initializer, mixed40 and BUDDY studies. Preparation and engineering checks do not establish scientific success.
+Five fixed families are in progress: graph-based initialization (29/30 fits), shared/private loss assignments (25/40 selected), BUDDY link prediction (15 cells/24 fits required), NCNC link prediction (25 cells/35 fits required), and a six-fit native Amazon Ratings recipe study. Full-family closure and source/checkpoint audits precede comparisons. NCNC has passed actual synthetic driver and full TRAIN/VALID resource qualifications. Amazon has passed official projection and full-graph both-recipe token/checkpoint/byte-replay checks. These are execution qualifications, not quality gains.
 
-Science remains in the explicit one-GPU repository or the authorized 18.77 repository. The seven-GPU account is only the MacLink forwarding relay. Normal incidental caches are allowed. No sudo, PDF compilation, GENLINK or unrelated writes. Fresh manuscript reviewers receive immutable manuscript/evidence through the supplied skill without author history or a requested verdict.
+The FoRDE comparator passed four tiny native float32/float64 cases but failed severe float32 cancellation; it is not admitted for predictive comparisons. The earlier gauge fixture's strict byte-equality wording is withdrawn pending a separate byte recheck; its original artifacts are preserved.
+
+Scientific execution stays in the authorized one-GPU repository and 18.77 project repository. The seven-GPU account is only the authorized MacLink forwarding relay. Ordinary incidental caches are allowed. No sudo, PDF compilation, GENLINK or unrelated writes. Fresh manuscript reviewers receive immutable paper/evidence through the supplied skill without author history or a requested verdict. Source reviews do not count as paper acceptance.
+
+Latest verified published/synchronized head: a7f23686e38df4a8d0d9297a2edb4e0dbeba373b. New follow-up records are being prepared for an exact publication inventory.

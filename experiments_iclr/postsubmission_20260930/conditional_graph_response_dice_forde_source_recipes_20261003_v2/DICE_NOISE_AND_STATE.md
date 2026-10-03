@@ -1,0 +1,26 @@
+# Explicit DICE noise and gradient custody
+
+These are prepared implementation choices, pending scientific adoption. M=4, canonical unordered pairs `i<j`, four replicas and two negatives per positive are the proposed settings. Same-class sampling uses the complete authorized TRAIN label map; every represented class needs at least two distinct IDs. No class can be dropped or replaced with a cross-class partner.
+
+## One cycle at base predictor/discriminator
+
+1. Draw TRAIN target IDs and four auxiliary partner plans before any predictor update. Partners are uniform, with replacement across negative indices, from same-class IDs excluding the anchor. The partner key is `(cycle, aux_step, pair_i, pair_j, anchor_id, negative_index)`. A partner ID is reused across the four replicas; its noise is independent in each replica. Store plans as immutable ephemeral inputs.
+2. Qualify a selected-row native forward and capture current target/partner means. The union of all planned IDs is evaluated at the **base** predictor. Copy/detach partner/auxiliary means; keep only target means live for the predictor score. Do not recompute partner means at the updated predictor or use persistent stale means. Target rows are the same for CE and CR.
+3. Draw `epsilon[member,target,replica]` independently from N(0,I). This one positive bank is reused across all pairs and in auxiliary step 0. Member/node/replica values are reused, not regenerated per pair. Negative noises use a distinct phase and keys `(cycle, aux_step, pair, anchor, negative_index, replica, partner_member,partner_id)`.
+4. Freeze all discriminator parameters (`requires_grad=False`), clear its gradients to None, and compute predictor native CE plus the clipped joint score with live derivatives through discriminator inputs. Backward only to the adopted predictor factors; make one ordinary source-style SGD update, or one separate guarded proposal if that protocol has been adopted. Shared/boundary factor flags follow the chosen protocol, not temporary discriminator flags.
+5. Release the live predictor graph. Enable discriminator gradients; all its training inputs are detached base means plus fixed/drawn noise. Step 0 reuses the predictor positive bank but draws fresh negative noises and uses its preplanned partners. Steps 1–3 draw fresh positive banks; each new positive bank is shared across pairs. Each step uses that step's partner plan and fresh negative noises. Predictor parameters receive no auxiliary gradients. Four RMSProp steps use ordinary BCE and fresh `zero_grad(set_to_none=True)` before each backward.
+
+This resolves the previous pair-noise ambiguity and follows the paper pseudocode's first joint-bank reuse. Resampling partners per auxiliary step and reusing partner IDs across replicas are explicit finite-sampling choices because no DICE author implementation was retrieved. No unused positive bank is generated after the fourth auxiliary step.
+
+## Stable state at success
+
+All predictor modules are eval. Exactly the adopted predictor private tensors require gradients; common frozen tensors do not. All discriminator tensors require gradients between cycles; it is eval and contains no dropout/BatchNorm. Predictor and discriminator `.grad` values are all None after `zero_grad(set_to_none=True)`. Hooks/activation capture caches are empty. Complete optimizer states, sampler/RNG states, cycle index and checkpoint cursor represent the completed cycle. Do not commit temporary freeze flags or stale backward graphs.
+
+The **source-style protocol** has no candidate rejection trial. Every normal predictor-plus-four-auxiliary cycle commits. On an exception, stop the run, mark the partial cycle invalid and publish no checkpoint for it. Resume only from the last completed-cycle checkpoint with its optimizer/auxiliary/RNG/stream state and replay the predeclared stream. Atomic completed-cycle checkpointing avoids copying dual optimizer state every ordinary step. It does not claim crash rollback of the currently executing cycle.
+
+The **separate guarded protocol** must snapshot full state before planning, collection and objective. Trials change only predictor private parameters. Acceptance commits the complete private proposal optimizer image and four unscaled discriminator updates, then clears gradients to None and restores the stable flags above. Rejection/zero/exception restores the exact pre-objective image, including its gradients and flags. The successful cleared image is not the rejection base. Cost and attempt index stay outside rollback; dedicated noise/sampler RNG is inside it, or replaced by explicitly attempt-keyed deterministic draws. The old single-AdamW helper alone is insufficient.
+
+## Narrow qualification
+
+Verify named predictor/auxiliary ownership is disjoint; no predictor gradient is written by auxiliary training; live target features reach intended predictor factors; repeated partner IDs have independent noisy replicas; first auxiliary positives exactly match predictor positives; later positives differ under known keys; class/anchor/partner constraints hold; and successful flags/None gradients versus rejected exact gradients are distinguishable. Tests use synthetic labels/features only after separate numerical authorization.
+
