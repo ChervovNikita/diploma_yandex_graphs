@@ -1,0 +1,17 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,hashlib,os,subprocess
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930';root=phase/'graph_heterogeneous_dblp_native15_audit_execution_root_20261003_v1'
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+expected_commit='248627101eb20b0588b9a81b9990ac23c4033e4c'
+expected_files={'AUDIT_FREEZE.json': 'c87189f9b7445ee921c14fe9895fbe4cfec31b56df7c0a64e16dd62457867f83', 'AUDIT_RELEASE.json': '7e6e68243cc89a4bf5179479e76d89d7f015a72e45aec7321c3272d8adf412e9', 'audit_supervisor_run01.py': '834c990bfa61d9cca3d2da9c9e095acb7bc2713015fa6e65696bede3c70edb0e'}
+
+assert subprocess.run(['git','rev-parse','HEAD'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==expected_commit
+for name,digest in expected_files.items():assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest
+for name in ['AUDIT_DISPATCH_RECEIPT.json','AUDIT_SUPERVISOR_STARTED.json','AUDIT_SUPERVISOR_RECEIPT.json','AUDIT_OWNED_CHILD.json','NATIVE15_AUDIT_run01.json']:assert not (root/name).exists()
+with (root/'supervisor.stdout.log').open('x') as out,(root/'supervisor.stderr.log').open('x') as err:
+ child=subprocess.Popen(['/usr/bin/python3','-B',str(root/'audit_supervisor_run01.py')],cwd=repo,stdout=out,stderr=err,start_new_session=True,env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1'))
+record=dict(UTC=datetime.now(timezone.utc).isoformat(),status='dispatched_inference_audit',supervisor_pid=child.pid,repo=str(repo),commit=expected_commit,source_hashes=expected_files,training_started=False,heldout_labels_closed=True)
+with (root/'AUDIT_DISPATCH_RECEIPT.json').open('x') as h:json.dump(record,h,indent=2);h.write('\n')
+print(json.dumps(record))

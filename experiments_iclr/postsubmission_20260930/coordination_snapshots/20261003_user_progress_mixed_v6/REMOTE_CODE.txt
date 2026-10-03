@@ -1,0 +1,17 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,subprocess,os,time,hashlib
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930';root=phase/'graph_mixed_block_execution_root_20261003_v1';packet=phase/'graph_mixed_block_training_preparation_20261003_v2';run=packet/'runs/root_full40_run01';transport=root/'transport/root_full40_run01'
+assert subprocess.run(['git','rev-parse','--show-toplevel'],cwd=repo,capture_output=True,text=True,check=True).stdout.strip()==str(repo)
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+processes=[]
+for line in subprocess.run(['ps','-eo','pid=,ppid=,stat=,etime=,pcpu=,rss=,args='],capture_output=True,text=True,check=True).stdout.splitlines():
+ if str(packet/'train_policies.py') not in line and str(root/'training_supervisor_run01.py') not in line:continue
+ parts=line.split(None,6);pid=int(parts[0]);cwd=Path(os.readlink(Path('/proc')/str(pid)/'cwd'));assert cwd.is_relative_to(repo)
+ processes.append(dict(PID=pid,PPID=int(parts[1]),state=parts[2],elapsed=parts[3],CPU_percent=parts[4],RSS_KiB=parts[5],cwd=str(cwd)))
+progress=[]
+for p in sorted(run.glob('*/seed*/*/TRACE.jsonl')):
+ lines=p.read_text().splitlines();event=json.loads(lines[-1]) if lines else {};progress.append(dict(case=str(p.parent.relative_to(run)),epoch_records=len(lines),last_epoch=event.get('epoch'),age_seconds=time.time()-p.stat().st_mtime))
+terminal=json.loads((run/'STUDY.json').read_text()) if (run/'STUDY.json').exists() else None
+stdout=(transport/'child.stdout.log').read_text() if (transport/'child.stdout.log').exists() else '';stderr=(transport/'child.stderr.log').read_text() if (transport/'child.stderr.log').exists() else ''
+print(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),study_started=(run/'STUDY_STARTED.json').exists(),processes=processes,progress_only=progress,terminal_status=(terminal.get('summary') or {}).get('status') if terminal else None,errors=terminal.get('errors') if terminal else None,stderr_tail=stderr[-1500:] if any(s in stderr for s in ['Traceback','RuntimeError','MemoryError']) else None,validation_outcome_metrics_requested=False,heldout_opened=False)))

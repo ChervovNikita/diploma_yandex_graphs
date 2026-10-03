@@ -1,0 +1,21 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,os,subprocess,hashlib
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930';root=phase/'graph_heterogeneous_dblp_native15_audit_execution_root_20261003_v1'
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+records={}
+for name in ['AUDIT_DISPATCH_RECEIPT.json','AUDIT_SUPERVISOR_STARTED.json','AUDIT_OWNED_CHILD.json','AUDIT_SUPERVISOR_RECEIPT.json']:
+ if (root/name).exists():records[name]=json.loads((root/name).read_text())
+pids=[v.get('supervisor_pid',v.get('pid')) for k,v in records.items() if k in ['AUDIT_DISPATCH_RECEIPT.json','AUDIT_OWNED_CHILD.json']]
+processes=[]
+for line in subprocess.run(['ps','-eo','pid=,ppid=,stat=,etime=,pcpu=,rss='],capture_output=True,text=True,check=True).stdout.splitlines():
+ parts=line.split();pid=int(parts[0])
+ if pid not in pids:continue
+ cwd=Path(os.readlink(Path('/proc')/str(pid)/'cwd'));assert cwd.is_relative_to(repo)
+ processes.append(dict(pid=pid,state=parts[2],elapsed=parts[3],CPU_percent=parts[4],RSS_KiB=parts[5],cwd=str(cwd)))
+logs={name:(root/name).read_text()[-2000:] for name in ['audit.stdout.log','audit.stderr.log','supervisor.stderr.log'] if (root/name).exists()}
+result=None
+if (root/'NATIVE15_AUDIT_run01.json').exists():
+ q=root/'NATIVE15_AUDIT_run01.json';result=dict(path=str(q),bytes=q.stat().st_size,sha256=hashlib.sha256(q.read_bytes()).hexdigest())
+push=phase/'publication/native15_audit_and_quality_research_20261003_v1/PUSH_RECEIPT.json'
+print(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),records=records,processes=processes,logs=logs,audit_result=result,push_receipt=json.loads(push.read_text()) if push.exists() else None)))
