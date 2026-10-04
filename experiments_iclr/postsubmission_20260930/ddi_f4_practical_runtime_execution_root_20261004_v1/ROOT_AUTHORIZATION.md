@@ -1,0 +1,13 @@
+# DDI practical runtime authorization
+
+The user authorized continued representative research on the one-GPU allocation and the two GPUs of 18.77, with normal execution inside the project repositories. This release uses only authorized 18.77 GPU1, whose UUID is `GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced`.
+
+Root authorizes three sequential, fresh seed-0, complete TRAIN epochs: target-only, joint, then separate. Each epoch retains all 1,067,911 native records, batch 65,536, three native negatives, the 19,335-record final batch, native AUC sums, the 15-hop 512-wide F4 architecture, Adam and native clipping. The two auxiliary arms retain all selected supports and the fixed 32+32-query schedule. The original three-seed, 500-epoch scientific family remains disabled.
+
+This measurement determines whether the actual native-sized DDI updates and exact conditional objective can run in the available shared GPU window. Each arm is initialized from scratch and discards its learned state. No VALID scoring, TEST access, model checkpoint, donor state or predictive comparison is authorized. Actual teacher/support exposure and complete update costs are retained, including failures.
+
+The source is immutable v2, manifest `817af133e35aefbe02b938acac9b6b50df898d0668c73abef46c83a4bb9d7a4a`, seal `230bbe97fcaf74e32d56064777efdac9514070379f51c0e15f26b51a9a975c46`. Its concrete paired-receipt and output-path repairs preserve the fixed scientific objective. The independent v1 review and the subsequent fresh v2/runtime/root-wrapper technical review are separate preserved records. Root verifies the latter's exact PASS and code hashes before launching.
+
+The run uses standard PyTorch per-process allocator fraction 0.30, or 24 GiB on this 80 GiB device. Root requires at least 34 GiB observed free before each arm, stops only its own worker group if global free memory falls below 10 GiB, samples owned RSS under a 32 GiB cap, and limits each arm to one hour. Root uses the reviewed birth/session-aware process primitives for its own child. Existing research queues and other users' jobs are not signaled or changed. No filesystem namespaces, host settings, mounts, sudo or installation are involved.
+
+Timings are explicitly co-resident and include this harness's synchronizations and receipt work. They are not standalone speed benchmarks. A memory or cap failure establishes only the attempted shared-window limit; it neither rejects the scientific hypothesis nor determines dedicated 80 GiB feasibility. A successful one-epoch check does not establish the full training budget, novelty or prediction quality. Missing or failed arms leave the measurement family incomplete; no automatic retry or reduced-support fallback is authorized.
