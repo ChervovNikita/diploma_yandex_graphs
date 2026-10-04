@@ -31,24 +31,9 @@ Serving remains the declared native ensemble pool. There is no new learned servi
 
 ## Execution and next decision
 
-At the latest observations on 4 October 2026 around 23:08 UTC, all three authorized GPUs have live owned jobs: Amazon/Polynormer has 10 of 15 fits complete, conditional-pattern Collab has 4 of 9, and DDI development has 3 of 12. Comparative scores remain unopened until their complete frozen cohorts are available. No additional duplicate fits are dispatched.
+At the latest observations on 4 October 2026 around 22:20 UTC, all three authorized GPUs have live owned jobs: Amazon/Polynormer has 9 of 15 fits complete, conditional-pattern Collab has 4 of 9, and DDI development has 3 of 12. Comparative scores remain unopened until their complete frozen cohorts are available. No additional duplicate fits are dispatched.
 
 The next method decision will use complete served-quality comparisons. A positive joint-pattern result would justify a focused extension and its missing controls. A null result will remain in the research record and will redirect the next idea; it will not become a success through proxy metrics or selective seed reporting. No revised acceptable manuscript or methodological advantage is currently established.
-
-## How the literature changes the implementation
-
-The implemented candidate keeps the existing shared interior weights and private member factors. During training, it masks the declared TRAIN records, predicts the queried link through each member, and gives each member a probability law over the missing counterpart identities around both endpoints. The auxiliary conditions on the number of missing counterparts on each side. It mixes the two endpoint laws using the same member identity. The matched separate arm mixes the endpoint laws independently. The target loss, visible context, teacher and serving pool retain their frozen definitions.
-
-This is a concrete training intervention. Its plausible benefit is that a member learns compatible structural explanations instead of combining unrelated endpoint explanations. Its central unresolved issue is transfer: fitting those masked patterns must improve the served link ranking. Sharing might regularize learning, but the independent ensemble can also receive this supervision. Neither sharing nor the joint likelihood implies superiority by itself.
-
-The prior assessments have led to actual control source:
-
-- `joint_pattern_capable_single_control_source_20261005_v1/single_control.py` gives one native target trajectory four auxiliary emissions from the existing scorer features. It can learn the same endpoint association without four target trajectories. The auxiliary head is omitted when serving. Its bounded CPU fixture check passed scalar parity, support, RNG and gradient checks, with zero optimizer steps.
-- `native_fixed_view_independent_control_source_20261005_v1/control.py` gives four ordinary independently initialized native Polynormer models the same assigned graph views as the proposed shared study. It retains native-graph probability pooling and the native schedule. Its bounded CPU check passed independent parameter ownership and all eight member/stage objective-gradient cases, with zero optimizer steps.
-
-These controls are implemented and component checked. They have no predictive results and do not change the existing frozen queues. A positive auxiliary result needs the capable single comparison and a competent independent ensemble with the same auxiliary before attributing the gain to shared ensembling. A positive view result needs the ordinary ensemble with the same augmentation. Additional fits must be specified before their outcomes are opened.
-
-The success criterion is improved served predictions at competent training schedules, with complete seeds and uncertainty, followed by prospective confirmation on additional evidence. Greater embedding distance, better reconstruction, more papers indexed or more source checks do not meet the research objective. The current candidate remains a graph-specific adaptation of established ingredients until those comparisons support a useful methodological increment.
 
 ## Retained sources
 
@@ -61,7 +46,5 @@ The success criterion is improved served predictions at competent training sched
 
 - Private-return exact operation and prior: `private_cavity_propagation_method_synthesis_20261005_fresh_v1/SYNTHESIS.txt`.
 - Source-overlap weighting and its counterexample: `quality_method_synthesis_independent_challenge_20261005_v1/SYNTHESIS.md`.
-- Actual component checks and retained failed attempts: `quality_control_component_checks_root_20261005_v1/INTERPRETATION.md`.
-- Scoped literature memory: `literature_memory/index_v57/ROOT_ADOPTION_NOTES.md`. Identity counts are not full-paper-read counts.
 
 The private-return and independent third-direction assessments are complete and saved by their scientific agents. They are method assessments, not fresh manuscript verdicts. A manuscript review will use immutable supported evidence and the requested fresh-review skill when a substantive revision exists.
