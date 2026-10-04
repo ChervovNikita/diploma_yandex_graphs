@@ -1,0 +1,81 @@
+from datetime import datetime, timezone
+from pathlib import Path
+import base64
+import hashlib
+import json
+import os
+
+ROOT = Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/ncnc_v4_scientific_audit_release_preparation_20261004_v1')
+RELEASE_SHA = '817300a18bcf2427f136108393ef4e83a68e89aa1699b03bf735937b813a7356'
+SOURCE_SHA = 'fd59e048a53695c945c6cfb613a77ce0e4e21c2631ce56085348c3941f5ec6d6'
+SUPERVISOR = {'pid': 3201394, 'start_ticks': 1723578759, 'pgid': 3201394, 'sid': 3201394}
+receipts = {}
+
+def read(name, cap=524288):
+    path = ROOT / name
+    if not path.exists():
+        return None
+    assert path.resolve() == path and path.is_relative_to(ROOT) and path.is_file()
+    before = path.stat()
+    assert before.st_size <= cap, ('metadata receipt exceeds read cap', name, before.st_size)
+    data = path.read_bytes()
+    after = path.stat()
+    assert (before.st_ino, before.st_size, before.st_mtime_ns) == (after.st_ino, after.st_size, after.st_mtime_ns), ('unstable receipt', name)
+    assert len(data) == before.st_size
+    item = dict(path=str(path), bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), base64=base64.b64encode(data).decode('ascii'))
+    receipts[name] = item
+    return data
+
+def observe_owned(expected):
+    path = Path('/proc') / str(expected['pid']) / 'stat'
+    try:
+        stat = path.read_text()
+    except FileNotFoundError:
+        return dict(expected=expected, present=False)
+    fields = stat[stat.rfind(')') + 2:].split()
+    row = dict(pid=expected['pid'], start_ticks=int(fields[19]), state=fields[0], ppid=int(fields[1]), pgid=int(fields[2]), sid=int(fields[3]), RSS_bytes=int(fields[21]) * os.sysconf('SC_PAGE_SIZE'))
+    matches = all(row[k] == expected[k] for k in ('pid', 'start_ticks', 'pgid', 'sid'))
+    return dict(expected=expected, present=True, identity_matches=matches, observed=row)
+
+release_data = read('ROOT_ORDINARY_AUDIT_RELEASE.json')
+assert release_data is not None and hashlib.sha256(release_data).hexdigest() == RELEASE_SHA
+release = json.loads(release_data)
+assert release['execution_enabled'] is True
+assert release['authorized_invocations'] == [dict(stage='selected_checkpoint_metric_audit', output_directory=str(ROOT / 'audit/run01'), cuda_visible_devices='GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998')]
+supervisor = observe_owned(SUPERVISOR)
+child_data = read('supervision_run01/CHILD_STARTED.json')
+child = None
+if child_data is not None:
+    started = json.loads(child_data)
+    assert started['root_release_sha256'] == RELEASE_SHA and started['sidecar_manifest_sha256'] == SOURCE_SHA
+    assert all(started['runner_identity'][k] == SUPERVISOR[k] for k in ('pid', 'start_ticks', 'pgid', 'sid'))
+    identity = started['identity']
+    assert identity['pgid'] == identity['sid'] == identity['pid']
+    child = observe_owned({k: identity[k] for k in ('pid', 'start_ticks', 'pgid', 'sid')})
+resource_data = read('supervision_run01/RESOURCE_DISPATCH_RECHECK.json')
+if resource_data is not None:
+    resource = json.loads(resource_data)
+    assert resource['release_sha256'] == RELEASE_SHA and resource['sidecar_manifest_sha256'] == SOURCE_SHA
+physical_data = read('supervision_run01/PHYSICAL_TERMINAL.json')
+physical = json.loads(physical_data) if physical_data is not None else None
+if physical is not None:
+    assert physical['root_release_sha256'] == RELEASE_SHA and physical['sidecar_manifest_sha256'] == SOURCE_SHA
+    assert all(physical['runner_identity'][k] == SUPERVISOR[k] for k in ('pid', 'start_ticks', 'pgid', 'sid'))
+status_data = read('audit/run01/STATUS.json')
+status = json.loads(status_data) if status_data is not None else None
+result = None
+if status is not None and 'authoritative_result_receipt' in status:
+    assert status['record_kind'] == 'terminal_mirror_of_authoritative_result'
+    result_data = read('audit/run01/AUDIT_RESULT.json')
+    assert result_data is not None
+    pin = status['authoritative_result_receipt']
+    fetched = receipts['audit/run01/AUDIT_RESULT.json']
+    assert pin['path'] == fetched['path'] and pin['sha256'] == fetched['sha256'] and pin['bytes'] == fetched['bytes']
+    result = json.loads(result_data)
+    assert result['root_release_sha256'] == RELEASE_SHA and result['sidecar_manifest_sha256'] == SOURCE_SHA
+    assert result['status'] == status['status'] and result['work'] == status['work']
+    assert result['family_lock'] == release['family_lock'] and result['training_updates'] == 0 and result['TEST_opened'] is False
+if physical is not None and physical['status'] != 'PHYSICALLY_COMPLETE':
+    for name in ('supervision_run01/CHILD.stdout.log', 'supervision_run01/CHILD.stderr.log', 'supervision_run01/SUPERVISOR.stdout.log', 'supervision_run01/SUPERVISOR.stderr.log'):
+        read(name, cap=2097152)
+print(json.dumps(dict(schema='ncnc-v4-all25-owned-audit-observation-v1', UTC=datetime.now(timezone.utc).isoformat(), release_sha256=RELEASE_SHA, source_sha256=SOURCE_SHA, supervisor=supervisor, child=child, status=None if status is None else {k:status[k] for k in ('status', 'phase', 'work', 'record_kind') if k in status}, physical_status=None if physical is None else physical['status'], physical_exit_code=None if physical is None else physical['exit_code'], authoritative_result_status=None if result is None else result['status'], receipts=receipts, no_process_changes=True, no_TEST_access=True, no_checkpoint_tensor_loading=True), allow_nan=False))
