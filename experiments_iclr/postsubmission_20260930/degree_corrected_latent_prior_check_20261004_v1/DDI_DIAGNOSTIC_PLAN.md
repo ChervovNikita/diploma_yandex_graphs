@@ -1,0 +1,13 @@
+# Prospective DDI mechanism diagnostics
+
+Frozen before DDI VALID or TEST scores have been read. These are secondary explanations for the forthcoming objective comparison, not selection rules or replacements for prediction evidence. They do not alter the running Collab nine-fit family.
+
+Use the same complete native seed0 DDI TRAIN mask/query census stream for every diagnostic after selected models exist. Record full-stream aggregates and fixed positive/negative populations separately; no choice of favourable query strata. Keep the mask, support, observed labels and support normalization identical across references and models. No VALID/TEST labels belong to an auxiliary diagnostic.
+
+1. **Uniform subset reference.** At each side use equal candidate logits. Its exact negative log-likelihood is `log binomial(n,k)`; constant supports contribute zero. Report the same all-query normalized reductions as the learned law, including zero-information rows.
+2. **Visible-degree reference.** Use `eta_w = log(1 + degree_visible(w))`, with degrees measured in the same fully masked TRAIN graph. No fitted degree coefficient, full-TRAIN degree shortcut, negative resampling or outcome-dependent reference choice. Use one component and the same exact conditional subset law. This is a transparent degree-only null, not a certified best degree-based reconstruction model.
+3. **Member responsibilities.** For each side compute normalized member likelihood responsibilities in log space. Report entropy divided by `log(M)` and complete-stream distribution summaries. Zero-count/full-count supports have uniform responsibilities and remain in the reduction; also report informative-support denominators separately without replacing the full reduction.
+4. **Endpoint agreement.** Report `M * dot(q_left,q_right)` and the normalized joint-minus-separate identity under the common support denominator. Compare realized joint/separate fitted models; same-logit algebra is not a claim that separately trained marginals match.
+5. **Prediction requirement.** Retain the prospectively specified served-ranker comparisons and paired seeds. Diagnostics may explain a measured gain or refute a specialization story; they may not rescue a failed predictive primary contrast. DDI confirmation must preserve a held TEST split and disclose all development decisions before its release.
+
+Practical exact-likelihood/backward cost is still unmeasured on DDI. If the full diagnostic stream is infeasible, record that outcome and publish no silently subsampled replacement. Any later change needs a new prospective protocol and must retain this one.
