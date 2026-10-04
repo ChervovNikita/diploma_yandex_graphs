@@ -1,0 +1,56 @@
+--- graph_count_conditioned_pattern_minimal_gradient_preparation_20261004_v4/metrics.py
++++ exact_cb_support_bucket_native_equivalence_resource_preparation_20261004_v1/metrics.py
+@@ -18,6 +18,53 @@
+     result.update(min=float(value.detach().min()) if value.numel() else None,
+                   max=float(value.detach().max()) if value.numel() else None)
+     return result
++
++
++def compare_tensors(actual, reference, atol, rtol):
++    """Bucket versus direct under the unchanged native fixed elementwise rule."""
++    import torch
++    if actual.shape != reference.shape or actual.dtype != reference.dtype or actual.device != reference.device:
++        raise RuntimeError('Native comparison shape/dtype/device differs')
++    if actual.dtype != torch.float32:
++        raise RuntimeError('Original native float32 working dtype required')
++    difference = agreement(actual, reference, atol, rtol)
++    allowance = atol + rtol * reference.detach().abs()
++    ratio = (actual.detach() - reference.detach()).abs() / allowance
++    return dict(direct=norms(reference), bucket=norms(actual), difference=difference,
++                maximum_fraction_of_allowed_error=float(ratio.max()) if ratio.numel() else 0.,
++                fixed_rule_agrees=difference['fixed_rule_agrees'], dtype=str(actual.dtype))
++
++
++def compare_parameters(named, actual, reference, rule):
++    if len(actual) != len(named) or len(reference) != len(named):
++        raise RuntimeError('Named model gradient coverage differs')
++    reports = []
++    for (name, parameter), a, b in zip(named, actual, reference):
++        if a is None or b is None:
++            value = dict(status='BOTH_UNUSED' if a is None and b is None else 'REACHABILITY_MISMATCH',
++                         direct_unused=b is None, bucket_unused=a is None, fixed_rule_agrees=a is None and b is None)
++        else:
++            value = dict(status='COMPARED', **compare_tensors(a, b, **rule))
++        reports.append(dict(name=name, shape=list(parameter.shape), parameter_elements=parameter.numel(), **value))
++    return dict(named_parameters=reports, parameter_count=sum(p.numel() for _, p in named),
++                all_named_parameters_included=True, fixed_rule_agrees=all(r['fixed_rule_agrees'] for r in reports))
++
++
++def compare_slots(record, actual, reference, rule):
++    import torch
++    reports = {}
++    offset = 0
++    for side, rows in enumerate(record['rows']):
++        size = len(rows)
++        a, b = actual[:, offset:offset+size], reference[:, offset:offset+size]
++        forced = torch.minimum(record['k'][:, side], record['n'][:, side] - record['k'][:, side])[rows] == 0
++        forced_zero = bool((a[:, forced] == 0).all()) and bool((b[:, forced] == 0).all())
++        reports['left' if side == 0 else 'right'] = dict(actual_slots=size, member_slot_elements=a.numel(),
++            all_actual_slots_included=True, comparison=compare_tensors(a, b, **rule),
++            forced_r0_slots=int(forced.sum()), exact_zero_forced_gradients=forced_zero)
++        offset += size
++    return dict(sides=reports, fixed_rule_agrees=all(r['comparison']['fixed_rule_agrees'] and r['exact_zero_forced_gradients']
++                                                   for r in reports.values()))
+ 
+ 
+ def agreement(a, b, atol, rtol):

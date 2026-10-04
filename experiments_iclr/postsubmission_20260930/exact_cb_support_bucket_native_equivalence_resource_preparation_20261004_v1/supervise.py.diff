@@ -1,0 +1,122 @@
+--- graph_count_conditioned_pattern_minimal_gradient_preparation_20261004_v4/supervise.py
++++ exact_cb_support_bucket_native_equivalence_resource_preparation_20261004_v1/supervise.py
+@@ -140,11 +140,14 @@
+             and all(path.is_file() and not path.is_symlink() for path in child.iterdir()),
+             'Partial/extra/nested diagnostic output cannot qualify')
+     result, final, files = (read_json(child/name) for name in ('DIAGNOSTIC.json','FINAL_CUSTODY.json','FILE_CUSTODY.json'))
+-    require(result.get('schema') == 'native-count-conditioned-gradient-diagnostic-v1'
++    require(result.get('schema') == 'native-exact-CB-bucket-equivalence-resource-diagnostic-v1'
+             and result.get('status') == 'COMPLETE_DIAGNOSTIC_ONLY'
+             and result.get('source_manifest_sha256') == sha(HERE/'MANIFEST.json')
+             and result.get('release_sha256') == release_sha
+             and result.get('core_manifest_sha256') == plan['core_manifest_sha256']
++            and result.get('candidate_manifest_sha256') == plan['candidate_manifest_sha256']
++            and result.get('bucket_CPU_QA_sha256') == plan['BUCKET_CPU_prerequisites']['BUCKET_CPU_QA']['sha256']
++            and result.get('target_gradient_evaluated') is False
+             and result.get('workload') == plan['workload']
+             and result.get('data_files_opened') == list(DATA_FILES)
+             and result.get('optimizer_constructed') is False and result.get('optimizer_updates') == 0
+@@ -158,16 +161,96 @@
+             and result['stream']['full_batches'] == 17 and result['stream']['dropped_tail_records'] == 64940
+             and result['stream']['exact_replay_of_census_or_fit_claimed'] is False
+             and result['dispatch']['encoder_calls'] == 1 and result['dispatch']['population_forward_calls'] == 2
+-            and result['dispatch']['reverse_evaluations'] == 3,
++            and result['dispatch']['reverse_evaluations'] == 4,
+             'Predeclared native stream/work differs')
+-    require(set(result['populations']) == {'positive','negative'} and set(result['losses']) == {'base','J_K','J_K_sep'},
+-            'Diagnostic populations/objectives differ')
++    require(set(result['populations']) == {'positive','negative'}
++            and set(result['losses']) == {'direct/J_K','bucket/J_K','direct/J_K_sep','bucket/J_K_sep'},
++            'Exact native populations/objectives differ')
+     for value in result['populations'].values():
+         validate_population(value['census'], plan)
+-        for side in value['slot_gradients'].values():
+-            require(side['forced_r0']['exact_zero_forced_gradients'] is True
+-                    and side['forced_counterpart']['shared_minus_separated']['fixed_rule_agrees'] is True,
+-                    'Conditional slot diagnostic obligations failed')
++        require(digest_field(value['ordered_slot_logits_sha256']) and digest_field(value['support_coordinates_sha256']),
++                'Native slot/support custody absent')
++    c = result['comparisons']; rule = plan['fixed_gradient_agreement_rule']
++    outcomes = dict(losses=[],parameters=[],slots=[])
++    def validate_comparison(value):
++        require(value['dtype'] == 'torch.float32' and type(value['fixed_rule_agrees']) is bool,
++                'Original native comparison dtype/verdict differs')
++        delta = value['difference']
++        require(delta['atol'] == rule['atol'] and delta['rtol'] == rule['rtol']
++                and integer(delta['violations']) and value['fixed_rule_agrees'] == (delta['violations'] == 0)
++                and delta['fixed_rule_agrees'] == value['fixed_rule_agrees'], 'Fixed original comparison rule differs')
++        for item in (value['direct'],value['bucket'],delta):
++            require(item['finite'] is True and integer(item['elements']) and integer(item['nonzero_elements'])
++                    and all(type(item[n]) in (int,float) and 0 <= item[n] < float('inf') for n in ('L1','L2','max_abs')),
++                    'Nonfinite/missing native norm report')
++        require(type(value['maximum_fraction_of_allowed_error']) in (int,float)
++                and 0 <= value['maximum_fraction_of_allowed_error'] < float('inf'), 'Invalid tolerance-fraction report')
++        return value['fixed_rule_agrees']
++    names = None
++    for key in ('J_K','J_K_sep'):
++        loss = c['losses'][key]
++        require(set(loss['populations']) == {'positive','negative'}, 'All native loss queries required')
++        outcomes['losses'].append(validate_comparison(loss['objective']))
++        for value in loss['populations'].values():
++            require(value['direct']['elements'] == value['bucket']['elements'] == plan['batch_size'], 'Full native loss batch differs')
++            outcomes['losses'].append(validate_comparison(value))
++        parameters = c['parameter_gradients'][key]; rows = parameters['named_parameters']
++        require(isinstance(rows,list) and rows and len({r['name'] for r in rows}) == len(rows)
++                and parameters['all_named_parameters_included'] is True
++                and parameters['parameter_count'] == sum(r['parameter_elements'] for r in rows) == plan['native_parameter_count'],
++                'All named model gradient elements required')
++        current_names = [(r['name'],r['shape'],r['parameter_elements']) for r in rows]
++        require(names is None or names == current_names, 'Named model coverage differs between objectives')
++        names = current_names; parameter_pass = []
++        for row in rows:
++            if row['status'] == 'COMPARED':
++                require(row['direct']['elements'] == row['bucket']['elements'] == row['parameter_elements'], 'Parameter gradient shape differs')
++                parameter_pass.append(validate_comparison(row))
++            else:
++                require(row['status'] in ('BOTH_UNUSED','REACHABILITY_MISMATCH')
++                        and type(row['direct_unused']) is bool and type(row['bucket_unused']) is bool
++                        and row['fixed_rule_agrees'] == (row['direct_unused'] and row['bucket_unused']), 'Unused model gradient receipt differs')
++                parameter_pass.append(row['fixed_rule_agrees'])
++        require(parameters['fixed_rule_agrees'] == all(parameter_pass), 'Model gradient aggregate differs')
++        outcomes['parameters'].append(all(parameter_pass))
++        slot_populations = c['slot_gradients'][key]
++        require(set(slot_populations) == {'positive','negative'}, 'Both native slot populations required')
++        for population, value in slot_populations.items():
++            require(set(value['sides']) == {'left','right'}, 'Both original slot sides required')
++            side_pass = []
++            for index, side in enumerate(('left','right')):
++                row = value['sides'][side]; total = result['populations'][population]['census']['sides'][index]['total_slots']
++                require(row['actual_slots'] == total and row['member_slot_elements'] == total*plan['bank_size']
++                        and row['all_actual_slots_included'] is True and type(row['exact_zero_forced_gradients']) is bool,
++                        'All original member-slot gradient elements required')
++                side_pass.append(validate_comparison(row['comparison']) and row['exact_zero_forced_gradients'])
++            require(value['fixed_rule_agrees'] == all(side_pass), 'Slot gradient aggregate differs')
++            outcomes['slots'].append(all(side_pass))
++    passed = {name:all(values) for name,values in outcomes.items()}
++    require(result['loss_fixed_rule_agrees'] == passed['losses']
++            and result['model_gradient_fixed_rule_agrees'] == passed['parameters']
++            and result['slot_gradient_fixed_rule_agrees'] == passed['slots']
++            and result['equivalence_verdict'] == ('PASS_FIXED_ORIGINAL_RULE' if all(passed.values()) else 'FAIL_FIXED_ORIGINAL_RULE'),
++            'Native fixed-rule verdict differs from complete reports')
++    for variant in ('direct','bucket'):
++        d = result['dispatch']['implementations'][variant]
++        require(d['conditional_side_calls'] == 4 and integer(d['genuine_ESP_group_calls'])
++                and integer(d['genuine_ESP_group_slot_loops']), 'Original direct/bucket side dispatch incomplete')
++    d = result['dispatch']['implementations']['direct']; b = result['dispatch']['implementations']['bucket']
++    require(b['bucket_plan_calls'] == 4 and len(b['plan_trace']) == 4
++            and b['genuine_ESP_group_slot_loops'] <= d['genuine_ESP_group_slot_loops'], 'Native adaptive dispatch accounting differs')
++    expected_stages = {'native_encoder_forward','native_positive_forward','native_negative_forward'}
++    expected_stages |= {v+'_'+p+'_loss_forward' for v in ('direct','bucket') for p in ('positive','negative')}
++    expected_stages |= {'reverse_'+v+'_'+k for v in ('direct','bucket') for k in ('J_K','J_K_sep')}
++    complete_times = {'complete_forward_and_loss_including_teacher_packing','complete_four_reverses_and_comparisons',
++                      'direct_loss_forward_total','bucket_loss_forward_total','direct_reverse_total','bucket_reverse_total'}
++    require(expected_stages | complete_times <= set(result['times_seconds']) and set(result['stage_memory']) == expected_stages
++            and all(type(v) in (int,float) and 0 <= v <= plan['caps']['wall_seconds'] for v in result['times_seconds'].values()),
++            'Complete synchronized native/loss/reverse wall reports required')
++    for value in result['stage_memory'].values():
++        require(all(integer(v) for v in value.values())
++                and value['cumulative_peak_allocated_bytes'] <= plan['caps']['cuda_allocated_bytes']
++                and value['cumulative_peak_reserved_bytes'] <= plan['caps']['cuda_reserved_bytes'], 'Native stage peak report exceeds caps')
+     require(0 <= result['inclusive_child_wall_seconds'] <= plan['caps']['wall_seconds']
+             and result['cuda_peak_allocated_bytes'] <= plan['caps']['cuda_allocated_bytes']
+             and result['cuda_peak_reserved_bytes'] <= plan['caps']['cuda_reserved_bytes'], 'Observed child caps differ')

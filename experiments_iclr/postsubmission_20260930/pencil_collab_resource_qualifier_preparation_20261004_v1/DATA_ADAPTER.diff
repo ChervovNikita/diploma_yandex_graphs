@@ -1,0 +1,57 @@
+--- proven_predictive_v1/pilot_data.py
++++ pencil_disabled/data_adapter.py
+@@ -2,7 +2,7 @@
+ from pathlib import Path
+ from hashlib import sha256
+ import codecs
+-from pilot_common import DATA_FILES, file_sha, require
++from common import DATA_FILES, sha as file_sha, require
+ 
+ 
+ def tensor_sha(value):
+@@ -12,11 +12,10 @@
+     return digest.hexdigest()
+ 
+ 
+-def load_data(context, device):
++def load_data(authority):
+     import numpy as np
+     import pandas as pd
+     import torch
+-    authority = context["authority"]
+     root = Path(authority["dataset_root"]).resolve()
+     for relative in DATA_FILES:
+         path = (root / relative).resolve()
+@@ -62,31 +61,5 @@
+         require(query.dtype == torch.long and query.ndim == 2 and query.shape[1] == 2 and len(query) > 0, "VALID query shape differs")
+         require(int(query.min()) >= 0 and int(query.max()) < len(x), "VALID endpoint out of range")
+     require(len(valid["edge_neg"]) >= 50, "Official VALID negative pool incomplete")
+-    return {"x": x.to(device), "pairs": pairs.to(device), "raw_edge_index": raw_edges.to(device),
+-            "valid_positive": valid["edge"].to(device), "valid_negative": valid["edge_neg"].to(device),
++    return {"x": x, "raw_edge_index": raw_edges, "split_edge": {"train": train, "valid": valid},
+             "digests": {**digests, "valid_positive": tensor_sha(valid["edge"]), "valid_negative": tensor_sha(valid["edge_neg"])}}
+-
+-
+-def native_graph(pairs, nodes):
+-    from torch_sparse import SparseTensor
+-    return SparseTensor.from_edge_index(pairs.T, sparse_sizes=(nodes, nodes)).to_device(pairs.device, non_blocking=True).to_symmetric()
+-
+-
+-def epoch_stream(data, mods, sampler):
+-    import torch
+-    negatives = sampler(data["raw_edge_index"], len(data["x"]))
+-    require(negatives.dtype == torch.long and negatives.ndim == 2 and negatives.shape[0] == 2 and negatives.shape[1] >= len(data["pairs"]), "Native negative draw cannot index TRAIN")
+-    require(bool((negatives[0] != negatives[1]).all()), "Sampler returned self-link")
+-    require(int(negatives.min()) >= 0 and int(negatives.max()) < len(data["x"]), "Native negative endpoint out of range")
+-    keys = (data["raw_edge_index"][0] * len(data["x"]) + data["raw_edge_index"][1]).sort().values
+-    sampled = negatives[0] * len(data["x"]) + negatives[1]
+-    index = torch.searchsorted(keys, sampled)
+-    forbidden = (index < len(keys)) & (keys[index.clamp(max=len(keys) - 1)] == sampled)
+-    require(not bool(forbidden.any()), "Native sampler returned forbidden TRAIN edges")
+-    iterator = mods["native_utils"].PermIterator(data["pairs"].device, len(data["pairs"]), 65536)
+-    require(len(iterator) == 17 and len(iterator.idx) == 1179052, "Native full-batch/tail policy differs")
+-    identities = {"negative_draw_sha256": tensor_sha(negatives), "permutation_sha256": tensor_sha(iterator.idx),
+-                  "dropped_tail_sha256": tensor_sha(iterator.idx[17 * 65536:]), "full_batches": 17,
+-                  "supervised_records": 1114112, "dropped_tail_records": 64940,
+-                  "negative_rows_drawn": negatives.shape[1]}
+-    return negatives.T, iterator, identities

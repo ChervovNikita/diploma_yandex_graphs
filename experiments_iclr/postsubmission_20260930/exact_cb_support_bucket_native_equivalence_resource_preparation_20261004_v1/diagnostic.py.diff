@@ -1,0 +1,255 @@
+--- graph_count_conditioned_pattern_minimal_gradient_preparation_20261004_v4/diagnostic.py
++++ exact_cb_support_bucket_native_equivalence_resource_preparation_20261004_v1/diagnostic.py
+@@ -1,4 +1,4 @@
+-"""One TRAIN-only native forward graph and three same-state reverse evaluations."""
++"""One original TRAIN native graph; four direct/bucket same-state reverses and resources."""
+ import argparse
+ import ast
+ import codecs
+@@ -110,10 +110,11 @@
+         monitor = threading.Thread(target=sampled_cuda, name='owned_cuda_observer', daemon=True)
+         monitor.start()
+         # Original qualified imports only; no fit/qualification/serving helpers called.
+-        for name in ('graph_ops','prototype','pattern_model','pattern_teacher','conditional_loss','_diagnostic_design','_census_metadata'):
++        for name in ('graph_ops','prototype','pattern_model','pattern_teacher','conditional_loss','_bucketed_conditional_loss','_diagnostic_design','_census_metadata'):
+             load_module(name, paths[name])
+         import graph_ops, pattern_model, pattern_teacher, conditional_loss as core
+-        from metrics import magnitudes, norms, parameter_reports, slot_reports
++        from metrics import magnitudes, compare_tensors, compare_parameters, compare_slots
++        bucket = sys.modules['_bucketed_conditional_loss']
+         design = sys.modules['_diagnostic_design']; census = sys.modules['_census_metadata']
+         tensor_sha = pilot_data.tensor_sha
+         data_root, data = load_train(authority, device, tensor_sha)
+@@ -160,73 +161,120 @@
+         checkpoint_resource('setup_and_mask_complete')
+         times['setup_and_packing'] = time.monotonic()-started
+         # Count actual qualified calls, including checkpoint recomputation.
+-        dispatch = dict(encoder_calls=0, population_forward_calls=0, depth_zero_calls={},
+-                        conditional_side_calls=0, genuine_ESP_group_calls=0,
+-                        genuine_ESP_group_slot_loops=0, reverse_evaluations=0)
++        dispatch = dict(encoder_calls=0, population_forward_calls=0, depth_zero_calls={}, reverse_evaluations=0,
++                        implementations={name:dict(conditional_side_calls=0, genuine_ESP_group_calls=0,
++                            genuine_ESP_group_slot_loops=0, bucket_plan_calls=0, plan_trace=[]) for name in ('direct','bucket')})
+         phase = ['forward']
+         original_depth_zero = model.decoder.depth_zero
+         def depth_zero(*values, **keywords):
+             key = phase[0]; dispatch['depth_zero_calls'][key] = dispatch['depth_zero_calls'].get(key,0)+1
+             return original_depth_zero(*values, **keywords)
+         model.decoder.depth_zero = depth_zero
+-        original_esp = core._group_log_esp_reachable
+-        def esp(centered, degree):
+-            dispatch['genuine_ESP_group_calls'] += 1
+-            dispatch['genuine_ESP_group_slot_loops'] += centered.shape[-1]
+-            return original_esp(centered, degree)
+-        core._group_log_esp_reachable = esp
+-        original_side = core._grouped_side_nll
+-        def conditional_side(*values):
+-            dispatch['conditional_side_calls'] += 1
+-            return original_side(*values)
+-        core._grouped_side_nll = conditional_side
+-        forward_started = time.monotonic(); rng['before_forward'] = snapshot_rng()
+-        h = model.encoder(data['x'], graph); dispatch['encoder_calls'] += 1
++        def bind_dispatch(module, name):
++            counters = dispatch['implementations'][name]
++            original_esp = module._group_log_esp_reachable
++            def esp(centered, degree):
++                counters['genuine_ESP_group_calls'] += 1
++                counters['genuine_ESP_group_slot_loops'] += centered.shape[-1]
++                return original_esp(centered, degree)
++            module._group_log_esp_reachable = esp
++            original_side = module._grouped_side_nll
++            def conditional_side(*values):
++                counters['conditional_side_calls'] += 1
++                return original_side(*values)
++            module._grouped_side_nll = conditional_side
++            if name == 'bucket':
++                original_plan = module._support_bucket_plan
++                def observed_plan(descriptors):
++                    result = original_plan(descriptors)
++                    counters['bucket_plan_calls'] += 1
++                    counters['plan_trace'].append(dict(phase=phase[0], descriptors=descriptors, plan=result[0]))
++                    return result
++                module._support_bucket_plan = observed_plan
++        bind_dispatch(core, 'direct'); bind_dispatch(bucket, 'bucket')
++        memory_stages = {}
++        def timed(stage, call):
++            phase[0] = stage; torch.cuda.synchronize(0)
++            entry = dict(allocated_start_bytes=torch.cuda.memory_allocated(0), reserved_start_bytes=torch.cuda.memory_reserved(0))
++            begin = time.monotonic(); result = call(); torch.cuda.synchronize(0)
++            times[stage] = time.monotonic()-begin
++            entry.update(allocated_end_bytes=torch.cuda.memory_allocated(0), reserved_end_bytes=torch.cuda.memory_reserved(0),
++                         cumulative_peak_allocated_bytes=torch.cuda.max_memory_allocated(0),
++                         cumulative_peak_reserved_bytes=torch.cuda.max_memory_reserved(0))
++            memory_stages[stage] = entry; checkpoint_resource(stage+'_complete')
++            return result
++        rng['before_forward'] = snapshot_rng()
++        forward_started = time.monotonic()
++        h = timed('native_encoder_forward', lambda: model.encoder(data['x'], graph)); dispatch['encoder_calls'] += 1
+         records = []
+         for population, query in (('positive',data['pairs'][record_ids]),('negative',negative_pairs[record_ids])):
+-            logits, detail = model.decoder.pattern_forward(h,graph,query,auxiliary_grad=True)
++            logits, detail = timed('native_'+population+'_forward', lambda: model.decoder.pattern_forward(h,graph,query,auxiliary_grad=True))
+             dispatch['population_forward_calls'] += 1
+             rows, bits = teacher.labels(query, detail['neighbors'])
+             left_rows, _ = detail['neighbors'].left; right_rows, _ = detail['neighbors'].right
+             require(torch.equal(rows,torch.cat((left_rows,right_rows))), 'Teacher/native slot order differs')
+             labels = core.TrainPatternLabels(bits.to(detail['t'].dtype), 'complete_TRAIN_observation_membership')
+-            values = core.training_pattern_losses(detail['t'][:,:len(left_rows)],detail['t'][:,len(left_rows):],
+-                                                  left_rows,right_rows,labels,len(query))
+-            n = torch.tensor(values['support_counts'],device=device,dtype=torch.long).T
+-            k = torch.tensor(values['teacher_counts'],device=device,dtype=torch.long).T
++            values = {}
++            for variant, module in (('direct',core),('bucket',bucket)):
++                values[variant] = timed(variant+'_'+population+'_loss_forward', lambda: module.training_pattern_losses(
++                    detail['t'][:,:len(left_rows)],detail['t'][:,len(left_rows):],left_rows,right_rows,labels,len(query)))
++            require(all(values['bucket'][name] == values['direct'][name] for name in
++                        ('support_counts','teacher_counts','denominator','teacher_counts_for_serving')),
++                    'Bucket changed exact original all-query/support/teacher metadata')
++            n = torch.tensor(values['direct']['support_counts'],device=device,dtype=torch.long).T
++            k = torch.tensor(values['direct']['teacher_counts'],device=device,dtype=torch.long).T
+             records.append(dict(population=population,query=query,logits=logits,detail=detail,rows=(left_rows,right_rows),
+                                 labels=bits,values=values,n=n,k=k))
+-        torch.cuda.synchronize(0); times['native_and_auxiliary_forward'] = time.monotonic()-forward_started
++        times['native_forward_total'] = sum(times[n] for n in ('native_encoder_forward','native_positive_forward','native_negative_forward'))
++        for variant in ('direct','bucket'):
++            times[variant+'_loss_forward_total'] = sum(times[variant+'_'+p+'_loss_forward'] for p in ('positive','negative'))
+         rng['after_forward'] = snapshot_rng()
+-        import torch.nn.functional as F
+-        objectives = dict(base=-F.logsigmoid(records[0]['logits']).mean()-F.logsigmoid(-records[1]['logits']).mean())
++        times['complete_forward_and_loss_including_teacher_packing'] = time.monotonic()-forward_started
++        objectives = {variant+'/'+key:sum(record['values'][variant][key].mean() for record in records)
++                      for variant in ('direct','bucket') for key in ('J_K','J_K_sep')}
++        require(all(bool(torch.isfinite(value)) for value in objectives.values()), 'Nonfinite equivalence objective')
++        rule = plan['fixed_gradient_agreement_rule']
++        comparisons = dict(losses={}, parameter_gradients={}, slot_gradients={})
+         for key in ('J_K','J_K_sep'):
+-            objectives[key] = sum(record['values'][key].mean() for record in records)
+-        require(all(bool(torch.isfinite(value)) for value in objectives.values()), 'Nonfinite diagnostic objective')
+-        checkpoint_resource('forward_complete')
+-        gradients = {}; slots = {}; slots_targets = tuple(record['detail']['t'] for record in records)
+-        for key in ('base','J_K','J_K_sep'):
+-            phase[0] = key; reverse_started = time.monotonic()
+-            targets = parameters if key == 'base' else parameters+slots_targets
+-            result = torch.autograd.grad(objectives[key], targets, retain_graph=key!='J_K_sep',
+-                                         create_graph=False, allow_unused=True, materialize_grads=False)
++            comparisons['losses'][key] = dict(objective=compare_tensors(objectives['bucket/'+key],objectives['direct/'+key],**rule),
++                populations={record['population']:compare_tensors(record['values']['bucket'][key],record['values']['direct'][key],**rule)
++                             for record in records})
++        checkpoint_resource('loss_comparisons_complete')
++        slots_targets = tuple(record['detail']['t'] for record in records)
++        pending = {}
++        reverse_order = (('direct','J_K'),('bucket','J_K'),('direct','J_K_sep'),('bucket','J_K_sep'))
++        all_reverse_started = time.monotonic()
++        for index, (variant, key) in enumerate(reverse_order):
++            tag = variant+'/'+key
++            result = timed('reverse_'+variant+'_'+key, lambda: torch.autograd.grad(objectives[tag], parameters+slots_targets,
++                retain_graph=index != len(reverse_order)-1, create_graph=False, allow_unused=True, materialize_grads=False))
+             dispatch['reverse_evaluations'] += 1
+-            gradients[key] = result[:len(parameters)]
+-            if key != 'base':
+-                require(all(value is not None for value in result[len(parameters):]), 'Conditional slot gradient disconnected')
+-                slots[key] = result[len(parameters):]
+-            torch.cuda.synchronize(0); times['reverse_'+key] = time.monotonic()-reverse_started
+-            rng['after_reverse_'+key] = snapshot_rng()
+-            require(rng['after_reverse_'+key] == rng['after_forward'], 'Checkpoint reverse changed retained forward RNG')
+-            checkpoint_resource('reverse_'+key+'_complete')
++            require(len(result) == len(parameters)+2 and all(v is not None for v in result[len(parameters):]),
++                    'Original all-member slot gradient disconnected')
++            rng['after_reverse_'+variant+'_'+key] = snapshot_rng()
++            require(rng['after_reverse_'+variant+'_'+key] == rng['after_forward'], 'Checkpoint reverse changed retained forward RNG')
++            if variant == 'direct':
++                pending[key] = result
++            else:
++                comparison_started = time.monotonic()
++                reference = pending.pop(key)
++                comparisons['parameter_gradients'][key] = compare_parameters(named,result[:len(parameters)],reference[:len(parameters)],rule)
++                comparisons['slot_gradients'][key] = {record['population']:compare_slots(record,result[len(parameters)+j],
++                    reference[len(parameters)+j],rule) for j, record in enumerate(records)}
++                torch.cuda.synchronize(0); times['comparison_'+key] = time.monotonic()-comparison_started
++                del reference
++                checkpoint_resource('comparison_'+key+'_complete')
++            del result
++        times['complete_four_reverses_and_comparisons'] = time.monotonic()-all_reverse_started
++        for variant in ('direct','bucket'):
++            times[variant+'_reverse_total'] = sum(times['reverse_'+variant+'_'+key] for key in ('J_K','J_K_sep'))
+         metadata_started = time.monotonic()
+-        require(dispatch['encoder_calls'] == 1 and dispatch['population_forward_calls'] == 2
+-                and dispatch['reverse_evaluations'] == 3, 'Native workload dispatch differs')
++        require(not pending and dispatch['encoder_calls'] == 1 and dispatch['population_forward_calls'] == 2
++                and dispatch['reverse_evaluations'] == 4, 'Native workload dispatch differs')
+         require(initial_state == pilot_state.state_digest(model.state_dict()) and all(p.grad is None for p in parameters)
+-                and initial_flags == pilot_state.flags(model),
+-                'Parameters/buffers or .grad changed; zero-update diagnostic violated')
++                and initial_flags == pilot_state.flags(model), 'Parameters/buffers/.grad changed; zero-update workload violated')
+         populations = {}
+-        for index, record in enumerate(records):
++        for record in records:
+             count = census.summarize(torch,record['query'],record['detail']['neighbors'],teacher.keys,teacher.nodes)
+             require(count['support_count_digest'] == tensor_sha(torch.cat((record['n'],record['k']),dim=1)), 'Core/teacher support counts differ')
+             group_details = []
+@@ -235,33 +283,43 @@
+                 keys, frequency = torch.unique(torch.stack((n,r),dim=1),dim=0,return_counts=True)
+                 group_details.append(dict(n_r_groups=[pair+[freq] for pair,freq in zip(keys.tolist(),frequency.tolist())],
+                     genuine_groups=int((keys[:,1]>1).sum()), genuine_group_slot_loops=int(keys[keys[:,1]>1,0].sum())))
+-            populations[record['population']] = dict(census=count, support_coordinates_sha256=teacher.support_digest(record['query'],record['detail']['neighbors'],record['labels']),
++            populations[record['population']] = dict(census=count,
++                support_coordinates_sha256=teacher.support_digest(record['query'],record['detail']['neighbors'],record['labels']),
+                 ordered_slot_logits_sha256=tensor_sha(record['detail']['t']), native_target_logits=magnitudes(record['logits']),
+-                auxiliary_logits=magnitudes(record['detail']['t']), aux_losses={key: magnitudes(record['values'][key]) for key in ('J_K','J_K_sep')},
+-                actual_side_group_dispatch=group_details,
+-                slot_gradients=slot_reports(record,slots['J_K'][index],slots['J_K_sep'][index],**plan['fixed_gradient_agreement_rule']))
+-        blocks = parameter_reports(named, gradients)
+-        observed_groups = sum(side['genuine_groups'] for value in populations.values() for side in value['actual_side_group_dispatch'])
+-        observed_loops = sum(side['genuine_group_slot_loops'] for value in populations.values() for side in value['actual_side_group_dispatch'])
+-        require(dispatch['conditional_side_calls'] == 4 and dispatch['genuine_ESP_group_calls'] == observed_groups
+-                and dispatch['genuine_ESP_group_slot_loops'] == observed_loops, 'Actual conditional dispatch/count census differs')
+-        module_custody(plan)
+-        require(pilot_model.runtime_settings() == profile, 'Actual runtime profile changed')
++                auxiliary_logits=magnitudes(record['detail']['t']), actual_original_side_group_dispatch=group_details)
++        observed_groups = sum(side['genuine_groups'] for value in populations.values() for side in value['actual_original_side_group_dispatch'])
++        observed_loops = sum(side['genuine_group_slot_loops'] for value in populations.values() for side in value['actual_original_side_group_dispatch'])
++        direct = dispatch['implementations']['direct']; changed = dispatch['implementations']['bucket']
++        bucket_groups = sum(int(degree>1) for trace in changed['plan_trace'] for degree,width,source in trace['plan'])
++        bucket_loops = sum(width for trace in changed['plan_trace'] for degree,width,source in trace['plan'] if degree>1)
++        require(direct['conditional_side_calls'] == changed['conditional_side_calls'] == 4 and changed['bucket_plan_calls'] == 4
++                and direct['genuine_ESP_group_calls'] == observed_groups and direct['genuine_ESP_group_slot_loops'] == observed_loops
++                and changed['genuine_ESP_group_calls'] == bucket_groups and changed['genuine_ESP_group_slot_loops'] == bucket_loops
++                and bucket_loops <= observed_loops, 'Actual direct/bucket dispatch census differs')
++        loss_pass = all(value['objective']['fixed_rule_agrees'] and all(r['fixed_rule_agrees'] for r in value['populations'].values())
++                        for value in comparisons['losses'].values())
++        gradient_pass = all(value['fixed_rule_agrees'] for value in comparisons['parameter_gradients'].values())
++        slot_pass = all(value['fixed_rule_agrees'] for sides in comparisons['slot_gradients'].values() for value in sides.values())
++        module_custody(plan); require(pilot_model.runtime_settings() == profile, 'Actual runtime profile changed')
+         times['metadata'] = time.monotonic()-metadata_started
+         checkpoint_resource('metadata_complete')
+         monitor_stop.set(); monitor.join(timeout=1); require(not monitor.is_alive(), 'Resource monitor did not close')
+-        write(output/'DIAGNOSTIC.json',dict(schema='native-count-conditioned-gradient-diagnostic-v1',status='COMPLETE_DIAGNOSTIC_ONLY',
++        write(output/'DIAGNOSTIC.json',dict(schema='native-exact-CB-bucket-equivalence-resource-diagnostic-v1',status='COMPLETE_DIAGNOSTIC_ONLY',
+             UTC=datetime.now(timezone.utc).isoformat(),source_manifest_sha256=sha(HERE/'MANIFEST.json'),release_sha256=args.release_sha256,
+-            core_manifest_sha256=plan['core_manifest_sha256'],runtime_profile_transition=transition,workload=plan['workload'],
+-            data_files_opened=list(DATA_FILES),data_tensor_digests=data['digests'],teacher=teacher.receipt(),stream=stream,RNG=rng,
+-            initial_and_final_state_sha256=initial_state,parameter_blocks=blocks,populations=populations,
+-            losses={key:float(value.detach()) for key,value in objectives.items()},times_seconds=times,
+-            dispatch=dispatch,inclusive_child_wall_seconds=time.monotonic()-started,
+-            cuda_peak_allocated_bytes=torch.cuda.max_memory_allocated(0),cuda_peak_reserved_bytes=torch.cuda.max_memory_reserved(0),
+-            sampled_resources=resources,optimizer_constructed=False,optimizer_updates=0,fits=0,VALID_TEST_reads=False,
+-            no_predictive_or_novelty_claim=True,native_target_serving_count_free=True,
+-            Single_evaluated=False,Single_sorted_candidate_ID_order_dependence_acknowledged=True,
+-            interpretation='Gradient opportunity at this initialization/mask only. Natural zero is valid. Three reverse passes do not qualify an ordinary update or VALID schedule.'))
++            core_manifest_sha256=plan['core_manifest_sha256'],candidate_manifest_sha256=plan['candidate_manifest_sha256'],
++            bucket_CPU_QA_sha256=plan['BUCKET_CPU_prerequisites']['BUCKET_CPU_QA']['sha256'],
++            runtime_profile_transition=transition,workload=plan['workload'],data_files_opened=list(DATA_FILES),
++            data_tensor_digests=data['digests'],teacher=teacher.receipt(),stream=stream,RNG=rng,
++            initial_and_final_state_sha256=initial_state,populations=populations,comparisons=comparisons,
++            equivalence_verdict='PASS_FIXED_ORIGINAL_RULE' if loss_pass and gradient_pass and slot_pass else 'FAIL_FIXED_ORIGINAL_RULE',
++            loss_fixed_rule_agrees=loss_pass, model_gradient_fixed_rule_agrees=gradient_pass, slot_gradient_fixed_rule_agrees=slot_pass,
++            losses={key:float(value.detach()) for key,value in objectives.items()},times_seconds=times,stage_memory=memory_stages,
++            dispatch=dispatch,dispatch_scope='Observed Python neural/conditional/group calls and recurrence slot loops; not CUDA kernel profiling.',
++            inclusive_child_wall_seconds=time.monotonic()-started,cuda_peak_allocated_bytes=torch.cuda.max_memory_allocated(0),
++            cuda_peak_reserved_bytes=torch.cuda.max_memory_reserved(0),sampled_resources=resources,optimizer_constructed=False,
++            optimizer_updates=0,fits=0,VALID_TEST_reads=False,no_predictive_or_novelty_claim=True,native_target_serving_count_free=True,
++            Single_evaluated=False,Single_sorted_candidate_ID_order_dependence_acknowledged=True,target_gradient_evaluated=False,
++            interpretation='Same retained full-batch initialization/forward only. Direct and bucket loss graphs coexist; four reverse evaluations are diagnostic overhead. Candidate timings are observed feasibility evidence, not an ordinary fit/VALID resource admission or predictive claim.'))
+         finished = True
+     except BaseException as error:
+         write(output/'FAILURE.json',dict(status='FAILED',type=type(error).__name__,condition=str(error),automatic_retry=False,
