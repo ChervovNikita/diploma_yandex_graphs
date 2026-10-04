@@ -1,18 +1,18 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-04T08:08:58.557813+00:00. Goal active and incomplete. [Current evidence](PUBLIC_STATUS.md). Prior status preserved in coordination_snapshots/20261004_actual_count_and_pubmed_results_before_state_v1.
+Updated: 2026-10-04T08:57:08.128168+00:00. Goal active and incomplete. [Current evidence](PUBLIC_STATUS.md). Prior status and complete ledger preserved in coordination_snapshots/20261004_native_repeat_and_corev3_before_state_v1.
 
-## Decisions and next actions
+## Next actions
 
-1. Preserve frozen NCNC TEST evidence and uncertainty. Single-model gain is exploratory; primary private-vs-pooled evidence is inconclusive and independent ensemble mean is higher. Successor designs must disclose consumed-TEST development.
-2. Maintain original Amazon queue. Monitor21:4/15fits complete, fifth224/2700, no failures or partial score decisions.
-3. Preserve completed isolated Pubmed diagnostic as a failed fixed-rule continuation comparison. Exact streams and saved-state preservation do not erase numerical divergence. Repair and independently review the fresh252-update native-only control after the corrective BLOCKED source audit; then execute once admitted; disclose different warm-state context and infer no automatic cause/qualification or tolerance amendment.
-4. Preserve actual count-law CPU PASS. Preserve the scoped grouped-core-v2 source PASS. Finish/review the exact vectorized single core-v3 and execute one complete successor QA after separate admission, including both-side genuine subsets.
-5. Preserve the independent scoped audit of the full completed TRAIN census. Both-informative positive exposure5.8242%; both-genuine1.3599%; negatives essentially zero. Do not claim accuracy, novelty or independent-graph sample size from this census.
-6. Resolve native batch performance with exact vectorized teacher forcing for the structured single and practical grouped conditional-law evaluation. Arithmetic cells alone cannot prove GPU feasibility; never weaken/drop controls to make a pilot cheaper.
-7. Then conduct representative prospectively frozen J_K/J_K_sep/W_K/P0/capable-single paired scientific fits with same-state coupling diagnostics, relevant prior comparisons, and a second benchmark. Do not attribute separate-arm fitted differences solely to coupling or claim global novelty clearance.
-8. Publish complete explicit inventories including failures/reviews; retain large raw assets on authorized servers. Revise manuscript from supported outcomes, then fresh skill-based reviewers without a requested verdict.
+1. Preserve the complete frozen NCNC TEST comparison and uncertainty. The exploratory single-model gain does not establish superiority over the independent ensemble or confirm the primary private-vs-pooled hypothesis. Disclose consumed-TEST history for successor development.
+2. Maintain the original Amazon queue. Monitor22: four of fifteen fits complete, fifth at 1,701 of 2,700 updates, no recorded failures or partial score decisions.
+3. Preserve the completed 252-update native repeat control and independent compact audit. Exact agreement in its different warm-state context does not overturn the earlier shared4 failure. Use fixed-state zero-update shared4 repeat controls before any scientific continuation; do not amend the fixed tolerance or admit a donor state from diagnostics.
+4. Preserve the completed core-v3 CPU law/gradient QA: 22,855 reports and physical collection passed. Separate core/supervisor reviews and metadata failures are retained. No unnecessary rerun or fixture-only predictive claim.
+5. Prepare one fixed full native TRAIN-batch signal/resource diagnostic: base, joint and separate-side gradients from identical parameters and graph, zero optimizer updates and no heldout access. The census supplies real support and workload counts but no accuracy or feasibility proof. A natural zero signal is a legitimate result.
+6. Keep the support-bucket optimization separate and disabled until law/gradient equivalence and actual resources are qualified. Do not silently substitute it into the reviewed core.
+7. If native signal and feasibility warrant training, prospectively fix representative paired joint/separate/memberwise/no-auxiliary/capable-single comparisons, relevant strong priors and a second benchmark. Preserve node-order limitations; separate fitted-arm differences do not isolate association at fixed marginals.
+8. Preserve index_v45’s new MaskGAE/GRAN scopes and unchanged paper-identity counts. Publish complete explicit inventories, failed records and reviews. Revise the manuscript only from supported outcomes and use fresh independent skill-based reviewers without a requested verdict.
 
 ## Boundaries
 
-Original paper scores unchanged. No confirmed methodological advantage or fresh acceptance. Authorized anogena-2 one-GPU and18.77 project repositories only for science; seven-GPU route forwarding only. No sudo, PDF compilation, GENLINK, Desktop writes, server configuration or unrelated-job changes. Small incidental caches allowed. Preserve all unsuccessful results, decisions, reviews, and paper conclusions.
+Original paper scores unchanged. No confirmed methodological advantage or fresh acceptance. Authorized anogena-2 one-GPU and 18.77 project repositories only for science; seven-GPU route forwarding only. No sudo, PDF compilation, GENLINK, Desktop writes, server configuration or unrelated-job changes. Small incidental caches allowed. Preserve all unsuccessful results, decisions, reviews and literature conclusions.

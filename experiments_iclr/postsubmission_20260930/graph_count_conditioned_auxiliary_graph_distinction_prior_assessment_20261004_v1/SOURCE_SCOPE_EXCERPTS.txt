@@ -1,0 +1,1057 @@
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 72-110
+72: class GNNEncoder(nn.Module):
+73:     def __init__(
+74:         self,
+75:         in_channels,
+76:         hidden_channels,
+77:         out_channels,
+78:         num_layers=2,
+79:         dropout=0.5,
+80:         bn=False,
+81:         layer="gcn",
+82:         activation="elu",
+83:         use_node_feats=True,
+84:         num_nodes=None,
+85:         node_emb=None,
+86:     ):
+87: 
+88:         super().__init__()
+89:         self.convs = nn.ModuleList()
+90:         self.bns = nn.ModuleList()
+91:         bn = nn.BatchNorm1d if bn else nn.Identity
+92:         self.use_node_feats = use_node_feats
+93:         self.node_emb = node_emb
+94: 
+95:         if node_emb is not None and num_nodes is None:
+96:             raise RuntimeError("Please provide the argument `num_nodes`.")
+97: 
+98:         in_channels, self.emb = create_input_layer(
+99:             num_nodes, in_channels, use_node_feats=use_node_feats, node_emb=node_emb
+100:         )
+101:         for i in range(num_layers):
+102:             first_channels = in_channels if i == 0 else hidden_channels
+103:             second_channels = out_channels if i == num_layers - 1 else hidden_channels
+104:             heads = 1 if i == num_layers - 1 or 'gat' not in layer else 4
+105: 
+106:             self.convs.append(creat_gnn_layer(layer, first_channels, second_channels, heads))
+107:             self.bns.append(bn(second_channels*heads))
+108: 
+109:         self.dropout = nn.Dropout(dropout)
+110:         self.activation = creat_activation_layer(activation)
+
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 112-130
+112:     def reset_parameters(self):
+113:         for conv in self.convs:
+114:             conv.reset_parameters()
+115: 
+116:         for bn in self.bns:
+117:             if not isinstance(bn, nn.Identity):
+118:                 bn.reset_parameters()
+119: 
+120:         if self.emb is not None:
+121:             nn.init.xavier_uniform_(self.emb.weight)
+122: 
+123:     def create_input_feat(self, x):
+124:         if self.use_node_feats:
+125:             input_feat = x
+126:             if self.node_emb:
+127:                 input_feat = torch.cat([self.emb.weight, input_feat], dim=-1)
+128:         else:
+129:             input_feat = self.emb.weight
+130:         return input_feat
+
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 132-145
+132:     def forward(self, x, edge_index):
+133:         x = self.create_input_feat(x)
+134:         edge_index = to_sparse_tensor(edge_index, x.size(0))
+135: 
+136:         for i, conv in enumerate(self.convs[:-1]):
+137:             x = self.dropout(x)
+138:             x = conv(x, edge_index)
+139:             x = self.bns[i](x)
+140:             x = self.activation(x)
+141:         x = self.dropout(x)
+142:         x = self.convs[-1](x, edge_index)
+143:         x = self.bns[-1](x)
+144:         x = self.activation(x)
+145:         return x
+
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 176-234
+176: class DotEdgeDecoder(nn.Module):
+177:     """Simple Dot Product Edge Decoder"""
+178: 
+179:     def __init__(self, *args, **kwargs):
+180:         super().__init__()
+181: 
+182:     def reset_parameters(self):
+183:         return
+184: 
+185:     def forward(self, z, edge, sigmoid=True):
+186:         x = z[edge[0]] * z[edge[1]]
+187:         x = x.sum(-1)
+188: 
+189:         if sigmoid:
+190:             return x.sigmoid()
+191:         else:
+192:             return x
+193: 
+194: 
+195: class EdgeDecoder(nn.Module):
+196:     """Simple MLP Edge Decoder"""
+197: 
+198:     def __init__(
+199:         self, in_channels, hidden_channels, out_channels=1,
+200:         num_layers=2, dropout=0.5, activation='relu'
+201:     ):
+202: 
+203:         super().__init__()
+204:         self.mlps = nn.ModuleList()
+205: 
+206:         for i in range(num_layers):
+207:             first_channels = in_channels if i == 0 else hidden_channels
+208:             second_channels = out_channels if i == num_layers - 1 else hidden_channels
+209:             self.mlps.append(nn.Linear(first_channels, second_channels))
+210: 
+211:         self.dropout = nn.Dropout(dropout)
+212:         self.activation = creat_activation_layer(activation)
+213: 
+214:     def reset_parameters(self):
+215:         for mlp in self.mlps:
+216:             mlp.reset_parameters()
+217: 
+218:     def forward(self, z, edge, sigmoid=True, reduction=False):
+219:         x = z[edge[0]] * z[edge[1]]
+220: 
+221:         if reduction:
+222:             x = x.mean(1)
+223: 
+224:         for i, mlp in enumerate(self.mlps[:-1]):
+225:             x = self.dropout(x)
+226:             x = mlp(x)
+227:             x = self.activation(x)
+228: 
+229:         x = self.mlps[-1](x)
+230: 
+231:         if sigmoid:
+232:             return x.sigmoid()
+233:         else:
+234:             return x
+
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 237-270
+237: class DegreeDecoder(nn.Module):
+238:     """Simple MLP Degree Decoder"""
+239: 
+240:     def __init__(
+241:         self, in_channels, hidden_channels, out_channels=1,
+242:         num_layers=2, dropout=0.5, activation='relu',
+243:     ):
+244: 
+245:         super().__init__()
+246:         self.mlps = nn.ModuleList()
+247: 
+248:         for i in range(num_layers):
+249:             first_channels = in_channels if i == 0 else hidden_channels
+250:             second_channels = out_channels if i == num_layers - 1 else hidden_channels
+251:             self.mlps.append(nn.Linear(first_channels, second_channels))
+252: 
+253:         self.dropout = nn.Dropout(dropout)
+254:         self.activation = creat_activation_layer(activation)
+255: 
+256:     def reset_parameters(self):
+257:         for mlp in self.mlps:
+258:             mlp.reset_parameters()
+259: 
+260:     def forward(self, x):
+261: 
+262:         for i, mlp in enumerate(self.mlps[:-1]):
+263:             x = mlp(x)
+264:             x = self.dropout(x)
+265:             x = self.activation(x)
+266: 
+267:         x = self.mlps[-1](x)
+268:         x = self.activation(x)
+269: 
+270:         return x
+
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 272-276
+272: 
+273: def random_negative_sampler(edge_index, num_nodes, num_neg_samples):
+274:     neg_edges = torch.randint(0, num_nodes, size=(2, num_neg_samples)).to(edge_index)
+275:     return neg_edges
+276: 
+
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 278-390
+278: class MaskGAE(nn.Module):
+279:     def __init__(
+280:         self,
+281:         encoder,
+282:         edge_decoder,
+283:         degree_decoder=None,
+284:         mask=None,
+285:         random_negative_sampling=False,
+286:         loss="ce",
+287:     ):
+288:         super().__init__()
+289:         self.encoder = encoder
+290:         self.edge_decoder = edge_decoder
+291:         self.degree_decoder = degree_decoder
+292:         self.mask = mask
+293: 
+294:         if loss == "ce":
+295:             self.loss_fn = ce_loss
+296:         elif loss == "auc":
+297:             self.loss_fn = auc_loss
+298:         elif loss == "info_nce":
+299:             self.loss_fn = info_nce_loss
+300:         elif loss == "log_rank":
+301:             self.loss_fn = log_rank_loss
+302:         elif loss == "hinge_auc":
+303:             self.loss_fn = hinge_auc_loss
+304:         else:
+305:             raise ValueError(loss)
+306: 
+307:         if random_negative_sampling:
+308:             # this will be faster than pyg negative_sampling
+309:             self.negative_sampler = random_negative_sampler
+310:         else:
+311:             self.negative_sampler = negative_sampling
+312: 
+313:     def reset_parameters(self):
+314:         self.encoder.reset_parameters()
+315:         self.edge_decoder.reset_parameters()
+316: 
+317:         if self.degree_decoder is not None:
+318:             self.degree_decoder.reset_parameters()
+319: 
+320:     def forward(self, x, edge_index):
+321:         return self.encoder(x, edge_index)
+322: 
+323:     def train_step(self, data, optimizer, alpha=0.002,
+324:         batch_size=2 ** 16, grad_norm=1.0
+325:     ):
+326:         self.train()
+327: 
+328:         x, edge_index = data.x, data.edge_index
+329: 
+330:         if self.mask is not None:
+331:             # MaskGAE
+332:             remaining_edges, masked_edges = self.mask(edge_index)
+333:         else:
+334:             # Plain GAE
+335:             remaining_edges = edge_index
+336:             masked_edges = getattr(data, "pos_edge_label_index", edge_index)
+337: 
+338:         loss_total = 0.0
+339:         aug_edge_index, _ = add_self_loops(edge_index)
+340:         neg_edges = self.negative_sampler(
+341:             aug_edge_index,
+342:             num_nodes=data.num_nodes,
+343:             num_neg_samples=masked_edges.view(2, -1).size(1),
+344:         ).view_as(masked_edges)
+345: 
+346:         for perm in DataLoader(
+347:             range(masked_edges.size(1)), batch_size=batch_size, shuffle=True
+348:         ):
+349: 
+350:             optimizer.zero_grad()
+351: 
+352:             z = self.encoder(x, remaining_edges)
+353: 
+354:             batch_masked_edges = masked_edges[:, perm]
+355:             batch_neg_edges = neg_edges[:, perm]
+356: 
+357:             # ******************* loss for edge reconstruction *********************
+358:             pos_out = self.edge_decoder(
+359:                 z, batch_masked_edges, sigmoid=False
+360:             )
+361:             neg_out = self.edge_decoder(z, batch_neg_edges, sigmoid=False)
+362:             loss = self.loss_fn(pos_out, neg_out)
+363:             # **********************************************************************
+364: 
+365:             # ******************* loss for degree prediction ***********************
+366:             if self.degree_decoder is not None and alpha:
+367:                 deg = degree(masked_edges[1].flatten(), data.num_nodes).float()
+368:                 loss += alpha * F.mse_loss(self.degree_decoder(z).squeeze(), deg)
+369:             # **********************************************************************
+370: 
+371:             loss.backward()
+372: 
+373:             if grad_norm > 0:
+374:                 # gradient clipping
+375:                 nn.utils.clip_grad_norm_(self.parameters(), grad_norm)
+376: 
+377:             optimizer.step()
+378: 
+379:             loss_total += loss.item()
+380: 
+381:         return loss_total
+382: 
+383:     @torch.no_grad()
+384:     def batch_predict(self, z, edges, batch_size=2 ** 16):
+385:         preds = []
+386:         for perm in DataLoader(range(edges.size(1)), batch_size):
+387:             edge = edges[:, perm]
+388:             preds += [self.edge_decoder(z, edge).squeeze().cpu()]
+389:         pred = torch.cat(preds, dim=0)
+390:         return pred
+
+maskgae/model.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 408-424
+408:     @torch.no_grad()
+409:     def test_step_ogb(self, data, evaluator, 
+410:                       pos_edge_index, neg_edge_index, batch_size=2**16):
+411:         self.eval()
+412:         z = self(data.x, data.edge_index)
+413:         pos_pred = self.batch_predict(z, pos_edge_index)
+414:         neg_pred = self.batch_predict(z, neg_edge_index)
+415: 
+416:         results = {}
+417:         for K in [20, 50, 100]:
+418:             evaluator.K = K
+419:             hits = evaluator.eval(
+420:                 {"y_pred_pos": pos_pred, "y_pred_neg": neg_pred, }
+421:             )[f"hits@{K}"]
+422:             results[f"Hits@{K}"] = hits
+423: 
+424:         return results
+
+maskgae/loss.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 1-21
+1: import torch
+2: import torch.nn.functional as F
+3: 
+4: def auc_loss(pos_out, neg_out):
+5:     return torch.square(1 - (pos_out - neg_out)).sum()
+6: 
+7: def hinge_auc_loss(pos_out, neg_out):
+8:     return (torch.square(torch.clamp(1 - (pos_out - neg_out), min=0))).sum()
+9: 
+10: def log_rank_loss(pos_out, neg_out, num_neg=1):
+11:     return -torch.log(torch.sigmoid(pos_out - neg_out) + 1e-15).mean()
+12: 
+13: def ce_loss(pos_out, neg_out):
+14:     pos_loss = F.binary_cross_entropy(pos_out.sigmoid(), torch.ones_like(pos_out))
+15:     neg_loss = F.binary_cross_entropy(neg_out.sigmoid(), torch.zeros_like(neg_out))
+16:     return pos_loss + neg_loss
+17: 
+18: def info_nce_loss(pos_out, neg_out):
+19:     pos_exp = torch.exp(pos_out)
+20:     neg_exp = torch.sum(torch.exp(neg_out), 1, keepdim=True)
+21:     return -torch.log(pos_exp / (pos_exp + neg_exp) + 1e-15).mean()
+
+maskgae/mask.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 16-109
+16: def mask_path(edge_index: Tensor, p: float = 0.3, walks_per_node: int = 1,
+17:               walk_length: int = 3, num_nodes: Optional[int] = None,
+18:               start: str = 'node',
+19:               is_sorted: bool = False,
+20:               training: bool = True) -> Tuple[Tensor, Tensor]:
+21:     if p < 0. or p > 1.:
+22:         raise ValueError(f'Sample probability has to be between 0 and 1 '
+23:                          f'(got {p}')
+24: 
+25:     assert start in ['node', 'edge']
+26:     num_edges = edge_index.size(1)
+27:     edge_mask = edge_index.new_ones(num_edges, dtype=torch.bool)
+28:     
+29:     if not training or p == 0.0:
+30:         return edge_index, edge_mask
+31: 
+32:     if random_walk is None:
+33:         raise ImportError('`dropout_path` requires `torch-cluster`.')
+34: 
+35:     num_nodes = maybe_num_nodes(edge_index, num_nodes)
+36:     
+37:     if not is_sorted:
+38:         edge_index = sort_edge_index(edge_index, num_nodes=num_nodes)
+39: 
+40:     row, col = edge_index
+41:     if start == 'edge':
+42:         sample_mask = torch.rand(row.size(0), device=edge_index.device) <= p
+43:         start = row[sample_mask].repeat(walks_per_node)
+44:     else:
+45:         start = torch.randperm(num_nodes, device=edge_index.device)[:round(num_nodes*p)].repeat(walks_per_node)
+46:     
+47:     deg = degree(row, num_nodes=num_nodes)
+48:     rowptr = row.new_zeros(num_nodes + 1)
+49:     torch.cumsum(deg, 0, out=rowptr[1:])
+50:     n_id, e_id = random_walk(rowptr, col, start, walk_length, 1.0, 1.0)
+51:     e_id = e_id[e_id != -1].view(-1)  # filter illegal edges
+52:     edge_mask[e_id] = False
+53: 
+54:     return edge_index[:, edge_mask], edge_index[:, ~edge_mask]
+55: 
+56: 
+57: def mask_edge(edge_index: Tensor, p: float=0.7):
+58:     if p < 0. or p > 1.:
+59:         raise ValueError(f'Mask probability has to be between 0 and 1 '
+60:                          f'(got {p}')    
+61:     e_ids = torch.arange(edge_index.size(1), dtype=torch.long, device=edge_index.device)
+62:     mask = torch.full_like(e_ids, p, dtype=torch.float32)
+63:     mask = torch.bernoulli(mask).to(torch.bool)
+64:     return edge_index[:, ~mask], edge_index[:, mask]
+65: 
+66: 
+67: class MaskPath(nn.Module):
+68:     def __init__(self, p: float = 0.7, 
+69:                  walks_per_node: int = 1,
+70:                  walk_length: int = 3, 
+71:                  start: str = 'node',
+72:                  num_nodes: Optional[int]=None,
+73:                  undirected: bool=True):
+74:         super().__init__()
+75:         self.p = p
+76:         self.walks_per_node = walks_per_node
+77:         self.walk_length = walk_length
+78:         self.start = start
+79:         self.num_nodes = num_nodes
+80:         self.undirected = undirected
+81: 
+82:     def forward(self, edge_index):
+83:         remaining_edges, masked_edges = mask_path(edge_index, self.p,
+84:                                                   walks_per_node=self.walks_per_node,
+85:                                                   walk_length=self.walk_length,
+86:                                                   start=self.start,
+87:                                                   num_nodes=self.num_nodes)
+88:         if self.undirected:
+89:             remaining_edges = to_undirected(remaining_edges)
+90:         return remaining_edges, masked_edges
+91: 
+92:     def extra_repr(self):
+93:         return f"p={self.p}, walks_per_node={self.walks_per_node}, walk_length={self.walk_length}, \n"\
+94:             f"start={self.start}, undirected={self.undirected}"
+95: 
+96: 
+97: class MaskEdge(nn.Module):
+98:     def __init__(self, p: float=0.7, undirected: bool=True):
+99:         super().__init__()
+100:         self.p = p
+101:         self.undirected = undirected
+102: 
+103:     def forward(self, edge_index):
+104:         remaining_edges, masked_edges = mask_edge(edge_index, p=self.p)
+105:         if self.undirected:
+106:             remaining_edges = to_undirected(remaining_edges)
+107:         return remaining_edges, masked_edges
+108: 
+109:     def extra_repr(self):
+
+train_linkpred_ogb.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 16-37
+16: def train_linkpred(model, splits, args, device="cpu"):
+17:     optimizer = torch.optim.Adam(model.parameters(),
+18:                                  lr=args.lr,
+19:                                  weight_decay=args.weight_decay)
+20: 
+21:     best_valid = 0
+22:     batch_size = args.batch_size
+23:     
+24:     train_data = splits['train'].to(device)
+25:     valid_data = splits['valid'].to(device)
+26:     test_data = splits['test'].to(device)
+27:     
+28:     monitor = 'Hits@50'
+29:     evaluator = Evaluator(name=args.dataset)    
+30:     
+31:     for epoch in tqdm(range(1, 1 + args.epochs)):
+32: 
+33:         loss = model.train_step(train_data, optimizer,
+34:                                 alpha=args.alpha, 
+35:                                 batch_size=args.batch_size)
+36:         
+37:         if epoch % args.eval_period == 0:
+
+train_linkpred_ogb.py @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 158-181
+158: if args.mask == 'Path':
+159:     mask = MaskPath(p=args.p, num_nodes=data.num_nodes, 
+160:                     start=args.start,
+161:                     walk_length=args.encoder_layers+1)
+162: elif args.mask == 'Edge':
+163:     mask = MaskEdge(p=args.p)
+164: else:
+165:     mask = None # vanilla GAE
+166: 
+167: encoder = GNNEncoder(data.num_features, args.encoder_channels, args.hidden_channels,
+168:                      num_layers=args.encoder_layers, dropout=args.encoder_dropout,
+169:                      bn=args.bn, layer=args.layer, activation=args.encoder_activation,
+170:                      use_node_feats=False, node_emb=256, num_nodes=data.num_nodes)
+171: 
+172: edge_decoder = DotEdgeDecoder()
+173: 
+174: degree_decoder = DegreeDecoder(args.hidden_channels, args.decoder_channels,
+175:                                num_layers=args.decoder_layers, dropout=args.decoder_dropout)
+176: 
+177: 
+178: model = MaskGAE(encoder, edge_decoder, degree_decoder, mask, 
+179:                 random_negative_sampling=True, loss='auc').to(device)
+180: 
+181: hit_20 = []
+
+README.md @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 1-11
+1: # MaskGAE
+2: 
+3: 
+4: > [**What’s Behind the Mask: Understanding Masked Graph Modeling for Graph Autoencoders**](https://arxiv.org/abs/2205.10053) (KDD 2023)\
+5: > [**MaskGAE: Masked Graph Modeling Meets Graph Autoencoders**](https://arxiv.org/abs/2205.10053v1) (arXiv 2022)
+6: >
+7: > Jintang Li, Ruofan Wu, Wangbin Sun, Liang Chen, Sheng Tian, Liang Zhu, Changhua Meng, Zibin Zheng, Weiqiang Wang    
+8: 
+9: **This repository is an official PyTorch implementation of MaskGAE.**
+10: <p align="center">
+11:   <img src="figs/maskgae.png"/>
+
+README.md @ 343ced7028681f052b7e9ea47945be7fc5166213 lines 142-160
+142: # Citation
+143: 
+144: ```bibtex
+145: @inproceedings{maskgae,
+146:   author       = {Jintang Li and
+147:                   Ruofan Wu and
+148:                   Wangbin Sun and
+149:                   Liang Chen and
+150:                   Sheng Tian and
+151:                   Liang Zhu and
+152:                   Changhua Meng and
+153:                   Zibin Zheng and
+154:                   Weiqiang Wang},
+155:   title        = {What's Behind the Mask: Understanding Masked Graph Modeling for Graph
+156:                   Autoencoders},
+157:   booktitle    = {{KDD}},
+158:   pages        = {1268--1279},
+159:   publisher    = {{ACM}},
+160:   year         = {2023}
+
+dataset/gran_data.py @ 70e0dd24bb357aeaacfcd585e77e4ebd0c55f8f8 lines 14-282
+14: class GRANData(object):
+15: 
+16:   def __init__(self, config, graphs, tag='train'):
+17:     self.config = config
+18:     self.data_path = config.dataset.data_path
+19:     self.model_name = config.model.name
+20:     self.max_num_nodes = config.model.max_num_nodes
+21:     self.block_size = config.model.block_size
+22:     self.stride = config.model.sample_stride
+23: 
+24:     self.graphs = graphs
+25:     self.num_graphs = len(graphs)
+26:     self.npr = np.random.RandomState(config.seed)
+27:     self.node_order = config.dataset.node_order
+28:     self.num_canonical_order = config.model.num_canonical_order
+29:     self.tag = tag
+30:     self.num_fwd_pass = config.dataset.num_fwd_pass
+31:     self.is_sample_subgraph = config.dataset.is_sample_subgraph
+32:     self.num_subgraph_batch = config.dataset.num_subgraph_batch
+33:     self.is_overwrite_precompute = config.dataset.is_overwrite_precompute
+34: 
+35:     if self.is_sample_subgraph:
+36:       assert self.num_subgraph_batch > 0
+37: 
+38:     self.save_path = os.path.join(
+39:         self.data_path, '{}_{}_{}_{}_{}_{}_{}_precompute'.format(
+40:             config.model.name, config.dataset.name, tag, self.block_size,
+41:             self.stride, self.num_canonical_order, self.node_order))
+42: 
+43:     if not os.path.isdir(self.save_path) or self.is_overwrite_precompute:
+44:       self.file_names = []
+45:       if not os.path.isdir(self.save_path):
+46:         os.makedirs(self.save_path)
+47: 
+48:       self.config.dataset.save_path = self.save_path
+49:       for index in tqdm(range(self.num_graphs)):
+50:         G = self.graphs[index]
+51:         data = self._get_graph_data(G)
+52:         tmp_path = os.path.join(self.save_path, '{}_{}.p'.format(tag, index))
+53:         pickle.dump(data, open(tmp_path, 'wb'))
+54:         self.file_names += [tmp_path]
+55:     else:
+56:       self.file_names = glob.glob(os.path.join(self.save_path, '*.p'))
+57: 
+58:   def _get_graph_data(self, G):
+59:     node_degree_list = [(n, d) for n, d in G.degree()]
+60: 
+61:     adj_0 = np.array(nx.to_numpy_matrix(G))
+62: 
+63:     ### Degree descent ranking
+64:     # N.B.: largest-degree node may not be unique
+65:     degree_sequence = sorted(
+66:         node_degree_list, key=lambda tt: tt[1], reverse=True)
+67:     adj_1 = np.array(
+68:         nx.to_numpy_matrix(G, nodelist=[dd[0] for dd in degree_sequence]))
+69: 
+70:     ### Degree ascent ranking
+71:     degree_sequence = sorted(node_degree_list, key=lambda tt: tt[1])
+72:     adj_2 = np.array(
+73:         nx.to_numpy_matrix(G, nodelist=[dd[0] for dd in degree_sequence]))
+74: 
+75:     ### BFS & DFS from largest-degree node
+76:     CGs = [G.subgraph(c) for c in nx.connected_components(G)]
+77: 
+78:     # rank connected componets from large to small size
+79:     CGs = sorted(CGs, key=lambda x: x.number_of_nodes(), reverse=True)
+80: 
+81:     node_list_bfs = []
+82:     node_list_dfs = []
+83:     for ii in range(len(CGs)):
+84:       node_degree_list = [(n, d) for n, d in CGs[ii].degree()]
+85:       degree_sequence = sorted(
+86:           node_degree_list, key=lambda tt: tt[1], reverse=True)
+87: 
+88:       bfs_tree = nx.bfs_tree(CGs[ii], source=degree_sequence[0][0])
+89:       dfs_tree = nx.dfs_tree(CGs[ii], source=degree_sequence[0][0])
+90: 
+91:       node_list_bfs += list(bfs_tree.nodes())
+92:       node_list_dfs += list(dfs_tree.nodes())
+93: 
+94:     adj_3 = np.array(nx.to_numpy_matrix(G, nodelist=node_list_bfs))
+95:     adj_4 = np.array(nx.to_numpy_matrix(G, nodelist=node_list_dfs))
+96: 
+97:     ### k-core
+98:     num_core = nx.core_number(G)
+99:     core_order_list = sorted(list(set(num_core.values())), reverse=True)
+100:     degree_dict = dict(G.degree())
+101:     core_to_node = defaultdict(list)
+102:     for nn, kk in num_core.items():
+103:       core_to_node[kk] += [nn]
+104: 
+105:     node_list = []
+106:     for kk in core_order_list:
+107:       sort_node_tuple = sorted(
+108:           [(nn, degree_dict[nn]) for nn in core_to_node[kk]],
+109:           key=lambda tt: tt[1],
+110:           reverse=True)
+111:       node_list += [nn for nn, dd in sort_node_tuple]
+112: 
+113:     adj_5 = np.array(nx.to_numpy_matrix(G, nodelist=node_list))
+114: 
+115:     if self.num_canonical_order == 5:
+116:       adj_list = [adj_0, adj_1, adj_3, adj_4, adj_5]
+117:     else:
+118:       if self.node_order == 'degree_decent':
+119:         adj_list = [adj_1]
+120:       elif self.node_order == 'degree_accent':
+121:         adj_list = [adj_2]
+122:       elif self.node_order == 'BFS':
+123:         adj_list = [adj_3]
+124:       elif self.node_order == 'DFS':
+125:         adj_list = [adj_4]
+126:       elif self.node_order == 'k_core':
+127:         adj_list = [adj_5]
+128:       elif self.node_order == 'DFS+BFS':
+129:         adj_list = [adj_4, adj_3]
+130:       elif self.node_order == 'DFS+BFS+k_core':
+131:         adj_list = [adj_4, adj_3, adj_5]
+132:       elif self.node_order == 'DFS+BFS+k_core+degree_decent':
+133:         adj_list = [adj_4, adj_3, adj_5, adj_1]
+134:       elif self.node_order == 'all':
+135:         adj_list = [adj_4, adj_3, adj_5, adj_1, adj_0]
+136:       else:
+137:         adj_list = [adj_0]
+138: 
+139:     # print('number of nodes = {}'.format(adj_0.shape[0]))
+140: 
+141:     return adj_list
+142: 
+143:   def __getitem__(self, index):
+144:     K = self.block_size
+145:     N = self.max_num_nodes
+146:     S = self.stride
+147: 
+148:     # load graph
+149:     adj_list = pickle.load(open(self.file_names[index], 'rb'))
+150:     num_nodes = adj_list[0].shape[0]
+151:     num_subgraphs = int(np.floor((num_nodes - K) / S) + 1)
+152: 
+153:     if self.is_sample_subgraph:
+154:       if self.num_subgraph_batch < num_subgraphs:
+155:         num_subgraphs_pass = int(
+156:             np.floor(self.num_subgraph_batch / self.num_fwd_pass))
+157:       else:
+158:         num_subgraphs_pass = int(np.floor(num_subgraphs / self.num_fwd_pass))
+159: 
+160:       end_idx = min(num_subgraphs, self.num_subgraph_batch)
+161:     else:
+162:       num_subgraphs_pass = int(np.floor(num_subgraphs / self.num_fwd_pass))
+163:       end_idx = num_subgraphs
+164: 
+165:     ### random permute subgraph
+166:     rand_perm_idx = self.npr.permutation(num_subgraphs).tolist()
+167: 
+168:     start_time = time.time()
+169:     data_batch = []
+170:     for ff in range(self.num_fwd_pass):
+171:       ff_idx_start = num_subgraphs_pass * ff
+172:       if ff == self.num_fwd_pass - 1:
+173:         ff_idx_end = end_idx
+174:       else:
+175:         ff_idx_end = (ff + 1) * num_subgraphs_pass
+176: 
+177:       rand_idx = rand_perm_idx[ff_idx_start:ff_idx_end]
+178: 
+179:       edges = []
+180:       node_idx_gnn = []
+181:       node_idx_feat = []
+182:       label = []
+183:       subgraph_size = []
+184:       subgraph_idx = []
+185:       att_idx = []
+186:       subgraph_count = 0
+187: 
+188:       for ii in range(len(adj_list)):
+189:         # loop over different orderings
+190:         adj_full = adj_list[ii]
+191:         # adj_tril = np.tril(adj_full, k=-1)
+192: 
+193:         idx = -1
+194:         for jj in range(0, num_nodes, S):
+195:           # loop over different subgraphs
+196:           idx += 1
+197: 
+198:           ### for each size-(jj+K) subgraph, we generate edges for the new block of K nodes
+199:           if jj + K > num_nodes:
+200:             break
+201: 
+202:           if idx not in rand_idx:
+203:             continue
+204: 
+205:           ### get graph for GNN propagation
+206:           adj_block = np.pad(
+207:               adj_full[:jj, :jj], ((0, K), (0, K)),
+208:               'constant',
+209:               constant_values=1.0)  # assuming fully connected for the new block
+210:           adj_block = np.tril(adj_block, k=-1)
+211:           adj_block = adj_block + adj_block.transpose()
+212:           adj_block = torch.from_numpy(adj_block).to_sparse()
+213:           edges += [adj_block.coalesce().indices().long()]
+214: 
+215:           ### get attention index
+216:           # exist node: 0
+217:           # newly added node: 1, ..., K
+218:           if jj == 0:
+219:             att_idx += [np.arange(1, K + 1).astype(np.uint8)]
+220:           else:
+221:             att_idx += [
+222:                 np.concatenate([
+223:                     np.zeros(jj).astype(np.uint8),
+224:                     np.arange(1, K + 1).astype(np.uint8)
+225:                 ])
+226:             ]
+227: 
+228:           ### get node feature index for GNN input
+229:           # use inf to indicate the newly added nodes where input feature is zero
+230:           if jj == 0:
+231:             node_idx_feat += [np.ones(K) * np.inf]
+232:           else:
+233:             node_idx_feat += [
+234:                 np.concatenate([np.arange(jj) + ii * N,
+235:                                 np.ones(K) * np.inf])
+236:             ]
+237: 
+238:           ### get node index for GNN output
+239:           idx_row_gnn, idx_col_gnn = np.meshgrid(
+240:               np.arange(jj, jj + K), np.arange(jj + K))
+241:           idx_row_gnn = idx_row_gnn.reshape(-1, 1)
+242:           idx_col_gnn = idx_col_gnn.reshape(-1, 1)
+243:           node_idx_gnn += [
+244:               np.concatenate([idx_row_gnn, idx_col_gnn],
+245:                              axis=1).astype(np.int64)
+246:           ]
+247: 
+248:           ### get predict label
+249:           label += [
+250:               adj_full[idx_row_gnn, idx_col_gnn].flatten().astype(np.uint8)
+251:           ]
+252: 
+253:           subgraph_size += [jj + K]
+254:           subgraph_idx += [
+255:               np.ones_like(label[-1]).astype(np.int64) * subgraph_count
+256:           ]
+257:           subgraph_count += 1
+258: 
+259:       ### adjust index basis for the selected subgraphs
+260:       cum_size = np.cumsum([0] + subgraph_size).astype(np.int64)
+261:       for ii in range(len(edges)):
+262:         edges[ii] = edges[ii] + cum_size[ii]
+263:         node_idx_gnn[ii] = node_idx_gnn[ii] + cum_size[ii]
+264: 
+265:       ### pack tensors
+266:       data = {}
+267:       data['adj'] = np.tril(np.stack(adj_list, axis=0), k=-1)
+268:       data['edges'] = torch.cat(edges, dim=1).t().long()
+269:       data['node_idx_gnn'] = np.concatenate(node_idx_gnn)
+270:       data['node_idx_feat'] = np.concatenate(node_idx_feat)
+271:       data['label'] = np.concatenate(label)
+272:       data['att_idx'] = np.concatenate(att_idx)
+273:       data['subgraph_idx'] = np.concatenate(subgraph_idx)
+274:       data['subgraph_count'] = subgraph_count
+275:       data['num_nodes'] = num_nodes
+276:       data['subgraph_size'] = subgraph_size
+277:       data['num_count'] = sum(subgraph_size)
+278:       data_batch += [data]
+279: 
+280:     end_time = time.time()
+281: 
+282:     return data_batch
+
+model/gran_mixture_bernoulli.py @ 70e0dd24bb357aeaacfcd585e77e4ebd0c55f8f8 lines 204-458
+204:   def _inference(self,
+205:                  A_pad=None,
+206:                  edges=None,
+207:                  node_idx_gnn=None,
+208:                  node_idx_feat=None,
+209:                  att_idx=None):
+210:     """ generate adj in row-wise auto-regressive fashion """
+211: 
+212:     B, C, N_max, _ = A_pad.shape
+213:     H = self.hidden_dim
+214:     K = self.block_size
+215:     A_pad = A_pad.view(B * C * N_max, -1)
+216: 
+217:     if self.dimension_reduce:
+218:       node_feat = self.decoder_input(A_pad)  # BCN_max X H
+219:     else:
+220:       node_feat = A_pad  # BCN_max X N_max
+221: 
+222:     ### GNN inference
+223:     # pad zero as node feature for newly generated nodes (1st row)
+224:     node_feat = F.pad(
+225:         node_feat, (0, 0, 1, 0), 'constant', value=0.0)  # (BCN_max + 1) X N_max
+226: 
+227:     # create symmetry-breaking edge feature for the newly generated nodes
+228:     att_idx = att_idx.view(-1, 1)
+229: 
+230:     if self.has_rand_feat:
+231:       # create random feature
+232:       att_edge_feat = torch.zeros(edges.shape[0],
+233:                                   2 * self.att_edge_dim).to(node_feat.device)
+234:       idx_new_node = (att_idx[[edges[:, 0]]] >
+235:                       0).long() + (att_idx[[edges[:, 1]]] > 0).long()
+236:       idx_new_node = idx_new_node.byte().squeeze()
+237:       att_edge_feat[idx_new_node, :] = torch.randn(
+238:           idx_new_node.long().sum(),
+239:           att_edge_feat.shape[1]).to(node_feat.device)
+240:     else:
+241:       # create one-hot feature
+242:       att_edge_feat = torch.zeros(edges.shape[0],
+243:                                   2 * self.att_edge_dim).to(node_feat.device)
+244:       # scatter with empty index seems to cause problem on CPU but not on GPU
+245:       att_edge_feat = att_edge_feat.scatter(1, att_idx[[edges[:, 0]]], 1)
+246:       att_edge_feat = att_edge_feat.scatter(
+247:           1, att_idx[[edges[:, 1]]] + self.att_edge_dim, 1)
+248: 
+249:     # GNN inference
+250:     # N.B.: node_feat is shared by multiple subgraphs within the same batch
+251:     node_state = self.decoder(
+252:         node_feat[node_idx_feat], edges, edge_feat=att_edge_feat)
+253: 
+254:     ### Pairwise predict edges
+255:     diff = node_state[node_idx_gnn[:, 0], :] - node_state[node_idx_gnn[:, 1], :]
+256: 
+257:     log_theta = self.output_theta(diff)  # B X (tt+K)K
+258:     log_alpha = self.output_alpha(diff)  # B X (tt+K)K
+259:     log_theta = log_theta.view(-1, self.num_mix_component)  # B X CN(N-1)/2 X K
+260:     log_alpha = log_alpha.view(-1, self.num_mix_component)  # B X CN(N-1)/2 X K
+261: 
+262:     return log_theta, log_alpha
+263: 
+264:   def _sampling(self, B):
+265:     """ generate adj in row-wise auto-regressive fashion """
+266:     with torch.no_grad():
+267: 
+268:         K = self.block_size
+269:         S = self.sample_stride
+270:         H = self.hidden_dim
+271:         N = self.max_num_nodes
+272:         mod_val = (N - K) % S
+273:         if mod_val > 0:
+274:           N_pad = N - K - mod_val + int(np.ceil((K + mod_val) / S)) * S
+275:         else:
+276:           N_pad = N
+277: 
+278:         A = torch.zeros(B, N_pad, N_pad).to(self.device)
+279:         dim_input = self.embedding_dim if self.dimension_reduce else self.max_num_nodes
+280: 
+281:         ### cache node state for speed up
+282:         node_state = torch.zeros(B, N_pad, dim_input).to(self.device)
+283: 
+284:         for ii in range(0, N_pad, S):
+285:           # for ii in range(0, 3530, S):
+286:           jj = ii + K
+287:           if jj > N_pad:
+288:             break
+289: 
+290:           # reset to discard overlap generation
+291:           A[:, ii:, :] = .0
+292:           A = torch.tril(A, diagonal=-1)
+293: 
+294:           if ii >= K:
+295:             if self.dimension_reduce:
+296:               node_state[:, ii - K:ii, :] = self.decoder_input(A[:, ii - K:ii, :N])
+297:             else:
+298:               node_state[:, ii - K:ii, :] = A[:, ii - S:ii, :N]
+299:           else:
+300:             if self.dimension_reduce:
+301:               node_state[:, :ii, :] = self.decoder_input(A[:, :ii, :N])
+302:             else:
+303:               node_state[:, :ii, :] = A[:, ii - S:ii, :N]
+304: 
+305:           node_state_in = F.pad(
+306:               node_state[:, :ii, :], (0, 0, 0, K), 'constant', value=.0)
+307: 
+308:           ### GNN propagation
+309:           adj = F.pad(
+310:               A[:, :ii, :ii], (0, K, 0, K), 'constant', value=1.0)  # B X jj X jj
+311:           adj = torch.tril(adj, diagonal=-1)
+312:           adj = adj + adj.transpose(1, 2)
+313:           edges = [
+314:               adj[bb].to_sparse().coalesce().indices() + bb * adj.shape[1]
+315:               for bb in range(B)
+316:           ]
+317:           edges = torch.cat(edges, dim=1).t()
+318: 
+319:           att_idx = torch.cat([torch.zeros(ii).long(),
+320:                                torch.arange(1, K + 1)]).to(self.device)
+321:           att_idx = att_idx.view(1, -1).expand(B, -1).contiguous().view(-1, 1)
+322: 
+323:           if self.has_rand_feat:
+324:             # create random feature
+325:             att_edge_feat = torch.zeros(edges.shape[0],
+326:                                         2 * self.att_edge_dim).to(self.device)
+327:             idx_new_node = (att_idx[[edges[:, 0]]] >
+328:                             0).long() + (att_idx[[edges[:, 1]]] > 0).long()
+329:             idx_new_node = idx_new_node.byte().squeeze()
+330:             att_edge_feat[idx_new_node, :] = torch.randn(
+331:                 idx_new_node.long().sum(), att_edge_feat.shape[1]).to(self.device)
+332:           else:
+333:             # create one-hot feature
+334:             att_edge_feat = torch.zeros(edges.shape[0],
+335:                                         2 * self.att_edge_dim).to(self.device)
+336:             att_edge_feat = att_edge_feat.scatter(1, att_idx[[edges[:, 0]]], 1)
+337:             att_edge_feat = att_edge_feat.scatter(
+338:                 1, att_idx[[edges[:, 1]]] + self.att_edge_dim, 1)
+339: 
+340:           node_state_out = self.decoder(
+341:               node_state_in.view(-1, H), edges, edge_feat=att_edge_feat)
+342:           node_state_out = node_state_out.view(B, jj, -1)
+343: 
+344:           idx_row, idx_col = np.meshgrid(np.arange(ii, jj), np.arange(jj))
+345:           idx_row = torch.from_numpy(idx_row.reshape(-1)).long().to(self.device)
+346:           idx_col = torch.from_numpy(idx_col.reshape(-1)).long().to(self.device)
+347: 
+348:           diff = node_state_out[:,idx_row, :] - node_state_out[:,idx_col, :]  # B X (ii+K)K X H
+349:           diff = diff.view(-1, node_state.shape[2])
+350:           log_theta = self.output_theta(diff)
+351:           log_alpha = self.output_alpha(diff)
+352: 
+353:           log_theta = log_theta.view(B, -1, K, self.num_mix_component)  # B X K X (ii+K) X L
+354:           log_theta = log_theta.transpose(1, 2)  # B X (ii+K) X K X L
+355: 
+356:           log_alpha = log_alpha.view(B, -1, self.num_mix_component)  # B X K X (ii+K)
+357:           prob_alpha = F.softmax(log_alpha.mean(dim=1), -1)
+358:           alpha = torch.multinomial(prob_alpha, 1).squeeze(dim=1).long()
+359: 
+360:           prob = []
+361:           for bb in range(B):
+362:             prob += [torch.sigmoid(log_theta[bb, :, :, alpha[bb]])]
+363: 
+364:           prob = torch.stack(prob, dim=0)
+365:           A[:, ii:jj, :jj] = torch.bernoulli(prob[:, :jj - ii, :])
+366: 
+367:         ### make it symmetric
+368:         if self.is_sym:
+369:           A = torch.tril(A, diagonal=-1)
+370:           A = A + A.transpose(1, 2)
+371: 
+372:         return A
+373: 
+374:   def forward(self, input_dict):
+375:     """
+376:       B: batch size
+377:       N: number of rows/columns in mini-batch
+378:       N_max: number of max number of rows/columns
+379:       M: number of augmented edges in mini-batch
+380:       H: input dimension of GNN
+381:       K: block size
+382:       E: number of edges in mini-batch
+383:       S: stride
+384:       C: number of canonical orderings
+385:       D: number of mixture Bernoulli
+386: 
+387:       Args:
+388:         A_pad: B X C X N_max X N_max, padded adjacency matrix
+389:         node_idx_gnn: M X 2, node indices of augmented edges
+390:         node_idx_feat: N X 1, node indices of subgraphs for indexing from feature
+391:                       (0 indicates indexing from 0-th row of feature which is
+392:                         always zero and corresponds to newly generated nodes)
+393:         att_idx: N X 1, one-hot encoding of newly generated nodes
+394:                       (0 indicates existing nodes, 1-D indicates new nodes in
+395:                         the to-be-generated block)
+396:         subgraph_idx: E X 1, indices corresponding to augmented edges
+397:                       (representing which subgraph in mini-batch the augmented
+398:                       edge belongs to)
+399:         edges: E X 2, edge as [incoming node index, outgoing node index]
+400:         label: E X 1, binary label of augmented edges
+401:         num_nodes_pmf: N_max, empirical probability mass function of number of nodes
+402: 
+403:       Returns:
+404:         loss                        if training
+405:         list of adjacency matrices  else
+406:     """
+407:     is_sampling = input_dict[
+408:         'is_sampling'] if 'is_sampling' in input_dict else False
+409:     batch_size = input_dict[
+410:         'batch_size'] if 'batch_size' in input_dict else None
+411:     A_pad = input_dict['adj'] if 'adj' in input_dict else None
+412:     node_idx_gnn = input_dict[
+413:         'node_idx_gnn'] if 'node_idx_gnn' in input_dict else None
+414:     node_idx_feat = input_dict[
+415:         'node_idx_feat'] if 'node_idx_feat' in input_dict else None
+416:     att_idx = input_dict['att_idx'] if 'att_idx' in input_dict else None
+417:     subgraph_idx = input_dict[
+418:         'subgraph_idx'] if 'subgraph_idx' in input_dict else None
+419:     edges = input_dict['edges'] if 'edges' in input_dict else None
+420:     label = input_dict['label'] if 'label' in input_dict else None
+421:     num_nodes_pmf = input_dict[
+422:         'num_nodes_pmf'] if 'num_nodes_pmf' in input_dict else None
+423:     subgraph_idx_base = input_dict[
+424:         "subgraph_idx_base"] if "subgraph_idx_base" in input_dict else None
+425: 
+426: 
+427:     N_max = self.max_num_nodes
+428: 
+429:     if not is_sampling:
+430:       B, _, N, _ = A_pad.shape
+431: 
+432:       ### compute adj loss
+433:       log_theta, log_alpha = self._inference(
+434:           A_pad=A_pad,
+435:           edges=edges,
+436:           node_idx_gnn=node_idx_gnn,
+437:           node_idx_feat=node_idx_feat,
+438:           att_idx=att_idx)
+439: 
+440:       num_edges = log_theta.shape[0]
+441: 
+442:       adj_loss = mixture_bernoulli_loss(label, log_theta, log_alpha,
+443:                                         self.adj_loss_func, subgraph_idx, subgraph_idx_base,
+444:                                         self.num_canonical_order)
+445: 
+446:       return adj_loss
+447:     else:
+448:       A = self._sampling(batch_size)
+449: 
+450:       ### sample number of nodes
+451:       num_nodes_pmf = torch.from_numpy(num_nodes_pmf).to(self.device)
+452:       num_nodes = torch.multinomial(
+453:           num_nodes_pmf, batch_size, replacement=True) + 1  # shape B X 1
+454: 
+455:       A_list = [
+456:           A[ii, :num_nodes[ii], :num_nodes[ii]] for ii in range(batch_size)
+457:       ]
+458:       return A_list
+
+runner/gran_runner.py @ 70e0dd24bb357aeaacfcd585e77e4ebd0c55f8f8 lines 136-144
+136:     logger.info('No Edges vs. Edges in training set = {}'.format(
+137:         self.config.dataset.sparse_ratio))
+138: 
+139:     self.num_nodes_pmf_train = np.bincount([len(gg.nodes) for gg in self.graphs_train])    
+140:     self.max_num_nodes = len(self.num_nodes_pmf_train)
+141:     self.num_nodes_pmf_train = self.num_nodes_pmf_train / self.num_nodes_pmf_train.sum()
+142:     
+143:     ### save split for benchmarking
+144:     if config.dataset.is_save_split:      

@@ -1,9 +1,14 @@
 # GNNM: shared propagation in graph ensembles
 
-### Research update: 4 October 2026
+### Research update: 4 October 2026, 09:04 UTC
 
-Frozen ogbl-collab NCNC TEST evaluation is complete: GNNM private completion67.2909%, pooled67.0673%, native single66.4426%, independent ensemble67.6298%, capacity control66.7642%. The frozen private-minus-pooled contrast is+0.2236points with uncertainty spanning zero; the earlier validation advantage is not robustly confirmed. The exploratory private-minus-native gain is+0.8483points in all five seeds. All25 cells and40scorer calls passed one-time logical/physical custody, with no refit, reselection, calibration or retry. Pubmed native baselines are complete. A bounded diagnostic confirmed saved CPU Adam counters mutate during resumed training; a clone-before-restore repair awaits full fresh qualification. Amazon has two of15 fits complete. Original paper scores are unchanged; no new methodological breakthrough or fresh manuscript acceptance exists.
-See [current measured results and exact training status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Protocols, failed hypotheses and decisions remain in the ledger; raw research data and checkpoints stay on their authorized servers.
+The frozen five-seed ogbl-collab TEST comparison gives 67.2909% Hits@50 for GNNM private completion, 66.4426% for native single64 and 67.6298% for the independent ensemble. The exploratory single-model gain is +0.8483 percentage points; the independent ensemble remains higher. The frozen private-minus-pooled primary contrast is inconclusive. No confirmed methodological advantage or fresh manuscript acceptance exists.
+
+The new TRAIN-only count-conditioned neighbour-pattern auxiliary completed its exact core-v3 CPU qualification: 22,855 comparison reports, including vectorized structured-single and both-sided subset gradients, passed. A complete TRAIN census found two-sided variable support in 5.8242% of positive queries and essentially none in sampled negatives. Native full-batch signal, resources and predictive transfer remain untested; one fixed same-state gradient diagnostic is being prepared.
+
+Amazon Polynormer training has four of fifteen fits complete; the fifth reached 1,701/2,700 updates at 08:51 UTC. A native Pubmed repeat control completed 252 updates with exact agreement. It does not resolve the earlier shared4 failure in a different warm-state context or admit scientific training. Literature index_v45 preserves 198 scoped conclusions across 147 paper identities and two software identities; the new MaskGAE/GRAN code readings narrow novelty claims and identify the ordered-single symmetry limitation.
+
+See [current measured evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) and the complete ledger. Original scores, failed outcomes and all reviews remain preserved. Large raw records stay on authorized servers.
 
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.
 
@@ -26,13 +31,11 @@ BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715
 
 ## Post-submission research
 
-Active research preserves every original paper score, failed experiment, review and decision. The five-seed official ogbl-collab comparison measured GNNM at67.2909% Hits@50 versus66.4426% for a single native model and67.6298% for an independent ensemble. The exploratory single-model gain is positive in all five seeds; superiority over the independent ensemble is not established. The primary private-vs-pooled contrast is inconclusive.
+Quality is the research priority. The five-seed NCNC comparison shows an exploratory gain over the native single model, while the independent ensemble still scores higher. The primary private-versus-pooled contrast is inconclusive. No result is promoted as a new state of the art.
 
-Current work evaluates a TRAIN-only count-conditioned neighbour-pattern auxiliary with separate-side mixture and capable structured-single controls. Actual mathematical/gradient checks passed; the full TRAIN census found both-side nonconstant support for5.8242% of positive queries and essentially none for sampled negatives. These checks establish neither predictive improvement nor methodological novelty. Full native-batch feasibility and prospective paired experiments remain required.
+Current work tests whether a TRAIN-only count-conditioned pattern objective can teach linked member responsibilities across the two ends of an edge, beyond independently mixed sides, while serving the unchanged native ranker. Conditional Bernoulli laws, graph-pattern mixtures and degree supervision have relevant prior work. Actual mathematical qualification passed; native signal/resources and paired predictive experiments are next. The structured-single comparator has an explicit node-order limitation and cannot establish equivariant bank necessity from a failed fit.
 
-Amazon Polynormer training has completed4/15 fits; the original queue continues without partial score decisions. Six native Pubmed baselines are complete. The GNNM continuation diagnostic still fails its fixed numerical comparison; a native repeat control is under repair after an independently identified supervision defect. No new manuscript acceptance has been obtained.
-
-See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). Large raw evidence stays on authorized servers; small hash-linked records and all conclusions remain in Git. Science is confined to the authorized one-GPU allocation and18.77 project repositories. The seven-GPU route is forwarding only.
+See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v45/ROOT_ADOPTION_NOTES.md) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). Historical dated updates below remain as recorded. Science uses the authorized one-GPU allocation and 18.77 project repositories only; the seven-GPU route is forwarding only.
 
 ## Repository contents
 
