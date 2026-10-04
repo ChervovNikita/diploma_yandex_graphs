@@ -12,8 +12,6 @@ Three frozen cohorts are running on the authorized devices: the full-TRAIN Amazo
 
 The fixed-view Amazon study remains disabled. Its ordinary independent control with the same augmentation and the structured single with the conditional endpoint-pattern auxiliary are implemented and passed bounded CPU correctness checks. Parameter ownership/gradient sums and native scalar/support/RNG parity plus auxiliary gradient routing were checked with zero fits and optimizer steps; no real dataset, selected checkpoint or outcome was read. Initial dependency/PYTHONPATH failures are preserved. Full-shape/CUDA qualification and predictive competence remain unverified. See `quality_control_component_checks_root_20261005_v1/INTERPRETATION.md`. Older BUDDY, molecule and coordinate studies remain historical ledger evidence.
 
-A degree-preserving three-edge matching module now passed one constructed CPU algebra/gradient check with zero updates; this is correctness, not predictive evidence. A concrete structured-single/ordinary-independent4 fit driver is source-only unexecuted. The critical assessment gives an exact path improving matching likelihood while served mean logits stay zero; no extra parity-based serving capacity or transfer guarantee follows. Keep the narrower untested training effect, require identical-bundle quality controls and launch no matching cohort from this check. See `method_synthesis_root_20261005_v1/QUALITY_METHOD_DECISION_02.md` and `informative_structural_exposure_gap_20261005_v1/CRITICAL_MEAN_LOGIT_TRANSFER_20261005_v1.md`.
-
 ## Reviewer obligations
 
 | Concern | Authoritative evidence now | Evidence still needed |
@@ -32,7 +30,7 @@ A degree-preserving three-edge matching module now passed one constructed CPU al
 
 ## Literature and method memory
 
-Use adopted index v58:225 scoped conclusion records,173 normalized paper groups and two software groups. Two saved operation scopes add degree-preserving switches and HeaRT evaluation alternatives; all223 v57 records and earlier DIVE reconciliation remain preserved. Zero integration primary reads or full-paper certifications are added. Counts are not full-paper-read totals. The saved DIVE and directed-message assessments delimit learned structural views and return-specific sharing; posterior mixture conditioning is already derived and supplies no new contribution. Source-overlap risk weighting has a concrete class-bias counterexample and is not promoted. Closest-prior access gaps remain explicit. GENLINK is excluded.
+Use adopted index v57: 223 scoped conclusion records, 171 normalized paper groups and two software groups. Three completed method scopes add two newly encountered identities and reconcile DIVE's retained abstract identity; zero integration primary reads or full-paper certifications are added. Counts are not full-paper-read totals. The saved DIVE and directed-message assessments delimit learned structural views and return-specific sharing; posterior mixture conditioning is already derived and supplies no new contribution. Source-overlap risk weighting has a concrete class-bias counterexample and is not promoted. Closest-prior access gaps remain explicit. GENLINK is excluded.
 
 `method_synthesis_root_20261005_v1/SYNTHESIS.md` records the exact scientific decisions. New cohorts and controls need useful prediction evidence before manuscript claims. Preserve failures and limitations; do not hide unfavorable research evidence or present exploratory observations as confirmatory results.
 
@@ -43,5 +41,3 @@ Request a fresh manuscript review only after a substantive evidence-backed revis
 The immediately preceding local tracker differed from its committed Git history and is preserved exactly in `reviewer_obligations_current_refresh_20261005_v1/PRIOR_TRACKER_UNCOMMITTED.md`. Its committed counterpart remains in history at `21cb4e6b5da346488d1d976e8deb321f8513c854`; the custody comparison is retained alongside the exact local prior. Earlier reviewer obligations remain in existing coordination history.
 
 This maintenance update preserves its exact pre-edit bytes with the canonical status/state/ledger in `coordination_snapshots/20261005_literature57_controls_CPU_and_queue_51_23_17_v1`.
-
-Exact pre-edit canonical bytes for this adoption are preserved in `coordination_snapshots/20261005_matching_source_CPU_literature58_before_state_v1`.

@@ -1,0 +1,51 @@
+CB_IDENTITY={'PID': 3248164, 'parent_PID': 3248161, 'process_group': 3248164, 'session': 3248164, 'start_time_ticks': 1726686821, 'state': 'R', 'argv': ['/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12', '-B', '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/exact_cb_support_bucket_paired_predictive_execution_root_20261004_v1/root_client_preparation_20261004_v1/owned_queue.py', '--queue-release-sha256', '3531cd85aa5fe7bfb94ce66d0608e2c5ee0fc1e56d8c459fb057444d64401611'], 'cwd': '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git', 'exe': '/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12'}
+DDI_IDENTITY={'PID': 3265052, 'UTC': '2026-10-04T15:51:32.960692+00:00', 'automatic_retry': False, 'command': ['/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12', '-B', '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/ddi_paired_development_pilot_execution_root_20261004_v1/supervise_queue.py', '--release-sha256', 'f77e132e645f6a0c32142b3323732754d9cd79e89d7e02bc78c36dc75b806b47'], 'group': 3265052, 'predictive_values_read': False, 'root_release_sha256': 'f77e132e645f6a0c32142b3323732754d9cd79e89d7e02bc78c36dc75b806b47', 'session': 3265052, 'start_ticks': 1727907652}
+CB_CELLS=['fit_target_only_seed0', 'fit_joint_seed0', 'fit_separate_seed0', 'fit_target_only_seed1', 'fit_joint_seed1', 'fit_separate_seed1', 'fit_target_only_seed2', 'fit_joint_seed2', 'fit_separate_seed2']
+DDI_CELLS=['native_m1_seed0', 'target_only_seed0', 'joint_seed0', 'separate_seed0', 'native_m1_seed1', 'target_only_seed1', 'joint_seed1', 'separate_seed1', 'native_m1_seed2', 'target_only_seed2', 'joint_seed2', 'separate_seed2']
+from pathlib import Path
+from datetime import datetime, timezone
+import json, os, subprocess
+repo=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+phase=repo/'experiments_iclr/postsubmission_20260930'
+assert Path.cwd()==repo and os.uname().nodename=='peptide'
+g=subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True,timeout=15)
+assert set(g.stdout.splitlines())=={'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998','GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'}
+def read(root,name):
+ p=root/name
+ if not p.exists():return None
+ assert p.is_file() and not p.is_symlink() and p.resolve().is_relative_to(root) and p.stat().st_size<2000000
+ return json.loads(p.read_text())
+def physical(expected):
+ pid=expected.get('PID',expected.get('pid'))
+ p=Path('/proc')/str(pid)
+ try:
+  raw=(p/'stat').read_text();f=raw[raw.rfind(')')+2:].split()
+  argv=[x.decode() for x in (p/'cmdline').read_bytes().split(bytes([0])) if x]
+  actual=dict(PID=pid,start_ticks=int(f[19]),state=f[0],cwd=str((p/'cwd').resolve()),argv=argv)
+ except FileNotFoundError:return None
+ ticks=expected.get('start_time_ticks',expected.get('start_ticks'))
+ assert actual['start_ticks']==ticks
+ if actual['state']!='Z':
+  assert actual['cwd']==str(repo)
+  if 'argv' in expected:assert argv==expected['argv']
+  elif 'command' in expected:assert argv==expected['command']
+ return actual
+cb=phase/'exact_cb_support_bucket_paired_predictive_execution_root_20261004_v1'
+ddi=phase/'ddi_paired_development_pilot_execution_root_20261004_v1'
+cstatus=read(cb,'queue/run01/STATUS.json')
+c=dict(queue_handle=physical(CB_IDENTITY),progress=cstatus,terminal=read(cb,'queue/run01/TERMINAL.json'))
+if cstatus and cstatus.get('active_cell'):
+ name=cstatus['active_cell'];assert name in CB_CELLS
+ s=read(cb,name+'/run01/STATUS.json')
+ if s is not None:
+  assert s['predictive_values_exposed'] is False
+  c['current_fit']={k:s[k] for k in ('status','phase','work','observed_wall_seconds')}
+ child=read(cb,'supervision/'+name+'/run01/CHILD_STARTED.json')
+ c['current_child']=physical(child['physical_identity']) if child else None
+dstatus=read(ddi,'QUEUE_PROGRESS.json')
+d=dict(queue_handle=physical(DDI_IDENTITY),progress=dstatus,terminal=read(ddi,'QUEUE_TERMINAL.json'),exception=read(ddi,'QUEUE_EXCEPTION.json'))
+if dstatus and dstatus.get('current_cell'):
+ cell=dstatus['current_cell']['cell_id'];assert cell in DDI_CELLS
+ child=read(ddi,'supervision/'+cell+'/OWNED_CHILD.json')
+ d['current_child']=physical(child['identity']) if child else None
+print(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),route=dict(repository=str(repo),hostname=os.uname().nodename,GPU_UUIDs=g.stdout.splitlines()),collab=c,ddi=d,metadata_only=True,predictive_values_read=False,signals_sent=False,retries=False)))

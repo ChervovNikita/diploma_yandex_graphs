@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated: 2026-10-04T23:55:39.929735+00:00. Goal active and incomplete. Original paper scores are unchanged.
+Updated: 2026-10-04T23:15:13.287516+00:00. Goal active and incomplete. Original paper scores are unchanged.
 
 ## Quality objective and completed evidence
 
@@ -10,13 +10,13 @@ The complete five-seed official ogbl-collab TEST family reports Hits@50: single6
 
 ## Running frozen cohorts
 
-Latest saved owned metadata is from 2026-10-04T23:48–23:49 UTC. Amazon observation 53 and compact Collab/DDI monitor v2 show live queues and no recorded failure.
+Latest root-confirmed metadata observations are from 2026-10-04T23:08:40–41 UTC. All three authorized devices retain the same owned live handles, with no recorded queue failure.
 
-- **Amazon/Polynormer, one GPU:** 10/15 fits complete; `split2_gnnm_boundary_4_seed43` at update 601/2700, global stage. Observation 53. Its older label-role family cannot qualify the prospective full-TRAIN controls. [Receipt](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0053_RESULT.json).
-- **Conditional-pattern Collab, 18.77 GPU1:** 5/9 complete; separate seed 1 at epoch 6, attempted batch 5/17. Compact monitor v2. This tests same-member endpoint pattern likelihood against separately marginalized endpoints under matched supervision; served predictions remain the native pool. [Receipt](compact_owned_queue_monitor_20261005_v2/OBSERVATION.json).
-- **DDI development, 18.77 GPU0:** 3/12 complete; separate seed 0 running, with 9247.09 seconds elapsed. Compact monitor v2. Positive 100-epoch pilot evidence would still require a separately fixed 500-epoch confirmation. [Receipt](compact_owned_queue_monitor_20261005_v2/OBSERVATION.json).
+- **Amazon/Polynormer, one GPU:** 10/15 fits complete; `split2_gnnm_boundary_4_seed43` at update 311/2700, global stage. Observation 51. Its older label-role family cannot qualify the prospective full-TRAIN controls. [Receipt](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0051_RESULT.json).
+- **Conditional-pattern Collab, 18.77 GPU1:** 4/9 complete; joint seed 1 at epoch 86, attempted batch 1/17. Observation 23. This tests same-member endpoint pattern likelihood against separately marginalized endpoints under matched supervision; served predictions remain the native pool. [Receipt](exact_cb_support_bucket_paired_predictive_execution_root_20261004_v1/owned_monitor023/SUMMARY.json).
+- **DDI development, 18.77 GPU0:** 3/12 complete; separate seed 0 running, with 6826.03 seconds elapsed. Observation 17. Positive 100-epoch pilot evidence would still require a separately fixed 500-epoch confirmation. [Receipt](ddi_paired_development_pilot_execution_root_20261004_v1/MONITOR_0017.json).
 
-Comparative outcomes remain unopened until each frozen cohort is complete. No partial score-driven choice, restart or TEST access occurred. Next metadata checks are Amazon observation 54 and the next compact owned-queue monitor when warranted.
+Comparative outcomes remain unopened until each frozen cohort is complete. No partial score-driven choice, restart or TEST access occurred. Next metadata observations are 52/24/18 when warranted.
 
 ## Initializer version closed
 
@@ -36,23 +36,17 @@ The full-TRAIN Amazon graph-view plan remains prospectively specified but disabl
 
 The ordinary independent control with the same fixed-view augmentation and a structured single with the same conditional endpoint-pattern auxiliary are implemented and passed bounded CPU component checks. The first verifies disjoint native-member parameters and native-plus-view gradient sums; the second verifies native scalar/support/RNG parity and auxiliary gradient routing on a six-node fixture. These checks used zero fits and optimizer steps, with no real dataset, selected checkpoint or experiment outcome reads. Failed dependency/PYTHONPATH attempts are retained. Full-shape/CUDA qualification and predictive competence remain unverified. [CPU evidence and limits](quality_control_component_checks_root_20261005_v1/INTERPRETATION.md).
 
-The degree-preserving three-edge matching loss is implemented. It scores six complete assignments using native target logits in one shared masked context; the row/column offset invariance removes additive endpoint-score offsets from this assignment comparison, with no novelty claim. Its constructed CPU check passed normalization, matching-law marginals, nulls and first-order gradients (maximum difference 6.77e-10), taking 0.538 seconds and 2.480 seconds inclusive child time, with zero fits/updates or graph/checkpoint reads. This does not qualify graph selection, coverage, full-shape fitting or predictive transfer. [Source](degree_preserving_matching_loss_source_20261005_v1/README.md), [actual receipt](matching_loss_cpu_execution_root_20261005_v1/RECEIPT.json).
-
-The matching loss has an exact serving-null failure: four members can improve observed-matching likelihood while their mean raw target logits remain identically zero. Extra fixed-marginal parity is absent from mean-logit serving; direct scorer gradients alone do not establish transfer. Retain only an untested responsibility-reweighting training effect. Any later comparison must use served ranking and identical bundles for competent single, ordinary independent and untied joint controls. No matching cohort is launched from CPU evidence. [Critical limitation](informative_structural_exposure_gap_20261005_v1/CRITICAL_MEAN_LOGIT_TRANSFER_20261005_v1.md), [root decision](method_synthesis_root_20261005_v1/QUALITY_METHOD_DECISION_02.md).
-
-A concrete structured-single/ordinary-independent4 fit driver is saved and source-only unexecuted. Each independent native model has its own structural auxiliary and loss; selector/capacity/work differences from the older ordinary reference are disclosed. It supplies no measured competence or predictive result. [Driver](joint_pattern_single_independent4_fit_driver_20261005_v1/README.md).
-
 ## Literature memory and novelty limits
 
-Index v58 retains 225 scoped conclusion records for 173 normalized paper groups plus two software identities. **These are not full-paper-read totals.** Two saved operation scopes add Maslov–Sneppen degree-preserving switches (cond-mat/0205380v1) and HeaRT endpoint-personalized evaluation alternatives (2306.10453v3), with its unchanged training and temporal filtering caveat. All 223 v57 records, groups and failure history are preserved, including the earlier DIVE identity reconciliation. Integration adds zero primary reads, full-paper certifications or numerical/novelty claims.
+Index v57 retains 223 scoped conclusion records for 171 normalized paper groups plus two software identities. **These are not full-paper-read totals.** It adopts DIVE, D-MPNN (1904.01561v4) and nonbacktracking line-graph GNN (1705.08415v4) method scopes. DIVE upgrades an earlier abstract identity whose missing v56 group is reconciled; only D-MPNN and the line-graph GNN are newly encountered identities. All 220 predecessor records and failure history are preserved, with zero integration primary reads or new full-paper certifications. GRE and EMR-GNN remain scoped structural-fusion/operator priors.
 
-Graph error-kernel negative correlation is an attributed metric adaptation, not a new training principle. Embedding repulsion can change geometry without changing predictions or can weaken members. Shared heads, centered covariance, GGN initialization, graph spectral filtering and many mixture constructions have close prior. GEENI's error-node message-suppression abstract is known, but its full primary method remains inaccessible; no absence claim is licensed. GENN unchanged-route retries remain disabled. [Index v58](literature_memory/index_v58/ROOT_ADOPTION_NOTES.md), [latest scout](graph_conditioned_prediction_disagreement_primary_scout_20261005_v1/REPORT.md).
+Graph error-kernel negative correlation is an attributed metric adaptation, not a new training principle. Embedding repulsion can change geometry without changing predictions or can weaken members. Shared heads, centered covariance, GGN initialization, graph spectral filtering and many mixture constructions have close prior. GEENI's error-node message-suppression abstract is known, but its full primary method remains inaccessible; no absence claim is licensed. GENN unchanged-route retries remain disabled. [Index v57](literature_memory/index_v57/ROOT_ADOPTION_NOTES.md), [latest scout](graph_conditioned_prediction_disagreement_primary_scout_20261005_v1/REPORT.md).
 
 Fresh manuscript reviewers must receive immutable supported evidence through the requested skill with no author history or requested verdict. No new manuscript was written from these diagnostic results.
 
 ## Preservation and authorization
 
-Latest exact GitHub ref verified: `69a1488b067bdc91438f6c599033398642d2ca8a`, branch `codex/postsubmission-research-20260930`. Literature index v57, both implemented quality controls, actual CPU evidence and failed attempts, the tracker repair, updated method synthesis and latest compact queue observations are published. [Verified push](publication/quality_controls_and_literature_integration_20261005_v1/PUSH_RECEIPT.json). Previous publication receipts and exact pre-edit canonical files are preserved. The new matching source/CPU receipt, driver and v58 adoption remain pending publication. No 18.77 Git synchronization is claimed without ref verification.
+Latest exact GitHub ref verified: `69a1488b067bdc91438f6c599033398642d2ca8a`, branch `codex/postsubmission-research-20260930`. Literature index v57, both implemented quality controls, actual CPU evidence and failed attempts, the tracker repair, updated method synthesis and latest compact queue observations are published. [Verified push](publication/quality_controls_and_literature_integration_20261005_v1/PUSH_RECEIPT.json). Previous publication receipts and exact pre-edit canonical files are preserved. No 18.77 Git synchronization is claimed without ref verification.
 
 Deliberate operations stay in the authorized project repositories. The seven-GPU account is MacLink forwarding only. Normal incidental runtime caches are allowed. No sudo, PDF compilation, GENLINK, Desktop writes, host-setting changes or unrelated-data operations.
 
