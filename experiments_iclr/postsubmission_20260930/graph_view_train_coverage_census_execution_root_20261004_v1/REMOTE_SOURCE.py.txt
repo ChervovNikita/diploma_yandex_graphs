@@ -1,0 +1,70 @@
+REPO='/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs'
+LOGIN='anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru'
+UUID='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+bindings={'manifest': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/DATA_MANIFEST.json', 'bytes': 9826, 'sha256': '8d565c20c6d669c2577e9fb8c5405575a6ed97a9964f91818b052e43cd0379bf'}, 'public_graph': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/public_graph.npz', 'sha256': '19757299bcfd9e493e9ceae9e73248753ab1e773ccc1f6b57c6fadf8c843310f', 'bytes': 33104032}, 'train_labels': {'0': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split0_train.npz', 'sha256': '9d700d1897bbf73ec70a4c3158e07d6b42909603e28ac54716800f3d4883f749', 'bytes': 196440}, '1': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split1_train.npz', 'sha256': '6fd3cadccc34d6946e9ad726bef44b9f3165f6ecf6084d05b32809b53f59b2a2', 'bytes': 196440}, '2': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split2_train.npz', 'sha256': '5a66bfc05a29e1ca177ccbf7530936609fdb218ab88057b2a576015a2f7db2ca', 'bytes': 196440}}}
+
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json,subprocess,time
+started=time.perf_counter()
+repo=Path(REPO);phase=repo/'experiments_iclr/postsubmission_20260930'
+assert Path.cwd()==repo
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==[UUID]
+def verify(row):
+ p=phase/row['path'];assert p.resolve().is_relative_to(phase) and not p.is_symlink()
+ assert p.stat().st_size==row['bytes']
+ with p.open('rb') as f:assert hashlib.file_digest(f,'sha256').hexdigest()==row['sha256']
+ return p
+manifest=json.loads(verify(bindings['manifest']).read_text())
+assert manifest['public_graph']==bindings['public_graph'] and manifest['train_labels']==bindings['train_labels']
+import numpy as np
+with np.load(verify(bindings['public_graph']),allow_pickle=False) as z:
+ assert set(z.files)=={'features','edge_index','train_mask','val_mask','test_mask'}
+ edge=z['edge_index'];train=z['train_mask']
+n=24492
+assert edge.dtype==np.int64 and edge.shape[0]==2 and edge.min()>=0 and edge.max()<n
+assert train.dtype==np.bool_ and train.shape==(n,10)
+raw_loops=int(np.count_nonzero(edge[0]==edge[1]))
+pairs=np.unique(np.sort(edge[:,edge[0]!=edge[1]].T,axis=1),axis=0)
+assert pairs.shape[1]==2 and np.all(pairs[:,0]<pairs[:,1])
+degree=np.bincount(pairs.ravel(),minlength=n)
+bins=np.floor(np.log2(np.maximum(degree,1))).astype(np.int64)
+pair_bins=np.sort(bins[pairs],axis=1)
+rows=[]
+for split in (0,1,2):
+ ids=np.flatnonzero(train[:,split])
+ with np.load(verify(bindings['train_labels'][str(split)]),allow_pickle=False) as z:
+  assert set(z.files)=={'ids','labels'} and z['ids'].dtype==z['labels'].dtype==np.int64
+  assert np.array_equal(z['ids'],ids);labels=z['labels']
+ assert ids.size==12246 and labels.shape==ids.shape and np.all((labels>=0)&(labels<5))
+ y=np.full(n,-1,dtype=np.int64);y[ids]=labels
+ eligible=(y[pairs[:,0]]>=0)&(y[pairs[:,1]]>=0)
+ same=eligible&(y[pairs[:,0]]==y[pairs[:,1]])
+ different=eligible&~same
+ assert int(same.sum()+different.sum())==int(eligible.sum())
+ row=dict(split=split,official_TRAIN_count=int(ids.size),class_counts=np.bincount(labels,minlength=5).tolist(),
+          labelled_pair_count=int(eligible.sum()),labelled_fraction_of_native_nonloop_pairs=float(eligible.mean()),categories={})
+ for name,mask in [('equal_class',same),('different_class',different)]:
+  counts=np.bincount(pairs[mask].ravel(),minlength=n)
+  strata,count=np.unique(pair_bins[mask],axis=0,return_counts=True)
+  row['categories'][name]=dict(eligible_pairs=int(mask.sum()),
+   fraction_of_native_nonloop_pairs=float(mask.mean()),
+   official_TRAIN_nodes_with_at_least_one_eligible_pair=int(np.count_nonzero(counts[ids])),
+   official_TRAIN_endpoint_pair_count_quantiles=np.quantile(counts[ids],[0,.25,.5,.75,.9,1]).tolist(),
+   prospective_floor_10percent_of_category_pairs=int(np.floor(.1*int(mask.sum()))),
+   degree_pair_strata=[dict(log2_degree_bins=s.tolist(),eligible_pairs=int(c)) for s,c in zip(strata,count)])
+ rows.append(row)
+value=dict(schema='graph-view-official-TRAIN-support-census-v1',UTC=datetime.now(timezone.utc).isoformat(),
+ route=dict(login=LOGIN,repository=str(repo),GPU_UUID=UUID),input_bindings=bindings,
+ node_count=n,raw_edge_shape=list(edge.shape),raw_self_loop_count=raw_loops,
+ native_unique_undirected_nonloop_pairs=int(pairs.shape[0]),
+ native_directed_entries_with_one_self_loop_per_node=int(2*pairs.shape[0]+n),
+ pairing='unique sorted min/max endpoints; equivalent undirected simple graph to native coalescing',
+ degree_bins='floor(log2(max(native nonloop degree,1))); unordered endpoint-bin pair',splits=rows,
+ numpy_version=np.__version__,wall_seconds=time.perf_counter()-started,
+ features_decoded=False,VALIDATION_or_TEST_labels_read=False,predictive_values_read=False,
+ models_imported=False,training_updates=0,views_or_mask_assignments_created=False,
+ scientific_gain_or_novelty_claim=False)
+out=phase/'graph_view_train_coverage_census_execution_root_20261004_v1';out.mkdir(exist_ok=True)
+with (out/'CENSUS.json').open('x') as f:json.dump(value,f,indent=2);f.write('\n')
+print(json.dumps(value))

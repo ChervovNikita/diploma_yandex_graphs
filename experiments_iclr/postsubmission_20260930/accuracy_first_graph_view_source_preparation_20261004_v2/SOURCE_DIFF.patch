@@ -1,0 +1,222 @@
+--- accuracy_first_graph_view_source_preparation_20261004_v1/bank.py
++++ accuracy_first_graph_view_source_preparation_20261004_v2/bank.py
+@@ -19,27 +19,51 @@
+     return deepcopy(value)
+ 
+ 
++def resolve_device(rt, device):
++    device = rt.torch.device(device)
++    if device.type == "cuda" and device.index is None:
++        device = rt.torch.device("cuda", rt.torch.cuda.current_device())
++    return device
++
++
++def device_provenance(device):
++    return {"type": device.type, "index": device.index, "canonical": str(device)}
++
++
++def seed_all(rt, seed, device):
++    device = resolve_device(rt, device)
++    random.seed(seed)
++    rt.numpy.random.seed(seed)
++    rt.torch.manual_seed(seed)
++    if device.type == "cuda":
++        rt.torch.cuda.manual_seed_all(seed)
++
++
+ def rng_state(rt, device):
++    device = resolve_device(rt, device)
+     state = rt.numpy.random.get_state()
+-    return {"python": random.getstate(),
++    return {"selected_device": device_provenance(device), "python": random.getstate(),
+             "numpy": {"name": state[0], "keys": state[1].tolist(), "position": int(state[2]),
+                       "has_gauss": int(state[3]), "cached_gaussian": float(state[4])},
+             "torch_cpu": rt.torch.get_rng_state().clone(),
+-            "cuda": rt.torch.cuda.get_rng_state(device).clone() if str(device).startswith("cuda:") else None}
++            "cuda": rt.torch.cuda.get_rng_state(device).clone() if device.type == "cuda" else None}
+ 
+ 
+ def restore_rng(rt, device, state):
++    device = resolve_device(rt, device)
++    if state.get("selected_device") != device_provenance(device):
++        raise ValueError("Selected-device RNG provenance differs")
++    if device.type == "cuda" and state["cuda"] is None:
++        raise ValueError("Missing selected-device CUDA stream")
++    if device.type != "cuda" and state["cuda"] is not None:
++        raise ValueError("Unexpected CUDA stream for non-CUDA device")
+     random.setstate(state["python"])
+     n = state["numpy"]
+     rt.numpy.random.set_state((n["name"], rt.numpy.asarray(n["keys"], dtype=rt.numpy.uint32),
+                                n["position"], n["has_gauss"], n["cached_gaussian"]))
+     rt.torch.set_rng_state(state["torch_cpu"])
+-    if str(device).startswith("cuda:"):
+-        if state["cuda"] is None:
+-            raise ValueError("Missing selected-device CUDA stream")
++    if device.type == "cuda":
+         rt.torch.cuda.set_rng_state(state["cuda"], device)
+-    elif state["cuda"] is not None:
+-        raise ValueError("Unexpected CUDA stream for CPU")
+ 
+ 
+ def untie(rt, tied):
+@@ -84,12 +108,10 @@
+     from schedule import CONDITIONS
+     if condition not in CONDITIONS:
+         raise ValueError("Unknown bank condition")
+-    random.seed(seed)
+-    rt.numpy.random.seed(seed)
+-    rt.torch.manual_seed(seed)
+-    if str(device).startswith("cuda:"):
+-        rt.torch.cuda.manual_seed_all(seed)
+-    construction = {"after_seed": cpu_tree(rt, rng_state(rt, device))}
++    device = resolve_device(rt, device)
++    seed_all(rt, seed, device)
++    construction = {"selected_device": device_provenance(device),
++                    "after_seed": cpu_tree(rt, rng_state(rt, device))}
+     recipe = NATIVE_RECIPE if synthetic_recipe is None else synthetic_recipe
+     native = rt.native.Polynormer(**recipe)
+     construction["after_constructor_cpu"] = cpu_tree(rt, rng_state(rt, device))
+@@ -167,7 +189,7 @@
+ 
+ 
+ def snapshot(rt, model, optimizer, device, selection, bindings):
+-    return {"schema": "accuracy-first-bank-state-v1", "bindings": deepcopy(bindings),
++    return {"schema": "accuracy-first-bank-state-v2", "bindings": deepcopy(bindings),
+             "selection": deepcopy(selection), "model": cpu_tree(rt, model.state_dict()),
+             "optimizer": cpu_tree(rt, optimizer.state_dict()),
+             "optimizer_parameter_names": optimizer_names(model, optimizer),
+@@ -189,7 +211,7 @@
+ 
+ 
+ def restore(rt, model, optimizer, device, image, bindings):
+-    if image["schema"] != "accuracy-first-bank-state-v1" or image["bindings"] != bindings:
++    if image["schema"] != "accuracy-first-bank-state-v2" or image["bindings"] != bindings:
+         raise ValueError("Source/protocol/views/schedule/checkpoint binding differs")
+     modules, parameters = dict(model.named_modules()), dict(model.named_parameters())
+     flag_names = {n for n, m in modules.items() if hasattr(m, "_global")}
+--- accuracy_first_graph_view_source_preparation_20261004_v1/driver.py
++++ accuracy_first_graph_view_source_preparation_20261004_v2/driver.py
+@@ -5,7 +5,7 @@
+ from pathlib import Path
+ import time
+ from bank import (NATIVE_RECIPE, build_bank, check_gradients, cpu_tree, optimizer_names,
+-                  restore, snapshot, stage, transition)
++                  restore, snapshot, stage, transition, resolve_device, device_provenance)
+ from runtime import ROOT, file_descriptor, verify_descriptor
+ from schedule import (BankClock, CONDITIONS, Selector, TOTAL_UPDATES, pass_plan,
+                       schedule_identity, stage_at)
+@@ -134,6 +134,7 @@
+     """External root-admitted call only. No acquisition, TEST labels or tuning."""
+     if execute is not True:
+         raise RuntimeError("Scientific training disabled by default")
++    device = resolve_device(rt, device)
+     started = time.perf_counter()
+     verify_freeze(rt, bundle, freeze)
+     role = bundle["role"]
+@@ -159,6 +160,7 @@
+     x = x.to(device)
+     model, optimizer, construction = build_bank(rt, condition, block_seed, device)
+     bindings = {"manifest_sha256": rt.manifest_sha256, "protocol_sha256": rt.protocol_sha256,
++                "selected_device": device_provenance(device),
+                 "runtime_source_provenance": list(rt.source_provenance),
+                 "condition": condition, "block_seed": block_seed, "native_recipe": NATIVE_RECIPE,
+                 "coverage": freeze["official_TRAIN_coverage"], "role": role.identity(),
+--- accuracy_first_graph_view_source_preparation_20261004_v1/test_stdlib.py
++++ accuracy_first_graph_view_source_preparation_20261004_v2/test_stdlib.py
+@@ -11,6 +11,7 @@
+ from types import SimpleNamespace
+ 
+ from driver import verify_freeze
++from bank import resolve_device, device_provenance, seed_all, rng_state, restore_rng
+ from runtime import ROOT, file_descriptor, load_runtime, verify_descriptor
+ from schedule import BankClock, CONDITIONS, Selector, assignment, pass_plan, stage_at
+ from views import TrainRole, construct_views, matched_null, native_edges, save_coverage, validate_native, verify_bundle
+@@ -159,5 +160,77 @@
+                     self.assertNotIn((node.module or "").split(".")[0], {"torch", "numpy", "torch_geometric"})
+ 
+ 
++class FakeDevice:
++    def __init__(self, value, index=None):
++        if isinstance(value, FakeDevice):
++            self.type, self.index = value.type, value.index
++        else:
++            parts = value.split(":")
++            self.type, self.index = parts[0], int(parts[1]) if len(parts) == 2 else None
++        if index is not None:
++            self.index = index
++
++    def __str__(self):
++        return self.type + (":" + str(self.index) if self.index is not None else "")
++
++
++def fake_runtime():
++    calls = []
++    token = lambda name: SimpleNamespace(clone=lambda: name)
++    cuda = SimpleNamespace(current_device=lambda: 2,
++                           manual_seed_all=lambda seed: calls.append(("cuda_seed", seed)),
++                           get_rng_state=lambda device: (calls.append(("cuda_get", str(device))) or token("CUDA_STATE")),
++                           set_rng_state=lambda state, device: calls.append(("cuda_set", str(device), state)))
++    torch = SimpleNamespace(device=FakeDevice, cuda=cuda,
++                            manual_seed=lambda seed: calls.append(("torch_seed", seed)),
++                            get_rng_state=lambda: token("CPU_STATE"),
++                            set_rng_state=lambda state: calls.append(("cpu_set", state)))
++    np_random = SimpleNamespace(seed=lambda seed: calls.append(("numpy_seed", seed)),
++                                get_state=lambda: ("STUB", SimpleNamespace(tolist=lambda: [1, 2]), 0, 0, 0.0),
++                                set_state=lambda value: calls.append(("numpy_set", value)))
++    numpy = SimpleNamespace(random=np_random, uint32="stub_uint32", asarray=lambda value, dtype: tuple(value))
++    return SimpleNamespace(torch=torch, numpy=numpy), calls
++
++
++class DeviceTests(unittest.TestCase):
++    """Stub dispatch checks; no real CUDA/PyTorch execution or qualification."""
++    def test_cuda_spellings_resolve_to_explicit_selected_index(self):
++        rt, _ = fake_runtime()
++        for value in ("cuda", FakeDevice("cuda"), "cuda:2", FakeDevice("cuda:2")):
++            self.assertEqual(device_provenance(resolve_device(rt, value)),
++                             {"type": "cuda", "index": 2, "canonical": "cuda:2"})
++        self.assertEqual(str(resolve_device(rt, "cuda:3")), "cuda:3")
++        self.assertEqual(device_provenance(resolve_device(rt, "cpu")),
++                         {"type": "cpu", "index": None, "canonical": "cpu"})
++
++    def test_seed_dispatch_includes_implicit_cuda_and_device_objects(self):
++        for value in ("cuda", FakeDevice("cuda"), "cuda:3"):
++            rt, calls = fake_runtime()
++            seed_all(rt, 17, value)
++            self.assertEqual(calls, [("numpy_seed", 17), ("torch_seed", 17), ("cuda_seed", 17)])
++        rt, calls = fake_runtime()
++        seed_all(rt, 17, "cpu")
++        self.assertEqual(calls, [("numpy_seed", 17), ("torch_seed", 17)])
++
++    def test_rng_capture_restore_binds_selected_device(self):
++        for value in ("cuda", FakeDevice("cuda"), "cuda:2"):
++            rt, calls = fake_runtime()
++            state = rng_state(rt, value)
++            self.assertEqual(state["cuda"], "CUDA_STATE")
++            self.assertIn(("cuda_get", "cuda:2"), calls)
++            restore_rng(rt, value, state)
++            self.assertIn(("cuda_set", "cuda:2", "CUDA_STATE"), calls)
++            with self.assertRaises(ValueError):
++                restore_rng(rt, "cuda:3", state)
++            with self.assertRaises(ValueError):
++                restore_rng(rt, value, dict(state, cuda=None))
++        rt, _ = fake_runtime()
++        state = rng_state(rt, "cpu")
++        self.assertIsNone(state["cuda"])
++        restore_rng(rt, "cpu", state)
++        with self.assertRaises(ValueError):
++            restore_rng(rt, "cpu", dict(state, cuda="unexpected"))
++
++
+ if __name__ == "__main__":
+     unittest.main()
+--- accuracy_first_graph_view_source_preparation_20261004_v1/README.md
++++ accuracy_first_graph_view_source_preparation_20261004_v2/README.md
+@@ -1,6 +1,8 @@
+ # Isolated accuracy-first graph-view source preparation
+ 
+ **Source implementation only; no scientific freeze, execution admission or production release.** Fixed graph views are a known diversification baseline/probe. The hypothesis concerns whether sharing weights improves useful native-graph ensemble predictions relative to otherwise matched untied trajectories. Parameter saving is secondary. This package establishes no accuracy, specialization or novelty result.
++
++V2 is a minimal device-handling successor. CUDA detection uses `torch.device(device).type`; implicit CUDA requests resolve to an explicit current index before allocation/seed/state handling. RNG images, construction and driver bindings record selected-device provenance, and state schema v2 rejects mismatched device provenance. The four-bank protocol, 10% views, objectives and immutable neural operations are unchanged. V2 numerical verification remains pending; root's reported five passing v1 CPU tests are historical evidence for sealed v1 only. The missing reference plan is separate in `REFERENCE_IMPLEMENTATION_PLAN.md` and adds no bank or executable control.
+ 
+ ## Implemented
+ 

@@ -1,0 +1,15 @@
+# Accuracy comparison from different graph evidence
+
+GNNM's original aim was better predictions through ensembling. This comparison starts with Amazon Ratings nodes, their features and released edges. All models receive the same official training labels. During training, two fixed graph views remove a small number of edges between training nodes. One removes edges whose endpoints share a class. The other removes edges whose endpoints have different classes. Validation and test labels never define these views.
+
+Four GNNM members learn from the original graph and an assigned view. At prediction time, every member processes the original graph. Their class probabilities are averaged, and the class with the largest average is returned. The proposed benefit is that members can learn useful different responses while shared weights transfer learning between them. This is a hypothesis. Disagreement by itself does not establish better predictions.
+
+The central comparison gives four separate models the same initial member states, graph views, training targets, passes and selectors. Their weights then train independently. Comparing these predictions with GNNM tests the effect of sharing weights. A second comparison changes which member receives which view while keeping the bank's total exposure to each view fixed. A third replaces the class-defined deletions with random deletions matched by endpoint degree strata. These comparisons test whether a useful effect depends on persistent assignments or the chosen graph evidence.
+
+Quality references include a single model trained on the original graph, a single model trained on all views, an ordinary independent ensemble and ordinary GNNM trained only on the original graph. Each uses all official training labels and the native schedule. The independent ensemble averages four predeclared independently selected members. The single reference is its predeclared first member. We do not choose a favorable member after scoring.
+
+The plan has three paired split/seed blocks and 30 physical fits. The initial screen requires an average accuracy gain of at least 0.5 percentage points with positive differences in all three blocks for the sharing comparison and each declared quality reference. These are prospective development thresholds, rather than statistical significance claims. Validation selects checkpoints and supplies the exploratory screen, so a favorable result would still need separately planned confirmation. Existing Amazon test history will be disclosed.
+
+Graph augmentation and shared ensembles are established ideas. This experiment supplies no novelty claim before results. A useful outcome would justify testing a precise mechanism and its difference from the closest methods. A failed outcome will remain in research history and will not be rewritten as a success.
+
+Execution remains disabled until the common runtime, complete resource schedule and caller contracts are admitted. The original paper scores and running experiment families are unchanged.

@@ -1,14 +1,18 @@
 # GNNM: shared propagation in graph ensembles
 
-### Research update: 4 October 2026, 09:04 UTC
+### Research update: 4 October 2026, 19:36 UTC
 
-The frozen five-seed ogbl-collab TEST comparison gives 67.2909% Hits@50 for GNNM private completion, 66.4426% for native single64 and 67.6298% for the independent ensemble. The exploratory single-model gain is +0.8483 percentage points; the independent ensemble remains higher. The frozen private-minus-pooled primary contrast is inconclusive. No confirmed methodological advantage or fresh manuscript acceptance exists.
+GNNM's primary objective is better predictive accuracy through ensembling. Parameter storage and execution costs are secondary measurements. No confirmed methodological advantage or fresh manuscript acceptance exists.
 
-The new TRAIN-only count-conditioned neighbour-pattern auxiliary completed its exact core-v3 CPU qualification: 22,855 comparison reports, including vectorized structured-single and both-sided subset gradients, passed. A complete TRAIN census found two-sided variable support in 5.8242% of positive queries and essentially none in sampled negatives. Native full-batch signal, resources and predictive transfer remain untested; one fixed same-state gradient diagnostic is being prepared.
+The completed five-seed ogbl-collab TEST comparison gives 67.2909% Hits@50 for GNNM private completion, 66.4426% for native single64 and 67.6298% for the independent ensemble. The gain over the single is exploratory, and the frozen private-versus-pooled contrast is inconclusive. Collab TEST is consumed and its history will remain disclosed.
 
-Amazon Polynormer training has four of fifteen fits complete; the fifth reached 1,701/2,700 updates at 08:51 UTC. A native Pubmed repeat control completed 252 updates with exact agreement. It does not resolve the earlier shared4 failure in a different warm-state context or admit scientific training. Literature index_v45 preserves 198 scoped conclusions across 147 paper identities and two software identities; the new MaskGAE/GRAN code readings narrow novelty claims and identify the ordered-single symmetry limitation.
+Three frozen predictive families are running on the authorized machines: Amazon/Polynormer has 8 of 15 fits complete (ninth at 1,013/2,700 updates at 19:34 UTC), conditional-pattern Collab has 2 of 9 fits complete (separate seed 0 at 95 epochs), and DDI has 2 of 12 development fits complete. Comparisons remain unopened until each fixed cohort finishes. There is no partial score-driven choice or new claim from these queues.
 
-See [current measured evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) and the complete ledger. Original scores, failed outcomes and all reviews remain preserved. Large raw records stay on authorized servers.
+A prospective graph-view study now specifies 30 fits with full official TRAIN labels, matched sharing/view controls, a view-augmented single, ordinary single/independent ensemble and native GNNM. Inputs and source versions are bound. Separate deterministic full-shape engineering checks reproduce the selected function and next update exactly. These checks supply no accuracy evidence. Scientific execution remains disabled pending the caller/resource and baseline-calibration requirements.
+
+A separate graph-based private-head initialization selector passed twelve synthetic numerical cases. Its earlier test-oracle failures and all costs remain preserved. Fresh native warm-state and predictive qualification remain pending. Graph augmentation and shared ensembles are established prior, so neither direction has novelty clearance.
+
+See [current measured evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [prospective accuracy comparison](experiments_iclr/postsubmission_20260930/accuracy_first_graph_view_paired_plan_root_20261004_v2/PAIRED_PROTOCOL.json) and [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md). Original scores, failures and reviews are preserved. Large raw records stay on authorized servers.
 
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.
 
@@ -31,11 +35,12 @@ BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715
 
 ## Post-submission research
 
-Quality is the research priority. The five-seed NCNC comparison shows an exploratory gain over the native single model, while the independent ensemble still scores higher. The primary private-versus-pooled contrast is inconclusive. No result is promoted as a new state of the art.
+Quality is the research priority. Current work tests a paired two-endpoint neighbour-pattern objective on Collab/DDI, transfer between members trained on different graph views, and graph-based selection of initial private-head covariance. Every direction has preserved prior-work checks and prospectively specified controls. A theoretical or numerical property alone does not establish predictive utility.
 
-Current work tests whether a TRAIN-only count-conditioned pattern objective can teach linked member responsibilities across the two ends of an edge, beyond independently mixed sides, while serving the unchanged native ranker. Conditional Bernoulli laws, graph-pattern mixtures and degree supervision have relevant prior work. Actual mathematical qualification passed; native signal/resources and paired predictive experiments are next. The structured-single comparator has an explicit node-order limitation and cannot establish equivariant bank necessity from a failed fit.
+The original GNNM and current Collab/DDI rankers average raw member scores. The separately specified graph-view experiment averages class probabilities. These pooling rules are explicit per experiment and are not interchangeable.
 
-See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v45/ROOT_ADOPTION_NOTES.md) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). Historical dated updates below remain as recorded. Science uses the authorized one-GPU allocation and 18.77 project repositories only; the seven-GPU route is forwarding only.
+See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v53/LITERATURE_INDEX.json) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). The literature index preserves 215 scoped conclusion records across 164 paper identities and two software identities. These are not full-paper-read totals. Historical dated updates below remain as recorded. Science uses only the authorized one-GPU allocation and 18.77 project repositories. The seven-GPU route is forwarding only.
+
 
 ## Repository contents
 

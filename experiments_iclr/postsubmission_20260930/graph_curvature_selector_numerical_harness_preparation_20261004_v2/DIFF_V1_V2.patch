@@ -1,0 +1,85 @@
+--- v1/numerical_checks.py
++++ v2/numerical_checks.py
+@@ -91,7 +91,7 @@
+         return self.models[0](data)[None]
+ 
+ 
+-def fixture(ctx, dtype=torch.float64):
++def fixture(ctx, dtype=torch.float64, connected_train=True):
+     torch.manual_seed(204)
+     teacher = ToyTeacher().to(dtype=dtype).eval()
+     optimizer = torch.optim.Adam(teacher.parameters(), lr=0.002, betas=(0.7, 0.93),
+@@ -116,6 +116,9 @@
+     frozen = ctx.integration.named_optimizer_snapshot(k4, raw_optimizer)
+     equal(before, model_snapshot(teacher))
+     edges = [(i, i + 1) for i in range(9)] + [(0, 5), (1, 7), (3, 8)]
++    if connected_train:
++        # Declared TRAIN chain activates the S term; original independent set stays available.
++        edges += [(0, 2), (2, 4), (4, 7), (7, 9)]
+     canonical = torch.tensor(sorted(edges), dtype=torch.int64).T.contiguous()
+     S = ctx.initializer.symmetric_normalized_adjacency(10, canonical, dtype, torch.device("cpu"))
+     return SimpleNamespace(teacher=teacher, native_optimizer=optimizer, native_frozen=native_frozen,
+@@ -166,7 +169,7 @@
+         torch.save(saved, path)
+         loaded = torch.load(path, map_location="cpu", weights_only=False)
+         equal(saved, loaded)
+-        api = SimpleNamespace(TeacherFamily=lambda spec: ToyTeacher(spec))
++        api = SimpleNamespace(TeacherFamily=lambda spec: ToyTeacher(spec).to(dtype=next(f.teacher.parameters()).dtype))
+         teacher, optimizer = ctx.integration.restore_native(api, loaded, torch.device("cpu"))
+         equal(f.teacher.state_dict(), teacher.state_dict())
+         equal(saved["optimizer"], ctx.integration.named_optimizer_snapshot(teacher, optimizer))
+@@ -393,7 +396,43 @@
+     assert a["model"].head.R.data_ptr() != b["model"].head.R.data_ptr()
+     return dict(dtype=str(dtype), graph_rank=rank["rank"], candidate_slots=9,
+         trial_maps_started=record["trial_maps_started"], selection=record["selection"],
+-        returned_pretrial_parameters_optimizer_and_rng=True)
++        returned_pretrial_parameters_optimizer_and_rng=True, five_arm_return_state_assertions_completed=5)
++
++
++def independent_train_null_regression(ctx, dtype):
++    """Preserve the exact v1 independent-TRAIN topology as a valid null case."""
++    f = fixture(ctx, dtype, connected_train=False)
++    f.prototype.train()
++    before, frozen = model_snapshot(f.prototype), copy.deepcopy(f.frozen)
++    theta, logits_fn, _ = ctx.selector.bind_head_only(f.k1, "polyformer_mono", f.args)
++    induced = f.S.to_dense()[f.train.nodes][:, f.train.nodes]
++    assert torch.equal(induced, torch.zeros_like(induced))
++    common, _ = ctx.initializer.initialize_four_routes(logits_fn, theta, f.S, f.nodes,
++        f.train.nodes, f.train.labels, tangent_mode="common_only")
++    bank, gradient, _ = ctx.selector.projected_bank(logits_fn, common[0], f.S, f.nodes,
++        f.train.nodes, f.train.labels, ctx.initializer)
++    basis, receipt = ctx.selector.ordered_basis(bank, gradient, ctx.constants, ctx.initializer.ALGEBRA_TOLERANCE)
++    assert basis is None and receipt["rank"] <= 2, receipt
++    rng = ctx.integration.rng_snapshot()
++    outputs, record = ctx.selector.select_initializations(f.prototype, f.frozen, logits_fn,
++        theta, f.S, f.nodes, f.train.nodes, f.train.labels, "polyformer_mono", f.args,
++        rng, 17, ctx.constants, ctx.initializer, ctx.integration)
++    assert tuple(outputs) == ctx.selector.ARMS
++    assert record["trial_maps_started"] == record["trial_maps_completed"] == 1
++    assert all(len(rows) == 3 and all(row["status"] == "rank_or_D0_failure" for row in rows)
++               for rows in record["candidates"].values())
++    for arm, output in outputs.items():
++        assert record["selection"][arm]["pair"] is None
++        equal(common, output["model"].head.R.detach())
++        equal(f.frozen, ctx.integration.named_optimizer_snapshot(output["model"], output["optimizer"]))
++        equal(rng, output["rng"])
++        for name, value in output["model"].state_dict().items():
++            if name != "head.R": equal(before["state"][name], value)
++    equal(before, model_snapshot(f.prototype)); equal(frozen, f.frozen)
++    equal(rng, ctx.integration.rng_snapshot())
++    return dict(dtype=str(dtype), projected_rank=receipt["rank"], TRAIN_internal_edges=0,
++        original_v1_topology_preserved=True, null_candidate_slots=9, trial_maps_started=1,
++        five_arm_return_state_assertions_completed=5, all_five_arms_return_common=True)
+ 
+ 
+ def photo_head_identity(ctx):
+@@ -428,7 +467,8 @@
+     for dtype in (torch.float32, torch.float64):
+         cases.extend([(str(dtype) + "_one_step_adam", lambda dtype=dtype: adam_trial(ctx, dtype)),
+                       (str(dtype) + "_rank_D_and_guards", lambda dtype=dtype: rank_and_D(ctx, dtype)),
+-                      (str(dtype) + "_control_and_returned_state", lambda dtype=dtype: control_identities_and_returned_state(ctx, dtype))])
++                      (str(dtype) + "_control_and_returned_state", lambda dtype=dtype: control_identities_and_returned_state(ctx, dtype)),
++                      (str(dtype) + "_independent_TRAIN_null_regression", lambda dtype=dtype: independent_train_null_regression(ctx, dtype))])
+     results = []
+     try:
+         for name, operation in cases:

@@ -1,0 +1,72 @@
+REPO='/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs'
+LOGIN='anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru'
+UUID='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+BANK='eb34fcb8bc406219007ee39ee9789f1de9bc56acf3cb16164aeab95b4493752f'
+BANK_PROTOCOL='55f4146b450f2e04c518e07df9a118bb21f7dc65e18dc659eb34e6dbe8edfb46'
+REFERENCE='3a054568e54baed6ee6526256b6d37fa5f82b449257d7983c1ef54eace8236e0'
+NATIVE='fbe1aec5eafb029fce9c9d42ebf9a5b94b98cfbc2ce9881502f0e3fc8e192ca6'
+bindings={'manifest': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/DATA_MANIFEST.json', 'bytes': 9826, 'sha256': '8d565c20c6d669c2577e9fb8c5405575a6ed97a9964f91818b052e43cd0379bf'}, 'public_graph': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/public_graph.npz', 'sha256': '19757299bcfd9e493e9ceae9e73248753ab1e773ccc1f6b57c6fadf8c843310f', 'bytes': 33104032}, 'train_labels': {'0': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split0_train.npz', 'sha256': '9d700d1897bbf73ec70a4c3158e07d6b42909603e28ac54716800f3d4883f749', 'bytes': 196440}, '1': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split1_train.npz', 'sha256': '6fd3cadccc34d6946e9ad726bef44b9f3165f6ecf6084d05b32809b53f59b2a2', 'bytes': 196440}, '2': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split2_train.npz', 'sha256': '5a66bfc05a29e1ca177ccbf7530936609fdb218ab88057b2a576015a2f7db2ca', 'bytes': 196440}}, 'validation_labels': {'0': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split0_validation.npz', 'sha256': 'fe5668c2b718f14cfbb9379a7191b027ed75a660543a0f7159e2d192ee0b4daf', 'bytes': 98472}, '1': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split1_validation.npz', 'sha256': '79e0c2402e15b0b93c167a50ab276edb37e10994a801e0cf010a0da68d85f11d', 'bytes': 98472}, '2': {'path': 'amazon_ratings_native_warm_execution_root_20261003_v3/data/split2_validation.npz', 'sha256': '0ea8372b4683d1b6f1e803ca5f3b09eb6050bbee4ff3896daa1d9359260f305e', 'bytes': 98472}}}
+OUTPUT='graph_view_paired_input_binding_root_20261004_v1'
+
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json,os,subprocess,sys,time
+repo=Path(REPO);phase=repo/'experiments_iclr/postsubmission_20260930'
+assert Path.cwd()==repo
+assert subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],capture_output=True,text=True,check=True).stdout.splitlines()==[UUID]
+source=phase/'accuracy_first_graph_view_source_preparation_20261004_v2'
+sys.path.insert(0,str(source))
+from runtime import verify_package
+verify_package(BANK,BANK_PROTOCOL)
+from views import TrainRole,construct_views,native_edges,digest
+import numpy as np
+def checked(row):
+ p=phase/row['path']
+ assert p.resolve().is_relative_to(phase) and not p.is_symlink() and p.stat().st_size==row['bytes']
+ with p.open('rb') as f:assert hashlib.file_digest(f,'sha256').hexdigest()==row['sha256']
+ return p
+started=time.perf_counter()
+data=json.loads(checked(bindings['manifest']).read_text())
+assert data['public_graph']==bindings['public_graph'] and data['train_labels']==bindings['train_labels']
+assert data['validation_labels']==bindings['validation_labels']
+with np.load(checked(data['public_graph']),allow_pickle=False) as z:
+ assert set(z.files)=={'features','edge_index','train_mask','val_mask','test_mask'}
+ x=z['features'].copy();raw=z['edge_index'].copy()
+ masks={k:z[k].copy() for k in ('train_mask','val_mask','test_mask')}
+assert x.shape==(24492,300) and x.dtype==np.float32 and np.isfinite(x).all()
+assert raw.dtype==np.int64 and raw.shape[0]==2
+assert all(m.dtype==np.bool_ and m.shape==(24492,10) for m in masks.values())
+feature={'dtype':'torch.float32','shape':list(x.shape),'logical_sha256':hashlib.sha256(np.ascontiguousarray(x).tobytes()).hexdigest()}
+edges=native_edges(24492,((int(a),int(b)) for a,b in raw.T))
+records={};coverage=[]
+for split,seed in ((0,17),(1,29),(2,43)):
+ ids={k:tuple(int(i) for i in np.flatnonzero(m[:,split])) for k,m in masks.items()}
+ with np.load(checked(data['train_labels'][str(split)]),allow_pickle=False) as z:
+  assert set(z.files)=={'ids','labels'} and np.array_equal(z['ids'],ids['train_mask'])
+  labels=tuple(int(i) for i in z['labels'])
+ with np.load(checked(data['validation_labels'][str(split)]),allow_pickle=False) as z:
+  assert set(z.files)=={'ids','labels'} and np.array_equal(z['ids'],ids['val_mask'])
+  validation=tuple(int(i) for i in z['labels'])
+ assert len(validation)==6123 and all(i in range(5) for i in validation)
+ role=TrainRole(24492,split,ids['train_mask'],labels,ids['val_mask'],ids['test_mask'])
+ bundle=construct_views(role,edges,seed)
+ path=phase/'graph_view_actual_TRAIN_mask_coverage_execution_root_20261004_v1'/('split%d_COVERAGE.json'%split)
+ assert not path.is_symlink() and path.resolve().is_relative_to(phase)
+ saved=json.loads(path.read_text())
+ assert saved==dict(bundle['coverage'],coverage_origin='official_TRAIN',scientific_freeze_eligible=bundle['coverage']['coverage_eligible'])
+ assert saved['scientific_freeze_eligible'] is True
+ records[str(split)]={'role':role.identity(),'native_edges_sha256':bundle['coverage']['native_edges_sha256'],
+  'feature_identity':feature,'validation_labels_sha256':digest(validation)}
+ coverage.append({'split':split,'view_seed':seed,'descriptor':{'path':str(path.relative_to(phase)),
+  'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()},
+  'views':bundle['coverage']['views']})
+value={'schema':'accuracy-first-paired-input-identities-v1','UTC':datetime.now(timezone.utc).isoformat(),
+ 'bank_manifest_sha256':BANK,'reference_manifest_sha256':REFERENCE,'native_gnnm_manifest_sha256':NATIVE,
+ 'input_bindings_by_split':records,'official_TRAIN_coverage_by_split':coverage,'data_bindings':bindings,
+ 'route':{'login':LOGIN,'repository':str(repo),'GPU_UUID':UUID},'wall_seconds':time.perf_counter()-started,
+ 'scientific_comparison_frozen':False,'training_updates':0,'features_and_TRAIN_labels_decoded':True,
+ 'VALIDATION_labels_decoded_for_identity_only':True,'TEST_labels_read':False,
+ 'predictive_values_read':False,'fitted_outputs_or_checkpoints_read':False,'arrays_fetched_to_Mac':False}
+root=phase/OUTPUT;root.mkdir(exist_ok=True)
+with (root/'INPUT_IDENTITIES.json').open('x') as f:json.dump(value,f,indent=2);f.write('\n')
+print(json.dumps(value))

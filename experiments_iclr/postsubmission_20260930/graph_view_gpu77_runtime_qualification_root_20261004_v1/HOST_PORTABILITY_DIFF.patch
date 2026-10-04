@@ -1,0 +1,80 @@
+--- one_gpu_v2/check_one.py
++++ gpu77/check_one.py
+@@ -17,11 +17,13 @@
+ ROOT = Path(__file__).resolve().parent
+ PHASE = ROOT.parent
+ REPO = PHASE.parent.parent
+-UUID = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
++UUID = 'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'
++PHYSICAL_UUIDS = ['GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998', 'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced']
+ BANK_MANIFEST = 'eb34fcb8bc406219007ee39ee9789f1de9bc56acf3cb16164aeab95b4493752f'
+ BANK_PROTOCOL = '55f4146b450f2e04c518e07df9a118bb21f7dc65e18dc659eb34e6dbe8edfb46'
+ REFERENCE_MANIFEST = '54695f4ed086ed843835a7b040e8ac82a7e211cf17e39ae06b226a23c60b5c05'
+ REFERENCE_PROTOCOL = '56c96715bc84eb23a9da8cb982f23a1147db18e16787df5690b7e7163b464708'
++PYTHON_PATH = '/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12'
+ 
+ 
+ def verify(record):
+@@ -67,8 +69,9 @@
+     args = parser.parse_args()
+     assert Path.cwd() == REPO
+     assert subprocess.run(['nvidia-smi', '--query-gpu=uuid', '--format=csv,noheader'],
+-        capture_output=True, text=True, check=True).stdout.splitlines() == [UUID]
+-    source = PHASE / ('accuracy_first_graph_view_source_preparation_20261004_v2' if args.family == 'bank'
++        capture_output=True, text=True, check=True).stdout.splitlines() == PHYSICAL_UUIDS
++    assert args.family == 'bank' and args.condition == 'tied_persistent'
++    source = ROOT / 'staged_phase' / ('accuracy_first_graph_view_source_preparation_20261004_v2' if args.family == 'bank'
+                      else 'accuracy_first_graph_view_reference_source_preparation_20261004_v1')
+     sys.path.insert(0, str(source))
+     from runtime import load_runtime
+@@ -83,6 +86,20 @@
+         rt = load_runtime(execute=True, manifest_sha256=REFERENCE_MANIFEST, protocol_sha256=REFERENCE_PROTOCOL)
+         TrainRole, construct_views, native_edges = rt.views.TrainRole, rt.views.construct_views, rt.views.native_edges
+     torch, np = rt.torch, rt.numpy
++    assert Path(sys.executable).resolve() == Path(PYTHON_PATH).resolve()
++    import os, torch_geometric
++    assert os.environ['CUDA_VISIBLE_DEVICES'] == UUID
++    assert os.environ['CUBLAS_WORKSPACE_CONFIG'] == ':4096:8'
++    runtime_descriptor = dict(python_executable=sys.executable, python_version=sys.version,
++        torch_version=torch.__version__, torch_cuda_version=torch.version.cuda,
++        numpy_version=np.__version__, torch_geometric_version=torch_geometric.__version__,
++        cuda_visible_devices=os.environ['CUDA_VISIBLE_DEVICES'], physical_gpu_uuids=PHYSICAL_UUIDS,
++        CUBLAS_WORKSPACE_CONFIG=os.environ['CUBLAS_WORKSPACE_CONFIG'],
++        cuda_matmul_allow_tf32=False, cudnn_allow_tf32=False)
++    runtime_descriptor['package_descriptors'] = [dict(name=name, path=module.__file__,
++        bytes=Path(module.__file__).stat().st_size,
++        sha256=hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest())
++        for name, module in [('torch',torch),('numpy',np),('torch_geometric',torch_geometric)]]
+     torch.set_num_threads(1)
+     assert torch.cuda.device_count() == 1
+     torch.use_deterministic_algorithms(True, warn_only=False)
+@@ -105,7 +122,8 @@
+     assert x_cpu.shape == (24492, 300) and x_cpu.dtype == np.float32 and np.isfinite(x_cpu).all()
+     role = TrainRole(24492, 0, ids, labels, val_ids, test_ids)
+     bundle = construct_views(role, native_edges(24492, ((int(a), int(b)) for a, b in raw.T)), 17)
+-    coverage_path = PHASE / 'graph_view_actual_TRAIN_mask_coverage_execution_root_20261004_v1/split0_COVERAGE.json'
++    coverage_path = ROOT / 'staged_phase/graph_view_actual_TRAIN_mask_coverage_execution_root_20261004_v1/split0_COVERAGE.json'
++    assert hashlib.sha256(coverage_path.read_bytes()).hexdigest() == '0e05618da1fe4916eebd77ccadd26b8aa476fb23bd872f20b6fa5391c48bf74c'
+     saved_coverage = json.loads(coverage_path.read_text())
+     assert saved_coverage == dict(bundle['coverage'], coverage_origin='official_TRAIN',
+         scientific_freeze_eligible=bundle['coverage']['coverage_eligible'])
+@@ -165,6 +183,10 @@
+         stage=args.stage, graph_shape=list(x.shape), source_manifest_sha256=rt.manifest_sha256,
+         protocol_sha256=rt.protocol_sha256, selected_device='cuda:0', GPU_UUID=UUID,
+         deterministic_algorithms=torch.are_deterministic_algorithms_enabled(),
++        runtime=runtime_descriptor, source_provenance=list(rt.source_provenance),
++        input_bindings_sha256=hashlib.sha256((ROOT / 'INPUT_BINDINGS.json').read_bytes()).hexdigest(),
++        coverage_sha256=hashlib.sha256(coverage_path.read_bytes()).hexdigest(),
++        checker_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+         parameters=sum(p.numel() for p in model.parameters()), step_seconds=step_seconds,
+         evaluation_seconds=eval_seconds, snapshot_seconds=snapshot_seconds,
+         restore_and_evaluation_seconds=restore_and_eval_seconds,
+@@ -177,7 +199,7 @@
+         independent_scientific_result=False, predictive_values_reported=False,
+         VALIDATION_or_TEST_targets_read=False, scientific_training_updates=0,
+         checkpoint_or_logits_saved=False, eligible_as_donor=False,
+-        component_stage_fresh_initialization=True, co_resident_with_original_Amazon_queue=True,
++        component_stage_fresh_initialization=True, co_resident_with_DDI_queue=True,
+         exact_whole_schedule_or_competence_qualification=False)
+     path = ROOT / (args.family + '_' + args.condition + '_' + args.stage + '.json')
+     with path.open('x') as stream:
