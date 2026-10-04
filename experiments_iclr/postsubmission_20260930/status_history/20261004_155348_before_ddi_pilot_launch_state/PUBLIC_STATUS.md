@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated: 2026-10-04T15:53:48.431847+00:00. Research continues; the objective is incomplete. Original paper scores are unchanged.
+Updated: 2026-10-04T15:17:45.051462+00:00. Research continues; the objective is incomplete. Original paper scores are unchanged.
 
 ## Predictive evidence
 
@@ -12,7 +12,7 @@ The frozen private-minus-pooled contrast is +0.2236 points, with a descriptive p
 
 The TRAIN-only pattern objective tests whether one member can explain the hidden neighbour subsets at both endpoints of an edge. The served ranker remains count-free and uniformly pools raw member scores. Joint reconstruction uses the same member for both endpoints; the matched separate reconstruction mixes each endpoint independently. A target-only arm measures whether reconstruction helps at all.
 
-The fixed Collab comparison has three paired seeds and nine fresh full 100-epoch fits. Its source passed independent technical review and the queue launched at 12:28:04 UTC on authorized 18.77 GPU1. Observation 9 at 15:31:42 UTC shows target-only seed 0 complete, 100 epochs, exit 0, 2150.55 seconds; joint seed 0 is at epoch 73/100. No queue failure or private quality reading occurred. Planned serial runtime remains 24–30 GPU-hours. No predictive result exists for this family yet.
+The fixed Collab comparison has three paired seeds and nine fresh full 100-epoch fits. Its source passed independent technical review and the queue launched at 12:28:04 UTC on authorized 18.77 GPU1. Observation 8 at 15:01:36 UTC shows target-only seed 0 complete, 100 epochs, exit 0, 2150.55 seconds; joint seed 0 is at epoch 59/100. No queue failure or private quality reading occurred. Planned serial runtime remains 24–30 GPU-hours. No predictive result exists for this family yet.
 
 Identical members give a zero joint/separate contrast, so the objective does not guarantee diversity or prevent collapse. Saved counterexamples show that joint likelihood can improve without improving served edge scores. Conditional Bernoulli laws, latent neighbourhood classes, responsibility learning, conditional-degree pseudolikelihood, MaskGAE, GRAN and related reconstruction methods are prior. The exact queried-edge/two-subset/filter composition is unresolved; no novelty clearance exists. [Algebra and limits](pattern_responsibility_overlap_analysis_20261004_v1/ANALYSIS.md), [closest prior and counterexamples](shared_endpoint_latent_mixture_delta_check_20261004_v1/CONCLUSIONS.md).
 
@@ -20,8 +20,8 @@ Collab's earlier native gradient diagnostic found only 1.3599% of positive queri
 
 ## Active predictive comparisons
 
-- **Amazon/Polynormer, authorized one-GPU allocation:** original queue observation 35 at 15:30:51 UTC has five of fifteen fits complete. The sixth, `split1_gnnm_boundary_4_seed29`, has 2654/2700 updates. Original handles are live; no failure, restart or partial quality/TEST selection occurred.
-- **PENCIL, authorized 18.77 GPU0:** v2 stopped at 15:23:42 UTC during seed 0, epoch index 7, after 800 updates. The recorded trigger was a supervisor RSS-sampling assertion, followed by its owned-group SIGKILL. No recorded RSS, wall or output cap was crossed. Session closure/reap passed; seeds 1/2 remain unattempted. Exact failing task identity was not logged. A minimal same-stat identity/RSS source repair is sealed separately in v3 and remains disabled, with no restart admitted. Predictive values remain unread.
+- **Amazon/Polynormer, authorized one-GPU allocation:** original queue observation 34 at 15:01:36 UTC has five of fifteen fits complete. The sixth, `split1_gnnm_boundary_4_seed29`, has 2439/2700 updates. Original handles are live; no failure, restart or partial quality/TEST selection occurred.
+- **PENCIL, authorized 18.77 GPU0:** independently reviewed v2 launched three fresh scratch fits at 14:32:31 UTC. Observation 3 at 15:00:15 UTC shows seed 0 at epoch index 4, 434 optimizer updates and four complete VALID traversals. It has passed the previous failure point without a new failure. Predictive values remain unread; complete-family feasibility is still unestablished.
 - **Conditional-pattern Collab, authorized 18.77 GPU1:** target-only seed 0 is complete and joint seed 0 is progressing as described above. No TEST or partial score-driven decisions are allowed.
 
 ## Actual DDI TRAIN runtime and prospective pilot
@@ -30,7 +30,7 @@ Three fresh seed-0 arms completed one entire real TRAIN epoch on authorized 18.7
 
 These are co-resident timings. Linear TRAIN-only scaling gives 187.9 GPU-hours for the preserved nine-fit 500-epoch proposal, or 37.6 GPU-hours for nine F4 fits at 100 epochs. Native M1, VALID, replay and later-epoch uncertainty are additional; these are budget scales, not promised completion times. [Actual runtime evidence](ddi_f4_practical_runtime_execution_root_20261004_v1/RESULTS_SUMMARY.md).
 
-A separate prospectively fixed 12-fit, 100-epoch development pilot launched at 15:51:32 UTC on authorized18.77GPU0: native M1 and F4 target/joint/separate, each on seeds 0/1/2. The independently reviewed training source and root-reviewed execution use the unchanged native recipe except for this shorter budget. Observation 1 shows native M1 seed 0 running, with no exception or terminal failure. Predictive values remain unread until the entire fixed family completes. The author's budget is 500 epochs; a promising development result requires separately fixed competitive confirmation. The original 500-epoch source remains preserved and disabled. Launch establishes no prediction or novelty gain. [Live pilot and protocol](ddi_paired_development_pilot_execution_root_20261004_v1/PLAN.json).
+A separate prospectively fixed 12-fit, 100-epoch development pilot is being prepared before any DDI predictive score: native M1 and F4 target/joint/separate, each on seeds 0/1/2. It must disclose the shorter budget relative to the author's 500 epochs and require separately fixed competitive confirmation if promising. The original 500-epoch source remains preserved and disabled. This runtime check establishes no prediction or novelty gain.
 
 The qualified 55 MB TRAIN+VALID artifact remains on the server. It preserves 1,067,911 TRAIN edges, 2,135,822 directed graph entries, 133,489 VALID positives and 101,882 fixed global negatives. Actual loss is native AUC because TRAIN weights are absent. TEST remains opaque. The private-hop encoder's earlier CPU check passed 17 outputs and 92 full gradients, maximum error 2.44e-15; that result is implementation agreement, not quality or speed evidence.
 
@@ -40,14 +40,10 @@ Index v49 contains 209 stored scoped conclusions, 158 normalized paper identitie
 
 Subtracting a member-identical reference cancels from normalized task assignments, making that proposal exactly generic loss allocation. A frozen-reference private-filter variant remains catalog-only and includes a matched generic-allocation control. It has no experiment adoption or novelty clearance. [Saved proposal and counterexamples](target_aligned_private_propagation_diversity_scout_20261004_v1/REPORT.md).
 
-A separate derived serving-alignment note checks likelihood-derived member weighting. It explicitly treats Bayes/mixture algebra as established, notes that conditioning on the full graph makes the proposed extra-information gain zero, and admits no new experiment or novelty claim. Existing uniform-serving queues remain unchanged. [Alignment and limits](conditional_pattern_serving_alignment_note_20261004_v1/NOTE.md).
-
-The completed typed-path scout adds two scoped method reads: GTN/FastGTN already combines learned typed channels and shared maps; MUG already applies one shared encoder across path views. No new propagation or initialization mechanism emerged. A persistent-private-state utility hypothesis remains untested. Index v49 is unchanged pending memory integration; these are scoped method reads, not full-paper certifications. [Negative novelty check](member_private_typed_path_quality_gap_scout_20261004_v1/REPORT.txt).
-
 ## Preserved failures and publication
 
 PENCIL v1 failed during epoch 2 after 106 updates when its declared 75 GiB reservation cap was crossed. The supervisor also encountered owned-session/RSS exit races. Physical closure eventually passed, seeds 1/2 were unattempted, and no selected quality was adopted. V2 retains the scientific recipe, uses a disclosed expandable allocator and an 80 GiB reserved ceiling with the allocated cap unchanged at 70 GiB, and repairs exit-aware RSS sampling. No donor or continuation is used.
 
 DDI's first bootstrap stopped before any remote launch because the system Python lacked `hashlib.file_digest`. Its failed transport is preserved; the explicit recovery used the pinned Python 3.12 and the same reviewed release/workload. Pubmed's six native baselines are complete, but its shared-model continuation diagnostic failed the original final parity rule and that branch remains closed.
 
-Latest verified GitHub head: `3e9530dd14e6be9ab7eef0053cc6b2feb7a545fb`. The DDI pilot source/review/actual launch, PENCILv2 diagnosis and new scoped alignment note await publication. All failures, reviews, original scores and decisions remain preserved. Science uses authorized anogena-2 and 18.77 repositories only; the seven-GPU route is forwarding only. No sudo, PDF compilation, GENLINK, Desktop writes, host settings or unrelated-data operations.
+Latest verified GitHub head: `392eb51b457e3522aa620c2d82c2895477d29118`. New explicit source, review, runtime, literature and monitoring records await publication. All failures, reviews, original scores and decisions remain preserved. Science uses authorized anogena-2 and 18.77 repositories only; the seven-GPU route is forwarding only. No sudo, PDF compilation, GENLINK, Desktop writes, host settings or unrelated-data operations.
