@@ -1,0 +1,30 @@
+import importlib.metadata as md, importlib.util as iu, json, os, sys, hashlib
+from pathlib import Path
+pins = [{'path': '/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12', 'sha256': '14776d98474f987919376922a9995a20733e13b51d7d122873b068bf2e47d1b2'}, {'path': '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/buddy_complete_data_cache_preparation_v3/root_run_77_v1/dataset/ogbl_collab/split/time/train.pt', 'bytes': 41130429}, {'path': '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/buddy_complete_data_cache_preparation_v3/root_run_77_v1/dataset/ogbl_collab/split/time/valid.pt', 'bytes': 3885091}, {'path': '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/buddy_complete_data_cache_preparation_v3/root_run_77_v1/dataset/ogbl_collab/raw/edge.csv.gz', 'bytes': 4933748}, {'path': '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/buddy_complete_data_cache_preparation_v3/root_run_77_v1/dataset/ogbl_collab/raw/node-feat.csv.gz', 'bytes': 105975881}, {'path': '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/buddy_extra_v1/site/torch_sparse/_ego_sample_cpu.so', 'bytes': 201048, 'sha256': 'a4a0dc70313aac03db3b3a8afe89d8975139865d120c8548734ead43453ba4f0'}, {'path': '/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/buddy_extra_v1/site/torch_sparse/_saint_cpu.so', 'bytes': 176144, 'sha256': '137c6bd46ef6a3658bcb9893c84e41076640d79dc59b765a0004e208233cbe42'}]
+packages = ['torch','torch-geometric','torch-sparse','torch-scatter','numpy','pandas','ogb','scipy','transformers','wandb','rich','rootutils','PyYAML','tqdm','networkx']
+modules = ['torch','torch_geometric','torch_sparse','torch_scatter','numpy','pandas','ogb','scipy','transformers','wandb','rich','rootutils','yaml','tqdm','networkx']
+rows=[]
+for distribution,module in zip(packages,modules):
+    try:
+        dist=md.distribution(distribution); version=dist.version; location=str(dist.locate_file(''))
+    except md.PackageNotFoundError:
+        version=None; location=None
+    spec=iu.find_spec(module)
+    rows.append(dict(distribution=distribution,version=version,metadata_root=location,module_origin=None if spec is None else spec.origin))
+observed=[]
+for pin in pins:
+    path=Path(pin['path']); row=dict(pin,exists=path.is_file())
+    if row['exists']:
+        row['observed_bytes']=path.stat().st_size
+        if 'sha256' in pin and path==Path(sys.executable):
+            row['observed_sha256']=hashlib.sha256(path.read_bytes()).hexdigest()
+            assert row['observed_sha256']==pin['sha256']
+        if 'bytes' in pin: assert row['observed_bytes']==pin['bytes']
+    observed.append(row)
+private_helper=None
+try:
+    dist=md.distribution('transformers'); path=Path(dist.locate_file('transformers/modeling_attn_mask_utils.py'))
+    private_helper=dict(path=str(path),exists=path.is_file())
+except md.PackageNotFoundError: pass
+assert not any(x in sys.modules for x in ('torch','numpy','pandas','torch_sparse','transformers'))
+print(json.dumps(dict(schema='pencil-readonly-presence-preflight-v1',python=sys.version,executable=sys.executable,cwd=os.getcwd(),PYTHONPATH=os.environ.get('PYTHONPATH'),packages=rows,files=observed,transformers_private_helper_file=private_helper,numerical_modules_imported=False,graph_payload_reads=False,TEST_reads=False,server_writes_requested=False),sort_keys=True))

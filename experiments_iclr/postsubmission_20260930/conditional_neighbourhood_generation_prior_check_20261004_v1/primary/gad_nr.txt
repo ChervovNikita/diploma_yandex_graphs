@@ -1,0 +1,1367 @@
+
+--- PDF page 1 ---
+GAD-NR: Graph Anomaly Detection via
+Neighborhood Reconstruction
+Amit Roy
+Purdue University
+roy206@purdue.edu
+Juan Shu
+Purdue University
+shu30@purdue.edu
+Jia Li
+HKUST
+jialee@ust.hk
+Carl Yang
+Emory University
+j.carlyang@emory.edu
+Olivier Elshocht
+Sony
+Olivier.Elshocht@sony.com
+Jeroen Smeets
+Sony
+jeroen.smeets@sony.com
+Pan Li
+Georgia Institute of Technology,
+Purdue University
+panli@gatech.edu,panli@purdue.edu
+ABSTRACT
+Graph Anomaly Detection (GAD) is a technique used to identify
+abnormal nodes within graphs, finding applications in network
+security, fraud detection, social media spam detection, and vari-
+ous other domains. A common method for GAD is Graph Auto-
+Encoders (GAEs), which encode graph data into node representa-
+tions and identify anomalies by assessing the reconstruction quality
+of the graphs based on these representations. However, existing
+GAE models are primarily optimized for direct link reconstruc-
+tion, resulting in nodes connected in the graph being clustered in
+the latent space. As a result, they excel at detecting cluster-type
+structural anomalies but struggle with more complex structural
+anomalies that do not conform to clusters. To address this limita-
+tion, we propose a novel solution called GAD-NR, a new variant
+of GAE that incorporates neighborhood reconstruction for graph
+anomaly detection. GAD-NR aims to reconstruct the entire neigh-
+borhood of a node, encompassing the local structure, self-attributes,
+and neighbor attributes, based on the corresponding node rep-
+resentation. By comparing the neighborhood reconstruction loss
+between anomalous nodes and normal nodes, GAD-NR can effec-
+tively detect any anomalies. Extensive experimentation conducted
+on six real-world datasets validates the effectiveness of GAD-NR,
+showcasing significant improvements (by up to 30%↑ in AUC) over
+state-of-the-art competitors. The source code for GAD-NR is openly
+available. Importantly, the comparative analysis reveals that the
+existing methods perform well only in detecting one or two types
+of anomalies out of the three types studied. In contrast, GAD-NR
+excels at detecting all three types of anomalies across the datasets,
+demonstrating its comprehensive anomaly detection capabilities.
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than ACM
+must be honored. Abstracting with credit is permitted. To copy otherwise, or republish,
+to post on servers or to redistribute to lists, requires prior specific permission and/or a
+fee. Request permissions from permissions@acm.org.
+WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico
+© 2023 Association for Computing Machinery.
+ACM ISBN 978-1-4503-XXXX-X/18/06. . . $15.00
+https://doi.org/XXXXXXX.XXXXXXX
+KEYWORDS
+Anomaly Detection, Graph Neural Network, Auto-Encoder
+ACM Reference Format:
+Amit Roy, Juan Shu, Jia Li, Carl Yang, Olivier Elshocht, Jeroen Smeets,
+and Pan Li. 2023. GAD-NR: Graph Anomaly Detection via Neighborhood
+Reconstruction. In Proceedings of Make sure to enter the correct conference
+title from your rights confirmation email (WSDM ’24). ACM, New York, NY,
+USA, 11 pages. https://doi.org/XXXXXXX.XXXXXXX
+1 INTRODUCTION
+Anomaly Detection aims to identify entities that deviate signifi-
+cantly from the norm, which has been used for a variety of ap-
+plications, such as revealing fraudulent or spam activity in social
+networks [26, 63, 73, 77, 85, 86] and financial transactions net-
+works [10, 18, 19, 55, 67, 70, 75].
+Unlike anomaly detection methods for tabular and time-series
+data, Graph Anomaly Detection (GAD) [3, 49, 69] poses additional
+challenges. Graph data is often multi-modal, containing information
+from both node/edge attributes and topological structures. This
+complexity makes it difficult to find a unified definition of anomalies
+for graph-structured data and to design a principled algorithm for
+detecting them.
+Due to the inherent multi-modality of graph-structured data,
+anomalies on graphs can be grouped into three categories: contex-
+tual, structural, and joint-type, as illustrated in Fig. 1. Contextual
+anomalies refer to nodes whose attributes are vastly different from
+those of regular nodes, such as spammers or fake account holders
+in social media networks [ 29, 32, 81]. Structural anomalies refer
+to nodes with different connectivity patterns compared to other
+nodes, such as a group of malicious sellers exchanging fake reviews
+with super dense connections [ 74] or bots retweeting the same
+tweet forming a densely connected co-retweet network [ 21, 28].
+Joint-type anomalies are those that can only be identified by con-
+sidering both attributes and connectivity patterns, such as a node
+that is sending a large number of phishing emails to users across
+different communities in an email network [35, 54]. To identify all
+these types of anomalies, we need a powerful model to capture
+attribute information, connectivity patterns, and most importantly
+the correlation between them.
+arXiv:2306.01951v8  [cs.LG]  25 Jan 2025
+
+--- PDF page 2 ---
+WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico Amit Roy, Juan Shu, Jia Li, Carl Yang, Olivier Elshocht, Jeroen Smeets, and Pan Li
+Input Graph Structural Anomaly
+Contextual Anomaly Joint-type Anomaly
+Normal User Anomaly
+Figure 1: Contextual anomalies are feature-wise different, struc-
+tural anomalies form dense subgraphs in the network and joint-type
+anomalies connect with many nodes with different features.
+However, current GAD approaches [3, 45, 49] only perform well
+to detect one or two types of these anomalies but not all of them.
+Some GAD approaches only leverage network structure, which
+cannot detect contextual anomalies. Examples include the methods
+to check centrality measures or clustering coefficients [ 50, 65],
+based on factorization of the adjacency matrix [72], and performing
+network clustering [83]. Some approaches check the distribution
+of node features to detect anomalies [ 5, 43], such as using the 𝑘-
+nearest neighbor algorithm on node features, to detect nodes that
+are isolated from others. These approaches fail to detect anomalies
+other than contextual anomalies.
+Recently, autoencoders have been widely employed for anomaly
+detection [7, 15, 20, 36, 61]. The rationale is that autoencoders lever-
+age neural networks to reduce the dimension of the data. Anomalies
+are often sparse in the data and hence such a data compression
+process tends to record only the principal part of the data and
+automatically exclude sparse anomalies. Therefore, one can use
+the obtained compressed data representations to approximately
+reconstruct the normal data but not the anomalies. Monitoring
+the reconstruction loss can thus identify those anomalies from the
+normal data. For GAD, Graph Auto-Encoders (GAEs) have been
+proposed to leverage Graph Neural Networks (GNNs) [25, 38, 82]
+to encode both graph structure and node attributes, which have
+recently been used to detect anomalies on graphs [15, 20, 36].
+However, current GAE-based methods [15, 20, 36] often adopt
+a strategy of reconstructing direct links between nodes based on
+their representations, which brings the nodes close to each other in
+the latent space that are originally connected in the graph structure.
+Such a proximity-driven loss to reconstruct graph structures may
+be effective to detect structural anomalies that are inherently clus-
+tered together in the graph. However, they fail to detect joint-type
+anomalies that are not naturally clustered. Intuitively, joint-type
+anomalies rely on the entire neighborhoods for correct detection,
+because the information of which nodes are connected and the
+attributes on these neighboring nodes is useful for the detection.
+In this paper, we address the current limitation and propose a
+novel framework Graph Anomaly Detection via Neighborhood
+Reconstruction (GAD-NR). GAD-NR extends a recently-proposed
+Approach Contextual
+Anomaly
+Structural
+Anomaly
+Joint-type
+Anomaly
+Structure-based
+SCAN [83] and others [50, 65, 72] × ✓ ×
+Feature-based
+LOF [5], IF [43], MLPAE [61] ✓ × ×
+GAE with proximity driven loss
+AnomalyDAE [20] , GCNAE [36]
+DOMINANT [15]
+✓ ✓ ×
+GAD-NR (ours) ✓ ✓ ✓
+Table 1: SOTA methods perform well either on contextual or densely
+connected structural anomalies whereas GAD-NR with its entire
+neighborhood reconstruction principle finds advantages for detect-
+ing both types of anomalies along with joint-type anomalies which
+are the nodes that connect a large number of nodes with different
+features.
+neighborhood reconstruction-based GAE model, namely NWR-
+GAE [71] to address fundamental problems in GAD. Specifically,
+rather than using a proximity-driven loss to recover direct links,
+GAD-NR imposes the dimension-reduced node representations to
+reconstruct the entire neighborhoods, i.e., the receptive fields that
+are encoded/compressed by GNNs into the node representations.
+Specifically, GAD-NR aims to reconstruct the information of one’s
+own attributes, its connectivity pattern, and the attributes of its
+neighboring nodes. By checking different types of reconstruction
+losses, GAD-NR can detect all three types of anomalies.
+The key novelty of GAD-NR is that it is the first work that
+identifies neighborhood reconstruction as a powerful metric for
+GAD, which fundamentally differs from previous GAE models that
+adopt the metric of link reconstruction/prediction. Moreover, GAD-
+NR also advances technical aspects of the backbone model NWR-
+GAE [71] directly for GAD tasks, which yields substantial improve-
+ments in stability, scalability, and accuracy. Specifically, GAD-NR
+adopts Gaussian approximation of neighbors’ features distributions,
+which not only substantially reduces the computation cost of NWR-
+GAE but also avoids learning a too expressive model that risks
+overfitting the anomalous behaviors in the data. This non-trivial
+change improves NWR-GAE originally proposed for the unique
+purpose of dimension reduction now suitable for GAD tasks.
+We extensively compare GAD-NR with state-of-the-art (SOTA)
+models on six real-world graph anomaly detection datasets that
+have been benchmarked recently [45]. GAD-NR outperforms all
+baselines significantly (by up to 30% ↑ in AUC) over five among
+these six datasets by following the settings in [45]. We also evaluate
+and demonstrate the capability of GAD-NR on detecting each of
+the three types of anomalies.
+Note that in real-world applications, the types of anomalies are
+often unknown. The significance of GAD-NR is that it allows de-
+tecting the real-world anomalies across different datasets (in [45])
+with one fixed hyperparameter configuration, which illustrates the
+robustness of GAD-NR. Further ablation studies also justify the
+effectiveness and computational efficiency of Gaussian approxi-
+mation adopted by GAD-NR for GAD when being compared with
+NWR-GAE [71].
+The contributions of this paper can be summarized as follows:
+• We designed a novel framework GAD-NR for graph anomaly de-
+tection. GAD-NR leverages the reconstruction loss of the entire
+
+--- PDF page 3 ---
+GAD-NR: Graph Anomaly Detection via Neighborhood Reconstruction WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico
+neighborhood of a node from the node representation, which in
+principle can detect all three types of anomalies in Fig. 1.
+• Technically, GAD-NR adopts a Gaussian approximation of the
+distribution of neighbors’ representations and computes a closed-
+form KL divergence as the reconstruction loss, which substan-
+tially improves the scalability and effectiveness of the approach.
+• Extensive experiments on six real-world networks demonstrate
+the effectiveness of GAD-NR compared to SOTA baselines, and
+the rationale of the design specifics of GAD-NR.
+2 RELATED WORKS
+We put previous methods for GAD into three categories as follows.
+Structure-only-based methods: Traditional graph anomaly
+detection focuses on detecting only structural anomalies. Many
+works in this category leverage spectral analysis of the adjacency
+matrix and its variants [31, 51]. Recent methods define structural
+similarity measures for anomalies and then perform clustering
+approaches for detection [ 56, 83]. Statistical features computed
+based on the graph structure such as in/out degrees, total weights
+of edges, number of neighbors of a node, or dense subgraphs can
+be utilized for GAD [ 2, 17, 28]. However, these structure-based
+methods are only able to detect structural anomalies. They may
+detect some joint-type anomalies but they tend to make a slot of
+false alarms as they miss the information from node attributes.
+Traditional methods for GAD over attributed networks: In
+real-world applications, most of the graphs have node attributes
+(features). Nodes with inconsistent attributes have a high chance
+to be an anomaly node. Moreover, considering the information
+on node attributes along with structure helps to locate anomalies
+more accurately. Detecting anomalies in attributed networks can
+be achieved by clustering methods [9, 59], interaction with human
+experts [16], group merging techniques [91]. Network embedding
+methods [23, 60, 68] can also be applied to GAD on attributed
+graphs [6, 8]. Network embeddings can be paired with anomaly
+detection techniques for tabular data such as density-based ap-
+proaches [5], and distance-based techniques [ 1, 43] to find node
+anomalies on graphs. However, these approaches, since they pro-
+cess graph structure separately with node attributes, often fail to
+capture the synergy of graph structure and node attributes and may
+be suboptimal for GAD in some cases.
+Deep learning based GAD approaches: Auto-Encoder frame-
+work that focuses on extracting principal components from the
+data via deep learning has been extensively applied in anomaly
+detection [7, 15, 20, 36, 48]. Applying traditional autoencoders to
+node attributes [61] can only detect contextual anomalies. GAE
+built upon GNNs can combine node attributes and graph structure
+properly and can detect anomalies based on checking the recon-
+struction loss of node attributes or links [ 15, 20, 36]. But these
+works do not reconstruct the entire neighborhood for GAD. Rather,
+they use reconstruction error, and estimating Gaussian mixture
+density is also applied for GAD [42]. Some works view nodes with
+multiple views and a node may or may not be considered an anom-
+aly in different views. These nodes hold attributes from multiple
+views of the identity. To capture such multi-view information, mul-
+tiple GNNs are often applied [47, 57, 66, 79, 80] for anomaly detec-
+tion. GNNs have also been applied to detect anomalies in multiple
+scales [24], and to detect anomalies and solve recommendation
+tasks simultaneouly [ 76, 88]. More involved techniques such as
+self-supervised learning [13, 30, 33, 46, 84, 90] and reinforcement
+learning [16, 40, 52] have also been recently applied to GAD.
+3 NOTATIONS AND PROBLEM FORMULATION
+In this work, we focus on detecting anomalous nodes over attributed
+static graphs. An attributed graph 𝐺 = (𝑉 , 𝐸, 𝑋) ∈ G consists of a
+vertex set 𝑉 = {1, 2, · · ·, 𝑁 } and an edge set 𝐸. 𝑋 = [· · ·𝑥 ⊤𝑢 · · · ]⊤ ∈
+R|𝑉 | ×𝑘 collect all node attributes and 𝑥𝑢 ∈ R𝑘 is the attribute for
+node 𝑢. The degree of node𝑢 is denoted as𝑑𝑢. This work focuses on
+unsupervised anomaly detection. Each node𝑢 has an anomaly label
+𝑦𝑢 where 𝑦𝑢 = 0 or 𝑦𝑢 = 1 implies node 𝑢 is normal or anomalous
+respectively. The goal is to design a detection method 𝑓 (𝐺) : G →
+{0, 1}𝑁 that associates each nodes with a label. However, these
+node labels are assumed to be unknown when designing 𝑓 .
+Let N𝑢 be the set of 1-hop neighbor nodes of node 𝑢. Let ¯N𝑢 be
+an augmented set of 1-hop neighborhood of node 𝑢 that includes
+the attribute of node 𝑢, the set of the attributes of its neighbors,
+i.e., ¯N𝑢 ≜ (𝑥𝑢, {𝑥𝑣 |𝑣 ∈ N𝑢 }). Our assumption to detect anomalous
+nodes is that given the label 𝑦𝑢, the distribution P( ¯N𝑢 |𝑦𝑢 ) are dif-
+ferent across norms and anomalies. Here, we consider just one-hop
+neighborhood as a proof of concept, which is also often adequate
+for use cases in practice [4]. The neighborhoods considered can be
+extended to the multi-hop case, while extra computation costs need
+to be paid in that scenario.
+4 METHODOLOGY
+In this section, we first provide the motivation of our method by
+narrating the potential drawbacks of previous graph auto-encoder
+methods. Then, we introduce GAD-NR which is based on neigh-
+borhood reconstruction.
+4.1 Motivations
+AutoEncoder (AE) is an easy-to-use and effective framework for
+anomaly detection. The motivation of AE is to perform dimen-
+sion reduction by compressing the high dimensional input data
+into a low dimensional latent representation [27] via an encoder
+and reconstructing the original input with the help of a decoder.
+AE can be used for anomaly detection because such dimension
+reduction is expected to capture the principal properties of the data
+mostly corresponding to the normal data points. The data points
+that cannot be properly reconstructed via the decoder, i.e., with
+larger reconstruction losses tend to be anomalies.
+Graph AutoEncoder (GAE) is used to perform dimension re-
+duction of graph data via a Graph Neural Network (GNN) as the
+encoder [37]. Given a graph 𝐺 = (𝑉 , 𝐸), GAE encodes graph data
+into node representations {ℎ𝑣 |𝑣 ∈ 𝑉 }. The decoder of current GAE
+methods is to reconstruct the graph structure and node attributes
+from these node representations. Regarding graph-structure recon-
+struction, it typically relies on a mapping from the representations
+of two nodes to 0 or 1 that indicates whether there is an edge be-
+tween them [15, 20], e.g., comparing ℎ⊤𝑢 ℎ𝑣 with some threshold
+𝜃 to reconstruct the edge. However, this procedure can only pre-
+serve proximity information of nodes in the graph, i.e., pushing
+node representations close if the corresponding nodes are directly
+
+--- PDF page 4 ---
+WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico Amit Roy, Juan Shu, Jia Li, Carl Yang, Olivier Elshocht, Jeroen Smeets, and Pan Li
+!"
+UPDATE(ℎ"(+),ℋ")
+ℎ"(+)
+/(!")
+ℎ01(+)⋯
+ℋ"ℎ03(+)ℎ045(+)ℎ"(6)
+78(ℎ"(6))9:;<(9:;,:;)7=(ℎ"(6))ℎ"(+)<(>ℎ"(+),ℎ"(+))?̂A",>Σ"C1, C2, … Cq∼?̂A",>Σ"EℎF= FNN(CF) F=1,…,J̅A;= 6L∑NO6LPℎFΣu= 68"R6∑NO6L(ℎF−A;)(ℎF-A;)⊤
+?(̅A",PΣ")?(A",Σ")TU(V)
++X8X=
+XY
+Encoder Decoder
+;⋯⋯⋯Z6Z8"
+Z[
+\](ℎ"(6))\^(ℎ"(6))>Σ"
+̂A" Loss
+stop-gradient
+Figure 2: Model architecture of GAD-NR. The encoder (left) per-
+forms dimension reduction with an MLP followed by a message
+passing GNN to obtain the hidden representation of a node. The
+decoder (right) reconstructs the self features and the node degree
+via MLPs and estimates the neighbor feature distribution with an
+MLP-predicted re-parameterized Gaussian distribution. Reconstruc-
+tions of the self features and the node degree are optimized with
+MSE-loss whereas the KL-divergence between the ground truth and
+the learned neighbors’ feature distribution is used for the optimiza-
+tion of the distribution estimation.
+connected in the graph, which may miss useful information for
+detecting anomalies. Moreover, by checking the reconstruction loss,
+one may only tell whether an edge is an anomaly. To detect node
+anomalies that are often more useful in practice, one needs to ag-
+gregate the reconstruction losses of edges into the node level, and
+how to properly aggregate these losses is not a trivial problem by
+itself and often depends on heuristics.
+4.2 GAE via Neighborhood Reconstruction
+Our strategy to overcome the drawback of traditional GAEs lies
+in the first-principle idea of autoencoders. Autoencoders aim to
+perform dimension reduction of the data with the least loss to
+recover the original data. GAE encodes each node’s attributes and
+the attributes of the nodes in its one-or-several-hop neighborhood
+into a node representation. Therefore, the node representation
+should be able to reconstruct the neighborhood and its attributes
+with the least loss. This idea leads to the design of GAE in this work.
+The model architecture is illustrated by Fig. 2 and describes the
+pseudocode in Algorithm 1.
+4.2.1 The encoder. The encoder Φ(·) follows the common pipeline
+of message passing GNN [22] e.g. GCN [38] or GraphSAGE [25].
+A GNN will further iteratively aggregate the representations from
+the neighbors and combine them with one’s own representation
+to update the representation. Specifically, let ℎ (0)
+𝑢 = 𝑥𝑢. For 𝑙 =
+0, 1, ..., 𝐿 − 1,
+ℎ (𝑙+1)
+𝑢 = UPDATE (ℎ (𝑙 )
+𝑢 , AGG ({ℎ (𝑙 )
+𝑣 : 𝑣 ∈ N𝑢 }), (1)
+The AGG function aggregates messages from the neighbors and
+the UPDATE function updates the node representations. Note that
+in practice, if the node attribute 𝑥𝑢 is extremely high dimensional
+and sparse, a random linear projection is used to encode them into
+a dense low-dimensional representation ℎ (0)
+𝑢 = 𝜉 (𝑥𝑢 ).
+4.2.2 The decoder. Our decoder is designed based on the first prin-
+ciple of designing an autoencoder [27]. We are supposed to reverse
+the procedure of Eq. (1) by using ℎ (𝐿)
+𝑢 to reconstruct all the in-
+formation within the 𝐿-hop neighborhood of 𝑢. In practice, it is
+Algorithm 1 GAD-NR : Graph Anomaly Detection via Neighbor-
+hood Reconstruction
+1: Input: Graph 𝐺 (𝑉 , 𝐸), Input Feature 𝑋 , Anomaly Label 𝑌
+2: Encoder:
+3: for 𝑢 ∈ 𝑉 do
+4: ℎ (0)
+𝑢 = 𝜉 (𝑥𝑢 )
+5: ℎ (1)
+𝑢 = UPDATE (ℎ (0)
+𝑢 , AGG ({ℎ (0)
+𝑣 : 𝑣 ∈ N𝑢 })
+6: end for
+7: Decoder:
+8: for 𝑢 ∈ 𝑉 do
+9: ˆℎ (0)
+𝑢 = 𝜓𝑥 (ℎ (1)
+𝑢 ), ˆ𝑑𝑢 = 𝜓𝑑 (ℎ (1)
+𝑢 )
+10: 𝜇𝑢 = stop-gradient( 1
+𝑑𝑢
+Í
+𝑣 ∈ N𝑢 ℎ (0)
+𝑣 )
+11: Σ𝑢 = stop-gradient( 1
+𝑑𝑢 −1
+Í
+𝑣 ∈ N𝑢 (ℎ (0)
+𝑣 − 𝜇𝑢 ) (ℎ (0)
+𝑣 − 𝜇𝑢 )⊤)
+12: ˆ𝜇𝑢 = 𝜙𝜇 (ℎ (1)
+𝑢 ), ˆΣ𝑢 = diag(exp(𝜙𝜎 (ℎ (1)
+𝑢 )))
+13: for 𝑖 = 1 to 𝑞 do ⊲ Reparameterization
+14: ¯ℎ𝑖 = FNN(𝑧𝑖 ), 𝑧𝑖 ∼ N ( ˆ𝜇𝑢, ˆΣ𝑢 )
+15: end for
+16: ¯𝜇𝑢 = 1
+𝑞
+Í𝑞
+𝑖=1 ¯ℎ𝑖, ¯Σ𝑢 = 1
+𝑑𝑢 −1
+Í𝑞
+𝑖=1 ( ¯ℎ𝑖 − ¯𝜇𝑢 ) (¯ℎ𝑖 − ¯𝜇𝑢 )⊤
+17: Weighted Loss Function
+18: L=𝜆𝑥 Í
+𝑢∈𝑉Dℎ(0)𝑢 , ˆℎ(0)𝑢
+ +𝜆𝑑 Í
+𝑢∈𝑉D𝑑𝑢, ˆ𝑑𝑢
+ +𝜆𝑛KL(N (𝜇𝑢,𝚺𝑢)||N (¯𝜇𝑢, ¯Σ𝑢))
+19: end for
+computationally heavy for large 𝐿. In this work, we focus on recon-
+structing the information within just the one-hop neighborhood as
+a proof of concept, which we find is practically sufficient for GAD.
+The information within just the one-hop neighborhood ¯N𝑢 con-
+sists of the attributes of the center nodeℎ (0)
+𝑢 and the set of attributes
+of the direct neighbors of the center H𝑢 = {ℎ (0)
+𝑣 |𝑣 ∈ N𝑢 }.
+Self reconstruction: In order to reconstruct the attributes of
+the center node, we design a simple decoder that takes ℎ (𝐿)
+𝑢 as
+input and reconstructs ℎ (0)
+𝑢 by a multi-layer perception (MLP)
+ˆℎ (0)
+𝑢 = 𝜓𝑥 (ℎ (1)
+𝑢 ). Then, the self-reconstruction loss for node 𝑢 can
+be calculated as:
+L𝑥
+𝑢 = D
+
+ℎ (0)
+𝑢 , ˆℎ (0)
+𝑢
+
+(2)
+where D (·, ·) is a distance function such as L2-distance that mea-
+sures the discrepancy between the original attributes and the re-
+constructed attributes.
+Neighborhood reconstruction: It is far from trivial to decode
+the set H𝑢 from the compressed ℎ (𝐿)
+𝑢 . The difficulties come from
+two aspects. Firstly, the size of the set might vary across node𝑢 ∈ 𝑉 .
+Secondly, the elements in the set do not have an order. Using an
+MLP to decode a set of a variable size from ℎ (𝐿)
+𝑢 is impossible.
+Our idea is inspired by the recent work NWR-GAE [ 71]. We
+regard the set H𝑢 = {ℎ (0)
+𝑣 |𝑣 ∈ N𝑢 } as 𝑑𝑢 many I.I.D. samples from
+a distribution P𝑢. In fact, the empirical distribution of the elements
+in H𝑢 is Pemp
+𝑢 (ℎ) = 1
+𝑑𝑢
+Í
+𝑣 ∈ N𝑢 𝛿 (ℎ − ℎ (0)
+𝑣 ) where 𝛿 (·) is the dirac
+delta function. In this sense, we can decompose the neighborhood
+information into two parts, namely the number of neighbors (i.e. the
+node degree) 𝑑𝑢 and the distribution of neighbor’s representations
+P𝑢. The reconstruction procedure should reconstruct these two
+parts of information properly.
+
+--- PDF page 5 ---
+GAD-NR: Graph Anomaly Detection via Neighborhood Reconstruction WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico
+Node degree reconstruction. To reconstruct node degree 𝑑𝑢, we
+use another MLP that follows ˆ𝑑𝑢 = 𝜓𝑑 (ℎ (𝐿)
+𝑢 ).
+Then the node degree reconstruction loss for node 𝑢 is:
+L𝑑
+𝑢 = D
+
+𝑑𝑢, ˆ𝑑𝑢
+
+(3)
+Here, we just use ℓ2-loss as the metric D, though as node degrees
+are non-negative integers, we can also adopt discrete distributions
+such as Poisson distribution to model it.
+Neighbors’ representation distribution reconstruction. To recon-
+struct the distribution P𝑢 from the node representation ℎ (𝐿)
+𝑢 , we
+first map ℎ (𝐿)
+𝑢 to an estimation of the distribution ˆP𝑢. As we do not
+know P𝑢 in the population level, the first direct idea is to recon-
+struct the empirical distribution Pemp
+𝑢 by following NWR-GAE [71].
+The Wasserstein distance between ˆP𝑢 and Pemp
+𝑢 is adopted as the
+reconstruction loss in NWR-GAE [71]. However, the computation
+of such a loss has a huge overhead, because it needs to solve a
+matching problem based on the Hungarian algorithm [34], which
+is of complexity 𝑂 (𝑑3𝑢 ). Moreover, empirically, we observe that re-
+constructing such an empirical distribution is likely to overfit the
+anomalies, which actually does harm to anomaly detection tasks.
+Therefore, we propose to reconstruct a multi-variate Gaussian
+approximation of P𝑢. Specifically, given H𝑢 = {ℎ (0)
+𝑣 |𝑣 ∈ N 𝑢 },
+we estimate the mean and covariance matrix of the neighbors’
+representations by following:
+𝜇𝑢 = 1
+𝑑𝑢
+∑︁
+𝑣 ∈N𝑢
+ℎ (0)
+𝑣 , 𝚺𝑢 = 1
+𝑑𝑢 − 1
+∑︁
+𝑣 ∈N𝑢
+(ℎ (0)
+𝑣 − 𝜇𝑢 ) (ℎ (0)
+𝑣 − 𝜇𝑢 ) ⊤ (4)
+Then, we map ℎ (𝐿)
+𝑢 to a multi-variate Gaussian distribution ˆP𝑢
+through the following procedure. We sample𝑞 neighborhood fea-
+tures ¯ℎ1, · · ·, ¯ℎ𝑞 by transforming samples 𝑧1, · · ·, 𝑧𝑞 from the dis-
+tribution N ( ˆ𝜇𝑢, ˆΣ𝑢 ) via a fully-connected neural network (FNN).
+Here the parameters ˆ𝜇𝑢, ˆΣ𝑢 are determined by
+ˆ𝜇𝑢 = 𝜙𝜇 (ℎ (𝐿)
+𝑢 ), ˆ𝚺𝑢 = diag(exp(𝜙𝜎 (ℎ (𝐿)
+𝑢 ))) , (5)
+where 𝜙𝜇 (·) is an MLP, and each entry of𝜙𝜎 (ℎ (𝐿)
+𝑢 ) is non-negative,
+which includes an MLP followed by exp(·). Then, we estimate
+the mean and the covariance matrix of reconstructed neighbors’
+features based on ¯𝜇𝑢 = 1
+𝑞
+Í𝑞
+𝑖=1 ¯ℎ𝑖 and ¯Σ𝑢 = 1
+𝑑𝑢 −1
+Í𝑞
+𝑖=1 ( ¯ℎ𝑖 − ¯𝜇𝑢 ) (¯ℎ𝑖 −
+¯𝜇𝑢 )⊤, respectively.
+Given the two groups of parameters ( 𝜇𝑢, Σ𝑢) and ( ¯𝜇𝑢, ¯Σ𝑢) for
+multi-variate Gaussian distributions, we adopt the KL divergence
+between these two distributions to measure the reconstruction loss:
+L𝑛
+𝑢 = KL(N (𝜇𝑢, Σ𝑢 )||N ( ¯𝜇𝑢, ¯Σ𝑢 )) =
+1
+2 [log |Σ𝑢 |
+| ¯Σ𝑢 | − 𝑝 + tr( ¯Σ−1
+𝑢 Σ𝑢 ) + ( 𝜇𝑢 − ¯𝜇𝑢 )⊤ ¯Σ−1
+𝑢 (𝜇𝑢 − ¯𝜇𝑢 ).] (6)
+where 𝑝 is the dimension of representation. Note that 𝜇𝑢 and 𝚺𝑢
+should not allow the gradient to pass through as they provide
+supervision signals. In practice, we may encounter the case when
+𝑑𝑢 is smaller than 𝑝, which makes Σ𝑢 in Eq. (4) not full-ranked and
+causes a numerical problem. Therefore, we add an identity matrix
+to the covariance matrices, 𝚺𝑢 ← 𝚺𝑢 + 𝑐𝐼, ¯𝚺𝑢 ← ¯𝚺𝑢 + 𝑐𝐼 for some
+constant 𝑐 > 0 to compute Eq. (6).
+Note that the complexity of the above computation including
+Eqs. (4),(5) and (6) is 𝑂 (𝑑𝑢 ), which significantly reduces the com-
+plexity of the pipeline in [71].
+The remaining challenge is that since node degrees vary across
+different nodes, the computation of Eq. (4) is irregular. For this, we
+extend the package adopted in principal neighborhood aggrega-
+tion [14] to implement Eq. (4) efficiently in parallel across different
+nodes.
+4.2.3 The overall reconstruction loss. The overall reconstruction
+loss is a combination of the losses to reconstruct node self attributes
+in Eq. (2), node degrees in Eq. (3), and neighbors’ representation
+distributions in Eq. (6):
+L =
+∑︁
+𝑢 ∈𝑉
+L′
+𝑢, where L′
+𝑢 ≜ 𝜆𝑥 L𝑥
+𝑢 + 𝜆𝑑 L𝑑
+𝑢 + 𝜆𝑛 L𝑛
+𝑢 , (7)
+and where 𝜆𝑥 , 𝜆𝑑, and 𝜆𝑛 are the hyper-parameters that control the
+weights of different types of reconstruction losses.
+4.3 Anomaly Detection
+We may adoptL𝑢 in Eq. (7) as the score to characterize how anoma-
+lous each node 𝑢 is to be. The greater score means the encoded in-
+formation is harder to be reconstructed, and thus the corresponding
+node is more likely to be an anomaly. We may also adopt different
+hyperparameters 𝜆′𝑥 , 𝜆′
+𝑑, and 𝜆′𝑛 if we have different confidence or
+some prior knowledge about the type of anomaly to be detected.
+For example, if we tend to detect contextual anomalies, we can
+increase 𝜆′𝑥 . To encode such flexibility, we define the anomaly score
+ˆ𝑦𝑢 in the following general form
+ˆ𝑦𝑢 = L′
+𝑢 (𝜆′
+𝑥 , 𝜆′
+𝑑, 𝜆′
+𝑛) = 𝜆′
+𝑥 L𝑥
+𝑢 + 𝜆′
+𝑑 L𝑑
+𝑢 + 𝜆′
+𝑛 L𝑛
+𝑢 , (8)
+ranking which tells the nodes that are more likely to be anomalies.
+Although different weights here emphasize the detection of different
+types of anomalies, in Sec. 5, we show that GAD-NR is robust to the
+selection of these weights, where a fixed choice of these weights is
+sufficient to outperform baselines to detect real-world anomalies
+across different datasets.
+4.4 Improvements over NWR-GAE
+Here, we would like to provide a more direct explanation how GAD-
+NR advances the idea of neighborhood reconstruction (previously
+proposed in NWR-GAE [70] for the purpose of dimension reduction
+instead of GAD) to better fit GAD tasks. NWR-GAE is built upon an
+optimal transport loss and needs to run a complicated Hungarian
+matching algorithm [34] for each node to reconstruct its neighbors’
+attributes to compute the loss function. Such complexity is 𝑂 (𝑑3)
+for a node of degree 𝑑. GAD-NR regards the representations of
+neighbors’ attributes as samples from a Gaussian distribution and
+adopts KL divergence [12] between Gaussian distributions as the
+reconstruction loss, which has a closed form and has complexity
+𝑂 (𝑑). This approximation is crucial for GAD tasks:
+NWR-GAE did not adopt such approximation because NWR-
+GAE aims to perform dimension reduction. Achieving a low reduc-
+tion error is the ultimate goal of NWR-GAE. Therefore, NWR-GAE
+should be sufficiently expressive to make low-dimensional represen-
+tations recover high-dimensional data. However, GAD tasks have
+different goals. A model for GAD should not be too expressive, and
+
+--- PDF page 6 ---
+WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico Amit Roy, Juan Shu, Jia Li, Carl Yang, Olivier Elshocht, Jeroen Smeets, and Pan Li
+otherwise risks overfitting the anomalies. GAD-NR just adopts the
+correct trade-off, where Gaussian approximation (by just checking
+the first and second moments of the distributions) is adopted, which
+not only improves anomaly detection accuracy but also substan-
+tially reduces computational complexity. Moreover, NWR-GAE also
+supports reconstructing multi-hop neighbors. However, we found
+that multi-hop reconstruction did not get obvious improvement in
+the task of GAD while introducing much computational overhead,
+so GAD-NR only considers the first hop in practice.
+5 EXPERIMENT
+In this section, we extensively compare GAD-NR with several base-
+line methods for graph anomaly detection. Specifically, we aim to
+answer the following questions:
+• How does neighborhood reconstruction facilitate in the perfor-
+mance improvement of GAD-NR for GAD?
+• Which part of the GAD-NR is important for different types of
+anomaly detection?
+• How do important hyperparameters such as the size of hid-
+den representations, and the weights before different types of
+reconstruction losses affect the performance of GAD-NR?
+• How does the adopted Gaussian approximations of neighbor-
+hood feature distributions improve the running time efficiency
+of GAD-NR?
+5.1 Datasets and Baselines
+We incorporate six real-world datasets (Cora, Weibo, Reddit, Disney,
+Books, and Enron) and fourteen baseline anomaly detection models
+for our comparison following the BOND [ 44] paper. Among the
+baseline models, we included feature-based models LOF [5], IF [43],
+MLPAE [61] and structure-based AD models, SCAN [83]. Also, we
+performed comparisons of GAD-NR with models that focus on
+both structures and attributes via residual reconstruction error
+Radar [41] and ANOMALOUS [56]. Lastly, we incorporated some
+popular generative models for GAD, which include autoencoder
+architecture GCNAE [36], DOMINANT [15], DONE and AdONE [7],
+AnomalyDAE [20], adversarial learning-based method GAAN [11]
+and also contrastive learning-based methods CONAD [84].
+5.2 Experimental Settings
+Our first experimental setting follows the benchmark paper BOND [45].
+Note that among the datasets, Weibo, Reddit, Disney, Books, and
+Enron have real-world anomaly labels. For the Cora dataset, there
+are no real benchmark anomaly labels, so we follow the bench-
+mark paper BOND where the union of contextual and structural
+anomalies are considered anomaly labels for evaluation in the Cora
+dataset. The results are reported in Table 2. We call this setting
+the benchmark anomaly detection. Moreover, we attempt to study
+the performance to detect each type of anomalies separately, so
+for each dataset including those with real-world labels, we also in-
+ject contextual, structural, and joint-type anomalies for evaluation,
+which give the later results in Table 3. Due to the page limitation,
+we present contextual and merged the structural and joint-type
+anomaly detection results together in this work.
+Contextual anomalies are nodes whose attributes are signifi-
+cantly different from their neighboring nodes. Hence, to generate
+this type of anomaly for a target node 𝑢, its feature 𝑥𝑢 is replaced
+with another randomly sampled node 𝑣’s feature𝑥𝑣 that has the
+largest Euclidean distance with 𝑥𝑢. Let 𝑛 denote the number of con-
+textual anomaly nodes and𝑞 denote the number of candidate nodes
+randomly sampled in the above procedure. Structural anomalies are
+nodes that are densely connected in contrast to sparsely connected
+normal nodes. To inject structural outliers, we consider 𝑚 nodes
+at random and then make them fully connected and this process
+will be repeated for 𝑛 times to generate 𝑛 such cliques of size 𝑚.
+Following the BOND paper, we approximately set 𝑞 and 𝑚 as twice
+the avg. degree for most datasets. To add joint-type anomalies in
+different datasets, we choose𝑛 nodes randomly as anomalies. Then,
+we connect each of these 𝑛 nodes with randomly sampled 𝑚 other
+nodes. Therefore, those anomalous nodes can be treated as nodes
+with high degrees and connected to neighbors with different types
+of features. We utilized the PyGOD library [45] for the injection of
+contextual and structural anomalies and for running the baseline
+anomaly detection models.
+Hyperparameter Tuning: In practice, we often do not know
+the anomaly labels to tune the parameters. Typically, the way to
+choose hyperparameters is based on some expert experiences and
+a good model should be robust by using such a set of hyperpa-
+rameters. Hence, we fix GAD-NR’s encoder as GCN with hidden
+dimension 16 (expect for Cora, where 128 is used) and fix the hyper-
+parameters of the decoder as 𝜆𝑥 = 0.8, 𝜆𝑑 = 0.5, and 𝜆𝑛 = 0.001 to
+run the experiments for all datasets five times and report the aver-
+aged performance with standard deviation. We compare GAD-NR’s
+performance obtained via this fixed hyperparameter setting with
+the averaged performance of baselines proposed in the benchmark
+work [44]. Our experiments demonstrate that our model GAD-NR
+can outperform the baselines by setting a set of hyperparameters
+that are not sensitive to the datasets, which makes the most practical
+sense.
+To compare with the best performance of baselines reported
+in [44], we also performed a grid search of the hyperparameters of
+GAD-NR for each dataset as follows: 1) Self-attribute reconstruction
+weight, 𝜆𝑥 ∈ { 0.1, 0.5, 0.8, 0.9} and 𝜆′𝑥 ∈ { 0.25, 0.5, 0.75, 1.0, 1.25, 1.5,
+1.75, 2.0}, 2) Degree reconstruction weight, 𝜆𝑑 ∈ { 0.1, 0.5, 0.8} and
+𝜆′
+𝑑 ∈ { 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0}, 3) Neighborhood recon-
+struction weight 𝜆𝑛 ∈ { 0.001, 0.5, 0.8} and 𝜆′𝑛 ∈ {0.25, 0.5, 0.75,1.0,
+1.25, 1.5, 1.75, 2.0}, 4) The number of dimension of the hidden layer,
+𝑑 ∈ { 8, 16, 32, 64, 128}, 5) Encoder GNN,Φ ∈ { GCN, GraphSAGE, GIN}.
+Hardware: All the experiments are performed on a Linux server
+with a 2.99GHz AMD EPYC 7313 16-Core Processor and 1 NVIDIA
+A10 GPU with 24GB memory.
+5.3 Evaluation Metric
+We adopt the area under the ROC curve as the evaluation metric.
+The ROC curve is created by plotting the true positive rate against
+the false positive rate at various threshold settings. In the experi-
+ment, we regard the anomaly nodes as positive classes and compute
+AUC for it. AUC equals 1 means that the model makes a perfect
+prediction, and AUC equals 0.5 means that the model has no distin-
+guishing ability. AUC is better than accuracy when evaluating the
+anomaly detection task since it is not sensitive to the imbalanced
+class distribution of the data.
+
+--- PDF page 7 ---
+GAD-NR: Graph Anomaly Detection via Neighborhood Reconstruction WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico
+Algorithm Cora Weibo Reddit Disney Books Enron
+LOF 69.9±0.0 (69.9) 56.5±0.0 (56.5) 57.2±0.0 (57.2) 47.9±0.0 (47.9) 36.5±0.0 (36.5) 46.4±0.0 (46.4)
+IF 64.4±1.5 (67.4) 53.5±2.8 (57.5) 45.2±1.7 (47.5) 57.6±2.9 (63.1) 43.0±1.8 (47.5) 40.1±1.4 (43.1)
+MLPAE 70.9±0.0 (70.9) 82.1±3.6 (86.1) 50.6±0.0 (50.6) 49.2±5.7 (64.1) 42.5±5.6 (52.6) 73.1±0.0 (73.1)
+SCAN 62.8±4.5 (72.6) 63.7±5.6 (70.8) 49.9±0.3 (50.0) 50.5±4.0 (56.1) 49.8±1.7 (52.4) 52.8±3.4 (58.1)
+Radar 65.0±1.3 (66.0) 98.9±0.1 (99.0) 54.9±1.2 (56.9) 51.8±0.0 (51.8) 52.8±0.0 (52.8) 80.8±0.0 (80.8)
+ANOMALOUS 55.0±10.3 (68.0) 98.9±0.1 (99.0) 54.9±5.6 (60.4) 51.8±0.0 (51.8) 52.8±0.0 (52.8) 80.8±0.0 (80.8)
+GCNAE 70.9±0.0 (70.9) 90.8±1.2 (92.5) 50.6±0.0 (50.6) 42.2±7.9 (52.7) 50.0±4.5 (57.9) 66.6±7.8 (80.1)
+DOMINANT 82.7±5.6 (84.3) 85.0±14.6 (92.5) 56.0±0.2 (56.4) 47.1±4.5 (54.9) 50.1±5.0 (58.1) 73.1±8.9 (85.0)
+DONE 82.4±5.6 (87.9) 85.3±4.1 (88.7) 53.9±2.9 (59.7) 41.7±6.2 (50.6) 43.2±4.0 (52.6) 46.7±6.1 (67.1)
+AdONE 81.5±4.5 (87.4) 84.6±2.2 (87.6) 50.4±4.5 (58.1) 48.8±5.1 (59.2) 53.6±2.0 (56.1) 44.5±2.9 (53.6)
+AnomalyDAE 83.4±2.3 (85.3) 91.5±1.2 (92.8) 55.7±0.4 (56.3) 48.8±2.2 (55.4) 62.2±8.1 (73.2) 54.3±11.2 (69.1)
+GAAN 74.2±0.9 (76.1) 92.5±0.0 (92.5) 55.4±0.4 (56.0) 48.0±0.0 (48.0) 54.9±5.0 (61.9) 73.1±0.0 (73.1)
+GUIDE 74.7±1.3 (77.5) OOM_C OOM_C 38.8±8.9 (52.5) 48.4±4.6(63.5) OOM_C
+CONAD 78.8±9.6 (84.3) 85.4±14.3 (92.7) 56.1±0.1 (56.4) 48.0±3.5 (53.1) 52.2±6.9 (62.9) 71.9±4.9 (84.9)
+GAD-NR (w/o feat. recon.)83.41±2.18 (85.41)69.64±0.75 (70.44)50.00±0.44 (50.88)74.11±0.18 (76.17)62.32±3.41 (65.43)70.20±1.16 (71.72)
+GAD-NR (w/o degree recon.)82.25±1.37 (83.04)70.09±1.20 (71.50)49.01±0.29 (50.05)76.25±0.37 (79.09)64.08±3.13 (68.94)72.44±1.33 (75.81)
+GAD-NR (w/o neighbor recon.)76.47±3.57 (80.47)69.10±1.10 (70.25)48.67±2.04 (50.67)60.69±1.24 (63.69)49.46±2.09 (52.46)56.01±3.00 (59.01)
+GAD-NR 87.55±2.56 (88.40)87.71±5.39 (92.09)57.99±1.67 (59.90)76.76±2.75 (80.03)65.71±4.98 (69.79)80.87±2.95 (82.92)
+Table 2: Performance comparison (ROC-AUC) of GAD-NR in benchmark anomaly detection for six different real-world datasets (injected
+anomaly for Cora dataset). For the results of baseline methods, we followed the BOND [ 44] paper where the avg performance ± the STD of perf.
+(max perf.) is reported. For our model GAD-NR, we fix hyperparameters 𝜆𝑥 = 0.8, 𝜆𝑑 = 0.5 and 𝜆𝑛 = 0.001 and report the avg performance ± the
+STD of perf. for all datasets including the best performance in each dataset with tuned hyperparameters. The best and second best performances
+are mentioned in bold and underlined respectively and 𝑂𝑂𝑀 _𝐶 indicates out of memory with regard to GPU.
+Algorithm Cora Weibo Reddit Disney Books EnronMLPAE 88.90±0.00 90.61±0.02 51.91±4.55 86.36±0.00 53.00±13.99 68.74±16.08SCAN 49.80±0.50 48.46±0.00 48.59±0.00 62.81±0.00 50.15±0.00 40.41±0.00Radar 50.20±0.60 72.31±0.00 49.98±0.00 79.89±0.0066.30±0.0079.51±0.00ANOMALOUS51.10±1.30 72.31±0.00 49.65±1.26 79.89±0.0066.30±0.00 48.92±0.85GCNAE 88.90±0.0090.79±0.3552.02±0.3687.52±2.32 40.77±1.72 59.52±15.23DOMINANT71.90±6.60 57.07±0.34 47.96±0.39 65.62±9.53 50.13±5.33 63.84±0.27DONE 70.2±8.30 81.75±1.00 46.52±1.47 69.26±5.33 38.52±2.08 59.90±6.31AdONE 73.90±5.00 83.68±0.47 46.61±3.42 86.12±1.83 65.00±2.63 62.19±5.37AnomalyDAE80.20±2.80 79.40±3.67 49.33±2.28 81.02±8.13 40.43±18.56 68.12±14.93GAAN 88.70±0.1090.68±0.14 49.64±1.12 86.39±0.13 32.99±22.38 44.78±14.20GUIDE 88.30±0.80 OOM_C OOM_C 78.40±0.62 57.59±0.08 OOM_CCONAD 72.50±5.80 56.62±0.37 47.70±0.08 59.67±7.00 54.04±7.22 71.23±0.54GAD-NR (w/o feat. recon.)58.52±2.32 57.66±3.22 49.60±2.11 82.98±2.60 62.11±5.01 68.27±2.09GAD-NR (w/o degree recon.)73.04±2.60 64.28±6.3554.10±1.9691.10±3.5660.07±1.17 75.25±3.57GAD-NR (w/o neighbor recon.)71.52±3.59 61.45±4.42 53.45±1.15 57.11±2.50 55.36±3.19 68.23±3.34GAD-NR 89.10±3.1087.53±3.5455.15±2.4185.72±1.3174.73±1.50 85.79±2.65
+Algorithm Cora Weibo Reddit Disney Books EnronMLPAE 51.28±0.43 50.42±0.00 50.10±0.52 58.77±0.00 52.52±2.48 48.30±1.21SCAN 82.35±0.0049.86±0.0098.11±0.0064.82±0.00 62.21±0.00 48.08±0.00Radar 62.37±0.00 60.04±0.0065.70±0.00 63.77±0.00 32.69±0.00 53.29±0.00ANOMALOUS45.39±1.15 60.04±0.0058.08±29.77 63.77±0.00 32.69±0.00 52.81±0.23GCNAE 51.19±0.00 50.66±0.06 51.30±0.43 52.82±0.90 31.93±0.35 47.33±6.84DOMINANT77.59±0.03 49.01±0.92 93.18±0.00 34.84±4.38 63.99±0.11 62.70±0.10DONE 72.34±14.02 55.56±0.90 65.61±10.50 71.12±1.40 87.86±0.4250.88±2.51AdONE 81.32±1.39 59.23±0.53 80.07±2.26 71.43±2.7688.30±0.6155.93±2.05AnomalyDAE80.73±0.93 49.16±1.33 47.03±2.66 49.93±6.26 32.25±9.01 49.83±1.89GAAN 53.26±0.84 53.09±0.18 62.78±4.85 60.20±0.35 78.98±1.00 59.88±2.35GUIDE 52.03±2.36 OOM_C OOM_C 55.20±1.50 63.72±0.89 OOM_CCONAD 78.85±0.02 55.48±0.36 93.25±0.1734.49±2.32 63.97±0.31 59.98±0.45GAD-NR (w/o feat loss)73.23±0.61 50.81±0.28 91.95±0.03 73.23±1.6180.06±5.49 79.18±2.01GAD-NR (w/o degree loss)74.28±1.67 53.33±2.31 87.69±6.47 66.47±0.51 82.95±0.30 72.19±0.06GAD-NR (w/o neigh loss)67.51±0.04 50.29±1.11 91.34±0.11 60.54±2.06 56.28±3.03 75.65±1.39GAD-NR 83.55±3.03 62.35±1.0592.01±0.7374.81±4.3985.01±7.9082.22±2.14
+Table 3: Performance comparison (ROC-AUC) of GAD-NR in contextual (left) and structural + joint-type (right) anomaly detection for different
+real-world datasets. The best and second best performances are mentioned in bold and underlined respectively and 𝑂𝑂𝑀 _𝐶 indicates out of
+memory with regard to GPU.
+ComparisonType Algorithm Cora Weibo Reddit Disney Books Enron
+PerformanceComparisonNWR-GAE84.28±0.06 73.68±3.13 51.20±1.16 75.56±1.65 79.75±2.48 80.24±2.43GAD-NR87.55±2.56 89.71±2.39 57.99±1.67 76.76±2.75 80.64±4.98 85.77±3.86
+Running timeSeconds per epochNWR-GAE51.270 48.312 55.379 0.603 7.288 65.152GAD-NR 2.35 0.544 0.095 0.035 0.0874 0.0109
+Table 4: Direct Performance Comparison between NWR-GAE [71] and our model GAD-NR
+5.4 Detection Performance Comparison
+5.4.1 GAD-NR shows the superior performance in different types of
+anomaly detection. In Table 2, we show the results of GAD-NR on
+the benchmark anomaly detection with baseline models. In Table 3,
+we present the results in injected contextual, structural and joint-
+type anomaly detection. From the results, we can observe that GAD-
+NR outperforms the baseline methods over most of the datasets in
+detecting benchmark anomaly labels, contextual anomaly labels,
+and structural + joint-type anomalies.
+The key reason behind the performance improvement can be
+attributed to the entire neighborhood reconstruction around a tar-
+get node, which includes its self-feature reconstruction, degree
+reconstruction, and neighbor-feature distribution reconstruction.
+The feature-based models like MLPAE perform quite well at
+detecting contextual anomalies, specifically in the Cora dataset as
+they put emphasis on self-feature reconstruction. However, MLPAE
+performs worse to detect joint-type and structural anomalies as
+they ignore the graph structure. Approaches that only consider the
+structure information, for example, SCAN performs exceedingly
+well in detecting structural + joint-type anomalies but they are
+incapable of doing well in contextual anomaly detection. In the case
+of the GAE-based models, the performance is more competitive
+while still worse than GAD-NR in Table 2 and Table 3.
+5.4.2 Impacts of different types of reconstruction losses. In Table 2,
+Table 3 along with the performance of GAD-NR with all three types
+of reconstruction loss, we have also shown results by removing each
+part from the loss function of the GAD-NR’s decoder, i.e., setting
+𝜆𝑥 = 0, 𝜆𝑑 = 0 or 𝜆𝑛 = 0 in Eq. (7). From the results in Table 3, it is
+clearly visible that without the neighborhood reconstruction part
+𝜆𝑛 = 0, the performance of GAD-NR drops the most in both types
+of anomaly detection.
+From the results of Table 3, we can observe that without the self-
+feature reconstruction loss (𝜆𝑥 = 0), the performance of GAD-NR
+drops down heavily when detecting contextual anomalies. When
+detecting the structural + joint-type anomalies, the performance
+decay of GAD-NR is moderate, which matches the expectation. By
+removing the loss for degree reconstruction (𝜆𝑑 = 0), GAD-NR also
+suffers from some performance decay. However, such decay is less
+
+--- PDF page 8 ---
+WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico Amit Roy, Juan Shu, Jia Li, Carl Yang, Olivier Elshocht, Jeroen Smeets, and Pan Li
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00
+Varying '
+x
+20
+40
+60
+80
+100ROC_AUC
+Impact of feature reconstruction loss weight on Cora
+Contextual
+Structural
+Joint-type
+Contextual + Structural
+Structural + Joint-type
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00
+Varying '
+d
+20
+40
+60
+80
+100ROC_AUC
+Impact of degree reconstruction loss weight on Cora
+Contextual
+Structural
+Joint-type
+Contextual + Structural
+Structural + Joint-type
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00
+Varying '
+n
+20
+40
+60
+80
+100ROC_AUC
+Impact of neighbor reconstruction loss weight on Cora
+Contextual
+Structural
+Joint-type
+Contextual + Structural
+Structural + Joint-type
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00
+Varying '
+x
+20
+40
+60
+80
+100ROC_AUC
+Impact of feature reconstruction loss weight on Books
+Contextual
+Structural
+Joint-type
+Contextual + Structural
+Structural + Joint-type
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00
+Varying '
+d
+20
+40
+60
+80
+100ROC_AUC
+Impact of degree reconstruction loss weight on Books
+Contextual
+Structural
+Joint-type
+Contextual + Structural
+Structural + Joint-type
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00
+Varying '
+n
+20
+40
+60
+80
+100ROC_AUC
+Impact of neighbor reconstruction loss weight on Books
+Contextual
+Structural
+Joint-type
+Contextual + Structural
+Structural + Joint-type
+Figure 3: Impacts of varying feature reconstruction weight loss 𝜆′𝑥 , degree reconstruction weight loss 𝜆′
+𝑑 and neighbor reconstruction weight
+loss 𝜆′𝑛 in Eq. (8) on detecting different types of anomalies in the Cora (top) and Books (bottom) dataset.
+severe compared to that of removing self-feature reconstruction for
+detecting contextual anomalies or that of removing neighbors’ fea-
+ture distribution reconstruction for detecting structural anomalies
+and joint-type anomalies.
+5.4.3 Performance Comparison with NWR-GAE [ 71]. We compare
+GAD-NR with NWR-GAE [71] in two aspects: performance and
+running time. For performance, we are adding the benchmark anom-
+aly detection performance comparison between NWR-GAE and
+our model GAD-NR in Table 4. We can observe that the perfor-
+mance of GAD-NR is significantly better than NWR-GAE in all six
+datasets. NWR-GAE directly tries to match the empirical distribu-
+tion of neighbor representation, by which NWR-GAE may capture
+neighbors’ features more precisely (also time consuming) but it
+tends to overfit anomalous behaviors, compared to the Gaussian
+approximation that GAD-NR adopts. For running time compari-
+son, we also added the comparison between NWR-GAE and our
+model GAD-NR in Table 4. Optimizing the KL-divergence leads to
+a running time complexity of 𝑂 (𝑑) from the neighborhood match-
+ing the Hungarian algorithm’s running time complexity of𝑂 (𝑑3).
+Therefore, GAD-NR is far more scalable on a relatively large graph
+dataset compared with NWR-GAE for detecting anomalies.
+5.5 Hyperparameter Analysis
+5.5.1 Impacts of tuning 𝜆′𝑥 , 𝜆 ′
+𝑑, and 𝜆′𝑛. We present the trend of
+GAD-NR’s performance on different types of anomaly detection
+by varying the weights in Eq. (8) to perform detection in Figure 3.
+While increasing the weight for self-feature reconstruction 𝜆′𝑥 in
+Figure 3 left top, we have observed the performance curve of contex-
+tual anomaly detection (blue) is very steep. Similar in 3 left bottom,
+a growing trend has been observed on both contextual and joint-
+type anomaly detection performance curve (blue and green). The
+reason is intuitive. With higher weights for self-feature reconstruc-
+tion, the decoder of GAD-NR tends to assign higher importance
+to contextual anomalies as well as joint-type anomalies. By vary-
+ing the weight for degree reconstruction, 𝜆′
+𝑑 in Figure 3 middle
+column, the change in performance is not that significant across dif-
+ferent types of anomalies. This is because contextual and structural
+anomalies do not have much change in node degrees. For the joint-
+type anomalies, where node degrees may provide useful signals
+for detecting, only checking node degrees is often insufficient to
+determine an anomaly. This is because a normal node can also have
+higher degrees. Node degree reconstruction should be paired with
+neighbors’ feature distribution reconstruction together to provide
+effective anomaly detection. Lastly, in Figure 3 right column, when
+we vary the weight 𝜆′𝑛 for neighborhood reconstruction, we notice
+a significant performance gain in joint-type anomaly detection and
+structural + joint-type anomaly detection, which demonstrates the
+effectiveness of neighborhood reconstruction via leveraging signals
+from their neighborhoods.
+Dataset Cora Reddit
+Models# Dimensions32 64 128 256 8 16 32 64
+MLPAE 71.0771.0771.0870.5147.5752.1251.7951.92GCNAE 71.4771.5271.6370.8450.8851.2951.8152.10DOMINANT84.5284.7784.9076.7752.9352.9452.9953.04DONE 84.1984.2986.5278.2952.3952.4155.1555.86AdONE 84.0184.4384.8773.4257.7853.6454.8555.14GAAN 74.3374.1574.3276.1550.2152.3252.4252.79CONAD 84.5484.7984.4676.1552.7452.9553.0353.13GAD-NR 86.3886.9387.5582.6753.1257.9958.1256.07
+Table 5: Performance comparison of GAD-NR with different latent
+dimension sizes for detecting benchmark anomalies in Cora and
+Reddit datasets.
+5.5.2 Impact of the latent representation’s dimension. In Table 5,
+we present the performance of GAD-NR on benchmark anomaly
+detection in the Cora and Reddit datasets by varying the dimension
+size of hidden representations. From the results, we can observe
+that the performance of GAD-NR gradually increases as the latent
+
+--- PDF page 9 ---
+GAD-NR: Graph Anomaly Detection via Neighborhood Reconstruction WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico
+dimension increases for Cora (32 to 128) and Reddit (8 to 32) com-
+pared to other GAE-based methods. We think using neighborhood
+reconstruction is the reason behind the gradual performance im-
+provement of GAD-NR. Other autoencoders can only increase the
+capability of latent representations by increasing the latent dimen-
+sion. Instead, GAD-NR can also increase the supervision strength
+of neighborhood reconstruction by increasing the latent dimension.
+When the dimension size increases even more e.g. 256 in Cora and
+64 in Reddit, the anomaly detection performance of GAD-NR drops.
+With a higher latent dimension size, the model becomes too much
+expressive and it can overfit the anomalies. For anomaly detection,
+we are expected to capture normal behaviors instead of making
+models memorize all information in the data, especially abnormal
+behaviors. Therefore, we need to strike a balance between model
+expressiveness and the proportion of normal information extracted
+for the best anomaly detection performance.
+6 CONCLUSION
+In this study, we introduce GAD-NR, for identifying anomalous
+nodes in graph structures. GAD-NR is based on a graph auto-
+encoder that reconstructs the neighborhood information from node
+representations generated by a GNN encoder. The reconstruction
+process encompasses a self-feature representation, degree recon-
+struction, and the distribution of neighboring node representations,
+thus allowing the detection of various anomalies including con-
+textual, structural, and joint-type anomalies. Experimental results
+on six real-world datasets demonstrate the effectiveness of neigh-
+borhood reconstruction in identifying different types of anomalies.
+GAD-NR outperforms state-of-the-art GAD baselines in five out of
+the six datasets in benchmark evaluations. Additionally, GAD-NR
+provides flexibility and potential for detecting different types of
+anomalies through the combination of different types of reconstruc-
+tion loss with varying weights. GAD-NR also shows the robustness
+of the selection of weights to detect real-world anomalies.
+7 ACKNOWLEDGEMENT
+AR and PL were supported partially by the Sony Award and the NSF
+grant IIS-2239565. The authors would like to greatly thank Prof.
+Bruno Ribeiro, Prof. Sharon (Yixuan) Li, and anonymous reviewers
+for their insightful suggestions to improve the paper.
+REFERENCES
+[1] Charu C Aggarwal and Philip S Yu. Outlier detection for high dimensional data.
+In SIGMOD, 2001.
+[2] Leman Akoglu, Mary McGlohon, and Christos Faloutsos. Oddball: Spotting
+anomalies in weighted graphs. In PAKDD, 2010.
+[3] Leman Akoglu, Hanghang Tong, and Danai Koutra. Graph-based anomaly detec-
+tion and description: a survey. Data mining and knowledge discovery , 2015.
+[4] Leman Akoglu, Hanghang Tong, Jilles Vreeken, and Christos Faloutsos. Fast and
+reliable anomaly detection in categorical data. In CIKM, 2012.
+[5] Sambaran Bandyopadhyay, N Lokesh, and M Narasimha Murty. Outlier aware
+network embedding for attributed networks. In AAAI, 2019.
+[6] Sambaran Bandyopadhyay, N Lokesh, and M Narasimha Murty. Outlier aware
+network embedding for attributed networks. In AAAI, 2019.
+[7] Sambaran Bandyopadhyay, Saley Vishal Vivek, and MN Murty. Outlier resistant
+unsupervised deep architectures for attributed network embedding. In WSDM,
+2020.
+[8] Sambaran Bandyopadhyay, Saley Vishal Vivek, and MN Murty. Outlier resistant
+unsupervised deep architectures for attributed network embedding. In WSDM,
+2020.
+[9] Aleksandar Bojchevski and Stephan Günnemann. Bayesian robust attributed
+graph clustering: Joint learning of partial anomalies and group structure. In
+AAAI, 2018.
+[10] Tianyi Chen and Charalampos Tsourakakis. Antibenford subgraphs: Unsuper-
+vised anomaly detection in financial networks. In KDD, 2022.
+[11] Zhenxing Chen, Bo Liu, Meiqing Wang, Peng Dai, Jun Lv, and Liefeng Bo. Gen-
+erative adversarial attributed network anomaly detection. In CIKM, 2020.
+[12] Javier E Contreras-Reyes and Reinaldo B Arellano-Valle. Kullback–leibler diver-
+gence measure for multivariate skew-normal distributions. Entropy, 2012.
+[13] Benoıt Corsini, Pierre-André Noël, David Vázquez, and Perouz Taslakian. Self-
+supervised anomaly detection in static attributed graphs. arxiv, 2021.
+[14] Gabriele Corso, Luca Cavalleri, Dominique Beaini, Pietro Liò, and Petar Veličković.
+Principal neighbourhood aggregation for graph nets. NeurIPS, 2020.
+[15] Kaize Ding, Jundong Li, Rohit Bhanushali, and Huan Liu. Deep anomaly detection
+on attributed networks. In SDM. SIAM, 2019.
+[16] Kaize Ding, Jundong Li, and Huan Liu. Interactive anomaly detection on attrib-
+uted networks. In WSDM, 2019.
+[17] Qi Ding, Natallia Katenka, Paul Barford, Eric Kolaczyk, and Mark Crovella. In-
+trusion as (anti) social communication: characterization and detection. In KDD,
+2012.
+[18] Yingtong Dou, Zhiwei Liu, Li Sun, Yutong Deng, Hao Peng, and Philip S Yu.
+Enhancing graph neural network-based fraud detectors against camouflaged
+fraudsters. In CIKM, 2020.
+[19] Andrew Elliott, Mihai Cucuringu, Milton Martinez Luaces, Paul Reidy, and Gesine
+Reinert. Anomaly detection in networks with application to financial transaction
+networks. arXiv preprint arXiv:1901.00402, 2019.
+[20] Haoyi Fan, Fengbin Zhang, and Zuoyong Li. Anomalydae: Dual autoencoder for
+anomaly detection on attributed networks. In ICASSP. IEEE, 2020.
+[21] Shangbin Feng, Herun Wan, Ningnan Wang, and Minnan Luo. Botrgcn: Twitter
+bot detection with relational graph convolutional networks. In ASONAM, 2021.
+[22] Justin Gilmer, Samuel S Schoenholz, Patrick F Riley, Oriol Vinyals, and George E
+Dahl. Neural message passing for quantum chemistry. In ICML. PMLR, 2017.
+[23] Aditya Grover and Jure Leskovec. node2vec: Scalable feature learning for net-
+works. In KDD, 2016.
+[24] Leonardo Gutiérrez-Gómez, Alexandre Bovet, and Jean-Charles Delvenne. Multi-
+scale anomaly detection on attributed networks. In AAAI, 2020.
+[25] Will Hamilton, Zhitao Ying, and Jure Leskovec. Inductive representation learning
+on large graphs. NeurIPS, 2017.
+[26] Nicholas A Heard, David J Weston, Kiriaki Platanioti, and David J Hand. Bayesian
+anomaly detection methods for social networks. The Annals of Applied Statistics,
+2010.
+[27] Geoffrey E Hinton and Ruslan R Salakhutdinov. Reducing the dimensionality of
+data with neural networks. science, 2006.
+[28] Bryan Hooi, Hyun Ah Song, Alex Beutel, Neil Shah, Kijung Shin, and Christos
+Faloutsos. Fraudar: Bounding graph fraud in the face of camouflage. In KDD,
+2016.
+[29] Xia Hu, Jiliang Tang, and Huan Liu. Online social spammer detection. In AAAI,
+2014.
+[30] Tianjin Huang, Yulong Pei, Vlado Menkovski, and Mykola Pechenizkiy. Hop-
+count based self-supervised anomaly detection on attributed networks. In ECML
+PKDD. Springer, 2023.
+[31] Tsuyoshi Idé and Hisashi Kashima. Eigenspace-based anomaly detection in
+computer systems. In KDD, 2004.
+[32] Jinyuan Jia, Binghui Wang, and Neil Zhenqiang Gong. Random walk based fake
+account detection in online social networks. In DSN. IEEE, 2017.
+[33] Ming Jin, Yixin Liu, Yu Zheng, Lianhua Chi, Yuan-Fang Li, and Shirui Pan.
+Anemone: graph anomaly detection with multi-scale contrastive learning. In
+CIKM, 2021.
+[34] Roy Jonker and Anton Volgenant. A shortest augmenting path algorithm for
+dense and sparse linear assignment problems. Computing, 1987.
+[35] Asif Karim, Sami Azam, Bharanidharan Shanmugam, Krishnan Kannoorpatti, and
+Mamoun Alazab. A comprehensive survey for intelligent spam email detection.
+IEEE Access, 2019.
+[36] Thomas N Kipf and Max Welling. Variational graph auto-encoders. NeurIPS
+Workshop on Bayesian Deep Learning , 2016.
+[37] Thomas N Kipf and Max Welling. Variational graph auto-encoders. NeurIPS
+Workshop on Bayesian Deep Learning , 2016.
+[38] Thomas N. Kipf and Max Welling. Semi-supervised classification with graph
+convolutional networks. In ICLR, 2017.
+[39] Srijan Kumar, Xikun Zhang, and Jure Leskovec. Predicting dynamic embedding
+trajectory in temporal interaction networks. In CIKM, 2019.
+[40] John Langford and Tong Zhang. The epoch-greedy algorithm for multi-armed
+bandits with side information. NeurIPS, 2007.
+[41] Jundong Li, Harsh Dani, Xia Hu, and Huan Liu. Radar: Residual analysis for
+anomaly detection in attributed networks. In IJCAI, 2017.
+[42] Yuening Li, Xiao Huang, Jundong Li, Mengnan Du, and Na Zou. Specae: Spectral
+autoencoder for anomaly detection in attributed networks. In CIKM, 2019.
+
+--- PDF page 10 ---
+WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico Amit Roy, Juan Shu, Jia Li, Carl Yang, Olivier Elshocht, Jeroen Smeets, and Pan Li
+[43] Fei Tony Liu, Kai Ming Ting, and Zhi-Hua Zhou. Isolation-based anomaly
+detection. TKDD, 2012.
+[44] Kay Liu, Yingtong Dou, Yue Zhao, Xueying Ding, Xiyang Hu, Ruitong Zhang,
+Kaize Ding, Canyu Chen, Hao Peng, Kai Shu, et al. Bond: Benchmarking unsu-
+pervised outlier node detection on static attributed graphs. In NeurIPS Datasets
+and Benchmarks Track, 2022.
+[45] Kay Liu, Yingtong Dou, Yue Zhao, Xueying Ding, Xiyang Hu, Ruitong Zhang,
+Kaize Ding, Canyu Chen, Hao Peng, Kai Shu, et al. Pygod: A python library for
+graph outlier detection. arXiv preprint arXiv:2204.12095, 2022.
+[46] Yixin Liu, Zhao Li, Shirui Pan, Chen Gong, Chuan Zhou, and George Karypis.
+Anomaly detection on attributed networks via contrastive self-supervised learn-
+ing. TNNLS, 2021.
+[47] Zhiyuan Liu, Chunjie Cao, and Jingzhang Sun. Mul-gad: a semi-supervised graph
+anomaly detection framework via aggregating multi-view information. arXiv
+preprint arXiv:2212.05478, 2022.
+[48] Xuexiong Luo, Jia Wu, Amin Beheshti, Jian Yang, Xiankun Zhang, Yuan Wang,
+and Shan Xue. Comga: Community-aware attributed graph anomaly detection.
+In WSDM, 2022.
+[49] Xiaoxiao Ma, Jia Wu, Shan Xue, Jian Yang, Chuan Zhou, Quan Z Sheng, Hui
+Xiong, and Leman Akoglu. A comprehensive survey on graph anomaly detection
+with deep learning. TKDE, 2021.
+[50] Asep Maulana and Martin Atzmueller. Centrality-based anomaly detection on
+multi-layer networks using many-objective optimization. In CoDIT. IEEE, 2020.
+[51] Benjamin Miller, Nadya Bliss, and Patrick Wolfe. Subgraph detection using
+eigenvector l1 norms. NeurIPS, 23, 2010.
+[52] Peter Morales, Rajmonda Sulo Caceres, and Tina Eliassi-Rad. Selective network
+discovery via deep reinforcement learning on embedded spaces. Applied Network
+Science, 2021.
+[53] Emmanuel Müller, Patricia Iglesias Sánchez, Yvonne Mülle, and Klemens Böhm.
+Ranking outlier nodes in subspaces of attributed graphs. In ICDEW. IEEE, 2013.
+[54] Weisen Pan, Jian Li, Lisa Gao, Liexiang Yue, Yan Yang, Lingli Deng, and Chao Deng.
+Semantic graph neural network: A conversion from spam email classification to
+graph classification. Scientific Programming, 2022, 2022.
+[55] Yulong Pei, Fang Lyu, Werner Van Ipenburg, and Mykola Pechenizkiy. Subgraph
+anomaly detection in financial transaction networks. In ICAIF, 2020.
+[56] Zhen Peng, Minnan Luo, Jundong Li, Huan Liu, and Qinghua Zheng. Anomalous:
+A joint modeling approach for anomaly detection on attributed networks. In
+IJCAI, 2018.
+[57] Zhen Peng, Minnan Luo, Jundong Li, Luguo Xue, and Qinghua Zheng. A deep
+multi-view framework for anomaly detection on attributed networks.IEEE TKDE,
+2020.
+[58] James W Pennebaker, Martha E Francis, and Roger J Booth. Linguistic inquiry
+and word count: Liwc 2001. Mahway: Lawrence Erlbaum Associates , 2001.
+[59] Bryan Perozzi, Leman Akoglu, Patricia Iglesias Sánchez, and Emmanuel Müller.
+Focused clustering and outlier detection in large attributed graphs. In KDD, 2014.
+[60] Bryan Perozzi, Rami Al-Rfou, and Steven Skiena. Deepwalk: Online learning of
+social representations. In KDD, 2014.
+[61] Mayu Sakurada and Takehisa Yairi. Anomaly detection using autoencoders with
+nonlinear dimensionality reduction. In MLSDA, 2014.
+[62] Patricia Iglesias Sánchez, Emmanuel Müller, Fabian Laforet, Fabian Keller, and
+Klemens Böhm. Statistical selection of congruent subspaces for mining attributed
+graphs. In ICDM. IEEE, 2013.
+[63] David Savage, Xiuzhen Zhang, Xinghuo Yu, Pauline Chou, and Qingmai Wang.
+Anomaly detection in online social networks. Social networks, 2014.
+[64] Prithviraj Sen, Galileo Namata, Mustafa Bilgic, Lise Getoor, Brian Galligher, and
+Tina Eliassi-Rad. Collective classification in network data. AI magazine, 2008.
+[65] HB Mihiri Shashikala, Roy George, and Khalil A Shujaee. Outlier detection in
+network data using the betweenness centrality. In SoutheastCon 2015. IEEE, 2015.
+[66] Xiang-Rong Sheng, De-Chuan Zhan, Su Lu, and Yuan Jiang. Multi-view anomaly
+detection: Neighborhood in locality matters. In AAAI, 2019.
+[67] Michele Starnini, Charalampos E Tsourakakis, Maryam Zamanipour, André
+Panisson, Walter Allasia, Marco Fornasiero, Laura Li Puma, Valeria Ricci, Silvia
+Ronchiadin, Angela Ugrinoska, et al. Smurf-based anti-money laundering in
+time-evolving transaction networks. In ECML PKDD. Springer, 2021.
+[68] Jian Tang, Meng Qu, Mingzhe Wang, Ming Zhang, Jun Yan, and Qiaozhu Mei.
+Line: Large-scale information network embedding. In WWW, 2015.
+[69] Jianheng Tang, Fengrui Hua, Ziqi Gao, Peilin Zhao, and Jia Li. Gadbench: Revis-
+iting and benchmarking supervised graph anomaly detection. NeurIPS, 2023.
+[70] Jianheng Tang, Jiajin Li, Ziqi Gao, and Jia Li. Rethinking graph neural networks
+for anomaly detection. In ICML, 2022.
+[71] Mingyue Tang, Carl Yang, and Pan Li. Graph auto-encoder via neighborhood
+wasserstein reconstruction. ICLR, 2022.
+[72] Hanghang Tong and Ching-Yung Lin. Non-negative residual matrix factorization
+with application to graph anomaly detection. In SDM. SIAM, 2011.
+[73] Véronique Van Vlasselaer, Tina Eliassi-Rad, Leman Akoglu, Monique Snoeck,
+and Bart Baesens. Gotcha! network-based fraud detection for social security
+fraud. Management Science, 2017.
+[74] Andrew Z Wang, Rex Ying, Pan Li, Nikhil Rao, Karthik Subbian, and Jure Leskovec.
+Bipartite dynamic representations for abuse detection. In KDD, 2021.
+[75] Daixin Wang, Jianbin Lin, Peng Cui, Quanhui Jia, Zhen Wang, Yanming Fang,
+Quan Yu, Jun Zhou, Shuang Yang, and Yuan Qi. A semi-supervised graph attentive
+network for financial fraud detection. In ICDM. IEEE, 2019.
+[76] Jianyu Wang, Rui Wen, Chunming Wu, Yu Huang, and Jian Xiong. Fdgars:
+Fraudster detection via graph convolutional networks in online app review
+system. In WWW, 2019.
+[77] Qi Wang, Weiliang Zhao, Jian Yang, Jia Wu, Chuan Zhou, and Qianli Xing. Atne-
+trust: Attributed trust network embedding for trust prediction in online social
+networks. In ICDM. IEEE, 2020.
+[78] Yanling Wang, Jing Zhang, Shasha Guo, Hongzhi Yin, Cuiping Li, and Hong Chen.
+Decoupling representation learning and classification for gnn-based anomaly
+detection. In SIGIR, 2021.
+[79] Jia Wu, Shirui Pan, Xingquan Zhu, and Zhihua Cai. Boosting for multi-graph
+classification. IEEE Transactions on Cybernetics , 2014.
+[80] Jia Wu, Xingquan Zhu, Chengqi Zhang, and Zhihua Cai. Multi-instance multi-
+graph dual embedding learning. In ICDM. IEEE, 2013.
+[81] Cao Xiao, David Mandell Freeman, and Theodore Hwa. Detecting clusters of
+fake accounts in online social networks. In AISec, 2015.
+[82] Keyulu Xu, Weihua Hu, Jure Leskovec, and Stefanie Jegelka. How powerful are
+graph neural networks? In ICLR, 2019.
+[83] Xiaowei Xu, Nurcan Yuruk, Zhidan Feng, and Thomas AJ Schweiger. Scan: a
+structural clustering algorithm for networks. In SIGKDD, 2007.
+[84] Zhiming Xu, Xiao Huang, Yue Zhao, Yushun Dong, and Jundong Li. Contrastive
+attributed network anomaly detection with data augmentation. In PAKDD.
+Springer, 2022.
+[85] Junting Ye and Leman Akoglu. Discovering opinion spammer groups by network
+footprints. In ECML PKDD. Springer, 2015.
+[86] Rose Yu, Huida Qiu, Zhen Wen, ChingYung Lin, and Yan Liu. A survey on social
+media anomaly detection. ACM SIGKDD Explorations Newsletter, 2016.
+[87] Xu Yuan, Na Zhou, Shuo Yu, Huafei Huang, Zhikui Chen, and Feng Xia. Higher-
+order structure based anomaly detection on attributed networks. In Big Data.
+IEEE, 2021.
+[88] Shijie Zhang, Hongzhi Yin, Tong Chen, Quoc Viet Nguyen Hung, Zi Huang,
+and Lizhen Cui. Gcn-based user representation learning for unifying robust
+recommendation and fraudster detection. In SIGIR, 2020.
+[89] Tong Zhao, Chuchen Deng, Kaifeng Yu, Tianwen Jiang, Daheng Wang, and Meng
+Jiang. Error-bounded graph anomaly loss for gnns. In CIKM, 2020.
+[90] Shuang Zhou, Xiao Huang, Ninghao Liu, Huachi Zhou, Fu-Lai Chung, and Long-
+Kai Huang. Improving generalizability of graph anomaly detection models via
+data augmentation. IEEE TKDE, 2023.
+[91] Mengxiao Zhu and Haogang Zhu. Mixedad: A scalable algorithm for detecting
+mixed anomalies in attributed graphs. In AAAI, 2020.
+8 APPENDIX
+8.1 Baseline Description
+• LOF: [5] Local Outlier Factor (LOF) computes how isolated
+a node is compared to its neighborhood which only uses the
+node feature and the neighborhood is computed using k-nearest
+neighbors.
+• IF: [43] Isolation Forest is an ensemble method of base trees for
+anomaly detection where the closeness of individual instances
+to the root of the tree is used to define the decision boundary.
+• MLPAE: [61] MLPAE leverages multi-layer perceptron as the
+encoder and decoder to reconstruct the node features and recon-
+struction loss of node feature is used as the anomaly score of a
+node.
+• SCAN: [83] Structural Clustering Algorithm for Networks (SCAN)
+takes only the structure of the graph to detect clusters that are
+regarded as the structural anomalies of the graph.
+• Radar: [41] Radar takes both structure and node attribute infor-
+mation as the input and detects the anomaly nodes which are
+different from the majority in terms of attribute residual and net-
+work coherence and residual reconstruction norm is considered
+as anomaly score.
+• GCNAE: [36] GCNAE employs the encoder-decoder architec-
+ture where the encoder is a GCN that uses node attribute and
+
+--- PDF page 11 ---
+GAD-NR: Graph Anomaly Detection via Neighborhood Reconstruction WSDM ’24, May 4th–8th, 2024, Mérida, Yucatán, Mexico
+Dataset # Nodes # Edges # Feat. Avg. Degree# Contextual Anomaly# Joint/Structural Anomalies# Anomalies
+(Combined)Ration k n m
+Cora [64] 2,708 11,060 1,433 4.1 70 10 70 10 138 5.1%
+Weibo [89] 8,405 407,963 400 48.5 434 10 434 10 868 10.3%
+Reddit [39, 78]10,984 168,016 64 15.3 183 30 183 30 366 3.3%
+Disney [53] 124 335 28 2.7 3 5 3 5 6 4.8%
+Books [62] 1,418 3,695 21 2.6 14 5 14 5 28 2.0%
+Enron [62] 13,533 176,987 18 13.1 3 25 3 25 6 0.4%
+Table 6: Statistics of graph anomaly detection datasets. For contextual, structural and joint-type anomaly injection, we follow the setting in
+BOND [44] paper regarding the anomaly ratio and the parameters 𝑘 and 𝑚 are twice the avg. degree approximately.
+Algorithm Cora Weibo Reddit Disney Books Enron
+MLPAE 45.49±1.19 48.56±0.00 49.95±2.37 56.06±0.00 47.16±10.69 51.20±11.92
+SCAN 45.37±0.00 49.66±0.00 50.26±0.00 47.38±0.00 49.49±0.00 57.10±0.00
+Radar 48.78±0.00 49.86±0.00 54.13±0.00 47.93±0.00 57.84±0.00 36.36±0.00
+ANOMALOUS 45.02±0.77 49.86±0.00 50.65±2.00 47.93±0.00 57.84±0.00 35.30±0.64
+GCNAE 45.06±0.01 48.85±0.12 51.00±0.28 57.41±1.19 46.47±2.15 27.32±2.89
+DOMINANT 48.89±0.03 48.97±0.32 51.75±0.03 34.10±10.06 51.89±1.96 42.99±0.64
+DONE 52.12±2.12 49.13±0.19 50.33±1.27 55.76±0.88 39.81±2.61 42.05±10.62
+AdONE 53.47±1.12 49.83±1.13 49.92±1.87 63.25±3.10 41.77±3.10 51.13±15.66
+AnomalyDAE 45.47±0.55 49.95±1.01 49.20±1.44 51.79±5.21 51.88±3.77 32.21±16.59
+GAAN 49.23±1.53 49.03±0.13 48.65±2.48 55.76±0.28 46.18±3.91 46.33±5.38
+GUIDE 51.20±1.21 OOM_C OOM_C 55.48 ±0.41 45.74±0.68 OOM_C
+CONAD 50.30±0.03 49.78±0.44 51.76±0.02 42.09±9.80 50.89±2.34 58.47±0.13
+GAD-NR (w/o feat loss)52.14±0.43 49.36±0.37 52.97±0.74 55.14±2.56 58.13±1.37 54.89±0.84
+GAD-NR (w/o degree loss)45.30±0.65 47.63±0.55 52.15±0.71 56.17±0.21 53.72±3.17 52.63±0.38
+GAD-NR (w/o neigh loss)48.72±0.09 48.71±1.43 51.45±1.43 69.20±3.71 56.30±0.84 51.44±0.23
+GAD-NR 57.43±2.04 52.57±0.46 54.72±0.71 74.50±2.16 67.04±4.16 80.34±8.27
+Table 7: Performance comparison (ROC-AUC) of GAD-NR in joint-type anomaly detection for different real-world datasets. The best and
+second best performances are mentioned in bold and underlined respectively and 𝑂𝑂𝑀 _𝐶 indicates out of memory with regard to GPU.
+feature information to find a latent representation and the de-
+coder employs two GCNs to reconstruct node attributes and
+graph structure. The reconstruction error of the decoder is used
+as the anomaly score.
+• DOMINANT: [15] DOMINANT also follows the encoder-decoder
+architecture the encoder is a two-layer GCN while the node
+attribute decoder is a two-layer GCN and the adjacency informa-
+tion is decoded using the dot product. Anomaly score is defined
+as the combination of both decoders.
+• DONE: [7] DONE utilizes MLPs for the encoder and decoder
+architecture. The node embeddings and anomaly scores are si-
+multaneously optimized with a unified loss function.
+• AnomalyDAE: [20] AnomalyDAE utilizes a structure AE and
+attribute AE to detect anomaly nodes where the structure AE
+takes both adjacency matrix and node attribute as the input and
+attribute decoder utilizes structure and attribute embeddings to
+reconstruct node attribute.
+• GAAN: [11] GAN-based architecture used for anomaly detec-
+tion method in GAAN which generates fake graphs using MLP
+and encodes graph information using another MLP. The discrim-
+inator is trained to decide whether a graph is fake or real. The
+real node detection confidence and node attribute reconstruction
+are used as the anomaly score.
+• GUIDE: [87] GUIDE preprocess the structure information where
+node motif degree is used to represent structure vector and the
+rest of the architecture is the same as DONE.
+• CONAD: [84] CONAD generates augmented graphs to impose
+prior knowledge of anomaly nodes and contrastive learning loss
+is used for optimization.
+• NWRGAE: [71] Neighborhood Reconstruction-based Graph
+Auto Encoder performs neighborhood matching with optimal
+transport loss along with self-feature and degree reconstruction
+for node classification and role identification tasks.
+8.2 Dataset Description
+• Cora [64]: Cora dataset represents a citation network where the
+nodes are the research papers and edges represent the citation
+information between the papers. Node attributes of this dataset
+represent the bag-of-words vectors from the paper’s content.
+• Weibo [89]: Weibo dataset is a user-user interaction network-
+based directed graph dataset on the common hashtag from
+Tencent-Weibo (A twitter-like platform in China). Suspicious
+users are marked as anomalies based on the temporal infor-
+mation of their posts. The node attribute of each user is based
+on the location information of the post and the bag-of-words
+representation of the post’s content.
+• Reddit [39, 78]: Reddit is a user-subreddit interaction network
+on the social media platform Reddit. The users which are banned
+from the subreddit are marked as anomalous users. The post
+of users and subreddits are converted into feature vectors rep-
+resenting the LIWC category [58] and the summation of these
+vectors are the attribute of the user and subreddit.
+• Disney [53] and Books [62]: Disney and books are co-purchase
+networks of movies and books. The anomaly label of Disney is
+obtained by majority voting from the school students whereas
+the books dataset’s anomaly label is determined by the amazon
+fail tag information. Both datasets’ feature contains information
+about price, number of reviews, and ratings.
+• Enron [62]: Enron is an email-interaction network where the
+nodes are email addresses and edges represent the interactions
+between email addresses. The email address that sends spam
+emails is marked as anomalies. The feature information of email
+addresses is given by the average length of the email body, the
+average number of recipients, and the time gap between two
+emails.

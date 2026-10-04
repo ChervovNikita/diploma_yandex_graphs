@@ -1,16 +1,13 @@
-# GNNM post-submission research state
+# GNNM research state
 
-Updated: 2026-10-04T11:16:58.092848+00:00. Goal active and incomplete. [Current evidence](PUBLIC_STATUS.md). Prior state preserved in coordination_snapshots/20261004_completed_qa_and_stop_before_state_v1; all ledger keys retained.
+Updated: 2026-10-04T12:11:40.870508+00:00. Goal active and incomplete. [Evidence and limits](PUBLIC_STATUS.md). Prior canonical files preserved in coordination_snapshots/20261004_native_success_ddi_and_loader_failure_20261004_v1_before_state; all ledger keys retained.
 
 ## Next actions
 
-1. Execute the independently reviewed full native bucket equivalence/resource comparison. Keep measured numerical agreement and speed separate from predictive benefit. Then run the prospectively recorded representative target/joint/separate fits if evidence supports resource feasibility.
-2. Maintain Amazon's original15-fit queue; monitor28 has5 complete fits and sixth at730/2700. No partial outcome selection or TEST decisions.
-3. Close Pubmed's ad hoc continuation debugging branch after the72-update diagnostic. Preserve original FAILED and its evidence. Further science requires its own explicit prospective fresh-start protocol, not automatic donor/continuation admission or a loosened old rule.
-4. Use the successfully installed PENCIL repo overlay. Complete source review and minimal direct-rank ownership repair before the full native epoch/fullVALID resource check. No stronger-baseline score follows from environment installation.
-5. Consider the prospective DDI TRAIN-only support census to test structural applicability before committing to fits; no dataset or score exists yet.
-6. Revise the manuscript only from supported predictive outcomes, then use fresh independent skill-based reviewers with immutable evidence and no requested verdict. Acceptance remains unachieved.
+1. Finish fresh source review and launch the fixed nine-fit target/joint/separate comparison on GPU1. No further qualification ladder or TEST release.
+2. Preserve PENCIL v2's cleanly exited pin-memory failure. Prepare a disclosed loader transfer repair, retaining architecture, data draws, batch1024, accumulation8, native schedule and caps.
+3. Maintain the original Amazon queue; observation29 has five complete fits and sixth at1115/2700. Wait for the fixed family rather than selecting partial outcomes.
+4. Use the newly authenticated DDI TRAIN payload for a prospective native support/cost census before fitting. Finish recent strong-DDI source scouting.
+5. Keep Pubmed's ad hoc continuation branch closed. Revise the manuscript only from supported results, then run fresh skill-based independent review without a requested verdict.
 
-## Boundaries
-
-Original paper scores unchanged. Authorized anogena-2 one-GPU and18.77 project repositories only for science; seven-GPU route forwarding only. No sudo, PDF compilation, GENLINK, Desktop writes, server configuration or unrelated-job changes. Small incidental caches allowed.
+Original scores and failures remain preserved. No confirmed methodological advantage or acceptance. Authorized project repositories only, no sudo, PDF compilation, GENLINK, Desktop writes, server configuration or unrelated-job changes.
