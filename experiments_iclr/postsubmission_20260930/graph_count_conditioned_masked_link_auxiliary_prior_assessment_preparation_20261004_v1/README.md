@@ -1,0 +1,9 @@
+# Scoped count-conditioned masked-link auxiliary assessment
+
+Date:4 October2026. This fresh packet assesses prior work, algebra and one prospective comparison for a fixed-count masked TRAIN-incidence auxiliary to a discriminative graph/link model. It preserves the existing sealed count assessment and index_v43.
+
+Read `FINDINGS.md` for conclusions and disqualifying outcomes; `ALGEBRA.md` for the categorical/count/complement reductions; `COMPARISON.md` for one prospective representative mechanism screen; `SOURCES.md` for exact source locations. JSON files retain five new scoped primary method reads, twenty-two reused index-backed conclusions plus the sealed Chen/Liu1997 conclusion, public retrieval receipts and exclusions. All-page extraction is mechanical, not full-paper semantic reading. No journal method read is credited to the metadata-only2026 MoE lead.
+
+No fit, model/dataset/checkpoint access, numerical import/execution, server dispatch, score reproduction, manuscript editing, or source/data/physical execution release occurred. The proposed screen is a recommendation and does not replace the earlier sealed six-condition comparison or admit a run. A conditional likelihood or responsibility diagnostic gain does not establish held-out ranking utility. No generic conditional-Bernoulli, mixture, set-loss or InfoNCE novelty is claimed. No complete-operation absence certificate is issued.
+
+`build_packet_metadata.py` prepares provenance and refuses to rebuild a sealed packet. `static_check.py` parses/hashes local source evidence only. `STATIC_CHECKS.json` is its preseal report. `MANIFEST.json` pins payload bytes; `SEAL.json` pins the manifest and reports postmanifest custody verification. Neither script imports or executes native scientific code. A later scientific wrapper/driver review is a separate task and does not alter this literature packet.

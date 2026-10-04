@@ -1,0 +1,39 @@
+--- graph_count_conditioned_pattern_cpu_supervisor_preparation_20261004_v1/supervise_cpu.py
++++ graph_count_conditioned_pattern_cpu_supervisor_preparation_20261004_v2/supervise_cpu.py
+@@ -316,9 +316,12 @@
+         stderr_fd = os.open(OUT / 'CHILD_STDERR.txt', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+         for signum in (signal.SIGALRM, signal.SIGTERM, signal.SIGINT):
+             signal.signal(signum, interrupted)
++        require(terminal['stop_reason'] is None, 'Recorded setup stop forbids fork')
+         child_pid = os.fork()
+         if child_pid == 0:
+             try:
++                if stopped_at is not None:
++                    os._exit(126)
+                 os.close(read_fd); os.close(lock_fd)
+                 for signum in (signal.SIGALRM, signal.SIGTERM, signal.SIGINT):
+                     signal.signal(signum, signal.SIG_DFL)
+@@ -337,6 +340,8 @@
+                 os._exit(125)
+         os.close(write_fd); os.close(stdout_fd); os.close(stderr_fd)
+         terminal['child_pid'] = child_pid
++        if stopped_at is not None:
++            held_child_signal(child_pid, terminal['stop_reason'], terminal['termination_actions'])
+         signal.setitimer(signal.ITIMER_REAL, max(.001, CAPS['wall_seconds'] - (time.monotonic() - started)))
+         physical = 'OWNED_CHILD_RUNNING'
+         buffer = b''
+@@ -458,6 +463,14 @@
+             source_review(Path(release['independent_supervisor_review_path']), release['independent_supervisor_review_sha256'],
+                           release['supervisor_manifest_sha256'])
+             source_review(Path(inner['independent_source_review_path']), inner['independent_source_review_sha256'], CANDIDATE_MANIFEST)
++            profile = release['runtime_profile']
++            require(profile['platform'] == sys.platform
++                    and Path(profile['python_executable']).resolve() == Path(sys.executable).resolve()
++                    and sha(Path(profile['python_executable'])) == profile['python_executable_sha256']
++                    and profile['ps_executable'] == PS_ARGV[0]
++                    and sha(Path(profile['ps_executable'])) == profile['ps_executable_sha256'],
++                    'Runtime interpreter/observer changed during child attempt')
++            terminal['final_runtime_closure_matches'] = True
+             terminal['final_source_closure_matches'] = True
+         except BaseException as error:
+             terminal['final_source_closure_matches'] = False
