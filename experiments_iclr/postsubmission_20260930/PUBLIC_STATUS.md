@@ -1,33 +1,37 @@
 # Current GNNM research status
 
-Updated: 2026-10-04T08:57:08.128168+00:00. Goal active and incomplete. Original paper scores unchanged.
+Updated: 2026-10-04T10:05:25.364024+00:00. Goal active and incomplete. Original paper scores unchanged.
 
 ## Predictive evidence
 
-The five-seed official ogbl-collab TEST comparison measured GNNM private completion at **67.2909% Hits@50**, native single64 at **66.4426%** and an independent four-model ensemble at **67.6298%**. The exploratory **+0.8483-point** single-model gain is positive in all five seeds. The independent ensemble remains higher.
+The strongest verified result remains the five-seed official ogbl-collab TEST comparison: GNNM private completion **67.2909% Hits@50**, native single64 **66.4426%**, independent ensemble4 **67.6298%**. The exploratory single-model gain is **+0.8483 points**, positive in all five seeds; the independent ensemble remains higher.
 
-The frozen private-minus-pooled primary contrast is **+0.2236 points**, with a paired descriptive 95% seed interval **[-0.7775, +1.2247]** and exact sign-flip p=0.6875. It is inconclusive. TEST is consumed for this family. [Complete results](ncnc_frozen_all25_heldout_root_adoption_20261004_v1/RESULTS_SUMMARY.md).
+The frozen private-minus-pooled contrast is **+0.2236 points**, with paired descriptive95% seed interval **[-0.7775,+1.2247]** and exact sign-flip p=.6875. It is inconclusive. TEST is consumed. [Complete results](ncnc_frozen_all25_heldout_root_adoption_20261004_v1/RESULTS_SUMMARY.md).
 
 **No confirmed new methodological advantage or fresh manuscript acceptance exists.**
 
-## Current hypothesis
+## Current hypothesis and actual execution
 
-The new auxiliary trains which candidate neighbours belong together after fixing their observed TRAIN counts. The main comparison links one member responsibility across the two ends of a target edge versus mixing the ends independently. Native inference still uses its existing count-free ranking model.
+The auxiliary supervises which candidate neighbours belong together after fixing their observed TRAIN counts. J_K shares one member responsibility across both ends of an edge; J_K_sep mixes the ends independently. Serving retains the existing count-free ranker. Conditional Bernoulli likelihoods, mixtures/cardinality inference, MaskGAE degree supervision and GRAN shared components are prior. Predictive transfer beyond the separate-side control is the unresolved question.
 
-Classical conditional Bernoulli, mixtures and cardinality inference are prior. New author-code reading confirms that MaskGAE already combines topology/degree supervision with count-free edge scoring, and GRAN already shares mixture components across generated graph blocks. The surviving claim requires useful transfer on native residual supports beyond the separate-side control. Its predictive value is untested. The ordered structured-single control is not guaranteed equivariant to node relabeling; its failure cannot establish an equivariant bank advantage. [Prior assessment](graph_count_conditioned_auxiliary_graph_distinction_prior_assessment_20261004_v1/REPORT.md).
+The fixed full native TRAIN-batch gradient diagnostic completed on18.77 GPU1: **childexit0, physical sessionclosed and custody matched**. One retained forward graph supplied three reverse evaluations, with **zero optimizer updates and no VALID/TEST access**. The auxiliary reaches encoder/member parameters. Joint gradient norm is2.785% of target norm; joint-minus-separated norm is0.0561% of target norm and2.014% of joint norm. These are a small derivative opportunity at one initialization, not predictive improvement. Per-slot differences remain within the unchanged tolerance, whose absolute scale exceeds mean-reduced derivatives.
 
-The complete exact core-v3 fabricated CPU qualification passed **22,855 comparison reports**, including both-sided genuine subset patterns, structured-single equivalence and complete gradient cases. Separate core and supervisor reviews passed before execution. The bounded child completed in 37.33 seconds with 539.7 MB peak RSS; physical collection passed. This establishes neither native full-batch feasibility nor predictive benefit. [Actual QA](graph_count_conditioned_pattern_cpu_qualification_root_adoption_20261004_v3/RESULTS_SUMMARY.md).
+The child took87.30s, with10.69s forward and30.13/31.14s auxiliary reverse passes; peak allocator memory was28.63GB allocated/42.42GB reserved. Dispatching1,505 genuine groups and132,447 slot loops is expensive. An exact-law support-bucket optimization is being inspected before broader training. [Actual result and limits](graph_count_conditioned_pattern_native_gradient_root_adoption_20261004_v1/RESULTS_SUMMARY.md).
 
-The complete TRAIN census found both sides variable in **5.8242% of positive queries**, with genuine subset choices on both sides in **1.3599%**. Sampled negatives supply essentially no cross-side pattern signal. The next test measures same-state target and joint/separate auxiliary gradients on one fixed full native TRAIN batch, with zero optimizer updates. [Support and limits](graph_count_conditioned_train_support_census_root_adoption_20261004_v1/RESULTS_SUMMARY.md).
+The first startup attempt failed before data/model loading because memory-stat reset preceded CUDA initialization; failure receipts are preserved. V4 moved that reset after authenticated initialization, with separate source review and a fresh execution directory.
 
-## Runs
+Complete fabricated core-v3 CPU QA passed22,855 comparison reports. That establishes law/gradient implementation consistency, not predictive usefulness. The complete TRAIN census found both sides variable on5.8242% and both genuine on1.3599% of positive queries; negatives supply essentially no cross-side pattern signal. [Prospective decision](graph_count_conditioned_pattern_predictive_decision_root_20261004_v1/DECISION.md).
 
-Amazon training remains **4/15 complete fits**. At 2026-10-04T08:51:24 UTC the fifth fit had reached **1,701/2,700 updates**, without recorded failure or restart. No partial quality or TEST decisions were made.
+## Predictive queue and baselines
 
-Six native Pubmed baselines are complete; no GNNM predictive result exists. The earlier shared4 continuation diagnostic still fails its unchanged numerical rule. A new native-only control completed **252 updates** with exact repeat agreement and all ten comparator predicates passing. Its independent compact audit passed 20 checks. Different warm-state and validation history prevent a causal conclusion about shared4. No scientific state or fit is admitted by this control. [Native result](pubmed_native_only_continuation_control_root_adoption_20261004_v1/RESULTS_SUMMARY.md).
+At 2026-10-04T09:47:14.436380+00:00, Amazon training was **5/15 complete fits**; the sixth, `split1_gnnm_boundary_4_seed29`, had **146/2700 updates**. No failures, restarts or partial quality/TEST decisions were recorded.
+
+A completed source assessment confirms native NCNC64 matches the pinned official Collab core width/depth/100epoch recipe. Five rather than ten runs reduces replication, not per-fit capacity. Published numerical reproduction and broad recent-method competitiveness remain unverified. Feature-enabled PENCIL is one source-pinned future comparison; its resource cost is unknown. [Assessment](ncnc_collab_baseline_competitiveness_assessment_20261004_v1/REPORT.md).
+
+Six native Pubmed baselines are complete; no GNNM predictive result exists. The earlier shared4 repeat remains failed under its unchanged rule. The native-only252-update repeat passed in a different warm-state context. Fresh review blocked the new zero-update comparison source because it omitted storage alias relationships between distinct tensor views; no runtime alias defect is inferred. V2's narrow repair is sealed and under a different fresh source review; it has not executed.
 
 ## History and boundaries
 
-Literature memory index_v45 retains 198 scoped conclusions across 147 paper identities and two software identities, not full-paper read totals. New MaskGAE/GRAN author-code scopes are integrated; they add no new paper identities or full-paper reads. Inactive literature assets were offloaded with hash verification; conclusions and history remain.
+Literature index_v45 retains198 scoped conclusions across147 paper identities and two software identities; these are not full-paper read totals. The new NCNC assessment reuses existing source/literature scopes and adds no primary reads or identities. Failed experiments, original scores, decisions and reviews remain preserved.
 
-Latest verified GitHub head before this update: c4366a4301392a04ad8281d87362dd8620922327. New evidence awaits publication. Science uses the authorized anogena-2 and 18.77 repositories only. The seven-GPU route is forwarding only. No sudo, PDF compilation, GENLINK, server configuration or unrelated-job changes.
+Latest verified GitHub head before this update:31f3f581aed94b6a445aaaecd16f713c0e9ccb79. Current changes await explicit publication. Science uses authorized anogena-2 and18.77 project repositories only; the seven-GPU route is forwarding only. No sudo, PDF compilation, GENLINK, server configuration or unrelated-job changes.

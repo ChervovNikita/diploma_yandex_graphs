@@ -1,0 +1,194 @@
+--- pubmed_shared4_zero_update_first_batch_repeat_source_20261004_v1/prefix_observer.py
++++ pubmed_shared4_zero_update_first_batch_repeat_source_20261004_v2/prefix_observer.py
+@@ -2,6 +2,7 @@
+ from types import FunctionType
+ from common import require
+ from diagnostic_helpers import exact
++from storage_aliases import canonical_storage_aliases
+ 
+ 
+ class PrefixComplete(BaseException):
+@@ -16,7 +17,10 @@
+     buffers, together with parameter/cache alias and layout relations.
+     Observer hook registries are excluded explicitly. An opaque object with
+     no inspectable fields makes the snapshot incomplete and nonmatching.
+-    Aliases/cycles use traversal references, not process addresses.
++    Object aliases/cycles use traversal references. Distinct tensor views
++    also retain canonical backing-storage alias classes; local raw storage
++    pointers/handles never enter the compared snapshot. Uninspectable backing
++    storage makes the snapshot incomplete and nonmatching.
+     """
+     excluded = {'_parameters', '_buffers', '_modules', '_backward_hooks',
+                 '_backward_pre_hooks', '_forward_hooks', '_forward_pre_hooks',
+@@ -24,7 +28,7 @@
+                 '_forward_pre_hooks_with_kwargs', '_state_dict_hooks',
+                 '_state_dict_pre_hooks', '_load_state_dict_pre_hooks',
+                 '_load_state_dict_post_hooks'}
+-    memo, unsupported = {}, []
++    memo, unsupported, storage_rows, tensor_records = {}, [], [], {}
+     def visit(value, path):
+         if value is None or type(value) in (bool, int, float, str):
+             return value
+@@ -35,10 +39,20 @@
+             return {'reference': memo[key]}
+         memo[key] = path
+         if isinstance(value, torch.Tensor):
+-            return {'tensor': native.clone(value, torch), 'device': str(value.device),
++            try:
++                storage = value.untyped_storage()
++                require(str(storage.device) == str(value.device), 'Storage/tensor device differs')
++                storage_rows.append({'path': path, 'device': str(storage.device),
++                                     'handle': storage._cdata, 'start': storage.data_ptr(), 'bytes': storage.nbytes()})
++            except Exception as error:
++                unsupported.append({'path': path, 'type': 'opaque_uninspected_backing_storage',
++                                    'issue': type(error).__name__})
++            record = {'tensor': native.clone(value, torch), 'device': str(value.device),
+                     'requires_grad': value.requires_grad,
+                     'layout': str(value.layout), 'stride': list(value.stride()) if value.layout == torch.strided else None,
+                     'storage_offset': value.storage_offset() if value.layout == torch.strided else None}
++            tensor_records[path] = record
++            return record
+         if isinstance(value, dict):
+             require(all(type(k) in (str, int) for k in value), 'Cache dictionary key unsupported')
+             return {k: visit(v, path + '/' + str(k)) for k, v in sorted(value.items(), key=lambda item: str(item[0]))}
+@@ -68,6 +82,10 @@
+                                if key not in excluded},
+                 'registered_parameters_and_aliases': visit(module._parameters, path + '/_parameters'),
+                 'all_registered_buffers_including_nonpersistent': visit(module._buffers, path + '/_buffers')}
++    storage_aliases = canonical_storage_aliases(storage_rows)
++    unsupported.extend(storage_aliases['unsupported'])
++    for path, record in tensor_records.items():
++        record['backing_storage'] = storage_aliases['classes'].get(path, {'opaque_uninspected_storage': True})
+     return {'attributes': result, 'fully_inspected': not unsupported, 'unsupported': unsupported,
+             'excluded_hook_and_registered_containers': sorted(excluded)}
+ 
+--- /dev/null
++++ pubmed_shared4_zero_update_first_batch_repeat_source_20261004_v2/storage_aliases.py
+@@ -0,0 +1,68 @@
++"""Pure metadata storage alias classes; local addresses never leave this helper."""
++
++
++def canonical_storage_aliases(rows):
++    """Canonicalize inspectable backing storage by class member paths.
++
++    StorageImpl identity detects distinct tensor views, including empty views.
++    Overlapping nonempty byte spans also detect separate StorageImpl wrappers
++    over shared backing memory. Same-device connected components are named by
++    their lexicographically smallest member path. Compared output contains
++    only canonical labels, sizes and relative byte offsets, never local
++    pointer/handle identities. Invalid/opaque descriptors cannot qualify.
++    """
++    valid, unsupported, seen = [], [], set()
++    for row in rows:
++        path = row.get('path')
++        if not isinstance(path, str) or not path or path in seen:
++            raise ValueError('Unique nonempty tensor paths required')
++        seen.add(path)
++        device, handle, start, size = (row.get(k) for k in ('device', 'handle', 'start', 'bytes'))
++        if (not isinstance(device, str) or not device or type(handle) is not int or handle <= 0
++                or type(start) is not int or start < 0 or type(size) is not int or size < 0
++                or (size > 0 and start == 0)):
++            unsupported.append({'path': path, 'issue': 'Backing storage identity/range uninspectable'})
++            continue
++        valid.append(row)
++    # An inconsistent StorageImpl descriptor is an observer/control failure,
++    # rather than a silently accepted class with ambiguous backing memory.
++    by_handle = {}
++    for row in valid:
++        key = (row['device'], row['handle'])
++        by_handle.setdefault(key, []).append(row)
++    rejected = set()
++    for group in by_handle.values():
++        if len({(r['start'], r['bytes']) for r in group}) != 1:
++            for row in group:
++                rejected.add(row['path'])
++                unsupported.append({'path': row['path'], 'issue': 'Storage descriptor changed during snapshot'})
++    valid = [row for row in valid if row['path'] not in rejected]
++    parent = list(range(len(valid)))
++    def find(index):
++        while parent[index] != index:
++            parent[index] = parent[parent[index]]
++            index = parent[index]
++        return index
++    for i, a in enumerate(valid):
++        for j in range(i):
++            b = valid[j]
++            overlap = (a['bytes'] > 0 and b['bytes'] > 0
++                       and max(a['start'], b['start']) < min(a['start'] + a['bytes'], b['start'] + b['bytes']))
++            if a['device'] == b['device'] and (a['handle'] == b['handle'] or overlap):
++                parent[find(i)] = find(j)
++    groups = {}
++    for i, row in enumerate(valid):
++        groups.setdefault(find(i), []).append(row)
++    classes = {}
++    for group in groups.values():
++        label = min(row['path'] for row in group)
++        nonempty = [row for row in group if row['bytes'] > 0]
++        origin = min(row['start'] for row in nonempty) if nonempty else 0
++        span = max(row['start'] + row['bytes'] for row in nonempty) - origin if nonempty else 0
++        for row in group:
++            classes[row['path']] = {
++                'storage_alias_class': label, 'storage_bytes': row['bytes'],
++                'storage_class_span_bytes': span,
++                'storage_start_relative_to_class_bytes': row['start'] - origin if row['bytes'] else None}
++    return {'classes': classes, 'fully_inspected': not unsupported,
++            'unsupported': sorted(unsupported, key=lambda row: row['path'])}
+--- /dev/null
++++ pubmed_shared4_zero_update_first_batch_repeat_source_20261004_v2/fabricated_storage_alias_counterexample.py
+@@ -0,0 +1,56 @@
++"""Stdlib metadata fixture for the exact omitted-storage counterexample.
++
++No Torch, model, feature, scientific array, server or process probe is used.
++Only the pure canonical_storage_aliases metadata helper is exercised.
++"""
++import json
++from storage_aliases import canonical_storage_aliases
++
++
++def run():
++    # Two different tensor objects have identical values and tensor schema.
++    # This is precisely the v1 tensor-object/value/layout representation:
++    # neither b is the same Python object as a in either fixture.
++    value = {'values': [1.0, 2.0, 3.0, 4.0], 'shape': [4], 'dtype': 'float32',
++             'stride': [1], 'storage_offset': 0, 'requires_grad': False}
++    shared_v1 = {'a': dict(value), 'b': dict(value)}
++    independent_v1 = {'a': dict(value), 'b': dict(value)}
++    assert shared_v1['a'] is not shared_v1['b'] and independent_v1['a'] is not independent_v1['b']
++    assert shared_v1 == independent_v1  # v1 cannot distinguish these states.
++    def row(path, handle, start, size=16, device='cpu'):
++        return dict(path=path, handle=handle, start=start, bytes=size, device=device)
++    shared = canonical_storage_aliases([row('a', 17, 4096), row('b', 17, 4096)])
++    independent = canonical_storage_aliases([row('a', 26, 8192), row('b', 27, 12288)])
++    assert shared['fully_inspected'] and independent['fully_inspected']
++    assert shared['classes']['a']['storage_alias_class'] == shared['classes']['b']['storage_alias_class']
++    assert independent['classes']['a']['storage_alias_class'] != independent['classes']['b']['storage_alias_class']
++    assert shared['classes'] != independent['classes']  # v2 detects the omitted relation.
++    moved_shared = canonical_storage_aliases([row('b', 901, 1048576), row('a', 901, 1048576)])
++    moved_independent = canonical_storage_aliases([row('b', 993, 2097216), row('a', 992, 2097152)])
++    assert moved_shared == shared and moved_independent == independent
++    # Different StorageImpl wrappers can still overlap the same backing bytes.
++    overlapping = canonical_storage_aliases([row('a', 31, 16384), row('b', 32, 16392)])
++    assert overlapping['classes']['a']['storage_alias_class'] == overlapping['classes']['b']['storage_alias_class']
++    assert overlapping['classes']['b']['storage_start_relative_to_class_bytes'] == 8
++    empty_shared = canonical_storage_aliases([row('a', 40, 0, 0), row('b', 40, 0, 0)])
++    empty_independent = canonical_storage_aliases([row('a', 41, 0, 0), row('b', 42, 0, 0)])
++    assert empty_shared['classes'] != empty_independent['classes']
++    opaque = canonical_storage_aliases([dict(path='a', device='cpu', handle=None, start=None, bytes=16)])
++    assert not opaque['fully_inspected'] and opaque['unsupported'] and not opaque['classes']
++    inconsistent = canonical_storage_aliases([row('a', 51, 32768), row('b', 51, 32776)])
++    assert not inconsistent['fully_inspected'] and len(inconsistent['unsupported']) == 2 and not inconsistent['classes']
++    return {'status': 'PASS_PURE_STDLIB_FABRICATED_STORAGE_METADATA_ONLY',
++            'v1_equal_value_shape_stride_offset_states_indistinguishable': True,
++            'distinct_tensor_objects_shared_vs_independent_storage_detected': True,
++            'canonical_output_invariant_to_raw_pointer_handle_relocation_and_row_order': True,
++            'overlapping_distinct_storage_wrappers_detected': True,
++            'empty_views_use_storage_identity_without_conflating_null_pointers': True,
++            'opaque_or_inconsistent_storage_cannot_qualify': True,
++            'shared_storage_canonical_classes': shared['classes'],
++            'independent_storage_canonical_classes': independent['classes'],
++            'numerical_library_imported': False, 'numerical_scientific_execution': False,
++            'worker_prefix_or_target_dependency_import_compile_execution': False}
++
++
++if __name__ == '__main__':
++    print(json.dumps(run(), indent=2, sort_keys=True))

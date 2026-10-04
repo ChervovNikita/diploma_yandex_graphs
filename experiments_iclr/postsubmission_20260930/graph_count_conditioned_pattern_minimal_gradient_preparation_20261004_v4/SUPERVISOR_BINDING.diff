@@ -1,0 +1,229 @@
+--- graph_count_conditioned_train_support_census_preparation_20261004_v3/supervise.py
++++ supervise.py
+@@ -1,4 +1,4 @@
+-"""One fresh Linux census child; bounded owned cleanup and guarded collection."""
++"""One fresh Linux gradient child; inherited bounded ownership/physical terminal."""
+ import argparse
+ from datetime import datetime, timezone
+ import json
+@@ -9,7 +9,7 @@
+ import sys
+ import time
+ import traceback
+-from census import HERE, PHASE, gate, require, sha, write
++from common import (DATA_FILES, HERE, PHASE, final_file_custody, gate, pin, require, sha, write)
+ 
+ # Retain the Popen object until os._exit. Its destructor otherwise polls and
+ # can reap an unresolved zombie leader before its owned session is closed.
+@@ -82,9 +82,7 @@
+ 
+ 
+ def read_json(path):
+-    # At most 17*2*2*65536 histogram rows occur in a seed receipt. 1 GiB
+-    # accommodates this finite JSON envelope without accepting arbitrary size.
+-    require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 1024**3, 'Invalid/big receipt file')
++    require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 64*1024**2, 'Invalid/big receipt file')
+     return json.loads(path.read_text())
+ 
+ 
+@@ -134,89 +132,63 @@
+ 
+ def collect(execution, plan, runtime, release_sha):
+     child = execution/'run01'
+-    required = {'CENSUS.json','seed0_COUNTS.json','seed1_COUNTS.json','seed2_COUNTS.json','PROGRESS.json','FILE_CUSTODY.json','FINAL_CUSTODY.json'}
+-    require(child.is_dir() and not child.is_symlink(), 'Actual child output absent')
+-    actual = {path.name for path in child.iterdir()}
+-    require(actual==required and all(path.is_file() and not path.is_symlink() for path in child.iterdir()), 'Partial/extra/nested child output cannot be adopted')
+-    result, final, file_custody = (read_json(child/name) for name in ('CENSUS.json','FINAL_CUSTODY.json','FILE_CUSTODY.json'))
+-    require(result.get('status')=='COMPLETE_TRAIN_CENSUS_ONLY' and result.get('source_manifest_sha256')==sha(HERE/'MANIFEST.json')
+-            and result.get('release_sha256')==release_sha and result.get('streams')==3
+-            and result.get('full_batches_per_stream')==17 and result.get('positive_records_per_stream')==17*65536
+-            and result.get('negative_records_per_stream')==17*65536, 'Actual result identity/coverage differs')
+-    require(result.get('data_files_opened')==['split/time/train.pt','raw/edge.csv.gz'] and result.get('optimizer_updates')==0
+-            and all(result.get(name) is False for name in ('features_read','VALID_TEST_read','learned_models')), 'Result scientific roles differ')
+-    require(type(result.get('wall_seconds')) in (int,float) and 0<=result['wall_seconds']<=plan['caps']['wall_seconds']
+-            and integer(result.get('cuda_peak_allocated_bytes')) and result['cuda_peak_allocated_bytes']<=plan['caps']['cuda_allocated_bytes']
+-            and integer(result.get('cuda_peak_reserved_bytes')) and result['cuda_peak_reserved_bytes']<=plan['caps']['cuda_reserved_bytes'], 'Child observed cap receipt differs')
+-    for seed in (0,1,2):
+-        stream = read_json(child/('seed%d_COUNTS.json'%seed))
+-        require(type(stream.get('seed')) is int and stream['seed']==seed and isinstance(stream.get('rows'),list) and len(stream['rows'])==17
+-                and all(digest_field(stream.get(name)) for name in ('negative_draw_sha256','permutation_sha256','dropped_tail_sha256')), 'Actual seed stream incomplete')
+-        for batch,row in enumerate(stream['rows'],1):
+-            require(type(row.get('batch')) is int and row['batch']==batch and digest_field(row.get('record_ids_sha256'))
+-                    and set(row['populations'])=={'positive','negative'}, 'Actual batch/order/populations differ')
+-            for population in row['populations'].values():
+-                validate_population(population,plan)
+-    require(final.get('completed') is True and final.get('file_custody_sha256')==sha(child/'FILE_CUSTODY.json'), 'Final child custody absent/failed')
+-    rows = final.get('files')
+-    require(isinstance(rows,list) and len(rows)==len(required)-1 and {row['path'] for row in rows}==required-{'FINAL_CUSTODY.json'},
+-            'Child custody lacks exact result/seed/file set')
++    required = {'DIAGNOSTIC.json','PROGRESS.json','FILE_CUSTODY.json','FINAL_CUSTODY.json'}
++    require(child.is_dir() and not child.is_symlink(), 'Actual diagnostic output absent')
++    require(sum(path.stat().st_size for path in execution.rglob('*') if path.is_file()) <= plan['caps']['output_bytes'],
++            'Observed output cap exceeded')
++    require({path.name for path in child.iterdir()} == required
++            and all(path.is_file() and not path.is_symlink() for path in child.iterdir()),
++            'Partial/extra/nested diagnostic output cannot qualify')
++    result, final, files = (read_json(child/name) for name in ('DIAGNOSTIC.json','FINAL_CUSTODY.json','FILE_CUSTODY.json'))
++    require(result.get('schema') == 'native-count-conditioned-gradient-diagnostic-v1'
++            and result.get('status') == 'COMPLETE_DIAGNOSTIC_ONLY'
++            and result.get('source_manifest_sha256') == sha(HERE/'MANIFEST.json')
++            and result.get('release_sha256') == release_sha
++            and result.get('core_manifest_sha256') == plan['core_manifest_sha256']
++            and result.get('workload') == plan['workload']
++            and result.get('data_files_opened') == list(DATA_FILES)
++            and result.get('optimizer_constructed') is False and result.get('optimizer_updates') == 0
++            and result.get('fits') == 0 and result.get('VALID_TEST_reads') is False
++            and result.get('no_predictive_or_novelty_claim') is True
++            and result.get('native_target_serving_count_free') is True
++            and result.get('Single_evaluated') is False
++            and result.get('Single_sorted_candidate_ID_order_dependence_acknowledged') is True,
++            'Actual diagnostic source/scope differs')
++    require(result['stream']['seed'] == 0 and result['stream']['zero_based_batch'] == 0
++            and result['stream']['full_batches'] == 17 and result['stream']['dropped_tail_records'] == 64940
++            and result['stream']['exact_replay_of_census_or_fit_claimed'] is False
++            and result['dispatch']['encoder_calls'] == 1 and result['dispatch']['population_forward_calls'] == 2
++            and result['dispatch']['reverse_evaluations'] == 3,
++            'Predeclared native stream/work differs')
++    require(set(result['populations']) == {'positive','negative'} and set(result['losses']) == {'base','J_K','J_K_sep'},
++            'Diagnostic populations/objectives differ')
++    for value in result['populations'].values():
++        validate_population(value['census'], plan)
++        for side in value['slot_gradients'].values():
++            require(side['forced_r0']['exact_zero_forced_gradients'] is True
++                    and side['forced_counterpart']['shared_minus_separated']['fixed_rule_agrees'] is True,
++                    'Conditional slot diagnostic obligations failed')
++    require(0 <= result['inclusive_child_wall_seconds'] <= plan['caps']['wall_seconds']
++            and result['cuda_peak_allocated_bytes'] <= plan['caps']['cuda_allocated_bytes']
++            and result['cuda_peak_reserved_bytes'] <= plan['caps']['cuda_reserved_bytes'], 'Observed child caps differ')
++    require(final.get('completed') is True and final.get('file_custody_sha256') == sha(child/'FILE_CUSTODY.json'),
++            'Actual final custody incomplete')
++    require(0 <= final['inclusive_child_wall_seconds_through_custody'] <= plan['caps']['wall_seconds'],
++            'Inclusive child final custody wall exceeded')
++    rows = final['files']
++    require(len(rows) == 3 and {row['path'] for row in rows} == required-{'FINAL_CUSTODY.json'}, 'Final output set differs')
+     for row in rows:
+-        require(Path(row['path']).name==row['path'], 'Custody path invalid')
+-        path = child/row['path']
+-        require(path.stat().st_size==row['bytes'] and sha(path)==row['sha256'], 'Actual child custody hash differs')
+-    require(file_custody.get('schema')=='TRAIN-census-final-file-custody-v2' and file_custody.get('status')=='MATCH'
+-            and file_custody.get('source_manifest_sha256')==sha(HERE/'MANIFEST.json')
+-            and file_custody.get('plan_sha256')==sha(HERE/'PLAN.json') and file_custody.get('release_sha256')==release_sha
+-            and file_custody.get('interpreter_sha256')==runtime['interpreter_sha256']
+-            and file_custody.get('distribution_versions')==runtime['distribution_versions']
+-            and file_custody.get('actual_profile_fields_beyond_original_guards_verified') is False
+-            and all(file_custody.get(name) is False for name in ('GPU_operations','array_loads','additional_scientific_input_roles')), 'Final file/runtime custody differs')
+-    expected_files = []
+-    for scope,path,pin in (('source_manifest',HERE/'MANIFEST.json',{'sha256':sha(HERE/'MANIFEST.json')}),
+-                           ('root_release',execution/'ROOT_RELEASE.json',{'sha256':release_sha}),
+-                           ('interpreter',Path(runtime['interpreter_path']),{'sha256':runtime['interpreter_sha256']})):
+-        expected_files.append(dict(scope=scope,path=str(path),**pin))
+-    for base,pins,scope in ((HERE,read_json(HERE/'MANIFEST.json')['files'],'source'),
+-                            (PHASE,plan['source_pins'],'producer_or_authority')):
+-        expected_files.extend(dict(scope=scope,path=str(base/pin['path']),bytes=pin['bytes'],sha256=pin['sha256']) for pin in pins)
+-    expected_files.extend(dict(scope='runtime_file',path=pin['path'],sha256=pin['sha256'],
+-                               **({'bytes':pin['bytes']} if 'bytes' in pin else {}))
+-                          for pin in runtime['runtime_source_pins']+runtime['runtime_binary_files']+[runtime['negative_sampler']])
+-    expected = {(pin['scope'],pin['path']):pin for pin in expected_files}
+-    files = file_custody.get('files')
+-    require(len(expected)==len(expected_files) and isinstance(files,list) and len(files)==len(expected)
+-            and {(row['scope'],row['path']) for row in files}==set(expected), 'Final source/runtime/control file set differs')
+-    for row in files:
+-        pin=expected[(row['scope'],row['path'])];path=Path(row['path'])
+-        require(integer(row.get('bytes')) and row['sha256']==pin['sha256']
+-                and ('bytes' not in pin or row['bytes']==pin['bytes'])
+-                and path.is_file() and (row['scope']=='interpreter' or not path.is_symlink())
+-                and path.stat().st_size==row['bytes'] and sha(path)==pin['sha256'],
+-                'Parent final source/runtime/control custody differs')
+-    authority = read_json(PHASE/plan['data_authority'])
+-    expected_train = {str(Path(authority['dataset_root'])/name):authority['files'][name] for name in ('split/time/train.pt','raw/edge.csv.gz')}
+-    train = file_custody.get('TRAIN_files')
+-    require(isinstance(train,list) and len(train)==2 and {row['path'] for row in train}==set(expected_train), 'Final TRAIN file set differs')
+-    for row in train:
+-        pin = expected_train[row['path']]
+-        path=Path(row['path'])
+-        require(row['relative_path'] in ('split/time/train.pt','raw/edge.csv.gz')
+-                and path==Path(authority['dataset_root'])/row['relative_path']
+-                and row['bytes']==pin['bytes'] and row['sha256']==pin['sha256']
+-                and path.is_file() and not path.is_symlink() and path.stat().st_size==pin['bytes']
+-                and sha(path)==pin['sha256'], 'Parent final TRAIN pin differs')
+-    progress=read_json(child/'PROGRESS.json')
+-    require(progress.get('completed_streams')==2 and progress.get('seed')==2 and progress.get('batches')==17,
+-            'Final progress seed/batch differs')
+-    # Parent rechecks source/runtime metadata gate without loading any arrays.
++        require(Path(row['path']).name == row['path'], 'Output custody path differs')
++        pin(child/row['path'], row)
++    expected = final_file_custody(plan,runtime,execution/'ROOT_RELEASE.json',release_sha,
++                                 Path(json.loads((PHASE/plan['data_authority']).read_text())['dataset_root']).resolve())
++    require(files == expected and files['status'] == 'MATCH', 'Parent source/runtime/TRAIN file custody differs')
+     gate(execution/'ROOT_RELEASE.json',release_sha)
+     fsync_directory(child)
+-    return dict(status='COLLECTED_COMPLETE_TRAIN_METADATA_ONLY',result_path=str(child/'CENSUS.json'),
+-        result_sha256=sha(child/'CENSUS.json'),final_custody_path=str(child/'FINAL_CUSTODY.json'),
+-        final_custody_sha256=sha(child/'FINAL_CUSTODY.json'),file_custody_path=str(child/'FILE_CUSTODY.json'),
+-        file_custody_sha256=sha(child/'FILE_CUSTODY.json'),seed_files=[dict(path=str(child/('seed%d_COUNTS.json'%seed)),
+-        sha256=sha(child/('seed%d_COUNTS.json'%seed))) for seed in (0,1,2)])
++    return dict(status='COLLECTED_COMPLETE_DIAGNOSTIC_ONLY',result_path=str(child/'DIAGNOSTIC.json'),
++                result_sha256=sha(child/'DIAGNOSTIC.json'),final_custody_path=str(child/'FINAL_CUSTODY.json'),
++                final_custody_sha256=sha(child/'FINAL_CUSTODY.json'),file_custody_sha256=sha(child/'FILE_CUSTODY.json'))
++
+ 
+ 
+ def inventory(path):
+@@ -231,6 +203,7 @@
+ 
+ 
+ def main():
++    started = time.monotonic()
+     parser = argparse.ArgumentParser()
+     parser.add_argument('--release',type=Path,required=True)
+     parser.add_argument('--release-sha256',required=True)
+@@ -242,7 +215,7 @@
+     require(not (execution/'run01').exists() and not (execution/'supervision/run01').exists()
+             and execution.resolve()==execution, 'Fresh canonical output required')
+     execution.mkdir(parents=True,exist_ok=True)
+-    lock = execution/'CENSUS_ATTEMPT_SPENT.json'
++    lock = execution/'DIAGNOSTIC_ATTEMPT_SPENT.json'
+     with lock.open('x') as stream:
+         json.dump(dict(UTC=datetime.now(timezone.utc).isoformat(),release_sha256=args.release_sha256,
+             source_manifest_sha256=source_manifest_sha,parent_pid=os.getpid(),automatic_retry=False),stream)
+@@ -250,9 +223,9 @@
+     fsync_directory(execution)
+     output = execution/'supervision/run01';output.mkdir(parents=True,exist_ok=False)
+     fsync_directory(output.parent)
+-    started = time.monotonic();process = identity = None;stop = None;peak = 0
++    process = identity = None;stop = None;peak = 0
+     physical_complete = False;reaped = False;received = [];errors = [];actions = [];last_members = [];exit_observed = None
+-    command = [sys.executable,'-B',str(HERE/'census.py'),'--release',str(args.release),'--release-sha256',args.release_sha256]
++    command = [sys.executable,'-B',str(HERE/'diagnostic.py'),'--release',str(args.release),'--release-sha256',args.release_sha256]
+     durable_write(output/'STARTED.json',dict(UTC=datetime.now(timezone.utc).isoformat(),command=command,
+         source_manifest_sha256=source_manifest_sha,release_sha256=args.release_sha256,caps=plan['caps'],automatic_retry=False))
+     def interrupted(number,frame):
+@@ -277,6 +250,7 @@
+                 if received:stop='SUPERVISOR_SIGNAL'
+                 if time.monotonic()-started>plan['caps']['wall_seconds']:stop='WALL'
+                 if peak>plan['caps']['host_RSS_bytes']:stop='SAMPLED_SESSION_RSS'
++                if sum(path.stat().st_size for path in execution.rglob('*') if path.is_file())>plan['caps']['output_bytes']:stop='OUTPUT_BYTES'
+                 if ended is not None:
+                     require(ended.si_pid==process.pid,'Exact child waitid differs')
+                     exit_observed=dict(pid=ended.si_pid,code=ended.si_code,status=ended.si_status)
+@@ -338,8 +312,8 @@
+             linked=collect(execution,plan,runtime,args.release_sha256)
+         except BaseException as error:
+             linked=dict(status='FAILED_OR_INCOMPLETE_COLLECTION',type=type(error).__name__,condition=str(error))
+-        success=linked.get('status')=='COLLECTED_COMPLETE_TRAIN_METADATA_ONLY'
+-        terminal=dict(physical,status='COMPLETE_TRAIN_METADATA_ONLY' if success else 'FAILED_NO_CENSUS_ADOPTION',linked=linked,
++        success=linked.get('status')=='COLLECTED_COMPLETE_DIAGNOSTIC_ONLY'
++        terminal=dict(physical,status='COMPLETE_DIAGNOSTIC_ONLY' if success else 'FAILED_NO_DIAGNOSTIC_ADOPTION',linked=linked,
+             physical_terminal_path=str(output/'PHYSICAL_TERMINAL.json'),physical_terminal_sha256=physical_sha,
+             physical_terminal_commit_error=physical_commit_error)
+         durable_write(output/'TERMINAL.json',terminal)
+@@ -347,7 +321,7 @@
+             custody=dict(status=terminal['status'],terminal_path=str(output/'TERMINAL.json'),terminal_sha256=sha(output/'TERMINAL.json'),
+                 child_output_files=inventory(execution/'run01'),supervisor_output_files=inventory(output),root_lock_sha256=sha(lock),automatic_retry=False)
+         except BaseException as error:
+-            success=False;terminal['status']='CUSTODY_FAILED_NO_CENSUS_ADOPTION'
++            success=False;terminal['status']='CUSTODY_FAILED_NO_DIAGNOSTIC_ADOPTION'
+             terminal['custody_collection_error']=type(error).__name__+': '+str(error)
+             terminal_sha = None;terminal_commit_error = None
+             try:

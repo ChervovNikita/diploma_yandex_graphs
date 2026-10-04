@@ -1,0 +1,3 @@
+# CUDA startup correction
+
+The v3 worker failed before data/model loading because reset_peak_memory_stats(0) ran before Torch initialized CUDA. Its failed physical terminal is retained. This source moves the reset after the existing qualified ordinary_runtime, which authenticates the one visible GPU, calls set_device(0), and synchronizes. An explicit initialized/current-device check now precedes reset. No random draw, objective, batch, gradient, tolerance or cap changes. The inclusive wall timer still starts before the admission gate. A fresh execution directory prevents rewriting or restarting the failed attempt. Review and separate root admission are required; this preparation has not executed.
