@@ -1,0 +1,27 @@
+# Identical arm semantics and the frozen all-seed sign screen
+
+This is a source/hash-only assessment. It opens no actual model/Adam/RNG/input payload, predictive score or server, performs no numerical execution, modifies no source or gate, and gives no manuscript verdict. The preserved boundary-qualification source remains unchanged and runtime unqualified: manifest `8ec86a9e439e42d10e62f4cabc9a381a937530b01a71061dfb30d59a1cfefec1`.
+
+## Direct source evidence
+
+The full native continuation has no arm or seed identity argument. Its schedule uses `graph.teacher_backbone`; its scientific behavior uses the passed live model, optimizer, graph input, TRAIN/VALIDATION support and default RNG. Training/selection/stopping do not branch on arm name (canonical integration 458–499; reporting copy 458–563). v3 driver 159–168 passes only `initialized['model']`, `initialized['optimizer']`, the graph/roles and callbacks after restoring `initialized['rng']`.
+
+The selector maps absent selection to `common_slices`, deep-copies the same prototype, installs those slices, restores the same frozen named Adam, restores the same modes and copies the same native RNG (selector 454–474). The arm label is an output dictionary key and a selection-reason record. It is not a model forward argument. Tracing, saving and the observer can receive arm-dependent paths/identity, but those callbacks must remain observational; differences in IO/cost/failure are operational behavior, not a distinct scientific initialization or objective.
+
+The root reports, from TRAIN-only structure inspection of actual v3 Squirrel17, that fixed_first_graph_pair selects graph0 while selected_graph_pair and selected_permuted_span abstain and selected_random_span has no eligible pair. That report implies four intended common-state starts: common_only, selected_graph_pair, selected_permuted_span and selected_random_span. This assessment did not independently open that actual initialization or its custody receipt.
+
+## Conditional structural consequence
+
+If the root establishes identical complete forward-relevant architecture/configuration/model/buffer state, parameter aliases, Adam groups/options/steps/moments/links, gradients/modes/stage, default continuation RNG, exact captured native preprocessing, graph/roles/labels and scientific callback semantics, these four labels describe the same initialized algorithm in that paired seed. One prospectively shared observed realization gives identical selected and terminal evidence for those aliases. It does not create additional fits or independent seeds.
+
+The frozen screen requires favorable NLL signs in all three paired seeds on each graph versus every common/fixed/permuted/random control, as well as graph-wise mean improvement at least0.01 nats and the accuracy condition. Under the root's stated strictly favorable interpretation, a zero Squirrel17 selected-minus-common contrast fails a necessary conjunct. The other two seeds' values or graph-wise mean cannot repair that missing strict sign. In the reported block, selected-minus-permuted and selected-minus-random are alias contrasts too. The distinct fixed graph0 start does not need to be scored to establish failure of the common-comparison conjunct.
+
+This is a conditional design/screen failure, not a measured NLL result. Hashes/AST alone do not establish empirical numerical equivalence of separately repeated native runs. Nondeterministic backend kernels can produce different realized outputs from equal starts. A favorable discrepancy arising solely from repeating the same algorithm is not evidence of the selected initializer's mechanism. If the protocol has not yet bound shared-realization alias semantics or native repeatability, record that qualification limit rather than assert an empirical exact NLL tie. No extra full training is required to discover that the reported selected initialization contains no intervention versus common in this seed.
+
+## Prospective alias accounting, if adopted by the root
+
+Before any predictive value is inspected, bind the exact state/input/RNG equality evidence, one predetermined physical-fit owner (for example common_only), the alias-to-owner mapping, and how selected/midpoint/terminal artifacts refer to that observed realization. Preserve every logical arm, null/abstention reason and candidate-slot/trial receipt. Count one physical fit and one paired seed; charge all construction/attempted trials, the physical fit once and any alias reporting/storage overhead. Do not present aliases as independently trained replicates or use output values to choose their owner.
+
+A reuse declaration defines one common observed realization for scientifically identical starts; it does not prove that all separately repeated CUDA trajectories would be bitwise equal. Arm-dependent callbacks/observers must not affect model/Adam/gradients/modes/RNG or evaluation/selection. Failed identity checks prevent reuse. A genuinely distinct fixed graph0 initialization needs its own physical fit unless independently shown to be identical.
+
+The root can therefore preserve this source finding and the planned harness, retain the reported TRAIN-only abstentions, and avoid launching a thirty-continuation campaign merely to obtain favorable scores for a necessary all-seed predicate already structurally absent under verified alias semantics. This assessment does not execute that decision, change the screen, or supply a new result.
