@@ -1,0 +1,1 @@
+Reserved fresh continuation diagnostic execution root. No independent review or approved root release is issued. Numerical launch disabled; preserve source-v2 failure and never use engineering states as scientific donors.
