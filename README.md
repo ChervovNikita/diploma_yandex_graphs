@@ -6,7 +6,7 @@ GNNM's primary objective is better predictive accuracy through ensembling. Param
 
 The completed five-seed ogbl-collab TEST comparison gives 67.2909% Hits@50 for GNNM private completion, 66.4426% for native single64 and 67.6298% for the independent ensemble. The gain over the single is exploratory, and the frozen private-versus-pooled contrast is inconclusive. Collab TEST is consumed and its history will remain disclosed.
 
-Three frozen predictive families are running on the authorized machines: Amazon/Polynormer has 8 of 15 fits complete (ninth at 1,013/2,700 updates at 19:34 UTC), conditional-pattern Collab has 2 of 9 fits complete (separate seed 0 at 95 epochs), and DDI has 2 of 12 development fits complete. Comparisons remain unopened until each fixed cohort finishes. There is no partial score-driven choice or new claim from these queues.
+Three frozen predictive families are running on the authorized machines: Amazon/Polynormer has 8 of 15 fits complete (ninth at 1,946/2,700 updates at 20:07 UTC), conditional-pattern Collab has 3 of 9 fits complete (all seed-0 arms finished), and DDI has 2 of 12 development fits complete. Comparisons remain unopened until each fixed cohort finishes. There is no partial score-driven choice or new claim from these queues.
 
 A prospective graph-view study now specifies 30 fits with full official TRAIN labels, matched sharing/view controls, a view-augmented single, ordinary single/independent ensemble and native GNNM. Inputs and source versions are bound. Separate deterministic full-shape engineering checks reproduce the selected function and next update exactly. These checks supply no accuracy evidence. Scientific execution remains disabled pending the caller/resource and baseline-calibration requirements.
 
@@ -35,11 +35,11 @@ BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715
 
 ## Post-submission research
 
-Quality is the research priority. Current work tests a paired two-endpoint neighbour-pattern objective on Collab/DDI, transfer between members trained on different graph views, and graph-based selection of initial private-head covariance. Every direction has preserved prior-work checks and prospectively specified controls. A theoretical or numerical property alone does not establish predictive utility.
+Quality is the research priority. Current work tests a paired two-endpoint neighbour-pattern objective on Collab/DDI, transfer between members trained on different graph views, and graph-based selection of initial private-head covariance. Every direction has preserved prior-work checks and prospectively specified controls. Fresh native engineering checks for Squirrel and Photo are now launched once. A theoretical or numerical property alone does not establish predictive utility.
 
 The original GNNM and current Collab/DDI rankers average raw member scores. The separately specified graph-view experiment averages class probabilities. These pooling rules are explicit per experiment and are not interchangeable.
 
-See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v53/LITERATURE_INDEX.json) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). The literature index preserves 215 scoped conclusion records across 164 paper identities and two software identities. These are not full-paper-read totals. Historical dated updates below remain as recorded. Science uses only the authorized one-GPU allocation and 18.77 project repositories. The seven-GPU route is forwarding only.
+See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v54/LITERATURE_INDEX.json) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). The literature index preserves 217 scoped conclusion records across 165 paper identities and two software identities. These are not full-paper-read totals. Historical dated updates below remain as recorded. Science uses only the authorized one-GPU allocation and 18.77 project repositories. The seven-GPU route is forwarding only.
 
 
 ## Repository contents
