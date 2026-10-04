@@ -1,0 +1,1 @@
+Preserved pre-P0 source draft, 4 October 2026. Unexecuted and unqualified. Root added P0 prospectively after source review and before new outcomes. This retained variant is not an admitted alternative or model selection candidate. No failed or superseded source file is overwritten here.

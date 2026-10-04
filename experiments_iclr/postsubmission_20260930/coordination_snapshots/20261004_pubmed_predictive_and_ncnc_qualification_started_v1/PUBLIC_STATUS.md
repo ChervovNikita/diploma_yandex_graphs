@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated: 2026-10-04T03:30:39.265696+00:00. Goal active and incomplete. Original paper scores unchanged. No newly confirmed methodological advantage or fresh manuscript acceptance.
+Updated: 2026-10-04T02:49:11.799516+00:00. Goal active and incomplete. Original paper scores unchanged. No newly confirmed methodological advantage or fresh manuscript acceptance.
 
 ## New completed comparison
 
@@ -14,13 +14,9 @@ Without the new auxiliary, private NCNC completion averaged66.4130% saved valida
 
 ## Active compute and preparation
 
-Amazon's first GNNM Polynormer fit completed all2700updates successfully. At03:07:51UTC, its first native baseline was at128/2700updates, with the remaining fixed15-fit queue intact and no failure or partial quality/TEST read. [Exact owned monitor](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0013_RESULT.json).
+At02:32:30UTC, the original15-fit Amazon Polynormer comparison remained healthy on the authorized one-GPU route. Its first fit reached2483/2700updates; no partial quality or TEST was read. [Exact monitor](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0012_RESULT.json).
 
-Fresh native Pubmed-HeaRT training started on18.77 after the completed reference qualification. At03:26:21UTC, all three SAGE fits were complete; NCNC seed0 had reached epoch10. The cohort had23300completed Adam calls and125complete VALID serves, with no failure. This is three of six native baseline fits, not a GNNM transfer result. Scores await whole-cohort closure and separately admitted serialized-state replay. The native scientific source is unchanged across preserved supervisor corrections. [Root admission and exact monitor](pubmed_native_cohort_root_admission_20261004_v1/ACTIVE_MONITOR_001.json).
-
-The NCNC all25 checkpoint-audit v4's22-case fabricated qualification is running on18.77's other GPU. At03:26:21UTC,15cases had passed and seven were not yet attempted. The172original fabricated files were authenticated before CPU deserialization;46owned-copy payloads preserved model/Adam/RNG/flags exactly, with zero new updates and the original failed tree untouched. The actual scientific all25 audit and heldout confirmation remain pending. [Fixture custody and dispatch](ncnc_v4_fixture_release_preparation_20261004_v1/ROOT_PREPARATION_HANDOFF.json).
-
-The P0/J_P/F_P/C_mu source and fresh density inspection are complete. No algebraic blocker was found in the intended FP64 density; missing special-case QA and full native model/replay/batch feasibility remain. A separately sealed exact vectorized successor is being prepared. No fit or quality result follows from source inspection.
+Pubmed-HeaRT native CPU and full real-graph numerical qualification are COMPLETE. SAGE and NCNC each matched the reference across two native epochs per copy:292 engineering updates,12 complete VALID serves, six exact evaluator agreements and four serialized continuation checks. All observed floating differences were zero in this fixed profile. These are engineering checks, with no scientific accuracy result or allowed state donors. A fresh baseline cohort source is being prepared. [Qualification and preserved preflight failure](pubmed_v2_root_admission_20261004_v1/REPORT.md). All25 NCNC checkpoint-audit v4 has source approval and four limited stdlib checks; its22-case original-GPU qualification and actual all25 audit remain pending. The old exact-replay FAILED gate is preserved.
 
 ## Contribution and next evidence
 
