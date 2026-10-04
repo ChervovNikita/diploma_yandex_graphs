@@ -1,0 +1,124 @@
+--- graph_curvature_selector_exact_native_qualification_source_20261004_v1/runner.py
++++ graph_curvature_selector_exact_native_qualification_source_20261004_v2/runner.py
+@@ -125,20 +125,68 @@
+     return module, sys.modules['selector']
+ 
+ 
+-def exact_equal(left, right, torch):
++class ExactStateDifference(ValueError):
++    """Failed exact equality with compact path-aware details; never a tolerance."""
++    def __init__(self, details):
++        self.details = details
++        super().__init__('Exact state differs at '+details['path']+': '+details['reason'])
++
++
++def _exact_scalar(value):
++    import math
++    if isinstance(value, float) and not math.isfinite(value):
++        return 'NaN' if math.isnan(value) else '+Inf' if value > 0 else '-Inf'
++    return value
++
++
++def exact_equal(left, right, torch, path='$'):
++    """The v1 exact predicate, with diagnostics only when it rejects a state."""
+     if torch.is_tensor(left):
+-        require(torch.is_tensor(right) and left.dtype == right.dtype and left.shape == right.shape
+-            and torch.equal(left.cpu(),right.cpu()), 'Exact tensor state differs')
++        detail = dict(path=path, expected_kind='tensor', actual_kind=type(right).__name__,
++                      expected_dtype=str(left.dtype), expected_shape=list(left.shape),
++                      expected_device=str(left.device))
++        if not torch.is_tensor(right):
++            raise ExactStateDifference(dict(detail, reason='actual value is not a tensor'))
++        detail.update(actual_dtype=str(right.dtype), actual_shape=list(right.shape),
++                      actual_device=str(right.device))
++        if left.dtype != right.dtype:
++            raise ExactStateDifference(dict(detail, reason='tensor dtype differs'))
++        if left.shape != right.shape:
++            raise ExactStateDifference(dict(detail, reason='tensor shape differs'))
++        expected, actual = left.detach().cpu(), right.detach().cpu()
++        if not torch.equal(expected, actual):
++            # These summaries explain rejection; they never change its predicate.
++            unequal = expected != actual
++            first = torch.nonzero(unequal, as_tuple=False)[0]
++            index = tuple(int(value) for value in first.tolist())
++            delta = (expected.double()-actual.double()).abs()
++            detail.update(reason='tensor values fail torch.equal',
++                          different_elements=int(unequal.sum()),
++                          first_different_index=list(index),
++                          expected_value=_exact_scalar(expected[index].item()),
++                          actual_value=_exact_scalar(actual[index].item()),
++                          max_absolute_difference=_exact_scalar(float(delta.max())))
++            raise ExactStateDifference(detail)
+     elif isinstance(left, dict):
+-        require(type(left) is type(right) and set(left) == set(right), 'State keys differ')
++        if not (type(left) is type(right) and set(left) == set(right)):
++            raise ExactStateDifference(dict(path=path, reason='state dictionary type or keys differ',
++                expected_type=type(left).__name__,actual_type=type(right).__name__,
++                expected_keys=[repr(key) for key in left],
++                actual_keys=[repr(key) for key in right] if isinstance(right,dict) else None))
+         for key in left:
+-            exact_equal(left[key],right[key],torch)
++            exact_equal(left[key],right[key],torch,path=path+'['+repr(key)+']')
+     elif isinstance(left,(tuple,list)):
+-        require(type(left) is type(right) and len(left) == len(right), 'State sequence differs')
+-        for a,b in zip(left,right):
+-            exact_equal(a,b,torch)
++        if not (type(left) is type(right) and len(left) == len(right)):
++            raise ExactStateDifference(dict(path=path, reason='state sequence type or length differs',
++                expected_type=type(left).__name__,actual_type=type(right).__name__,
++                expected_length=len(left),actual_length=len(right) if isinstance(right,(tuple,list)) else None))
++        for index,(a,b) in enumerate(zip(left,right)):
++            exact_equal(a,b,torch,path=path+'['+str(index)+']')
+     else:
+-        require(left == right, 'State scalar differs')
++        if not left == right:
++            raise ExactStateDifference(dict(path=path, reason='state scalar value differs',
++                expected_type=type(left).__name__,actual_type=type(right).__name__,
++                expected_value=_exact_scalar(left),actual_value=_exact_scalar(right)))
+ 
+ 
+ def tensor_storage(value, torch):
+@@ -227,9 +275,11 @@
+             a,b = [bases[span][j].to(center.dtype)*radius for j in selector.PAIRS[index]]
+             expected = center[None,:]+torch.stack((a,-a,b,-b))
+         for name,value in out['model'].state_dict().items():
+-            exact_equal(expected if name == head else before[name],value,torch)
+-        exact_equal(frozen,adapter.named_optimizer_snapshot(out['model'],out['optimizer']),torch)
+-        exact_equal(checkpoint['rng'],out['rng'],torch)
++            exact_equal(expected if name == head else before[name],value,torch,
++                        path=f"returned_arms[{arm!r}].model[{name!r}]")
++        exact_equal(frozen,adapter.named_optimizer_snapshot(out['model'],out['optimizer']),torch,
++                    path=f"returned_arms[{arm!r}].optimizer")
++        exact_equal(checkpoint['rng'],out['rng'],torch,path=f"returned_arms[{arm!r}].rng")
+         require({name:module.training for name,module in out['model'].named_modules()} == modes,
+                 'Returned pretrial module modes differ')
+         with torch.no_grad():
+@@ -345,7 +395,8 @@
+         torch.save(checkpoint,out/'FRESH_NATIVE_WARM.pt')
+         roundtrip = torch.load(out/'FRESH_NATIVE_WARM.pt',map_location='cpu')
+         restored, restored_optimizer = costs.call('fresh_checkpoint_state_rng_restore',lambda:adapter.restore_native(native_api,roundtrip,device))
+-        exact_equal(checkpoint,adapter.native_checkpoint(restored,restored_optimizer,checkpoint['metadata']),torch)
++        exact_equal(checkpoint,adapter.native_checkpoint(restored,restored_optimizer,checkpoint['metadata']),torch,
++                    path='serialized_fresh_warm_checkpoint')
+         report['checks']['serialized_full_state_rng'] = dict(passed=True)
+         del restored, restored_optimizer, roundtrip
+         report['checks']['native_K4_Adam_correspondence'] = costs.call('actual_native_identity_frozen_factor_Adam',lambda:
+@@ -372,7 +423,8 @@
+         report['checks']['live_actual_native_factors'] = costs.call('disposable_live_factor_Adam_probe',lambda:
+             live_factor_probe(outputs['common_only'],graph,labels['train'],sources,torch))
+         adapter.rng_restore(checkpoint['rng'])
+-        exact_equal(checkpoint,adapter.native_checkpoint(native,optimizer,checkpoint['metadata']),torch)
++        exact_equal(checkpoint,adapter.native_checkpoint(native,optimizer,checkpoint['metadata']),torch,
++                    path='native_donor_after_qualification')
+         noncommon = any(row['pair'] is not None for row in receipt['selection'].values())
+         report.update(status='PASSED_ACTUAL_NATIVE_WARM_ENGINEERING_ONLY',warm_metadata=checkpoint['metadata'],
+             candidate_slots=9,trial_maps_started=receipt['trial_maps_started'],
+@@ -381,6 +433,8 @@
+             noncommon_return_state_qualification='CHECKED' if noncommon else 'UNRESOLVED_NO_ELIGIBLE_NATIVE_RETURN',
+             input_binding=binding,returned_arms_saved=False)
+     except Exception as error:
++        if isinstance(error, ExactStateDifference):
++            report['exact_state_difference'] = error.details
+         report.update(status='UNRESOLVED_OR_FAILED_ACTUAL_NATIVE_QUALIFICATION',error=type(error).__name__+': '+str(error),
+                       traceback=traceback.format_exc())
+     report.update(total_wall_seconds=time.perf_counter()-started_wall,

@@ -1,0 +1,1136 @@
+[
+  {
+    "tag": "h5",
+    "html_id": "modal-title",
+    "class": "modal-title",
+    "text": "Report GitHub Issue",
+    "index": 0
+  },
+  {
+    "tag": "p",
+    "html_id": "selectedTextModalDescription",
+    "class": null,
+    "text": "Content selection saved. Describe the issue below:",
+    "index": 1
+  },
+  {
+    "tag": "h1",
+    "html_id": null,
+    "class": "ltx_title ltx_title_document",
+    "text": "How to Train a Shallow Ensemble",
+    "index": 2
+  },
+  {
+    "tag": "p",
+    "html_id": "abstract1.1",
+    "class": "ltx_p",
+    "text": "Shallow ensembles provide a convenient strategy for uncertainty quantification in machine learning interatomic potentials, that is computationally efficient because the different ensemble members share a large part of the model weights. In this work, we systematically investigate training strategies for shallow ensembles to balance calibration performance with computational cost. We first demonstrate that explicit optimization of a negative log-likelihood (NLL) loss improves calibration with respect to approaches based on ensembles of randomly initialized models, or on a last-layer Laplace approximation. However, models trained solely on energy objectives yield miscalibrated force estimates. We show that explicitly modeling force uncertainties via an NLL objective is essential for reliable calibration, though it typically incurs a significant computational overhead. To address this, we validate an efficient protocol: full-model fine-tuning of a shallow ensemble originally trained with a probabilistic energy loss, or one sampled from the Laplace posterior. This approach results in negligible reduction in calibration quality compared to training from scratch, while reducing training time by up to 96 %. We evaluate this protocol across a diverse range of materials, including amorphous carbon, ionic liquids (BMIM), liquid water ( \\text{H}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{2}}}\\text{O} ), barium titanate (BaTiO3), and a model tetrapeptide (Ac-Ala3-NHMe), establishing practical guidelines for reliable uncertainty quantification in atomistic machine learning.",
+    "index": 3
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "I Introduction",
+    "index": 4
+  },
+  {
+    "tag": "p",
+    "html_id": "S1.p1.1",
+    "class": "ltx_p",
+    "text": "Introducing machine learning (ML) surrogate models and machine learning interatomic potentials (MLIPs) into first-principles atomistic modeling workflows should always be approached with care. Most ML models originate in statistical learning frameworks and therefore introduce additional uncertainty in their predictions, either from limited knowledge (epistemic uncertainty)[1], irreducible noise in the training data (aleatoric uncertainty)[2, 3] and the inability of the chosen ML architecture to capture complex physical interactions (model misspecification)[4]. These uncertainties add to the pre-existing discrepancies of observables computed with the electronic-structure method targeted for ML acceleration and experimental observations[5, 6].",
+    "index": 5
+  },
+  {
+    "tag": "p",
+    "html_id": "S1.p2.1",
+    "class": "ltx_p",
+    "text": "In practice, these additional sources of uncertainty can negate any advantages gained from using faster ML models. The successful deployment of ML models and trustworthy interpretation of ML-accelerated simulation, therefore, relies not only on accurate point estimates but also on the ability to quantify the reliability of predictions using well-calibrated uncertainty estimates [7] and, ultimately, practical ways to propagate predicted model uncertainties to derived quantities[8, 9]. Beyond data generation via active learning procedures [10, 11, 12, 13], calibrated uncertainties are essential for production simulations, where they can flag unreliable results or be propagated through downstream workflows, for example, quantifying the error on average thermodynamic quantities[9].",
+    "index": 6
+  },
+  {
+    "tag": "p",
+    "html_id": "S1.p3.1",
+    "class": "ltx_p",
+    "text": "Neural-network-based (NN) ML models gained popularity because they offer favourable asymptotic scaling for both training and inference, and they are supported by highly optimized implementations in general machine-learning frameworks. In contrast to models such as Gaussian Process Regressors (GPR), which provide built-in posterior inference [14], traditional NNs that are comprised of one set of model weights from maximum likelihood, or MAP training, are point estimators and must be equipped with approximate uncertainty quantification (UQ) schemes [15, 16]. Approximate NN UQ schemes typically either approximate the model posterior or try to estimate quantities that can serve as proxies to the confidence of model predictions.",
+    "index": 7
+  },
+  {
+    "tag": "p",
+    "html_id": "S1.p4.1",
+    "class": "ltx_p",
+    "text": "Common strategies to approximate the weight posterior include Bayesian Neural Networks [17] and Monte Carlo dropout [18] and Deep Ensembles [7]. Alternative approaches seek to reduce computational cost via direct Mean-Variance Estimation (MVE) [19, 20, 21] or by utilizing distance-based metrics in latent space, such as conformal prediction [22, 23, 24]. However, for MLIPs, full ensembles consisting of independently trained models are often favored for their robustness and simplicity[10].",
+    "index": 8
+  },
+  {
+    "tag": "p",
+    "html_id": "S1.p5.1",
+    "class": "ltx_p",
+    "text": "We recently introduced the “direct propagation of shallow ensembles” (DPOSE) scheme [25], an ensemble-based ML model UQ scheme, striking a good balance between accuracy and evaluation cost, which can be applied to any architecture and has low implementation complexity. DPOSE reduces the overhead of traditional full ensembles by sharing the model backbone and ensembling only the last layer, with a joint training procedure of all ensemble members simultaneously, using a probabilistic Gaussian negative log-likelihood (NLL) loss function. By integrating uncertainty awareness into the training procedure, DPOSE ensures well-calibrated uncertainty estimates with negligible additional training and evaluation cost. DPOSE has been successfully applied in materials modelling applications such as propagating the uncertainties of the universal machine-learning interatomic potential PET-MAD to melting-point calculations [26], performing active learning in surface catalysis [27], modelling general organic reactions [28], and detecting out-of-domain samples [29].",
+    "index": 9
+  },
+  {
+    "tag": "p",
+    "html_id": "S1.p6.1",
+    "class": "ltx_p",
+    "text": "An alternative approach to generate shallow ensembles is the Last Layer Prediction Rigidity (LLPR)[30, 31, 32] formalism. It is based on a Laplace approximation of the last layer posterior, and unlike DPOSE, it is applied post-training to a single, MSE-trained MLIP. In its original formulation, the LLPR method was only constructed for direct predictions, like energies, but not derivatives like forces. However, this extension was performed for the MACE-MP0 foundation model[33]. While the DPOSE method was not initially designed with explicit training for force uncertainty, it still showed potential for providing reliable force estimates. However, the actual impact of adding force uncertainty-aware training to the DPOSE model remained untested until now. The last-layer-based nature of the two approaches naturally raises the question of their similarity and efficacy. Specifically, it is unclear whether DPOSE is merely a Monte Carlo approximation of the same posterior targeted by LLPR, or whether the calibration of uncertainties arises from the learned features of the whole model. Furthermore, including a probabilistic force loss poses some challenges during training as computing the associated uncertainties requires evaluating the Jacobian of ensemble member energies with respect to coordinates, which, unlike the probabilistic energy training, incurs a high cost. It is therefore crucial to explore efficient ways for force uncertainty-aware training.",
+    "index": 10
+  },
+  {
+    "tag": "p",
+    "html_id": "S1.p7.1",
+    "class": "ltx_p",
+    "text": "In this work, we explore the design space of DPOSE training strategies for neural network (NN) based MLIPs. We compare the quality of shallow ensemble and LLPR uncertainties, discuss the necessary steps required for well-calibrated force uncertainty estimates, and conclude by providing practical recommendations for training efficient, uncertainty-aware potentials.",
+    "index": 11
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "II Methods",
+    "index": 12
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "II.1 Machine learning interatomic potentials",
+    "index": 13
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "Accurate interatomic potentials are central to atomistic modelling, enabling the connection between microscopic structure and macroscopic observables via statistical physics. MLIPs trained on quantum chemical reference data describe potential energy surfaces with high accuracy while significantly reducing computational cost. Unlike the underlying electronic structure methods (e.g., DFT), MLIPs typically achieve linear scaling with system size by decomposing the total potential energy E(A,\\boldsymbol{\\theta}) into atomic contributions \\varepsilon(A_{i},\\boldsymbol{\\theta}) [34]:",
+    "index": 14
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.EGx1",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle E(A,\\boldsymbol{\\theta})=\\sum_{i}^{N_{\\text{atoms}}}\\varepsilon(A_{i},\\boldsymbol{\\theta}) (1)",
+    "index": 15
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS1.p3.1",
+    "class": "ltx_p",
+    "text": "These atomic contributions depend on the local atomic environment A_{i} and the learnable model parameters \\boldsymbol{\\theta} . The atomic forces \\boldsymbol{F}_{i} required for molecular dynamics are obtained analytically as the negative gradient of this potential energy surface with respect to atomic positions \\boldsymbol{r}_{i} :",
+    "index": 16
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.EGx2",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle\\boldsymbol{F}_{i}(A,\\boldsymbol{\\theta})=-\\nabla_{\\boldsymbol{r}_{i}}E(A,\\boldsymbol{\\theta}) (2)",
+    "index": 17
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS1.p5.1",
+    "class": "ltx_p",
+    "text": "While architectures differ in how they encode A_{i} , the models used in this work share some common architectural motifs. First, interatomic distances are expanded within a spherical cutoff using radial basis functions. The radial two-body information may be augmented by angular and many-body descriptors and (non-)linear transformations in order to enhance the representational fidelity needed to represent complex atomistic environments[35, 36].",
+    "index": 18
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS1.p6.1",
+    "class": "ltx_p",
+    "text": "Crucially for the uncertainty quantification methods discussed later, the final atomic energy is predicted by mapping this learned feature representation \\boldsymbol{h}_{i} through a linear readout layer:",
+    "index": 19
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.EGx3",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle\\varepsilon(A_{i},\\boldsymbol{\\theta})=\\boldsymbol{w}^{\\top}\\boldsymbol{h}_{i}+b (3)",
+    "index": 20
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS1.p8.1",
+    "class": "ltx_p",
+    "text": "In this work, we use Gaussian Moment Neural Networks (GMNN) [37, 38] through their efficient implementation in the apax package [39]. We perform some additional experiments using So3krates [40] and a NequIP-style[41] potential, referred to as EquivMP, on selected datasets to test the transferability of our findings to different model architectures. A more detailed description of the three architectures can be found in SI Section S1. All trainings and model evaluations are performed with IPSuite[42].",
+    "index": 21
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "II.2 Uncertainty estimation",
+    "index": 22
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "To quantify the uncertainty of a model’s predictions, we move from single-point estimates to a probabilistic framework. In a rigorous Bayesian treatment, the model parameters are random variables, and the predictive distribution for a target y is obtained by marginalizing over these parameters.",
+    "index": 23
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E4",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "p(y|A,\\mathcal{D})=\\int p(y|A,\\boldsymbol{\\theta})p(\\boldsymbol{\\theta}|\\mathcal{D})\\mathop{}\\!\\mathrm{d}\\boldsymbol{\\theta} (4)",
+    "index": 24
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS2.p3.1",
+    "class": "ltx_p",
+    "text": "As this integral is intractable for deep neural networks, practical methods must find suitable approximations, such as stochastic gradient Markov chain Monte Carlo[43, 44]. Ensembling independently trained models is one of the most common strategies for MLIPs. Due to the non-convexity of the neural network parameter optimization problem, different random weight initializations are sufficient to make models converge to distinct local minima of the loss landscape[45, 46]. Consequently, each model provides different predictions y^{(k)}(A) for property y of the inputs A . Mean, and error can then be estimated as:",
+    "index": 25
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E5",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\bar{y}(A)=\\frac{1}{n_{\\text{ens}}}\\sum^{n_{\\text{ens}}}_{k=1}y^{(k)}(A) (5)",
+    "index": 26
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E6",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\sigma^{2}_{n_{\\text{ens}}}(A)=\\frac{1}{n_{\\text{ens}}-1}\\sum^{n_{\\text{ens}}}_{k=1}{[y^{(k)}(A)-\\bar{y}(A)]^{2}}. (6)",
+    "index": 27
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS2.p5.1",
+    "class": "ltx_p",
+    "text": "While conceptually simple, this strategy incurs an n_{\\text{ens}} -fold increase in asymptotic training and inference time. In most atomistic modeling tasks, such a slowdown is not acceptable, as other sources of uncertainties at a fixed computational budget may increase, such as sampling uncertainties when only n_{\\text{ens}} times shorter simulations may be run.",
+    "index": 28
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "II.3 Efficient Last-Layer Approximations",
+    "index": 29
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p1.1",
+    "class": "ltx_p",
+    "text": "To circumvent the cost of a full Bayesian treatment and full ensembles, we utilize last-layer approximations. The cost of ensembling can be reduced by committees that partially or fully share weights up to the readout layer via the DPOSE approach[25]. In DPOSE, a shallow ensemble consisting of multiple output units of the readout layer in Equation 3 is trained in an end-to-end manner by minimizing the Gaussian NLL loss:",
+    "index": 30
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E7",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\text{NLL}(\\Delta y,\\sigma)=\\frac{1}{2}\\Big[\\frac{\\Delta y^{2}}{\\sigma^{2}}+\\ln(2\\pi\\sigma^2)\\Big] (7)",
+    "index": 31
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p3.1",
+    "class": "ltx_p",
+    "text": "which is summed over the training set and depends on the empirical error \\Delta y and the predicted ensemble variance \\sigma^{2} of each sample. In this formulation, all parameters are jointly optimized, allowing uncertainty information to propagate into the deeper layers during training. For forward properties like energy, the computational overhead is simply that of a larger last-layer readout.",
+    "index": 32
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p4.1",
+    "class": "ltx_p",
+    "text": "As an analytical alternative, the LLPR framework applies a Laplace approximation to the posterior of the last-layer based on a single model trained with an MSE loss.",
+    "index": 33
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E8",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\text{MSE}(\\Delta y)=\\frac{1}{N}\\sum_{i=1}^{N}(\\Delta y_{i})^{2} (8)",
+    "index": 34
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p6.1",
+    "class": "ltx_p",
+    "text": "The parameters at the loss minimum correspond to the maximum a posteriori (MAP) estimate \\theta_{\\text{MAP}} . Assuming that \\theta_{\\text{MAP}} is a local minimum of the loss function, a second-order Taylor expansion of the posterior distribution p(\\theta|\\mathcal{D}) around \\theta_{\\text{MAP}} yields:",
+    "index": 35
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E9",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "p(\\theta|\\mathcal{D})\\approx\\mathcal{N}(\\theta|\\theta_{\\text{MAP}};\\Sigma_{\\text{LL}}) (9)",
+    "index": 36
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p8.1",
+    "class": "ltx_p",
+    "text": "The covariance \\Sigma_{\\text{LL}} is the inverse Hessian of the loss with respect to the parameters at the MAP solution. For the last-layer weights, the covariance \\Sigma_{\\text{LL}} is approximated as",
+    "index": 37
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E10",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\Sigma_{\\text{LL}}\\approx\\alpha^{2}(\\mathbf{H}+\\eta^{2}\\mathbf{I})^{-1} (10)",
+    "index": 38
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p10.1",
+    "class": "ltx_p",
+    "text": "where \\mathbf{H} is the generalized Gauss-Newton approximation of the Hessian for the training loss, \\alpha is a calibration scalar, and \\eta^{2}\\mathbf{I} is a regularization term. This approximation is used to avoid the high computational cost of exact second derivatives. The calculation of the approximated Hessian is discussed in more detail in Section S2 as the concrete contributions are dependent on the loss function. An analytic uncertainty estimate for a query structure A with aggregated features \\boldsymbol{h}(A)=\\sum_{i\\in S}\\boldsymbol{h}_{i} is then given by:",
+    "index": 39
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E11",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\sigma_{E}^{2}(A)=\\boldsymbol{h}(A)^{\\top}\\Sigma_{\\text{LL}}\\boldsymbol{h}(A) (11)",
+    "index": 40
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p12.1",
+    "class": "ltx_p",
+    "text": "It is also possible to draw samples from the last layer posterior distribution. By sampling an ensemble of last-layer weights from the LLPR posterior, we can construct models that are architecturally identical to a Shallow Ensemble.",
+    "index": 41
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E12",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\boldsymbol{\\theta}_{\\text{LL,ens}}\\sim\\mathcal{N}(\\boldsymbol{\\theta}_{\\text{LL,MAP}},\\boldsymbol{\\Sigma}_{\\text{LL}}) (12)",
+    "index": 42
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS3.p14.1",
+    "class": "ltx_p",
+    "text": "In practice, the mean of the sampled \\theta_{\\text{LL,ens}} is constrained to exactly the MAP solution \\theta_{\\text{MAP,LL}} as discussed in Section S2. The explicit committee predictions, just like for a DPOSE ensemble, can then be practically used to propagate the committee predictions through arbitrarily complex workflows.",
+    "index": 43
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "II.4 Estimating Force Uncertainty",
+    "index": 44
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS4.p1.1",
+    "class": "ltx_p",
+    "text": "Applications, such as active learning, profit strongly from calibrated estimators of the force uncertainty[47, 48, 49, 50]. For Shallow Ensembles, we quantify this uncertainty as the standard deviation of the ensemble force predictions. The force prediction for the k -th ensemble member is given by the gradient of its energy with respect to atomic coordinates:",
+    "index": 45
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E13",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\mathbf{F}_{i}^{(k)}=-\\nabla_{\\mathbf{r}_{i}}E^{(k)}(A) (13)",
+    "index": 46
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS4.p3.1",
+    "class": "ltx_p",
+    "text": "When training ensembles end-to-end with force uncertainties, we treat each force component as an independent random variable. Consequently, the NLL loss is computed component-wise using Equation 7. It should be noted that Willow et al.[51] use a block diagonal approximation for force uncertainty informed NLL losses, which considers the covariance of force components on each atom in the context of a mean-variance estimation model. While they report improvements in force uncertainty calibration compared to only using an energy NLL loss, it remains an open question whether the added complexity of modelling intra-atomic covariance is strictly necessary for calibration compared to a simpler component-wise independent approach.",
+    "index": 47
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS4.p4.1",
+    "class": "ltx_p",
+    "text": "In the LLPR framework, force uncertainties can be obtained from variance propagation. Since forces are the negative gradient of the energy, the uncertainty depends on the Jacobian of the learned features \\boldsymbol{h}(A) with respect to the atomic coordinates \\mathbf{r} . The analytic force variance is given by:",
+    "index": 48
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E14",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\boldsymbol{\\sigma}_{F}^{2}(A)=\\text{diag}\\Big(\\mathbf{J}(A)\\boldsymbol{\\Sigma}_{\\text{LL}}\\mathbf{J}(A)^{\\top}\\Big) (14)",
+    "index": 49
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS4.p6.1",
+    "class": "ltx_p",
+    "text": "where \\mathbf{J}(A) is the feature-coordinate Jacobian. While this analytic approach has been applied to foundation models like MACE-MP0 [33], it relies on a covariance \\boldsymbol{\\Sigma}_{\\text{LL}} constructed solely from the energy Hessian. In this work, we include the force loss contributions in \\boldsymbol{\\Sigma}_{\\text{LL}} and we refer to Section S2 for more information.",
+    "index": 50
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS4.p7.1",
+    "class": "ltx_p",
+    "text": "While energy UQ is cheap for both Shallow Ensembles and LLPR, force uncertainty estimation incurs a significant computational cost. For shallow ensembles, the evaluation cost of derivative quantities scales linearly with the ensemble size n_{\\text{ens}} (modulo efficient vectorization), as gradients must be computed for each ensemble member, regardless of the degree of weight sharing. Computing analytic LLPR force uncertainty estimates requires computing the full Jacobian matrix \\mathbf{J}\\in\\mathbb{R}^{3N_{\\text{atoms}}\\times D} . For models with large feature vectors, this is prohibitively expensive compared to standard backpropagation. Table 1 compares the training and evaluation costs of these strategies.",
+    "index": 51
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS4.p8.1",
+    "class": "ltx_p",
+    "text": "To avoid the high cost of analytic LLPR evaluation, we sample a committee from the posterior (Eq. 12), replacing the force-feature Jacobian computation ( D backprops) with gradients of a small ensemble ( n_{\\text{ens}}\\ll D ). For inference, apax[39] further optimizes performance by computing force uncertainties only for logged configurations, otherwise evaluating the mean energy gradient at single-model cost. However, this optimization does not apply to training with a probabilistic force loss, which requires evaluating ensemble variance at every step. Beyond efficiency, sampled ensembles serve as initializations for fine-tuning. Ultimately, all strategies yield an identical structure: a shared backbone acting as a feature map, followed by a committee of last-layer weights. The key difference between all approaches is to what extent the uncertainty information is permitted to flow into the hidden layers during the learning process, and which uncertainties are explicitly considered in the loss function. To distinguish the various ways we construct uncertainty estimators, we summarize the abbreviations used in this work in Table 2.",
+    "index": 52
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "II.5 Post-hoc Calibration and Evaluation of Uncertainty Estimates",
+    "index": 53
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS5.p1.1",
+    "class": "ltx_p",
+    "text": "Even with rigorous training objectives and posterior descriptions, uncertainty estimates from neural networks may be miscalibrated [6]. To address this, we apply a post-hoc calibration step, in a similar spirit to temperature scaling approaches in classification[52]. In the regression setting, an analogous correction can be achieved by scaling the predicted variances \\sigma(A)^{2} by a scalar factor \\alpha^{2} . Minimizing the NLL with respect to \\alpha on a held-out validation set yields a closed-form analytical solution for the calibration factor[53].",
+    "index": 54
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E15",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\alpha^{2}=\\frac{1}{n_{\\textrm{val}}}\\sum_{A\\in\\text{val}}\\frac{\\Delta y(A)^{2}}{\\sigma(A)^{2}} (15)",
+    "index": 55
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS5.p3.1",
+    "class": "ltx_p",
+    "text": "where \\Delta y(A) is the prediction error on the validation sample A . Technically, adding a post-hoc calibration factor to DPOSE uncertainty estimates is not strictly necessary, since DPOSE is trained by directly minimizing an NLL objective; nevertheless, for best comparability between LLPR uncertainty and other uncertainty estimators that are fine-tuned or trained with an NLL loss, we also apply the same post-hoc calibration procedure to these NLL-optimized estimators, and, as expected, find that the resulting calibration factors consistently lie close to 1. For energy and force predictions, a shared calibration factor can be motivated by interpreting calibration as a linear rescaling of the ensemble members around the mean,",
+    "index": 56
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E16",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "E^{(k)}_{\\text{cal}}(A)=\\bar{E}(A)+\\alpha[E^{(k)}(A)-\\bar{E}(A)] (16)",
+    "index": 57
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS5.p3.2",
+    "class": "ltx_p",
+    "text": "Since the force is the negative gradient of the energy, the scaling of the ensemble energies with a scalar calibration factor propagates directly to the ensemble of forces and hence their calibration. Consequently, if miscalibration arises purely from a global scaling error in the energy landscape, a single scalar \\alpha is sufficient to calibrate both targets. Alternatively, the calibration may be decoupled by optimizing separate factors \\alpha_{E} and \\alpha_{F} for energies and forces, respectively. This decoupling accounts for the noise scales of the different targets, even though it makes the energies and forces of the calibrated ensemble members inconsistent. While more advanced post-hoc calibration techniques exist[22], we focus here on scalar rescaling to isolate the effects of the underlying feature representation.",
+    "index": 58
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS5.p4.1",
+    "class": "ltx_p",
+    "text": "To evaluate the quality of uncertainty estimates, the standard metric is the NLL of the ground truth y_{\\text{ref}} given the model’s predictive distribution. However, the absolute magnitude of the NLL is dominated by the model’s predictive accuracy (RMSE), making it difficult to compare uncertainty strategies across datasets with different scales. To overcome this limitation, we utilize a normalized metric, the Relative Log-Likelihood (RLL) introduced by Kellner and Ceriotti[25].",
+    "index": 59
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E17",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\text{RLL}=\\frac{\\text{NLL}_{\\text{model}}-\\text{NLL}_{\\text{base}}}{\\text{NLL}_{\\text{oracle}}-\\text{NLL}_{\\text{base}}}\\cdot 100\\%. (17)",
+    "index": 60
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS5.p6.1",
+    "class": "ltx_p",
+    "text": "The RLL rescales the NLL score between a worst-case baseline and a best-case oracle. The baseline term \\text{NLL}_{\\text{base}} corresponds to a constant uncertainty estimate equal to the test set RMSE, \\sigma(A)=\\text{RMSE} . The oracle term \\text{NLL}_{\\text{oracle}} represents the ideal uncertainty estimate where \\sigma(A)=|\\Delta y(A)| . Consequently, an RLL of 0% indicates no information gain over a constant error assumption, while 100% indicates perfect uncertainty quantification. A variety of other metrics have been developed to analyse the quality of uncertainty estimation strategies[21, 22, 54]. We refer to references [55, 6] for a more detailed discussion on comparing uncertainty estimators and calibration in atomistic modelling. Throughout this work, we will use the RLL as the metric to compare uncertainty estimators and additional plots of predicted uncertainties \\sigma(A) against prediction errors |\\Delta y(A)| as an additional tool to visually inspect the quality of uncertainty estimators.",
+    "index": 61
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "II.6 Description of Datasets",
+    "index": 62
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS6.p1.1",
+    "class": "ltx_p",
+    "text": "We evaluate our methods on five diverse benchmark datasets covering molecular liquids, solids, and flexible biomolecules. First, the [Bmim]BF4 (BMIM) ionic liquid dataset [12] contains 1320 training and 100 validation structures of 10 ion pairs. Originally generated to compute diffusion coefficients, the training set was constructed via active learning across diverse temperatures and densities, while the test set was sampled from a classical force field trajectory at constant volume (500 K). Reference labels were computed using the B97-3C functional [56, 57] with D3 dispersion corrections [58].",
+    "index": 63
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS6.p2.1",
+    "class": "ltx_p",
+    "text": "For solid-state systems, we utilize the Barium Titanate ( \\text{BaTiO}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{3}}} ) dataset [59], which consists of 1458 structures sampled from the four para- and ferroelectric phases. These structures were originally generated to study phase transitions, with reference data computed at the PBEsol level of theory. Additionally, we consider a liquid water ( \\text{H}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{2}}}\\text{O} ) dataset [60] containing 1593 structures generated to study the phase diagram and quantum nuclear effects. Configurations were sampled from high-temperature quenches of classical molecular dynamics simulations and ambient-condition path integral simulations, with labels computed at the revPBE0-D3 level of theory.",
+    "index": 64
+  },
+  {
+    "tag": "p",
+    "html_id": "S2.SS6.p3.1",
+    "class": "ltx_p",
+    "text": "To assess performance on flexible biological molecules, we use the Ac-Ala3-NHMe (Ala4) tetrapeptide dataset, a subset of the MD22 benchmark [61] computed at the PBE+MBD level of theory. Finally, as a challenging test for disordered environments with high energetic variability, we select a subset of the Carbon GAP-2017 dataset [62], consisting of all structures containing 64 atoms originally generated to study amorphous carbon.",
+    "index": 65
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "III Results",
+    "index": 66
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "III.1 Comparing Shallow Ensemble and LLPR Energy Uncertainty Estimates",
+    "index": 67
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "We begin by evaluating the capacity of last-layer methods to estimate energy uncertainty across the five benchmark datasets. For this purpose, we compare Shallow Ensemble trained with an NLL loss for energy and MSE loss for forces (SEE), and the LLPR approach using only energy loss contributions to the Hessian (LLPRE) with an underlying base model that was trained with MSE losses for both targets. In both cases, the models are post-hoc calibrated using Equation 15. To ensure statistical robustness, all training runs are repeated with three random seeds, and reported metrics represent the mean of these results. In the case of BMIM, we note a distributional shift between the validation and test datasets. The post-hoc calibration based on the validation dataset results in systematically underconfident uncertainty estimates for both uncertainty estimation approaches. By reshuffling the dataset splits, the distributional shift can be avoided. We trained SEE models on both splits and found the one trained on the reshuffled split to achieve significantly better RLLs. The comparison of the two models is shown in SI Figure S2. For all experiments in the main text, we use the reshuffled version of the dataset. In the case of Ala4, we computed a learning curve of the energy RLL with respect to the training set size, which can be found in Section S4. Among the datasets considered here, it is the most flexible system, where accurate uncertainty quantification requires sampling a diverse range of torsional states that are less repetitive than the local environments found in bulk liquid or solid-state systems. The learning curve is shown in Figure S1. The resulting prediction accuracy and calibrated Energy RLLs are summarized in Table 3.",
+    "index": 68
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "We find that the inclusion of the energy NLL leaves the quality of energy predictions largely unchanged compared to the MSE baseline (LLPRE). However, we observe a trade-off in force accuracy for Ala4 and \\text{BaTiO}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{3}}} . Despite this trade-off, the calibration benefits of the Shallow Ensemble are substantial. The Shallow Ensemble achieves consistently positive energy RLLs across all five benchmark datasets, indicating that it consistently provides uncertainty estimates that are more informative than a constant baseline. In contrast, the LLPRE approach exhibits significant failure modes, yielding negative RLLs for Ala4 , Amorphous Carbon, and most notably BMIM. To understand the mechanisms behind these scores, we visualize the relationship between predicted uncertainty and empirical error in Figure 1a) for the BMIM dataset.",
+    "index": 69
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS1.p3.1",
+    "class": "ltx_p",
+    "text": "While the predicted uncertainties of SEE align well with the diagonal, LLPRE exhibits a vertical “tail” of points where the predicted uncertainty remains low even as the error spikes to > 50 meV/atom. These overconfident outliers correspond to structures in the very low-density regime that were originally constructed during active learning (see Figure S2b)). The fact that LLPRE assigns these structures the same low uncertainty suggests a feature rigidity issue where the pre-trained MSE features have mapped these distinct outliers to the same region of latent space as the easier bulk structures, making them indistinguishable to the last-layer posterior.",
+    "index": 70
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS1.p4.1",
+    "class": "ltx_p",
+    "text": "We investigate whether these failures stem from the Laplace approximation itself or the underlying feature representation by comparing last-layer fine-tuning (LL FT), which updates only the readout weights while keeping the backbone frozen, and full-model fine-tuning (Full FT), which allows the internal feature representation to adapt by relaxing all model parameters. Both fine-tuning strategies use the NLL loss. Table 4 summarizes the energy RLLs obtained via these two fine-tuning protocols, and Figure 1b) portrays the empirical-predicted error plots.",
+    "index": 71
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS1.p5.1",
+    "class": "ltx_p",
+    "text": "We observe that fine-tuning the LLPRE initialization with an energy NLL loss yields consistent improvements in calibration across all datasets except \\text{BaTiO}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{3}}} . For Carbon, a simple last-layer fine-tuning is sufficient to turn the negative RLL positive, suggesting that for some systems, the features are adequate and only the last-layer posterior needs adjustment. However, the limitations of the fixed backbone are starkly visible in the BMIM dataset. Here, Last-Layer Fine-Tuning fails to solve the issue and further degrades the RLL to -137.6. It implies that the failure is not due to the Gaussian approximation of the posterior, but rather due to feature collapse in the backbone. The linear head cannot find a set of weights that separates the outliers from the bulk because their feature representations are effectively identical. Consequently, to achieve reliable calibration across all datasets, it is necessary to update the backbone via Full-Model Fine-Tuning. As shown in Figure 1b), Full FT successfully eliminates the overconfident tail observed in the frozen model as it allows the backbone to move these outliers to a distinct region of the latent space. By allowing the NLL loss to update the representation, the model learns to disentangle high-error configurations from the bulk, assigning them the higher variance they warrant. This restores the diagonal correlation and recovers an RLL of 65.6, effectively matching the quality of the more expensive scratch-trained Shallow Ensemble (64.8).",
+    "index": 72
+  },
+  {
+    "tag": "h4",
+    "html_id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "III.2 Calibrated Force Uncertainties",
+    "index": 73
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "While energy uncertainty is critical for global stability, many downstream applications, such as active learning, rely on accurate force uncertainty estimates to detect local instability[63]. We therefore investigate whether models optimized or calibrated solely for energy uncertainty can provide reliable force uncertainty estimates.",
+    "index": 74
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p2.1",
+    "class": "ltx_p",
+    "text": "We first evaluate the force calibration of SEE and LLPRE. As shown in the left column of Table 5, the direct application of these energy-calibrated models to force uncertainty estimation yields poor results, with negative RLLs across almost all datasets.",
+    "index": 75
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p3.1",
+    "class": "ltx_p",
+    "text": "To remedy this, we explore using independent calibration factors for energy and force uncertainties as a low-cost post-hoc fix. By optimizing separate scalars \\alpha_{E} and \\alpha_{F} on the validation set, we account for the differing units and error scales. As seen in the right column of Table 5, this simple decoupling restores positive force RLLs for three of the datasets for both approaches. Notably, for Water, this recovers the result from Ref. [25], where SEE yielded calibrated forces. However, for the challenging Carbon and BMIM datasets, independent calibration fails to produce reliable estimates, with RLLs remaining negative.",
+    "index": 76
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p4.1",
+    "class": "ltx_p",
+    "text": "Closer inspection of the worst case, BMIM in Figure 2a) and b) reveals that far from being an issue of global miscalibration, an element-dependent clustering of force uncertainty estimates arises. The models are systematically overconfident for Boron and Fluorine atoms (the anion) while describing the organic cation’s uncertainty well. These findings align with recent work by Ho et al. [22], who identified element-wise variations in the reliability of LLPRE force uncertainties, although the effect is even more pronounced here. Hence, a single scalar cannot simultaneously correct these disjoint distributions. To ensure that the results are not specific to a particular choice of model architecture, we evaluate both approaches using two other model architectures, So3krates and a NequIP-like equivariant message-passing model. As shown in Figure S5, the element-specific miscalibration of LLPRE is reproduced with two other architectures.",
+    "index": 77
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p5.1",
+    "class": "ltx_p",
+    "text": "To address this issue, we replace the MSE loss function for the forces with an NLL loss for the shallow ensemble and add the force loss contribution to the Hessian for LLPR. We refer to these models as SEE,F and LLPRE,F, respectively. While SEE is practically unrestricted in the size of the ensemble, as the cost is just that of an additional linear layer, calculating all gradients of ensemble energies with respect to atomic positions via backpropagation incurs a significant increase in training times. Consequently, we performed a convergence test of the calibration metrics with respect to ensemble size and found an ensemble with 32 members to be sufficient for all datasets. The associated empirical-predicted error plots are displayed in Section S3.",
+    "index": 78
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p6.1",
+    "class": "ltx_p",
+    "text": "As shown in Figure 2c) and d), the improvements of LLPRE,F over LLPRE are minute, while the Shallow Ensemble trained with Force NLL successfully removes the element-specific miscalibration. The energy and force RLLs of the two force-informed approaches are listed in Table 6 as well as the calibration factors. The corresponding prediction metrics are summarized in Table S1. Here, too, we find the inclusion of the NLL loss does not significantly affect the prediction metrics. For the \\text{BaTiO}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{3}}} dataset, we found LLPRE,F to be highly sensitive to initialization. The method produced a valid uncertainty estimate in only one of three seeds; the other two seeds yielded degenerate solutions with RLLs of -37.9 and -104.7. We report the successful seed to illustrate the potential performance on this dataset, but emphasize that robust application to \\text{BaTiO}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{3}}} likely requires further stabilization techniques.",
+    "index": 79
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p7.1",
+    "class": "ltx_p",
+    "text": "SEE,F achieves massive RLL improvements across the board and achieves positive RLLs for BMIM and Carbon, demonstrating the benefits of force-uncertainty aware training. Further, the two calibration factors are much closer to 1.0 for SEE,F, indicating that the models are well-calibrated even without further post-hoc scaling. We attribute the failure modes of LLPRE,F to feature rigidity. Because LLPRE,F is applied post hoc, it relies entirely on the quality of the pretrained features. In contrast, SEE,F explicitly incorporates uncertainty during training, which encourages the backbone to learn representations that are more suitable for calibration.",
+    "index": 80
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p8.1",
+    "class": "ltx_p",
+    "text": "To investigate the origin of the element-specific miscalibration observed for LLPRE,F on the BMIM dataset, we analyzed the curvature of the loss landscape with respect to the last-layer parameters. Specifically, we computed the Hessian of the force loss in the Gauss-Newton approximation. Figure 3 displays the eigenvalue spectra of the total Hessian (computed over all atoms) alongside the spectra of the partial Hessians computed exclusively for Carbon (cation) and Fluorine (anion) atoms.",
+    "index": 81
+  },
+  {
+    "tag": "p",
+    "html_id": "S3.SS2.p9.1",
+    "class": "ltx_p",
+    "text": "For the MSE-trained model used in LLPRE,F, we observe a significant spectral mismatch. The eigenvalue spectrum of the Fluorine partial Hessians deviates considerably from the Full Hessian and the Carbon Hessian. This indicates that the sensitivity of the model parameters with respect to fluorine forces is fundamentally different from the global average. Since the Laplace approximation approximates the posterior using the inverse of the full Hessian, this mismatch results in a covariance matrix that is ill-suited for fluorine, leading to the systematic miscalibration observed in the empirical-predicted error plots. We also assess the suitability of SEE,F features by applying LLPRE,F to an SEE,F model. While this outperforms the MSE-trained baseline, it also shows the element-specific miscalibration. Further, we consider the impact of omitting the energy contribution to the LLPR Hessian and confirm that the miscalibration still persists. The resulting empirical-predicted error plot is shown in Figure S6. Consequently, the superior performance of end-to-end trained shallow ensembles stems from the joint flexibility of the backbone features and the last layer.",
+    "index": 82
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "IV Efficient Generation of Last-Layer Ensembles",
+    "index": 83
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p1.1",
+    "class": "ltx_p",
+    "text": "While training shallow ensembles from scratch with force NLL loss yields well-calibrated uncertainty estimates, the computational cost is significant. Since the training time scales linearly with the ensemble size n_{\\text{ens}} (provided the GPU is saturated), training such ensembles from scratch can be prohibitively expensive for large models. We measured training times for single models and ensembles of sizes n_{\\text{ens}}\\in\\left(4,8,10,16,32,64,96\\right) for the BMIM dataset. The time per epoch is plotted against ensemble size in Fig. S7 for three model architectures. We find that the timings increase by factors of around 3, 7, and 17 for GMNN, So3krates, and EquivMP, respectively, at n_{\\text{ens}}=32 compared to single models. To address this, we investigate strategies to construct well-calibrated ensembles by initializing them on top of a pre-trained base model, followed by a low-cost fine-tuning phase. All fine-tuning experiments in the remainder of this work are using the joint energy-forces NLL loss.",
+    "index": 84
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p2.1",
+    "class": "ltx_p",
+    "text": "We consider the following ensemble construction strategies: Random isotropic initialization (RND) - Last-layer weights are sampled from an isotropic Gaussian centered at the MAP parameters. In combination with post-hoc calibration, this method effectively calculates a prediction’s uncertainty by the feature magnitudes and represents a natural baseline. Subsampling trained heads (ST) - Independent output heads are trained on overlapping subsets of the original training data while sharing the pretrained backbone. This increases diversity while keeping training cheap. This strategy has been proposed by Beck and coworkers, training independent multilayer perceptron heads of a universal MACE forcefield as a practical means for uncertainty quantification[54]. Unlike Beck et al., we only train the last-layer with subsampled training sets, not entire readout heads. LLPR posterior sampling (LLPRE,F) - Ensemble members are sampled from the Laplace posterior of a pretrained MSE model. As shown in Section C, LLPRE,F alone can yield systematic miscalibration (e.g., BMIM), but fine-tuning the resulting ensemble significantly improves calibration at minimal cost. Hybrid energy–force objective (SEE) - Ensembles are trained with an NLL loss on energies and an MSE loss on forces. Since force variances are not explicitly computed, this approach is almost identical in cost to training a single MSE model, yet the features are already suitable for energy uncertainty estimation.",
+    "index": 85
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p3.1",
+    "class": "ltx_p",
+    "text": "Following initialization, we apply two fine-tuning protocols, last-layer fine-tuning and full model fine-tuning. Figure 4 presents the energy (a) and force (b) RLLs for these strategies across the five benchmark datasets. The rightmost column (“From Scratch”) serves as the target scores that the fine-tuning approaches aim to achieve at a reduced cost. The results are grouped by the fine-tuning method used, including the RLLs on initialisation for completeness.",
+    "index": 86
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p4.1",
+    "class": "ltx_p",
+    "text": "Without fine-tuning, the baseline RND initialization performs poorly, yielding negative RLLs for both energies and forces across all datasets. The ST initialization achieves positive RLLs for some datasets, but lags behind LLPRE,F and SEE. This poor performance compared to the findings by Beck et al.[54] likely stems from our restriction to the last-layer or their use of MACE, which may offer a better internal representation. Last-layer fine-tuning based on NLL leaves the results of these two approaches essentially unchanged. The LLPRE,F results generally improve, but the energy RLLs remain negative for two datasets.",
+    "index": 87
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p5.1",
+    "class": "ltx_p",
+    "text": "While SEE,F achieves the overall best results for last-layer fine-tuning, we observe a surprising quality degradation for the \\text{BaTiO}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{3}}} force RLL. For one random seed, the Force RLL drops to -70, despite the other seeds performing well at around \\sim 30 . A closer inspection reveals that the degradation is caused by a few outliers in the low error regime <0.1 meV/Å, which dominate the RLL calculation as shown in Figure 4c). However, this instability is largely irrelevant in active learning applications, which focus on identifying high-error configurations. Furthermore, last-layer fine-tuning is already sufficient to remove the element-specific miscalibration observed for BMIM in the case of LLPRE,F and SEE, as shown in Figure 4d).",
+    "index": 88
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p6.1",
+    "class": "ltx_p",
+    "text": "Relaxing the backbone in full model fine-tuning serves as an equalizer for all initialization strategies. By relaxing the backbone parameters, the models overcome inadequate representations present in the initialization strategies. With the exception of ST energy RLLs for Ala4, all approaches achieve positive energy and force RLLs across all datasets. Most notably, the SEE variant effectively matches the performance of the expensive “From Scratch“ SEE,F training, only deviating for \\text{BaTiO}{\\vphantom{\\text{X}}}_{\\smash[t]{\\text{3}}} , where it achieves a slightly better energy and slightly worse force RLL. Here, too, the cause is a few outliers in the low force error regime.",
+    "index": 89
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p7.1",
+    "class": "ltx_p",
+    "text": "Compared to learning from scratch using a force NLL, all the fine-tuning strategies afford considerably reduced computational effort. Since the pre-trained models are already near the MSE optimum, the fine-tuning phases converge rapidly. Figure 5 compares the total training times of the fine-tuning approaches for GMNN and EquivMP to shallow ensembles trained from scratch. For both model architectures, there is a rough dependence of the time saved on the size of the structures in the training dataset, although the trend is not monotonic due to different training convergence behaviors. In the case of the slim GMNN model and the dataset with the smallest structures, Ala4 (42 atoms), no time is to be saved with the fine-tuning approach. However, for the dataset with the largest structures, BMIM (300 atoms), the training time savings are huge at almost 90 %. As the EquivMP model is significantly more computationally intensive, we observe a training time savings across the board at over 80 % for three of the datasets. In both cases, a fine-tuning approach offers an affordable and robust pathway to well-calibrated uncertainty estimates.",
+    "index": 90
+  },
+  {
+    "tag": "p",
+    "html_id": "S4.p8.1",
+    "class": "ltx_p",
+    "text": "Based on these results, we make two recommendations for practical purposes. In cases where an existing MSE-trained model is available (e.g., a foundation model), we recommend initializing ensembles via LLPRE,F followed by full model fine-tuning. If no prior model is available, training a shallow ensemble with the hybrid loss (energy NLL + force MSE) followed by full model fine-tuning provides an even more accurate alternative.",
+    "index": 91
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "V Conclusions and Outlook",
+    "index": 92
+  },
+  {
+    "tag": "p",
+    "html_id": "S5.p1.1",
+    "class": "ltx_p",
+    "text": "In this work, we have systematically investigated last-layer approaches to uncertainty quantification in MLIPs, focusing on shallow ensembles and LLPR-based posterior approximations on a wide range of datasets.",
+    "index": 93
+  },
+  {
+    "tag": "p",
+    "html_id": "S5.p2.1",
+    "class": "ltx_p",
+    "text": "We first compared the two approaches in terms of their energy uncertainty estimation. There, we found the shallow ensemble to yield reliable uncertainty estimates across all experiments, while LLPRE estimates exhibit some failure modes. The rigidity of the features used in LLPRE resulted in some highly miscalibrated outliers for the BMIM dataset. We demonstrated that this failure results from a combination of the last-layer Laplace approximation itself and the features used therein. While computing LLPR on a more robust SEE,F backbone improves results, and last-layer fine-tuning helps on some datasets, neither approach fully resolves the issues on its own.",
+    "index": 94
+  },
+  {
+    "tag": "p",
+    "html_id": "S5.p3.1",
+    "class": "ltx_p",
+    "text": "Secondly, we established that a probabilistic treatment of forces during training is necessary for reliable uncertainty quantification. We found that the energy-centric approaches yield miscalibration for most of the datasets. While independently post-hoc calibrating energy and force uncertainty estimates improves the results somewhat, pathological cases where the shape of the uncertainty distribution needs to adapt are not resolved. Spectral analysis of the loss Hessian revealed the cause to be a mismatch between the overall Hessian and the element-specific loss curvature. Explicitly incorporating the force NLL loss was the only variant of the approaches considered here that ensured robust calibration across chemical species.",
+    "index": 95
+  },
+  {
+    "tag": "p",
+    "html_id": "S5.p4.1",
+    "class": "ltx_p",
+    "text": "Finally, we identified efficient strategies for generating last-layer ensembles with calibrated force uncertainty estimates without the cost of training from scratch. We explored four initialisation schemes, including an isotropic random last-layer initialization, subsampling trained output heads, LLPRE,F posterior sampling, and an energy-only shallow ensemble, followed by fine-tuning with the joint energy-force NLL objective. Our results show that random isotropic initialization and subsampling trained output heads do not result in well-calibrated uncertainty estimates out of the box or after last-layer fine-tuning. LLPRE,F and energy-only shallow ensembles are greatly improved by last-layer fine-tuning, but there are some cases where they are not reliable, either. We found full model fine-tuning to give the highest quality approximation to the quality of uncertainty estimates of a shallow ensemble trained from scratch, with the energy-only shallow ensemble achieving overall the best-calibrated results. These initialization strategies can reduce the training times of force uncertainty-aware shallow ensembles by up to 96 % on the datasets considered here, depending on the size of the structures in the dataset. These results could be extended by the use of advanced post-hoc calibration techniques, such as the one introduced by Ho et al. [22], to further improve the reliability of uncertainty estimates for atomistic machine learning. This direction will be explored in future work.",
+    "index": 96
+  },
+  {
+    "tag": "p",
+    "html_id": "S5.p5.1",
+    "class": "ltx_p",
+    "text": "Taken together, these findings establish practical guidelines for training last-layer ensembles for MLIPs from a methodological side. We have provided easily accessible implementations for the apax/IPSuite software stack and provide a Jax-based LLPR implementation with Laplax. When training resources are abundant, shallow ensembles with probabilistic losses remain the gold standard. However, when training time is a concern, we recommend using an energy-only shallow ensemble for training new models, followed by full model fine-tuning as the most reliable last-layer uncertainty estimation strategy. If expensive pre-trained models exist, using LLPR initialized ensembles and full-model fine-tuning is a viable alternative. Overall, our analysis confirms the practical viability of last-layer methods to achieve scalable uncertainty quantification in atomistic machine learning.",
+    "index": 97
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "VI Data Availability",
+    "index": 98
+  },
+  {
+    "tag": "p",
+    "html_id": "S6.p1.1",
+    "class": "ltx_p",
+    "text": "The workflow script, as well as all training input files and analysis scripts needed to reproduce the work presented here, can be found at https://github.com/M-R-Schaefer/last_layer_ensemble_data. All data generated during the iterative training and production simulations are stored on an S3-object storage. It can be obtained by cloning the repository and executing dvc pull in the repository folder. apax is an open source package and can be installed via pip install apax. The implementation of LLPR is available on GitHub under https://github.com/M-R-Schaefer/laplax.",
+    "index": 99
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_bibliography",
+    "text": "References",
+    "index": 100
+  },
+  {
+    "tag": "h2",
+    "html_id": null,
+    "class": "ltx_title ltx_title_part",
+    "text": "Supplementary Information",
+    "index": 101
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S1 Model Architectures",
+    "index": 102
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p1.1",
+    "class": "ltx_p",
+    "text": "In this work, we use three different model architectures in total, each differing in the way local atomic environments are represented and implemented in or interfaced with apax. Consequently, certain aspects of the implementations are shared between the three architectures. Here, we discuss the common aspects of these models before explaining the differences between their internal representations.",
+    "index": 103
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p2.1",
+    "class": "ltx_p",
+    "text": "In each case, the pairwise distances between each atom and its local neighbours are expanded in a radial basis Psi, using Gaussian or Bessel functions. From this neighborhood expansion, the three architectures differ in how they proceed to further build up the representation of the local atomic environment G . Once obtained, the representation passes through a readout neural network. E_{i}=\\mathrm{NN}(\\boldsymbol{G}_{i}) and adjusted by element-specific scaling and shifting parameters, \\sigma_{Z_{i}} and \\mu_{Z_{i}} .",
+    "index": 104
+  },
+  {
+    "tag": "table",
+    "html_id": "S1.EGx4",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle E_{i}=\\sigma_{Z_{i}}\\cdot\\text{NN}(\\boldsymbol{G}_{i})+\\mu_{Z_{i}} (18)",
+    "index": 105
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p2.2",
+    "class": "ltx_p",
+    "text": "Finally, the atomic energies E_{i} are summed up as in Equation 1.",
+    "index": 106
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p3.1",
+    "class": "ltx_p",
+    "text": "In the GMNN architecture, element-pair-specific parameters \\beta are used to form linear combinations of the radial basis functions, and angular information is captured by Cartesian moments, i.e., polynomials of the unit distance vectors up to some rotation order L .",
+    "index": 107
+  },
+  {
+    "tag": "table",
+    "html_id": "S1.EGx5",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle\\Psi_{i,L,n}=\\sum_{j\\neq i}R_{Z_{i},Z_{j},n^{\\prime}}(r_{ij},\\beta_{Z_{i},Z_{j},n^{\\prime},n})\\boldsymbol{\\hat{r}}_{ij}^{\\otimes L} (19)",
+    "index": 108
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p5.1",
+    "class": "ltx_p",
+    "text": "The invariant descriptor \\boldsymbol{G} is obtained from fully contracting the equivariant features \\Psi_{i,L,n} according to",
+    "index": 109
+  },
+  {
+    "tag": "table",
+    "html_id": "S1.EGx6",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle G_{i,n_{1},n_{2}} \\displaystyle=(\\Psi_{i,1,n_{1}})_{a}(\\Psi_{i,1,n_{2}})_{a} \\displaystyle\\;\\;\\vdots (20) \\displaystyle G_{i,n_{1},n_{2},n_{3}} \\displaystyle=(\\Psi_{i,1,n_{1}})_{a}(\\Psi_{i,3,n_{2}})_{a,b,c}(\\Psi_{i,2,n_{3}})_{b,c}.",
+    "index": 110
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p6.1",
+    "class": "ltx_p",
+    "text": "The EquivMP architecture is an equivariant message passing architecture similar to NequIP. Based on per-atom features h_{i} , equivariant messages are constructed using Clebsch-Gordan products with spherical harmonics.",
+    "index": 111
+  },
+  {
+    "tag": "table",
+    "html_id": "S1.EGx7",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle m_{ij}^{(l_{1})}=\\sum_{l_{2},l_{3}}C^{l_{1}}_{l_{2}l_{3}}h_{j}^{(l_{2})}\\otimes Y^{l_{3}}(\\hat{r}_{ij}) (21)",
+    "index": 112
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p8.1",
+    "class": "ltx_p",
+    "text": "Atom i aggregates the messages from all its neighbors and uses the result to update its own feature vector. Updates for the feature vector of atom i are computed as",
+    "index": 113
+  },
+  {
+    "tag": "table",
+    "html_id": "S1.EGx8",
+    "class": "ltx_equationgroup ltx_eqn_align ltx_eqn_table",
+    "text": "\\displaystyle h_{i}^{\\prime}=h_{i}+\\text{UpdateFunc}\\left(\\sum_{j\\neq i}\\phi(r_{ij})\\cdot m_{ij}\\right) (22)",
+    "index": 114
+  },
+  {
+    "tag": "p",
+    "html_id": "S1a.p10.1",
+    "class": "ltx_p",
+    "text": "The So3krates architecture builds on previous equivariant messages but avoids the computational complexity of full Clebsch-Gordan products. By separating messages into invariant and equivariant parts, the update function for the equivariant features is greatly simplified. Instead, the learning of complex interatomic interactions is performed by the Euclidean attention mechanism, whereby the l=0 output of CG products is used to compute weights for the messages.",
+    "index": 115
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S2 Details of the LLPR Implementation",
+    "index": 116
+  },
+  {
+    "tag": "p",
+    "html_id": "S2a.p1.1",
+    "class": "ltx_p",
+    "text": "The posterior covariance \\Sigma_{\\text{LL}} is computed from the inverse Hessian of the loss. The overall Hessian \\mathbf{H} is constructed either from only the Hessian of the energy loss, \\mathbf{H}_{E} , or, if the force loss is also considered, additively from the contributions of the Hessians of the energy and force loss:",
+    "index": 117
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E23",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\mathbf{H}=\\mathbf{H}_{E}+\\mathbf{H}_{F} (23)",
+    "index": 118
+  },
+  {
+    "tag": "p",
+    "html_id": "S2a.p3.1",
+    "class": "ltx_p",
+    "text": "The individual contributions are calculated from a generalized Gauss-Newton approximation using the last layer features. The energy contribution is derived from the network sensitivity with respect to the energy, g_{E} , which for the last-layer corresponds to the aggregated feature vector h(A) :",
+    "index": 119
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E24",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\mathbf{H}_{E}=\\sum_{A\\in\\mathcal{D}}\\mathbf{g}_{E}(A)\\mathbf{g}_{E}(A)^{\\top},\\quad\\mathbf{g}_{E}(A)=\\boldsymbol{h}(A) (24)",
+    "index": 120
+  },
+  {
+    "tag": "p",
+    "html_id": "S2a.p5.1",
+    "class": "ltx_p",
+    "text": "The force contribution \\mathbf{H}_{F} consists of the Jacobian of the forces with respect to the weights. Since forces are gradients of the energy, these sensitivities are the feature-coordinate Jacobians:",
+    "index": 121
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E25",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\mathbf{H}_{F}=\\sum_{A\\in\\mathcal{D}}\\sum_{i=1}^{N_{A}}\\sum_{\\alpha\\in{x,y,z}}\\mathbf{g}_{F_{i,\\alpha}}(A)\\mathbf{g}_{F_{i,\\alpha}}(A)^{\\top},\\quad\\mathbf{g}_{F_{i,\\alpha}}(A)=\\frac{\\partial\\boldsymbol{F}_{i,\\alpha}}{\\partial\\boldsymbol{w_{\\text{LL}}}} (25)",
+    "index": 122
+  },
+  {
+    "tag": "p",
+    "html_id": "S2a.p7.1",
+    "class": "ltx_p",
+    "text": "A small regularization term \\eta^{2}\\mathbf{I} is added to the thus approximated Hessian to ensure the matrix is positive definite.",
+    "index": 123
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E26",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\Sigma_{\\text{LL}}=\\alpha^{2}(\\mathbf{H}+\\eta^{2}\\mathbf{I})^{-1} (26)",
+    "index": 124
+  },
+  {
+    "tag": "p",
+    "html_id": "S2a.p9.1",
+    "class": "ltx_p",
+    "text": "Where \\eta is iteratively increased until positive definiteness is achieved. In cases where the assumptions of the GGN approximation fail, for example, if early stopping terminates training when the parameters are not at a minimum of the training loss surface, H may be singular. In these cases, \\eta may increase to such an extent that the Hessian and thus the covariance become isotropic. After post-hoc calibration, LLPR will give identical uncertainty estimates as RND.",
+    "index": 125
+  },
+  {
+    "tag": "p",
+    "html_id": "S2a.p10.1",
+    "class": "ltx_p",
+    "text": "A last-layer ensemble can be initialized from the LLPR posterior by sampling weights from the multivariate Gaussian distribution over the last-layer parameters.",
+    "index": 126
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E27",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\boldsymbol{\\tilde{w}}^{(k)}\\sim\\mathcal{N}(\\boldsymbol{w}_{\\text{MAP}},\\boldsymbol{\\Sigma}_{LL}) (27)",
+    "index": 127
+  },
+  {
+    "tag": "p",
+    "html_id": "S2a.p12.1",
+    "class": "ltx_p",
+    "text": "The mean of this distribution, the maximum a posteriori parameters theta, corresponds to the last-layer parameters from a model trained with an MSE loss \\boldsymbol{w}_{\\text{MAP}} . Due to the finite number of samples, the empirical mean of the raw samples will generally not equal \\boldsymbol{w}_{\\text{MAP}} . To correct for this finite sampling error, we explicitly subtract the empirical mean from each sample and shift by \\mathbf{\\theta}_{\\text{MAP}} .",
+    "index": 128
+  },
+  {
+    "tag": "table",
+    "html_id": "S2.E28",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\boldsymbol{w}^{(k)}=\\boldsymbol{\\tilde{w}}^{(k)}-\\frac{1}{n_{\\text{ens}}}\\sum_{k^{\\prime}}\\boldsymbol{\\tilde{w}}^{(k^{\\prime})}+\\boldsymbol{w}_{\\text{MAP}} (28)",
+    "index": 129
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S3 Training Details",
+    "index": 130
+  },
+  {
+    "tag": "p",
+    "html_id": "S3a.p1.1",
+    "class": "ltx_p",
+    "text": "GMNN models used a radial neighborhood cutoff of 5 Å. The neighborhood density was expanded in 7 Bessel functions and contracted to 5 radial functions via Equation 19. A readout neural network with two hidden layers using 128 and 64 units was used. The Adam optimizer was used with learning rates of 0.0075 for the neural network layers and 0.002 for all other parameters. During training, the learning rate was adjusted with a cyclic cosine learning rate scheduler using a period of 50 epochs and a decay factor of 0.93.",
+    "index": 131
+  },
+  {
+    "tag": "p",
+    "html_id": "S3a.p2.1",
+    "class": "ltx_p",
+    "text": "The hyperparameters for the So3krates and EquivMP models were obtained from a hyperparameter search. For the So3krates model, we use a radial distance cutoff of 5.0 Å and 8 Bessel functions for the neighborhood expansion. For the internal feature representation, 96 units are used, and the maximum angular degree is set to 3. After 2 message passing steps, predictions are made by a readout neural network using 128 and 32 hidden units. For the EquivMP model, 24 Gaussian basis functions were used with a cutoff of 5.0 Å. The internal representation used 24 features and l_{\\text{max}}=2 . After 2 message passing layers, a readout neural network consisting of hidden layers with 64 and 64 units. All models were trained for a maximum of 4000 epochs with an early stopping patience of 250 epochs. The only exception is GMNN models trained on the Ala4 dataset, where a maximum of 1000 epochs was used in combination with a linear learning rate schedule. For the fine-tuning runs, the maximum number of epochs was reduced to 200. A batch size of 1 was used for all experiments.",
+    "index": 132
+  },
+  {
+    "tag": "p",
+    "html_id": "S3a.p3.1",
+    "class": "ltx_p",
+    "text": "The loss functions used throughout this work are the mean squared error (MSE) and the negative log-likelihood (NLL). Here, we state the full version of the combined energy-force losses. The hybrid energy-force loss function consists of the energy term of the NLL loss and the force term of the MSE loss.",
+    "index": 133
+  },
+  {
+    "tag": "table",
+    "html_id": "S3.E29",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\text{MSE}_{\\text{combined}}=\\sum_{A\\in\\mathcal{D}}\\left(E_{A}-\\hat{E}_{A}\\right)^{2}+\\sum_{A\\in\\mathcal{D}}\\sum_{i=1}^{N_{A}}\\sum_{\\alpha\\in\\{x,y,z\\}}\\left(F_{i,\\alpha}-\\hat{F}_{i,\\alpha}\\right)^{2} (29)",
+    "index": 134
+  },
+  {
+    "tag": "table",
+    "html_id": "S3.E30",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "\\text{NLL}_{\\text{combined}}=\\sum_{A\\in\\mathcal{D}}\\left[\\frac{1}{2}\\left(\\frac{(E_{A}-\\hat{E}_{A})^{2}}{\\sigma_{E,A}^{2}}+\\ln(2\\pi\\sigma_{E,A}^2)\\right)+\\frac{1}{2}\\sum_{i=1}^{N_{A}}\\sum_{\\alpha\\in\\{x,y,z\\}}\\left(\\frac{(F_{i,\\alpha}-\\hat{F}_{i,\\alpha})^{2}}{\\sigma_{F,i,\\alpha}^{2}}+\\ln(2\\pi\\sigma_{F,i,\\alpha}^2)\\right)\\right] (30)",
+    "index": 135
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S4 Alanine Tetrapeptide Learning Curve",
+    "index": 136
+  },
+  {
+    "tag": "p",
+    "html_id": "S4a.p1.1",
+    "class": "ltx_p",
+    "text": "Unlike the condensed-phase systems that we investigated, Ala4 features a diverse conformational space requiring sufficient sampling for calibration. We computed the Energy RLL learning curve in Figure S1 to determine the necessary dataset size. While RLL continues to improve marginally up to the full 84,000 structures, we observe a stabilization of performance around 10,000 samples. Consequently, we selected a subset of 10,000 structures for all Ala4 experiments in the main text, striking a good trade-off between reliable uncertainty quantification and computational efficiency.",
+    "index": 137
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S5 Further Analysis of [Bmim]BF4 Energy Uncertainties",
+    "index": 138
+  },
+  {
+    "tag": "p",
+    "html_id": "S5a.p1.1",
+    "class": "ltx_p",
+    "text": "Using the original dataset splits for the BMIM dataset resulted in difficulties for the uncertainty quantification methods considered here to achieve positive energy RLLs. We identified the cause of this to be a distribution shift between the original training and test datasets. The empirical-predicted uncertainty plot for the original and reshuffled BMIM test sets using an SEE model.",
+    "index": 139
+  },
+  {
+    "tag": "p",
+    "html_id": "S5a.p2.1",
+    "class": "ltx_p",
+    "text": "In the main text, we observe that LLPRE struggled to calibrate energy uncertainties when the data points are not well represented in the training data. Figure S2b) illustrates that the origin of this failure consists entirely of structures with anomalously large simulation cell volumes, corresponding to dissociated ion pairs or gas-phase-like regions.",
+    "index": 140
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S6 Convergence tests",
+    "index": 141
+  },
+  {
+    "tag": "p",
+    "html_id": "S6a.p1.1",
+    "class": "ltx_p",
+    "text": "We assess the convergence of shallow ensemble uncertainty estimates with respect to the number of ensemble members. For energy NLL training, the number of ensemble members is practically unrestricted. It is thus possible to choose a large number and be reasonably confident that the resulting uncertainty metrics are converged with respect to ensemble size. Including the force NLL term restricts the ensemble size somewhat and considerably slows down training. As a result, one should choose the smallest ensemble that converges metrics like NLL or RLL. We train GMNN models with N_{ens}\\in\\left(4,8,10,16,32,64\\right) on the water and BMIM datasets. The resulting NLLs and RLLs averaged over three random seeds corresponding to each ensemble size are displayed in Figure S3.",
+    "index": 142
+  },
+  {
+    "tag": "p",
+    "html_id": "S6a.p2.1",
+    "class": "ltx_p",
+    "text": "We find that for all datasets, N_{ens}=32 is sufficient for obtaining converged uncertainty quantification metrics when averaged over three random seeds. However, different datasets show different variance in the training results. BaTiO3 in particular can yield miscalibrated results occasionally, even at 64 ensemble members.",
+    "index": 143
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S7 Extended Analysis of the NLL Force Loss",
+    "index": 144
+  },
+  {
+    "tag": "p",
+    "html_id": "S7.p1.1",
+    "class": "ltx_p",
+    "text": "In the main text, we analysed the effect of combining an NLL energy loss with an NLL force loss instead of an MSE force loss and showed the empirical-predicted error plots for the case of the BMIM dataset. To provide a more complete picture of the behavior of the NLL force loss, we provide the prediction metrics of the MSE and NLL trained models in Table S1 and the corresponding empirical-predicted error plots for the remaining four datasets in Figure S4 (left panels) and the distribution of empirical and predicted errors for selected slices of uncertainties (right panels).",
+    "index": 145
+  },
+  {
+    "tag": "p",
+    "html_id": "S7.p2.1",
+    "class": "ltx_p",
+    "text": "We find that the results are consistent with those for BMIM shown in the main text. Across all datasets, models trained with an NLL force loss exhibit a sharper distribution of predicted uncertainty and overall better calibration. The only difference with regard to the case of water is that the distribution along the uncertainty slices does not necessarily conform to a Gaussian.",
+    "index": 146
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S8 Extended Analysis of the [Bmim]BF4 Miscalibration",
+    "index": 147
+  },
+  {
+    "tag": "p",
+    "html_id": "S8.p1.1",
+    "class": "ltx_p",
+    "text": "To confirm that the systematic miscalibration of fluorine and boron forces in [Bmim]BF4 is not specific to the GMNN architecture, we extended our analysis to the EquivMP and So3krates models. Figure S5 shows the predicted-empirical force error plots for the BMIM dataset for LLPRE,F and SEE,F using the two additional architectures. We find that the LLPRE,F results for BMIM are consistent across all three architectures. This consistency across different architectures demonstrates that the observed failure mode is not a limitation of model expressivity. Rather, it confirms that the limitation is fundamental to the application of using the averaged covariance matrix for elements with significantly different individual force loss Hessians. Training an EquivMP model as a shallow ensemble reproduces the well-calibrated results of GMNN in the main text.",
+    "index": 148
+  },
+  {
+    "tag": "p",
+    "html_id": "S8.p2.1",
+    "class": "ltx_p",
+    "text": "To further isolate the role of feature representation, we performed a cross-validation experiment. Fine-tuning an LLPR-initialized ensemble (LLPRE,F \\xrightarrow{} SEE,F) eliminates the anion miscalibration (restoring RLL 50.1). In contrast, applying the LLPR approximation to an SE-trained backbone (SEE,F \\xrightarrow{} LLPRE,F) retains a positive RLL of 29.2, demonstrating that SE features are robust to the Gaussian approximation; the element-specific miscalibration is reintroduced. This confirms that the failure of LLPRE,F arises from feature rigidity, which can be resolved by allowing the representation to adapt via probabilistic training. Finally, we confirm that element-wise BMIM miscalibration persists even when using only the force loss contribution to the Hessian by constructing an LLPRF model. The resulting empirical-predicted error plots are displayed in Figure S6.",
+    "index": 149
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S9 Computational Scaling of Shallow Ensembles",
+    "index": 150
+  },
+  {
+    "tag": "p",
+    "html_id": "S9.p1.1",
+    "class": "ltx_p",
+    "text": "Training shallow ensembles from scratch with force NLL loss slows down training considerably. We illustrate this for three architectures, GMNN, So3krates, and EquivMP. For each architecture, we train ensembles of size N_{ens}\\in\\left(4,8,10,16,32,64,96\\right) for the BMIM dataset. All training runs were conducted on an A100 GPU. The average epoch times compared to a single model are visualized in Fig. S7. As the GMNN model is the slimmest of the three, it does not saturate the GPU for small ensemble sizes. Epoch times grow linearly for N_{ens}\\geq 8 as smaller ensembles do not fully saturate the GPU, resulting in sub-linear scaling. For the chosen ensemble size of 32 members, the GMNN, So3krates, and EquivMP models are 2.7, 6.9, and 17 times slower than a single model.",
+    "index": 151
+  },
+  {
+    "tag": "h3",
+    "html_id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "S10 Analysing Last-Layer Covariances",
+    "index": 152
+  },
+  {
+    "tag": "p",
+    "html_id": "S10.p1.1",
+    "class": "ltx_p",
+    "text": "To understand why last-layer fine-tuning improves uncertainty estimates in some cases but not in others is challenging when both the backbone features and the last-layer covariance change simultaneously. We therefore restrict the analysis to last-layer fine-tuning only. Since the RND, ST, and LLPRE,F models share the same frozen backbone, we focus on a comparison between RND, which does not benefit from last-layer fine-tuning, and LLPRE,F, which does.",
+    "index": 153
+  },
+  {
+    "tag": "p",
+    "html_id": "S10.p2.1",
+    "class": "ltx_p",
+    "text": "Figure S8(a) shows projections of last-layer weights onto the first two principal components of the fine-tuned LLPRE,F weights. The LLPRE,F covariance is already aligned with this basis at initialization, and fine-tuning primarily changes the scale of the uncertainty while preserving its orientation. In contrast, the RND covariance is initially both misaligned and its scale is too small. Although fine-tuning substantially increases its overall variance, the covariance remains misaligned with respect to the posterior principal components.",
+    "index": 154
+  },
+  {
+    "tag": "p",
+    "html_id": "S10.p3.1",
+    "class": "ltx_p",
+    "text": "To analyse this effect further, Figure S8(b) shows the variance captured along each principal component of the fine-tuned LLPRE,F covariance. Specifically, we computed the principal components of fine-tuned centered LLPRE,F weight samples and projected other last-layer weight ensembles onto this fixed basis. For each method, we then measure the variance along each mode. By construction, RND assigns nearly uniform variance across all modes at initialization, and last-layer fine-tuning does not introduce meaningful structure, suggesting that the optimization primarily increases variance magnitude without aligning it with the directions relevant to the data. In contrast, the LLPRE,F covariance can adapt both in scale and shape during the NLL fine-tuning as the method is based on the Hessian.",
+    "index": 155
+  },
+  {
+    "tag": "p",
+    "html_id": "S10.p4.1",
+    "class": "ltx_p",
+    "text": "These results demonstrate that uncertainty quality depends primarily on alignment with posterior geometry rather than on overall variance magnitude. While fine-tuning increases the parameter-space variance of the RND model, this variance is allocated to directions that are not relevant for the data likelihood and therefore does not translate into improved predictive uncertainty. In contrast, the curvature-aware Laplace approximation concentrates uncertainty along meaningful posterior directions, explaining its substantially better uncertainty quantification performance.",
+    "index": 156
+  },
+  {
+    "tag": "h2",
+    "html_id": null,
+    "class": null,
+    "text": "Instructions for reporting errors",
+    "index": 157
+  },
+  {
+    "tag": "p",
+    "html_id": null,
+    "class": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:",
+    "index": 158
+  },
+  {
+    "tag": "p",
+    "html_id": null,
+    "class": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report.",
+    "index": 159
+  },
+  {
+    "tag": "p",
+    "html_id": null,
+    "class": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all.",
+    "index": 160
+  },
+  {
+    "tag": "p",
+    "html_id": null,
+    "class": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.",
+    "index": 161
+  }
+]

@@ -1,0 +1,82 @@
+--- continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/prototype/graph_init_training_adapter.py
++++ graph_curvature_selector_terminal_reporting_source_20261004_v2/graph_init_training_adapter_terminal.py
+@@ -455,7 +455,7 @@
+     return model, optimizer, native_checkpoint(model, optimizer, metadata)
+ 
+ 
+-def continuation(raw, optimizer, graph, train, validation, trace, save_logits):
++def continuation(raw, optimizer, graph, train, validation, trace, save_logits, *, terminal_observer=None, terminal_context=None):
+     """Fixed1950 native/patience250 or950 global updates; same warm RNG all arms."""
+     backbone = graph.teacher_backbone
+     cap, patience = (1950, 250) if backbone == 'polyformer_mono' else (950, None)
+@@ -484,6 +484,70 @@
+                         actual_update=epoch+(50 if patience else 250))
+         if patience is not None and epoch-best['continuation_epoch'] >= patience:
+             break
++    if terminal_observer is not None:
++        # Reporting sees copies of the existing last evaluation; no added forward.
++        # Scalar context reaches the caller even when capture fails before dispatch.
++        # No model/Adam object is supplied; the observer return is ignored.
++        import time
++        capture_started, capture_cpu_started = time.perf_counter(), time.process_time()
++        terminal_context = {} if terminal_context is None else terminal_context
++        observation_rng, observation_error = None, None
++        try:
++            terminal_context['hook_stage'] = 'terminal_endpoint_metadata'
++            terminal_context['endpoint'] = dict(
++                teacher_backbone=backbone, members=raw.members,
++                continuation_updates_completed=completed,
++                terminal_actual_update=completed+(50 if patience else 250),
++                terminal_native_stage_epoch=completed+50,
++                stage='native' if patience else 'global',
++                update_cap=cap, patience=patience,
++                full_native_cap_reached=completed == cap,
++                stop_reason='native_update_cap' if completed == cap else 'native_patience',
++                source_native_validation_nll=value,
++                terminal_before_selected_checkpoint_restore=True,
++                selected_continuation_epoch=best['continuation_epoch'],
++                selected_actual_update=best['actual_update'])
++            terminal_context['hook_stage'] = 'rng_snapshot'
++            observation_rng = rng_snapshot()
++            terminal_context['hook_stage'] = 'member_logits_copy'
++            terminal_member_logits = cpu_copy(logits)
++            terminal_context['hook_stage'] = 'served_logits_mean_and_copy'
++            terminal_served_logits = cpu_copy(logits.mean(0))
++            terminal_context['endpoint'].update(
++                capture_wall_seconds_before_observer=time.perf_counter()-capture_started,
++                capture_process_cpu_seconds_before_observer=time.process_time()-capture_cpu_started)
++            terminal_context['capture_completed'] = True
++            terminal_context['hook_stage'] = 'terminal_observer'
++            terminal_observer(dict(
++                member_logits=terminal_member_logits,
++                served_logits=terminal_served_logits,
++                metadata=terminal_context['endpoint']))
++            terminal_context['observer_completed'] = True
++        except BaseException as error:
++            observation_error = error
++            raise
++        finally:
++            if not terminal_context.get('capture_completed', False):
++                terminal_context['capture_completed'] = False
++                terminal_context.setdefault('endpoint', {}).update(
++                    capture_wall_seconds_before_observer=time.perf_counter()-capture_started,
++                    capture_process_cpu_seconds_before_observer=time.process_time()-capture_cpu_started)
++            if observation_rng is not None:
++                restore_started, restore_cpu_started = time.perf_counter(), time.process_time()
++                try:
++                    rng_restore(observation_rng)
++                except BaseException as restore_error:
++                    terminal_context['rng_restoration_status'] = 'FAILED'
++                    terminal_context['rng_restore_error_type'] = type(restore_error).__name__
++                    if observation_error is None:
++                        raise
++                else:
++                    terminal_context['rng_restoration_status'] = 'RESTORED'
++                finally:
++                    terminal_context['rng_restoration_wall_seconds'] = time.perf_counter()-restore_started
++                    terminal_context['rng_restoration_process_cpu_seconds'] = time.process_time()-restore_cpu_started
++            else:
++                terminal_context['rng_restoration_status'] = 'UNAVAILABLE_NO_COMPLETE_SNAPSHOT'
+     raw.load_state_dict(best['state'])
+     raw.eval()
+     selected_logits, replay_nll = evaluate(raw, graph, validation, raw=True)

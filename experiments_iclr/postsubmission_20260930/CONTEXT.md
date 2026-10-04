@@ -6,7 +6,11 @@ The paper was submitted before this phase. Existing reported scores are fixed. T
 
 Local project repository: /Users/alex/Documents/ChatGPT/anogena allocation
 Original server repository: /home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs
-The user explicitly authorizes18.77 and Git sync. Saved project path: /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning; root must verify it is the intended Git repository before writes. The current MacLink relay uses the prohibited seven-GPU account, so it cannot be used even to reach18.77. A direct/VPN route or authorized relay is required. Do not read or write any other project directories, Desktop artifacts, credentials, unrelated datasets, or unrelated processes. Existing authentication may be used by the coordinator without modifying it. No sudo. No GENLINK. No PDF compilation.
+The current authorized original login is `anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222`, with sole GPU UUID `GPU-44039938-fd82-41d2-fefd-de71514e2fac`. Verify that route before execution.
+
+The user explicitly authorizes18.77 and Git sync. The verified project Git repository is `/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git`. Later user authorization permits the seven-GPU account strictly as the MacLink forwarding relay to the other Mac; it remains forbidden for scientific execution and filesystem exploration. Earlier evidence from that allocation remains excluded. The former prohibition on using it even as a relay is superseded by this explicit user authorization.
+
+Do not read or write other project directories, Desktop artifacts, unrelated datasets or unrelated processes. Existing authentication may be used by the coordinator. Normal incidental runtime caches outside repositories are explicitly allowed. Use normal host execution; no restrictive filesystem namespaces or host/mount changes. No sudo. No GENLINK. No PDF compilation. Current evidence and queue state are maintained in `PUBLIC_STATUS.md`; the starting-evidence paragraphs below remain historical.
 
 ## Starting evidence
 

@@ -1,18 +1,20 @@
 # GNNM: shared propagation in graph ensembles
 
-### Research update: 4 October 2026, 19:36 UTC
+### Research update: 5 October 2026, 00:09 Moscow / 4 October 21:09 UTC
 
-GNNM's primary objective is better predictive accuracy through ensembling. Parameter storage and execution costs are secondary measurements. No confirmed methodological advantage or fresh manuscript acceptance exists.
+GNNM's primary objective is better predictive accuracy through ensembling. No confirmed methodological advantage over the independent ensemble or fresh manuscript acceptance exists.
 
-The completed five-seed ogbl-collab TEST comparison gives 67.2909% Hits@50 for GNNM private completion, 66.4426% for native single64 and 67.6298% for the independent ensemble. The gain over the single is exploratory, and the frozen private-versus-pooled contrast is inconclusive. Collab TEST is consumed and its history will remain disclosed.
+The complete five-seed ogbl-collab TEST result remains 67.2909% Hits@50 for private completion, 66.4426% for native single64 and 67.6298% for independent4. The gain over the single is exploratory. Private versus pooled completion is inconclusive. Collab TEST is consumed; its full history remains disclosed.
 
-Three frozen predictive families are running on the authorized machines: Amazon/Polynormer has 8 of 15 fits complete (ninth at 1,946/2,700 updates at 20:07 UTC), conditional-pattern Collab has 3 of 9 fits complete (all seed-0 arms finished), and DDI has 2 of 12 development fits complete. Comparisons remain unopened until each fixed cohort finishes. There is no partial score-driven choice or new claim from these queues.
+The fixed predictive queues remain running: Amazon/Polynormer 9/15 fits complete, conditional-pattern Collab 4/9 and DDI 2/12. Comparisons remain unopened until the complete respective cohorts finish. No predictive result follows from queue progress.
 
-A prospective graph-view study now specifies 30 fits with full official TRAIN labels, matched sharing/view controls, a view-augmented single, ordinary single/independent ensemble and native GNNM. Inputs and source versions are bound. Separate deterministic full-shape engineering checks reproduce the selected function and next update exactly. These checks supply no accuracy evidence. Scientific execution remains disabled pending the caller/resource and baseline-calibration requirements.
+The new private-head initialization hypothesis uses graph-filtered training errors to propose different initial member directions, then selects using a discarded native training update. Related shared-head covariance initialization is already known. The source-only mechanism analysis permits changed learning responses but guarantees neither persistent diversity nor better predictions.
 
-A separate graph-based private-head initialization selector passed twelve synthetic numerical cases. Its earlier test-oracle failures and all costs remain preserved. Fresh native warm-state and predictive qualification remain pending. Graph augmentation and shared ensembles are established prior, so neither direction has novelty clearance.
+Actual Squirrel17 and Photo17 engineering checks are now closed. Earlier identity/AD checks passed, but returned-state reconstruction failed. A named Squirrel diagnostic found a small final-factor recomputation discrepancy. Exact installation custody remains under diagnosis. A separate preprocessing replay also found that identical raw inputs produce slightly different native preprocessed features under the recorded deterministic policy. Actual preprocessed input must be retained with each fresh warm state. Original failures and measured costs remain preserved; no initializer predictive continuation has begun.
 
-See [current measured evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [prospective accuracy comparison](experiments_iclr/postsubmission_20260930/accuracy_first_graph_view_paired_plan_root_20261004_v2/PAIRED_PROTOCOL.json) and [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md). Original scores, failures and reviews are preserved. Large raw records stay on authorized servers.
+A post-update terminal reporter has passed fresh source review; runtime boundary qualification is pending. A separate head-only cache is pending numerical equivalence checks and leaves complete native training and Adam trials unchanged. Neither is a scientific result.
+
+See [current evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [mechanism analysis](experiments_iclr/postsubmission_20260930/graph_curvature_mechanism_theory_check_20261004_v1/REPORT.md), [replay diagnosis](experiments_iclr/postsubmission_20260930/graph_curvature_saved_warm_replay_diagnostic_root_20261005_v1/README.md) and [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md). Original scores, failures and independent reviews remain preserved. Large checkpoints and raw records stay on authorized servers.
 
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.
 
@@ -35,11 +37,11 @@ BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715
 
 ## Post-submission research
 
-Quality is the research priority. Current work tests a paired two-endpoint neighbour-pattern objective on Collab/DDI, transfer between members trained on different graph views, and graph-based selection of initial private-head covariance. Every direction has preserved prior-work checks and prospectively specified controls. Fresh native engineering checks for Squirrel and Photo are now launched once. A theoretical or numerical property alone does not establish predictive utility.
+Quality is the research priority. Current work tests a paired two-endpoint neighbour-pattern objective on Collab/DDI, transfer between members trained on different graph views, and graph-based selection of initial private-head covariance. Every direction has preserved prior-work checks and prospectively specified controls. Fresh native engineering checks for Squirrel and Photo are closed with reconstruction failures; their costs and subsequent diagnostics are retained. A theoretical or numerical property alone does not establish predictive utility.
 
 The original GNNM and current Collab/DDI rankers average raw member scores. The separately specified graph-view experiment averages class probabilities. These pooling rules are explicit per experiment and are not interchangeable.
 
-See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v54/LITERATURE_INDEX.json) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). The literature index preserves 217 scoped conclusion records across 165 paper identities and two software identities. These are not full-paper-read totals. Historical dated updates below remain as recorded. Science uses only the authorized one-GPU allocation and 18.77 project repositories. The seven-GPU route is forwarding only.
+See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v55/LITERATURE_INDEX.json) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). The literature index preserves 218 scoped conclusion records across 166 paper identities and two software identities. These are not full-paper-read totals. Historical dated updates below remain as recorded. Science uses only the authorized one-GPU allocation and 18.77 project repositories. The seven-GPU route is forwarding only.
 
 
 ## Repository contents

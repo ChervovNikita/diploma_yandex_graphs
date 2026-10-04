@@ -1,0 +1,400 @@
+--- graph_curvature_selector_terminal_reporting_source_20261004_v1/graph_init_training_adapter_terminal.py
++++ graph_curvature_selector_terminal_reporting_source_20261004_v2/graph_init_training_adapter_terminal.py
+@@ -455,7 +455,7 @@
+     return model, optimizer, native_checkpoint(model, optimizer, metadata)
+ 
+ 
+-def continuation(raw, optimizer, graph, train, validation, trace, save_logits, *, terminal_observer=None):
++def continuation(raw, optimizer, graph, train, validation, trace, save_logits, *, terminal_observer=None, terminal_context=None):
+     """Fixed1950 native/patience250 or950 global updates; same warm RNG all arms."""
+     backbone = graph.teacher_backbone
+     cap, patience = (1950, 250) if backbone == 'polyformer_mono' else (950, None)
+@@ -486,33 +486,68 @@
+             break
+     if terminal_observer is not None:
+         # Reporting sees copies of the existing last evaluation; no added forward.
+-        # Restore every native RNG even if the observer fails. No model/Adam
+-        # object is supplied to the observer, and its return value is ignored.
++        # Scalar context reaches the caller even when capture fails before dispatch.
++        # No model/Adam object is supplied; the observer return is ignored.
+         import time
+-        capture_started = time.perf_counter()
+-        observation_rng = rng_snapshot()
++        capture_started, capture_cpu_started = time.perf_counter(), time.process_time()
++        terminal_context = {} if terminal_context is None else terminal_context
++        observation_rng, observation_error = None, None
+         try:
++            terminal_context['hook_stage'] = 'terminal_endpoint_metadata'
++            terminal_context['endpoint'] = dict(
++                teacher_backbone=backbone, members=raw.members,
++                continuation_updates_completed=completed,
++                terminal_actual_update=completed+(50 if patience else 250),
++                terminal_native_stage_epoch=completed+50,
++                stage='native' if patience else 'global',
++                update_cap=cap, patience=patience,
++                full_native_cap_reached=completed == cap,
++                stop_reason='native_update_cap' if completed == cap else 'native_patience',
++                source_native_validation_nll=value,
++                terminal_before_selected_checkpoint_restore=True,
++                selected_continuation_epoch=best['continuation_epoch'],
++                selected_actual_update=best['actual_update'])
++            terminal_context['hook_stage'] = 'rng_snapshot'
++            observation_rng = rng_snapshot()
++            terminal_context['hook_stage'] = 'member_logits_copy'
+             terminal_member_logits = cpu_copy(logits)
++            terminal_context['hook_stage'] = 'served_logits_mean_and_copy'
+             terminal_served_logits = cpu_copy(logits.mean(0))
++            terminal_context['endpoint'].update(
++                capture_wall_seconds_before_observer=time.perf_counter()-capture_started,
++                capture_process_cpu_seconds_before_observer=time.process_time()-capture_cpu_started)
++            terminal_context['capture_completed'] = True
++            terminal_context['hook_stage'] = 'terminal_observer'
+             terminal_observer(dict(
+                 member_logits=terminal_member_logits,
+                 served_logits=terminal_served_logits,
+-                metadata=dict(
+-                    teacher_backbone=backbone, members=raw.members,
+-                    continuation_updates_completed=completed,
+-                    terminal_actual_update=completed+(50 if patience else 250),
+-                    terminal_native_stage_epoch=completed+50,
+-                    stage='native' if patience else 'global',
+-                    update_cap=cap, patience=patience,
+-                    full_native_cap_reached=completed == cap,
+-                    stop_reason='native_update_cap' if completed == cap else 'native_patience',
+-                    source_native_validation_nll=value,
+-                    terminal_before_selected_checkpoint_restore=True,
+-                    selected_continuation_epoch=best['continuation_epoch'],
+-                    selected_actual_update=best['actual_update'],
+-                    capture_wall_seconds_before_observer=time.perf_counter()-capture_started)))
++                metadata=terminal_context['endpoint']))
++            terminal_context['observer_completed'] = True
++        except BaseException as error:
++            observation_error = error
++            raise
+         finally:
+-            rng_restore(observation_rng)
++            if not terminal_context.get('capture_completed', False):
++                terminal_context['capture_completed'] = False
++                terminal_context.setdefault('endpoint', {}).update(
++                    capture_wall_seconds_before_observer=time.perf_counter()-capture_started,
++                    capture_process_cpu_seconds_before_observer=time.process_time()-capture_cpu_started)
++            if observation_rng is not None:
++                restore_started, restore_cpu_started = time.perf_counter(), time.process_time()
++                try:
++                    rng_restore(observation_rng)
++                except BaseException as restore_error:
++                    terminal_context['rng_restoration_status'] = 'FAILED'
++                    terminal_context['rng_restore_error_type'] = type(restore_error).__name__
++                    if observation_error is None:
++                        raise
++                else:
++                    terminal_context['rng_restoration_status'] = 'RESTORED'
++                finally:
++                    terminal_context['rng_restoration_wall_seconds'] = time.perf_counter()-restore_started
++                    terminal_context['rng_restoration_process_cpu_seconds'] = time.process_time()-restore_cpu_started
++            else:
++                terminal_context['rng_restoration_status'] = 'UNAVAILABLE_NO_COMPLETE_SNAPSHOT'
+     raw.load_state_dict(best['state'])
+     raw.eval()
+     selected_logits, replay_nll = evaluate(raw, graph, validation, raw=True)
+--- graph_curvature_selector_terminal_reporting_source_20261004_v1/terminal_reporting.py
++++ graph_curvature_selector_terminal_reporting_source_20261004_v2/terminal_reporting.py
+@@ -47,7 +47,7 @@
+     for record in bindings["frozen_source_records"]:
+         _verified_bytes(record)
+     path, data = _verified_bytes(bindings["reporting_integration"])
+-    name = "graph_init_training_adapter_terminal_reporting_v1"
++    name = "graph_init_training_adapter_terminal_reporting_v2"
+     if name in sys.modules:
+         module = sys.modules[name]
+         require(getattr(module, "__executed_sha256__", None)
+@@ -72,6 +72,72 @@
+     text = json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n"
+     with path.open("x", encoding="utf-8") as handle:
+         handle.write(text)
++
++
++def _failure_exclusive(path, error, *, identity, endpoint, terminal_context,
++        stage, wall_started, cpu_started, cost_scope, partial_directory=None,
++        source_bindings_verified=False):
++    """Entire receipt construction/write is best effort; never replace error."""
++    try:
++        wall_before_receipt = time.perf_counter()-wall_started
++        cpu_before_receipt = time.process_time()-cpu_started
++        try:
++            identity = json.loads(json.dumps(identity, allow_nan=False))
++            identity_status = "AVAILABLE"
++        except BaseException:
++            identity, identity_status = None, "UNAVAILABLE_JSON_IDENTITY"
++        try:
++            endpoint = json.loads(json.dumps(endpoint, allow_nan=False))
++            endpoint_status = "AVAILABLE" if endpoint is not None else "NOT_CAPTURED"
++        except BaseException:
++            endpoint, endpoint_status = None, "UNAVAILABLE_JSON_ENDPOINT"
++        endpoint_fields = ("teacher_backbone", "members", "continuation_updates_completed",
++            "terminal_actual_update", "terminal_native_stage_epoch", "stage", "update_cap",
++            "patience", "full_native_cap_reached", "stop_reason", "source_native_validation_nll",
++            "terminal_before_selected_checkpoint_restore", "selected_continuation_epoch",
++            "selected_actual_update", "capture_wall_seconds_before_observer",
++            "capture_process_cpu_seconds_before_observer")
++        available_endpoint_fields = sorted(endpoint) if isinstance(endpoint, dict) else []
++        unknown_endpoint_fields = [name for name in endpoint_fields if name not in available_endpoint_fields]
++        if endpoint_status == "AVAILABLE" and unknown_endpoint_fields:
++            endpoint_status = "PARTIAL_METADATA_AVAILABLE"
++        endpoint_values = endpoint if isinstance(endpoint, dict) else {}
++        partial_files, inventory_status = None, "DIRECTORY_NOT_OWNED_OR_NOT_CREATED"
++        if partial_directory is not None:
++            try:
++                partial_files = sorted(item.name for item in partial_directory.iterdir())
++                inventory_status = "AVAILABLE"
++            except BaseException:
++                inventory_status = "UNAVAILABLE_DIRECTORY_INVENTORY"
++        try:
++            source_bindings = json.loads((HERE / "SOURCE_BINDINGS.json").read_text())
++            source_bindings_status = "AVAILABLE"
++        except BaseException:
++            source_bindings, source_bindings_status = None, "UNAVAILABLE_SOURCE_BINDINGS"
++        try:
++            error_text = str(error)
++        except BaseException:
++            error_text = "UNAVAILABLE_EXCEPTION_STRING"
++        failure = dict(schema="graph-curvature-terminal-report-failure-v2",
++            identity=identity, identity_status=identity_status,
++            error_type=type(error).__name__, error=error_text, failure_stage=stage,
++            endpoint=endpoint, endpoint_status=endpoint_status,
++            available_endpoint_fields=available_endpoint_fields,
++            unknown_endpoint_fields=unknown_endpoint_fields,
++            capture_wall_seconds_before_observer=endpoint_values.get("capture_wall_seconds_before_observer"),
++            capture_process_cpu_seconds_before_observer=endpoint_values.get("capture_process_cpu_seconds_before_observer"),
++            terminal_context=terminal_context,
++            partial_files_preserved=partial_files, partial_file_inventory_status=inventory_status,
++            source_bindings=source_bindings, source_bindings_status=source_bindings_status,
++            source_bindings_verified=source_bindings_verified,
++            attempt_wall_seconds_before_failure_receipt=wall_before_receipt,
++            attempt_process_cpu_seconds_before_failure_receipt=cpu_before_receipt,
++            cost_scope=cost_scope, failure_receipt_construction_and_write_excluded=True,
++            cost_intervals_overlap_do_not_sum=True,
++            retry_authorized=False)
++        _json_exclusive(path, failure)
++    except BaseException:
++        pass  # Preserve the original exception even if inventory or receipt IO fails.
+ 
+ 
+ def _tensor_digest(tensor):
+@@ -134,16 +200,26 @@
+                 and torch.unique(self.nodes).numel() == self.nodes.numel(),
+                 "Nonempty paired unique int64 VALIDATION nodes/labels are required")
+         self.called = False
++        self.completed = False
++        self.output_created = False
++        self.endpoint = None
++        self.failure_stage = None
++        self.failure_body_cost = None
+ 
+     def __call__(self, payload):
+         import torch
+         require(not self.called, "A terminal observer cannot be called twice or retried")
+         self.called = True
+         wall_started, cpu_started = time.perf_counter(), time.process_time()
+-        self.output.mkdir(parents=True, exist_ok=False)
+-        try:
++        try:
++            self.failure_stage = "endpoint_metadata"
++            endpoint = json.loads(json.dumps(payload["metadata"], allow_nan=False))
++            self.endpoint = endpoint
++            self.failure_stage = "terminal_directory_creation"
++            self.output.mkdir(parents=True, exist_ok=False)
++            self.output_created = True
++            self.failure_stage = "payload_validation"
+             member, served = payload["member_logits"], payload["served_logits"]
+-            endpoint = json.loads(json.dumps(payload["metadata"], allow_nan=False))
+             require(endpoint["teacher_backbone"] == BACKBONES[self.identity["graph"]]
+                     and endpoint["members"] == 4,
+                     "Captured endpoint backbone/member count differs")
+@@ -161,6 +237,7 @@
+                     "Captured logits or declared VALIDATION support are invalid")
+             require(math.isfinite(endpoint["source_native_validation_nll"]),
+                     "Native terminal VALIDATION NLL is nonfinite")
++            self.failure_stage = "reporting_metrics"
+             with torch.no_grad():
+                 pooled = _classification_metrics(served[self.nodes], self.labels)
+                 competence = [dict(member=index,
+@@ -170,10 +247,14 @@
+                            member_raw_logits=member, served_mean_raw_logits=served,
+                            validation_nodes=self.nodes, validation_labels=self.labels)
+             tensor_path = self.output / "terminal_logits.pt"
++            self.failure_stage = "terminal_tensor_write"
+             with tensor_path.open("xb") as handle:
+                 torch.save(tensors, handle)
++            self.failure_stage = "terminal_tensor_hash_read"
+             tensor_bytes = tensor_path.read_bytes()
++            self.failure_stage = "source_bindings_read"
+             source_bindings = json.loads((HERE / "SOURCE_BINDINGS.json").read_text())
++            self.failure_stage = "report_construction"
+             report = dict(schema="graph-curvature-terminal-report-v1",
+                 identity=self.identity, endpoint=endpoint,
+                 served_validation=pooled, member_validation_competence=competence,
+@@ -195,18 +276,22 @@
+                 reporting_body_cost_excludes_hook_capture_and_RNG_restoration=True,
+                 reporting_body_cost_excludes_final_report_json_write=True,
+                 heldout_labels_accessed=False, predictive_gain_claim=False)
++            self.failure_stage = "terminal_report_json_write"
+             _json_exclusive(self.output / "terminal_report.json", report)
++            self.completed = True
++            self.failure_stage = None
+         except BaseException as error:
+-            failure = dict(schema="graph-curvature-terminal-report-failure-v1",
+-                identity=self.identity, error_type=type(error).__name__, error=str(error),
+-                partial_files_preserved=sorted(path.name for path in self.output.iterdir()),
+-                reporting_body_wall_seconds=time.perf_counter()-wall_started,
+-                reporting_body_process_cpu_seconds=time.process_time()-cpu_started,
+-                retry_authorized=False)
+             try:
+-                _json_exclusive(self.output / "REPORT_FAILED.json", failure)
++                self.failure_body_cost = dict(wall_seconds=time.perf_counter()-wall_started,
++                    process_cpu_seconds=time.process_time()-cpu_started)
++                if self.output_created:
++                    _failure_exclusive(self.output / "REPORT_FAILED.json", error,
++                        identity=self.identity, endpoint=self.endpoint, terminal_context=None,
++                        stage=self.failure_stage, wall_started=wall_started, cpu_started=cpu_started,
++                        cost_scope="observer_body_until_failure_including_attempted_final_JSON_write",
++                        partial_directory=self.output)
+             except BaseException:
+-                pass  # The caller still receives the original failure; partial files remain.
++                pass
+             raise
+ 
+ 
+@@ -217,8 +302,53 @@
+     Returns the original continuation's (best, metadata). Existing midpoint and
+     selected save_logits calls remain unchanged. Failures are not suppressed.
+     """
+-    reporter = TerminalReporter(report_root, arm_relative_directory, identity, validation)
+-    adapter = load_reporting_adapter()
+-    adapter.rng_restore(initialized["rng"])
+-    return adapter.continuation(initialized["model"], initialized["optimizer"],
+-        graph, train, validation, trace, save_logits, terminal_observer=reporter)
++    wall_started, cpu_started = time.perf_counter(), time.process_time()
++    stage, attempt_owned, bindings_verified = "run_path_validation", False, False
++    reporter, failure_path, terminal_context = None, None, {}
++    try:
++        root, relative = Path(report_root).resolve(), Path(arm_relative_directory)
++        require(root.is_relative_to(PHASE.resolve()) and root != PHASE.resolve(),
++                "Reporting root must be inside the project research phase")
++        require(not relative.is_absolute() and relative.parts and ".." not in relative.parts,
++                "A nonempty arm-relative output directory is required")
++        key = hashlib.sha256(str(relative).encode("utf-8")).hexdigest()
++        attempt_path = root / ("terminal_reporting_attempt_" + key + ".json")
++        failure_path = root / ("terminal_reporting_attempt_" + key + "_FAILED.json")
++        terminal_context.update(arm_relative_directory=str(relative),
++            attempt_marker=attempt_path.name, run_failure_record=failure_path.name)
++        stage = "attempt_root_creation"
++        root.mkdir(parents=True, exist_ok=True)
++        stage = "exclusive_attempt_marker"
++        with attempt_path.open("x", encoding="utf-8") as handle:
++            attempt_owned = True
++            json.dump(dict(schema="graph-curvature-terminal-reporting-attempt-v2",
++                arm_relative_directory=str(relative), retry_authorized=False,
++                stage="STARTED_BEFORE_CONSTRUCTOR_OR_BOUND_SOURCE_LOADING"), handle,
++                indent=2, sort_keys=True, allow_nan=False)
++            handle.write("\n")
++        stage = "reporter_constructor"
++        reporter = TerminalReporter(report_root, arm_relative_directory, identity, validation)
++        stage = "bound_source_loading"
++        adapter = load_reporting_adapter()
++        bindings_verified = True
++        stage = "initial_continuation_rng_restore"
++        adapter.rng_restore(initialized["rng"])
++        stage = "native_continuation"
++        return adapter.continuation(initialized["model"], initialized["optimizer"],
++            graph, train, validation, trace, save_logits, terminal_observer=reporter,
++            terminal_context=terminal_context)
++    except BaseException as error:
++        if attempt_owned:
++            try:
++                terminal_context["reporter_failure_stage"] = reporter.failure_stage if reporter else None
++                terminal_context["reporter_failure_body_cost"] = reporter.failure_body_cost if reporter else None
++                terminal_context["reporter_completed"] = reporter.completed if reporter else False
++                _failure_exclusive(failure_path, error, identity=identity,
++                    endpoint=terminal_context.get("endpoint"), terminal_context=terminal_context,
++                    stage=stage, wall_started=wall_started, cpu_started=cpu_started,
++                    cost_scope="wrapper_constructor_loading_rng_restore_continuation_and_failure_unwinding_before_run_failure_receipt",
++                    partial_directory=reporter.output if reporter and reporter.output_created else None,
++                    source_bindings_verified=bindings_verified)
++            except BaseException:
++                pass
++        raise
+--- graph_curvature_selector_terminal_reporting_source_20261004_v1/README.md
++++ graph_curvature_selector_terminal_reporting_source_20261004_v2/README.md
+@@ -12,11 +12,11 @@
+ 
+ ## Source custody and unchanged decisions
+ 
+-The canonical `graph_init_training_adapter.py`, selector, driver, constants and outline remain unchanged. `SOURCE_BINDINGS.json` binds their exact bytes and the separate `graph_init_training_adapter_terminal.py`. `OBSERVATION_ONLY.patch` shows the only change: an optional keyword-only observer argument and one block before selected model restoration.
++The canonical `graph_init_training_adapter.py`, selector, driver, constants and outline remain unchanged. `SOURCE_BINDINGS.json` binds their exact bytes and the separate `graph_init_training_adapter_terminal.py`. `OBSERVATION_ONLY.patch` shows the only native-copy change: optional keyword-only observer/context arguments and one block before selected model restoration. `V1_TO_V2.patch` records this packet's failure-reporting correction against preserved v1.
+ 
+-`SOURCE_EQUIVALENCE.json` records a stdlib AST check. Removing that argument and block reproduces the complete original module AST exactly. Existing warm acquisition, training, evaluation, midpoint saving, strict checkpoint comparison, epoch-zero eligibility, stopping, selected replay and return values are unchanged. This is source reasoning, not a numerical replay test. Independent review and exact-runtime qualification remain required before scientific use.
++`SOURCE_EQUIVALENCE.json` records a stdlib AST check. Removing those arguments and that block reproduces the complete original module AST exactly. Existing warm acquisition, training, evaluation, midpoint saving, strict checkpoint comparison, epoch-zero eligibility, stopping, selected replay and return values are unchanged. This is source reasoning, not a numerical replay test. Independent review and exact-runtime qualification remain required before scientific use.
+ 
+-The hook snapshots and restores the native Python, NumPy, CPU Torch and CUDA RNG states in `finally`, including observer failure. No model, optimizer or graph object is passed to the observer. An observer receives detached copies and scalar metadata; its return is ignored. The provided observer draws no random numbers and writes only inside the supplied run directory within the project research phase.
++The hook retains the same native Python, NumPy, CPU Torch and CUDA RNG snapshot/restore calls. After a complete snapshot it attempts restoration in `finally`, including observer failure. A snapshot or restoration failure is explicitly retained; it is not evidence that RNG restoration succeeded. A secondary restoration failure does not replace an already pending capture/observer exception. No model, optimizer or graph object is passed to the observer. An observer receives detached copies and scalar metadata; its return is ignored. The provided observer draws no random numbers and writes only inside the supplied run directory within the project research phase.
+ 
+ ## Exact caller integration
+ 
+@@ -44,6 +44,12 @@
+ 
+ ## Failures and costs
+ 
+-Each observer is single-use. Its output directory and files are exclusive; existing evidence is never overwritten. Reporting errors preserve partial files, attempt a `REPORT_FAILED.json` receipt and propagate the failure. There is no automatic retry or alternative endpoint.
++This preserved v2 successor addresses F1–F3 in `graph_curvature_selector_terminal_reporting_fresh_review_20261004_v1/REVIEW.md`. Training, strict checkpoint comparison, stopping, metrics, forward count and frozen sources remain unchanged.
+ 
+-Capture wall time includes RNG snapshot, CPU copies and the native-device mean. The report separately measures observer body wall and process CPU time. Body timing excludes final report JSON writing and RNG restoration; execution-wide measured cost must retain these overheads. No memory or full-schedule feasibility claim is supplied.
++Before constructor or bound-source loading, the wrapper exclusively creates `terminal_reporting_attempt_<sha256-of-arm-relative-path>.json` directly under the caller's run root. A caught failure after ownership is acquired attempts the matching `_FAILED.json` sidecar there. That record covers constructor/loading/initial RNG restore, native continuation, terminal capture/reporting, RNG restoration and failures after the observer returns. The marker is single-use; a collision is propagated without writing into the previous attempt. No retry or alternative endpoint is authorized.
++
++Each observer is single-use. Directory creation is now guarded, and existing terminal evidence is never overwritten. A collision is retained by the run-level sidecar without writing into that existing terminal directory. For a directory created by this attempt, reporting errors preserve partial files and attempt `REPORT_FAILED.json` there. Both failure receipts retain safely available terminal metadata, capture costs, source bindings and availability/verification status. Endpoint fields not yet reached or unavailable are explicitly identified. Inventory failure records an unavailable inventory instead of replacing the original error. The entire best-effort receipt construction and write is protected, and the original exception propagates.
++
++Invalid output paths, inability to create the run root or exclusive marker, and storage failure during receipt writing can prevent a durable receipt. No unsafe fallback location or overwrite is attempted. Those cases require the caller's existing run-level accounting; this source packet cannot guarantee storage availability. Native-runtime exception tests remain unperformed.
++
++Capture wall/process CPU time includes endpoint metadata, RNG snapshot, CPU copies and the native-device mean, including a partial capture that fails. The successful report retains its observer-body timing boundary before final report JSON writing and RNG restoration. Failure sidecars additionally record observer costs, wrapper elapsed wall/process CPU before receipt construction, and available restoration costs. These intervals overlap and must not be summed as native-training cost. Failure-receipt construction/writing and successful final JSON/RNG restoration are not silently presented as fully measured end-to-end cost. No memory or full-schedule feasibility claim is supplied.
+--- graph_curvature_selector_terminal_reporting_source_20261004_v1/REPORTING_PROTOCOL.json
++++ graph_curvature_selector_terminal_reporting_source_20261004_v2/REPORTING_PROTOCOL.json
+@@ -1,9 +1,15 @@
+ {
+-  "RNG": "snapshot before hook capture, unconditional restore after observer including failure",
++  "RNG": "Unchanged default RNG inventory/calls; restoration attempted after a complete snapshot. Snapshot/restoration failure is explicit. A secondary restoration failure preserves an already pending capture/observer exception.",
+   "additional_metrics": "VALIDATION served accuracy/NLL/Brier and member accuracy/NLL/Brier from captured logits, CPU float64; reporting only",
+   "additional_model_forward": false,
++  "corrected_review_findings": [
++    "F1",
++    "F2",
++    "F3"
++  ],
+   "endpoint": "last completed native continuation update, before validation-NLL selected model restoration",
+-  "failure": "preserve partial files, try to write REPORT_FAILED.json, propagate failure, no retry",
++  "failure": "Exclusive run-level attempt marker before constructor/loading; best-effort run-level failure sidecar for every subsequent wrapper failure; terminal REPORT_FAILED.json only in this attempt-owned directory; entire receipt construction/write protected; original error propagated; no retry/overwrite.",
++  "failure_receipt_fields": "Stage; safely available endpoint, update/stop/selected/source NLL, capture costs and unknown field inventory; source bindings with availability/verification status; owned partial-file inventory or explicit unavailable inventory.",
+   "frozen_cohort": {
+     "arms": [
+       "common_only",
+@@ -34,13 +40,18 @@
+     "Reporting source copy must be independently reviewed and qualified at the exact native runtime before launch.",
+     "Validation descriptors copied from caller are not independently verified by this observer.",
+     "Additional float64 CPU NLL is not bitwise identical to the original native-device FP32 checkpoint metric and cannot silently replace it.",
+-    "No heldout evidence, predictive improvement, novelty or acceptance follows from this source preparation."
++    "No heldout evidence, predictive improvement, novelty or acceptance follows from this source preparation.",
++    "Invalid/unwritable run roots or an unavailable exclusive attempt marker can prevent durable run-level reporting; no unsafe fallback path or overwrite is used.",
++    "Receipt IO/construction failure may prevent the receipt itself; it must not replace the original exception.",
++    "Snapshot or restoration failure does not establish RNG restoration. Custom generators and unrelated backends remain outside the unchanged canonical RNG inventory.",
++    "Source-only AST checks do not exercise exception paths or establish full native-runtime, RNG or metric equivalence."
+   ],
+   "native_source_NLL": "Last existing native pooled validation cross-entropy scalar; source selection/screen arithmetic is retained",
+   "no_model_or_optimizer_passed_to_observer": true,
+   "observer_inputs": "cloned CPU logits, scalar endpoint metadata; caller supplies already authorized VALIDATION pack and verified descriptors",
+-  "reporting_cost": "separate capture wall time and observer body wall/CPU time; neither is a claimed native-training cost; final report JSON write and RNG restore are excluded from observer body time",
+-  "schema": "graph-curvature-terminal-reporting-protocol-v1",
++  "preserved_previous_packet": "graph_curvature_selector_terminal_reporting_source_20261004_v1",
++  "reporting_cost": "Completed/partial hook capture wall and process CPU; observer body and wrapper failure intervals; available restore intervals. Overlapping scopes must not be summed. Successful final JSON/RNG restore and receipt construction/write are not claimed as measured end-to-end training cost.",
++  "schema": "graph-curvature-terminal-reporting-protocol-v2",
+   "scope": "Observation-only source preparation; no execution or scientific result",
+   "served_raw_logits": "Mean across member axis on the native device, copied without precision conversion to CPU"
+ }

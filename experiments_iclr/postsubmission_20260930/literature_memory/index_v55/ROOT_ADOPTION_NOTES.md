@@ -1,0 +1,13 @@
+# v55 integration scope
+
+This integration adopts previously completed, sealed literature notes. It adds **zero primary reads**, zero author-source semantic reads and zero project-source semantic reads.
+
+All **217** v54 conclusion records, every old catalog entry, old canonical group and history field are preserved. One method conclusion is appended for _How to Train a Shallow Ensemble_, arXiv:2602.15747v1. Its exact version, raw HTML, extracted block source and inspected block scope are bound and checked before append.
+
+The incidental **Gradient Starvation** exposure, arXiv:2011.09468v1, is retained separately in `locator_only_exclusions`. The new source packet exposed only its abstract and first introductory anecdote. The earlier curvature packet records those same source bytes as retrieved and mechanically parsed, with only title/headings displayed and **method unread**. This is a retained-source abstract/intro scope, not another method paper, a full paper, or new primary retrieval. It is not GNCL (whose correct ID is arXiv:2011.02952). Exact source-version/block deduplication found no prior adoption of the newly exposed scope. The locator adds no method conclusion or canonical paper group.
+
+Main totals become **218 scoped conclusion records, 166 paper identity groups and 2 software identity groups**. A separate new incidental abstract/intro locator is explicitly accounted for; these numbers do not certify full-paper reads or a cumulative number of method reads. The source packet completed one new scoped method-paper read and one retained incidental abstract/intro exposure; index integration does not read them again.
+
+The new prior establishes shared-backbone shallow ensembles, exactly centered head samples, curvature/GGN/Laplace initialization, and the distinction between covariance orientation and total variance. Its reported atomistic-regression uncertainty outcomes do not establish graph-classification accuracy. The potential increment is the graph-error VJP span restriction selected via a discarded finite coupled-Adam own-CE trial at matched initial mean logits and Jensen gap. Novelty, predictive gain, numerical qualification and execution remain unestablished.
+
+The index preserves required graph/random/permuted/fixed-pair, warm-copy and competent native/independent ensemble controls. Centered GGN/Laplace and plain gradient/SVD initialization remain unadopted baseline proposals; a Laplace posterior interpretation at a short nonstationary warm point is not justified. The thirteen new numerical constants remain unfrozen. No canonical ledger/status, manuscript, publication, results, server state or job queue is changed by this integration.
