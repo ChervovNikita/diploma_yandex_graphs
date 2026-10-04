@@ -1,0 +1,278 @@
+--- graph_curvature_selector_exact_native_qualification_source_20261004_v2/runner.py
++++ graph_curvature_selector_exact_native_qualification_source_20261004_v3/runner.py
+@@ -54,7 +54,7 @@
+         if provenance['supported'] else 'UNRESOLVED_INPUT_PROVENANCE_REACQUISITION_REQUIRED',
+         input_provenance_supported=provenance['supported'], qualification_executed=False,
+         callable='runner.run_qualification', data_loader='runner.load_declared_inputs',
+-        graphs=['Squirrel17', 'Photo17'], predictive_continuation=False,
++        graphs=['Squirrel17'], predictive_continuation=False,
+         unresolved_dependencies=['actual NumPy/PyTorch/SciPy/PyG/operator runtime',
+                                  'actual-device native AD/state/trial/cost qualification'])
+ 
+@@ -189,6 +189,26 @@
+                 expected_value=_exact_scalar(left),actual_value=_exact_scalar(right)))
+ 
+ 
++def load_install_witness():
++    record = json.loads((HERE/'SOURCE_BINDINGS.json').read_text())['witness_source']
++    path, data = read_verified(record)
++    name = 'graph_curvature_install_witness_v3'
++    if name in sys.modules:
++        module = sys.modules[name]
++        require(getattr(module,'__executed_sha256__',None) == record['sha256']
++            and getattr(module,'__executed_path__',None) == str(path), 'Unverified witness module cache')
++        return module
++    module = importlib.util.module_from_spec(importlib.util.spec_from_file_location(name,path))
++    sys.modules[name] = module
++    try:
++        exec(compile(data,str(path),'exec'),module.__dict__)
++        module.__executed_sha256__, module.__executed_path__ = record['sha256'], str(path)
++    except BaseException:
++        del sys.modules[name]
++        raise
++    return module
++
++
+ def tensor_storage(value, torch):
+     if torch.is_tensor(value):
+         return {value.data_ptr()} if value.numel() else set()
+@@ -230,70 +250,65 @@
+ 
+ 
+ def check_five_returns(outputs, receipt, native, checkpoint, graph, train, edges,
+-                       selector, sources, constants, torch):
+-    """Reconstruct pretrial factors without repeating any Adam selection trial."""
+-    adapter, boundary, source = (sources[key] for key in ('integration','boundary','initializer'))
+-    backbone = native.specification['backbone']
+-    prototype = adapter.clone_boundary(copy.deepcopy(native),boundary,4)
+-    optimizer, _ = adapter.transport_optimizer(native,checkpoint['optimizer'],prototype)
+-    frozen = adapter.named_optimizer_snapshot(prototype,optimizer)
+-    before = adapter.cpu_copy(prototype.state_dict())
+-    modes = {name:module.training for name,module in prototype.named_modules()}
+-    k1 = adapter.clone_boundary(copy.deepcopy(native),boundary,1).eval()
+-    args = adapter.raw_arguments(graph,backbone)
+-    theta, logits_fn, _ = selector.bind_head_only(k1,backbone,args)
+-    S = source.symmetric_normalized_adjacency(graph.teacher_input.shape[0],edges,theta.dtype,theta.device)
+-    nodes = torch.arange(S.shape[0],dtype=torch.int64,device=theta.device)
+-    common, _ = source.initialize_four_routes(logits_fn,theta,S,nodes,train.nodes,train.labels,tangent_mode='common_only')
+-    center, bases = common[0], {}
+-    selected_spans = {value['pair'][0] for value in receipt['selection'].values() if value['pair'] is not None}
+-    if selected_spans:
+-        bank, gradient, _ = selector.projected_bank(logits_fn,center,S,nodes,train.nodes,train.labels,source)
+-        for span in selected_spans:
+-            if span == 'permuted':
+-                permuted, _ = source.permute_topology_nodes(S,80017)
+-                bank_span, _, _ = selector.projected_bank(logits_fn,center,permuted,nodes,train.nodes,train.labels,source)
+-            elif span == 'random':
+-                generator = torch.Generator(device='cpu').manual_seed(70017)
+-                bank_span = torch.randn((4,center.numel()),dtype=torch.float64,generator=generator).to(center.device)
+-            else:
+-                bank_span = bank
+-            bases[span], _ = selector.ordered_basis(bank_span,gradient,constants,source.ALGEBRA_TOLERANCE)
+-            require(bases[span] is not None, 'Selected basis reconstruction failed')
+-    require(tuple(outputs) == selector.ARMS and receipt['trial_maps_started'] <= 10
+-        and all(len(rows) == 3 for rows in receipt['candidates'].values()), 'Exact five-arm/nine-slot enumeration differs')
+-    head = selector.HEADS[backbone][0]
+-    checks, storages = [], []
+-    donor_storage = tensor_storage(native.state_dict(),torch) | tensor_storage(checkpoint,torch)
+-    for arm in selector.ARMS:
+-        out = outputs[arm]
+-        expected = common
+-        pair = receipt['selection'][arm]['pair']
+-        if pair is not None:
+-            span, index = pair
+-            radius = receipt['candidates'][span][index]['radius']
+-            a,b = [bases[span][j].to(center.dtype)*radius for j in selector.PAIRS[index]]
+-            expected = center[None,:]+torch.stack((a,-a,b,-b))
+-        for name,value in out['model'].state_dict().items():
+-            exact_equal(expected if name == head else before[name],value,torch,
+-                        path=f"returned_arms[{arm!r}].model[{name!r}]")
+-        exact_equal(frozen,adapter.named_optimizer_snapshot(out['model'],out['optimizer']),torch,
+-                    path=f"returned_arms[{arm!r}].optimizer")
+-        exact_equal(checkpoint['rng'],out['rng'],torch,path=f"returned_arms[{arm!r}].rng")
+-        require({name:module.training for name,module in out['model'].named_modules()} == modes,
+-                'Returned pretrial module modes differ')
+-        with torch.no_grad():
+-            evaluation = copy.deepcopy(out['model']).eval()(*args)
+-            require(torch.allclose(evaluation.mean(0),logits_fn(center),
+-                atol=constants.mean_logit_atol,rtol=constants.mean_logit_rtol), 'Returned mean-logit guard differs')
+-        pointer = tensor_storage(out['model'].state_dict(),torch) | tensor_storage(list(out['optimizer'].state.values()),torch) | tensor_storage(out['rng'],torch)
+-        require(not pointer & donor_storage, 'Returned state aliases native donor/checkpoint storage')
+-        for other in storages:
+-            require(not pointer & other, 'Returned model/Adam/RNG storage aliases another arm')
+-        storages.append(pointer)
+-        checks.append(dict(arm=arm,pretrial_model_adam_rng_checked=True,selection=receipt['selection'][arm]))
++                       selector, sources, constants, torch, witness_module, recorder, save, out):
++    """Collect all exact custody/reconstruction checks; never promote qualification."""
++    adapter = sources['integration']
++    source_diagnostics = witness_module.source_custody(outputs,receipt,native,checkpoint,
++        selector,adapter,torch,exact_equal,tensor_storage,recorder)
++    save('SOURCE_CUSTODY_DIAGNOSTICS.json',source_diagnostics)
++    try:
++        adapter, boundary, source = (sources[key] for key in ('integration','boundary','initializer'))
++        backbone = native.specification['backbone']
++        prototype = adapter.clone_boundary(copy.deepcopy(native),boundary,4)
++        optimizer, _ = adapter.transport_optimizer(native,checkpoint['optimizer'],prototype)
++        frozen = adapter.named_optimizer_snapshot(prototype,optimizer)
++        before = adapter.cpu_copy(prototype.state_dict())
++        modes = {name:module.training for name,module in prototype.named_modules()}
++        k1 = adapter.clone_boundary(copy.deepcopy(native),boundary,1).eval()
++        args = adapter.raw_arguments(graph,backbone)
++        theta, logits_fn, _ = selector.bind_head_only(k1,backbone,args)
++        S = source.symmetric_normalized_adjacency(graph.teacher_input.shape[0],edges,theta.dtype,theta.device)
++        nodes = torch.arange(S.shape[0],dtype=torch.int64,device=theta.device)
++        common, _ = source.initialize_four_routes(logits_fn,theta,S,nodes,train.nodes,train.labels,tangent_mode='common_only')
++        center, bases = common[0], {}
++        selected_spans = {value['pair'][0] for value in receipt['selection'].values() if value['pair'] is not None}
++        if selected_spans:
++            bank, gradient, _ = selector.projected_bank(logits_fn,center,S,nodes,train.nodes,train.labels,source)
++            for span in selected_spans:
++                if span == 'permuted':
++                    permuted, _ = source.permute_topology_nodes(S,80017)
++                    bank_span, _, _ = selector.projected_bank(logits_fn,center,permuted,nodes,train.nodes,train.labels,source)
++                elif span == 'random':
++                    generator = torch.Generator(device='cpu').manual_seed(70017)
++                    bank_span = torch.randn((4,center.numel()),dtype=torch.float64,generator=generator).to(center.device)
++                else:
++                    bank_span = bank
++                bases[span], _ = selector.ordered_basis(bank_span,gradient,constants,source.ALGEBRA_TOLERANCE)
++                require(bases[span] is not None, 'Selected basis reconstruction failed')
++        independent_diagnostics, expected_heads = witness_module.independent_reconstruction(
++            outputs,receipt,common,bases,before,frozen,modes,args,logits_fn,selector,adapter,
++            constants,torch,exact_equal,recorder.frozen)
++        with (out/'INDEPENDENT_RECONSTRUCTION_HEADS.pt').open('xb') as stream:
++            torch.save(dict(schema='graph-curvature-independent-heads-v1',heads=expected_heads),stream)
++    except Exception as error:
++        failure = dict(error_type=type(error).__name__,error=str(error))
++        if isinstance(error,ExactStateDifference):
++            failure['exact_state_difference'] = error.details
++        independent_diagnostics = dict(schema='graph-curvature-independent-reconstruction-diagnostics-v1',
++            diagnostic_only=True,qualification_promoted=False,passed=False,
++            preparation_or_collection_error=failure,
++            arms=[dict(arm=arm,passed=False,not_fully_checked=True,error=failure)
++                  for arm in selector.ARMS],completed_arms=len(selector.ARMS))
++    save('INDEPENDENT_RECONSTRUCTION_DIAGNOSTICS.json',independent_diagnostics)
+     adapter.rng_restore(checkpoint['rng'])
+-    return dict(passed=True,checks=checks,completed=5,selection_trials_repeated=0)
++    return dict(passed=source_diagnostics['passed'] and independent_diagnostics['passed'],
++        diagnostic_completed=True,qualification_promoted=False,
++        source_custody_passed=source_diagnostics['passed'],
++        independent_reconstruction_passed=independent_diagnostics['passed'],
++        source_custody_artifact='SOURCE_CUSTODY_DIAGNOSTICS.json',
++        independent_reconstruction_artifact='INDEPENDENT_RECONSTRUCTION_DIAGNOSTICS.json',
++        returned_arm_diagnostics_completed=5,selection_trials_repeated=0,
++        original_reconstruction_exact_failures_remain_failures=True)
+ 
+ 
+ def live_factor_probe(initialization, graph, train, sources, torch):
+@@ -346,7 +361,7 @@
+     if not pending['input_provenance_supported']:
+         return pending
+     started_wall, started_cpu = time.perf_counter(), time.process_time()
+-    require(graph_name in ('Squirrel','Photo') and device in ('cpu','cuda:0'), 'Only exact representative graph17/device')
++    require(graph_name == 'Squirrel' and device in ('cpu','cuda:0'), 'Witness diagnostic admits Squirrel17 only')
+     verify_runtime_location()
+     require(device != 'cpu' or os.environ.get('CUDA_VISIBLE_DEVICES') == '', 'CPU qualification must hide CUDA')
+     require(device == 'cpu' or os.environ.get('CUBLAS_WORKSPACE_CONFIG') == ':4096:8', 'Frozen deterministic CUDA workspace required')
+@@ -369,12 +384,21 @@
+                 ('scipy','torch-geometric','torch-scatter','torch-sparse','pyg-lib')})
+         costs = Costs(torch,device,report['costs'])
+         driver, selector = load_driver()
++        witness_module = load_install_witness()
+         sources = driver.load_sources()
+         native_api, adapter = sources['native_adapter'], sources['integration']
+         constants = selector.FrozenConstants(**verified_json(dict(path=CONSTANTS,sha256=CONSTANTS_SHA))['constants'])
+         x, edges, labels, binding = costs.call('load_full_inputs',lambda:load_declared_inputs(graph_name,np,torch,device))
+         graph = costs.call('cold_native_preprocessing',lambda:native_api.prepare_graph(x,edges,
+             driver.CELLS[graph_name],report['runtime'],dict(graph_input=binding['graph_input'])))
++        input_fingerprints = costs.call('observe_input_preprocessing_fingerprints',lambda:
++            witness_module.input_preprocessing_fingerprints(x,edges,labels,graph,binding))
++        input_fingerprints['native_preprocessing_metadata'] = copy.deepcopy(graph.preprocessing)
++        save('INPUT_PREPROCESSING_FINGERPRINTS.json',input_fingerprints)
++        preprocessing_snapshot = costs.call('capture_actual_native_preprocessing_snapshot',lambda:
++            witness_module.capture_actual_preprocessing(graph,out/'ACTUAL_PREPROCESSED_INPUT.pt',torch,input_fingerprints))
++        save('PREPROCESSING_SNAPSHOT_RECEIPT.json',preprocessing_snapshot)
++        report['preprocessing_snapshot'] = preprocessing_snapshot
+         trace, transitions = [], []
+         def warm_trace(row):
+             trace.append(row)
+@@ -393,6 +417,19 @@
+             checkpoint['metadata']['local_model_and_adam_restored'] and not checkpoint['metadata']['native_local_rng_restored'],
+             'Photo exact local-best model/Adam and post-all200 RNG handoff required')
+         torch.save(checkpoint,out/'FRESH_NATIVE_WARM.pt')
++        warm_fingerprints = costs.call('observe_fresh_warm_state_fingerprints',lambda:
++            witness_module.fresh_warm_fingerprints(checkpoint,out/'FRESH_NATIVE_WARM.pt',torch,input_fingerprints))
++        save('FRESH_WARM_FINGERPRINTS.json',warm_fingerprints)
++        report['fresh_warm_fingerprint_summary'] = dict(
++            artifact='FRESH_WARM_FINGERPRINTS.json',
++            model=warm_fingerprints['logical_model']['sha256_logical_descriptor'],
++            optimizer=warm_fingerprints['logical_optimizer']['sha256_logical_descriptor'],
++            RNG=warm_fingerprints['logical_RNG']['sha256_logical_descriptor'],
++            teacher_input=input_fingerprints['teacher_input']['sha256_raw_logical_bytes'],
++            raw_features=input_fingerprints['raw_features']['sha256_raw_logical_bytes'],
++            canonical_edges=input_fingerprints['canonical_edges']['sha256_raw_logical_bytes'],
++            file_hash_is_distinct_from_logical_state=True,
++            replay_failure_or_repeatability_claim=False)
+         roundtrip = torch.load(out/'FRESH_NATIVE_WARM.pt',map_location='cpu')
+         restored, restored_optimizer = costs.call('fresh_checkpoint_state_rng_restore',lambda:adapter.restore_native(native_api,roundtrip,device))
+         exact_equal(checkpoint,adapter.native_checkpoint(restored,restored_optimizer,checkpoint['metadata']),torch,
+@@ -414,24 +451,43 @@
+         require(report['checks']['actual_head_AD']['passed'], 'Actual native AD interface is unresolved/failed')
+         del k1,k4,theta,logits_fn
+         adapter.rng_restore(checkpoint['rng'])
+-        outputs, receipt = costs.call('unchanged_selector_all_slots_and_trials',lambda:
+-            driver.prepare_from_native_warm(native,optimizer,checkpoint['metadata'],checkpoint['rng'],graph_name,
+-                17,0,graph,labels['train'],edges,constants,sources))
++        recorder = witness_module.InstallWitnessRecorder(driver,selector,adapter)
++        report.update(diagnostic_only=True,qualification_promoted=False,
++                      witness_source_sha256=witness_module.__executed_sha256__)
++        try:
++            with recorder:
++                outputs, receipt = costs.call('instrumented_selector_all_slots_and_trials',lambda:
++                    driver.prepare_from_native_warm(native,optimizer,checkpoint['metadata'],checkpoint['rng'],graph_name,
++                        17,0,graph,labels['train'],edges,constants,sources))
++        finally:
++            report['runtime_instrumentation'] = recorder.summary()
++            save('WITNESS_CAPTURE_RECEIPT.json',recorder.summary())
++            with (out/'INSTALL_WITNESSES.pt').open('xb') as stream:
++                torch.save(recorder.archive(),stream)
+         save('SELECTOR_RECEIPT.json',receipt)
+-        report['checks']['all_five_returned_states'] = costs.call('all_five_pretrial_state_reconstruction',lambda:
+-            check_five_returns(outputs,receipt,native,checkpoint,graph,labels['train'],edges,selector,sources,constants,torch))
+-        report['checks']['live_actual_native_factors'] = costs.call('disposable_live_factor_Adam_probe',lambda:
+-            live_factor_probe(outputs['common_only'],graph,labels['train'],sources,torch))
++        diagnostics = costs.call('all_five_exact_witness_and_reconstruction_diagnostics',lambda:
++            check_five_returns(outputs,receipt,native,checkpoint,graph,labels['train'],edges,
++                selector,sources,constants,torch,witness_module,recorder,save,out))
++        report['checks']['all_five_returned_states'] = diagnostics
+         adapter.rng_restore(checkpoint['rng'])
+-        exact_equal(checkpoint,adapter.native_checkpoint(native,optimizer,checkpoint['metadata']),torch,
+-                    path='native_donor_after_qualification')
+-        noncommon = any(row['pair'] is not None for row in receipt['selection'].values())
+-        report.update(status='PASSED_ACTUAL_NATIVE_WARM_ENGINEERING_ONLY',warm_metadata=checkpoint['metadata'],
+-            candidate_slots=9,trial_maps_started=receipt['trial_maps_started'],
+-            per_trial_wall_seconds=None,per_trial_cost_scope='All attempts charged in aggregate selector operation; per-map timers not instrumented',
+-            noncommon_return_coverage=noncommon,
+-            noncommon_return_state_qualification='CHECKED' if noncommon else 'UNRESOLVED_NO_ELIGIBLE_NATIVE_RETURN',
+-            input_binding=binding,returned_arms_saved=False)
++        donor_checks = []
++        witness_module.collect_check(donor_checks,'native_donor_after_diagnostics',lambda:
++            exact_equal(checkpoint,adapter.native_checkpoint(native,optimizer,checkpoint['metadata']),torch,
++                        path='native_donor_after_diagnostics'))
++        report['checks']['native_donor_after_diagnostics'] = dict(
++            passed=all(row['passed'] for row in donor_checks),checks=donor_checks)
++        if not diagnostics['source_custody_passed'] or not all(row['passed'] for row in donor_checks):
++            final_status = 'FAILED_SOURCE_CUSTODY_DIAGNOSTIC_ONLY'
++        elif not diagnostics['independent_reconstruction_passed']:
++            final_status = 'FAILED_INDEPENDENT_RECONSTRUCTION_DIAGNOSTIC_ONLY'
++        else:
++            final_status = 'DIAGNOSTIC_COMPLETED_NO_QUALIFICATION_PROMOTION'
++        report.update(status=final_status,qualification_promoted=False,
++            warm_metadata=checkpoint['metadata'],candidate_slots=9,
++            trial_maps_started=receipt['trial_maps_started'],
++            input_binding=binding,returned_arms_saved=False,
++            witness_snapshots_saved=True,live_factor_probe_executed=False,
++            original_native_qualification_not_established=True)
+     except Exception as error:
+         if isinstance(error, ExactStateDifference):
+             report['exact_state_difference'] = error.details
