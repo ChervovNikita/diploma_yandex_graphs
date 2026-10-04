@@ -1,26 +1,21 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-04T01:20:25.137978+00:00. Goal active and incomplete; original benchmark scores unchanged. See[the current measured status](PUBLIC_STATUS.md).
+Updated: 2026-10-04T02:17:37.571213+00:00. Goal active and incomplete. See [current measured status](PUBLIC_STATUS.md). Original paper scores unchanged.
 
-## Current direction
+## Completed fixed pilot
 
-Private NCNC completion provides a five-seed selected-validation lead over pooling, with essentially equal independent-ensemble mean quality. The next proposed extension supervises complete TRAIN connection patterns jointly rather than individual incidences. This tests useful dependencies between potential connections while retaining member-specific completion responses. GRAN and NCNC ancestry remain credited; no new predictive method advantage is established.
+J/F seed0 fits, fixed diagnostics, normal closure and whole-pair reader are COMPLETE. Primary J-minus-F validation Hits50 is+0.2164pp (64.3066% versus64.0903%). One seed/selected VALID is a development screen. The fixed pooling diagnostic outperformed private completion for both arms; this challenges the intended route-association mechanism and is preserved. No inference, serving choice, broad superiority or manuscript acceptance is established.
 
-## Active work
+## Next work
 
-1. Preserve existing J/F seed 0 fits on 18.77: 62/100 and 64/100 epochs at01:13:42UTC. Do not restart on transport timeout or inspect partial quality. Monitor exact supervisor/child identities. Complete qualified diagnostics and closure only after both normal physical terminals and COMPLETE records. Evaluate every fixed diagnostic and retain negative outcomes.
-2. Preserve original 15 Amazon Polynormer queue on the authorized one-GPU route: 1,906/2,700 updates in first fit at01:13:41UTC. Exact monitor sequence 10 saved. No partial comparisons, TEST or recipe changes.
-3. The fixed diagnostic/closure normal supervisor received fresh source review without a concrete blocker. Admit it only after both COMPLETE records and normal physical terminals are authenticated; release templates remain disabled. Current comparator implementation and numerical/fullgraph qualification remain immutable.
-4. Prepare all 25 selected-checkpoint/metric audit under fixed False_anchor/True1/True2 calls. Strict True1/True2 must repeat bytes and match every saved selected Hits50. Historical references authenticate only by exact existing digests; missing historical vectors remain unavailable.128eps is engineering discrepancy reporting with no scientific acceptance authority. Validate newly reconstructed independent reference means, fixed attempted/entered/completed counts, and final custody after accounting. Preserve old fabricated FAILED qualification. The sealed v3 harness has contradictory genuine-scorer-exception counts, independently identified in static review. Keep it unexecuted and prepare a minimal successor. Root and fresh source review precede qualification/execution.
-5. Prepare model-independent actual TRAIN replay payloads for future J/F/count-control comparisons. Preserve record multiset semantics, negatives, permutation/tail and exact ordered residual supports. Freeze future paired comparisons before seeing current pair outcomes. No current-run/source mutation or rerun implied.
-6. Pubmed-HeaRT: acquired public inputs, complete geometry checked, raw Planetoid feature value/bit equivalence now verified. Actual 19,717 nodes and 44,324 positive rows differ from literal paper metadata; preserve discrepancies. VALID pool contains 2,299 other VALID-positive collisions under native author filtering. Preserve pool policy. Native adapter review and source/numerical evaluator/iterator-RNG qualification precede prospective training. No TEST or training release yet.
-7. Literature index_v42 preserves 183 scoped conclusions across 134 paper identities and two software identities, including recursive cardinality inference, DiGress and GegenNet. Preserve scopes and structured-single proposals. No whole-paper-read certification or global novelty clearance.
-8. Commit/push exact bounded inventories and record real head/sync receipts. Do not mutate18.77 checkout while owned fits run. Latest verified push e09292d9e258e18904e32d4c362a10175d20df5e; last 18.77 checkout 9c7ed8a6192405c64743206f80c13ad0f2a3dcd7.
+1. Finish additive literature v43 and prospective controls plan from outcome-blind source work. PIFM is a direct comparator, so broad NCNC-to-joint-refinement novelty is unavailable.
+2. Fix the single Pubmed native-qualification supervisor wall-cap defect in a sealed v2 successor, independently review it, then execute fabricated CPU and real native numerical/continuation qualification before training. Keep acquired TRAIN/VALID candidate ownership, actual raw features and native selectors unchanged.
+3. Root-read the changed v4 checkpoint-audit core/harness; authenticate the existing fabricated fixture; qualify exact v4 once; separately admit actual all25 checkpoint/metric audit and later frozen heldout confirmation. Source approval is insufficient. Preserve the old v2 FAILED replay and unexecuted blocked v3.
+4. Qualify the already sealed TRAIN replay provider. Implement a capable same-context structured single and prospectively fixed paired replication with new seeds. Do not select the strongest fixed routing diagnostic as a method from this one-seed inspection, or rescue it through broad tuning.
+5. Preserve the original Amazon15-fit queue on anogena-2. At02:03:36UTC first fit2272/2700updates; exact handles healthy. Next monitor sequence12. No restart or partial quality inspection.
+6. Publish bounded explicit inventories, actual result files, source reviews and conclusions. Preserve original manifests, failures and all pair outputs. Do not mutate18.77 checkout during owned execution.
+7. Revise a supported manuscript only after stronger evidence, then run fresh skill-based independent reviewers with immutable evidence and no desired verdict. Clear acceptance remains unachieved.
 
-## Evidence needed before manuscript promotion
+## Boundaries
 
-Complete J/F predictive endpoint and selected-state mechanism diagnostics; prospective paired replication and capable structural-single controls; second-benchmark and heldout confirmation; uncertainty and complete costs; preserved unsuccessful outcomes/provenance; supported immutable manuscript; independent fresh skill-based reviews without requested verdict or author history. Acceptance remains unachieved.
-
-## Boundaries and history
-
-Authorized one-GPU anogena-2 route and 18.77 repository only for science. Existing seven-GPU route is MacLink forwarding only. No sudo, PDF compilation, GENLINK, namespace isolation, other-job or unrelated-file changes. Ordinary incidental caches allowed. Old summaries are preserved in[status history](status_history/20261004_0047_before_current_consolidation/RESEARCH_STATE.md) and complete decisions in[research ledger](research_ledger.json).
+Authorized one-GPU anogena-2 allocation and18.77 repo only for science. Seven-GPU access is MacLink forwarding only. No sudo, PDF compilation, GENLINK, server/namespace/other-job changes or unrelated-file writes. Ordinary incidental caches allowed. All historical decisions and unsuccessful studies stay in[the ledger](research_ledger.json). Raw models/datasets/replay payloads stay server-side.

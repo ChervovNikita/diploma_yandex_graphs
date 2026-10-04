@@ -1,37 +1,29 @@
 # Current GNNM research status
 
-Updated: 2026-10-04T01:20:25.137978+00:00. Goal active and incomplete. Original paper scores remain unchanged. No newly established methodological predictive advantage or fresh manuscript acceptance.
+Updated: 2026-10-04T02:17:37.571213+00:00. Goal active and incomplete. Original paper scores unchanged. No newly confirmed methodological advantage or fresh manuscript acceptance.
 
-## Strongest measured lead
+## New completed comparison
 
-On ogbl-collab, private member-specific NCNC graph completion averages 66.4130% saved validation Hits@50, pooled completion 65.5699%, and independent ensemble 66.4150%. The frozen private-minus-pooled contrast is +0.8432 percentage points, positive in all five seeds. Its descriptive 95% interval is [+0.0353,+1.6510]pp across seeds on one graph/time split. VALID selected checkpoints; selected-state audit and heldout confirmation remain pending. Approximately equal independent-ensemble quality is not superiority. [Complete35-fit/25-cell results](ncnc_complete_family_saved_VALID_summary_20261004_v1/RESULTS_SUMMARY.md).
+Whole-pattern supervision J scored **64.3066%** validation Hits@50 on ogbl-collab; matched individual-incidence supervision F scored **64.0903%**: **+0.2164 percentage points**. Both100-epoch fits completed1700updates, all100training draws/RNG/supports matched, selected-checkpoint replays and complete diagnostics passed, and the whole pair was read after normal closure. This is one seed and a validation-selected split, with no significance interval or heldout confirmation. [Full pair](graph_ncNC_structural_pattern_execution_root_20261004_v5/complete_pair_analysis/run01/REPORT.md).
 
-## Active predictive experiments
+The mechanism evidence is mixed. Whole-pattern reconstruction improved, but the new variant's fixed pooled-completion diagnostic scored65.7596%, above its private64.3066%. Keeping completion routes separate is unsupported in this pilot. All adverse routes and diagnostics remain retained. No route has been selected for promotion. [Scientific interpretation](ncnc_complete_pattern_pilot_scientific_interpretation_20261004_v1/REPORT.md).
 
-At 01:13:42UTC on 4 October, whole-pattern supervision J completed 62/100 epochs and individual-incidence control F 64/100. Both exact child/supervisor handles were live on the two authorized 18.77 GPUs, with no failure or cap violation. Each retains 100 epochs, 1700 native updates and 102 full VALID traversals. Partial quality and TEST are unopened. [Latest owned-pair monitor](graph_ncNC_structural_pattern_execution_root_20261004_v5/OWNED_PAIR_MONITOR_0005.json).
+## Strongest earlier measured lead
 
-The objective tests whether learning complete observed connection patterns helps beyond learning individual connections with matched labels/capacity. GRAN supplies joint-likelihood ancestry and NCNC supplies graph completion. Observational zeros mean unobserved TRAIN connections. Predictive benefit and novelty are not established. Full numerical, complete-graph and serialized-replay qualification succeeded; all earlier failed engineering attempts are retained.
+Without the new auxiliary, private NCNC completion averaged66.4130% saved validation Hits@50 versus65.5699% pooled completion over five paired seeds: **+0.8432pp**, positive in all five. Its descriptive95% seed interval is[+0.0353,+1.6510]pp on one graph/time split. The independent ensemble averaged66.4150%, approximately equal. Validation selected checkpoints; the all25 checkpoint/metric audit and heldout confirmation remain pending. This is not superiority over independent ensembles. [Complete35-fit/25-cell report](ncnc_complete_family_saved_VALID_summary_20261004_v1/RESULTS_SUMMARY.md).
 
-At 01:13:41UTC, the original 15-fit Amazon Polynormer queue remained healthy on the authorized one-GPU allocation. First fit completed 1,906/2,700 updates: 200 local + 1,706 global. No failure or partial quality disclosure. [Exact monitor](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0010_RESULT.json).
+## Active compute and preparation
 
-## New preparation and checks
+At02:03:36UTC, the original15-fit Amazon Polynormer comparison remained healthy on the authorized one-GPU route. Its first fit reached2272/2700updates; no partial quality or TEST was read. [Exact monitor](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0011_RESULT.json).
 
-Pubmed-HeaRT acquisition and available-input geometry are complete. The supplied 19,717 by 500 feature matrix now exactly matches authenticated public raw Planetoid/PyG reconstruction, in values and bits. The normalized alternative differs. Literal exporter origin remains unknown. The CPU comparison completed once in 5.1034 physical seconds, no signals/cap failure/TEST/training. Loader/evaluator/iterator-RNG qualification and prospective training remain pending. [Verified feature result](pubmed_planetoid_raw_feature_equivalence_execution_root_20261004_v1/ROOT_VERIFIED_FEATURE_RESULT.json).
+Pubmed-HeaRT inputs and raw-feature bit/value equivalence are verified. Native adapter source is ready; numerical qualification is pending a small supervisor wall-cap correction found in independent source review. No Pubmed training result exists. All25 NCNC checkpoint-audit v4 received source-only approval; fabricated qualification and actual audit execution remain pending. The old exact-replay FAILED gate is preserved.
 
-The sealed checkpoint-audit v3 adds strict repeated-vector and all 25 saved-metric checks, authenticated conditional reference means, explicit call counts and final custody. Static root review found contradictory expected counts for its genuine scorer-exception qualification case (replay_synthetic.py lines 125–126); a fresh independent source reviewer separately identified the same defect. V3 is not admitted or executed. A source successor and qualification remain necessary. The old fabricated exact-replay FAILED gate is unchanged. [Root static blocker](ncnc_audit_v3_root_static_blocker_20261004_v1/ROOT_REVIEW.json).
+## Contribution and next evidence
 
-A fresh source review of the fixed post-fit diagnostic/closure supervisor found no concrete implementation blocker; root admission still requires both actual COMPLETE/normal-terminal pins. No predictive result is established. [Review](ncnc_V5_postfit_supervision_fresh_source_review_20261004_v1/REPORT.txt).
+PIFM already combines an NCNC prior with learned joint structural refinement. Our contribution must be narrower and supported against that comparator and capable structured singles. Seven additional bounded primary-method reads are saved; no full-paper-read or absence-of-prior claim follows. [Closest-prior report](joint_completion_shared_bank_closest_prior_scout_20261004_v1/REPORT.md).
 
-Count-aware and full-covariance structural-single controls are specified. New scoped reads cover recursive cardinality inference and DiGress. They establish relevant prior operations. Future cross-architecture comparisons require actual model-independent TRAIN replay inputs; current hashes alone do not reconstruct draws. Controls and replay-provider source are preparing, without fit admission. [Control memo](ncnc_structured_single_control_source_proposal_20261004_v1/MEMO.md).
+The next scientific comparison needs prospectively fixed common-replay paired replications, capable same-context structural controls, a second benchmark and heldout confirmation. Source review and qualification are engineering evidence, not manuscript acceptance. Unsuccessful BUDDY, initialization, sharing and other studies remain in the ledger. No extra GPU request is justified yet.
 
-## Closed studies and acceptance boundary
+## Operation and history
 
-BUDDY's fixed heldout comparison supplied no promoted quality winner; all 15 cells and uncertainty remain in the [paired report](buddy_paired_analysis_execution_20261004_v1/report/REPORT.md). Graph initialization, mixed-sharing HGT, DBLP native comparisons and other unsuccessful studies remain preserved in the ledger. They have no outcome-driven rescue.
-
-A defensible extension still requires complete J/F analysis, capable structural singles, prospective paired replication, a second benchmark and heldout confirmation, then an immutable supported manuscript and fresh independent skill-based review. Engineering approval is not paper acceptance. Canonical literature index_v42 records 183 scoped conclusions across 134 normalized paper identities and two software identities. Recursive cardinality inference, DiGress and GegenNet scopes are deduplicated; these are not whole-paper-read counts. No global absence-of-prior-work claim follows.
-
-## Publication and operation
-
-Latest verified GitHub push: e09292d9e258e18904e32d4c362a10175d20df5e. Authorized18.77 remains at 9c7ed8a6192405c64743206f80c13ad0f2a3dcd7; active runtime sources were separately staged and authenticated. No checkout mutation during active fits. The Pubmed checks, current monitors, audit critique and source preparations were published with137explicit files. The final push receipt is retained locally and on the authorized one-GPU server.
-
-Work uses the authorized one-GPU allocation and18.77 project repositories. Seven-GPU account use is limited to existing MacLink forwarding. No scientific access there. Ordinary incidental caches are allowed. No sudo, namespace isolation, other-job changes, PDF compilation, GENLINK or unrelated changes. Previous status documents are retained under[status history](status_history/20261004_0047_before_current_consolidation/RESEARCH_STATE.md); detailed decisions remain in[the ledger](research_ledger.json).
+Latest verified GitHub push remains9e5d91587746c8072915eeca707c2ba750a504c9; this update awaits exact publication. Science uses the authorized anogena-2 one-GPU repository and18.77 project repository. The seven-GPU account is forwarding-only MacLink. No sudo, PDF compilation, GENLINK, server configuration or unrelated-job changes. [Complete decisions](research_ledger.json).

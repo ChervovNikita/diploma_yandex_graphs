@@ -2,7 +2,7 @@
 
 ### Research update: 4 October 2026
 
-Private NCNC completion improves saved validation Hits@50 over pooling by 0.8432 percentage points across five seeds on ogbl-collab. It approximately matches independent ensemble quality. Checkpoint audit and heldout confirmation remain pending. Whole-pattern and individual-incidence supervision are training on both authorized 18.77 GPUs; the Amazon Polynormer comparison runs on the authorized one-GPU allocation. Original paper scores remain unchanged. No new methodological predictive advantage or fresh manuscript acceptance is established.
+Private NCNC completion improves saved validation Hits@50 over pooling by 0.8432 percentage points across five seeds on ogbl-collab. It approximately matches independent ensemble quality. Checkpoint audit and heldout confirmation remain pending. The completed whole-pattern versus individual-incidence pilot gained 0.2164pp on one validation-selected seed, while its routing diagnostics challenged the intended private-route benefit; the Amazon Polynormer comparison runs on the authorized one-GPU allocation. Original paper scores remain unchanged. No new methodological predictive advantage or fresh manuscript acceptance is established.
 
 See [current measured results and exact training status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Protocols, failed hypotheses and decisions remain in the ledger; raw research data and checkpoints stay on their authorized servers.
 
@@ -29,20 +29,22 @@ BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715
 
 The research branch tests quality improvements and methodological extensions against capable alternatives. The original five-dataset benchmark remains unchanged.
 
-The current structural lead keeps each shared NCNC member's graph-completion response separate. The new objective trains complete observed connection patterns jointly and compares them with equally supervised individual incidences. Joint likelihoods have GRAN ancestry and completion has NCNC ancestry. Complete predictive analysis, prospective replication, structural-single controls, a second benchmark and heldout confirmation are still needed before a new method claim.
+The current structural lead keeps each shared NCNC member's graph-completion response separate. The new objective trains complete observed connection patterns jointly and compares them with equally supervised individual incidences. Joint likelihoods have GRAN ancestry and completion has NCNC ancestry. PIFM (arXiv:2601.22107v2) is a direct prior for NCNC plus joint structural refinement. The new complete pair scored 64.3066% versus 64.0903% validation Hits@50. Its fixed pooled-completion diagnostic outperformed private completion; that adverse mechanism result is retained with the small positive primary. Prospective replication, capable structural-single controls, a second benchmark and heldout confirmation remain necessary before a method claim.
 
 The fixed 15-fit authored Polynormer comparison runs on Amazon Ratings, with raw features, 200 local and 2500 global updates per fit. Pubmed-HeaRT inputs are acquired and checked: supplied features exactly match the public raw Planetoid/PyG reconstruction, in both values and bits. Pubmed model/evaluator qualification and prospective training remain pending.
 
 BUDDY's complete fixed heldout comparison supplied no quality winner. Graph-based initialization, mixed-sharing HGT, DBLP native comparisons, relation conditioning and shared-message studies remain preserved without outcome-driven tuning rescue. Engineering qualification establishes the behavior tested in its declared scope; it does not establish predictive advantage or manuscript acceptance.
 
 - [Current results and active runs](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
+- [Complete pattern-supervision pair](experiments_iclr/postsubmission_20260930/graph_ncNC_structural_pattern_execution_root_20261004_v5/complete_pair_analysis/run01/REPORT.md)
+- [Direct prior and comparator qualification](experiments_iclr/postsubmission_20260930/joint_completion_shared_bank_closest_prior_scout_20261004_v1/REPORT.md)
 - [Complete NCNC development comparison](experiments_iclr/postsubmission_20260930/ncnc_complete_family_saved_VALID_summary_20261004_v1/RESULTS_SUMMARY.md)
 - [Complete BUDDY heldout comparison](experiments_iclr/postsubmission_20260930/buddy_paired_analysis_execution_20261004_v1/report/REPORT.md)
 - [Current plan, boundaries and evidence still needed](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md)
 - [Decisions and preserved history](experiments_iclr/postsubmission_20260930/research_ledger.json)
-- [Saved scoped literature conclusions](experiments_iclr/postsubmission_20260930/literature_memory/index_v42/LITERATURE_INDEX.json)
+- [Saved scoped literature conclusions](experiments_iclr/postsubmission_20260930/literature_memory/index_v43/LITERATURE_INDEX.json)
 
-Literature index_v42 retains 183 scoped conclusions across 134 normalized paper identities and two software identities. It adds recursive cardinality inference, DiGress and GegenNet scopes while preserving all previous conclusions. These are scoped reads, not whole-paper certifications or proof that no related prior method exists. Fresh independent manuscript review requires immutable supported manuscript/evidence and carries no requested verdict.
+Literature index_v43 retains 190 scoped conclusions across 141 normalized paper identities and two software identities. Seven new method scopes include PIFM, SIG-VAE, SeeGera, Graphite, edge-dependency hierarchy, KREPE and ARK/SAIL. All previous conclusions remain preserved. These are scoped reads, not whole-paper certifications or proof that no related prior method exists. Fresh independent manuscript review requires immutable supported manuscript/evidence and carries no requested verdict.
 
 ## Repository contents
 
