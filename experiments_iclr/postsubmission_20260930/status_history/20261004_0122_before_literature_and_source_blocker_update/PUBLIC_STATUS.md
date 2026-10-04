@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated: 2026-10-04T01:20:25.137978+00:00. Goal active and incomplete. Original paper scores remain unchanged. No newly established methodological predictive advantage or fresh manuscript acceptance.
+Updated: 2026-10-04T00:49:31.995151+00:00. Goal active and incomplete. Original paper scores remain unchanged. No newly established methodological predictive advantage or fresh manuscript acceptance.
 
 ## Strongest measured lead
 
@@ -8,19 +8,17 @@ On ogbl-collab, private member-specific NCNC graph completion averages 66.4130% 
 
 ## Active predictive experiments
 
-At 01:13:42UTC on 4 October, whole-pattern supervision J completed 62/100 epochs and individual-incidence control F 64/100. Both exact child/supervisor handles were live on the two authorized 18.77 GPUs, with no failure or cap violation. Each retains 100 epochs, 1700 native updates and 102 full VALID traversals. Partial quality and TEST are unopened. [Latest owned-pair monitor](graph_ncNC_structural_pattern_execution_root_20261004_v5/OWNED_PAIR_MONITOR_0005.json).
+At 00:41:44UTC on 4 October, whole-pattern supervision J completed 32/100 epochs and individual-incidence control F 33/100. Both exact child/supervisor handles were live on the two authorized 18.77 GPUs, with no failure or cap violation. Each retains 100 epochs, 1700 native updates and 102 full VALID traversals. Partial quality and TEST are unopened. [Latest owned-pair monitor](graph_ncNC_structural_pattern_execution_root_20261004_v5/OWNED_PAIR_MONITOR_0003.json).
 
 The objective tests whether learning complete observed connection patterns helps beyond learning individual connections with matched labels/capacity. GRAN supplies joint-likelihood ancestry and NCNC supplies graph completion. Observational zeros mean unobserved TRAIN connections. Predictive benefit and novelty are not established. Full numerical, complete-graph and serialized-replay qualification succeeded; all earlier failed engineering attempts are retained.
 
-At 01:13:41UTC, the original 15-fit Amazon Polynormer queue remained healthy on the authorized one-GPU allocation. First fit completed 1,906/2,700 updates: 200 local + 1,706 global. No failure or partial quality disclosure. [Exact monitor](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0010_RESULT.json).
+At 00:42:33UTC, the original 15-fit Amazon Polynormer queue remained healthy on the authorized one-GPU allocation. First fit completed 1,678/2,700 updates: 200 local + 1,478 global. No failure or partial quality disclosure. [Exact monitor](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0009_RESULT.json).
 
 ## New preparation and checks
 
 Pubmed-HeaRT acquisition and available-input geometry are complete. The supplied 19,717 by 500 feature matrix now exactly matches authenticated public raw Planetoid/PyG reconstruction, in values and bits. The normalized alternative differs. Literal exporter origin remains unknown. The CPU comparison completed once in 5.1034 physical seconds, no signals/cap failure/TEST/training. Loader/evaluator/iterator-RNG qualification and prospective training remain pending. [Verified feature result](pubmed_planetoid_raw_feature_equivalence_execution_root_20261004_v1/ROOT_VERIFIED_FEATURE_RESULT.json).
 
-The sealed checkpoint-audit v3 adds strict repeated-vector and all 25 saved-metric checks, authenticated conditional reference means, explicit call counts and final custody. Static root review found contradictory expected counts for its genuine scorer-exception qualification case (replay_synthetic.py lines 125–126); a fresh independent source reviewer separately identified the same defect. V3 is not admitted or executed. A source successor and qualification remain necessary. The old fabricated exact-replay FAILED gate is unchanged. [Root static blocker](ncnc_audit_v3_root_static_blocker_20261004_v1/ROOT_REVIEW.json).
-
-A fresh source review of the fixed post-fit diagnostic/closure supervisor found no concrete implementation blocker; root admission still requires both actual COMPLETE/normal-terminal pins. No predictive result is established. [Review](ncnc_V5_postfit_supervision_fresh_source_review_20261004_v1/REPORT.txt).
+A fresh source critic identified insufficient interpretation of 128eps, missing reference-mean checks and failure/accounting guards in the proposed checkpoint audit. A successor is being prepared with exact strict-profile repeated vectors and all 25 saved-metric checks, conditional historical references, explicit call counts and final custody. The old fabricated exact-replay FAILED gate is unchanged. [Independent critique](ncnc_selected_state_numerical_audit_protocol_source_critic_review_20261004_v1/REVIEW.txt).
 
 Count-aware and full-covariance structural-single controls are specified. New scoped reads cover recursive cardinality inference and DiGress. They establish relevant prior operations. Future cross-architecture comparisons require actual model-independent TRAIN replay inputs; current hashes alone do not reconstruct draws. Controls and replay-provider source are preparing, without fit admission. [Control memo](ncnc_structured_single_control_source_proposal_20261004_v1/MEMO.md).
 
@@ -28,7 +26,7 @@ Count-aware and full-covariance structural-single controls are specified. New sc
 
 BUDDY's fixed heldout comparison supplied no promoted quality winner; all 15 cells and uncertainty remain in the [paired report](buddy_paired_analysis_execution_20261004_v1/report/REPORT.md). Graph initialization, mixed-sharing HGT, DBLP native comparisons and other unsuccessful studies remain preserved in the ledger. They have no outcome-driven rescue.
 
-A defensible extension still requires complete J/F analysis, capable structural singles, prospective paired replication, a second benchmark and heldout confirmation, then an immutable supported manuscript and fresh independent skill-based review. Engineering approval is not paper acceptance. Canonical literature index_v42 records 183 scoped conclusions across 134 normalized paper identities and two software identities. Recursive cardinality inference, DiGress and GegenNet scopes are deduplicated; these are not whole-paper-read counts. No global absence-of-prior-work claim follows.
+A defensible extension still requires complete J/F analysis, capable structural singles, prospective paired replication, a second benchmark and heldout confirmation, then an immutable supported manuscript and fresh independent skill-based review. Engineering approval is not paper acceptance. Canonical literature index_v41 records 180 scoped conclusions across 131 paper identities and two software identities; later reads await deduplicated integration. No global absence-of-prior-work claim follows.
 
 ## Publication and operation
 

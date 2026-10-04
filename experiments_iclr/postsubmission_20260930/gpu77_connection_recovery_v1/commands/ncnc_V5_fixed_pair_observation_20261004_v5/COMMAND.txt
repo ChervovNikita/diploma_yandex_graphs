@@ -1,0 +1,35 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git
+/usr/bin/python3 -I -S -B -c 'from pathlib import Path
+from datetime import datetime,timezone
+import json,hashlib,os
+repo=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');phase=repo/'"'"'experiments_iclr/postsubmission_20260930'"'"';root=phase/'"'"'graph_ncNC_structural_pattern_execution_root_20261004_v5'"'"'
+os.chdir(repo);assert Path.cwd()==repo
+rows=[]
+def physical(pid,expected):
+ p=Path('"'"'/proc'"'"')/str(pid)
+ try:
+  raw=(p/'"'"'stat'"'"').read_text();v=raw[raw.rfind('"'"')'"'"')+2:].split();assert int(v[19])==expected
+  return dict(PID=pid,start_time_ticks=int(v[19]),state=v[0],argv=(p/'"'"'cmdline'"'"').read_bytes().decode().split('"'"'\0'"'"')[:-1])
+ except FileNotFoundError:return None
+for arm,pid,start in [('"'"'J'"'"',3187706,1722242864),('"'"'F'"'"',3187479,1722233216)]:
+ supervision=root/('"'"'supervision/fit_'"'"'+arm+'"'"'/run01'"'"');fit=root/('"'"'fit_'"'"'+arm+'"'"'/run01'"'"');row=dict(arm=arm,supervisor=physical(pid,start),files={})
+ for name in ['"'"'SUPERVISOR_STARTED.json'"'"','"'"'CHILD_STARTED.json'"'"','"'"'SUPERVISOR_STATUS.json'"'"','"'"'SUPERVISOR_FAILURE.json'"'"','"'"'SUPERVISOR_TERMINAL.json'"'"','"'"'CHILD_CUDA_PEAKS.json'"'"']:
+  path=supervision/name
+  if path.is_file():
+   raw=path.read_bytes();assert len(raw)<262144
+   row['"'"'files'"'"'][name]=dict(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),value=json.loads(raw))
+ child=row['"'"'files'"'"'].get('"'"'CHILD_STARTED.json'"'"',{}).get('"'"'value'"'"',{}).get('"'"'physical_identity'"'"')
+ if child:row['"'"'child'"'"']=physical(child['"'"'PID'"'"'],child['"'"'start_time_ticks'"'"'])
+ journal=fit/'"'"'JOURNAL.json'"'"'
+ if journal.is_file():
+  d=json.loads(journal.read_text());row['"'"'epoch_completed'"'"']=d['"'"'epoch'"'"'];row['"'"'journal_revision'"'"']=d.get('"'"'revision'"'"');row['"'"'progress_only_private_values_not_returned'"'"']=True
+ for name in ['"'"'FAILED.json'"'"','"'"'COMPLETE.json'"'"']:
+  path=fit/name
+  if path.is_file():
+   raw=path.read_bytes();row['"'"'files'"'"'][name]=dict(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),exists=True)
+ if (supervision/'"'"'SUPERVISOR_FAILURE.json'"'"').exists() or (fit/'"'"'FAILED.json'"'"').exists() or row['"'"'supervisor'"'"'] is None:
+  for path in [root/('"'"'DETACHED_'"'"'+arm+'"'"'.log'"'"'),supervision/'"'"'CHILD.stderr.log'"'"']:
+   if path.is_file() and path.stat().st_size<262144:row['"'"'files'"'"'][str(path.relative_to(root))]=dict(text=path.read_text())
+ rows.append(row)
+print(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),fits=rows,metadata_only=True,signals_sent=False,scientific_scores_opened=False)))
+'

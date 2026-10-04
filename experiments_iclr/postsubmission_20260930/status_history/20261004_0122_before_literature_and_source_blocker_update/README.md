@@ -9,7 +9,7 @@ The strongest current lead is member-specific NCNC graph completion on ogbl-coll
 - [Decisions, failed hypotheses and full history](research_ledger.json)
 - [Complete NCNC development results](ncnc_complete_family_saved_VALID_summary_20261004_v1/RESULTS_SUMMARY.md)
 - [Complete BUDDY heldout analysis](buddy_paired_analysis_execution_20261004_v1/report/REPORT.md)
-- [Canonical scoped literature memory](literature_memory/index_v42/LITERATURE_INDEX.json)
+- [Canonical scoped literature memory](literature_memory/index_v41/LITERATURE_INDEX.json)
 - [New structured-single control proposals](ncnc_structured_single_control_source_proposal_20261004_v1/MEMO.md)
 - [Verified Pubmed feature equivalence](pubmed_planetoid_raw_feature_equivalence_execution_root_20261004_v1/RESULTS_SUMMARY.md)
 - [Previous README and status history](status_history/20261004_0047_before_current_consolidation/README.md)

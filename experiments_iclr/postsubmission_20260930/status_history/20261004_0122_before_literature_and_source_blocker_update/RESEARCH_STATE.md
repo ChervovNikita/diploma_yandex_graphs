@@ -1,6 +1,6 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-04T01:20:25.137978+00:00. Goal active and incomplete; original benchmark scores unchanged. See[the current measured status](PUBLIC_STATUS.md).
+Updated: 2026-10-04T00:49:31.995151+00:00. Goal active and incomplete; original benchmark scores unchanged. See[the current measured status](PUBLIC_STATUS.md).
 
 ## Current direction
 
@@ -8,13 +8,13 @@ Private NCNC completion provides a five-seed selected-validation lead over pooli
 
 ## Active work
 
-1. Preserve existing J/F seed 0 fits on 18.77: 62/100 and 64/100 epochs at01:13:42UTC. Do not restart on transport timeout or inspect partial quality. Monitor exact supervisor/child identities. Complete qualified diagnostics and closure only after both normal physical terminals and COMPLETE records. Evaluate every fixed diagnostic and retain negative outcomes.
-2. Preserve original 15 Amazon Polynormer queue on the authorized one-GPU route: 1,906/2,700 updates in first fit at01:13:41UTC. Exact monitor sequence 10 saved. No partial comparisons, TEST or recipe changes.
-3. The fixed diagnostic/closure normal supervisor received fresh source review without a concrete blocker. Admit it only after both COMPLETE records and normal physical terminals are authenticated; release templates remain disabled. Current comparator implementation and numerical/fullgraph qualification remain immutable.
-4. Prepare all 25 selected-checkpoint/metric audit under fixed False_anchor/True1/True2 calls. Strict True1/True2 must repeat bytes and match every saved selected Hits50. Historical references authenticate only by exact existing digests; missing historical vectors remain unavailable.128eps is engineering discrepancy reporting with no scientific acceptance authority. Validate newly reconstructed independent reference means, fixed attempted/entered/completed counts, and final custody after accounting. Preserve old fabricated FAILED qualification. The sealed v3 harness has contradictory genuine-scorer-exception counts, independently identified in static review. Keep it unexecuted and prepare a minimal successor. Root and fresh source review precede qualification/execution.
+1. Preserve existing J/F seed 0 fits on 18.77: 32/100 and 33/100 epochs at00:41:44UTC. Do not restart on transport timeout or inspect partial quality. Monitor exact supervisor/child identities. Complete qualified diagnostics and closure only after both normal physical terminals and COMPLETE records. Evaluate every fixed diagnostic and retain negative outcomes.
+2. Preserve original 15 Amazon Polynormer queue on the authorized one-GPU route: 1,678/2,700 updates in first fit at00:42:33UTC. Exact monitor sequence 9 saved. No partial comparisons, TEST or recipe changes.
+3. Finish source-only diagnostic/closure normal supervision. Root review exact sealed scripts before admitting post-fit traversal. Current comparator implementation and numerical/fullgraph qualification remain immutable.
+4. Prepare all 25 selected-checkpoint/metric audit under fixed False_anchor/True1/True2 calls. Strict True1/True2 must repeat bytes and match every saved selected Hits50. Historical references authenticate only by exact existing digests; missing historical vectors remain unavailable.128eps is engineering discrepancy reporting with no scientific acceptance authority. Validate newly reconstructed independent reference means, fixed attempted/entered/completed counts, and final custody after accounting. Preserve old fabricated FAILED qualification. Root and fresh source review precede qualification/execution.
 5. Prepare model-independent actual TRAIN replay payloads for future J/F/count-control comparisons. Preserve record multiset semantics, negatives, permutation/tail and exact ordered residual supports. Freeze future paired comparisons before seeing current pair outcomes. No current-run/source mutation or rerun implied.
 6. Pubmed-HeaRT: acquired public inputs, complete geometry checked, raw Planetoid feature value/bit equivalence now verified. Actual 19,717 nodes and 44,324 positive rows differ from literal paper metadata; preserve discrepancies. VALID pool contains 2,299 other VALID-positive collisions under native author filtering. Preserve pool policy. Native adapter review and source/numerical evaluator/iterator-RNG qualification precede prospective training. No TEST or training release yet.
-7. Literature index_v42 preserves 183 scoped conclusions across 134 paper identities and two software identities, including recursive cardinality inference, DiGress and GegenNet. Preserve scopes and structured-single proposals. No whole-paper-read certification or global novelty clearance.
+7. Preserve new cardinality/DiGress scoped reads and structured-single proposal; deduplicate new records into canonical literature memory. No whole-paper-read certification or global novelty clearance.
 8. Commit/push exact bounded inventories and record real head/sync receipts. Do not mutate18.77 checkout while owned fits run. Latest verified push e09292d9e258e18904e32d4c362a10175d20df5e; last 18.77 checkout 9c7ed8a6192405c64743206f80c13ad0f2a3dcd7.
 
 ## Evidence needed before manuscript promotion
