@@ -1,0 +1,359 @@
+--- graph_ncNC_structural_pattern_pilot_preparation_20261003_v4/pilot_common.py
++++ graph_ncNC_structural_pattern_pilot_preparation_20261004_v5/pilot_common.py
+@@ -20,6 +20,10 @@
+ ENGINEERING_SEED = 20261003
+ ENGINEERING_SIGN_SEED = 2026100301
+ DIAGNOSTIC_SEED = 2026100307
++PREDECESSOR_SHA = "9021a598c7642bf428124de1230a078dfddbf3968095432354ee18a14541104c"
++RUNTIME_PROFILE_ID = "ncnc-pattern-process-deterministic-20261004-v1"
++RUNTIME_PROFILE_TRANSITION = {"deterministic_algorithms_before": False, "deterministic_algorithms_after": True,
++                              "warn_only_after": False, "CUBLAS_WORKSPACE_CONFIG": ":4096:8"}
+ 
+ 
+ def require(condition, message):
+@@ -75,10 +79,13 @@
+     release_path = Path(release_path).resolve()
+     release = json.loads(release_path.read_text())
+     require(release.get("schema") == "ncnc-structural-pattern-root-release-v1", "Wrong release schema")
++    require(release.get("execution_enabled") is True and release.get("runtime_profile_transition") == RUNTIME_PROFILE_TRANSITION,
++            "V5 requires separate explicit deterministic-profile execution release")
+     require(stage in release.get("authorized_stages", []) and release.get("root_authorization_reference"), "Stage not root released")
+     driver_sha = file_sha(HERE / "MANIFEST.json")
+     require(release.get("driver_manifest_sha256") == driver_sha, "Release targets another preparation")
+     verify_manifest(HERE, driver_sha)
++    verify_manifest(HERE.parent / "graph_ncNC_structural_pattern_pilot_preparation_20261003_v4", PREDECESSOR_SHA)
+     expected = {"design_root": PLAN_SHA, "prototype_root": MODEL_SHA, "resource_root": RESOURCE_SHA,
+                 "base_driver_root": BASE_DRIVER_SHA, "assessment_root": ASSESSMENT_SHA}
+     paths = {key: Path(release[key]).resolve() for key in expected}
+@@ -97,7 +104,45 @@
+             "identity": {"driver_manifest_sha256": driver_sha, "prototype_manifest_sha256": MODEL_SHA,
+                          "base_driver_manifest_sha256": BASE_DRIVER_SHA, "assessment_manifest_sha256": ASSESSMENT_SHA,
+                          "data_authority_sha256": DATA_AUTHORITY_SHA, "runtime_authority_sha256": RUNTIME_AUTHORITY_SHA,
++                         "runtime_profile_id": RUNTIME_PROFILE_ID, "runtime_profile_transition": RUNTIME_PROFILE_TRANSITION,
+                          "family_id": release["family_id"]}}
++
++
++def driver_module_custody(context):
++    """Read-only source/module binding check; no scientific imports or profile writes."""
++    import sys
++    require(file_sha(context["release_path"]) == context["release_sha256"], "Admitted root release bytes changed")
++    manifest = verify_manifest(HERE, context["identity"]["driver_manifest_sha256"])
++    for row in manifest["files"]:
++        if row["path"].endswith(".py") and Path(row["path"]).name == row["path"]:
++            name = Path(row["path"]).stem
++            module = sys.modules.get(name)
++            if module is not None:
++                require(Path(module.__file__).resolve() == HERE / row["path"], "V5 helper module shadowed: " + name)
++
++
++def require_profile_receipt(receipt):
++    """Only actual V5 transition/final-profile receipts can admit later stages."""
++    transition = receipt["runtime_profile_transition"]
++    before, after = transition["actual_profile_before"], transition["actual_profile_after"]
++    require(transition["status"] == "TRANSITION_VERIFIED"
++            and transition["declared_transition"] == RUNTIME_PROFILE_TRANSITION
++            and transition["ordinary_runtime_authority_sha256"] == RUNTIME_AUTHORITY_SHA
++            and transition["ordinary_runtime_source_binary_admission_completed"] is True
++            and transition["preimport_environment"]["Torch_absent_before_configuration"] is True
++            and transition["preimport_environment"]["Torch_absent_after_configuration"] is True
++            and transition["preimport_environment"]["CUBLAS_WORKSPACE_CONFIG_after"] == ":4096:8"
++            and before["deterministic_algorithms"] is False and before["deterministic_warn_only"] is False
++            and before["CUBLAS_WORKSPACE_CONFIG"] == ":4096:8"
++            and after == dict(before, deterministic_algorithms=True, deterministic_warn_only=False)
++            and transition["RNG_before_sha256"] == transition["RNG_after_sha256"]
++            and set(transition["RNG_components_before_sha256"]) == {"python", "numpy", "torch_cpu", "torch_cuda"}
++            and transition["RNG_components_before_sha256"] == transition["RNG_components_after_sha256"]
++            and transition["actual_profile_matches_exact_transition"] is True
++            and transition["RNG_exactly_unchanged"] is True, "V5 actual deterministic transition incomplete")
++    final = receipt["runtime_profile_final"]
++    require(final["actual_runtime_profile"] == after and final["runtime_profile_exact"] is True,
++            "V5 final deterministic runtime profile differs")
+ 
+ 
+ def admit_invocation(context, stage, unit, seed, output, resume):
+@@ -129,6 +174,7 @@
+         r = read_bound_json(pin["path"], pin["sha256"])
+         require(r["schema"] == "ncnc-pattern-qualification-v1" and r["identity"] == context["identity"] and r["stage"] == name and r["status"] == "PASS", "Missing/different " + name + " qualification")
+         require(r["state_donor"] is False and r["test_file_opened"] is False, "Qualification state must not be a scientific donor")
++        require_profile_receipt(r)
+         parity=r["activation_checkpoint_parity"]
+         require(parity["schema"] == "ncnc-pattern-activation-checkpoint-parity-v1" and parity["status"] == "PASS"
+                 and parity["reference_manifest_sha256"] == "fa7b2a7a2c6ec83362f3c820fb4f7ad5288e5cc9fb0ee5139614d6690f3f7f89"
+--- graph_ncNC_structural_pattern_pilot_preparation_20261003_v4/pilot_model.py
++++ graph_ncNC_structural_pattern_pilot_preparation_20261004_v5/pilot_model.py
+@@ -22,7 +22,7 @@
+     return loaded
+ 
+ 
+-def runtime(context):
++def ordinary_runtime(context):
+     import torch
+     import os
+     from pilot_common import file_sha
+@@ -67,6 +67,126 @@
+     return torch.device("cuda:0"), negative_sampling
+ 
+ 
++def runtime_settings():
++    import os
++    import torch
++    return {"torch_version": str(torch.__version__), "CUDA_version": torch.version.cuda,
++            "default_dtype": str(torch.get_default_dtype()),
++            "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
++            "deterministic_warn_only": torch.is_deterministic_algorithms_warn_only_enabled(),
++            "TF32_matmul": torch.backends.cuda.matmul.allow_tf32,
++            "TF32_cudnn": torch.backends.cudnn.allow_tf32,
++            "float32_matmul_precision": torch.get_float32_matmul_precision(),
++            "autocast_CUDA": torch.is_autocast_enabled("cuda"),
++            "autocast_CPU": torch.is_autocast_enabled("cpu"),
++            "cudnn_benchmark": torch.backends.cudnn.benchmark,
++            "cudnn_deterministic": torch.backends.cudnn.deterministic,
++            "CUDA_VISIBLE_DEVICES": os.environ.get("CUDA_VISIBLE_DEVICES"),
++            "CUBLAS_WORKSPACE_CONFIG": os.environ.get("CUBLAS_WORKSPACE_CONFIG"),
++            "CUDA_DEVICE_MAX_CONNECTIONS": os.environ.get("CUDA_DEVICE_MAX_CONNECTIONS")}
++
++
++def observe_runtime(context):
++    """Actual scalar profile/full RNG digests; never restores or compares fit RNG."""
++    import pilot_state as state
++    from pilot_common import HERE
++    require(Path(state.__file__).resolve() == HERE / "pilot_state.py", "Runtime RNG helper shadowed")
++    value = state.rng_state()
++    actual = runtime_settings()
++    expected = context.get("runtime_profile_transition", {}).get("actual_profile_after")
++    return {"actual_runtime_profile": actual, "actual_RNG_sha256": state.rng_digest(value),
++            "actual_RNG_component_sha256": {key: state.state_digest(child) for key, child in value.items()},
++            "runtime_profile_exact": actual == expected if expected is not None else None}
++
++
++def runtime_custody(context):
++    """Recheck authenticated runtime read-only; retain current legitimate fit RNG."""
++    import inspect
++    import torch
++    from hashlib import sha256
++    from pilot_common import (driver_module_custody, runtime_stdlib, read_bound_json, file_sha,
++                              DATA_AUTHORITY_SHA, RUNTIME_AUTHORITY_SHA)
++    driver_module_custody(context)
++    require(runtime_stdlib(context) == context["versions"], "Admitted runtime versions changed")
++    require(read_bound_json(context["release"]["data_authority_file"], DATA_AUTHORITY_SHA) == context["authority"]
++            and read_bound_json(context["release"]["runtime_authority_file"], RUNTIME_AUTHORITY_SHA) == context["runtime"],
++            "Admitted runtime/data authority changed")
++    authority = context["runtime"]
++    for pin in authority["runtime_source_pins"]:
++        module = sys.modules.get(pin["module"])
++        require(module is not None and Path(module.__file__).resolve() == Path(pin["path"]).resolve()
++                and file_sha(module.__file__) == pin["sha256"], "Runtime source custody differs")
++    for pin in authority["runtime_binary_files"]:
++        path = Path(pin["path"])
++        require(path.stat().st_size == pin["bytes"] and file_sha(path) == pin["sha256"], "Runtime binary custody differs")
++    binary_paths = {Path(pin["path"]).resolve() for pin in authority["runtime_binary_files"]}
++    extension_dirs = {Path(pin["path"]).resolve().parent for pin in authority["runtime_source_pins"]
++                      if pin["module"] in ("torch_sparse", "torch_scatter")}
++    loaded_paths = {Path(path).resolve() for path in torch.ops.loaded_libraries if Path(path).resolve().parent in extension_dirs}
++    require(loaded_paths and loaded_paths <= binary_paths
++            and all(any(p.parent == d for p in loaded_paths) for d in extension_dirs), "Sparse/scatter binary custody differs")
++    device, sampler = context["_authenticated_runtime"]
++    from torch_geometric.utils import negative_sampling
++    require(sampler is negative_sampling, "Admitted sampler binding changed")
++    pin = authority["negative_sampler"]
++    source = inspect.getsourcefile(sampler)
++    require(Path(source).resolve() == Path(pin["path"]).resolve() and file_sha(source) == pin["sha256"]
++            and sha256(inspect.getsource(sampler).encode()).hexdigest() == pin["function_sha256"], "Sampler source custody differs")
++    signature = inspect.signature(sampler)
++    require(signature.parameters["num_neg_samples"].default is None and signature.parameters["method"].default == "sparse"
++            and signature.parameters["force_undirected"].default is False, "Native sampler defaults changed")
++    properties = torch.cuda.get_device_properties(0)
++    require(str(device) == "cuda:0" and torch.cuda.device_count() == 1 and torch.cuda.current_device() == 0
++            and properties.name == authority["gpu_name"] and properties.total_memory == authority["gpu_total_memory_bytes"],
++            "Admitted device changed")
++    observed = observe_runtime(context)
++    require(observed["runtime_profile_exact"] is True, "Admitted deterministic runtime profile changed")
++    return observed
++
++
++def runtime(context):
++    """Authenticate ordinary False once, then use one explicit fail-closed profile."""
++    from pilot_common import driver_module_custody, RUNTIME_PROFILE_TRANSITION, RUNTIME_AUTHORITY_SHA
++    if "_authenticated_runtime" in context:
++        require(context["runtime_profile_transition"]["status"] == "TRANSITION_VERIFIED", "Runtime transition incomplete")
++        runtime_custody(context)
++        return context["_authenticated_runtime"]
++    driver_module_custody(context)
++    environment = context["preimport_environment"]
++    require(environment["Torch_absent_before_configuration"] is True
++            and environment["Torch_absent_after_configuration"] is True
++            and environment["CUBLAS_WORKSPACE_CONFIG_after"] == ":4096:8", "Pre-import workspace configuration missing")
++    device, sampler = ordinary_runtime(context)
++    context["_authenticated_runtime"] = (device, sampler)
++    before = observe_runtime(context)
++    profile = before["actual_runtime_profile"]
++    require(profile["deterministic_algorithms"] is False and profile["deterministic_warn_only"] is False
++            and profile["CUBLAS_WORKSPACE_CONFIG"] == ":4096:8"
++            and profile["autocast_CPU"] is False, "Authenticated ordinary pre-transition profile differs")
++    transition = {"schema": "ncnc-pattern-deterministic-profile-transition-v1", "identity": context["identity"],
++                  "status": "IN_PROGRESS", "declared_transition": RUNTIME_PROFILE_TRANSITION,
++                  "ordinary_runtime_authority_sha256": RUNTIME_AUTHORITY_SHA,
++                  "ordinary_runtime_source_binary_admission_completed": True,
++                  "preimport_environment": environment, "actual_profile_before": profile,
++                  "RNG_before_sha256": before["actual_RNG_sha256"],
++                  "RNG_components_before_sha256": before["actual_RNG_component_sha256"]}
++    context["runtime_profile_transition"] = transition
++    import torch
++    torch.use_deterministic_algorithms(True, warn_only=False)
++    after = observe_runtime(context)
++    transition.update(actual_profile_after=after["actual_runtime_profile"],
++                      RNG_after_sha256=after["actual_RNG_sha256"],
++                      RNG_components_after_sha256=after["actual_RNG_component_sha256"],
++                      RNG_exactly_unchanged=before["actual_RNG_sha256"] == after["actual_RNG_sha256"]
++                          and before["actual_RNG_component_sha256"] == after["actual_RNG_component_sha256"],
++                      actual_profile_matches_exact_transition=after["actual_runtime_profile"]
++                          == dict(profile, deterministic_algorithms=True, deterministic_warn_only=False))
++    require(transition["RNG_exactly_unchanged"] and transition["actual_profile_matches_exact_transition"],
++            "Explicit deterministic transition changed RNG or another runtime setting")
++    transition["status"] = "TRANSITION_VERIFIED"
++    return device, sampler
++
++
+ def seed_all(seed):
+     import random
+     import numpy as np
+--- graph_ncNC_structural_pattern_pilot_preparation_20261003_v4/pattern_run.py
++++ graph_ncNC_structural_pattern_pilot_preparation_20261004_v5/pattern_run.py
+@@ -1,10 +1,12 @@
+ #!/usr/bin/env python3
+ """Fixed J/F stages; source preparation itself provides no execution release."""
+ from argparse import ArgumentParser
++import os
++import sys
+ from time import perf_counter
+ from pilot_common import (STAGES, preflight, admit_invocation, fresh_output,
+                           runtime_stdlib, qualification_required, atomic_json,
+-                          file_sha, lock_output)
++                          file_sha, lock_output, driver_module_custody)
+ from pilot_accounting import Attempts
+ 
+ 
+@@ -26,6 +28,10 @@
+     return parser.parse_args()
+ 
+ 
++def receipt(path):
++    return {"path": path.name, "bytes": path.stat().st_size, "sha256": file_sha(path)}
++
++
+ def main():
+     started=perf_counter();args=arguments()
+     context=preflight(args.root_release,args.stage)
+@@ -38,32 +44,54 @@
+     try:
+         if args.stage=="close":
+             from pattern_close import run
++            driver_module_custody(context)
+             result=run(context,output,attempts);name="CLOSURE.json"
+         else:
++            require_torch_absent="torch" not in sys.modules
++            from pilot_common import require
++            require(require_torch_absent, "Torch must be absent before process workspace configuration")
++            environment={"Torch_absent_before_configuration":require_torch_absent,
++                         "CUBLAS_WORKSPACE_CONFIG_before":os.environ.get("CUBLAS_WORKSPACE_CONFIG")}
++            os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"
++            environment.update(Torch_absent_after_configuration="torch" not in sys.modules,
++                               CUBLAS_WORKSPACE_CONFIG_after=os.environ.get("CUBLAS_WORKSPACE_CONFIG"))
++            context["preimport_environment"]=environment
++            attempts.row["preimport_environment"]=environment
+             attempts.phase("stdlib_interpreter_and_distribution_admission")
+             context["versions"]=runtime_stdlib(context)
+-            from pilot_model import runtime,modules
++            from pilot_model import runtime,modules,runtime_custody
+             attempts.phase("normal_host_CUDA_source_and_binary_admission")
+             device,sampler=runtime(context);cuda_started=True
++            atomic_json(output/"RUNTIME_PROFILE_TRANSITION.json",context["runtime_profile_transition"])
++            attempts.row["runtime_profile_transition_receipt"]=receipt(output/"RUNTIME_PROFILE_TRANSITION.json")
+             attempts.phase("sealed_qualified_model_source_imports")
+             mods=modules(context)
++            driver_module_custody(context)
++            runtime(context)
+             data=None
+             if args.stage!="numerical":
+                 from pilot_data import load_data
++                driver_module_custody(context)
+                 attempts.phase("authenticated_complete_TRAIN_raw_VALID_load_and_transfer")
+                 data=load_data(context,device)
+             if args.stage in ("numerical","full_graph"):
+                 from pattern_qualification import run
++                driver_module_custody(context)
++                runtime(context)
+                 result=run(context,mods,data,sampler,device,output,args.stage,attempts)
+                 name="QUALIFICATION.json"
+             elif args.stage=="fit":
+                 from pattern_fit import fit
+                 from pilot_evaluate import evaluator
++                driver_module_custody(context)
++                runtime(context)
+                 attempts.phase("bound_official_VALID_evaluator")
+                 result=fit(context,mods,data,sampler,evaluator(context),device,output,args.unit,args.resume,attempts)
+                 name="COMPLETE.json"
+             else:
+                 from pattern_diagnostics import run
++                driver_module_custody(context)
++                runtime(context)
+                 result=run(context,mods,data,sampler,device,output,attempts)
+                 name="COMPLETE.json"
+             import torch
+@@ -73,6 +101,10 @@
+                                  ("cuda_peak_reserved_bytes",torch.cuda.max_memory_reserved(0))):
+                 prior=attempts.row.get("observed_CUDA_peak_before_arm_resets",{}).get(key,0)
+                 result[key]=max(result.get(key,0),observed,prior)
++            result["runtime_profile_transition"]=context["runtime_profile_transition"]
++            result["runtime_profile_transition_receipt"]=receipt(output/"RUNTIME_PROFILE_TRANSITION.json")
++            result["runtime_profile_final"]=runtime_custody(context)
++            attempts.row["runtime_profile_final"]=result["runtime_profile_final"]
+         attempts.phase("final_receipt_serialization")
+         result["peak_host_rss_bytes"]=host_peak_bytes()
+         atomic_json(output/name,result)
+@@ -80,6 +112,27 @@
+         atomic_json(output/name,result)
+         print("STAGE_COMPLETE stage="+args.stage+" unit="+args.unit+" seed=0 receipt="+str(output/name),flush=True)
+     except Exception as error:
++        runtime_failure={}
++        if args.stage!="close":
++            transition=context.get("runtime_profile_transition")
++            if transition is not None:
++                runtime_failure["runtime_profile_transition"]=transition
++                try:
++                    atomic_json(output/"RUNTIME_PROFILE_TRANSITION.json",transition)
++                    runtime_failure["runtime_profile_transition_receipt"]=receipt(output/"RUNTIME_PROFILE_TRANSITION.json")
++                    attempts.row["runtime_profile_transition_receipt"]=runtime_failure["runtime_profile_transition_receipt"]
++                except Exception as transition_error:
++                    runtime_failure["runtime_transition_receipt_failure"]={"exception_type":type(transition_error).__name__,"condition":str(transition_error)}
++            module=sys.modules.get("torch")
++            if module is not None:
++                try:
++                    cuda=getattr(module,"cuda",None)
++                    if cuda is not None and cuda.is_initialized():
++                        from pilot_model import observe_runtime
++                        runtime_failure["runtime_profile_final"]=observe_runtime(context)
++                        attempts.row["runtime_profile_final"]=runtime_failure["runtime_profile_final"]
++                except Exception as observation_error:
++                    runtime_failure["runtime_observation_failure"]={"exception_type":type(observation_error).__name__,"condition":str(observation_error)}
+         attempts.row["failure_peak_host_rss_bytes"]=host_peak_bytes()
+         if cuda_started:
+             try:
+@@ -91,16 +144,13 @@
+             except Exception as sync_error:
+                 attempts.row["failed_CUDA_accounting"]={"exception_type":type(sync_error).__name__,"condition":str(sync_error)}
+         accounting=attempts.finish("FAILED",error)
+-        def receipt(path):
+-            return {"path":path.name,"bytes":path.stat().st_size,"sha256":file_sha(path)}
+         atomic_json(output/"FAILED.json",{"schema":"ncnc-pattern-failed-stage-v1","identity":context["identity"],
+             "stage":args.stage,"unit":args.unit,"seed":0,"status":"FAILED","failure":attempts.row["failure"],
+             "inclusive_accounting":accounting,"attempts_receipt":receipt(output/"ATTEMPTS.json"),
+             "journal_receipt":receipt(output/"JOURNAL.json") if (output/"JOURNAL.json").exists() else None,
+-            "predictive_values_exposed":False,"test_file_opened":False})
++            "predictive_values_exposed":False,"test_file_opened":False,**runtime_failure})
+         raise
+     finally:
+-        import os
+         os.close(output_lock)
+ 
+ 

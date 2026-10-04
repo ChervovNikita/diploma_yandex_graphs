@@ -1,5 +1,11 @@
 # GNNM: shared propagation in graph ensembles
 
+### Research update: 4 October 2026
+
+The GNNM extension study is active. A five-seed NCNC development comparison favors private member completion over pooled completion by 0.8432 percentage points and approximately matches an independent ensemble. The new whole-pattern supervision objective and its matched marginal control are now training on the two authorized 18.77 GPUs after full numerical and replay qualification. These are separate from the unchanged original paper scores. No new method advantage, heldout confirmation or acceptance verdict is established.
+
+Follow [the current evidence and training status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Closed unsuccessful ideas, exact protocols and source histories remain in the research ledger. Raw datasets/checkpoints stay on the authorized servers.
+
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.
 
 ```text
@@ -269,7 +275,7 @@ Original paper scores, unsuccessful experiments, reviews and research decisions 
 
 ## Complete link-prediction follow-up (4 October 2026)
 
-The NCNC family closed with35physical fits and25served cells. Complete saved validation favors member-specific completion over pooling by0.8432percentage points across five paired seeds and approximately matches independent4. Selected-checkpoint replay and heldout confirmation are pending. This is development evidence on one graph/time split. It does not establish novelty or a new state-of-the-art result.
+The NCNC family closed with35physical fits and25served cells. Complete saved validation favors member-specific completion over pooling by 0.8432 percentage points across five paired seeds and approximately matches independent4. Selected-checkpoint replay and heldout confirmation are pending. This is development evidence on one graph/time split. It does not establish novelty or a new state-of-the-art result.
 
 The fixed BUDDY family completed15served cells/24physical fits, selected-checkpoint audit, once-only heldout evaluation and the predeclared paired analysis. Shared4 has mean53.196% Hits50, compared with53.960% single256,53.253% independent4 and53.191% the matched single. Every reported contrast interval includes zero. No quality winner is promoted. Complete candidate order and15member/pooled prediction files remain on the authorized server, with exact primary metric agreement and published descriptors.
 

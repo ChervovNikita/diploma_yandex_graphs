@@ -1,0 +1,83 @@
+--- v3/supervise_numerical.py
++++ v4/supervise_numerical.py
+@@ -7,7 +7,7 @@
+ HERE=Path(__file__).resolve().parent
+ REPO=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+ PHASE=REPO/'experiments_iclr/postsubmission_20260930'
+-EXECUTION=PHASE/'graph_ncNC_structural_pattern_numerical_execution_root_20261003_v4'
++EXECUTION=PHASE/'graph_ncNC_structural_pattern_numerical_execution_root_20261004_v5'
+ PYTHON=Path('/disk/10tb/home/shmelev/miniconda3/envs/rapids-25.06/bin/python3.12')
+ PYTHON_SHA='14776d98474f987919376922a9995a20733e13b51d7d122873b068bf2e47d1b2'
+ GPU_UUIDS={'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998','GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'}
+@@ -80,6 +80,7 @@
+     require(not output.exists(),'Supervisor output already exists')
+     release=json.loads(release_path.read_text())
+     require(release['schema']=='ncnc-structural-pattern-root-release-v1' and release.get('root_authorization_reference'),'Numerical stage not root released')
++    require(release.get('execution_enabled') is True and release.get('runtime_profile_transition')=={'deterministic_algorithms_before': False, 'deterministic_algorithms_after': True, 'warn_only_after': False, 'CUBLAS_WORKSPACE_CONFIG': ':4096:8'},'Explicit V5 process-profile release required')
+     require(release['authorized_stages']==['numerical'] and len(release['authorized_invocations'])==1,'Supervisor is numerical only')
+     invocation=release['authorized_invocations'][0]
+     require(invocation=={'stage':'numerical','unit':'pair','base_seed':0,'output_directory':str(EXECUTION/'numerical/run01')},'Wrong exact numerical invocation')
+@@ -89,7 +90,7 @@
+     require(Path(sys.executable).resolve()==PYTHON.resolve() and sha(PYTHON)==PYTHON_SHA,'Qualified interpreter differs')
+     verify_packet(HERE,release['supervision_manifest_sha256'])
+     driver=Path(release['numerical_driver_path']).resolve()
+-    require(driver==PHASE/'graph_ncNC_structural_pattern_pilot_preparation_20261003_v4/pattern_run.py','Only separately reviewed V4 may be released')
++    require(driver==PHASE/'graph_ncNC_structural_pattern_pilot_preparation_20261004_v5/pattern_run.py','Only separately reviewed V5 may be released')
+     verify_packet(driver.parent,release['driver_manifest_sha256'])
+     query=subprocess.run(['nvidia-smi','--query-gpu=index,uuid,name,memory.total,memory.used,utilization.gpu','--format=csv,noheader,nounits'],capture_output=True,text=True,check=True)
+     gpu_rows=[[part.strip() for part in line.split(',')] for line in query.stdout.splitlines() if line.strip()]
+@@ -150,7 +151,24 @@
+     peak_kernel=int(usage.ru_maxrss*1024) if usage else None
+     if cap_violation is None and peak_kernel is not None and peak_kernel>CAPS['host_RSS_bytes']:
+         cap_violation={'kind':'kernel_recorded_host_RSS_peak','kernel_child_peak_RSS_bytes':peak_kernel}
+-    success=bool(exit_code==0 and cap_violation is None and cuda and cuda.get('CUDA_observed') and receipt.exists())
++    qualified=json.loads(receipt.read_text()) if receipt.exists() else None
++    transition=qualified.get('runtime_profile_transition',{}) if qualified else {}
++    before=transition.get('actual_profile_before',{});after=transition.get('actual_profile_after',{})
++    final=qualified.get('runtime_profile_final',{}) if qualified else {}
++    qualified_ok=bool(qualified and qualified.get('schema')=='ncnc-pattern-qualification-v1'
++        and qualified.get('stage')=='numerical' and qualified.get('status')=='PASS'
++        and qualified.get('identity',{}).get('driver_manifest_sha256')==release['driver_manifest_sha256']
++        and qualified.get('state_donor') is False and qualified.get('test_file_opened') is False
++        and transition.get('status')=='TRANSITION_VERIFIED'
++        and transition.get('declared_transition')==release['runtime_profile_transition']
++        and before.get('deterministic_algorithms') is False and before.get('deterministic_warn_only') is False
++        and before.get('CUBLAS_WORKSPACE_CONFIG')==':4096:8'
++        and after==dict(before,deterministic_algorithms=True,deterministic_warn_only=False)
++        and transition.get('RNG_exactly_unchanged') is True
++        and transition.get('actual_profile_matches_exact_transition') is True
++        and final.get('actual_runtime_profile')==after and final.get('runtime_profile_exact') is True)
++    success=bool(exit_code==0 and cap_violation is None and cuda and cuda.get('CUDA_observed')
++        and not cuda.get('monitor_failure') and qualified_ok)
+     terminal={'schema':'ncnc-pattern-normal-numerical-supervision-terminal-v1','UTC':utc(),'status':'COMPLETE' if success else 'FAILED',
+         'supervisor_physical_identity':supervisor,'child_physical_identity':identity,'child_exit_code':exit_code,'child_signal':signal_number,
+         'supervisor_inclusive_wall_seconds':time.monotonic()-started,'child_wait_wall_seconds':time.monotonic()-elapsed_start,
+@@ -159,6 +177,7 @@
+         'CUDA_peak_observation':cuda,'cap_violation':cap_violation,'root_release_sha256':sha(release_path),
+         'qualification_receipt':{'path':str(receipt),'bytes':receipt.stat().st_size,'sha256':sha(receipt)} if receipt.exists() else None,
+         'ordinary_host_execution':True,'namespaces_created':False,'automatic_retry_or_restart':False,'other_jobs_signaled':False,
++        'actual_V5_qualification_and_profile_checks_passed':qualified_ok,
+         'RSS_observation_poll_seconds':.25,'CUDA_caps_checked_from_persistent_Torch_peak_counters':True,'terminal_write_tail_measured':False}
+     write(output/'SUPERVISOR_TERMINAL.json',terminal)
+     return 0 if success else 1
+--- v3/numerical_child.py
++++ v4/numerical_child.py
+@@ -21,12 +21,16 @@
+     inv=release["authorized_invocations"]
+     if release["authorized_stages"]!=["numerical"] or len(inv)!=1 or inv[0]["stage"]!="numerical" or inv[0]["unit"]!="pair" or inv[0]["base_seed"]!=0:
+         raise RuntimeError("This child supports only the reviewed numerical pair")
++    if release.get('execution_enabled') is not True or release.get('runtime_profile_transition')!={'deterministic_algorithms_before': False, 'deterministic_algorithms_after': True, 'warn_only_after': False, 'CUBLAS_WORKSPACE_CONFIG': ':4096:8'}:
++        raise RuntimeError('Explicit V5 process-profile release required')
++    if 'torch' in sys.modules:raise RuntimeError('Torch must be absent at numerical child entry')
+     caps=release["numerical_caps"]
+     driver=Path(release["numerical_driver_path"]).resolve()
+-    expected=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/graph_ncNC_structural_pattern_pilot_preparation_20261003_v4/pattern_run.py')
++    expected=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/graph_ncNC_structural_pattern_pilot_preparation_20261004_v5/pattern_run.py')
+     if driver!=expected:raise RuntimeError("Wrong sealed numerical driver")
+     stopped=threading.Event();state={"schema":"ncnc-pattern-numerical-child-CUDA-peaks-v1","PID":os.getpid(),"CUDA_observed":False,
+-        "cuda_peak_allocated_bytes":0,"cuda_peak_reserved_bytes":0,"caps":caps,"source_reset_or_model_hooks":False}
++        "cuda_peak_allocated_bytes":0,"cuda_peak_reserved_bytes":0,"caps":caps,"source_reset_or_model_hooks":False,"Torch_absent_at_child_entry":True,
++        "declared_runtime_profile_transition":release["runtime_profile_transition"]}
+     path=args.supervision_output/"CHILD_CUDA_PEAKS.json"
+     def sample():
+         module=sys.modules.get("torch")

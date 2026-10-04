@@ -1,0 +1,26 @@
+from datetime import datetime,timezone
+from pathlib import Path
+import base64,hashlib,json,subprocess
+root=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/ncnc_fixed_fabricated_f4_repeatability_diagnostic_execution_root_20261004_v1')
+expected_runner={'pid': 3187175, 'start_ticks': 1722207742, 'pgid': 3187175, 'sid': 3187175}
+assert root.is_dir() and root.resolve()==root
+names=['DETACHED_LAUNCH.json','CHILD_STARTED.json','PHYSICAL_TERMINAL.json','diagnostic/run01/DIAGNOSTIC.json','CHILD.stdout.log','CHILD.stderr.log','RUNNER.stdout.log','RUNNER.stderr.log']
+files=[]
+for name in names:
+ path=root/name
+ if path.is_file():
+  assert path.resolve()==path and path.stat().st_size<=512*1024
+  raw=path.read_bytes();files.append({'name':name,'path':str(path),'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),'base64':base64.b64encode(raw).decode()})
+launch=json.loads((root/'DETACHED_LAUNCH.json').read_text());assert launch['runner_handle']==expected_runner
+child=json.loads((root/'CHILD_STARTED.json').read_text())['identity'] if (root/'CHILD_STARTED.json').is_file() else None
+def observed(expected):
+ if expected is None:return {'expected':None,'state':'NOT_YET_REGISTERED'}
+ path=Path('/proc/'+str(expected['pid'])+'/stat')
+ try:
+  raw=path.read_text();fields=raw[raw.rfind(')')+2:].split();actual={'pid':expected['pid'],'start_ticks':int(fields[19]),'pgid':int(fields[2]),'sid':int(fields[3])}
+ except (FileNotFoundError,ProcessLookupError):return {'expected':expected,'state':'ABSENT'}
+ same=all(actual[key]==expected[key] for key in ('pid','start_ticks','pgid','sid'))
+ return {'expected':expected,'state':'EXACT_OWNED_HANDLE_PRESENT' if same else 'PID_REUSED_OR_DIFFERENT_IDENTITY','actual':actual}
+gpu='GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'
+apps=subprocess.run(['nvidia-smi','--id='+gpu,'--query-compute-apps=pid,used_gpu_memory','--format=csv,noheader,nounits'],check=True,capture_output=True,text=True,timeout=10).stdout.strip()
+print('FIXED_F4_ONCE_OBSERVATION '+json.dumps({'schema':'ncnc-fixed-fabricated-f4-once-owned-scalar-observation-v1','UTC':datetime.now(timezone.utc).isoformat(),'runner':observed(expected_runner),'child':observed(child),'GPU0_compute_apps':apps,'files':files,'remote_inspections':1,'tensor_bodies_downloaded':False,'numerical_libraries_imported':False,'signals_sent':False,'retries_performed':False},allow_nan=False))
