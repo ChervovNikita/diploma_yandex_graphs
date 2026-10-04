@@ -4,7 +4,7 @@ Updated: 2026-10-04T12:11:40.870508+00:00. Goal active and incomplete. [Evidence
 
 ## Next actions
 
-1. Monitor the actual fixed nine-fit target/joint/separate queue on GPU1. It launched12:28:04UTC and had reached first-fit epoch6 at12:30:17UTC. Use monitor_owned_queue_interpreter_repair_v2.py with next sequence3; original sequence1 interpreter failure is preserved. No further qualification ladder or TEST release.
+1. Finish fresh source review and launch the fixed nine-fit target/joint/separate comparison on GPU1. No further qualification ladder or TEST release.
 2. Preserve PENCIL v2's cleanly exited pin-memory failure. Prepare a disclosed loader transfer repair, retaining architecture, data draws, batch1024, accumulation8, native schedule and caps.
 3. Maintain the original Amazon queue; observation29 has five complete fits and sixth at1115/2700. Wait for the fixed family rather than selecting partial outcomes.
 4. Use the newly authenticated DDI TRAIN payload for a prospective native support/cost census before fitting. Finish recent strong-DDI source scouting.
