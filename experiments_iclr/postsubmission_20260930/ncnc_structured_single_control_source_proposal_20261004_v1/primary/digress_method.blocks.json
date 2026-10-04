@@ -1,0 +1,790 @@
+[
+  {
+    "kind": "h5",
+    "text": "Report GitHub Issue"
+  },
+  {
+    "kind": "p",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "kind": "h1",
+    "text": "DiGress: Discrete Denoising diffusion for graph generation"
+  },
+  {
+    "kind": "h6",
+    "text": "Abstract"
+  },
+  {
+    "kind": "p",
+    "text": "This work introduces DiGress, a discrete denoising diffusion model for generating graphs with categorical node and edge attributes. Our model utilizes a discrete diffusion process that progressively edits graphs with noise, through the process of adding or removing edges and changing the categories. A graph transformer network is trained to revert this process, simplifying the problem of distribution learning over graphs into a sequence of node and edge classification tasks. We further improve sample quality by introducing a Markovian noise model that preserves the marginal distribution of node and edge types during diffusion, and by incorporating auxiliary graph-theoretic features. A procedure for conditioning the generation on graph-level features is also proposed. DiGress achieves state-of-the-art performance on molecular and non-molecular datasets, with up to 3x validity improvement on a planar graph dataset. It is also the first model to scale to the large GuacaMol dataset containing 1.3M drug-like molecules without the use of molecule-specific representations."
+  },
+  {
+    "kind": "h2",
+    "text": "1 Introduction"
+  },
+  {
+    "kind": "p",
+    "text": "Denoising diffusion models (Sohl-Dickstein et al., 2015; Ho et al., 2020) form a powerful class of generative models. At a high-level, these models are trained to denoise diffusion trajectories, and produce new samples by sampling noise and recursively denoising it. Diffusion models have been used successfully in a variety of settings, outperforming all other methods on image and video (Dhariwal & Nichol, 2021; Ho et al., 2022). These successes raise hope for building powerful models for graph generation, a task with diverse applications such as molecule design (Liu et al., 2018), traffic modeling (Yu & Gu, 2019), and code completion (Brockschmidt et al., 2019). However, generating graphs remains challenging due to their unordered nature and sparsity properties."
+  },
+  {
+    "kind": "p",
+    "text": "Previous diffusion models for graphs proposed to embed the graphs in a continuous space and add Gaussian noise to the node features and graph adjacency matrix (Niu et al., 2020; Jo et al., 2022). This however destroys the graph’s sparsity and creates complete noisy graphs for which structural information (such as connectivity or cycle counts) is not defined. As a result, continuous diffusion can make it difficult for the denoising network to capture the structural properties of the data."
+  },
+  {
+    "kind": "p",
+    "text": "In this work, we propose DiGress, a discrete denoising diffusion model for generating graphs with categorical node and edge attributes. Our noise model is a Markov process consisting of successive graphs edits (edge addition or deletion, node or edge category edit) that can occur independently on each node or edge. To invert this diffusion process, we train a graph transformer network to predict the clean graph from a noisy input. The resulting architecture is permutation equivariant and admits an evidence lower bound for likelihood estimation."
+  },
+  {
+    "kind": "p",
+    "text": "We then propose several algorithmic enhancements to DiGress, including utilizing a noise model that preserves the marginal distribution of node and edge types during diffusion, introducing a novel guidance procedure for conditioning graph generation on graph-level properties, and augmenting the input of our denoising network with auxiliary structural and spectral features. These features, derived from the noisy graph, aid in overcoming the limited representation power of graph neural networks (Xu et al., 2019). Their use is made possible by the discrete nature of our noise model, which, in contrast to Gaussian-based models, preserves sparsity in the noisy graphs. These improvements enhance the performance of DiGress on a wide range of graph generation tasks."
+  },
+  {
+    "kind": "p",
+    "text": "Our experiments demonstrate that DiGress achieve state-of-the-art performance, generating a high rate of realistic graphs while maintaining high degree of diversity and novelty. On the large MOSES and GuacaMol molecular datasets, which were previously too large for one-shot models, it notably matches the performance of autoregressive models trained using expert knowledge."
+  },
+  {
+    "kind": "h2",
+    "text": "2 Diffusion models"
+  },
+  {
+    "kind": "p",
+    "text": "In this section, we introduce the key concepts of denoising diffusion models that are agnostic to the data modality. These models consist of two main components: a noise model and a denoising neural network. The noise model q progressively corrupts a data point x to create a sequence of increasingly noisy data points (z^{1},\\dots,z^{T}) . It has a Markovian structure, where q(z^{1},\\dots,z^{T}|x)=q(z^{1}|x)\\prod_{t=2}^{T}q(z^{t}|z^{t-1}) . The denoising network \\phi_{\\theta} is trained to invert this process by predicting z^{t-1} from z^{t} . To generate new samples, noise is sampled from a prior distribution and then inverted by iterative application of the denoising network."
+  },
+  {
+    "kind": "p",
+    "text": "While early models would directly predict z^{t-1} from z^{t} (Sohl-Dickstein et al., 2015), these models were difficult to train due to the dependence of z^{t-1} on the sampled diffusion trajectories. Ho et al. (2020) considerably improved performance by establishing a connection with score-based models (Song & Ermon, 2019). They showed that when \\int q(z^{t-1}|z^{t},x)dp_{\\theta}(x) is tractable, x can be used as the target of the denoising network, which removes an important source of label noise."
+  },
+  {
+    "kind": "p",
+    "text": "For a diffusion model to be efficient, three properties are required:"
+  },
+  {
+    "kind": "p",
+    "text": "The distribution q(z^{t}|x) should have a closed-form formula, to allow for parallel training on different time steps."
+  },
+  {
+    "kind": "p",
+    "text": "The posterior p_{\\theta}(z^{t-1}|z^{t})=\\int q(z^{t-1}|z^{t},x)dp_{\\theta}(x) should have a closed-form expression, so that x can be used as the target of the neural network."
+  },
+  {
+    "kind": "p",
+    "text": "The limit distribution q_{\\infty}=\\lim_{T\\to\\infty}q(z^{T}|x) should not depend on x , so that we can use it as a prior distribution for inference."
+  },
+  {
+    "kind": "p",
+    "text": "These properties are all satisfied when the noise is Gaussian. When the task requires to model categorical data, Gaussian noise can still be used by embedding the data in a continuous space with a one-hot encoding of the categories (Niu et al., 2020; Jo et al., 2022). We develop in Appendix A a graph generation model based on this principle, and use it for ablation studies. However, Gaussian noise is a poor noise model for graphs as it destroys sparsity as well as graph theoretic notions such as connectivity. Discrete diffusion therefore seems more appropriate to graph generation tasks."
+  },
+  {
+    "kind": "p",
+    "text": "Recent works have considered the discrete diffusion problem for text, image and audio data (Hoogeboom et al., 2021; Johnson et al., 2021; Yang et al., 2022). We follow here the setting proposed by Austin et al. (2021). It considers a data point x that belongs to one of d classes and {\\bm{x}}\\in\\mathbb{R}^{d} its one-hot encoding. The noise is now represented by transition matrices ({\\bm{Q}}^{1},...,{\\bm{Q}}^{T}) such that [{\\bm{Q}}^{t}]_{ij} represents the probability of jumping from state i to state j : q(z^{t}|z^{t-1})={\\bm{z}}^{t-1}{\\bm{Q}}^{t} ."
+  },
+  {
+    "kind": "p",
+    "text": "As the process is Markovian, the transition matrix from {\\bm{x}} to {\\bm{z}}^{t} reads \\bar{\\bm{Q}}^{t}={\\bm{Q}}^{1}{\\bm{Q}}^{2}...{\\bm{Q}}^{t} . As long as \\bar{\\bm{Q}}^{t} is precomputed or has a closed-form expression, the noisy states {\\bm{z}}^{t} can be built from {\\bm{x}} using q(z^{t}|x)={\\bm{x}}\\bar{\\bm{Q}}^{t} without having to apply noise recursively (Property 1). The posterior distribution q(z_{t-1}|z_{t},x) can also be computed in closed-form using Bayes rule (Property 2):"
+  },
+  {
+    "kind": "equation",
+    "text": "q(z^{t-1}|z^{t},x)\\propto{\\bm{z}}^{t}~({\\bm{Q}}^{t})^{\\prime}\\odot{\\bm{x}}~\\bar{\\bm{Q}}^{t-1}"
+  },
+  {
+    "kind": "p",
+    "text": "where \\odot denotes a pointwise product and {\\bm{Q}}^{\\prime} is the transpose of {\\bm{Q}} . Finally, the limit distribution of the noise model depends on the transition model. The simplest and most common one is a uniform transition (Hoogeboom et al., 2021; Austin et al., 2021; Yang et al., 2022) parametrized by {\\bm{Q}}^{t}=\\alpha^{t}{\\bm{I}}+(1-\\alpha^{t})\\bm{1}_{d}\\bm{1}_{d}^{\\prime}/d with \\alpha^{t} transitioning from 1 to 0. When \\lim_{t\\to\\infty}\\alpha^{t}=0 , q(z^{t}|x) converges to a uniform distribution independently of x (Property 3)."
+  },
+  {
+    "kind": "p",
+    "text": "The above framework satisfies all three properties in a setting that is inherently discrete. However, while it has been applied successfully to several data modalities, graphs have unique challenges that need to be considered: they have varying sizes, permutation equivariance properties, and to this date no known tractable universal approximator. In the next sections, we therefore propose a new discrete diffusion model that addresses the specific challenges of graph generation."
+  },
+  {
+    "kind": "h2",
+    "text": "3 Discrete denoising diffusion for graph generation (DiGress)"
+  },
+  {
+    "kind": "p",
+    "text": "In this section, we present the Discrete Graph Denoising Diffusion model (DiGress) for graph generation. Our model handles graphs with categorical node and edge attributes, represented by the spaces \\mathcal{X} and \\mathcal{E} , respectively, with cardinalities a and b . We use x_{i} to denote the attribute of node i and {\\bm{x}}_{i}\\in\\mathbb{R}^{a} to denote its one-hot encoding. These encodings are organised in a matrix {\\bm{X}}\\in\\mathbb{R}^{n\\times a} where n is the number of nodes. Similarly, a tensor {\\bm{\\mathsfit{E}}}\\in\\mathbb{R}^{n\\times n\\times b} groups the one-hot encoding {\\bm{e}}_{ij} of each edge, treating the absence of edge as a particular edge type. We use {\\bm{A}}^{\\prime} to denote the matrix transpose of {\\bm{A}} , while {\\bm{A}}^{T} is the value of {\\bm{A}} at time T ."
+  },
+  {
+    "kind": "h3",
+    "text": "3.1 Diffusion process and inverse denoising iterations"
+  },
+  {
+    "kind": "p",
+    "text": "Similarly to diffusion models for images, which apply noise independently on each pixel, we diffuse separately on each node and edge feature. As a result, the state-space that we consider is not that of graphs (which would be too large to build a transition matrix), but only the node types \\mathcal{X} and edge types \\mathcal{E} . For any node (resp. edge), the transition probabilities are defined by the matrices [{\\bm{Q}}^{t}_{X}]_{ij}=q(x^{t}=j|x^{t-1}=i) and [{\\bm{Q}}^{t}_{E}]_{ij}=q(e^{t}=j|e^{t-1}=i) . Adding noise to form G^{t}=({\\bm{X}}^{t},{\\bm{\\mathsfit{E}}}^{t}) simply means sampling each node and edge type from a categorical distribution defined by:"
+  },
+  {
+    "kind": "equation",
+    "text": "q(G^{t}|G^{t-1})=({\\bm{X}}^{t-1}{\\bm{Q}}^{t}_{X},{\\bm{\\mathsfit{E}}}^{t-1}{\\bm{Q}}^{t}_{E})\\quad\\text{and}\\quad q(G^{t}|G)=({\\bm{X}}\\bar{\\bm{Q}}^{t}_{X},{\\bm{\\mathsfit{E}}}\\bar{\\bm{Q}}^{t}_{E})"
+  },
+  {
+    "kind": "p",
+    "text": "for \\bar{\\bm{Q}}^{t}_{X}={\\bm{Q}}^{1}_{X}...{\\bm{Q}}^{t}_{X} and \\bar{\\bm{Q}}^{t}_{E}={\\bm{Q}}^{1}_{E}...{\\bm{Q}}^{t}_{E} . When considering undirected graphs, we apply noise only to the upper-triangular part of {\\bm{\\mathsfit{E}}} and then symmetrize the matrix."
+  },
+  {
+    "kind": "p",
+    "text": "The second component of the DiGress model is the denoising neural network \\phi_{\\theta} parametrized by \\theta . It takes a noisy graph G^{t}=({\\bm{X}}^{t},{\\bm{\\mathsfit{E}}}^{t}) as input and aims to predict the clean graph G , as illustrated in Figure 1. To train \\phi_{\\theta} , we optimize the cross-entropy loss l between the predicted probabilities \\hat{p}^{G}=(\\hat{p}^{X},\\hat{p}^{E}) for each node and edge and the true graph G :"
+  },
+  {
+    "kind": "equation",
+    "text": "l(\\hat{p}^{G},G)=\\sum_{1\\leq i\\leq n}\\operatorname{cross-entropy}(x_{i},\\hat{p}^{X}_{i})+\\lambda\\sum_{1\\leq i,j\\leq n}\\operatorname{cross-entropy}(e_{ij},\\hat{p}^{E}_{ij})"
+  },
+  {
+    "kind": "p",
+    "text": "where \\lambda\\in\\mathbb{R}^{+} controls the relative importance of nodes and edges. It is noteworthy that, unlike architectures like VAEs which solve complex distribution learning problems that sometimes requires graph matching, our diffusion model simply solves classification tasks on each node and edge."
+  },
+  {
+    "kind": "p",
+    "text": "Once the network is trained, it can be used to sample new graphs. To do so, we need to estimate the reverse diffusion iterations p_{\\theta}(G^{t-1}|G^{t}) using the network prediction \\hat{p}^{G} . We model this distribution as a product over nodes and edges:"
+  },
+  {
+    "kind": "equation",
+    "text": "p_{\\theta}(G^{t-1}|G^{t})=\\prod_{1\\leq i\\leq n}p_{\\theta}(x_{i}^{t-1}|G^{t})\\prod_{1\\leq i,j\\leq n}p_{\\theta}(e_{ij}^{t-1}|G^{t})"
+  },
+  {
+    "kind": "p",
+    "text": "To compute each term, we marginalize over the network predictions:"
+  },
+  {
+    "kind": "equation",
+    "text": "p_{\\theta}(x_{i}^{t-1}|G^{t})=\\int_{x_{i}}p_{\\theta}(x_{i}^{t-1}~|~x_{i},G^{t})~dp_{\\theta}(x_{i}|G^{t})=\\sum_{x\\in\\mathcal{X}}p_{\\theta}(x_{i}^{t-1}~|~x_{i}=x,G^{t})~\\hat{p}^{X}_{i}(x)"
+  },
+  {
+    "kind": "p",
+    "text": "where we choose"
+  },
+  {
+    "kind": "p",
+    "text": "Similarly, we have p_{\\theta}(e_{ij}^{t-1}|e_{ij}^{t})=\\sum_{e\\in\\mathcal{E}}p_{\\theta}(e_{ij}^{t-1}~|~e_{ij}=e,e_{ij}^{t})~\\hat{p}_{ij}^{E}(e) . These distributions are used to sample a discrete G^{t-1} that will be the input of the denoising network at the next time step. These equations can also be used to compute an evidence lower bound on the likelihood, which allows for easy comparison between models. The computations are provided in Appendix C."
+  },
+  {
+    "kind": "h3",
+    "text": "3.2 Denoising network parametrization"
+  },
+  {
+    "kind": "p",
+    "text": "The denoising network takes a noisy graph G^{t}=({\\bm{X}},{\\bm{\\mathsfit{E}}}) as input and outputs tensors {\\bm{X}}^{\\prime} and {\\bm{\\mathsfit{E}}}^{\\prime} which represent the predicted distribution over clean graphs. To efficiently store information, our layers also manipulate graph-level features {\\bm{y}} . We chose to extend the graph transformer network proposed by Dwivedi & Bresson (2021), as attention mechanisms are a natural model for edge prediction. Our model is described in details in Appendix B.1. At a high-level, it first updates node features using self-attention, incorporating edge features and global features using FiLM layers (Perez et al., 2018). The edge features are then updated using the unnormalized attention scores, and the graph-level features using pooled node and edge features. Our transformer layers also feature residual connections and layer normalization. To incorporate time information, we normalize the timestep to [0,1] and treat it as a global feature inside {\\bm{y}} . The overall memory and time complexity of our network is \\Theta(n^{2}) per layer, due to the attention scores and the predictions for each edge."
+  },
+  {
+    "kind": "h3",
+    "text": "3.3 Equivariance properties"
+  },
+  {
+    "kind": "p",
+    "text": "Graphs are invariant to reorderings of their nodes, meaning that n! matrices can represent the same graph. To efficiently learn from these data, it is crucial to devise methods that do not require augmenting the data with random permutations. This implies that gradient updates should not change if the train data is permuted. To achieve this property, two components are needed: a permutation equivariant architecture and a permutation invariant loss. DiGress satisfies both properties."
+  },
+  {
+    "kind": "h6",
+    "text": "Lemma 3.1."
+  },
+  {
+    "kind": "p",
+    "text": "(Equivariance) DiGress is permutation equivariant."
+  },
+  {
+    "kind": "h6",
+    "text": "Lemma 3.2."
+  },
+  {
+    "kind": "p",
+    "text": "(Invariant loss) Any loss function (such as the cross-entropy loss of Eq. (3)) that can be decomposed as \\sum_{i}l_{X}(\\hat{p}^{X}_{i},x_{i})+\\sum_{i,j}l_{E}(\\hat{p}^{E}_{ij},e_{ij}) for two functions l_{X} and l_{E} computed respectively on each node and each edge is permutation invariant."
+  },
+  {
+    "kind": "p",
+    "text": "Lemma 3.2 shows that our model does not require matching the predicted and target graphs, which would be difficult and costly. This is because the diffusion process keeps track of the identity of the nodes at each step, it can also be interpreted as a physical process where points are distinguishable."
+  },
+  {
+    "kind": "p",
+    "text": "Equivariance is however not a sufficient for likelihood computation: in general, the likelihood of a graph is the sum of the likelihood of all its permutations, which is intractable. To avoid this computation, we can make sure that the generated distribution is exchangeable, i.e., that all permutations of generated graphs are equally likely (Köhler et al., 2020)."
+  },
+  {
+    "kind": "h6",
+    "text": "Lemma 3.3."
+  },
+  {
+    "kind": "p",
+    "text": "(Exchangeability) DiGress yields exchangeable distributions, i.e., it generates graphs with node features {\\bm{X}} and adjacency matrix {\\bm{A}} that satisfy \\mathbb{P}({\\bm{X}},{\\bm{A}})=P(\\pi^{T}{\\bm{X}},\\pi^{T}{\\bm{A}}\\pi) for any permutation \\pi ."
+  },
+  {
+    "kind": "h2",
+    "text": "4 Improving DiGress with marginal probabilities and structural features"
+  },
+  {
+    "kind": "h3",
+    "text": "4.1 Choice of the noise model"
+  },
+  {
+    "kind": "p",
+    "text": "The choice of the Markov transition matrices ({\\bm{Q}}_{t})_{t\\leq T} defining the graph edit probabilities is arbitrary, and it is a priori not clear what noise model will lead to the best performance. A common model is a uniform transition over the classes {\\bm{Q}}^{t}=\\alpha^{t}{\\bm{I}}+(1-\\alpha^{t})(\\bm{1}_{d}\\bm{1}_{d}^{\\prime})/d , which leads to limit distributions q_{X} and q_{E} that are uniform over categories. Graphs are however usually sparse, meaning that the marginal distribution of edge types is far from uniform. Starting from uniform noise, we observe in Figure 2 that it takes many diffusion steps for the model to produce a sparse graph. To improve upon uniform transitions, we propose the following hypothesis: using a prior distribution which is close to the true data distribution makes training easier."
+  },
+  {
+    "kind": "p",
+    "text": "This prior distribution cannot be chosen arbitrarily, as it needs to be permutation invariant to satisfy exchangeability (Lemma 3.3). A natural model for this distribution is therefore a product \\prod_{i}u\\times\\prod_{i,j}v of a single distribution u for all nodes and a single distribution v for all edges. We propose the following result (proved in Appendix D) to guide the choice of u and v :"
+  },
+  {
+    "kind": "h6",
+    "text": "Theorem 4.1."
+  },
+  {
+    "kind": "p",
+    "text": "(Optimal prior distribution) Consider the class \\mathcal{C}=\\{\\prod_{i}u\\times\\prod_{i,j}v,~(u,v)\\in\\mathcal{P}(\\mathcal{X})\\times P(\\mathcal{E})\\} of distributions over graphs that factorize as the product of a single distribution u over \\mathcal{X} for the nodes and a single distribution v over \\mathcal{E} for the edges. Let P be an arbitrary distribution over graphs (seen as a tensor of order n+n^{2} ) and m_{X},m_{E} its marginal distributions of node and edge types. Then \\pi^{G}=\\prod_{i}m_{X}\\times\\prod_{i,j}m_{E} is the orthogonal projection of P on \\mathcal{C} :"
+  },
+  {
+    "kind": "equation",
+    "text": "\\pi^{G}\\in\\argmin_{(u,v)\\in\\mathcal{C}}~||~P~-\\prod_{1\\leq i\\leq n}u\\times\\prod_{1\\leq i,j\\leq n}v||^{2}_{2}"
+  },
+  {
+    "kind": "p",
+    "text": "This result means that to get a prior distribution q_{X}\\times q_{E} close to the true data distribution, we should define transition matrices such that \\forall i,~\\lim_{T\\to\\infty}\\bar{\\bm{Q}}^{T}_{X}\\mathds{1}_{i}={\\bm{m}}_{X} (and similarly for edges). To achieve this property, we propose to use"
+  },
+  {
+    "kind": "equation",
+    "text": "{\\bm{Q}}^{t}_{X}=\\alpha^{t}{\\bm{I}}+\\beta^{t}~\\bm{1}_{a}\\bm{{\\bm{m}}}_{X}^{\\prime}\\quad\\text{and}\\quad{\\bm{Q}}^{t}_{E}=\\alpha^{t}{\\bm{I}}+\\beta^{t}~\\bm{1}_{b}\\bm{{\\bm{m}}}_{E}^{\\prime}"
+  },
+  {
+    "kind": "p",
+    "text": "With this model, the probability of jumping from a state i to a state j is proportional to the marginal probability of category j in the training set. Since (\\bm{1}\\bm{{\\bm{m}}}^{\\prime})^{2}=\\bm{1}\\bm{{\\bm{m}}}^{\\prime} , we still have \\bar{\\bm{Q}}^{t}=\\bar{\\alpha}^{t}{\\bm{I}}+\\bar{\\beta}^{t}\\bm{1}\\bm{{\\bm{m}}}^{\\prime} for \\bar{\\alpha}^{t}=\\prod_{\\tau=1}^{t}\\alpha^{\\tau} and \\bar{\\beta}^{t}=\\prod_{\\tau=1}^{t}(1-\\alpha^{\\tau}) . We follow the popular cosine schedule \\bar{\\alpha}^{t}=\\cos{(0.5\\pi(t/T+s)/(1+s))}^{2} with a small s . Experimentally, these marginal transitions improves over uniform transitions (Appendix F)."
+  },
+  {
+    "kind": "h3",
+    "text": "4.2 Structural features augmentation"
+  },
+  {
+    "kind": "p",
+    "text": "Generative models for graphs inherit the limitations of graph neural networks, and in particular their limited representation power (Xu et al., 2019; Morris et al., 2019). One example of this limitation is the difficulty for standard message passing networks (MPNNs) to detect simple substructures such as cycles (Chen et al., 2020), which raises concerns about their ability to accurately capture the properties of the data distribution. While more powerful networks have been proposed such as (Maron et al., 2019; Vignac et al., 2020; Morris et al., 2022), they are significantly more costly and slower to train. Another strategy to overcome this limitation is to augment standard MPNNs with features that they cannot compute on their own. For example, Bouritsas et al. (2022) proposed adding counts of substructures of interest, and Beaini et al. (2021) proposed adding spectral features, which are known to capture important properties of graphs (Chung & Graham, 1997)."
+  },
+  {
+    "kind": "p",
+    "text": "DiGress operates on a discrete space and its noisy graphs are not complete, allowing for the computation of various graph descriptors at each diffusion step. These descriptors can be input to the network to aid in the denoising process, resulting in Algorithms 1 and 2 for training DiGress and sampling from it. The inclusion of these additional features experimentally improves performance, but they are not required for building a good model. The choice of which features to include and the computational complexity of their calculation should be considered, especially for larger graphs. The details of the features used in our experiments can be found in the Appendix B.1."
+  },
+  {
+    "kind": "h2",
+    "text": "5 Conditional generation"
+  },
+  {
+    "kind": "p",
+    "text": "While good unconditional generation is a prerequisite, the ability to condition generation on graph-level properties is crucial for many applications. For example, in drug design, molecules that are easy to synthesize and have high activity on specific targets are of particular interest. One way to perform conditional generation is to train the denoising network using the target properties (Hoogeboom et al., 2022), but it requires to retrain the model when the conditioning properties changes."
+  },
+  {
+    "kind": "p",
+    "text": "To overcome this limitation, we propose a new discrete guidance scheme inspired by the classifier guidance algorithm (Sohl-Dickstein et al., 2015). Our method uses a regressor g_{\\eta} which is trained to predict target properties {\\bm{y}}_{G} of a clean graph G from a noisy version of G : g_{\\eta}(G^{t})=\\hat{\\bm{y}} .This regressor guides the unconditional diffusion model \\phi_{\\theta} by modulating the predicted distribution at each sampling step and pushing it towards graphs with the desired properties. The equations for the conditional denoising process are given by the following lemma:"
+  },
+  {
+    "kind": "h6",
+    "text": "Lemma 5.1."
+  },
+  {
+    "kind": "p",
+    "text": "(Conditional reverse noising process) (Dhariwal & Nichol, 2021) Denote \\dot{q} the noising process conditioned on {\\bm{y}}_{G} , q the unconditional noising process, and assume that \\dot{q}(G^{t}|G,{\\bm{y}}_{G})=\\dot{q}(G^{t}|G) . Then we have \\dot{q}(G^{t-1}|G^{t},{\\bm{y}}_{G})\\propto q(G^{t-1}|G^{t})~\\dot{q}({\\bm{y}}_{G}|G^{t-1}) ."
+  },
+  {
+    "kind": "p",
+    "text": "While we would like to estimate q(G^{t-1}|G^{t})~\\dot{q}({\\bm{y}}_{G}|G^{t-1}) by p_{\\theta}(G^{t-1}|G^{t})~p_{\\eta}({\\bm{y}}_{G}|G^{t-1}) , p_{\\eta} cannot be evaluated for all possible values of G^{t-1} . To overcome this issue, we view G as a continuous tensor of order n+n^{2} (so that \\nabla_{G} can be defined) and use a first-order approximation. It gives:"
+  },
+  {
+    "kind": "p",
+    "text": "for a function c that does not depend on G^{t-1} . We make the additional assumption that \\dot{q}({\\bm{y}}_{G}|G^{t})=\\mathcal{N}(g(G^{t}),\\sigma_{y}{\\bm{I}}) , where g is estimated by g_{\\eta} , so that \\nabla_{G^{t}}\\log\\dot{q}_{\\eta}({\\bm{y}}|G^{t})\\propto-\\nabla_{G^{t}}||\\hat{\\bm{y}}-{\\bm{y}}_{G}||^{2} . The resulting procedure is presented in Algorithm 3."
+  },
+  {
+    "kind": "p",
+    "text": "In addition to being conditioned on graph-level properties, our model can be used to extend an existing subgraph – a task called molecular scaffold extension in the drug discovery literature (Maziarz et al., 2022). In Appendix E, we explain how to do it and demonstrate it on a simple example."
+  },
+  {
+    "kind": "h2",
+    "text": "6 Related work"
+  },
+  {
+    "kind": "p",
+    "text": "Several works have recently proposed discrete diffusion models for text, images, audio, and attributed point clouds (Austin et al., 2021; Yang et al., 2022; Luo et al., 2022). Our work, DiGress, is the first discrete diffusion model for graphs. Concurrently, Haefeli et al. (2022) designed a model limited to unattributed graphs, and similarly observed that discrete diffusion is beneficial for graph generation. Previous diffusion models for graphs were based on Gaussian noise: Niu et al. (2020) generated adjacency matrices by thresholding a continuous value to indicate edges, and Jo et al. (2022) extended this model to handle node and edge attributes."
+  },
+  {
+    "kind": "p",
+    "text": "Trippe et al. (2022), Hoogeboom et al. (2022) and Wu et al. (2022) define diffusion models for molecule generation in 3D. These models actually solve a point cloud generation task, as they generate atomic positions rather than graph structures and thus require conformer data for training. On the contrary, Xu et al. (2022) and Jing et al. (2022) define diffusion model for conformation generation – they input a graph structure and output atomic coordinates."
+  },
+  {
+    "kind": "p",
+    "text": "Apart from diffusion models, there has recently been a lot of interest in non-autoregressive graph generation using VAEs, GANs or normalizing flows (Zhu et al., 2022). (Madhawa et al., 2019; Lippe & Gavves, 2021; Luo et al., 2021) are examples of discrete models using categorical normalizing flows. However, these methods have not yet matched the performance of autoregressive models (Liu et al., 2018; Liao et al., 2019; Mercado et al., 2021) and motifs-based models (Jin et al., 2020; Maziarz et al., 2022), which can incorporate much more domain knowledge."
+  },
+  {
+    "kind": "h2",
+    "text": "7 Experiments"
+  },
+  {
+    "kind": "p",
+    "text": "In our experiments, we compare the performance of DiGress against several state-of-the-art one-shot graph generation methods on both molecular and non-molecular benchmarks. We compare its performance against Set2GraphVAE (Vignac & Frossard, 2021), SPECTRE (Martinkus et al., 2022), GraphNVP (Madhawa et al., 2019), GDSS (Jo et al., 2022), GraphRNN (You et al., 2018), GRAN (Liao et al., 2019), JT-VAE (Jin et al., 2018), NAGVAE (Kwon et al., 2020) and GraphINVENT (Mercado et al., 2021). We also build Congress, a model that has the same denoising network as DiGress but Gaussian diffusion (Appendix A). Our results are presented without validity correction11 1 Code is available at github.com/cvignac/DiGress.."
+  },
+  {
+    "kind": "h3",
+    "text": "7.1 General graph generation"
+  },
+  {
+    "kind": "p",
+    "text": "We first evaluate DiGress on the benchmark proposed in Martinkus et al. (2022), which consists of two datasets of 200 graphs each: one drawn from the stochastic block model (with up to 200 nodes per graph), and another dataset of planar graphs (64 nodes per graph). We evaluate the ability to correctly model various properties of these graphs, such as whether the generated graphs are statistically distinguishable from the SBM model or if they are planar and connected. We refer to Appendix F for a description of the metrics. In Table 7.1, we observe that DiGress is able to capture the data distribution very effectively, with significant improvements over baselines on planar graphs. In contrast, our continuous model, ConGress, performs poorly on these relatively large graphs."
+  },
+  {
+    "kind": "h3",
+    "text": "7.2 Small molecule generation"
+  },
+  {
+    "kind": "p",
+    "text": "We then evaluate our model on the standard QM9 dataset (Wu et al., 2018) that contains molecules with up to 9 heavy atoms. We use a split of 100k molecules for training, 20k for validation and 13k for evaluating likelihood on a test set. We report the negative log-likelihood of our model, validity (measured by RDKit sanitization) and uniqueness over 10k molecules. Novelty results are discussed in Appendix F. 95\\% confidence intervals are reported based on five runs. Results are presented in Figure 2. Since ConGress and DiGress both obtain close to perfect metrics on this dataset, we also perform an ablation study on a more challenging version of QM9 where hydrogens are explicitly modeled in Appendix F. It shows that the discrete framework is beneficial and that marginal transitions and auxiliary features further boost performance."
+  },
+  {
+    "kind": "h3",
+    "text": "7.3 Conditional generation"
+  },
+  {
+    "kind": "p",
+    "text": "To measure the ability of DiGress to condition the generation on graph-level properties, we propose a conditional generation setting on QM9. We sample 100 molecules from the test set and retrieve their dipole moment \\mu and the highest occupied molecular orbit (HOMO). The pairs (\\mu,\\text{HOMO}) constitute the conditioning vector that we use to generate 10 molecules. To evaluate the ability of a model to condition correctly, we need to estimate the properties of the generated samples. To do so, we use RdKit (Landrum et al., 2006) to produce conformers of the generated graphs, and then Psi4 (Smith et al., 2020) to estimate the values of \\mu and HOMO. We report the mean absolute error between the targets and the estimated values for the generated molecules (Fig. 4)."
+  },
+  {
+    "kind": "h3",
+    "text": "7.4 Molecule generation at scale"
+  },
+  {
+    "kind": "p",
+    "text": "We finally evaluate our model on two much more challenging datasets made of more than a million molecules: MOSES (Polykovskiy et al., 2020), which contains small drug-like molecules, and GuacaMol (Brown et al., 2019), which contains larger molecules. DiGress is to our knowledge the first one-shot generative model that is not based on molecular fragments and that scales to datasets of this size. The metrics used as well as additional experiments are presented in App. F. For MOSES, the reported scores for FCD, SNN, and Scaffold similarity are computed on the dataset made of separate scaffolds, which measures the ability of the networks to predict new ring structures. Results are presented in Tables 3 and 4: they show that DiGress does not yet match the performance of SMILES and fragment-based methods, but performs on par with GraphInvent, an autoregressive model fine-tuned using chemical softwares and reinforcement learning. DiGress thus bridges the important gap between one-shot methods and autoregressive models that previously prevailed."
+  },
+  {
+    "kind": "h2",
+    "text": "8 Conclusion"
+  },
+  {
+    "kind": "p",
+    "text": "We proposed DiGress, a denoising diffusion model for graph generation that operates on a discrete space. DiGress outperforms existing one-shot generation methods and scales to larger molecular datasets, reaching the performance of autogressive models trained using expert knowledge."
+  },
+  {
+    "kind": "h2",
+    "text": "Acknowledgments"
+  },
+  {
+    "kind": "p",
+    "text": "We thank Nikos Karalias, Éloi Alonso and Karolis Martinkus for their help and useful suggestions. Clément Vignac thanks the Swiss Data Science Center for supporting him through the PhD fellowship program (grant P18-11). Igor Krawczuk and Volkan Cevher acknowledge funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (grant agreement n°725594 - time-data)."
+  },
+  {
+    "kind": "h2",
+    "text": "References"
+  },
+  {
+    "kind": "h2",
+    "text": "Appendix A Continuous Graph Denoising diffusion model (ConGress)"
+  },
+  {
+    "kind": "p",
+    "text": "In this section we present a diffusion model for graphs that uses Gaussian noise rather than a discrete diffusion process. Its denoising network is the same as the one of our discrete model. Our goal is to show that the better performance obtained with DiGress is not only due to the neural network design, but also to the discrete process itself."
+  },
+  {
+    "kind": "h3",
+    "text": "A.1 Diffusion process"
+  },
+  {
+    "kind": "p",
+    "text": "Consider a graph G=({\\bm{X}},{\\bm{\\mathsfit{E}}}) . Similarly to the discrete diffusion model, this diffusion process adds noise independently on each node and each edge, but this time the noise considered is Gaussian:"
+  },
+  {
+    "kind": "equation",
+    "text": "q({\\bm{X}}^{t}|{\\bm{X}}^{t-1})=\\mathcal{N}(\\alpha^{t|t-1}{\\bm{X}}^{t-1},~(\\sigma^{t|t-1})^{2}{\\mathbf{I}})\\quad\\text{and}\\quad q({\\bm{\\mathsfit{E}}}^{t}|{\\bm{\\mathsfit{E}}}^{t-1})=\\mathcal{N}(\\alpha^{t|t-1}{\\bm{\\mathsfit{E}}}^{t-1},~(\\sigma^{t|t-1})^{2}{\\mathbf{I}})"
+  },
+  {
+    "kind": "p",
+    "text": "This process can equivalently be written:"
+  },
+  {
+    "kind": "equation",
+    "text": "q({\\bm{X}}^{t}|{\\bm{X}})=\\mathcal{N}({\\bm{X}}^{t}|\\alpha^{t}{\\bm{X}},\\sigma^{t}{\\bm{I}})\\hskip 28.45274ptq({\\bm{\\mathsfit{E}}}^{t}|{\\bm{\\mathsfit{E}}})=\\mathcal{N}({\\bm{\\mathsfit{E}}}^{t}|\\alpha^{t}{\\bm{\\mathsfit{E}}},\\sigma^{t}{\\bm{\\mathsfit{I}}})"
+  },
+  {
+    "kind": "p",
+    "text": "where \\alpha^{t|t-1}=\\alpha^{t}/\\alpha^{t-1} and (\\sigma^{t|t-1})^{2}=(\\sigma^{t})^{2}-(\\alpha^{t|t-1})^{2}(\\sigma^{t-1})^{2} ."
+  },
+  {
+    "kind": "p",
+    "text": "The variance is chosen as (\\sigma^{t})^{2}=1-(\\alpha^{t})^{2} in order to obtain a variance-preserving process (Kingma et al., 2021). Similarly to DiGress, when we consider undirected graphs, we only apply the noise on the upper-triangular part of {\\bm{\\mathsfit{E}}} without the main diagonal, and then symmetrize the matrix. The true denoising process can be computed in closed-form:"
+  },
+  {
+    "kind": "equation",
+    "text": "q({\\bm{X}}^{t-1}|{\\bm{X}},{\\bm{X}}^{t})=\\mathcal{N}({\\bm{\\mu}}^{t\\rightarrow t-1}({\\bm{X}},{\\bm{X}}^{t}),(\\sigma^{t\\rightarrow t-1})^{2}~{\\mathbf{I}})\\quad\\text{(and similarly for }{\\bm{\\mathsfit{E}}}),"
+  },
+  {
+    "kind": "p",
+    "text": "with"
+  },
+  {
+    "kind": "equation",
+    "text": "{\\bm{\\mu}}^{t\\rightarrow t-1}({\\bm{X}},{\\bm{X}}^{t})=\\frac{\\alpha_{t|t-1}~(\\sigma^{t-1})^{2}}{\\sigma_{t}^{2}}{\\bm{X}}^{t}+\\frac{\\alpha^{t-1}~(\\sigma^{t|t-1})^{2}}{(\\sigma^{t})^{2}}{\\bm{X}}\\quad\\text{and}\\quad\\sigma^{t\\rightarrow t-1}=\\frac{\\sigma_{t|t-1}~\\sigma_{t-1}}{\\sigma_{t}}."
+  },
+  {
+    "kind": "p",
+    "text": "As commonly done for Gaussian diffusion models, we train the denoising network to predict the noise components \\hat{\\epsilon}_{X},\\hat{\\epsilon}_{E} instead of \\hat{{\\bm{X}}} and \\hat{{\\bm{\\mathsfit{E}}}} themselves (Ho et al., 2020). Both relate as follows:"
+  },
+  {
+    "kind": "equation",
+    "text": "\\alpha^{t}~\\hat{\\bm{X}}={\\bm{X}}^{t}-\\sigma^{t}\\hat{\\bm{\\epsilon}}_{X}\\quad\\text{and}\\quad\\hat{\\alpha}^{t}{\\bm{\\mathsfit{E}}}={\\bm{\\mathsfit{E}}}^{t}-\\sigma^{t}~\\hat{\\bm{\\epsilon}}_{E}"
+  },
+  {
+    "kind": "p",
+    "text": "To optimize the network, we minimize the mean squared error between the predicted noise and the true noise, which results in Algorithm 4 for training ConGress. Sampling is done similarly to standard Gaussian diffusion models, except for the last step: since continuous valued features are obtained, they must be mapped back to categorical values in order to obtain a discrete graph. For this purpose, we then take the argmax of {\\bm{X}}^{0},{\\bm{\\mathsfit{E}}}^{0} across node and edge types (Algorithm 5)."
+  },
+  {
+    "kind": "p",
+    "text": "Overall, ConGress is very close to the GDSS model proposed in Jo et al. (2022), as it is also a Gaussian-based diffusion model for graphs. An important difference is that we define a diffusion process that is independent for each node and edge, while GDSS uses a more complex noise model that does not factorize. We observe empirically that a simple noise model does not hurt performance, since ConGress outperforms GDSS on QM9 (Table 2)."
+  },
+  {
+    "kind": "h2",
+    "text": "Appendix B Neural network parametrization"
+  },
+  {
+    "kind": "h3",
+    "text": "B.1 Graph transformer network"
+  },
+  {
+    "kind": "p",
+    "text": "The parametrization of our denoising network is presented in Figure 5. It takes as input a noisy graph ({\\bm{X}},{\\bm{\\mathsfit{E}}}) and predicts a distribution over the clean graphs. We compute structural and spectral features in order to improve the network expressivity. Internally, each layer manipulates nodes features {\\bm{X}} , edge features {\\bm{\\mathsfit{E}}} but also graph level features {\\bm{y}} . Each graph transformer layer is made of a graph attention module (presented in Figure 6), as well as a fully-connected layers and layer normalization."
+  },
+  {
+    "kind": "h3",
+    "text": "B.2 Auxiliary Structural and spectral features"
+  },
+  {
+    "kind": "p",
+    "text": "The structural features that we use can be divided in two types: graph-theoretic (cycles and spectral features) and domain specific (molecular features)."
+  },
+  {
+    "kind": "p",
+    "text": "Cycles Since message-passing neural networks are unable to detect cycles (Chen et al., 2020), we add cycle counts to our model. Because computing traversals would be impractical on GPUs (all the more as these features are recomputed at every diffusion step), we use formulas for cycles up to size 6. We build node features (how many k- cycles does this node belong to?) for up to 5-cycles, and graph-level features (how many k- cycles does this graph contain?) for up to k=6 . We use the following formulas, where {\\bm{d}} denotes the vector containing node degrees and ||.||_{F} is Frobenius norm:"
+  },
+  {
+    "kind": "p",
+    "text": "Spectral features We also add the option to incorporate spectral features to the model. While this requires a O(n^{3}) eigendecomposition, we find that it is not a limiting factor for the graphs that we use in our experiments (that have up to 200 nodes). We first compute some graph-level features that relate to the eigenvalues of the graph Laplacian: the number of connected components (given by the multiplicity of eigenvalue 0), as well as the 5 first nonzero eigenvalues. We then add node-level features relative to the graph eigenvectors: an estimation of the biggest connected component (using the eigenvectors associated to eigenvalue 0), as well as the two first eigenvectors associated to non zero eigenvalues."
+  },
+  {
+    "kind": "p",
+    "text": "Molecular features On molecular datasets, we also incorporate the current valency of each atom and the current molecular weight of the full molecule."
+  },
+  {
+    "kind": "h2",
+    "text": "Appendix C Likelihood computation"
+  },
+  {
+    "kind": "p",
+    "text": "The graphical model associated to our problem is presented in figure 7: the graph size is sampled from the training distribution and kept constant during diffusion. One can notice the similarity between this graphical model and hierarchical variational autoencoders (VAEs): diffusion models can in fact be interpreted as a particular instance of VAE where the encoder (i.e., the diffusion process) is fixed. The likelihood of a data point x under the model writes:"
+  },
+  {
+    "kind": "p",
+    "text": "As for VAEs, an evidence lower bound (ELBO) for this integral can be computed (Sohl-Dickstein et al., 2015; Kingma et al., 2021). It writes:"
+  },
+  {
+    "kind": "equation",
+    "text": "\\log p_{\\theta}(G)\\geq\\log p(n_{G})+\\underbrace{D_{\\mathrm{KL}}[q(G^{T}|G)~||~q_{X}(n_{G})\\times q_{E}(n_{G})]}_{\\text{Prior loss}}+\\underbrace{\\sum_{t=2}^{T}L_{t}(x)}_{\\text{Diffusion loss}}+\\underbrace{\\mathbb{E}_{q(G^{1}|G)}[\\log p_{\\theta}(G|G^{1})]}_{\\text{Reconstruction loss}}"
+  },
+  {
+    "kind": "p",
+    "text": "with"
+  },
+  {
+    "kind": "equation",
+    "text": "L_{t}(G)=\\mathbb{E}_{q(G^{t}|G)}\\big[D_{\\mathrm{KL}}[q(G^{t-1}|G^{t},G)~||~p_{\\theta}(G^{t-1}|G^{t})]\\big]"
+  },
+  {
+    "kind": "p",
+    "text": "All these terms can be estimated: \\log p(n_{G}) is computed using the frequencies of the number of nodes for each graph in the dataset. The prior loss and the diffusion loss are KL divergences between categorical distribution, and the reconstruction loss is simply computed from the predicted probabilities for the clean graph given the last noisy graph G^{1} ."
+  },
+  {
+    "kind": "h2",
+    "text": "Appendix D Proofs"
+  },
+  {
+    "kind": "p",
+    "text": "Lemma 3.1: Equivariance"
+  },
+  {
+    "kind": "h6",
+    "text": "Proof."
+  },
+  {
+    "kind": "p",
+    "text": "Consider a graph G with n nodes, and \\pi\\in S_{n} a permutation. \\pi acts trivially on {\\bm{y}} ( \\pi.{\\bm{y}}={\\bm{y}} ), it acts on {\\bm{X}} as \\pi.{\\bm{X}}=\\pi^{\\prime}X and on {\\bm{\\mathsfit{E}}} as:"
+  },
+  {
+    "kind": "equation",
+    "text": "(\\pi.{\\bm{\\mathsfit{E}}})_{ijk}={\\bm{\\mathsfit{E}}}_{\\pi^{-1}(i),\\pi^{-1}(j),k}"
+  },
+  {
+    "kind": "p",
+    "text": "Let G^{t}=({\\bm{X}}^{t},{\\bm{\\mathsfit{E}}}^{t}) be a noised graph, and (\\pi.{\\bm{X}}^{t},\\pi.{\\bm{\\mathsfit{E}}}^{t}) its permutation. Then:"
+  },
+  {
+    "kind": "p",
+    "text": "Our spectral and structural features are all permutation equivariant (for the node features) or invariant (for the graph level features): f(\\pi.G^{t},t)=\\pi.f(G^{t},t) ."
+  },
+  {
+    "kind": "p",
+    "text": "The self-attention architecture is permutation equivariant. The FiLM blocks are permutation equivariant, and the PNA pooling function is permutation invariant."
+  },
+  {
+    "kind": "p",
+    "text": "Layer-normalization is permutation equivariant."
+  },
+  {
+    "kind": "p",
+    "text": "DiGress is therefore the combination of permutation equivariant blocks. As a result, it is permutation equivariant: \\phi_{\\theta}(\\pi.G^{t},f(\\pi.G^{t},t))=\\pi.\\phi_{\\theta}(G^{t},f(G^{t},t)) . ∎"
+  },
+  {
+    "kind": "p",
+    "text": "Lemma 3.2: Invariant loss"
+  },
+  {
+    "kind": "h6",
+    "text": "Proof."
+  },
+  {
+    "kind": "p",
+    "text": "It is important that the loss function be the same for each node and each edge in order to guarantee that"
+  },
+  {
+    "kind": "p",
+    "text": "∎"
+  },
+  {
+    "kind": "p",
+    "text": "Lemma 3.3: Exchangeability"
+  },
+  {
+    "kind": "h6",
+    "text": "Proof."
+  },
+  {
+    "kind": "p",
+    "text": "The proof relies on the result of Xu et al. (2022): if a distribution p(G^{T}) is invariant to the action of a group \\mathcal{G} and the transition probabilities p(G^{t-1}|G^{t}) are equivariant, them p(G^{0}) is invariant to the action of \\mathcal{G} . We apply this result to the special case of permutations:"
+  },
+  {
+    "kind": "p",
+    "text": "The limit noise distribution is the product of i.i.d. distributions on each node and edge. It is therefore permutation invariant."
+  },
+  {
+    "kind": "p",
+    "text": "The denoising neural networks is permutation equivariant."
+  },
+  {
+    "kind": "p",
+    "text": "The function \\hat{p}_{\\theta}(G)\\to p_{\\theta}(G^{t-1}|G^{t})=\\sum_{G}q(G^{t-1},G|G^{t})\\hat{p}_{\\theta}(G) defining the transition probabilities is equivariant to joint permutations of \\hat{p}_{\\theta}(G) and G^{t} ."
+  },
+  {
+    "kind": "p",
+    "text": "The conditions of (Xu et al., 2022) are therefore satisfied, and the model satisfies \\mathbb{P}({\\bm{X}},{\\bm{\\mathsfit{E}}})=P(\\pi.{\\bm{X}},\\pi.{\\bm{\\mathsfit{E}}}) for any permutation \\pi . ∎"
+  },
+  {
+    "kind": "h4",
+    "text": "Theorem 4.1: Optimal prior distribution"
+  },
+  {
+    "kind": "p",
+    "text": "We first prove the following result:"
+  },
+  {
+    "kind": "h6",
+    "text": "Lemma D.1."
+  },
+  {
+    "kind": "p",
+    "text": "Let p be a discrete distribution over two variables. It is represented by a matrix P\\in\\mathbb{R}^{a\\times b} . Let m^{1} and m^{2} the marginal distribution of p : m^{1}_{i}=\\sum_{j=1}^{b}p_{ij} and m^{2}_{i}=\\sum_{i=1}^{a}p_{ij} . Then"
+  },
+  {
+    "kind": "equation",
+    "text": "(m^{1},m^{2})\\in\\argmin_{\\begin{subarray}{c}u,v\\\\\nu\\geq 0,\\sum u_{i}=1\\\\\nv\\geq 0,\\sum v_{j}=1\\end{subarray}}||P-u~v^{\\prime}||_{2}^{2}"
+  },
+  {
+    "kind": "h6",
+    "text": "Proof."
+  },
+  {
+    "kind": "p",
+    "text": "We define L({\\bm{u}},{\\bm{v}}):=||P-uv^{\\prime}||_{2}^{2}=\\sum_{i,j}(p_{ij}-u_{i}v_{j})^{2} . We derive this formula to obtain optimality conditions:"
+  },
+  {
+    "kind": "p",
+    "text": "Similarly, we have \\frac{\\partial L}{\\partial v_{j}}=0\\iff v_{j}=\\sum_{i}p_{ij}u_{i}~/~\\sum_{j}u_{i}^{2} ."
+  },
+  {
+    "kind": "p",
+    "text": "Since p , u and v are probability distributions, we have \\sum_{i,j}p_{i,j}=1 , \\sum_{i}u_{i}=1 and \\sum_{j}v_{j}=1 . Combining these equations, we have:"
+  },
+  {
+    "kind": "p",
+    "text": "So that:"
+  },
+  {
+    "kind": "equation",
+    "text": "u_{i_{0}}=\\frac{\\sum_{j}p_{i_{0}j}v_{j}}{\\sum_{j}b_{j}v_{j}}=\\frac{\\sum_{j}p_{i_{0}j}\\frac{\\sum_{i}p_{ij}u_{i}}{\\sum_{i}a_{i}u_{i}}}{\\sum_{j}b_{j}\\frac{\\sum_{i}p_{ij}u_{i}}{\\sum_{i}a_{i}u_{i}}}=\\sum_{j}p_{i_{0}j}=m^{1}_{i_{0}}"
+  },
+  {
+    "kind": "p",
+    "text": "and similarly v_{j_{0}}=b_{i_{0}} . Conversely, {\\bm{m}}^{1} and {\\bm{m}}^{2} belong to the set of feasible solutions. ∎"
+  },
+  {
+    "kind": "p",
+    "text": "We have proved that the product distribution that is the closest to the true distribution of two variables is the product of marginals (for l_{2} distance). We need to extend this result to a product \\prod_{i=1}^{n}u\\times\\prod_{1\\leq i,j\\leq n}v of a distribution for nodes and a distribution for edges."
+  },
+  {
+    "kind": "p",
+    "text": "We now view p as a tensor in dimension a^{n}b^{n^{2}} . We denote p^{X} the marginalisation of this tensor across the node dimensions ( p^{X}\\in\\mathbb{R}^{a^{n}} ), and p^{E} the marginalisation across the edge dimensions (p^{E}\\in\\mathbb{R}^{b^{n\\times n}}) . By flattening the n first dimensions and the n^{2} next, p can be viewed as a distribution over two variables (a distribution for the nodes and a distribution for the edges). By application of our Lemma, p^{X} and p^{E} are the optimal approximation of p . However, p^{X} is a joint distribution for all nodes and not the product \\prod_{i=1}^{n}u of a single distribution for all nodes."
+  },
+  {
+    "kind": "p",
+    "text": "We then notice that:"
+  },
+  {
+    "kind": "p",
+    "text": "for a function f that does not depend on u . As \\sum_{i}p_{i}^{X}/n is exactly the empirical distribution of node types, the optimal u is the empirical distribution of node types as desired. Overall, we have made two orthogonal projections: a projection from the distributions over graphs to the distributions over nodes, and a projection from the distribution over nodes to the product distributions u\\times\\dots\\times u . Since the product distributions forms a linear space contained in the distributions over nodes, these two projections are equivalent to a single orthogonal projection from the distributions over graphs to the product distributions over nodes. A similar reasoning holds for edges."
+  },
+  {
+    "kind": "h2",
+    "text": "Appendix E Substructure conditioned generation"
+  },
+  {
+    "kind": "p",
+    "text": "Given a subgraph S=({\\bm{X}}_{S},{\\bm{\\mathsfit{E}}}_{S}) with n_{s} nodes, we can condition the generation on S by masking the generated node and edge feature tensor at each reverse iteration step (Lugmayr et al., 2022). As our model is permutation equivariant, it does not matter what entries are masked: we therefore choose the first n_{s} ones. After sampling G^{t-1} , we update {\\bm{X}} and {\\bm{\\mathsfit{E}}} using"
+  },
+  {
+    "kind": "equation",
+    "text": "{\\bm{X}}^{t-1}={\\bm{M}}_{X}\\odot{\\bm{X}}_{s}+(1-{\\bm{M}}_{X})\\odot{\\bm{X}}^{t-1}\\quad\\text{and}\\quad{\\bm{\\mathsfit{E}}}^{t-1}={\\bm{\\mathsfit{M}}}_{E}\\odot{\\bm{E}}_{s}+(1-{\\bm{\\mathsfit{M}}}_{E})\\odot{\\bm{\\mathsfit{E}}}^{t-1},"
+  },
+  {
+    "kind": "p",
+    "text": "where {\\bm{M}}_{X}\\in\\mathbb{R}^{n\\times a} and {\\bm{M}}_{E}\\in\\mathbb{R}^{n\\times n\\times b} are masks indicating the n_{s} first nodes. In Figure 8, we showcase an example for molecule generation: we follow the setting proposed by (Maziarz et al., 2022) and generate molecules starting from a particular motif called 1,4-Dihydroquinoline22 2 https://pubchem.ncbi.nlm.nih.gov/compound/1_4-Dihydroquinoline."
+  },
+  {
+    "kind": "h2",
+    "text": "Appendix F Experimental details and additional results"
+  },
+  {
+    "kind": "h3",
+    "text": "F.1 Abstract graph generation"
+  },
+  {
+    "kind": "h4",
+    "text": "Metrics"
+  },
+  {
+    "kind": "p",
+    "text": "The reported metrics compare the discrepancy between the distribution of some metrics on a test set and the distribution of the same metrics on a generated graph. The metrics measured are degree distributions, clustering coefficients, and orbit counts (it measures the distribution of all substructures of size 4). We do not report raw numbers but ratios computed as follows:"
+  },
+  {
+    "kind": "equation",
+    "text": "r=\\operatorname{MMD}(\\textit{generated},\\textit{test})~/\\operatorname{MMD}(\\textit{training},\\textit{test})"
+  },
+  {
+    "kind": "p",
+    "text": "The denominator \\operatorname{MMD}(\\textit{training},\\textit{test}) is taken from the results table of SPECTRE (Martinkus et al., 2022)."
+  },
+  {
+    "kind": "h4",
+    "text": "Community-20"
+  },
+  {
+    "kind": "p",
+    "text": "In Table 5, we also provide results for the smaller Community-20 dataset which contains 200 graphs drawn from a stochastic block model with two communities. We observe that DiGress performs very well on this small dataset."
+  },
+  {
+    "kind": "h3",
+    "text": "F.2 QM9"
+  },
+  {
+    "kind": "h4",
+    "text": "Metrics"
+  },
+  {
+    "kind": "p",
+    "text": "Because it is the metric reported in most papers, the validity metric we report is computed by building a molecule with RdKit and trying to obtain a valid SMILES string out of it. As explained by Jo et al. (2022), this method is not perfect because QM9 contains some charged molecules which would be considered as invalid by this method. They thus compute validity using a more relaxed definition that allows for some partial charges, which gives them a small advantage."
+  },
+  {
+    "kind": "h4",
+    "text": "Ablation study"
+  },
+  {
+    "kind": "p",
+    "text": "We perform an ablation study in order to highlight the role of marginal transitions and auxiliary features. In this setting, we also measure atom stability and molecule stability as defined in (Hoogeboom et al., 2022). Results are presented in Figure 6."
+  },
+  {
+    "kind": "h4",
+    "text": "Novelty"
+  },
+  {
+    "kind": "p",
+    "text": "We follow Vignac & Frossard (2021) and don’t report novelty for QM9 in the main table. The reason is that since QM9 is an exhaustive enumeration of the small molecules that satisfy a given set of constrains, generating molecules outside this set is not necessarily a good sign that the network has correctly captured the data distribution. For the interested reader, DiGress achieves on average a novelty of 33.4\\% on QM9 with implicit hydrogens, while ConGress obtains 40.0\\% ."
+  },
+  {
+    "kind": "h3",
+    "text": "F.3 MOSES and GuacaMol"
+  },
+  {
+    "kind": "h4",
+    "text": "Datasets"
+  },
+  {
+    "kind": "p",
+    "text": "For both MOSES and GuacaMol, we convert the generated graphs to SMILES using the code of Jo et al. (2022) that allows for some partial charges."
+  },
+  {
+    "kind": "p",
+    "text": "We note that GuacaMol contains complex molecules that are difficult to process, for example because they contain formal charges or fused rings. As a result, mapping the train smiles to a graph and then back to a train SMILES does not work for around 20\\% of the molecules. Even if our model is able to correctly model these graphs and generate graphs that are similar, these graphs cannot be mapped to SMILES strings to be evaluated by GuacaMol. More efficient tools for processing complex molecules as graphs are therefore needed to truly achieve good performance on this dataset."
+  },
+  {
+    "kind": "h4",
+    "text": "Metrics"
+  },
+  {
+    "kind": "p",
+    "text": "Since MOSES and Guacamol are benchmarking tools, they come with their own set of metrics that we use to report the results. We briefly describe this metrics: Validity measures the proportion of molecules that pass basic valency checks. Uniqueness measures the proportion of molecules that have different SMILES strings (which implies that they are non-isomorphic). Novelty measures the proportion of generated molecules that are not in the training set. The filter score measures the proportion of molecules that pass the same filters that were used to build the test set. The Frechet ChemNetDistance (FCD) measures the similarity between molecules in the training set and in the test set using the embeddings learned by a neural network. SNN is the similarity to a nearest neighbor, as measured by Tanimoto distance. Scaffold similarity compares the frequencies of Bemis-Murcko scaffolds. The KL divergence compares the distribution of various physicochemical descriptors."
+  },
+  {
+    "kind": "h4",
+    "text": "Likelihood"
+  },
+  {
+    "kind": "p",
+    "text": "Since other methods did not report likelihood for GuacaMol and MOSES, we did not include our NLL results in the table neither. We obtain a test NLL of 129.7 on QM9 with explicit hydrogens, 205.2 on MOSES (on the separate scaffold test set) and 308.1 on GuacaMol."
+  },
+  {
+    "kind": "h4",
+    "text": "Size extrapolation"
+  },
+  {
+    "kind": "p",
+    "text": "While the vast majority of molecules in QM9 have the same number of atoms, molecules in MOSES and Guacamol have varying sizes. On these datasets, we would like to know if DiGress can generate larger molecules than it has been trained on. This problem is usually called size extrapolation in the graph neural network literature."
+  },
+  {
+    "kind": "p",
+    "text": "To measure the network ability to extrapolate, we set the number of atoms to generate to n_{\\text{max}}+k , where n_{\\text{max}} is the maximal graph size in the dataset and k\\in[5,10,20] . We generate 24 batches of 256 molecules (=6144 molecules) in each setting and measure the proportion of valid and unique molecules – all these molecules are novel since they are larger than the training set."
+  },
+  {
+    "kind": "p",
+    "text": "The results are presented in Table 7. We observe an important discrepancy between the two datasets: DiGress is very capable of extrapolation on GuacaMol, but completely fails on MOSES. This can be explained by the respective statistics of the datasets: MOSES features molecules that are relatively homogeneous in size. On the contrary, GuacaMol features molecules that are much larger than the dataset average. The network is therefore trained on more diverse examples, which we conjecture is why it learns some size invariance properties. The major difference in extrapolation ability that we obtain clearly highlights the value of large and diverse datasets."
+  },
+  {
+    "kind": "p",
+    "text": "We finally note that our denoising network was not designed to be size invariant, as it for example features sum aggregation functions at each layer. Specific techniques such as SizeShiftReg (Buffelli et al., 2022) could also be used to improve the size-extrapolation ability of DiGress if needed for downstream applications."
+  },
+  {
+    "kind": "h2",
+    "text": "Appendix G Samples from our model"
+  },
+  {
+    "kind": "h2",
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "kind": "p",
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "kind": "p",
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "kind": "p",
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "kind": "p",
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]
