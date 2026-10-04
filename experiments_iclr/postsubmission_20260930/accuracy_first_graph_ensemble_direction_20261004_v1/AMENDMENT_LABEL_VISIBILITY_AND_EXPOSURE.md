@@ -1,0 +1,25 @@
+# Amendment: label visibility, development endpoint and matched views
+
+This amendment supersedes the label-role and primary-endpoint wording in `DECISION.md`, whose SHA256 remains `307fdc92e280346e43bd07a8db775e72f7452e5902cdac37f5d0db56a3174a09`. The original memo is preserved. A TRAIN-control score cannot establish generalization when ordinary CE supervises those labels. The tied-versus-untied GNNM hypothesis is unchanged; this amendment approves no experiment, source change or scientific claim.
+
+## Exact prospective label visibility
+
+Use **all labels in the official TRAIN mask** for ordinary native CE and assigned-view CE in every comparison condition. Both endpoints of a class-defined deletion edge must belong to that TRAIN mask. Those same TRAIN labels may define the fixed equal-class/different-class deletion categories. Features and released topology follow the native transductive recipe; no VALIDATION or TEST labels define views, member assignments, groups, auxiliary targets, loss weights, acceptance constraints or optimizer updates.
+
+There is no additional fit/control split, reserved TRAIN-label budget, control-loss guard or response-energy guard for this proposal. TRAIN accuracy/NLL and TRAIN response measurements are diagnostics of fitted functions. They are not generalization evidence. Existing references trained with a different TRAIN subset have a different label budget: retain them as disclosed context, and do not use their scores as the decisive matched single/independent control. A decisive comparison needs competent controls with the same complete official TRAIN mask and visibility. This is a prospective comparison requirement, not a change to any running family or permission to refit one.
+
+Use official **VALIDATION** labels only for the previously declared strict validation-accuracy checkpoint selector with earliest ties and for an **explicitly exploratory development screen** at those selected checkpoints. Report all predeclared blocks, pooled accuracy, NLL, macro-F1 and member competence. Because selection and the development decision use the same VALIDATION endpoint, any observed advantage is selection-associated development evidence. Do not call it an independent generalization result or use it to justify post-outcome changes to masks, assignments, recipes or controls.
+
+Any promising direction needs a **separately frozen confirmation** specifying additional official split IDs, seeds, comparison conditions, selector and permitted heldout evaluation before confirmation outcomes are inspected. Amazon's previously consumed splits and TEST history must be audited and disclosed. Additional official splits on the same graph can overlap nodes/labels and do not create independent graph populations. Neither this amendment nor the original memo establishes fresh TEST availability. A permitted TEST evaluation after Amazon-associated development must be described according to its actual history; it cannot be advertised as unseen merely because a new split or directory is used. If an independently heldout claim is needed, its available endpoint must be established separately rather than assumed here.
+
+## Equal exposure for persistent and shuffled member roles
+
+At every update, both four-member conditions execute **four complete native-graph passes and four complete probe-graph passes**: two probes use the equal-class deletion view and two use the different-class view. Use the same fixed graphs, TRAIN targets, pass order, native recipe/stage schedule and checkpoint selector. For both conditions the bank-average objective is
+
+`(1/4) * sum_m [CE_m(native, TRAIN) + CE_m(assigned_view, TRAIN)]`.
+
+Thus each view receives the same total CE coefficient, target exposure and graph-pass count across the bank. In the persistent condition, two fixed members receive each view throughout training. In the shuffled condition, predeclare a balanced assignment schedule with two members per view at every update and each member receiving both views equally over each even-length training stage. The changed member-to-view association is the intended intervention. Equal per-member view exposure between conditions would remove that intervention; equal **bank-level per-view exposure** is the relevant control.
+
+Keep the same ordinary native dropout policy, rates and locations enabled on native/probe training passes in both conditions. Pair predeclared RNG streams where tensor shapes permit; record graph-induced shape differences rather than claim identical masks. Do not give one condition deterministic training, extra augmentation samples, extra passes, extra updates or a larger selection opportunity. Deterministic dropout-off response diagnostics, if used, occur after fitting and are identical for both conditions. Charge every graph pass. The untied comparator receives the same persistent assignment/exposure contract, so changing weight tying remains its central difference.
+
+These contracts remove the ambiguous TRAIN-control endpoint and the assignment-versus-compute confound. They establish no useful specialization or advantage in advance.
