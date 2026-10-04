@@ -1,25 +1,25 @@
 # GNNM post-submission research state
 
-Updated: 2026-10-04T04:46:23.028144+00:00. Goal active and incomplete. See[current measured status](PUBLIC_STATUS.md). Original paper scores unchanged.
+Updated: 2026-10-04T05:35:08.530199+00:00. Goal active and incomplete. See[current measured status](PUBLIC_STATUS.md). Original paper scores unchanged.
 
 ## Current scientific evidence
 
-The five-seed NCNC private-minus-pooled development contrast is+0.8432pp validation Hits50, while private and independent ensembles are approximately equal. Actual all25 selected-checkpoint/metric audit is PASS; one-time heldout confirmation is pending. Its independent source review found two failure-reporting defects; a preserved successor and minimal fabricated wrapper qualification are required before TEST. Old exact-replay failure remains preserved.
+Frozen ogbl-collab NCNC TEST evaluation is complete and adopted after logical/physical custody checks. Private completion67.2909%, pooled67.0673%, native6466.4426%, independent467.6298%, native7066.7642%. Frozen primary difference+0.2236pp has mixed signs and uncertainty spanning zero; no methodological advantage is confirmed. The exploratory gain over native64 is+0.8483pp in all five seeds. All25 cells/40scorers/25metrics completed once with zero updates. The old exact-replay failure is preserved.
 
-The complete J/F one-seed auxiliary pilot gained0.2164pp on selected VALID, but its fixed pooling diagnostics contradicted the private-association explanation. Retain both results; no diagnostic route is a new trained winner.
+J/F one-seed auxiliary pilot has a small positive selected VALID contrast and adverse private-versus-pooled diagnostics. Preserve both; no diagnostic route is a trained winner. Pooled four-arm science remains unlaunched after a native CUDA qualification failure. Its first synchronized diagnostic hit an observer JSON-infinity error, so kernel cause remains unresolved.
 
-Six native Pubmed-HeaRT baseline fits and their selected scientific replays are complete, all observed score differences0. No GNNM Pubmed result exists. Vectorized count-density CPU QA passes its fabricated scope; native integration/batch feasibility remain pending. The first fabricated native attempt failed in the direct native decoder with unresolved CUDA invalid configuration; its terminal/failure evidence is preserved and batch/science remain disabled.
+Six Pubmed native baselines and selected replays are complete. Shared4 qualifier failed after252updates in restored continuation despite passing initialization/geometry/selected replay. Investigate saved Adam step alias/mutation with the separately disabled72-update source; no source theory is accepted as cause before observation. No GNNM Pubmed score exists.
 
 ## Next work
 
-1. Prepare/admit one-time heldout scoring of every frozen NCNC arm/seed, selected checkpoint and original contrast. No refit, recalibration, reselection or new threshold.
-2. Qualify full native integration/batch feasibility for prospective P0/J_P/F_P/C_mu. Run the fixed four-arm futility screen only after minimum concrete prerequisites pass; no weakening of the single or support truncation as resource rescue.
-3. Prepare representative three-seed Pubmed private/pooled NCNC comparison against audited native task. Read saved native recipe/benchmark context before any prospective modest development changes. No published-score reproduction claim from wrapper parity.
-4. Keep original Amazon15-fit queue. Monitor16 at04:45:19UTC: first GNNM and first native complete, next native169/2700updates, no failures. Next owned monitor17; no partial quality decisions or restart.
-5. PIFM direct comparison remains necessary if the joint method survives. Sparse/leakage-free task adaptation must retain denoiser, feature adapter, prior/context custody and complete native candidate ranking.
-6. Commit/push bounded explicit result/source/review/decision inventories. Preserve previous manifests, failed attempts and complete adverse results; avoid mutating18.77 checkout during owned scientific work.
-7. Revise a supported manuscript, then fresh independent skill-based reviewers on immutable evidence without requested verdict. Clear acceptance remains unachieved.
+1. Complete independent audit of the adopted NCNC heldout result. Keep the frozen contrast primary and baseline contrasts exploratory; do not present the VALID gain as TEST confirmation. Preserve the consumed TEST provenance for successors.
+2. Review/admit the metadata-only synchronized diagnostic successor; identify the real native empty/kernel behavior without dropping coverage or changing numerical profiles. Then complete native/batch prerequisites before any P0/J_P/F_P/C_mu science screen.
+3. Independently review and run the narrow owned Pubmed continuation diagnostic. If an actual restore alias is confirmed, separately repair restore isolation and qualify the full fresh paired bridge before six scientific private/pooled fits. Never use engineering states as donors or widen tolerances after failure.
+4. Keep original Amazon15-fit queue. Monitor17: two fits complete, active native850/2700; next monitor18 when useful. No partial quality decisions or restart.
+5. Develop the distinct count-conditioned pattern hypothesis using the saved literature/algebra. Established cardinality/mixture ingredients must be acknowledged; C_mu cancels after conditioning; include capable conditional single and clean per-side-mixture association control. No fit or novelty claim yet.
+6. PIFM direct comparison remains necessary for a surviving joint method. A positive screen needs fixed replication and another benchmark; prioritize quality and distinct hypotheses over tuning.
+7. Commit/push explicit complete result/source/review/decision inventories, retain failures and snapshots, and keep active server checkout stable. Revise only supported manuscript claims, then fresh independent skill-based review without a requested verdict. Clear acceptance remains unachieved.
 
 ## Boundaries
 
-Authorized anogena-2 one-GPU allocation and18.77 repositories only for science. Seven-GPU route is MacLink forwarding only. No sudo, PDF compilation, GENLINK, server/namespace/unrelated-job changes. Ordinary incidental caches allowed. Raw data, checkpoint and replay payloads stay on servers; decisions/failed hypotheses stay in[the ledger](research_ledger.json) and Git history.
+Authorized anogena-2 one-GPU and18.77 repositories only for science. Seven-GPU route is MacLink forwarding only. No sudo, PDF compilation, GENLINK, server/namespace/unrelated-job changes. Ordinary incidental caches allowed. Raw checkpoint/replay payloads stay on servers; conclusions, failures and decisions stay in[the ledger](research_ledger.json) and Git history.
