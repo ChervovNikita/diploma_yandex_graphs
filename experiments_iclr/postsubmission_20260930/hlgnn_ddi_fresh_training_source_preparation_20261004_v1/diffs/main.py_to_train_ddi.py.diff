@@ -1,0 +1,503 @@
+--- pinned/OGB/main.py
++++ train_ddi.py
+@@ -1,285 +1,222 @@
+-# -*- coding: utf-8 -*-
+-from ogb.linkproppred import PygLinkPropPredDataset
+-from ogb.linkproppred import Evaluator
++"""Prospective native HL-GNN DDI training; release is disabled in this packet.
++
++No OGB dataset loader or checkpoint loader is used. A later qualified artifact
++must contain only TRAIN graph/labels and the fixed VALID candidate split.
++"""
++
+ import argparse
+-import time
+-import torch
+-import os
+-import torch_geometric.transforms as T
+-from torch_geometric.utils import to_undirected
+-from torch_sparse import coalesce, SparseTensor
+-from torch_cluster import random_walk
+-
+-from logger import Logger
+-from model import BaseModel, adjust_lr
+-from utils import gcn_normalization, adj_normalization
+-
+-
+-def argument():
+-    parser = argparse.ArgumentParser()
+-    parser.add_argument('--device', type=int, default=0)
+-    parser.add_argument('--encoder', type=str, default='HLGNN')
+-    parser.add_argument('--predictor', type=str, default='MLP')
+-    parser.add_argument('--optimizer', type=str, default='Adam')
+-    parser.add_argument('--loss_func', type=str, default='AUC')
+-    parser.add_argument('--neg_sampler', type=str, default='global')
+-    parser.add_argument('--data_name', type=str, default='ogbl-collab')
+-    parser.add_argument('--data_path', type=str, default='~/dataset')
+-    parser.add_argument('--eval_metric', type=str, default='hits')
+-    parser.add_argument('--walk_start_type', type=str, default='edge')
+-    parser.add_argument('--res_dir', type=str, default='log')
+-    parser.add_argument('--pretrain_emb', type=str, default=None)
+-    parser.add_argument('--gnn_num_layers', type=int, default=15)
+-    parser.add_argument('--mlp_num_layers', type=int, default=2)
+-    parser.add_argument('--emb_hidden_channels', type=int, default=256)
+-    parser.add_argument('--gnn_hidden_channels', type=int, default=256)
+-    parser.add_argument('--mlp_hidden_channels', type=int, default=256)
+-    parser.add_argument('--dropout', type=float, default=0.3)
+-    parser.add_argument('--grad_clip_norm', type=float, default=2.0)
+-    parser.add_argument('--batch_size', type=int, default=64 * 1024)
+-    parser.add_argument('--lr', type=float, default=0.001)
+-    parser.add_argument('--num_neg', type=int, default=1)
+-    parser.add_argument('--walk_length', type=int, default=5)
+-    parser.add_argument('--epochs', type=int, default=500)
+-    parser.add_argument('--log_steps', type=int, default=1)
+-    parser.add_argument('--eval_steps', type=int, default=5)
+-    parser.add_argument('--runs', type=int, default=1)
+-    parser.add_argument('--year', type=int, default=2010)
+-    parser.add_argument('--use_lr_decay', type=str2bool, default=False)
+-    parser.add_argument('--use_node_feats', type=str2bool, default=False)
+-    parser.add_argument('--use_coalesce', type=str2bool, default=False)
+-    parser.add_argument('--train_node_emb', type=str2bool, default=True)
+-    parser.add_argument('--use_valedges_as_input', type=str2bool, default=False)
+-    parser.add_argument('--eval_last_best', type=str2bool, default=False)
+-    parser.add_argument('--random_walk_augment', type=str2bool, default=False)
+-    parser.add_argument('--alpha', type=float, default=0.5)
+-    parser.add_argument('--init', type=str, choices=['SGC', 'RWR', 'KI', 'Random'], default='KI')
+-    args = parser.parse_args()
+-    return args
+-
+-
+-def str2bool(v):
+-    if isinstance(v, bool):
+-        return v
+-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+-        return True
+-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+-        return False
+-    else:
+-        raise argparse.ArgumentTypeError('Boolean value expected.')
+-
+-
+-def main():
+-    args = argument()
+-    device = f'cuda:{args.device}' if torch.cuda.is_available() else 'cpu'
+-    device = torch.device(device)
+-
+-    dataset = PygLinkPropPredDataset(name=args.data_name, root=args.data_path)
+-    data = dataset[0]
+-
+-    if hasattr(data, 'edge_weight'):
+-        if data.edge_weight is not None:
+-            data.edge_weight = data.edge_weight.view(-1).to(torch.float)
+-
+-    data = T.ToSparseTensor()(data)
++import hashlib
++import json
++import math
++from pathlib import Path
++import random
++
++
++PIN = "0855b0de74a8f0586b8cc203e9ba4dbbb57243f4"
++AUTHOR_RECIPE = {
++    "data_name": "ogbl-ddi",
++    "encoder": "HLGNN",
++    "predictor": "MLP",
++    "optimizer": "Adam",
++    "loss_func": "WeightedHingeAUC",
++    "neg_sampler": "global",
++    "gnn_num_layers": 15,
++    "mlp_num_layers": 2,
++    "emb_hidden_channels": 512,
++    "gnn_hidden_channels": 512,
++    "mlp_hidden_channels": 512,
++    "dropout": 0.3,
++    "grad_clip_norm": 2.0,
++    "batch_size": 65536,
++    "lr": 0.001,
++    "num_neg": 3,
++    "epochs": 500,
++    "eval_steps": 5,
++    "use_lr_decay": False,
++    "use_node_feats": False,
++    "train_node_emb": True,
++    "pretrain_emb": None,
++    "use_valedges_as_input": False,
++    "random_walk_augment": False,
++    "alpha": 0.5,
++    "init": "KI",
++}
++
++
++def read_release_config(path):
++    config = json.loads(path.read_text())
++    if config["release_enabled"] is not True:
++        raise SystemExit("Release disabled: source preparation only; no training was started.")
++    if config["author_commit"] != PIN or config["recipe"] != AUTHOR_RECIPE:
++        raise ValueError("The pinned author DDI recipe must remain exact.")
++    if config["selection_metric"] != "Hits@20":
++        raise ValueError("This adapter selects the DDI VALID Hits@20 checkpoint.")
++    seeds = config["seeds"]
++    if not seeds or any(type(s) is not int or s < 0 for s in seeds) or len(set(seeds)) != len(seeds):
++        raise ValueError("Declare distinct nonnegative integer seeds.")
++    qualification = config["qualification"]
++    if not all(qualification[k] is True for k in ("train_valid_contract", "runtime", "full_budget")):
++        raise ValueError("TRAIN/VALID, runtime and full-budget qualification are required.")
++    if not qualification["report"]:
++        raise ValueError("Declare the later qualification report.")
++    contract = config["artifact_contract"]
++    if contract["schema"] != "hlgnn-ddi-train-valid-v1" or type(contract["train_weight_present"]) is not bool:
++        raise ValueError("Declare the TRAIN/VALID schema and actual TRAIN weight presence.")
++    if not contract["path"] or not contract["sha256"]:
++        raise ValueError("Declare the qualified TRAIN/VALID artifact and its SHA256.")
++    artifact_path = Path(contract["path"]).expanduser().resolve()
++    with artifact_path.open("rb") as stream:
++        digest = hashlib.file_digest(stream, "sha256").hexdigest()
++    if digest != contract["sha256"]:
++        raise ValueError("TRAIN/VALID artifact SHA256 differs from the qualified contract.")
++    return config, artifact_path
++
++
++def load_train_valid(artifact_path, contract, torch, Data, ToSparseTensor):
++    # weights_only allows tensors/primitives; this is a dataset artifact, never a model state.
++    payload = torch.load(artifact_path, map_location="cpu", weights_only=True)
++    required = {"schema", "num_nodes", "graph_edge_index", "graph_edge_weight", "train", "valid"}
++    if set(payload) != required or payload["schema"] != contract["schema"]:
++        raise ValueError("Artifact must contain exactly the declared TRAIN/VALID keys.")
++    num_nodes = payload["num_nodes"]
++    if type(num_nodes) is not int or num_nodes <= 0:
++        raise ValueError("num_nodes must be a positive integer.")
++    train, valid = payload["train"], payload["valid"]
++    train_keys = {"edge", "weight"} if contract["train_weight_present"] else {"edge"}
++    if set(train) != train_keys or set(valid) != {"edge", "edge_neg"}:
++        raise ValueError("TRAIN/VALID fields disagree with the declared loss branch.")
++
++    def edges(value, name, transpose=False):
++        if not isinstance(value, torch.Tensor) or value.dtype != torch.long or value.device.type != "cpu":
++            raise ValueError(f"{name} must be a CPU int64 tensor.")
++        if value.ndim != 2 or value.shape[0 if transpose else 1] != 2 or value.numel() == 0:
++            raise ValueError(f"{name} has an invalid edge shape.")
++        if value.min().item() < 0 or value.max().item() >= num_nodes:
++            raise ValueError(f"{name} contains an out-of-range node.")
++
++    edges(payload["graph_edge_index"], "graph_edge_index", transpose=True)
++    edges(train["edge"], "train.edge")
++    edges(valid["edge"], "valid.edge")
++    edges(valid["edge_neg"], "valid.edge_neg")
++    if valid["edge_neg"].shape[0] < 100:
++        raise ValueError("Native Hits@20/50/100 needs at least 100 VALID negatives.")
++    for value, count, name in (
++        (payload["graph_edge_weight"], payload["graph_edge_index"].shape[1], "graph_edge_weight"),
++        (train.get("weight"), train["edge"].shape[0], "train.weight"),
++    ):
++        if value is not None and (
++            not isinstance(value, torch.Tensor) or value.device.type != "cpu"
++            or value.ndim != 1 or value.shape[0] != count or not torch.isfinite(value).all().item()
++        ):
++            raise ValueError(f"{name} must be an aligned finite CPU tensor or None.")
++    if contract["train_weight_present"] and train["weight"] is None:
++        raise ValueError("Declared TRAIN weights cannot be None or synthesized.")
++
++    # The later contract owns equality of this graph to the native TRAIN graph.
++    # Retain the author's ToSparseTensor conversion and edge_index reconstruction.
++    data = Data(edge_index=payload["graph_edge_index"],
++                edge_weight=payload["graph_edge_weight"], num_nodes=num_nodes)
++    if data.edge_weight is not None:
++        data.edge_weight = data.edge_weight.view(-1).to(torch.float)
++    data = ToSparseTensor()(data)
+     row, col, _ = data.adj_t.coo()
+     data.edge_index = torch.stack([col, row], dim=0)
+-
+-    if hasattr(data, 'num_features'):
+-        num_node_feats = data.num_features
+-    else:
+-        num_node_feats = 0
+-
+-    if hasattr(data, 'num_nodes'):
+-        num_nodes = data.num_nodes
+-    else:
+-        num_nodes = data.adj_t.size(0)
+-
+-    split_edge = dataset.get_edge_split()
+-
+-    print(args)
+-
+-    # create log file and save args
+-    log_file_name = 'log_' + args.data_name + '_' + str(int(time.time())) + '.txt'
+-    log_file = os.path.join(args.res_dir, log_file_name)
+-    with open(log_file, 'a') as f:
+-        f.write(str(args) + '\n')
+-
+-    if hasattr(data, 'x'):
+-        if data.x is not None:
+-            data.x = data.x.to(torch.float)
+-
+-    if args.data_name == 'ogbl-citation2':
+-        data.adj_t = data.adj_t.to_symmetric()
+-
+-    if args.data_name == 'ogbl-collab':
+-        # only train edges after specific year
+-        if args.year > 0 and hasattr(data, 'edge_year'):
+-            selected_year_index = torch.reshape((split_edge['train']['year'] >= args.year).nonzero(as_tuple=False), (-1,))
+-            split_edge['train']['edge'] = split_edge['train']['edge'][selected_year_index]
+-            split_edge['train']['weight'] = split_edge['train']['weight'][selected_year_index]
+-            split_edge['train']['year'] = split_edge['train']['year'][selected_year_index]
+-            train_edge_index = split_edge['train']['edge'].t()
+-            # create adjacency matrix
+-            new_edges = to_undirected(train_edge_index, split_edge['train']['weight'], reduce='add')
+-            new_edge_index, new_edge_weight = new_edges[0], new_edges[1]
+-            data.adj_t = SparseTensor(row=new_edge_index[0],
+-                                      col=new_edge_index[1],
+-                                      value=new_edge_weight.to(torch.float32))
+-            data.edge_index = new_edge_index
+-
+-        # Use training + validation edges
+-        if args.use_valedges_as_input:
+-            full_edge_index = torch.cat([split_edge['valid']['edge'].t(), split_edge['train']['edge'].t()], dim=-1)
+-            full_edge_weight = torch.cat([split_edge['train']['weight'], split_edge['valid']['weight']], dim=-1)
+-            # create adjacency matrix
+-            new_edges = to_undirected(full_edge_index, full_edge_weight, reduce='add')
+-            new_edge_index, new_edge_weight = new_edges[0], new_edges[1]
+-            data.adj_t = SparseTensor(row=new_edge_index[0],
+-                                      col=new_edge_index[1],
+-                                      value=new_edge_weight.to(torch.float32))
+-            data.edge_index = new_edge_index
+-
+-            if args.use_coalesce:
+-                full_edge_index, full_edge_weight = coalesce(full_edge_index, full_edge_weight, num_nodes, num_nodes)
+-
+-            # edge weight normalization
+-            split_edge['train']['edge'] = full_edge_index.t()
+-            deg = data.adj_t.sum(dim=1).to(torch.float)
+-            deg_inv_sqrt = deg.pow(-0.5)
+-            deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+-            split_edge['train']['weight'] = deg_inv_sqrt[full_edge_index[0]] * full_edge_weight * deg_inv_sqrt[full_edge_index[1]]
+-
+-
++    split_edge = {"train": train, "valid": valid}
++    return data, split_edge, num_nodes
++
++
++def run_seed(seed, config, data, split_edge, num_nodes, device, output_root, torch, np, BaseModel, Evaluator):
++    random.seed(seed)
++    np.random.seed(seed)
++    torch.manual_seed(seed)
++    if torch.cuda.is_available():
++        torch.cuda.manual_seed_all(seed)
++    recipe = config["recipe"]
++    seed_dir = output_root / f"seed_{seed}"
++    seed_dir.mkdir(parents=True, exist_ok=False)
++
++    # A fresh object also constructs a fresh Adam optimizer. The native reset
++    # does not reset HLGNN.lin1, so object reuse cannot provide independent seeds.
++    model = BaseModel(
++        lr=recipe["lr"], dropout=recipe["dropout"], grad_clip_norm=recipe["grad_clip_norm"],
++        gnn_num_layers=recipe["gnn_num_layers"], mlp_num_layers=recipe["mlp_num_layers"],
++        emb_hidden_channels=recipe["emb_hidden_channels"], gnn_hidden_channels=recipe["gnn_hidden_channels"],
++        mlp_hidden_channels=recipe["mlp_hidden_channels"], num_nodes=num_nodes, num_node_feats=0,
++        gnn_encoder_name=recipe["encoder"], predictor_name=recipe["predictor"],
++        loss_func=recipe["loss_func"], optimizer_name=recipe["optimizer"], device=device,
++        use_node_feats=recipe["use_node_feats"], train_node_emb=recipe["train_node_emb"],
++        pretrain_emb=recipe["pretrain_emb"], alpha=recipe["alpha"], init=recipe["init"],
++    )
++    model.param_init()
++    evaluator = Evaluator(name=recipe["data_name"])
++    actual_loss = "WeightedHingeAUC" if "weight" in split_edge["train"] else "AUC"
++    metadata = {
++        "status": "in_progress", "seed": seed, "author_commit": PIN,
++        "actual_loss_branch": actual_loss, "config": config,
++        "selection_metric": "VALID Hits@20", "completed_epochs": 0,
++    }
++    (seed_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
++    best_metric, best_epoch = -math.inf, None
++    with (seed_dir / "valid_history.jsonl").open("x") as history:
++        for epoch in range(1, recipe["epochs"] + 1):
++            loss = model.train(data, split_edge, batch_size=recipe["batch_size"],
++                               neg_sampler_name=recipe["neg_sampler"], num_neg=recipe["num_neg"])
++            if epoch % recipe["eval_steps"] == 0:
++                results = model.validate(data, split_edge, recipe["batch_size"], evaluator)
++                results = {key: float(value) for key, value in results.items()}
++                metric = results["Hits@20"]
++                if not all(math.isfinite(value) for value in results.values()):
++                    raise RuntimeError("Nonfinite VALID metric; run is incomplete.")
++                record = {"epoch": epoch, "train_loss": float(loss), "valid": results}
++                history.write(json.dumps(record) + "\n")
++                history.flush()
++                # Strict improvement keeps the earliest epoch on an exact tie.
++                if metric > best_metric:
++                    best_metric, best_epoch = metric, epoch
++                    torch.save({
++                        "encoder": model.encoder.state_dict(), "predictor": model.predictor.state_dict(),
++                        "embedding": model.emb.state_dict(), "seed": seed, "epoch": epoch,
++                        "valid_hits20": metric, "actual_loss_branch": actual_loss,
++                        "author_commit": PIN, "recipe": recipe,
++                        "artifact_sha256": config["artifact_contract"]["sha256"],
++                    }, seed_dir / "valid_best.pt")
++                print(json.dumps({"seed": seed, **record}), flush=True)
++    metadata.update(status="complete", completed_epochs=recipe["epochs"],
++                    best_epoch=best_epoch, best_valid_hits20=best_metric)
++    (seed_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
++    return {"seed": seed, "best_epoch": best_epoch, "best_valid_hits20": best_metric,
++            "actual_loss_branch": actual_loss, "completed_epochs": recipe["epochs"]}
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config.json"))
++    args = parser.parse_args()
++    config, artifact_path = read_release_config(args.config.resolve())
++
++    # Deliberately behind the disabled release gate. Source checks import none of these.
++    import numpy as np
++    import torch
++    from torch_geometric.data import Data
++    from torch_geometric.transforms import ToSparseTensor
++    from ogb.linkproppred import Evaluator
++    from native.model import BaseModel
++
++    device = torch.device(config["device"])
++    if device.type == "cuda" and not torch.cuda.is_available():
++        raise RuntimeError("Declared CUDA runtime is unavailable; qualify the runtime first.")
++    data, split_edge, num_nodes = load_train_valid(artifact_path, config["artifact_contract"], torch, Data, ToSparseTensor)
+     data = data.to(device)
+-
+-    if args.encoder.upper() == 'GCN' or args.encoder.upper() == 'SAGE':
+-        data.adj_t = gcn_normalization(data.adj_t)
+-
+-    if args.encoder.upper() == 'WSAGE':
+-        data.adj_t = adj_normalization(data.adj_t)
+-
+-    if args.encoder.upper() == 'TRANSFORMER':
+-        row, col, edge_weight = data.adj_t.coo()
+-        data.adj_t = SparseTensor(row=row, col=col)
+-
+-    model = BaseModel(
+-        lr=args.lr,
+-        dropout=args.dropout,
+-        grad_clip_norm=args.grad_clip_norm,
+-        gnn_num_layers=args.gnn_num_layers,
+-        mlp_num_layers=args.mlp_num_layers,
+-        emb_hidden_channels=args.emb_hidden_channels,
+-        gnn_hidden_channels=args.gnn_hidden_channels,
+-        mlp_hidden_channels=args.mlp_hidden_channels,
+-        num_nodes=num_nodes,
+-        num_node_feats=num_node_feats,
+-        gnn_encoder_name=args.encoder,
+-        predictor_name=args.predictor,
+-        loss_func=args.loss_func,
+-        optimizer_name=args.optimizer,
+-        device=device,
+-        use_node_feats=args.use_node_feats,
+-        train_node_emb=args.train_node_emb,
+-        pretrain_emb=args.pretrain_emb,
+-        alpha = args.alpha,
+-        init = args.init
+-    )
+-
+-    total_params = sum(p.numel() for param in model.para_list for p in param)
+-    total_params_print = f'Total number of model parameters is {total_params}'
+-    print(total_params_print)
+-    with open(log_file, 'a') as f:
+-        f.write(total_params_print + '\n')
+-
+-    evaluator = Evaluator(name=args.data_name)
+-
+-    if args.eval_metric == 'hits':
+-        loggers = {
+-            'Hits@20': Logger(args.runs, args),
+-            'Hits@50': Logger(args.runs, args),
+-            'Hits@100': Logger(args.runs, args),
+-        }
+-    elif args.eval_metric == 'mrr':
+-        loggers = {
+-            'MRR': Logger(args.runs, args),
+-        }
+-
+-    if args.random_walk_augment:
+-        rw_row, rw_col, _ = data.adj_t.coo()
+-        if args.walk_start_type == 'edge':
+-            rw_start = torch.reshape(split_edge['train']['edge'], (-1,)).to(device)
+-        else:
+-            rw_start = torch.arange(0, num_nodes, dtype=torch.long).to(device)
+-
+-    for run in range(args.runs):
+-        model.param_init()
+-        start_time = time.time()
+-
+-        cur_lr = args.lr
+-        for epoch in range(1, 1 + args.epochs):
+-            if args.random_walk_augment:
+-                walk = random_walk(rw_row, rw_col, rw_start, walk_length=args.walk_length)
+-                pairs = []
+-                weights = []
+-                for j in range(args.walk_length):
+-                    pairs.append(walk[:, [0, j + 1]])
+-                    weights.append(torch.ones((walk.size(0),), dtype=torch.float) / (j + 1))
+-                pairs = torch.cat(pairs, dim=0)
+-                weights = torch.cat(weights, dim=0)
+-                # remove self-loop edges
+-                mask = ((pairs[:, 0] - pairs[:, 1]) != 0)
+-                split_edge['train']['edge'] = torch.masked_select(pairs, mask.view(-1, 1)).view(-1, 2)
+-                split_edge['train']['weight'] = torch.masked_select(weights, mask)
+-
+-            loss = model.train(data, split_edge,
+-                               batch_size=args.batch_size,
+-                               neg_sampler_name=args.neg_sampler,
+-                               num_neg=args.num_neg)
+-
+-            if epoch % args.eval_steps == 0:
+-                results = model.test(data, split_edge,
+-                                     batch_size=args.batch_size,
+-                                     evaluator=evaluator,
+-                                     eval_metric=args.eval_metric)
+-                for key, result in results.items():
+-                    loggers[key].add_result(run, result)
+-                if epoch % args.log_steps == 0:
+-                    spent_time = time.time() - start_time
+-                    for key, result in results.items():
+-                        valid_res, test_res = result
+-                        to_print = (f'Run: {run + 1:02d}, '
+-                                    f'Epoch: {epoch:02d}, '
+-                                    f'Loss: {loss:.4f}, '
+-                                    f'Learning Rate: {cur_lr:.4f}, '
+-                                    f'Valid: {100 * valid_res:.2f}%, '
+-                                    f'Test: {100 * test_res:.2f}%')
+-                        print(key)
+-                        print(to_print)
+-                        with open(log_file, 'a') as f:
+-                            print(key, file=f)
+-                            print(to_print, file=f)
+-                    print('---')
+-                    print(f'Training Time Per Epoch: {spent_time / args.eval_steps: .4f} s')
+-                    print('---')
+-                    start_time = time.time()
+-
+-            if args.use_lr_decay:
+-                cur_lr = adjust_lr(model.optimizer, epoch / args.epochs, args.lr)
+-
+-        for key in loggers.keys():
+-            print(key)
+-            loggers[key].print_statistics(run, last_best=args.eval_last_best)
+-            with open(log_file, 'a') as f:
+-                print(key, file=f)
+-                loggers[key].print_statistics(run, f=f, last_best=args.eval_last_best)
+-
+-    for key in loggers.keys():
+-        print(key)
+-        loggers[key].print_statistics(last_best=args.eval_last_best)
+-        with open(log_file, 'a') as f:
+-            print(key, file=f)
+-            loggers[key].print_statistics(f=f, last_best=args.eval_last_best)
++    output_root = Path(config["output_dir"]).expanduser()
++    if not output_root.is_absolute():
++        output_root = args.config.resolve().parent / output_root
++    output_root = output_root.resolve()
++    output_root.mkdir(parents=True, exist_ok=False)
++    summaries = []
++    for seed in config["seeds"]:
++        summaries.append(run_seed(seed, config, data, split_edge, num_nodes, device,
++                                  output_root, torch, np, BaseModel, Evaluator))
++    (output_root / "summary.json").write_text(json.dumps(summaries, indent=2) + "\n")
+ 
+ 
+ if __name__ == "__main__":

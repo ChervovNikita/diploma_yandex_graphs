@@ -1,13 +1,11 @@
 # GNNM research state
 
-Updated: 2026-10-04T12:11:40.870508+00:00. Goal active and incomplete. [Evidence and limits](PUBLIC_STATUS.md). Prior canonical files preserved in coordination_snapshots/20261004_native_success_ddi_and_loader_failure_20261004_v1_before_state; all ledger keys retained.
+Updated: 2026-10-04T12:57:54.633724+00:00. Goal active and incomplete. [Evidence and limits](PUBLIC_STATUS.md). All previous ledger keys and original scores are retained.
 
-## Next actions
+1. Monitor the fixed nine-fit target/joint/separate queue onGPU1 with monitor_owned_queue_interpreter_repair_v2.py, next sequence4. At12:45UTC first fit epoch49/100. No TEST release or partial score-driven decisions.
+2. PENCIL v3 resource feasibility is root-adopted. Source for three fresh20-epoch scientific fits is being prepared by the existing source agent. Review and launch, retaining all disclosed loader/runtime/rank adaptations. No resource-fit donor states exist.
+3. Amazon queue observation30:5/15complete and sixth1444/2700, original handles live. Next monitor31. Wait for the fixed family.
+4. DDI exact43-mask TRAIN census is root-adopted. Positive both-genuine opportunity90.2831%, negative19.9379%, no predictive claim. Next prepare a practical exact auxiliary comparison and use the separate HL-GNN fresh-source agent's recipe. The census actually usedGPU0, correcting earlier CPU-only planning wording.
+5. Keep Pubmed's ad hoc continuation branch closed. Preserve failed/inconclusive results. Change manuscript only after supported prediction evidence, then fresh skill-based academic review without a requested verdict.
 
-1. Monitor the actual fixed nine-fit target/joint/separate queue on GPU1. It launched12:28:04UTC and had reached first-fit epoch6 at12:30:17UTC. Use monitor_owned_queue_interpreter_repair_v2.py with next sequence3; original sequence1 interpreter failure is preserved. No further qualification ladder or TEST release.
-2. Preserve PENCIL v2's cleanly exited pin-memory failure. Prepare a disclosed loader transfer repair, retaining architecture, data draws, batch1024, accumulation8, native schedule and caps.
-3. Maintain the original Amazon queue; observation29 has five complete fits and sixth at1115/2700. Wait for the fixed family rather than selecting partial outcomes.
-4. Use the newly authenticated DDI TRAIN payload for a prospective native support/cost census before fitting. Finish recent strong-DDI source scouting.
-5. Keep Pubmed's ad hoc continuation branch closed. Revise the manuscript only from supported results, then run fresh skill-based independent review without a requested verdict.
-
-Original scores and failures remain preserved. No confirmed methodological advantage or acceptance. Authorized project repositories only, no sudo, PDF compilation, GENLINK, Desktop writes, server configuration or unrelated-job changes.
+Literature index_v47 is sealed/adopted. Latest verified GitHub commit7258b45798af150089f8aacf7d78dfcf562299d0; new adoption/monitoring metadata awaits explicit publication. No confirmed methodological advantage or fresh manuscript acceptance yet.
