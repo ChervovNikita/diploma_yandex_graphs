@@ -1,15 +1,16 @@
-# Current state: error-driven graph-ensemble research
+# Current state: prediction-error-driven ensemble research
 
-Updated:2026-10-05T19:08:15.730223+00:00. Goal active and unmet; original manuscript scores unchanged. [Evidence](PUBLIC_STATUS.md).
+Updated:2026-10-05T19:47:52.584241+00:00. Goal active and unmet; original manuscript scores unchanged. [Evidence](PUBLIC_STATUS.md).
 
-1. Only authorized one-GPU allocation.77/MacLink withdrawn; wrong-allocation evidence excluded.
-2. Amazon original15 fits complete with replay. TEST unopened; TRAIN-control consumed. Complete VALID error diagnosis identifies weaker members, smaller averaging gain and high-confidence common errors.
-3. Fixed complete aggregation screen fails against both processed independent and capable single references. No confirmation/refit/extra grid.
-4. Graph-error diagnostic complete53,112 rows/192 primary rows. Independent interpretation check passes. Primary unanimityDelta+4.764pp; pooledDelta−.983pp; no causal graph defect, novelty or training admission.
-5. Private allocation b0 donors10+3 complete. Explicit26 additional-fit replication exception frozen and reviewed; first mainb1 queuePID470117/start6003585737 running. All outcomes/history remain closed until complete39 selected-cell custody. Old77 scientific attempts/costs preserved and final status unknown.
-6. Current source:shared_private_transfer_allocation_replication_preparation_20261005_v2; root receipts/monitor:shared_private_transfer_allocation_replication_root_activation_20261005_v2. Remaining mainb2/F1b1/F1b2 queues must follow genuine predecessors serially. Separate disabled amendedD2 adapter in preparation.
-7. PENCIL2/3; final257/300 in18:37 metadata. Complete collector still gated. Other adopted link results remain mixed.
-8. Saved scoped training synthesis has two attributed conditional adaptations with no novelty or compute. Independent methodological challenge and distinct recent-prior synthesis continue. Index72 counts unchanged; consult supplements before retrieval.
-9. Publish reviewed source/decisions/results from explicit inventory. Current prior verified GitHuba67889ee623635f281c28418a9b6b7cb56c3a38b. No fresh manuscript acceptance verdict.
+1. Only the authorized one-GPU allocation is active.77/MacLink remains withdrawn. Wrong-allocation evidence is excluded.
+2. Complete Amazon VALID diagnosis identifies slightly weaker shared members, less pooling benefit, and very confident common errors. All members are wrong on93.60% of shared pooled errors versus74.86% independent. Member selection cannot fix that population.
+3. The completed fixed nonlinear aggregation screen fails against equally processed independent and capable single references. It receives no extra tuning/refit/confirmation.
+4. The completed graph diagnostic describes excess shared unanimity in a narrow population; pooled wrong-class recurrence is not larger. It does not identify a causal graph defect.
+5. Fixed private-transfer replication is live on allocation. Originalb0 donors10+3 stay fixed. Mainb1 has2/10complete in19:45 metadata; exact owned queue handle matches. Mainb2/F1b1/F1b2 follow genuine predecessors. All history/scoring waits for complete39 custody; old77 attempts/final costs stay unknown.
+6. Amended39 D2 adapter passed independent source-delta review and remains disabled; real full39 custody and source/CONFIG semantics precede analysis.
+7. PENCIL native300 completed3/3. Reviewed full-family collector gives selected VALID MRR.185108081 mean/.006302265 SD. This is below the existing NCN references on the same data, with differing native schedules/selectors; TEST remains unopened.
+8. Error-informed new candidate: allocate extra class-competitor supervision by a measured finite private-learning response, with graph-conditioned balanced responsibilities and competence-protected probability pooling. Operator/prior/six-arm protocol are sealed. RepairedV2 small CPU math fixture passes with independent interpretation; native callback/sparse port and full-graph qualification remain pending. No utility/novelty claim or fit launch yet.
+9. Consult index72 plus supplementsV5 before repeating reads. New DSA/representation-game/DERTS and DropEdge/PTDNet scoped conclusions are saved; no new full-paper count.
+10. Last verified GitHub head4613b96ce0d3a4eee8588ec148e3f9394cd1182b. New completed-reference/source/literature notes await explicit publication. No manuscript acceptance verdict.
 
-Previous status/ledger retained in coordination_snapshots/20261005_graph_error_and_replication_before_state_v1 and prior Git commits.
+Previous canonical bytes are retained in coordination_snapshots/20261005_pencil_complete_and_error_method_followup_v1 and prior Git commits.
