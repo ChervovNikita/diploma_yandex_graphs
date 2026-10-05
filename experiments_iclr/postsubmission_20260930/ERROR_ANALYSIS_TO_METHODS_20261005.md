@@ -10,9 +10,9 @@ The class, degree and graph-neighborhood analysis is complete. It finds stronger
 
 ## The concrete intervention being prepared
 
-Every member continues to learn every training label. Additional supervision asks it to distinguish the true class from each competing class. We allocate that additional pressure using a measured response: which member reduces that distinction's loss after one small private learning step. Responsibilities are balanced, and a fixed graph affinity can make nearby training nodes use consistent specialist identities. All class pairs and both label directions are included.
+Every member retains its ordinary supervised cross-entropy loss during correction. Additional supervision asks it to distinguish the true class from each competing class. We allocate that additional pressure using a measured response: which member reduces that distinction's loss after one small private learning step. Responsibilities are balanced, and a fixed graph affinity can make nearby training nodes use consistent specialist identities. All class pairs and both label directions are included.
 
-The shared backbone then receives training credit through that finite private response. Inference averages member probabilities. This targets useful learning capacity and the quality of the served prediction. It does not assume that arbitrary embedding separation improves accuracy.
+The shared backbone learns from separate training-query labels, through both the individual and pooled loss after that finite private response. Inference averages member probabilities. This targets useful learning capacity and the quality of the served prediction. It does not assume that arbitrary embedding separation improves accuracy.
 
 ## How it can fail, and how we will tell
 
@@ -37,3 +37,7 @@ Learning-to-reweight, Meta-Weight-Net, MCL and graph regularization provide clos
 The proposed composition has no established novelty or accuracy improvement yet. The existing endpoint-private-learning experiment is a separate running hypothesis; its outcomes remain closed until the fixed comparison completes. Original paper scores are unchanged.
 
 Evidence: `amazon_polynormer_valid_error_analysis_root_interpretation_20261005_v1/REPORT.md`, `amazon_valid_graph_error_recurrence_root_interpretation_20261005_v2/REPORT.md`, `amazon_polynormer_logits_graph_moment_complete_outcome_root_20261005_v2/REPORT.md`, `learnability_weighted_graph_responsibility_operator_20261005_v1/REPORT.md`, `learnability_weighted_graph_responsibility_operator_20261005_v2/REPORT.md`, `learnability_responsibility_math_qualification_root_20261005_v3/REPORT.md`, and `finite_private_response_responsibility_nearest_prior_20261005_v1/REPORT.md`.
+
+## Native implementation continuation
+
+The original coarse numerical check remains a failure. The same-state diagnosis and separately reviewed V2 continuation establish local two-sided derivative agreement at smaller fixed displacements, exact stopped/fixed-responsibility parity, complete public-episode recomputation and native restoration. These are implementation checks, with no predictive result. Actual full-graph memory/time and float32 qualification are still required. The ordinary supervised terms anchor member learning; they do not guarantee that members remain equally accurate. [Complete local check](learnability_responsibility_native_synthetic_execution_root_20261005_v2/REPORT.md).

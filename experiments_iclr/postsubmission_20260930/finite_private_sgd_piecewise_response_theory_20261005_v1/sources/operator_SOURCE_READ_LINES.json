@@ -1,0 +1,510 @@
+[
+  {
+    "line": 25,
+    "text": "class Config:"
+  },
+  {
+    "line": 26,
+    "text": "    \"\"\"G0: declared gate conventions, not fitted/native optimizer settings.\"\"\""
+  },
+  {
+    "line": 27,
+    "text": ""
+  },
+  {
+    "line": 28,
+    "text": "    eta_probe: float = 0.01"
+  },
+  {
+    "line": 29,
+    "text": "    eta_private: float = 0.01"
+  },
+  {
+    "line": 30,
+    "text": "    eta_core: float = 0.001"
+  },
+  {
+    "line": 31,
+    "text": "    extra_margin: float = 0.1"
+  },
+  {
+    "line": 32,
+    "text": "    pool_fraction: float = 0.5"
+  },
+  {
+    "line": 62,
+    "text": "    return {name: value.detach() for name, value in params.items()}"
+  },
+  {
+    "line": 63,
+    "text": ""
+  },
+  {
+    "line": 64,
+    "text": ""
+  },
+  {
+    "line": 65,
+    "text": "def _own_ce(theta, phi, forward, indices, labels):"
+  },
+  {
+    "line": 66,
+    "text": "    _, functional = _backend()"
+  },
+  {
+    "line": 67,
+    "text": "    return functional.cross_entropy(forward(theta, phi)[indices], labels)"
+  },
+  {
+    "line": 68,
+    "text": ""
+  },
+  {
+    "line": 69,
+    "text": ""
+  },
+  {
+    "line": 72,
+    "text": "    _, functional = _backend()"
+  },
+  {
+    "line": 73,
+    "text": "    gap = (logits[:, pair.nodes, pair.competitors]"
+  },
+  {
+    "line": 74,
+    "text": "           - logits[:, pair.nodes, pair.targets])"
+  },
+  {
+    "line": 75,
+    "text": "    return functional.softplus(gap).transpose(0, 1)"
+  },
+  {
+    "line": 76,
+    "text": ""
+  },
+  {
+    "line": 77,
+    "text": ""
+  },
+  {
+    "line": 78,
+    "text": "def _pair_blocks(labels, public_affinity, num_classes):"
+  },
+  {
+    "line": 79,
+    "text": "    \"\"\"All unordered pairs; no same-label/homophily edge filter.\"\"\""
+  },
+  {
+    "line": 139,
+    "text": "    return own + cfg.extra_margin * (members / count) * allocated"
+  },
+  {
+    "line": 140,
+    "text": ""
+  },
+  {
+    "line": 141,
+    "text": ""
+  },
+  {
+    "line": 142,
+    "text": "def _private_response(theta, phis, forward, inner_indices, inner_labels,"
+  },
+  {
+    "line": 143,
+    "text": "                      pairs, num_classes, cfg: Config, control=\"live\","
+  },
+  {
+    "line": 144,
+    "text": "                      collect_diagnostics=False):"
+  },
+  {
+    "line": 145,
+    "text": "    \"\"\"Probe is discarded; only the independent-Q main response is returned.\"\"\""
+  },
+  {
+    "line": 146,
+    "text": "    torch, functional = _backend()"
+  },
+  {
+    "line": 147,
+    "text": "    before = torch.stack([forward(theta, phi)[inner_indices] for phi in phis])"
+  },
+  {
+    "line": 148,
+    "text": "    own_partial = torch.func.grad(_own_ce, argnums=1)"
+  },
+  {
+    "line": 149,
+    "text": "    probes = tuple(_sgd(phi, own_partial(theta, phi, forward,"
+  },
+  {
+    "line": 150,
+    "text": "                                        inner_indices, inner_labels), cfg.eta_probe)"
+  },
+  {
+    "line": 151,
+    "text": "                   for phi in phis)"
+  },
+  {
+    "line": 152,
+    "text": "    after = torch.stack([forward(theta, phi)[inner_indices] for phi in probes])"
+  },
+  {
+    "line": 153,
+    "text": "    q_blocks, diagnostics = [], []"
+  },
+  {
+    "line": 154,
+    "text": "    gamma = 0.0 if control == \"graph_free\" else cfg.graph"
+  },
+  {
+    "line": 155,
+    "text": "    for pair in pairs:"
+  },
+  {
+    "line": 156,
+    "text": "        before_margin, after_margin = _margin(before, pair), _margin(after, pair)"
+  },
+  {
+    "line": 157,
+    "text": "        response = after_margin - before_margin"
+  },
+  {
+    "line": 158,
+    "text": "        raw = before_margin if control == \"margins\" else response"
+  },
+  {
+    "line": 159,
+    "text": "        cost, centered, scale = _normalized_cost(raw, cfg.response_epsilon)"
+  },
+  {
+    "line": 160,
+    "text": "        q = _assignment_map(cost, pair.laplacian, cfg, gamma)"
+  },
+  {
+    "line": 161,
+    "text": "        if control == \"uniform\":"
+  },
+  {
+    "line": 162,
+    "text": "            q = torch.full_like(q, 1.0 / len(phis))"
+  },
+  {
+    "line": 163,
+    "text": "        if control == \"stop_q\":"
+  },
+  {
+    "line": 164,
+    "text": "            q = q.detach()       # ONLY this control stops the outer Q chain."
+  },
+  {
+    "line": 165,
+    "text": "        q_blocks.append(q)"
+  },
+  {
+    "line": 166,
+    "text": "        if collect_diagnostics:"
+  },
+  {
+    "line": 167,
+    "text": "            qd, cd, sd = q.detach(), centered.detach(), scale.detach()"
+  },
+  {
+    "line": 168,
+    "text": "            response_centered = (response - response.mean(dim=1, keepdim=True)).detach()"
+  },
+  {
+    "line": 169,
+    "text": "            delta = qd - 1.0 / len(phis)"
+  },
+  {
+    "line": 170,
+    "text": "            diagnostics.append({"
+  },
+  {
+    "line": 171,
+    "text": "                \"classes\": pair.classes,"
+  },
+  {
+    "line": 172,
+    "text": "                \"item_count\": pair.nodes.shape[0],"
+  },
+  {
+    "line": 173,
+    "text": "                \"left_count\": (pair.targets == pair.classes[0]).sum(),"
+  },
+  {
+    "line": 174,
+    "text": "                \"right_count\": (pair.targets == pair.classes[1]).sum(),"
+  },
+  {
+    "line": 175,
+    "text": "                \"cost_kind\": \"current_margins\" if control == \"margins\" else \"response\","
+  },
+  {
+    "line": 176,
+    "text": "                \"centered_response_rms\": response_centered.square().mean().sqrt(),"
+  },
+  {
+    "line": 177,
+    "text": "                \"centered_cost_rms\": cd.square().mean().sqrt(),"
+  },
+  {
+    "line": 178,
+    "text": "                \"smooth_cost_scale\": sd,"
+  },
+  {
+    "line": 179,
+    "text": "                \"epsilon_over_scale\": cfg.response_epsilon / sd,"
+  },
+  {
+    "line": 180,
+    "text": "                \"normalized_cost_rms\": (cd / sd).square().mean().sqrt(),"
+  },
+  {
+    "line": 181,
+    "text": "                \"assignment_relative_rms\": len(phis) * delta.square().mean().sqrt(),"
+  },
+  {
+    "line": 182,
+    "text": "                \"assignment_max_deviation\": delta.abs().max(),"
+  },
+  {
+    "line": 183,
+    "text": "                \"mean_entropy\": -(qd * qd.log()).sum(dim=1).mean(),"
+  },
+  {
+    "line": 184,
+    "text": "                \"min_assignment\": qd.min(),"
+  },
+  {
+    "line": 185,
+    "text": "                \"row_residual\": (qd.sum(dim=1) - 1.0).abs().max(),"
+  },
+  {
+    "line": 186,
+    "text": "                \"column_residual\": (qd.sum(dim=0) - qd.shape[0] / len(phis)).abs().max(),"
+  },
+  {
+    "line": 187,
+    "text": "            })"
+  },
+  {
+    "line": 188,
+    "text": "    q_blocks = tuple(q_blocks)"
+  },
+  {
+    "line": 189,
+    "text": "    # torch.func.grad differentiates the private ARGUMENT, not a prebuilt graph."
+  },
+  {
+    "line": 190,
+    "text": "    # It treats Q as independent here, then preserves the returned gradient's"
+  },
+  {
+    "line": 191,
+    "text": "    # dependence on the supplied Q(theta, ALL phi) for the outer core derivative."
+  },
+  {
+    "line": 192,
+    "text": "    main_partial = torch.func.grad(_main_loss, argnums=1)"
+  },
+  {
+    "line": 193,
+    "text": "    adapted = tuple(_sgd(phi, main_partial(theta, phi, q_blocks, member, forward,"
+  },
+  {
+    "line": 194,
+    "text": "                                           inner_indices, inner_labels, pairs,"
+  },
+  {
+    "line": 195,
+    "text": "                                           num_classes, cfg), cfg.eta_private)"
+  },
+  {
+    "line": 196,
+    "text": "                    for member, phi in enumerate(phis))"
+  },
+  {
+    "line": 197,
+    "text": "    if collect_diagnostics:"
+  },
+  {
+    "line": 198,
+    "text": "        probe_ce_change = torch.stack(["
+  },
+  {
+    "line": 199,
+    "text": "            functional.cross_entropy(after[m], inner_labels)"
+  },
+  {
+    "line": 200,
+    "text": "            - functional.cross_entropy(before[m], inner_labels)"
+  },
+  {
+    "line": 201,
+    "text": "            for m in range(len(phis))]).detach()"
+  },
+  {
+    "line": 202,
+    "text": "        info = {\"pairs\": tuple(diagnostics), \"probe_own_ce_change\": probe_ce_change,"
+  },
+  {
+    "line": 203,
+    "text": "                \"assignments\": tuple(q.detach() for q in q_blocks)}"
+  },
+  {
+    "line": 204,
+    "text": "    else:"
+  },
+  {
+    "line": 205,
+    "text": "        info = None"
+  },
+  {
+    "line": 206,
+    "text": "    return adapted, info"
+  },
+  {
+    "line": 207,
+    "text": ""
+  },
+  {
+    "line": 208,
+    "text": ""
+  },
+  {
+    "line": 209,
+    "text": "def _query_objective(theta, adapted, forward, query_indices, query_labels, cfg):"
+  },
+  {
+    "line": 210,
+    "text": "    torch, functional = _backend()"
+  },
+  {
+    "line": 211,
+    "text": "    log_probs = torch.stack(["
+  },
+  {
+    "line": 212,
+    "text": "        functional.log_softmax(forward(theta, phi)[query_indices], dim=-1)"
+  },
+  {
+    "line": 213,
+    "text": "        for phi in adapted])"
+  },
+  {
+    "line": 214,
+    "text": "    targets = query_labels[None, :, None].expand(len(adapted), -1, 1)"
+  },
+  {
+    "line": 215,
+    "text": "    own = -log_probs.gather(2, targets).mean()"
+  },
+  {
+    "line": 216,
+    "text": "    pooled_log_probs = torch.logsumexp(log_probs, dim=0) - log(len(adapted))"
+  },
+  {
+    "line": 225,
+    "text": "        raise ValueError(\"Need members, >=2 classes and a declared control\")"
+  },
+  {
+    "line": 226,
+    "text": "    if cfg.assignment_steps != 8:"
+  },
+  {
+    "line": 227,
+    "text": "        raise ValueError(\"This source binds exactly eight assignment steps\")"
+  },
+  {
+    "line": 228,
+    "text": "    positive = (cfg.eta_probe, cfg.eta_private, cfg.eta_core, cfg.response_epsilon,"
+  },
+  {
+    "line": 229,
+    "text": "                cfg.entropy, cfg.assignment_rate, cfg.ratio_smoothing,"
+  },
+  {
+    "line": 230,
+    "text": "                cfg.reciprocal_smoothing)"
+  },
+  {
+    "line": 231,
+    "text": "    if not all(isfinite(value) and value > 0.0 for value in positive):"
+  },
+  {
+    "line": 232,
+    "text": "        raise ValueError(\"Strictly positive step/entropy/smoothing constants required\")"
+  },
+  {
+    "line": 276,
+    "text": "    pairs = _pair_blocks(inner_labels, public_affinity, num_classes)"
+  },
+  {
+    "line": 277,
+    "text": ""
+  },
+  {
+    "line": 278,
+    "text": "    def outer(core):"
+  },
+  {
+    "line": 279,
+    "text": "        adapted, _ = _private_response(core, private_start, forward,"
+  },
+  {
+    "line": 280,
+    "text": "                                       inner_indices, inner_labels, pairs,"
+  },
+  {
+    "line": 281,
+    "text": "                                       num_classes, cfg, control)"
+  },
+  {
+    "line": 282,
+    "text": "        return _query_objective(core, adapted, forward,"
+  },
+  {
+    "line": 283,
+    "text": "                                query_indices, query_labels, cfg)"
+  },
+  {
+    "line": 285,
+    "text": "    core_gradient, virtual_query_loss = torch.func.grad_and_value(outer)(theta_start)"
+  },
+  {
+    "line": 286,
+    "text": "    theta_next = _detach(_sgd(theta_start, core_gradient, cfg.eta_core))"
+  },
+  {
+    "line": 287,
+    "text": "    # Recompute EVERYTHING at theta+, starting from original private phi."
+  },
+  {
+    "line": 288,
+    "text": "    # The preliminary probe and theta-time virtual main response are discarded."
+  },
+  {
+    "line": 289,
+    "text": "    recomputed, diagnostics = _private_response("
+  },
+  {
+    "line": 290,
+    "text": "        theta_next, private_start, forward, inner_indices, inner_labels, pairs,"
+  },
+  {
+    "line": 291,
+    "text": "        num_classes, cfg, control, collect_diagnostics=True)"
+  },
+  {
+    "line": 292,
+    "text": "    private_next = tuple(_detach(phi) for phi in recomputed)"
+  },
+  {
+    "line": 293,
+    "text": "    diagnostics[\"virtual_query_loss\"] = virtual_query_loss.detach()"
+  }
+]

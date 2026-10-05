@@ -1,46 +1,16 @@
 # GNNM: shared propagation in graph ensembles
 
-## Current research — 5 October 2026
+## Current research — 6 October 2026
 
-We are improving the predictive quality of shared graph ensembles against competent single models and independently trained ensembles. Original five-dataset paper scores remain unchanged. No new method has established novelty and confirmed superiority.
+We are developing a shared graph ensemble that improves prediction quality over competent single models and independently trained ensembles. Original five-dataset paper scores remain unchanged. No new method has established confirmed superiority and novelty.
 
-The complete fifteen-fit Amazon/Polynormer comparison finished with exact selected-checkpoint logit replay. Reserved TRAIN-control mean accuracy is 52.7203% for native member0, 52.9243% for shared four and 54.0533% for independent four. The shared bank trails independent four by 1.1290 accuracy points and 2.2709 NLL nats. TEST labels remain unopened.
+Complete Amazon validation prediction analysis finds slightly weaker shared members and less benefit from averaging. All four members are wrong on 93.60% of shared pooled errors, versus 74.86% for independent ensembles; shared wrong predictions are also more confident. These are reused development predictions, not causal evidence or heldout confirmation. The fixed learned-aggregation screen fails against equally processed strong references.
 
-A completed and independently checked three-split VALID error analysis identifies repeated member errors and diminished averaging benefit. Mean pairwise error correlation is 0.9292 for shared members versus 0.7304 for independent members; pooling adds 0.1633 versus 0.5907 accuracy points over mean member accuracy. Shared wrong predictions average 92.60% confidence versus 81.09%. These are descriptive observations from VALID-selected checkpoints. All 44,514 metric rows and denominators are retained; full original JSON/CSV stay on the server and exact compact CSV shards cover every row.
+The next hypothesis changes training: assign extra class-competitor supervision according to each member's measured private learning response, retain ordinary supervised losses, and learn the shared backbone from separate training-query losses. The method is an attributed composition requiring controlled comparisons; it has no predictive result or novelty clearance. The exact fixed graph-conditioned operator passes complete local synthetic derivative/update/recompute checks. Its actual full-graph higher-order check fails CUDA OOM on the80GB allocation. Exact sequential VJP/recomputation is being prepared to preserve the same learning rule with fewer simultaneous native graphs. Numerical parity, measured resources and an amended operation budget are required before fitting.
 
-The fixed saved-prediction development screen completed 90 small MLP fits and 36 calibration fits, comparing graph-local error moments, calibration and capable nonlinear stacking across processed shared/independent banks and a comparable processed single. Its prescribed shared processor scores 52.5450% accuracy, versus 53.2528% for processed independent four and 53.1276% for the processed single. It fails both fixed full quality screens; the local/full-moment contribution is unsupported. The first numerical failure, actual witness, independently reviewed repair and affected qualification remain preserved. No confirmation or extra tuning grid is admitted for this proposal.
+The separate fixed private-transfer replication continues on the authorized one-GPU allocation. Its current block is7/10 complete at21:13UTC. Full39 custody precedes scientific scoring; unknown prior77 attempts/costs remain preserved.77/MacLink access is withdrawn. Original PENCIL native300 completed3/3 and trails the saved NCN references on selected validation MRR with different native schedules; TEST remains closed.
 
-The next training hypothesis must preserve individual member quality while reducing correlated mistakes. Ordinary negative-correlation losses and learned fusion have direct prior work. The saved assessment explicitly derives the known own/pool loss equivalence, preventing that control from being described as a novel method.
-
-Only the authorized one-GPU allocation is accessed; 18.77/MacLink remains withdrawn. The allocation private-transfer block has completed 10/10 fits and its matched-single companions 3/3, without opening scientific scores. The required full 30/full 39 cohorts remain incomplete. The other two pilot blocks were previously launched on 77; their current status is unknown under withdrawn access. The explicit26-fit allocation replication amendment is now frozen, independently reviewed and launched for its first serial ten-cell block. All new b1/b2 donors were chosen before outcomes, with old77 attempts and costs preserved. Full39 scientific scores/history remain closed. PENCIL native300 is complete3/3: selected VALID MRR.185108081 mean/.006302265 sample SD. It trails the saved NCN references on this same-input descriptive comparison; schedules/selectors differ. TEST remains closed.
-
-Index72 preserves 260 scoped records/207 paper identities/two software identities, not full-paper reading counts. Saved scouts cover logit/feature/depth-fusion precedents, shared-channel interpretation and known error-coupled training. GENNN primary-method access remains unresolved.
-
-- [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
-- [Completed prediction-error diagnosis](experiments_iclr/postsubmission_20260930/amazon_polynormer_valid_error_analysis_root_interpretation_20261005_v1/REPORT.md)
-- [Independent error-interpretation review](experiments_iclr/postsubmission_20260930/amazon_polynormer_valid_error_analysis_independent_interpretation_review_20261005_v1/REPORT.md)
-- [Complete negative aggregation outcome](experiments_iclr/postsubmission_20260930/amazon_polynormer_logits_graph_moment_complete_outcome_root_20261005_v2/REPORT.md)
-- [Fixed aggregation protocol](experiments_iclr/postsubmission_20260930/amazon_polynormer_logits_graph_moment_retrospective_protocol_20261005_v2/REPORT.md)
-- [Attributed error-coupled training assessment](experiments_iclr/postsubmission_20260930/amazon_error_driven_training_control_assessment_20261005_v1/REPORT.md)
-- [Complete original Amazon comparison](experiments_iclr/postsubmission_20260930/amazon_polynormer_complete15_original_comparison_root_adoption_20261005_v1/REPORT.md)
-- [Saved supplemental literature conclusions](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261005_v5.json)
-- [Preserved research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json)
-
-The complete graph-error diagnostic adds53,112 descriptive rows. In a fixed common-mistake population, shared members show more unanimous agreement around adjacent same-class nodes than matched nonneighbors; the pooled wrong-class recurrence contrast is mixed and lower on average than independent four. This supports examining corrective member information but does not establish a shared-specific graph cause. Every primary control and support cell is retained, with an independent interpretation check. Two saved graph-training adaptations have strong precedents and no current novelty or compute admission.
-
-- [Graph-conditioned complete diagnostic](experiments_iclr/postsubmission_20260930/amazon_valid_graph_error_recurrence_root_interpretation_20261005_v2/REPORT.md)
-- [Diagnostic interpretation review](experiments_iclr/postsubmission_20260930/amazon_valid_graph_error_recurrence_interpretation_independent_review_20261005_v1/REPORT.md)
-- [Two attributed conditional training hypotheses](experiments_iclr/postsubmission_20260930/amazon_graph_correlated_error_training_synthesis_20261005_v1/REPORT.md)
-- [Prospective allocation replication](experiments_iclr/postsubmission_20260930/shared_private_transfer_allocation_replication_preparation_20261005_v2/REPORT.md)
-
-A concrete error-informed training candidate now measures which private member can learn a class-competitor correction, allocates additional supervision with fixed balanced graph responsibilities, and gives the shared core credit through that finite response. All members retain ordinary own-label supervision and serving averages probabilities. Close meta-weighting/MCL/graph-regularization precedents prevent a novelty claim. Its repaired source passes a small CPU derivative fixture; the fixed TRAIN-only six-arm protocol, native path qualification and eventual quality comparisons remain separate.
-
-- [Error analysis to intervention](experiments_iclr/postsubmission_20260930/ERROR_ANALYSIS_TO_METHODS_20261005.md)
-- [Complete PENCIL reference](experiments_iclr/postsubmission_20260930/pencil_citeseer_native300_complete_family_collection_root_20261005_v1/REPORT.md)
-- [Finite operator specification](experiments_iclr/postsubmission_20260930/learnability_weighted_graph_responsibility_operator_20261005_v1/REPORT.md)
-- [Repaired disabled operator](experiments_iclr/postsubmission_20260930/learnability_weighted_graph_responsibility_operator_20261005_v2/response_operator.py)
-- [CPU engineering check and failures](experiments_iclr/postsubmission_20260930/learnability_responsibility_math_qualification_root_20261005_v3/REPORT.md)
-- [Fixed TRAIN-only qualification protocol](experiments_iclr/postsubmission_20260930/amazon_learnability_responsibility_train_response_protocol_20261005_v1/PROTOCOL.md)
+[Current decisions and evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [prediction-error analysis](experiments_iclr/postsubmission_20260930/ERROR_ANALYSIS_TO_METHODS_20261005.md), [local implementation qualification](experiments_iclr/postsubmission_20260930/learnability_responsibility_native_synthetic_execution_root_20261005_v2/REPORT.md), [actual full-resource failure](experiments_iclr/postsubmission_20260930/learnability_responsibility_native_full_execution_root_20261005_v1/REPORT.md), and [saved reading scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v1.json) preserve results, costs, unsuccessful directions and limits. Reading records are scoped passages, not inflated full-paper counts. Manuscript acceptance remains an unmet objective.
 
 ## Corrective-learning engineering update
 
