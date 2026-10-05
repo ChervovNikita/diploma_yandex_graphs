@@ -1,0 +1,7 @@
+# Actual first-order utility synthetic qualification
+
+CPU float64 synthetic qualification passed. The independent per-item private-gradient-dot monolithic reference and the sequential utility implementation agree across all shared/private gradient coordinates, signed costs, normalized assignments, coupled query/Q credit, virtual adaptation and original-phi commitment. Maximum shared-gradient error 6.07e-18; private-gradient error 2.17e-19. Both-factor controls, the separate analytic zero-gradient product-rule case, fixed smooth directional finite differences, dormant-coordinate checks and restoration passed.
+
+Actual elapsed 8.278s; peak RSS 460,636,160B. Candidate40 callbacks/63 ordinary autograd API attempts, comprising52 native reverse constructions under the declared convention; all reference/control/FD work and time are included separately in the result. CUDA remained uninitialized. Original false source gates and scientific six-arm/5740 bill were unchanged.
+
+This is a smooth15-node algebraic mathematical fixture, not a graph dataset experiment or native architecture/resource qualification. Native reverse-over-reverse support, complete FP32 context/recommit/resource checks, and a separately admitted representative comparison remain required before utility fitting. No labels, model fits, persistent updates or A/VALID/TEST scoring occurred. It establishes no cheaper-memory, equal-cost, Hessian-free, novelty or accuracy result. Authenticated raw result/terminal/launch receipts are in this folder.

@@ -8,9 +8,9 @@ Saved Amazon development predictions show slightly weaker members, limited pooli
 
 The exact sequential implementation matches the all-six synthetic reference. Strict full-native all-six episodes and independent original-phi recommits now pass at the unchanged tolerances, with zero observed numerical discrepancies. Peak CUDA allocation is37.423GB/reservation39.865GB. This is implementation/resource evidence at the tested initial state. Prior numerical and memory failures remain preserved.
 
-The first fixed scientific launch failed before any forward/update because Torch2.1.2 lacks its construction default-device observer. The minimal equivalent compatibility successor is reviewed and actually training7/400 common updates at23:46UTC, preserving the method, settings and original failure. No corrective accuracy result is available. A first-order utility comparison is implemented and source-reviewed; numerical qualification and competent ordinary/capable/independent references remain required.
+The first fixed scientific launch failed before any forward/update because Torch2.1.2 lacks its construction default-device observer. The minimal equivalent compatibility successor is reviewed and actually training86/400 common updates at23:54UTC, preserving the method, settings and original failure. No corrective accuracy result is available. A first-order utility comparison is implemented and source-reviewed; actual CPU float64 synthetic parity passed, while native qualification and competent ordinary/capable/independent references remain required.
 
-Private-transfer has28/39 selected fits complete at23:30UTC, with the sixth b2 cell running. Complete cohort custody precedes scoring. The authorized allocation is training. The user restored77 access; known MacLink/two-GPU verification is pending. Wrong-allocation evidence stays excluded and the seven-GPU route is forwarding relay only.
+Private-transfer has29/39 selected fits complete at23:54UTC, with the seventh b2 cell running. Complete cohort custody precedes scoring. The authorized allocation is training. The user restored77 access; paired relay/controller are ready but the other Mac listener is offline; target/two-GPU verification is pending. Wrong-allocation evidence stays excluded and the seven-GPU route is forwarding relay only.
 
 - [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
 - [Errors and corrective outcome definitions](experiments_iclr/postsubmission_20260930/amazon_error_analysis_corrective_method_decision_note_20261006_v1/REPORT.md)
@@ -18,7 +18,7 @@ Private-transfer has28/39 selected fits complete at23:30UTC, with the sixth b2 c
 - [Preserved zero-update compatibility failure](experiments_iclr/postsubmission_20260930/amazon_learnability_responsibility_strict_scientific_execution_root_20261006_v1/REPORT.md)
 - [First-order utility source review](experiments_iclr/postsubmission_20260930/matched_first_order_private_gradient_utility_control_independent_source_review_20261006_v1/REPORT.md)
 - [Comparison obligations and scoped reading](experiments_iclr/postsubmission_20260930/shared_backbone_confident_error_learning_response_decision_20261006_v1/REPORT.md)
-- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v3.json)
+- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v4.json)
 
 ## Original method
 
