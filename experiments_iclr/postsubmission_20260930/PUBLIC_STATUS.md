@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated: 2026-10-05T21:15:16.244509+00:00. Goal active and unmet. Original five-dataset manuscript scores remain unchanged. No new method has established both predictive superiority and novelty; no fresh manuscript acceptance verdict exists.
+Updated: 2026-10-05T22:31:38.460009+00:00. Goal active and unmet. Original five-dataset manuscript scores remain unchanged. No new method has established both predictive superiority and novelty; no fresh manuscript acceptance verdict exists.
 
 ## Prediction errors determine the intervention
 
@@ -12,15 +12,17 @@ The next corrective-learning hypothesis assigns extra class-competitor supervisi
 
 ## Implementation and memory
 
-The original full-native synthetic coarse derivative check remains failed. The same-state diagnosis and reviewed local V2 successor pass two-sided fine-scale derivatives, stopped/fixed-Q parity, inactive tangent, complete public episode, independent original-phi recompute and native restoration. Actual local worker cost is 32.981 seconds/5,012,553,728B RSS. This is local synthetic engineering evidence only. [Local qualification](learnability_responsibility_native_synthetic_execution_root_20261005_v2/REPORT.md).
+The original coarse derivative failure and full-graph CUDA OOM remain preserved. The exact sequential ordinary-autograd implementation passed independent source review and a synthetic comparison with the monolithic reference across all six controls and every shared/private gradient coordinate. Maximum shared-gradient difference is 8.22e-15; synthetic worker cost90.435 seconds. This is synthetic implementation evidence, without a predictive claim.
 
-After repairing full-mode source-root resolution, the complete 24,492-node float32 graph check failed CUDA OOM during an own-CE probe gradient. Worker 7.866 seconds; peak allocation 80,001,296,896B. The episode did not complete. An exact memberwise VJP/recomputation implementation and independent algebra/cost assessment are being prepared. It must match the monolithic oracle and pass an actual full-resource run; the original 5100 member-forward budget will require a prospective amendment. No candidate fit is admitted. [Failure and next check](learnability_responsibility_native_full_execution_root_20261005_v1/REPORT.md).
+One complete cold-state LIVE episode on the unchanged24,492-node float32 native graph completed in20.179 worker seconds. Peak CUDA allocation was29,669,022,208B, compared with80,001,296,896B at the retained monolithic failure. Finite objective/state, positive feasible assignment, inactive coordinates and restoration passed; returned states were discarded. This establishes feasibility of one episode. The subsequent all-six FP32 qualification failed during the first LIVE diagnostic recommit comparison: max abs discrepancy1.5035e-5 at the fixed2e-6/2e-5 tolerance. Its private-state comparison returned first; restoration passed. Worker22.854 seconds/29.669GB allocation; no subsequent arm or fit ran. A bounded same-state repeat diagnostic is being prepared without relaxing the failed tolerance. All-six qualification and repaired scientific-source review remain required before fitting. [Actual resource evidence](learnability_responsibility_sequential_full_execution_root_20261006_v1/REPORT.md).
+
+The fixed scientific budget is prospectively5740 native member forwards:1600 warmup,4096 correction,16 warm diagnostic and28 serving. Old5100 estimate and all engineering/failure costs remain separate and retained. The disabled six-arm scientific successor awaits qualification and review; no corrective fit or A scoring has started.
 
 ## Controlled training and access
 
 Only anogena-2.ai0001053-01174:2222, host anogena-2-0 and sole GPU-44039938-fd82-41d2-fefd-de71514e2fac are accessed. 18.77/MacLink remains withdrawn. Wrong-allocation evidence remains excluded.
 
-Private-transfer original allocation b0 main10 and F1 companions3 completed. Its prospective26-fit allocation replication is active. At 21:13:16 UTC, mainb1 PID470117/start6003585737 matches its exact argv/cwd, seven of ten cells complete and eighth at cycle15/60. Mainb2 and both F1 queues follow genuine predecessors. Complete39 custody precedes histories/scoring; old77 attempts and unknown final costs/status remain preserved. A failed observation never authorizes a restart.
+Private-transfer original allocation b0 main10 and F1 companions3 completed. Allocation replication b1 main10 also completed without failures; its owned process is absent. At22:21:19UTC, b2 has2/10 complete and its third cell is at cycle22/60, exact PID475237/start6004626612, matching argv/cwd. Thus25/39 fixed selected fits are complete. Both F1 queues follow genuine predecessors. Complete39 custody precedes histories/scoring; old77 attempts and unknown final costs/status remain preserved. Observation failures never authorize restart.
 
 PENCIL native300 completed3/3: selected VALID MRR0.185108081 mean/0.006302265 sample SD. It trails the saved NCN references on this descriptive same-data comparison; schedules/selectors differ and TEST remains closed. Original Amazon, BUDDY and other completed findings and unsuccessful directions remain in their reports and the ledger.
 
@@ -28,4 +30,4 @@ PENCIL native300 completed3/3: selected VALID MRR0.185108081 mean/0.006302265 sa
 
 Index72 remains260 scoped records/207 paper identities/two software identities, not full-paper counts. Consult [active supplements](literature_memory/ACTIVE_SUPPLEMENTS_20261006_v1.json) and new reports before rereading. The new two-lead closure recovered an official DERG abstract, without primary methods/code; both exact-method overlaps remain unresolved. The finite-SGD theory report supports local continuation and does not replace a numerical check or clear novelty.
 
-Latest verified GitHub head before this update: ffa20e3f856dee8a50259b8303b4314684fa6b3e. Newly completed local qualification, full OOM, source repairs, prior conclusions and decisions await the next explicit inventory publication. Previous canonical bytes are preserved in coordination_snapshots/20261005_local_derivative_and_full_memory_failure_before_state_v1 and Git history. A fresh anonymous skill-based paper review follows supported scientific evidence, with no requested verdict or author history.
+Latest verified GitHub head: cc943f2c786991788d02edf1883ad4a9d7139330. This sequential implementation, actual parity/resource evidence, fixed compute amendment and queue advance await the next explicit inventory publication. A bounded additional DERG access closure found no primary method/code; novelty overlap remains unresolved. Read index72 and active supplements before repeating a search. Fresh anonymous skill-based manuscript review follows supported scientific evidence without a requested verdict; acceptance remains unmet.

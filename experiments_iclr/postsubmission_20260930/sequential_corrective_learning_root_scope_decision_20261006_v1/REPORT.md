@@ -1,0 +1,7 @@
+# Error-led correction and engineering scope
+
+The descriptive development diagnosis points to weaker shared members and little pooling benefit, with confident common errors. It does not prove that sharing or graph propagation causes the errors. The proposed test allocates additional class-competitor supervision by measured private-learning response, and lets disjoint training-query labels guide the shared core. Ordinary own-CE remains present for every member.
+
+Root adopts a600-second all-control synthetic comparison and a first one-live-episode900-second full resource gate. These choices are prospective. The complementary180-second/full-six/oracle-call blueprint is retained as a proposal; its301M synthetic ledger is not claimed as the root worker's actual bill. Actual successful candidate counters and whole-process time/RSS/CUDA peaks are retained. All six full-context float32 controls still need a separate fixed qualification before scientific fitting. No prior limit, failure, score or source is overwritten.
+
+An implementation pass supplies no prediction or novelty evidence. The six fixed predictive arms must complete before held-label scoring. A positive screen must then survive competent ordinary training with the same labels, independent ensembles and capable single references. The first-order learning-utility control is required to isolate finite-response value. Disagreement, balanced responsibilities and lower conditional unanimity do not establish improved predictive quality.

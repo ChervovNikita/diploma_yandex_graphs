@@ -1,0 +1,22 @@
+# Independent sequential engineering qualifier V2 source review
+
+**PASS for the scoped engineering qualifier source; no remaining concrete blocker identified.** This is static review only. No prepared source imports/execution, SSH, other host access, data/result payload reads, fits or additional agents occurred. The reviewer did not author/edit the root qualifier; the reviewer authored its separately reviewed candidate implementation.
+
+## Preserved defect and verified repair
+
+V1 worker `ecbfaa6067e1d32451e5761531e3cb87629a9ee47db37327c9405d7dfb818399` recorded `virtual_query_loss_finite` without rejecting a nonfinite objective. This could admit a full resource pass with finite output states and an invalid objective. V1 remains preserved; root reports it was unexecuted.
+
+V2 worker `3fdf78eaabb73868510f38dbf5de88e976364c0f03996d5325f23e3bd10dc5ae`, manifest `02b25b0179277445dcba9c12363ef9e0e102d6b6b5fd83f26bdfd22668da3d82`, adds exactly twelve validation lines inside `resource_episode` at line162. Removing that block reproduces every V1 source byte. It now rejects nonfinite virtual loss, nonfinite diagnostic/probe-CE values, nonfinite/nonpositive assignments, and row/column residuals above the original absolute FP32 limits3e-6/2e-3. Every other function AST is identical. Both root manifests/payload sizes/hashes and readonly modes were verified.
+
+## Remaining scope checked
+
+- **Native synthetic state:** original hash-bound V3 builder and port bind the full width512, ten-local/one-global, four-member global/eval model. CPU float64,15 nodes, seeds106005/126005,300 features, original reciprocal support/loops, S/R algebraic targets and within-class permutation remain fixed.
+- **All six comparisons:** LIVE, uniform, margins, graph-free, supplied permuted pairs and stop-Q each compare every shared and original-phi outer gradient coordinate against the immutable monolithic oracle. Fixed finite-value, structure, value and gradient tolerances remain unchanged.
+- **Value/state coverage:** virtual private states, all raw costs/Q, probe/main private partials, query logits/loss and original diagnostics are compared. The original public monolithic episode is called under its temporary process gate and restored in `finally`; theta+, committed private states and every original committed diagnostic are compared. A separate original-phi recomputation and committed raw/probe/main comparisons exclude committing a cached virtual row. Committed Q is covered by the original assignment diagnostics comparison.
+- **Direction/credit/unused:** the inherited same-state fine-step FD, stopped-Q versus independent fixed-Q derivative and unused-tangent checks remain present. The FD call is the original reference check; the candidate is tied to that reference by complete gradient comparisons. This is not a full-graph FD claim.
+- **Counters and cleanup:** each synthetic candidate episode checks the fixed attempted-call totals and an independent native callback count. Successful per-control results retain counts; the current attempted counter snapshot is recorded before success/failure cleanup. Native/input/RNG restoration, caller input values/requires-grad flags and source/process gates are checked on exit. A restoration failure fails the worker; a primary failure remains visible in the chained traceback.
+- **Full-mode binding:** an exact supplied SHA binds the passed synthetic receipt, whose status and candidate pin must match. The source-reviewed enabled accessor is loaded by its exact supplied SHA and called with PHASE, preserving the corrected artifact/helper root. Root must supply the reviewed existing accessor9360e697… and frozen existing public+B projection. Existing roles/counts, A exclusion, full FP32 context, seed17 and safe-reader API are retained; this worker creates no new projection.
+
+## Limits
+
+Actual synthetic parity/restoration results are required before the one LIVE full-graph resource episode. Full mode retains no engineering inspection, checks objective/diagnostics/assignment/state validity, and reports whole-process time/RSS/CUDA peaks with the candidate counters. That memory gate qualifies neither every full-FP32 control nor full-graph FD or fitting. The separate full-six specification remains pending that gate. No numerical, memory, predictive, novelty or scientific-release conclusion follows from this source review. Original coarse/engine failure evidence remains preserved.

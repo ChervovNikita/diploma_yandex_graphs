@@ -41,3 +41,9 @@ Evidence: `amazon_polynormer_valid_error_analysis_root_interpretation_20261005_v
 ## Native implementation continuation
 
 The original coarse numerical check remains a failure. The same-state diagnosis and separately reviewed V2 continuation establish local two-sided derivative agreement at smaller fixed displacements, exact stopped/fixed-responsibility parity, complete public-episode recomputation and native restoration. These are implementation checks, with no predictive result. Actual full-graph memory/time and float32 qualification are still required. The ordinary supervised terms anchor member learning; they do not guarantee that members remain equally accurate. [Complete local check](learnability_responsibility_native_synthetic_execution_root_20261005_v2/REPORT.md).
+
+## Exact sequential execution evidence
+
+A separately reviewed memberwise ordinary-autograd schedule matches the monolithic synthetic reference in every shared/private coordinate across all six controls. One complete full-native FP32 LIVE episode now passes, with29.669GB peak CUDA allocation and20.179 worker seconds. Original failures are preserved. All-six full-FP32 independent original-phi recommit checks and scientific source review still precede fitting. These engineering results remove an observed memory blocker for one episode; they do not show error reduction or accuracy improvement. The prospective scientific schedule now totals5740 native member forwards, with failure/engineering costs separately recorded.
+
+The actual all-six full-FP32 successor failed at the first LIVE committed-diagnostic comparison (maxabs1.5035e-5 under original2e-6/2e-5 tolerances), after the private-state comparison returned. Restoration passed; no fit or subsequent control ran. Same-state repeated-response diagnosis is required before all-six qualification. No tolerance relaxation or predictive claim is admitted by this failure.

@@ -2,29 +2,22 @@
 
 ## Current research — 6 October 2026
 
-We are developing a shared graph ensemble that improves prediction quality over competent single models and independently trained ensembles. Original five-dataset paper scores remain unchanged. No new method has established confirmed superiority and novelty.
+Our target is better predictions from a shared graph ensemble. Original five-dataset paper scores remain unchanged. No new method has established predictive superiority and methodological novelty; manuscript acceptance remains unmet.
 
-Complete Amazon validation prediction analysis finds slightly weaker shared members and less benefit from averaging. All four members are wrong on 93.60% of shared pooled errors, versus 74.86% for independent ensembles; shared wrong predictions are also more confident. These are reused development predictions, not causal evidence or heldout confirmation. The fixed learned-aggregation screen fails against equally processed strong references.
+The completed Amazon validation analysis identifies common mistakes as a concrete weakness. All four shared members are wrong on 93.60% of pooled errors, versus 74.86% for independent ensembles. Averaging adds 0.16 versus 0.59 accuracy points. These reused development predictions guide the next hypothesis; they do not prove that parameter sharing causes the errors. The fixed learned-aggregation comparison did not improve over equally processed competent references.
 
-The next hypothesis changes training: assign extra class-competitor supervision according to each member's measured private learning response, retain ordinary supervised losses, and learn the shared backbone from separate training-query losses. The method is an attributed composition requiring controlled comparisons; it has no predictive result or novelty clearance. The exact fixed graph-conditioned operator passes complete local synthetic derivative/update/recompute checks. Its actual full-graph higher-order check fails CUDA OOM on the80GB allocation. Exact sequential VJP/recomputation is being prepared to preserve the same learning rule with fewer simultaneous native graphs. Numerical parity, measured resources and an amended operation budget are required before fitting.
+We are testing a training intervention that keeps each member's supervised loss and allocates extra class-competitor supervision according to measured private learning response. Separate permitted training-query labels guide the shared core. Graph-balanced assignments, fixed ablations and mean-probability serving are prospectively specified. First-order utility, competent single models and independent ensembles remain necessary comparisons. The idea has close specialist-learning and meta-reweighting antecedents; novelty is unresolved.
 
-The separate fixed private-transfer replication continues on the authorized one-GPU allocation. Its current block is7/10 complete at21:13UTC. Full39 custody precedes scientific scoring; unknown prior77 attempts/costs remain preserved.77/MacLink access is withdrawn. Original PENCIL native300 completed3/3 and trails the saved NCN references on selected validation MRR with different native schedules; TEST remains closed.
+The exact sequential implementation matches the complete monolithic synthetic reference across all six controls and gradient coordinates. One complete native 24,492-node FP32 episode fits at 29.7 GB peak CUDA allocation, resolving the observed memory issue for that cold-state episode. However, the required all-six full-FP32 qualification subsequently failed in first-arm repeated assignment diagnostics. The original fixed tolerance is retained while same-state numerical variation and implementation error are investigated. No corrective-learning fit has started. All failures and measured costs are preserved.
 
-[Current decisions and evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [prediction-error analysis](experiments_iclr/postsubmission_20260930/ERROR_ANALYSIS_TO_METHODS_20261005.md), [local implementation qualification](experiments_iclr/postsubmission_20260930/learnability_responsibility_native_synthetic_execution_root_20261005_v2/REPORT.md), [actual full-resource failure](experiments_iclr/postsubmission_20260930/learnability_responsibility_native_full_execution_root_20261005_v1/REPORT.md), and [saved reading scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v1.json) preserve results, costs, unsuccessful directions and limits. Reading records are scoped passages, not inflated full-paper counts. Manuscript acceptance remains an unmet objective.
+A separate prospectively fixed private-transfer experiment has 25 of 39 selected fits complete as of 22:21 UTC, with the next cell running on the authorized one-GPU allocation. Complete custody precedes scoring. 18.77/MacLink access remains withdrawn and wrong-allocation evidence remains excluded.
 
-## Corrective-learning engineering update
-
-The new candidate remains untrained. Full-native synthetic callback/first-gradient and sparse/dense checks passed, but the fixed shared finite-difference check failed. An independent ordinary-autograd construction matches every shared derivative at that same state; asymmetric finite differences remain unresolved. The original failure, sources, costs and diagnostic are preserved. This is engineering evidence, not a predictive result or native gate clearance.
-
-The separately reviewed W/S/R protocol warms on W only; support S and outer R first enter learning after the common state is frozen. Custodial decoding of the joint TRAIN label artifact, including A, is disclosed. A stays excluded from fitting and selection. V2 omitted the native self-loop preprocessing; a preserved, independently reviewed V3 successor restores the exact original recipe. It does not release training or modify the six controls, H16, scoring or original paper scores.
-
-Three new bounded primary methods (Gradient-Aligned Routing, graph Routing-by-Memory and Hellsemble) supply close assignment/specialization precedents. A same-rule first-order gradient-utility cost comparison is required before attributing a future benefit to finite-response terms. Novelty and predictive superiority remain unestablished.
-
-- [Native failure and independent derivative diagnosis](experiments_iclr/postsubmission_20260930/native_directional_mismatch_diagnostic_root_20261005_v1/REPORT.md)
-- [Prospective W/S/R decision](experiments_iclr/postsubmission_20260930/CORRECTIVE_LEARNING_PREFIT_DECISION_20261005.md)
-- [Reviewed native graph repair](experiments_iclr/postsubmission_20260930/learnability_responsibility_wsr_v3_edge_delta_engineering_interpretation_20261005_v1/REPORT.md)
-- [Recent prior methods and missing comparison](experiments_iclr/postsubmission_20260930/finite_private_response_recent_prior_challenge_20261005_v1/REPORT.md)
-- [Scoped literature supplements V6](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261005_v6.json)
+- [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
+- [Prediction errors and proposed corrections](experiments_iclr/postsubmission_20260930/ERROR_ANALYSIS_TO_METHODS_20261005.md)
+- [Exact synthetic parity](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_synthetic_execution_root_20261006_v1/REPORT.md)
+- [Actual full-graph resource pass](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_full_execution_root_20261006_v1/REPORT.md)
+- [Unresolved full-FP32 diagnostic failure](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_full_six_execution_root_20261006_v1/REPORT.md)
+- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v2.json)
 
 ## Original method
 
