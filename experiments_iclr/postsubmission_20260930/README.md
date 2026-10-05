@@ -1,22 +1,22 @@
 # GNNM post-submission research
 
-This branch tests whether shared graph ensembles can produce a supported predictive and methodological improvement. Original five-dataset paper scores remain unchanged.
+The objective is better predictive accuracy from a learnable graph ensemble with a shared backbone. No new method has yet demonstrated both superiority over strong single and independent ensembles and methodological novelty. Original five-dataset paper scores remain unchanged.
 
-The active quality hypothesis trains the shared backbone through its members' private learning on endpoint-conditioned TRAIN links. A fixed30-fit paired pilot is running on the authorized singleton and both18.77 GPUs. Closest meta-learning priors limit novelty; benefits over strong singles and independent ensembles are not established. A source audit identified a single-model parameter-role confound. The separate matched nine-fit companion passed both provider implementation checks and three complete TRAIN cost cycles; launch adapters are being finalized before training. Original scores and unsuccessful research history remain preserved.
+Work currently uses only the authorized one-GPU allocation. The user temporarily withdrew 18.77 access; its detached jobs remain untouched and unobserved. The fixed 30-fit private-learning pilot remains unchanged. A separately frozen matched-single block launched on the allocation to test whether four private learners offer a benefit beyond one learner with the same parameter roles and four input streams. Six further companion fits remain unreleased until access returns. Progress is not an accuracy result.
 
-- [Literature-to-design decisions and decisive controls](quality_literature_to_design_triage_20261005_v1/REPORT.md)
-- [Single-model partition caveat and matched companion](shared_private_transfer_member_count_partition_audit_20261005_v1/REPORT.md)
-- [Current measured results and exact runtime status](PUBLIC_STATUS.md)
-- [Current plan and acceptance requirements](RESEARCH_STATE.md)
-- [Decisions, failed hypotheses and full history](research_ledger.json)
-- [Complete new pattern-supervision pair](graph_ncNC_structural_pattern_execution_root_20261004_v5/complete_pair_analysis/run01/REPORT.md)
-- [Pattern-pilot interpretation](ncnc_complete_pattern_pilot_scientific_interpretation_20261004_v1/REPORT.md)
-- [Direct PIFM prior and comparator scope](joint_completion_shared_bank_closest_prior_scout_20261004_v1/REPORT.md)
-- [Complete NCNC development results](ncnc_complete_family_saved_VALID_summary_20261004_v1/RESULTS_SUMMARY.md)
-- [Complete BUDDY heldout analysis](buddy_paired_analysis_execution_20261004_v1/report/REPORT.md)
-- [Canonical scoped literature memory](literature_memory/index_v63/LITERATURE_INDEX.json)
-- [New structured-single control proposals](ncnc_structured_single_control_source_proposal_20261004_v1/MEMO.md)
-- [Verified Pubmed feature equivalence](pubmed_planetoid_raw_feature_equivalence_execution_root_20261004_v1/RESULTS_SUMMARY.md)
-- [Previous README and status history](status_history/20261004_0047_before_current_consolidation/README.md)
+The active rule trains the shared representation through private learning on other graph endpoints. Meta-learning and persistent graph-learning precedents constrain its novelty. Complete comparisons and fixed mechanism diagnostics will test prediction quality, complementary errors and actual learning credit. No favorable incomplete subset will replace the frozen cohort.
 
-All comparison families retain fixed protocols, complete cohorts, actual failed attempts and provenance. Raw data/checkpoints stay on their authorized servers. Source qualification and engineering success do not establish predictive superiority, methodological novelty or acceptance.
+- [Current measured results and runtime status](PUBLIC_STATUS.md)
+- [Current plan and requirements](RESEARCH_STATE.md)
+- [Preserved decisions, failures and history](research_ledger.json)
+- [Literature-to-design decisions and controls](quality_literature_to_design_triage_20261005_v1/REPORT.md)
+- [Single-control caveat](shared_private_transfer_member_count_partition_audit_20261005_v1/REPORT.md)
+- [Actual matched-single launch review](shared_private_transfer_row0_companion_root_release_20261005_v1/ROOT_REVIEW.md)
+- [Five prospective mechanism diagnostics](shared_private_transfer_fixed30_plus9_mechanism_analysis_plan_20261005_v1/REPORT.md)
+- [Canonical scoped literature memory](literature_memory/index_v64/LITERATURE_INDEX.json)
+- [Persistent graph sharing prior conclusions](persistent_graph_private_learning_credit_followup_20261005_v1/REPORT.md)
+- [Complete Citeseer development comparison](citeseer_frame_complete_root_adoption_20261005_v1/REPORT.md)
+- [Complete Collab heldout comparison](ncnc_frozen_all25_heldout_root_adoption_20261004_v1/RESULTS_SUMMARY.md)
+- [Earlier README](coordination_snapshots/20261005_allocation_only_companion_launch_and_literature64_v1/BEFORE_README.md)
+
+Raw data and checkpoints remain on their authorized servers. Source qualification and engineering progress do not establish scientific superiority or an acceptance verdict.

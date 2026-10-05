@@ -1,3 +1,15 @@
+# Research update: 5 October 2026, allocation only
+
+The user temporarily withdrew 18.77 access. Research now uses only the authorized one-GPU allocation; no 18.77 or MacLink contact is permitted until human restoration. Its detached jobs remain untouched and unobserved.
+
+The original private-learning pilot continues unchanged. A separate matched-single block launched once on the allocation at 08:43:11 UTC. The latest exact owned-process observations find both queues and their current control fits live with no recorded failure. The full scientific cohort remains 30 original fits plus nine companions; six companion fits are unreleased while access is withdrawn. Complete-family comparisons remain pending.
+
+Five prospective diagnostics will measure quality, complementary errors, graph exposure, separate Adam responses and the actual effect of differentiating through private learning. They do not change selection or promotion. Literature memory v64 preserves 241 scoped conclusions across 189 paper groups; these are not full-paper reading counts. Nearby meta-learning and graph-sharing methods constrain novelty. No new method has established superiority or an acceptance verdict, and original manuscript scores remain unchanged.
+
+Amazon has 12 of 15 fits complete. PENCIL's first native 300-epoch fit completed with exit 0; its second is running. Scores remain closed until complete-family authentication. See [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [analysis plan](experiments_iclr/postsubmission_20260930/shared_private_transfer_fixed30_plus9_mechanism_analysis_plan_20261005_v1/REPORT.md) and [preserved decisions](experiments_iclr/postsubmission_20260930/research_ledger.json).
+
+## Preserved preceding README and updates
+
 # Research update: 5 October 2026, 08:10 UTC
 
 The objective is a shared graph ensemble that predicts better than capable single models and ordinary independently trained ensembles. No new method has yet demonstrated both superiority and methodological novelty. Original paper scores are unchanged.

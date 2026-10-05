@@ -1,19 +1,3 @@
-# Current state: allocation-only research
-
-Updated: 2026-10-05T09:05:59.922775+00:00. The goal remains active and unmet; original manuscript scores are unchanged. [Current scientific and runtime status](PUBLIC_STATUS.md).
-
-1. Access to 18.77 and MacLink is withdrawn until explicit human restoration. Existing detached jobs remain untouched and unobserved.
-2. The original singleton pilot is running, with 2 of 10 fits complete at the latest owned-process observation. The separate matched-single b0 block launched once at 08:43:11 UTC; its first control is running. Original 30 and full nine companion designs remain fixed. Six companion fits assigned to 18.77 remain unreleased.
-3. No new predictive superiority or methodological novelty is established. Prior meta-learning and persistent graph learning constrain the active endpoint-conditioned private-learning hypothesis.
-4. Literature index v64 is adopted: 241 scoped conclusions, 189 paper groups, two software groups. Prior records and exact read scopes are preserved; these counts do not certify full-paper reading.
-5. Five prospective mechanism diagnostics are saved. They wait for authenticated full-39 release and do not alter checkpoint selection or promotion. Discarded TRAIN probes require their own reviewed execution release under the user's existing research authorization.
-6. Amazon has 12 of 15 fits complete. The first PENCIL native 300-epoch fit completed with exit 0; the second is running. Scores stay closed until complete-family authentication.
-7. Next: finish the allocation blocks, continue focused literature-to-method analysis, and publish compact source and decisions. Comparisons depending on 18.77 wait for restored access; do not substitute incomplete results. A surviving lead requires fresh-task confirmation and strong single/independent baselines before manuscript novelty or superiority claims and fresh review.
-
-## Retained earlier state and decisions
-
-Entries below are historical. This current summary supersedes their runtime and access descriptions. All prior ledger values remain preserved.
-
 # Current access restriction: allocation only
 
 The human temporarily withdrew18.77 access on5October2026. Until explicit restoration, scientific execution and monitoring use the authorized singleton only. No18.77/MacLink contact, fetch, launch, stop or cleanup. Existing detached jobs stay untouched and are unobserved after withdrawal, not terminal. The original30 and full9 matched-control scientific designs remain fixed; only b0 threecompanion jobs may release.
