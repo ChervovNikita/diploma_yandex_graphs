@@ -1,3 +1,15 @@
+# Research update: 5 October 2026, 08:10 UTC
+
+The objective is a shared graph ensemble that predicts better than capable single models and ordinary independently trained ensembles. No new method has yet demonstrated both superiority and methodological novelty. Original paper scores are unchanged.
+
+The current learning rule trains shared features through the private members' learning steps on other graph endpoints. Its fixed30-fit study is running on all three authorized GPUs. Fresh owned-process observations find5/30 operationally complete, all queues and current children live, no failures and no comparative score access. Closest meta-learning and graph-training priors limit novelty. [Literature-to-design synthesis](experiments_iclr/postsubmission_20260930/quality_literature_to_design_triage_20261005_v1/REPORT.md).
+
+A source audit found that the first capable-single control changed which parameters learn privately. A separate matched single preserves the four-member model's parameter roles and four inner streams. Both actual provider implementation checks and three complete TRAIN cost cycles passed. The nine companion fits remain unreleased while final launch adapters are independently reviewed. These checks establish implementation and cost, not accuracy. [Control audit](experiments_iclr/postsubmission_20260930/shared_private_transfer_member_count_partition_audit_20261005_v1/REPORT.md). [Companion design and queues](experiments_iclr/postsubmission_20260930/shared_private_transfer_row0_companion_queue_preparation_20261005_v1/REPORT.md).
+
+Amazon/Polynormer has12/15 operationally complete; the PENCIL comparator is at seed0 epoch259. Outcomes remain closed until each full family is authenticated. [Current status, completed evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). [Preserved decisions/history](experiments_iclr/postsubmission_20260930/research_ledger.json).
+
+## Preserved preceding README and updates
+
 # GNNM: shared propagation in graph ensembles
 
 ### Research update: 5 October 2026, 09:04 Moscow / 06:04 UTC

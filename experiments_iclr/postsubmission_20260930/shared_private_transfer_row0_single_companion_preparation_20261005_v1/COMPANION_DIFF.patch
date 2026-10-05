@@ -1,0 +1,367 @@
+--- shared_backbone_private_transfer_training_source_20261005_v2/models.py
++++ shared_private_transfer_row0_single_companion_preparation_20261005_v1/models.py
+@@ -4,7 +4,7 @@
+ The donor head source is unchanged; no Householder or new graph operator.
+ """
+ 
+-ARMS = ("shared_f4", "capable_single", "untied4", "ordinary_native4")
++ARMS = ("shared_f4", "capable_single", "untied4", "ordinary_native4", "row0_single")
+ 
+ 
+ def build(native, donor_heads, *, arm, seed, factor_seed, device):
+@@ -105,6 +105,11 @@
+         if arm == "shared_f4":
+             model = Shared(encoder(), bank())
+             private_ids = private_bank_ids(model.predictor)
++        elif arm == "row0_single":
++            model = Single(encoder(), select_bank_route(bank(), 0))
++            model.private_four_streams = True
++            model.initial_reference_member = 0
++            private_ids = private_bank_ids(model.predictor)
+         elif arm == "capable_single":
+             model = Single(encoder(), native_single(), native_head=True)
+             # Entire nonlinear native predictor adapts, not an artificially
+@@ -138,6 +143,8 @@
+         raise ValueError("Unchanged unframed F4 parameter partition differs")
+     if arm == "untied4" and (sum(names[n].numel() for n in shared), sum(names[n].numel() for n in private)) != (4*1409026, 25608):
+         raise ValueError("Same-operation untied4 parameter partition differs")
++    if arm == "row0_single" and (sum(names[n].numel() for n in shared), sum(names[n].numel() for n in private)) != (1409026, 6402):
++        raise ValueError("Fixed row0 same-operation parameter partition differs")
+     if arm == "capable_single" and any(name.startswith("predictor.") for name in shared):
+         raise ValueError("Capable nonlinear predictor must be fully privately adaptable")
+     for module in model.modules():
+@@ -155,4 +162,7 @@
+     partition["initialization"] = ("identical_initial_shared_encoder_and_base_matrices_per_route; corresponding_F4_private_rows"
+                                    if arm == "untied4" else "independent_seed_plus5member" if arm == "ordinary_native4"
+                                    else "native_seed_and_explicit_F4_factor_seed")
++    if arm == "row0_single":
++        partition.update(initialization="exact_original_F4_row0_after_full_bank_construction",
++            initial_parity_target="F4_route0_not_pooled_logits", private_inner_operation="four_fixed_stream_forwards_mean_own_loss_one_Adam_commit")
+     return model, shared, private, partition
+--- shared_backbone_private_transfer_training_source_20261005_v2/transfer_step.py
++++ shared_private_transfer_row0_single_companion_preparation_20261005_v1/transfer_step.py
+@@ -80,11 +80,15 @@
+     None gradients in an untied route's unrelated parameter block become exact
+     zeros. Active private blocks are not averaged across members. Single union
+     repeats count exactly as sampled and its one loss is normalized over union.
++    Fixed-row0 F1 instead averages four own losses from four replayable streams.
+     """
+     if len(route_queries) != 4:
+         raise ValueError("Four fixed inner streams are required in every matched arm")
+     member_count = model.member_count
+-    if member_count == 1:
++    four_stream_single = getattr(model, "private_four_streams", False)
++    if four_stream_single:
++        calls = list(enumerate(route_queries))
++    elif member_count == 1:
+         calls = [(0, (torch.cat([row[0] for row in route_queries], 1),
+                       torch.cat([row[1] for row in route_queries], 1)))]
+     else:
+@@ -94,7 +98,7 @@
+     values = []
+     for member, queries in calls:
+         positive, negative = functional_forward(torch, model, parameters, features, support, queries,
+-            training=True, stream=(streams, member), route=member, advance=advance)
++            training=True, stream=(streams, member), route=0 if four_stream_single else member, advance=advance)
+         loss = own_loss(torch, positive, negative)
+         if not bool(torch.isfinite(loss)): raise FloatingPointError("Nonfinite private inner loss")
+         local = torch.autograd.grad(loss, tuple(parameters[name] for name in private_names),
+@@ -107,6 +111,8 @@
+         values.append(float(loss.detach()))
+     if not all(connected.values()):
+         raise ValueError("Declared private blocks disconnected from all own-route inner losses: "+str([name for name in private_names if not connected[name]]))
++    if four_stream_single:
++        gradients = {name: gradient / 4 for name, gradient in gradients.items()}
+     return gradients, values, len(calls)
+ 
+ 
+@@ -180,7 +186,8 @@
+     own normalized native gradient; sharedF4/single use their native mean loss.
+     This is a declared matched ordinary schedule, not an unchanged donor fit.
+     """
+-    calls = [(0, (torch.cat([row[0] for row in inner_queries], 1),
++    four_stream_single = getattr(model, "private_four_streams", False)
++    calls = list(enumerate(inner_queries)) if four_stream_single else [(0, (torch.cat([row[0] for row in inner_queries], 1),
+                   torch.cat([row[1] for row in inner_queries], 1)))] if model.member_count == 1 else list(enumerate(inner_queries))
+     losses, forward_calls = [], 0
+     for pass_index in range(3):
+@@ -197,7 +204,7 @@
+             own = []
+             for member, queries in calls:
+                 positive, negative = functional_forward(torch, model, parameters, features, support, queries,
+-                    training=True, stream=(streams, member), route=member, advance=pass_index == 2)
++                    training=True, stream=(streams, member), route=0 if four_stream_single else member, advance=pass_index == 2)
+                 own.append(own_loss(torch, positive, negative)); forward_calls += 1
+             value = torch.stack(own).sum() if hasattr(model, "routes") else torch.stack(own).mean()
+         if not bool(torch.isfinite(value)): raise FloatingPointError("Nonfinite matched ordinary task loss")
+--- shared_backbone_private_transfer_training_source_20261005_v2/run.py
++++ shared_private_transfer_row0_single_companion_preparation_20261005_v1/run.py
+@@ -17,8 +17,8 @@
+ 
+ TRAIN_PURPOSE = "TRAIN_VALID_prospective_private_transfer_fit"
+ COST_PURPOSE = "TRAIN_only_discarded_complete_cycle_cost"
+-RULES = ("live_transfer", "detached_transfer", "live_stale_transfer", "ordinary_joint")
+-ARMS = ("shared_f4", "capable_single", "untied4", "ordinary_native4")
++RULES = ("live_transfer", "detached_transfer", "ordinary_joint")
++ARMS = ("row0_single",)
+ 
+ 
+ def metric(torch, positive, negative):
+@@ -27,7 +27,7 @@
+ 
+ 
+ def admissible(job):
+-    if job.get("arm") not in ARMS or job.get("rule") not in RULES or job.get("geometry") not in ("endpoint", "matched_random"):
++    if job.get("arm") not in ARMS or job.get("rule") not in RULES or job.get("geometry") != "endpoint":
+         raise ValueError("Explicit reviewed architecture/learning-rule/geometry required")
+     if job["arm"] == "ordinary_native4" and job["rule"] != "ordinary_joint":
+         raise ValueError("Native ordinary4 is a quality control, not a privately adapted arm")
+@@ -42,8 +42,10 @@
+         raise ValueError("Historical SGD/float64/FD diagnostics cannot admit this Adam recipe")
+     if receipt.get("source_manifest_sha256") != job["source_manifest_sha256"]:
+         raise ValueError("FP32 Adam gate did not qualify these exact sealed training source bytes")
+-    if set(receipt.get("architectures", {})) != {"shared_f4", "capable_single", "untied4"}:
+-        raise ValueError("Full capable-single/untied architecture gates missing")
++    if set(receipt.get("architectures", {})) != {"row0_single"}:
++        raise ValueError("Exact companion architecture gate missing")
++    if not all(receipt.get(key) is True for key in ("row0_initial_function_and_role_parity", "four_stream_mean_gradient_oracle", "four_stream_ordinary_joint_parity")):
++        raise ValueError("Companion row0/four-stream source gates missing")
+     if receipt["geometry"]["endpoint"]["roles"]["outer_positive"]["queries"] != job["outer_size"]:
+         raise ValueError("Training episode size differs from qualified first fixture")
+     if receipt["geometry"]["endpoint"]["inner_routes"][0]["positive"]["queries"] != job["inner_size"]:
+@@ -117,7 +119,7 @@
+         config = {"job": job, "schedule": schedule, "runtime": versions, "inputs": identities,
+             "native_author_commit": "c447cbff4c493b60d14b6544c3c39d3b9c5ddff0",
+             "native_architecture": "NCN,width256,one_puregcn,input_projection,JK,nonlinear_CN_predictor",
+-            "member_count": model.member_count, "head": "unchanged_unframed_F4" if job["arm"] in ("shared_f4", "untied4") else "native_full_nonlinear_NCN",
++            "member_count": model.member_count, "head": "unchanged_unframed_F4_row0",
+             "private_role": "unadapted_joint_ordinary_native_heads" if job["arm"] == "ordinary_native4" else "entire_nonlinear_predictor" if job["arm"] == "capable_single" else "route_r_s_LayerNorm_beta",
+             "optimizer": "native_constants_Adam_single_tensor; functional_private_exact_stable_zero_history",
+             "Adam": {"lr": .001, "betas": [.9, .999], "eps": 1e-8, "weight_decay": 0., "foreach": False, "fused": False},
+--- shared_backbone_private_transfer_training_source_20261005_v2/qualify_training_step.py
++++ shared_private_transfer_row0_single_companion_preparation_20261005_v1/qualify_training_step.py
+@@ -18,7 +18,7 @@
+ PARAM_RTOL, PARAM_ATOL = 2e-6, 2e-7
+ MOMENT_RTOL, MOMENT_ATOL = 2e-6, 1e-10
+ DERIV_RTOL, DERIV_ATOL, DERIV_REL_L2 = 5e-5, 1e-7, 2e-5
+-ARMS = ("shared_f4", "capable_single", "untied4")
++ARMS = ("row0_single",)
+ 
+ 
+ def compare(torch, actual, expected, *, rtol, atol, group_l2=None):
+@@ -99,6 +99,69 @@
+     return rows
+ 
+ 
++def four_stream_gradient_oracle(torch, steps, model, parameters, private, x, support, inner, streams):
++    # Independent objective-first gradient: one mean of four normalized losses.
++    losses=[]
++    for index, queries in enumerate(inner):
++        positive, negative = steps.functional_forward(torch, model, parameters, x, support, queries,
++            training=True, stream=(streams,index), route=0, advance=False)
++        losses.append(steps.own_loss(torch,positive,negative))
++    value=torch.stack(losses).mean()
++    gradients=torch.autograd.grad(value,tuple(parameters[name] for name in private))
++    return dict(zip(private,gradients))
++
++
++def ordinary_joint_gate(torch,native,heads,models,steps,x,support,inner,outer,job,device):
++    cpu_rng=torch.get_rng_state().clone();cuda_rng=torch.cuda.get_rng_state(device).clone()
++    actual,_,_,_=models.build(native,heads,arm="row0_single",seed=job["seed"],factor_seed=job["factor_seed"],device=device)
++    reference,_,_,_=models.build(native,heads,arm="row0_single",seed=job["seed"],factor_seed=job["factor_seed"],device=device)
++    actual_modes=[module.training for module in actual.modules()]
++    reference_modes=[module.training for module in reference.modules()]
++    aopt=torch.optim.Adam(actual.parameters(),lr=.001,betas=(.9,.999),eps=1e-8,weight_decay=0.,foreach=False,fused=False)
++    ropt=torch.optim.Adam(reference.parameters(),lr=.001,betas=(.9,.999),eps=1e-8,weight_decay=0.,foreach=False,fused=False)
++    ast=steps.DropoutStreams(torch,device,job["seed"]);rst=steps.DropoutStreams(torch,device,job["seed"])
++    for pass_index in range(3):
++        ropt.zero_grad(set_to_none=True);parameters=dict(reference.named_parameters())
++        if pass_index==1:
++            pos,neg=steps.functional_forward(torch,reference,parameters,x,support,outer,training=False)
++            loss=steps.outer_loss(torch,pos,neg)
++        else:
++            losses=[]
++            for index,queries in enumerate(inner):
++                pos,neg=steps.functional_forward(torch,reference,parameters,x,support,queries,training=True,
++                    stream=(rst,index),route=0,advance=pass_index==2)
++                losses.append(steps.own_loss(torch,pos,neg))
++            loss=torch.stack(losses).mean()
++        loss.backward();ropt.step()
++    update=steps.ordinary_episode_step(torch,actual,aopt,x,support,inner,outer,ast)
++    ap=dict(actual.named_parameters());rp=dict(reference.named_parameters())
++    row={"parameters":mapping_compare(torch,ap,rp),"update_accounting":update}
++    def moments(opt,params):
++        return {name:{"step":int(opt.state[value]["step"].item()),"exp_avg":opt.state[value]["exp_avg"],
++                      "exp_avg_sq":opt.state[value]["exp_avg_sq"]} for name,value in params.items()}
++    row["moments"]=moment_compare(torch,moments(aopt,ap),moments(ropt,rp))
++    if not tree_equal(torch,ast.state_dict(),rst.state_dict()) or any(r["committed_calls"]!=1 for r in ast.rows):
++        raise ValueError("Ordinary four-stream replay/advancement differs")
++    if update["native_joint_Adam_updates"]!=3 or update["functional_forward_calls"]!=9:
++        raise ValueError("Ordinary paid-work operation differs")
++    with torch.no_grad():
++        actual_serving=steps.functional_forward(torch,actual,ap,x,support,outer,training=False)
++        expected_serving=steps.functional_forward(torch,reference,rp,x,support,outer,training=False)
++        actual.eval();h=actual.encoder(x,support)
++        donor_serving=(actual.predictor(h,support,outer[0]),actual.predictor(h,support,outer[1]))
++        for module,mode in zip(actual.modules(),actual_modes):module.training=mode
++    row["explicit_committed_serving_parity"]=[compare(torch,a,b,rtol=PARAM_RTOL,atol=PARAM_ATOL)
++        for a,b in zip(actual_serving,expected_serving)]
++    row["original_donor_serving_parity"]=[compare(torch,a,b,rtol=0.,atol=0.) for a,b in zip(actual_serving,donor_serving)]
++    if ([module.training for module in actual.modules()]!=actual_modes or
++            [module.training for module in reference.modules()]!=reference_modes):
++        raise ValueError("Ordinary native training modes not restored")
++    if not torch.equal(torch.get_rng_state(),cpu_rng) or not torch.equal(torch.cuda.get_rng_state(device),cuda_rng):
++        raise ValueError("Ordinary four-stream work advanced global RNG")
++    row["state_RNG_mode_guards"]="passed"
++    return row
++
++
+ def main():
+     started = time.monotonic()
+     args = custody.parser(__doc__).parse_args()
+@@ -110,9 +173,9 @@
+     if job.get("tolerances") != expected_tolerances:
+         raise ValueError("Qualification tolerances differ from prospective source")
+     if job.get("architectures") != list(ARMS) or job.get("reachable_history_steps") != 2:
+-        raise ValueError("All three full architectures and two reachable Adam histories required")
+-    if job.get("stale_commit_extra_discarded_step") is not True:
+-        raise ValueError("One extra discarded stale-commit qualification step is required")
++        raise ValueError("Row0 companion and zero plus two reachable Adam histories required")
++    if job.get("stale_commit_extra_discarded_step") is not False:
++        raise ValueError("Companion gates recomputed commitment only")
+     output.mkdir()
+     receipt = {"scope": "discarded_FP32_training_step_qualification", "job_sha256": custody.sha(args.job),
+         "source_manifest_sha256": custody.sha(custody.ROOT/"SOURCE_MANIFEST.json"), "fits": 0,
+@@ -144,29 +207,8 @@
+                        full_TRAIN_coverage=len(order), support_nnz=support.nnz())
+         stage("geometry", {"full_TRAIN_coverage": len(order), "episodes": len(episodes), "first_episode_only": True})
+ 
+-        # Scalar branch guards and the complete zero-gradient map. No fabricated
+-        # data enters the subsequent full-network derivative/resource gates.
+-        z = torch.zeros(1, device=device, requires_grad=True)
+-        p = {"z": torch.zeros_like(z)}; prev = private_adam.initial_state(torch, p)
+-        value, _ = private_adam.step(torch, p, {"z": z}, prev)
+-        actual = torch.autograd.grad(value["z"].sum(), z)[0]
+-        scalar_derivative = compare(torch, actual, torch.full_like(z, -.001/1e-8), rtol=DERIV_RTOL, atol=DERIV_ATOL)
+-        guards = {}
+-        for role, gradient, moment in (
+-            ("nonzero_squared_gradient_underflow", torch.full_like(z, 1e-30), prev),
+-            ("zero_second_nonzero_first", z, {"z": {"step": 1, "exp_avg": torch.ones_like(z), "exp_avg_sq": torch.zeros_like(z)}}),
+-            ("negative_second_moment", z, {"z": {"step": 1, "exp_avg": torch.zeros_like(z), "exp_avg_sq": -torch.ones_like(z)}})):
+-            try: private_adam.step(torch, p, {"z": gradient}, moment)
+-            except FloatingPointError: guards[role] = "rejected_as_prespecified"
+-            else: raise ValueError("Required native Adam branch guard did not reject: "+role)
+-        zero_expected, zero_moments = native_private(torch, p, {"z": z}, prev)
+-        zero_actual, zero_states = private_adam.step(torch, p, {"z": z}, prev)
+-        receipt["scalar_zero_native_parameter_parity"] = mapping_compare(torch, zero_actual, zero_expected)
+-        receipt["scalar_zero_native_moment_parity"] = moment_compare(torch, zero_states, zero_moments)
+-        receipt["scalar_zero_derivative"] = scalar_derivative; receipt["branch_guards"] = guards
+-        stage("scalar_native_zero_and_guards", {"passed": True})
+-
+-        initial_shared_parameters = initial_shared_private = initial_shared_serving = None
++        # Unchanged Adam scalar primitives retain their original qualification;
++        # this gate uses the companion's full TRAIN-only first episode.
+         with custody.native_adjoint(torch, native, adjoint.make_constant_adjacency_spmm):
+             for arm in ARMS:
+                 arm_started = time.monotonic(); torch.cuda.reset_peak_memory_stats()
+@@ -176,27 +218,27 @@
+                 parameters = dict(model.named_parameters())
+                 with torch.no_grad():
+                     initial_serving = steps.functional_forward(torch, model, parameters, x, support, outer, training=False)
+-                if arm == "shared_f4":
+-                    initial_shared_parameters = {name: p.detach().clone() for name, p in parameters.items()}
+-                    initial_shared_private = set(private)
+-                    initial_shared_serving = tuple(value.detach().clone() for value in initial_serving)
+-                if arm == "untied4":
+-                    row_maps = {}
+-                    for name, parameter in parameters.items():
+-                        prefix, member, common = name.split(".", 2)
+-                        if prefix != "routes" or common not in initial_shared_parameters:
+-                            raise ValueError("Untied initial parameter name map differs")
+-                        expected = initial_shared_parameters[common]
+-                        if common in initial_shared_private: expected = expected[int(member):int(member)+1]
+-                        row_maps[name] = compare(torch, parameter, expected, rtol=0., atol=0.)
+-                    receipt["untied_initial_parameter_and_factor_row_parity"] = row_maps
+-                    receipt["untied_initial_complete_logit_parity"] = [compare(torch, a, b, rtol=0., atol=0.) for a, b in zip(initial_serving, initial_shared_serving)]
++                reference, ref_shared, ref_private, ref_partition = models.build(native, heads, arm="shared_f4",
++                    seed=job["seed"], factor_seed=job["factor_seed"], device=device)
++                ref_parameters = dict(reference.named_parameters())
++                if tuple(shared) != tuple(ref_shared) or tuple(private) != tuple(ref_private):
++                    raise ValueError("Row0 private/outer names differ from F4 roles")
++                row_maps = {name: compare(torch, parameter, ref_parameters[name][0:1] if name in private else ref_parameters[name], rtol=0., atol=0.)
++                            for name, parameter in parameters.items()}
++                with torch.no_grad():
++                    ref_serving = steps.functional_forward(torch, reference, ref_parameters, x, support, outer, training=False, route=0)
++                receipt["row0_initial_parameter_parity"] = row_maps
++                receipt["row0_initial_complete_logit_parity"] = [compare(torch, a, b, rtol=0., atol=0.) for a, b in zip(initial_serving, ref_serving)]
++                if (sum(parameters[n].numel() for n in shared),sum(parameters[n].numel() for n in private)) != (1409026,6402):
++                    raise ValueError("Companion role counts changed")
++                receipt["row0_initial_function_and_role_parity"] = True
++                del reference, ref_parameters, ref_serving
+                 previous = private_adam.initial_state(torch, {name: parameters[name] for name in private})
+                 optimizer = torch.optim.Adam([parameters[name] for name in shared], lr=.001, weight_decay=0., foreach=False, fused=False)
+                 streams = steps.DropoutStreams(torch, device, job["seed"])
+                 rows = []
+                 for history_step in range(3):
+-                    commit = "stale_virtual" if history_step == 2 else "recomputed"
++                    commit = "recomputed"
+                     pristine_private = {name: parameters[name].detach().clone() for name in private}
+                     pristine_moments = private_adam.detached_state(previous)
+                     pristine_streams = streams.state_dict()
+@@ -204,8 +246,13 @@
+                     cpu_rng = torch.get_rng_state().clone(); cuda_rng = torch.cuda.get_rng_state(device).clone()
+                     adapted, gradient, virtual_moment, _, _ = steps.virtual_state(torch, model, x, support, inner,
+                         streams, private, previous, live=True)
++                    mean_oracle = four_stream_gradient_oracle(torch, steps, model, parameters, private, x, support, inner, streams)
++                    if not tree_equal(torch, streams.state_dict(), pristine_streams):
++                        raise ValueError("Four-stream oracle mutated RNG state")
++                    mean_parity = mapping_compare(torch, gradient, mean_oracle)
++                    receipt["four_stream_mean_gradient_oracle"] = True
+                     native_value, native_moment = native_private(torch, {name: parameters[name] for name in private}, gradient, previous)
+-                    row = {"history_step": history_step+1, "private_commit": commit, "private_virtual_native_parameters":
++                    row = {"mean_four_stream_gradient_parity": mean_parity, "history_step": history_step+1, "private_commit": commit, "private_virtual_native_parameters":
+                            mapping_compare(torch, {name: adapted[name] for name in private}, native_value),
+                            "private_virtual_native_moments": moment_compare(torch, virtual_moment, native_moment)}
+                     positive, negative_logits = steps.functional_forward(torch, model, adapted, x, support, outer, training=False)
+@@ -249,8 +296,8 @@
+                     recomputed, _, _ = steps.inner_gradients(torch, model, recomputed_point, private, x, support, inner,
+                         expected_streams, create_graph=False, advance=True)
+                     expected_private, expected_moments = native_private(torch, {name: parameters[name] for name in private}, recomputed, previous)
+-                    committed_expected = native_value if commit == "stale_virtual" else expected_private
+-                    committed_moments = native_moment if commit == "stale_virtual" else expected_moments
++                    committed_expected = expected_private
++                    committed_moments = expected_moments
+                     expected_point = {**recomputed_point, **committed_expected}
+                     with torch.no_grad(): expected_serving = steps.functional_forward(torch, model, expected_point, x, support, outer, training=False)
+                     if not tree_equal(torch, streams.state_dict(), pristine_streams) or not tree_equal(torch, previous, pristine_moments):
+@@ -267,8 +314,7 @@
+                     row["committed_native_shared_moments"] = moment_compare(torch, actual_shared_moment, expected_shared_moment)
+                     with torch.no_grad():
+                         actual_serving = steps.functional_forward(torch, model, dict(model.named_parameters()), x, support, outer, training=False)
+-                        # Original unchanged donor serving forward, including the
+-                        # four-route donor head, not only the new route wrapper.
++                        # Original unchanged donor serving forward.
+                         model.eval()
+                         if hasattr(model, "routes"):
+                             originals = []
+@@ -283,7 +329,7 @@
+                     row["explicit_committed_serving_parity"] = [compare(torch, a, b, rtol=PARAM_RTOL, atol=PARAM_ATOL) for a, b in zip(actual_serving, expected_serving)]
+                     row["original_donor_serving_parity"] = [compare(torch, a, b, rtol=0., atol=0.) for a, b in zip(actual_serving, original_serving)]
+                     if not tree_equal(torch, streams.state_dict(), expected_streams.state_dict()): raise ValueError("Recomputed dropout stream advances differ")
+-                    expected_calls = [pristine_streams[str(i)]["committed_calls"]+(1 if model.member_count == 4 or i == 0 else 0) for i in range(4)]
++                    expected_calls = [pristine_streams[str(i)]["committed_calls"]+1 for i in range(4)]
+                     if [r["committed_calls"] for r in streams.rows] != expected_calls: raise ValueError("Private streams not advanced exactly once")
+                     if not tree_equal(torch, previous, pristine_moments): raise ValueError("Previous episode Adam moments mutated")
+                     if [module.training for module in model.modules()] != pristine_modes: raise ValueError("Native training modes not restored")
+@@ -300,8 +346,10 @@
+                 custody.write_json(output/"PARTIAL_RESULT.json", receipt)
+                 del model, parameters, optimizer, previous, streams, recomputed_point, expected_point, expected_streams
+                 gc.collect(); torch.cuda.empty_cache()
++            receipt["ordinary_joint_rows"] = ordinary_joint_gate(torch, native, heads, models, steps, x, support, inner, outer, job, device)
++            receipt["four_stream_ordinary_joint_parity"] = True
+         receipt["native_alias_restored"] = True
+-        receipt.update(passed=True, stale_commit_qualification=True, inclusive_seconds=time.monotonic()-started,
++        receipt.update(passed=True, stale_commit_qualification=False, inclusive_seconds=time.monotonic()-started,
+                        peak_RSS_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+         custody.write_json(output/"RESULT.json", receipt)
+         print(json.dumps({"status": "passed_discarded_FP32_gate_no_fit", "output": str(output)}), flush=True)

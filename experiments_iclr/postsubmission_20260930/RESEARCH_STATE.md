@@ -1,3 +1,15 @@
+# Current state: private-learning quality pilot and matched F1
+
+Updated: 2026-10-05T08:09:47.941324+00:00. Goal active and unmet; original scores unchanged. [Scientific and runtime status](PUBLIC_STATUS.md).
+
+- Original30 remain unchanged; fresh observations at08:06UTC find b0=2/10,b1=1/10,b2=2/10, all exact owned processes live/no failures and no comparison access.
+- Both F1 provider implementation checks and three complete TRAIN cost cycles passed. These establish implementation/cost only. Nine matched-control fits remain unreleased while launch adapters and independent source review finish.
+- No novel predictive superiority has been established. The active graph endpoint/private-learning rule has strong meta-learning ancestry. A focused ensemble marginal-value successor synthesis is delegated, with no requested positive verdict or change to the frozen pilot.
+- Latest verified GitHub head is ac953dfc241adf01e22bf28c0c1105f4f7c1b62a; new F1 evidence and this status await publication.
+- Next: finish/review/freeze and launch the nine exact companion cells; finish complete original families before comparison; confirm any surviving lead on fresh tasks against strong single and independent ensembles before manuscript claims or review.
+
+## Retained earlier state and decisions
+
 # Current state: three-block private-learning pilot
 
 Updated: 2026-10-05 07:14 UTC. Goal active and unmet; original scores unchanged. [Current scientific status](PUBLIC_STATUS.md).
@@ -248,3 +260,5 @@ Updated: 2026-10-05 03:00 UTC. Goal active and unmet. [Scientific status](PUBLIC
 No new acceptance, cleared novelty or confirmed superiority. Prior full state/ledger preserved under coordination_snapshots/20261005_completed_citeseer_and_train_only_prior_v1. Authorized repositories only; seven-GPU forwarding only. Standard incidental caches permitted; normal host execution. No sudo, PDF compilation, GENLINK, Desktop/host-setting/unrelated-data changes.
 
 Latest reviewed207-file publication is verified at593786c1a3326aa03cf9b66239f06eb9853adb21. This local receipt acknowledgment and newer wrapper execution remain pending next publication.
+
+Verified publication acknowledgment: commitac953dfc241adf01e22bf28c0c1105f4f7c1b62a was pushed and its exact GitHub ref verified at2026-10-05T07:20:02.972864+00:00. Receipt: publication/three_block_launch_and_member_control_20261005_v1/PUSH_RECEIPT.json. This acknowledgment and the source-only methodological decision memo await the next publication; no new outcome or novelty claim.

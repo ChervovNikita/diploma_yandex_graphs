@@ -2,7 +2,7 @@
 
 This branch tests whether shared graph ensembles can produce a supported predictive and methodological improvement. Original five-dataset paper scores remain unchanged.
 
-The active quality hypothesis trains the shared backbone through its members' private learning on endpoint-conditioned TRAIN links. A fixed30-fit paired pilot is running on the authorized singleton and both18.77 GPUs. Closest meta-learning priors limit novelty; benefits over strong singles and independent ensembles are not established. A source audit identified a single-model parameter-role confound. The separate matched nine-fit companion passed both provider implementation checks and three complete TRAIN cost cycles; launch adapters are being finalized before training. Original scores and unsuccessful research history remain preserved.
+The active quality hypothesis trains the shared backbone through its members' private learning on endpoint-conditioned TRAIN links. A fixed30-fit paired pilot is running on the authorized singleton and both18.77 GPUs. Closest meta-learning priors limit novelty; benefits over strong singles and independent ensembles are not established. A source audit identified a single-model parameter-role confound, and a separate matched nine-fit companion is being prepared. Original scores and unsuccessful research history remain preserved.
 
 - [Literature-to-design decisions and decisive controls](quality_literature_to_design_triage_20261005_v1/REPORT.md)
 - [Single-model partition caveat and matched companion](shared_private_transfer_member_count_partition_audit_20261005_v1/REPORT.md)

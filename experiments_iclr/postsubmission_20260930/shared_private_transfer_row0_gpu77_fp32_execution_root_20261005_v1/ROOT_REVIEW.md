@@ -1,0 +1,5 @@
+# Exact-provider F1 qualification release on77
+
+Read the complete adapter report/diff/job and physical supervisor; verified every sealed adapter hash, exact ownership-helper identity and all six technical source files. Five numerical F1 files are identical to the passed singleton; custody77 is the already admitted provider port. Supervisor substitutions affect only source/root/review allowlist and duplicated partial-result transfer. No numerical recipe, tolerance, process supervision or bound changes. Existing qualified runtime, input and full sampling identity evidence is reused without reruns.
+
+Release exactly one discarded F1-only first-TRAIN-episode check on physical GPU0. Source67fab001 passed on singleton, but fresh77 manifest2b069a09 requires its own actual result. No original architecture gates, fit, VALID/TEST, retry, source/source-host change or pilot interruption. Original600s soft/720s hard,64GiB RSS,10GiB owned CUDA,8MiB logs and12GiB fresh-free predicate remain. Normal host execution. All states are discarded; a pass supplies exact-provider implementation admission only.
