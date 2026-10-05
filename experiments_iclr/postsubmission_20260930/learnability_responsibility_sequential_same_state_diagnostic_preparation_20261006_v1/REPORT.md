@@ -1,0 +1,15 @@
+# Disabled same-state diagnostic source preparation
+
+6 October2026. Source and fixed plan only. No new source was imported or executed; no data, logits or checkpoint was opened; no SSH, fitting, persistent update or scoring occurred. Only the root-authorized small failed full-six RESULT was read and authenticated. Original sources, failure and2e-6/2e-5 tolerances are preserved.
+
+The first LIVE full-six qualifier failed during committed diagnostic comparison after private recommit comparison returned. The old receipt records maximum absolute mismatch1.5035271644592285e-5 and successful restoration, but no failing tensor path. This distinct worker describes every newly observed path and indexed tolerance failure without treating completion as a qualification pass.
+
+The prospectively fixed schedule is one complete LIVE episode, three fresh `_engineering_response` calls at its same returned theta+ from original phi rows, then two direct full logits for each of four original members at that theta+. It compares episode private state/diagnostics against every response, all three response pairs (including raw costs/Q/probe and main private gradients), and each direct logit pair. Every tensor coordinate contributes to finite/tolerance counts and scale/absolute-error aggregates. Output retains paths, maximum-error coordinates and first8 violating indexed values; original traversal-order first failure is reported. Tolerance violations do not stop the reporting schedule and are never promoted or relaxed.
+
+The fixed work bill is92 complete callbacks,48 private-gradient calls,12 native member VJPs,60 pair primal maps (480 assignment iterations),10 pair-map VJPs and one small query VJP. No additional sparse oracle, finite difference, monolithic higher-order call or second episode is scheduled. Actual independent physical callback counts and internal staged meters must match these values after completion.
+
+The worker binds the exact failed qualifier/candidate/base/accessor and preceding synthetic/one-LIVE receipts, rebuilds the same seed17 full24492x300 FP32 global/eval native family, and checks its public graph/processed edges/roles/projection against the original failure provenance. All original/candidate/scientific guards remain false; the existing reviewed engineering accessor retains its true guard. Returned states are never installed into the native family or saved as checkpoints.
+
+Closed-per-event attempted-operation/comparison JSONL and atomic partial RESULT records preserve partial work. Original inputs/native state/aliases/modes/RNG/gates and single theta+ are checked unchanged. A fixed900-second alarm is paired with a required root external watchdog for a native call that cannot return. Whole-process resources include setup/snapshots/comparison work; none were measured here. Runtime completion uses `DIAGNOSTIC_COMPLETE_NO_QUALIFICATION`, never a PASS status; original all-six failure and fitting/evaluator blocks remain.
+
+Independent static review and a distinct explicit root engineering release remain required before any execution. This packet supplies neither.

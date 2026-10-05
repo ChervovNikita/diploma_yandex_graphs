@@ -1,0 +1,11 @@
+# Disabled scientific worker V2 — pre-W identity repair
+
+The sealed V1 review found that the certificate graph/role/native-edge comparison followed `load_public_w`, which had already decoded W labels. V1 and its blocking review remain preserved.
+
+V2 adds one label-free preflight helper before that reader. It calls the unchanged accessor `_projection` (frozen manifest and ID-only roles) and `_public_context` (public features/edges and exact native preprocessing). It compares the certificate's public graph, role and processed-edge hashes before any W/B/S/R/A label reader is called. Public arrays are discarded; only identity metadata is retained. A durable event records this gate before W access. The subsequent W-reader manifest/preprocessing identity is cross-checked, and the original after-W certificate comparison remains intact.
+
+All other named worker functions and audit classes are AST-identical. Accessor, warm diagnostic and held-A evaluator copies are byte-identical. The common W-only200+200 acquisition, warm diagnostic16 callbacks, six fixed H16 continuations, G0 coefficients, fixed scientific permutation, original false operator/port contract, public sequential signature, attempted/failure logging, source/resource prerequisites and5740 prospective count remain unchanged. The label-free preflight adds source/public-context I/O and CPU preprocessing, with zero native model forwards or private gradients; whole-process resource accounting includes it.
+
+All source guards and admission placeholders remain disabled. Only derived future flag-only worker hashes and V2 packet paths/bindings are rebound; no enabled worker/accessor/warm/sequential file is created. The held-A evaluator remains false and outside the release list. No actual all-six certificate, fit authority or numeric/resource values are fabricated. Root's reported full-six diagnostic-recommit failure remains a separate unresolved gate; no tolerance or qualifier retry is introduced here.
+
+Preparation used only source/AST/JSON/hash inspection after reading the sealed V1 review. No prepared imports/execution, data/result/checkpoint payload reads, SSH, fitting or extra agents occurred. Independent re-review of this minimal source successor is required before any future release. This packet grants no fitting, scoring, memory, predictive or novelty claim.

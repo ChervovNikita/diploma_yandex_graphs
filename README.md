@@ -8,16 +8,16 @@ The completed Amazon validation analysis identifies common mistakes as a concret
 
 We are testing a training intervention that keeps each member's supervised loss and allocates extra class-competitor supervision according to measured private learning response. Separate permitted training-query labels guide the shared core. Graph-balanced assignments, fixed ablations and mean-probability serving are prospectively specified. First-order utility, competent single models and independent ensembles remain necessary comparisons. The idea has close specialist-learning and meta-reweighting antecedents; novelty is unresolved.
 
-The exact sequential implementation matches the complete monolithic synthetic reference across all six controls and gradient coordinates. One complete native 24,492-node FP32 episode fits at 29.7 GB peak CUDA allocation, resolving the observed memory issue for that cold-state episode. However, the required all-six full-FP32 qualification subsequently failed in first-arm repeated assignment diagnostics. The original fixed tolerance is retained while same-state numerical variation and implementation error are investigated. No corrective-learning fit has started. All failures and measured costs are preserved.
+The exact sequential implementation matches the complete monolithic synthetic reference across all six controls and gradient coordinates. One complete native 24,492-node FP32 episode fits at 29.7 GB peak CUDA allocation, resolving the observed memory issue for that cold-state episode. However, the required all-six full-FP32 qualification subsequently failed in first-arm repeated assignment diagnostics. The original fixed tolerance is retained. A completed same-state diagnostic finds assignment/gradient variation between fresh repetitions of the identical response computation, while committed private states and direct-logit repetitions pass the original tolerance. A strict process-local deterministic CUDA probe and independent interpretation are next; no host setting is changed. No corrective-learning fit has started. All failures and measured costs are preserved.
 
-A separate prospectively fixed private-transfer experiment has 25 of 39 selected fits complete as of 22:21 UTC, with the next cell running on the authorized one-GPU allocation. Complete custody precedes scoring. 18.77/MacLink access remains withdrawn and wrong-allocation evidence remains excluded.
+A separate prospectively fixed private-transfer experiment has 26 of 39 selected fits complete as of 22:48 UTC, with the next cell running on the authorized one-GPU allocation. Complete custody precedes scoring. 18.77/MacLink access remains withdrawn and wrong-allocation evidence remains excluded.
 
 - [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
 - [Prediction errors and proposed corrections](experiments_iclr/postsubmission_20260930/ERROR_ANALYSIS_TO_METHODS_20261005.md)
 - [Exact synthetic parity](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_synthetic_execution_root_20261006_v1/REPORT.md)
 - [Actual full-graph resource pass](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_full_execution_root_20261006_v1/REPORT.md)
 - [Unresolved full-FP32 diagnostic failure](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_full_six_execution_root_20261006_v1/REPORT.md)
-- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v2.json)
+- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v3.json)
 
 ## Original method
 
