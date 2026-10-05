@@ -1,0 +1,56 @@
+--- reviewed_allocation_input_v3/run
++++ discarded_FP32_qualification_v1/run
+@@ -1,6 +1,6 @@
+ def run(stage,script,output_flag,output,hard):
+- command=[str(interpreter),'-B',str(root/'source'/script),'--recipe',str(root/('EXTRACT_RELEASE.json' if stage=='extraction' else 'INSPECT_RELEASE.json')),output_flag,str(output)]
+- start=time.monotonic();peak=0;failure=None;signals=[];usage=None;code=None;pending_error=None;owner=None
++ command=[str(interpreter),'-B',str(root/'source'/script),'--job',str(root/'JOB.json'),output_flag,str(output)]
++ start=time.monotonic();peak=0;cuda_peak=0;failure=None;signals=[];usage=None;code=None;pending_error=None;owner=None
+  with (root/(stage+'.stdout.log')).open('xb') as out,(root/(stage+'.stderr.log')).open('xb') as err:
+   child=subprocess.Popen(command,cwd=repo,env=env,stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True)
+   # No Popen poll/wait/terminate/kill is used. The direct kernel child handle
+@@ -23,7 +23,7 @@
+   try:
+    owner=physical(child.pid)
+    ended=reap()
+-   scope_admitted=ended or (owner is not None and owner['argv']==command and owner['cwd']==str(repo))
++   scope_admitted=ended or (owner is not None and owner['argv']==command and owner['cwd']==str(repo) and owner['pgid']==owner['sid']==child.pid)
+    write(root/(stage+'.START.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),identity=owner,command=command,ownership_admitted=True,command_scope_admitted=scope_admitted,ownership_basis='direct unreaped Popen child; only wait4 consumes its terminal status/usage',hard_seconds=hard,one_attempt=True))
+    if not ended and (owner is None or owner['PPID']!=os.getpid()):failure='physical_ownership_observation'
+    if not scope_admitted:failure='command_scope_admission'
+@@ -34,12 +34,14 @@
+      if reap():break
+      failure='physical_ownership_observation'
+     elif owner is None or now['PPID']!=os.getpid() or now['start_ticks']!=owner['start_ticks']:failure='physical_identity_changed'
+-    elif now['state']!='Z' and (now['argv']!=command or now['cwd']!=str(repo)):failure='command_scope_changed'
++    elif now['state']!='Z' and (now['argv']!=command or now['cwd']!=str(repo) or now['pgid']!=child.pid or now['sid']!=child.pid):failure='command_scope_changed'
+     if now is not None:peak=max(peak,now['RSS_bytes'],now['peak_RSS_bytes'])
++    cuda_peak=max(cuda_peak,owned_cuda(child.pid))
+     size=output_bytes()
+     write_value=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=now,elapsed_seconds=time.monotonic()-start,peak_observed_RSS_bytes=peak,own_output_bytes=size,quality_access=False)
+     (root/'CURRENT_METADATA.json').write_text(json.dumps(write_value,indent=2)+'\n')
+     if peak>caps['peak_RSS_bytes']:failure='owned_RSS_cap'
++    if cuda_peak>caps['CUDA_bytes']:failure='owned_CUDA_cap'
+     if size>caps['output_bytes']:failure='owned_output_cap'
+     if time.monotonic()-start>hard:failure='owned_hard_time_cap'
+     if failure:break
+@@ -66,14 +68,14 @@
+  if peak>caps['peak_RSS_bytes']:failure='terminal_RSS_cap'
+  if size>caps['output_bytes']:failure='terminal_output_cap'
+  if elapsed>hard:failure='terminal_hard_time_cap'
+- if elapsed>600:failure='terminal_soft_time_cap'
+- receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=owner,exit_code=code,elapsed_seconds=elapsed,peak_observed_RSS_bytes=peak,authoritative_wait4_usage=usage,own_output_bytes=size,signals_sent=signals,failure=failure,one_attempt=True,fits=0,TEST_access=False,model_access=False,VALID_feature_data_inspection=True)
++ if elapsed>SOFT:failure='terminal_soft_time_cap'
++ receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=owner,exit_code=code,elapsed_seconds=elapsed,peak_observed_RSS_bytes=peak,authoritative_wait4_usage=usage,max_owned_CUDA_bytes=cuda_peak,own_output_bytes=size,signals_sent=signals,failure=failure,one_attempt=True,fits=0,TEST_access=False,model_access=True,TRAIN_and_feature_values=True,VALID_TEST_values_access=False,states_discarded=True)
+  write(root/(stage+'.TERMINAL.json'),receipt)
+  print(json.dumps({'stage':stage,'terminal':receipt}),flush=True)
+  post_terminal_elapsed=time.monotonic()-start
+- if post_terminal_elapsed>600:
++ if post_terminal_elapsed>SOFT:
+   failure='terminal_production_soft_time_cap'
+-  write(root/(stage+'.POST_TERMINAL_BOUND_FAILURE.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),elapsed_seconds=post_terminal_elapsed,soft_seconds=600,stage_terminal_unadmitted=True))
++  write(root/(stage+'.POST_TERMINAL_BOUND_FAILURE.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),elapsed_seconds=post_terminal_elapsed,soft_seconds=SOFT,stage_terminal_unadmitted=True))
+  if pending_error is not None:raise pending_error
+- if code or failure or signals:raise RuntimeError('Owned CPU stage failed; artifacts retained and no retry')
++ if code or failure or signals:raise RuntimeError('Owned discarded qualification failed; artifacts retained and no retry')
+  return receipt

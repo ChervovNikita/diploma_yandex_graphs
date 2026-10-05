@@ -1,0 +1,1 @@
+The first inspected inventory is superseded before mutation: the qualification child completed but the supervisor failed an exit-time observation. New inventory includes preserved failure and unadmitted numerical diagnosis. Retrospective custody remains under independent assessment; no rerun or predictive result.

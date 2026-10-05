@@ -1,0 +1,13 @@
+# Root admission: one discarded Pubmed numerical qualification
+
+The sealed v2 complete-source repair review passes with no unresolved concrete defect. Its report SHA256 is684125f3e5547ce30f92bb83252244b3d86b41fe73c519b10a5f7dc0453eaf02; manifest042c8161bb2c3fbe8f4df4397064b991e0cd0820974a2d245b6e5b41925c6037. The preserved v1 timing finding is fixed by checking elapsed time and output after final response flush, with nonzero failure; the client accepts only successful full process exit.
+
+Root reviewed the client, direct-child supervisor, unchanged qualifier, custody authorizer and exact input/runtime/TRAIN authorities. Source manifestba897c6588c0ac5d7d2e8473e1582b34c67986c23f265f0588f61c55c747aa6f and qualifier38fcec87c05d744135797546c819eb4e203e4a58c0273796ef7f60676194198e are unchanged. The enabled job preserves all numerical choices, seeds, architectures, two reachable histories plus one stale step, complete589-cycle sampler, fixed first episode and tolerances.
+
+This admits exactly one discarded TRAIN/features-only qualification on the authorized -2 singleton allocation. No fit, VALID pool loading, VALID/TEST scoring, native evaluator, future fit cohort or original30/full39 analysis is admitted. Prior GPU/model qualification and historical VALID-generator authority remain false. Actual package/input identity, feature proof and TRAIN geometry satisfy only their disclosed roles. Activation changes only the existing source/review/owned-supervision and narrowly scoped input authority flags plus actual review evidence. No circular job/admission evidence hash is used.
+
+The exact normal-runtime constant-adjacency recursive adjoint is authorized for this qualification only. The supervisor owns only its newly spawned unreaped child, uses sole wait4 accounting and direct cleanup, preserves failures and rejects relaunch after uncertainty. Proposed limits remain3600s soft,4200s hard,4500s transport,16GiB owned RSS,20GiB CUDA and64MiB output. Final per-arm allocated/reserved peaks, terminal RSS and response time/output are checked. Monitoring is not an instantaneous kernel limit.
+
+A fresh resource observation verifies anogena-2-0 and GPU-44039938-fd82-41d2-fefd-de71514e2fac, absent remote execution identity, at least24GiB current GPU free memory and20GiB available CPU. Capacity is unreserved and may change; no existing job is replaced or signaled. This admission does not qualify a training horizon. All model/optimizer states are discarded, raw inputs/results stay remote, and only compact correctness/cost receipts may return.
+
+No accuracy improvement, methodological novelty or paper acceptance follows from this operation. Access to18.77/MacLink remains withdrawn; original paper scores and all frozen gates remain unchanged.

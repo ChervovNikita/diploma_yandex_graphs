@@ -1,0 +1,23 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,hashlib,socket,subprocess
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930';root=phase/'private_transfer_pubmed_fp32_qualification_execution_root_20261005_v1'
+assert Path.cwd().resolve()==repo and socket.gethostname()=='anogena-2-0'
+assert subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True,timeout=20).split()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+def sha(f):
+ h=hashlib.sha256()
+ with f.open('rb') as s:
+  for b in iter(lambda:s.read(1048576),b''):h.update(b)
+ return h.hexdigest()
+def read(f):
+ assert f.is_file() and not f.is_symlink() and f.resolve().is_relative_to(root) and f.stat().st_size<64*1024**2
+ return json.loads(f.read_text())
+job=read(root/'JOB.json');assert sha(root/'JOB.json')=='c707e0604d7c1b189fd1f7c69956a9d940afc2008cfd080b45679dba9af1df66'
+term=read(root/'qualification.TERMINAL.json');failure=read(root/'EXECUTION_FAILURE.json');start=read(root/'qualification.START.json')
+rfile=root/'result/RESULT.json';r=read(rfile)
+manifest=read(root/'source/SOURCE_MANIFEST.json');sources=[]
+for row in manifest['files']:
+ f=root/'source'/row['path'];assert not f.is_symlink() and f.resolve().is_relative_to(root/'source')
+ sources.append({'path':row['path'],'matches':sha(f)==row['sha256'] and f.stat().st_size==row['bytes']})
+value={'UTC':datetime.now(timezone.utc).isoformat(),'scope':'read_only_diagnosis_unadmitted_terminal','original_supervisor_failure':failure,'owned_terminal':term,'start_custody':start,'raw_result_sha256':sha(rfile),'raw_result_bytes':rfile.stat().st_size,'raw_result_claims':{k:r.get(k) for k in ('passed','PID','job_sha256','source_manifest_sha256','runtime','tolerances','inputs','states_discarded','fits','VALID_TEST_values_access','finite_differences','native_alias_restored','stale_commit_qualification','complete_cycle_episodes','full_TRAIN_coverage')},'architectures':{arm:{k:entry.get(k) for k in ('passed','inclusive_seconds','peak_CUDA_allocated_bytes','peak_CUDA_reserved_bytes')}|{'history_steps':[row.get('history_step') for row in entry.get('rows',[])],'commit_types':[row.get('private_commit') for row in entry.get('rows',[])],'state_RNG_mode_guards':[row.get('state_RNG_mode_guards') for row in entry.get('rows',[])]} for arm,entry in r.get('architectures',{}).items()},'source_checks':sources,'source_manifest_sha256':sha(root/'source/SOURCE_MANIFEST.json'),'program_sha256':sha(root/'source/qualify_training_step.py'),'job_sha256':sha(root/'JOB.json'),'result_failure_file_exists':(root/'result/FAILURE.json').exists(),'new_model_runs':0,'fit_or_VALID_TEST_scores_read':False,'raw_model_or_input_payloads_transferred':False,'diagnosis_is_not_qualification_admission':True}
+print(json.dumps(value))
