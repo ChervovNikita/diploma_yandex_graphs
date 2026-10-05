@@ -1,0 +1,11 @@
+# Disabled matched first-order utility reference implementation
+
+6 October2026. Source preparation only: no prepared source import/execution, data/checkpoint/result/logit payload, SSH, GPU run, fitting, scoring, gate flip or change to the frozen six arms. The sealed specification is preserved. This packet adds a pure reference module, proof, prospective accounting and independent qualification plan; it supplies no trainer or GPU runner.
+
+`utility_control.py` reuses the exact reviewed sequential engine's main/query/map and callback conventions. It substitutes only -eta_probe*<partial_phi softplus_margin,partial_phi ownCE_S> and its complete live cost-credit VJP. Matrix-free reverse-over-reverse values retain the original paid before/probe-after finite diagnostics. Both differentiable weighted-margin and own-CE gradient factors remain live in shared/private-inspection credit, retaining the required mixed Hessians. Original-phi private commitment at theta+, anchored objective, graph/normalization/balanced eight-step Q and future probability-mean serving remain fixed.
+
+The planned episode bill is40 complete callbacks,24 own/main private partials,8 direct/cost native VJPs,8 margin-phi VJPs,8 dummy-cotangent reverses and4 weighted-margin private partials:52 native reverse constructions excluding small maps/query. Q work is30 primal maps/10 map VJPs/one joint query VJP. Thus it has fewer callbacks but more reverse constructions than finite-live; no equal-cost, cheaper, FLOP or memory claim is made. New utility work is separately counted. Original warm16, serving4 per endpoint and six-arm5740 bill are untouched.
+
+The source and PROOF.md describe the exact approximation and derivative ownership. TEST_PLAN.json requires independent coordinate-level costs/gradients/Q/commits, nontrivial native double-AD support, dormant constraints/restoration and full-FP32 resources before numerical/study use. No synthetic or full native pass is claimed. Root owns later representative comparison and resource admission.
+
+This is an attributed matched control within saved gradient-utility/bilevel/specialist ancestry, not literal GAR reproduction, Hessian-free learning or novelty clearance. Source readiness cannot establish finite-response benefit; the interpretation remains the sealed specification's served matched-comparison boundary.

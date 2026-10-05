@@ -1,0 +1,3 @@
+# Root strict all-six engineering scope
+
+The exact original fixed qualifier runs under the independently reviewed strict-process wrapper. All six episodes, original-phi recommits, original tolerances and328-forward bill are preserved. The earlier all-six failure remains failed; the strict response observation permits only this changed-mode continuation. No fitting or scoring is admitted. The root-owned external watchdog is950 seconds; exact local/result byte hashes and owned process identity are authenticated. Both inner and inclusive wrapper resources are recorded. Transport source is derived from the previously used all-six transport with changed wrapper path and two-result layout.

@@ -1,0 +1,7 @@
+# Disabled scientific V3 construction observer successor
+
+Replaces only `str(torch.get_default_device())` with `str(torch.empty(0).device)` in `_fresh_family` line110. The actual Torch2.1.2 launch failed on the missing observer after W access and before any callback/backward/optimizer update; its empty endpoints and failure remain preserved. This is neither a fitting result nor successful training.
+
+The float32 default-dtype check and CPU construction requirement remain. Every other worker byte is identical to scientific V2, including seed/reset/constructor order, mathematical sources, pre-W identity gates, W400, warm16, six H16 arms, closed A/VALID/TEST and prospective5740 forwards. Accessor, warm probe, evaluator, queue and prerequisite contract are exact copies. No runtime upgrade, monkeypatch, source execution, data/checkpoint access or SSH occurred; only the authorized two small failure metadata receipts were read.
+
+Disabled worker SHA f19a94be4102e74f30d2b779ca602e288cf40c446ae367ce9d9ab44091569ad1, 41361 bytes. Anticipated flag-only released SHA ad28d1c8a05a168aeadb6825183ef8d1d1a6cffea3b488c5a33aa3c90318c8f3, 41360 bytes, derived only in memory. No enabled successor or actual admission was written. Binding/prerequisite placeholders remain disabled; independent review and root-owned admission/launch are required. Existing caps/admission and all predecessor failures/sources remain unchanged.

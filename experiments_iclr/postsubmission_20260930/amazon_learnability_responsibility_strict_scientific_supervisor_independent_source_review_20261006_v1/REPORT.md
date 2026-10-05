@@ -1,0 +1,9 @@
+# Scoped independent source review of the scientific supervisor
+
+**Source PASS; no concrete blocker identified within the requested launch/watchdog scope.** Verified supervise_once.py SHA758ffe237704ec5b7b21fc00f571b3fd48599adc866beefc5d94d77362b9cf2e,5577 bytes, its AST and SUPERVISOR_MANIFEST.json payload binding. No prepared source import/execution, SSH, data read or fit occurred.
+
+- There is exactly one Popen call using the fixed interpreter/-B, pinned runner V2 SHA7398bad90c91132b19ed31d0e04763a16c838fb80c3d8c3ddcde223757963891 and released scientific worker SHA0ec5bb6e4d391a990c15657e9fedffd7f02006c75d375bba0a873235ada2ba76, exact public+B and fresh output. Source hashes and EXECUTION_RELEASE identity/watchdog bindings are checked before launch. Exclusive logs and fresh output/launch checks preserve the one-attempt scope; no retry call or loop is present.
+- The child clock starts before Popen. The14520-second wait timeout subtracts Popen, /proc identity verification and launch-receipt overhead. Timeout terminates only that Popen-owned child, then escalates to kill after the10-second termination grace and reaps it. No PID search, process-group kill or unrelated-process termination is used.
+- PID/start ticks/argv/cwd are verified and atomically recorded in a closed, read-only CHILD_LAUNCH.json. Normal completion/timeout retains exit code, physical child time, artifact hashes and atomic read-only TERMINAL.json. Any post-Popen Python exception, including identity or launch-metadata failure, enters the owned-child stop/kill/reap branch before terminal accounting; it does not retry or leave that live child waiting without supervision.
+
+This review adds no scientific outcome/admission gate and changes no source or existing admission. Source PASS supplies no launch authority or measured execution/resource result. Root owns the actual detached launch, terminal interpretation and any external termination evidence.

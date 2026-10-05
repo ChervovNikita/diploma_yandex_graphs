@@ -2,21 +2,22 @@
 
 ## Current research — 6 October 2026
 
-Our target is better predictions from a shared graph ensemble. Original five-dataset paper scores remain unchanged. No new method has established predictive superiority and methodological novelty; manuscript acceptance remains unmet.
+Our target is better predictions from a shared graph ensemble. Original five-dataset scores remain unchanged. No new method has established predictive superiority and novelty; manuscript acceptance remains unmet.
 
-The completed Amazon validation analysis identifies common mistakes as a concrete weakness. All four shared members are wrong on 93.60% of pooled errors, versus 74.86% for independent ensembles. Averaging adds 0.16 versus 0.59 accuracy points. These reused development predictions guide the next hypothesis; they do not prove that parameter sharing causes the errors. The fixed learned-aggregation comparison did not improve over equally processed competent references.
+Saved Amazon development predictions show slightly weaker members, limited pooling benefit and confident common mistakes. The next fixed hypothesis uses measured private learning response to assign additional class-competitor supervision, while retaining ordinary supervision for every member. Its paired outcome counts errors repaired and new errors introduced, alongside member strength and probability losses. Greater disagreement alone does not establish improved predictions.
 
-We are testing a training intervention that keeps each member's supervised loss and allocates extra class-competitor supervision according to measured private learning response. Separate permitted training-query labels guide the shared core. Graph-balanced assignments, fixed ablations and mean-probability serving are prospectively specified. First-order utility, competent single models and independent ensembles remain necessary comparisons. The idea has close specialist-learning and meta-reweighting antecedents; novelty is unresolved.
+The exact sequential implementation matches the all-six synthetic reference. Strict full-native all-six episodes and independent original-phi recommits now pass at the unchanged tolerances, with zero observed numerical discrepancies. Peak CUDA allocation is37.423GB/reservation39.865GB. This is implementation/resource evidence at the tested initial state. Prior numerical and memory failures remain preserved.
 
-The exact sequential implementation matches the complete monolithic synthetic reference across all six controls and gradient coordinates. One complete native 24,492-node FP32 episode fits at 29.7 GB peak CUDA allocation, resolving the observed memory issue for that cold-state episode. However, the required all-six full-FP32 qualification subsequently failed in first-arm repeated assignment diagnostics. The original fixed tolerance is retained. A completed same-state diagnostic finds assignment/gradient variation between fresh repetitions of the identical response computation, while committed private states and direct-logit repetitions pass the original tolerance. A strict process-local deterministic CUDA probe and independent interpretation are next; no host setting is changed. No corrective-learning fit has started. All failures and measured costs are preserved.
+The first fixed scientific launch failed before any forward/update because Torch2.1.2 lacks its construction default-device observer. The minimal equivalent compatibility successor is reviewed and actually training7/400 common updates at23:46UTC, preserving the method, settings and original failure. No corrective accuracy result is available. A first-order utility comparison is implemented and source-reviewed; numerical qualification and competent ordinary/capable/independent references remain required.
 
-A separate prospectively fixed private-transfer experiment has 26 of 39 selected fits complete as of 22:48 UTC, with the next cell running on the authorized one-GPU allocation. Complete custody precedes scoring. 18.77/MacLink access remains withdrawn and wrong-allocation evidence remains excluded.
+Private-transfer has28/39 selected fits complete at23:30UTC, with the sixth b2 cell running. Complete cohort custody precedes scoring. The authorized allocation is training. The user restored77 access; known MacLink/two-GPU verification is pending. Wrong-allocation evidence stays excluded and the seven-GPU route is forwarding relay only.
 
 - [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
-- [Prediction errors and proposed corrections](experiments_iclr/postsubmission_20260930/ERROR_ANALYSIS_TO_METHODS_20261005.md)
-- [Exact synthetic parity](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_synthetic_execution_root_20261006_v1/REPORT.md)
-- [Actual full-graph resource pass](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_full_execution_root_20261006_v1/REPORT.md)
-- [Unresolved full-FP32 diagnostic failure](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_full_six_execution_root_20261006_v1/REPORT.md)
+- [Errors and corrective outcome definitions](experiments_iclr/postsubmission_20260930/amazon_error_analysis_corrective_method_decision_note_20261006_v1/REPORT.md)
+- [Actual strict six-arm implementation qualification](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_strict_cuda_full_six_execution_root_20261006_v1/REPORT.md)
+- [Preserved zero-update compatibility failure](experiments_iclr/postsubmission_20260930/amazon_learnability_responsibility_strict_scientific_execution_root_20261006_v1/REPORT.md)
+- [First-order utility source review](experiments_iclr/postsubmission_20260930/matched_first_order_private_gradient_utility_control_independent_source_review_20261006_v1/REPORT.md)
+- [Comparison obligations and scoped reading](experiments_iclr/postsubmission_20260930/shared_backbone_confident_error_learning_response_decision_20261006_v1/REPORT.md)
 - [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v3.json)
 
 ## Original method
