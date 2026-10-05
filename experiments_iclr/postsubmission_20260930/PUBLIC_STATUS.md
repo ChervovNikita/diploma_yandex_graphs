@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated: 2026-10-04T23:55:39.929735+00:00. Goal active and incomplete. Original paper scores are unchanged.
+Updated: 2026-10-05T00:31:14.229871+00:00. Goal active and incomplete. Original paper scores are unchanged.
 
 ## Quality objective and completed evidence
 
@@ -10,13 +10,13 @@ The complete five-seed official ogbl-collab TEST family reports Hits@50: single6
 
 ## Running frozen cohorts
 
-Latest saved owned metadata is from 2026-10-04T23:48–23:49 UTC. Amazon observation 53 and compact Collab/DDI monitor v2 show live queues and no recorded failure.
+Amazon observation 54 at 2026-10-05 00:26 UTC verifies the authorized one-GPU queue running with no recorded failure. The 18.77 route currently times out at SSH port 22; its last successfully observed owned metadata is compact monitor v3 at 00:01 UTC. A lost observation route does not establish job failure or current liveness.
 
-- **Amazon/Polynormer, one GPU:** 10/15 fits complete; `split2_gnnm_boundary_4_seed43` at update 601/2700, global stage. Observation 53. Its older label-role family cannot qualify the prospective full-TRAIN controls. [Receipt](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0053_RESULT.json).
-- **Conditional-pattern Collab, 18.77 GPU1:** 5/9 complete; separate seed 1 at epoch 6, attempted batch 5/17. Compact monitor v2. This tests same-member endpoint pattern likelihood against separately marginalized endpoints under matched supervision; served predictions remain the native pool. [Receipt](compact_owned_queue_monitor_20261005_v2/OBSERVATION.json).
-- **DDI development, 18.77 GPU0:** 3/12 complete; separate seed 0 running, with 9247.09 seconds elapsed. Compact monitor v2. Positive 100-epoch pilot evidence would still require a separately fixed 500-epoch confirmation. [Receipt](compact_owned_queue_monitor_20261005_v2/OBSERVATION.json).
+- **Amazon/Polynormer, one GPU:** 10/15 complete; `split2_gnnm_boundary_4_seed43` at update 875/2700. [Receipt](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0054_RESULT.json).
+- **Conditional-pattern Collab, 18.77 GPU1:** last observed 5/9 complete; separate seed 1 at epoch 12, attempted batch 6/17. [Last successful metadata](compact_owned_queue_monitor_20261005_v3/OBSERVATION.json).
+- **DDI development, 18.77 GPU0:** last observed 3/12 complete; separate seed 0, elapsed 9970.86 seconds. Positive 100-epoch development still needs separately fixed native 500-epoch confirmation. [Last successful metadata](compact_owned_queue_monitor_20261005_v3/OBSERVATION.json).
 
-Comparative outcomes remain unopened until each frozen cohort is complete. No partial score-driven choice, restart or TEST access occurred. Next metadata checks are Amazon observation 54 and the next compact owned-queue monitor when warranted.
+Comparative outcomes stay unopened until complete frozen cohorts. No job was signalled or restarted on connection failure. [Network diagnostic](endpoint_frame_component_execution_20261005_v1/SSH_ROUTE_DIAGNOSTIC.json). Next Amazon sequence 55 and a new compact observer only when useful.
 
 ## Initializer version closed
 
@@ -44,7 +44,7 @@ A concrete structured-single/ordinary-independent4 fit driver is saved and sourc
 
 ## Literature memory and novelty limits
 
-Index v58 retains 225 scoped conclusion records for 173 normalized paper groups plus two software identities. **These are not full-paper-read totals.** Two saved operation scopes add Maslov–Sneppen degree-preserving switches (cond-mat/0205380v1) and HeaRT endpoint-personalized evaluation alternatives (2306.10453v3), with its unchanged training and temporal filtering caveat. All 223 v57 records, groups and failure history are preserved, including the earlier DIVE identity reconciliation. Integration adds zero primary reads, full-paper certifications or numerical/novelty claims.
+Index v59 retains 228 scoped conclusion records for 176 paper groups plus two software identities. These are not full-paper-read totals. Three saved primary method scopes—OMoE, HousE and GoldE/UOP—are newly adopted; all v58 records/history remain. Orthogonal expert outputs and compact graph-endpoint reflections are prior. Metadata-only HTKGE remains excluded. [Adoption](literature_memory/index_v59/ROOT_ADOPTION_NOTES.md).
 
 Graph error-kernel negative correlation is an attributed metric adaptation, not a new training principle. Embedding repulsion can change geometry without changing predictions or can weaken members. Shared heads, centered covariance, GGN initialization, graph spectral filtering and many mixture constructions have close prior. GEENI's error-node message-suppression abstract is known, but its full primary method remains inaccessible; no absence claim is licensed. GENN unchanged-route retries remain disabled. [Index v58](literature_memory/index_v58/ROOT_ADOPTION_NOTES.md), [latest scout](graph_conditioned_prediction_disagreement_primary_scout_20261005_v1/REPORT.md).
 
@@ -52,7 +52,7 @@ Fresh manuscript reviewers must receive immutable supported evidence through the
 
 ## Preservation and authorization
 
-Latest exact GitHub ref verified: `69a1488b067bdc91438f6c599033398642d2ca8a`, branch `codex/postsubmission-research-20260930`. Literature index v57, both implemented quality controls, actual CPU evidence and failed attempts, the tracker repair, updated method synthesis and latest compact queue observations are published. [Verified push](publication/quality_controls_and_literature_integration_20261005_v1/PUSH_RECEIPT.json). Previous publication receipts and exact pre-edit canonical files are preserved. The new matching source/CPU receipt, driver and v58 adoption remain pending publication. No 18.77 Git synchronization is claimed without ref verification.
+Latest exact GitHub ref verified: `d6fb3fb0cbf2a67dacf29485832f6dd086beb837`, branch `codex/postsubmission-research-20260930`. The matching hypothesis and serving-transfer counterexample, implemented loss and bounded CPU evidence, source-only fit driver, v58 literature adoption, latest owned metadata and prior canonical snapshots are published. [Verified push](publication/method_synthesis_matching_checks_20261005_v1/PUSH_RECEIPT.json). Previous receipts and research history are retained. Local acknowledgement of this ref awaits the next publication; no 18.77 Git synchronization is claimed without ref verification.
 
 Deliberate operations stay in the authorized project repositories. The seven-GPU account is MacLink forwarding only. Normal incidental runtime caches are allowed. No sudo, PDF compilation, GENLINK, Desktop writes, host-setting changes or unrelated-data operations.
 
@@ -63,3 +63,11 @@ The straightforward likelihood-posterior prediction proposal is rejected as a ne
 The previously proposed six-fit conditional continuation also duplicates the running joint/separate seed0 cells and a completed independent4 seed0 bank, so it is superseded without dispatch. Existing independent4 is a potentially reusable historical quality reference, with deterministic-runtime and selection-budget differences disclosed; it is not an exactly matched new-gate control. [Duplicate and reuse assessment](evidence_conditioned_serving_duplicate_reuse_assessment_20261005_0bbca9f3_v1/ASSESSMENT.md).
 
 DIVE's newly completed method scope finds independent encoders, learned graph-mask overlap regularization and validation-best single-model serving. It does not provide shared-factor pooled quality evidence. This scoped read is adopted in v57 as a retained-identity upgrade; its earlier abstract is not a newly encountered paper. Three method syntheses are now complete. Learned-view diversity has close prior and the native member trajectory already includes GAT attention. A private return-message construction is exactly an existing edge-operator bank with restricted parameter tying; retain only its untested sharing-bias hypothesis. Source-overlap risk weighting has a concrete class-bias counterexample and is not promoted. The ordinary independent ensemble receiving the same augmentation and the structured single auxiliary control are now implemented and CPU component checked. Neither has new predictive fits or demonstrated quality gains. [Root scientific synthesis](method_synthesis_root_20261005_v1/SYNTHESIS.md).
+
+## Next bounded method hypothesis
+
+The current outer NCNC head gives all members the same coordinatewise endpoint product before private processing. One learned private frame before this product can supply mixed-coordinate interactions that the product branch otherwise discards. This is a local interface argument: shared encoder learning and context paths can compensate. Householder graph-endpoint transforms are existing methods; novelty and useful diversity remain unproved.
+
+The actual bounded CPU fixture passed on the authorized allocation with CUDA hidden, taking 3.470 seconds inclusive of the child. It verified initial logits/state/RNG correspondence, inherited recursion, and accessible off-axis gradients through the served native scorer. Zero fits, optimizer steps, datasets, checkpoints or prediction outcomes were used. The failed 18.77 transport remains preserved. [Actual evidence](endpoint_frame_onegpu_component_20261005_v1/RECEIPT.json).
+
+The candidate needs shared-frame, ordinary independent ensemble with the identical operation, and competent single receiving the same four product features. The [same-operation control packet](endpoint_frame_same_operation_controls_20261005_v1/README.md) is implemented and statically reviewed: shared-frame F4, one native single receiving all four products, and an ordinary independent single with explicit frame axis. These controls remain numerically unexecuted and have no predictive fits. Duplicate initial features, delayed frame gradients and capacity differences are disclosed. No twelve-fit plan or new cohort has been admitted. The completed Collab ensemble still trails independent4, and there is no fresh acceptance. [Scientific synthesis](quality_method_synthesis_20261005_v1/REPORT.md), [root decision](quality_method_synthesis_20261005_v1/ROOT_DECISION.md).
