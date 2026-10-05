@@ -1,0 +1,133 @@
+--- source_v2/numerical.py
++++ source_v3/numerical.py
+@@ -230,6 +230,119 @@
+                     'solutions': len(a), 'wall_seconds': elapsed}
+ 
+ 
++def probability_hull_qp(p, posterior):
++    """Direct probability least squares on all lower-bounded simplex faces.
++
++    Each face uses an orthonormal Helmert equality-nullspace basis. Member
++    differences remove the common probability mode before the small SVD.
++    The numerical effective-rank cutoff is 64*eps64*max(1,sigma_max), not a
++    mathematical-rank claim or an added ridge. Minimum-norm face solutions,
++    direct scaled-risk ties and weight-norm ties preserve the frozen policy.
++    Original probability-gradient KKT conditions are verified after cleanup.
++    The generic ridge/PSD moment solver above remains unchanged.
++    """
++    started = time.perf_counter()
++    if p.ndim == 2:
++        p = p[None]
++    posterior = np.broadcast_to(posterior, (len(p), C))
++    require(p.shape == (len(p), M, C), 'Projection probability shape differs')
++    finite(p, 'Projection members'); finite(posterior, 'Projection posterior')
++    require(p.min() >= -1e-12 and posterior.min() >= -1e-12 and
++            np.max(np.abs(p.sum(-1)-1)) < 1e-10 and
++            np.max(np.abs(posterior.sum(-1)-1)) < 1e-10,
++            'Projection probability simplex differs')
++    result = np.empty((len(p), M))
++    peak_primal = peak_scaled_stationarity = peak_raw_stationarity = 0.0
++    peak_scaled_dual = peak_raw_dual = peak_rank_cutoff = 0.0
++    effective_rank_counts = {str(j): 0 for j in range(M)}
++    for offset in range(0, len(p), 2048):
++        pp, yy = p[offset:offset+2048], posterior[offset:offset+2048]
++        # Retain the old per-row comparison/KKT scale; never solve from these Grams.
++        aa = np.einsum('nmc,nkc->nmk', pp, pp)
++        bb = np.einsum('nmc,nc->nm', pp, yy)
++        scale = np.maximum(np.maximum(np.max(np.abs(aa), axis=(1, 2)),
++                                      np.max(np.abs(bb), axis=1)), 1e-12)
++        best = np.full(len(pp), np.inf)
++        best_norm = np.full(len(pp), np.inf)
++        chosen = np.full((len(pp), M), np.nan)
++        for k in range(1, M+1):
++            for free_tuple in itertools.combinations(range(M), k):
++                free = np.array(free_tuple)
++                fixed = np.array([j for j in range(M) if j not in free], dtype=int)
++                w = np.full((len(pp), M), LOWER)
++                w[:, free] = (1-len(fixed)*LOWER)/k
++                if k > 1:
++                    basis = np.zeros((k, k-1))
++                    for j in range(k-1):
++                        divisor = math.sqrt((j+1)*(j+2))
++                        basis[:j+1, j] = 1/divisor
++                        basis[j+1, j] = -(j+1)/divisor
++                    centered = pp[:, free] - pp[:, free[0], None, :]
++                    design = np.einsum('nfc,fj->ncj', centered, basis)
++                    target = yy - np.einsum('nm,nmc->nc', w, pp)
++                    left, singular, right = np.linalg.svd(design, full_matrices=False)
++                    cutoff = 64*np.finfo(np.float64).eps*np.maximum(1, singular[:, 0])
++                    keep = singular > cutoff[:, None]
++                    inverse = np.divide(1, singular, out=np.zeros_like(singular), where=keep)
++                    coefficient = np.einsum('ncj,nc->nj', left, target)*inverse
++                    z = np.einsum('nji,nj->ni', right, coefficient)
++                    w[:, free] += np.einsum('fj,nj->nf', basis, z)
++                    peak_rank_cutoff = max(peak_rank_cutoff, float(cutoff.max()))
++                    rank = keep.sum(1)
++                    for j in range(k):
++                        effective_rank_counts[str(j)] += int(np.sum(rank == j))
++                else:
++                    effective_rank_counts['0'] += len(pp)
++                residual = np.einsum('nm,nmc->nc', w, pp)-yy
++                gradient = np.einsum('nmc,nc->nm', pp, residual)/scale[:, None]
++                level = gradient[:, free].mean(1, keepdims=True)
++                feasible = ((w >= LOWER-1e-12).all(1) &
++                            (np.abs(w.sum(1)-1) < 1e-12) &
++                            (np.max(np.abs(gradient[:, free]-level), axis=1) < 1e-10))
++                if len(fixed):
++                    feasible &= (gradient[:, fixed] >= level-1e-10).all(1)
++                objective = np.sum(residual*residual, axis=1)/scale
++                norm = np.sum(w*w, axis=1)
++                take = feasible & ((objective < best-1e-14) |
++                                   ((np.abs(objective-best) <= 1e-14) & (norm < best_norm-1e-14)))
++                chosen[take], best[take], best_norm[take] = w[take], objective[take], norm[take]
++        require(np.isfinite(chosen).all(), 'Probability hull active-face solution not found')
++        excess = np.maximum(chosen-LOWER, 0)
++        chosen = LOWER + (1-M*LOWER)*excess/excess.sum(1, keepdims=True)
++        primal = max(float(np.max(np.abs(chosen.sum(1)-1))), float(max(0, LOWER-chosen.min())))
++        residual = np.einsum('nm,nmc->nc', chosen, pp)-yy
++        raw_gradient = np.einsum('nmc,nc->nm', pp, residual)
++        interior = chosen > LOWER+1e-11
++        for normalized, g in ((True, raw_gradient/scale[:, None]), (False, raw_gradient)):
++            level = np.sum(np.where(interior, g, 0), axis=1, keepdims=True)/interior.sum(1, keepdims=True)
++            stat = float(np.max(np.where(interior, np.abs(g-level), 0)))
++            dual = float(np.max(np.where(~interior, np.maximum(level-g, 0), 0)))
++            require(stat <= 1e-10 and dual <= 1e-10 and primal <= 1e-10,
++                    'Probability hull feasibility/free-stationarity/inactive-dual check failed')
++            if normalized:
++                peak_scaled_stationarity = max(peak_scaled_stationarity, stat)
++                peak_scaled_dual = max(peak_scaled_dual, dual)
++            else:
++                peak_raw_stationarity = max(peak_raw_stationarity, stat)
++                peak_raw_dual = max(peak_raw_dual, dual)
++        peak_primal = max(peak_primal, primal)
++        result[offset:offset+len(pp)] = chosen
++    elapsed = time.perf_counter()-started
++    COUNTERS['QP_calls'] += 1
++    COUNTERS['QP_solutions'] += len(p)
++    COUNTERS['QP_wall_seconds'] += elapsed
++    return result, {'max_primal_error': peak_primal,
++                    'max_scaled_stationarity_error': peak_scaled_stationarity,
++                    'max_raw_stationarity_error': peak_raw_stationarity,
++                    'max_scaled_inactive_dual_error': peak_scaled_dual,
++                    'max_raw_inactive_dual_error': peak_raw_dual,
++                    'solutions': len(p), 'wall_seconds': elapsed,
++                    'arithmetic': 'centered probability-space Helmert SVD',
++                    'rank_cutoff': '64*eps_FP64*max(1,sigma_max)',
++                    'max_rank_cutoff': peak_rank_cutoff,
++                    'all_face_effective_rank_counts': effective_rank_counts}
++
++
+ def log_pool(logp, weights):
+     return np.logaddexp.reduce(logp + np.log(weights)[:, :, None], axis=1)
+ 
+@@ -256,9 +369,7 @@
+ 
+ 
+ def projection(ctx, p, logp):
+-    a = np.einsum('nmc,nkc->nmk', p, p)
+-    b = np.einsum('nmc,nc->nm', p, ctx['posterior'])
+-    w, checks = simplex_qp(a, b, singular=True)
++    w, checks = probability_hull_qp(p, ctx['posterior'])
+     q, logq = pool(p, logp, w)
+     return q, logq, w, checks
+ 

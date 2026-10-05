@@ -1,0 +1,1 @@
+Source-only root preparation. V1 failed output/release preserved. V2 uses sealed V3 and affected projection qualification; unchanged head/sparse/ridge qualification must bind the prior V2 result separately in the later release. No retry is admitted before review and actual affected qualification.

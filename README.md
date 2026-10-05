@@ -2,21 +2,28 @@
 
 ## Current research — 5 October 2026
 
-We are testing predictive quality of shared graph ensembles against strong single models and independent ensembles. Original five-dataset paper scores remain unchanged. No new method has established both novelty and confirmed superiority.
+We are improving the predictive quality of shared graph ensembles against competent single models and independently trained ensembles. Original five-dataset paper scores remain unchanged. No new method has established novelty and confirmed superiority.
 
-The complete fifteen-fit Amazon/Polynormer comparison finished with exact selected-checkpoint logit replay. Reserved TRAIN-control mean accuracy is52.7203% member0 single,52.9243% shared4 and54.0533% independent4. Shared4 loses1.1290percentage points and2.2709NLL nats on average to independent4. This supplies no shared-superiority claim; TEST remains unopened. The root CPU-configuration evaluator failure and successful corrected evaluator are both preserved.
+The complete fifteen-fit Amazon/Polynormer comparison finished with exact selected-checkpoint logit replay. Reserved TRAIN-control mean accuracy is 52.7203% for native member0, 52.9243% for shared four and 54.0533% for independent four. The shared bank trails independent four by 1.1290 accuracy points and 2.2709 NLL nats. TEST labels remain unopened.
 
-Two aggregation hypotheses remain: transport local member-error moments to weight the existing predictions, and fuse fixed private hidden states with a small nonlinear readout. Learned weighting, graph correction and feature/depth fusion have direct precedents. The fixed V2 CPU screen includes capable same-information stacking, complete processed independent banks and a comparable-budget processed member0 single. It uses each split's own VALID with whole-fold exclusion, but checkpoint/OOF reuse remains retrospective development. No fusion fit, hidden export or new backbone forward has yet occurred.
+A completed and independently checked three-split VALID error analysis identifies repeated member errors and diminished averaging benefit. Mean pairwise error correlation is 0.9292 for shared members versus 0.7304 for independent members; pooling adds 0.1633 versus 0.5907 accuracy points over mean member accuracy. Shared wrong predictions average 92.60% confidence versus 81.09%. These are descriptive observations from VALID-selected checkpoints. All 44,514 metric rows and denominators are retained; full original JSON/CSV stay on the server and exact compact CSV shards cover every row.
 
-The completed saved Citeseer independent-four rank screen gives27.9204% raw-pool versus28.0921% equal-Borda VALID MRR, mixed three-block gains with an interval including zero. Keep Borda as a cheap control, without shared-bank or final-score promotion.
+The fixed saved-prediction development screen completed 90 small MLP fits and 36 calibration fits, comparing graph-local error moments, calibration and capable nonlinear stacking across processed shared/independent banks and a comparable processed single. Its prescribed shared processor scores 52.5450% accuracy, versus 53.2528% for processed independent four and 53.1276% for the processed single. It fails both fixed full quality screens; the local/full-moment contribution is unsupported. The first numerical failure, actual witness, independently reviewed repair and affected qualification remain preserved. No confirmation or extra tuning grid is admitted for this proposal.
 
-Only the authorized one-GPU allocation is accessed;18.77/MacLink remains withdrawn. At16:14UTC the original private-learning block was7/10, its matched-single block3/3 and PENCIL2/3. Full-cohort requirements remain. Index72 preserves260 scoped records/207paper identities/two software identities, not full-paper reading counts. A sealed standalone scout includes VFusion's directly relevant frozen depth/feature fusion. GENNN primary method access remains unresolved.
+The next training hypothesis must preserve individual member quality while reducing correlated mistakes. Ordinary negative-correlation losses and learned fusion have direct prior work. The saved assessment explicitly derives the known own/pool loss equivalence, preventing that control from being described as a novel method.
+
+Only the authorized one-GPU allocation is accessed; 18.77/MacLink remains withdrawn. The allocation private-transfer block has completed 10/10 fits and its matched-single companions 3/3, without opening scientific scores. The required full 30/full 39 cohorts remain incomplete. The other two pilot blocks were previously launched on 77; their current status is unknown under withdrawn access. A complete, prospective allocation replication amendment is being prepared. It is not an activated setup fallback or an executed cohort. PENCIL remains 2/3, with the final seed at epoch 213 of 300 at 17:47 UTC.
+
+Index72 preserves 260 scoped records/207 paper identities/two software identities, not full-paper reading counts. Saved scouts cover logit/feature/depth-fusion precedents, shared-channel interpretation and known error-coupled training. GENNN primary-method access remains unresolved.
 
 - [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
-- [Fixed aggregation development protocol](experiments_iclr/postsubmission_20260930/amazon_polynormer_logits_graph_moment_retrospective_protocol_20261005_v2/REPORT.md)
-- [Complete Amazon comparison](experiments_iclr/postsubmission_20260930/amazon_polynormer_complete15_original_comparison_root_adoption_20261005_v1/REPORT.md)
-- [Complete cheap rank screen](experiments_iclr/postsubmission_20260930/citeseer_saved_independent_bank_pooling_screen_20261005_v3/OUTCOME.md)
-- [Literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v72/LITERATURE_INDEX.json)
+- [Completed prediction-error diagnosis](experiments_iclr/postsubmission_20260930/amazon_polynormer_valid_error_analysis_root_interpretation_20261005_v1/REPORT.md)
+- [Independent error-interpretation review](experiments_iclr/postsubmission_20260930/amazon_polynormer_valid_error_analysis_independent_interpretation_review_20261005_v1/REPORT.md)
+- [Complete negative aggregation outcome](experiments_iclr/postsubmission_20260930/amazon_polynormer_logits_graph_moment_complete_outcome_root_20261005_v2/REPORT.md)
+- [Fixed aggregation protocol](experiments_iclr/postsubmission_20260930/amazon_polynormer_logits_graph_moment_retrospective_protocol_20261005_v2/REPORT.md)
+- [Attributed error-coupled training assessment](experiments_iclr/postsubmission_20260930/amazon_error_driven_training_control_assessment_20261005_v1/REPORT.md)
+- [Complete original Amazon comparison](experiments_iclr/postsubmission_20260930/amazon_polynormer_complete15_original_comparison_root_adoption_20261005_v1/REPORT.md)
+- [Saved supplemental literature conclusions](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261005_v3.json)
 - [Preserved research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json)
 
 ## Original method
