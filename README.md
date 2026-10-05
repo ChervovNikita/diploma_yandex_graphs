@@ -12,7 +12,7 @@ The fixed saved-prediction development screen completed 90 small MLP fits and 36
 
 The next training hypothesis must preserve individual member quality while reducing correlated mistakes. Ordinary negative-correlation losses and learned fusion have direct prior work. The saved assessment explicitly derives the known own/pool loss equivalence, preventing that control from being described as a novel method.
 
-Only the authorized one-GPU allocation is accessed; 18.77/MacLink remains withdrawn. The allocation private-transfer block has completed 10/10 fits and its matched-single companions 3/3, without opening scientific scores. The required full 30/full 39 cohorts remain incomplete. The other two pilot blocks were previously launched on 77; their current status is unknown under withdrawn access. A complete, prospective allocation replication amendment is being prepared. It is not an activated setup fallback or an executed cohort. PENCIL remains 2/3, with the final seed at epoch 213 of 300 at 17:47 UTC.
+Only the authorized one-GPU allocation is accessed; 18.77/MacLink remains withdrawn. The allocation private-transfer block has completed 10/10 fits and its matched-single companions 3/3, without opening scientific scores. The required full 30/full 39 cohorts remain incomplete. The other two pilot blocks were previously launched on 77; their current status is unknown under withdrawn access. The explicit26-fit allocation replication amendment is now frozen, independently reviewed and launched for its first serial ten-cell block. All new b1/b2 donors were chosen before outcomes, with old77 attempts and costs preserved. Full39 scientific scores/history remain closed. PENCIL remains2/3; its last observed final seed was epoch257/300 at18:37UTC.
 
 Index72 preserves 260 scoped records/207 paper identities/two software identities, not full-paper reading counts. Saved scouts cover logit/feature/depth-fusion precedents, shared-channel interpretation and known error-coupled training. GENNN primary-method access remains unresolved.
 
@@ -25,6 +25,13 @@ Index72 preserves 260 scoped records/207 paper identities/two software identitie
 - [Complete original Amazon comparison](experiments_iclr/postsubmission_20260930/amazon_polynormer_complete15_original_comparison_root_adoption_20261005_v1/REPORT.md)
 - [Saved supplemental literature conclusions](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261005_v3.json)
 - [Preserved research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json)
+
+The complete graph-error diagnostic adds53,112 descriptive rows. In a fixed common-mistake population, shared members show more unanimous agreement around adjacent same-class nodes than matched nonneighbors; the pooled wrong-class recurrence contrast is mixed and lower on average than independent four. This supports examining corrective member information but does not establish a shared-specific graph cause. Every primary control and support cell is retained, with an independent interpretation check. Two saved graph-training adaptations have strong precedents and no current novelty or compute admission.
+
+- [Graph-conditioned complete diagnostic](experiments_iclr/postsubmission_20260930/amazon_valid_graph_error_recurrence_root_interpretation_20261005_v2/REPORT.md)
+- [Diagnostic interpretation review](experiments_iclr/postsubmission_20260930/amazon_valid_graph_error_recurrence_interpretation_independent_review_20261005_v1/REPORT.md)
+- [Two attributed conditional training hypotheses](experiments_iclr/postsubmission_20260930/amazon_graph_correlated_error_training_synthesis_20261005_v1/REPORT.md)
+- [Prospective allocation replication](experiments_iclr/postsubmission_20260930/shared_private_transfer_allocation_replication_preparation_20261005_v2/REPORT.md)
 
 ## Original method
 

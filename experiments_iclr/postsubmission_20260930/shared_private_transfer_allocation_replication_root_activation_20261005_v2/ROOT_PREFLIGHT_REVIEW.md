@@ -1,0 +1,3 @@
+# Root metadata-only b0 preflight decision
+
+Inspected the exact preflight and helper source and independent bounded PASS. The original allocation b0 ten main and three F1 donors are predetermined. Admit only genuine terminal/job/launch/source and byte-custody checks; source FREEZE/checkpoint/prediction files are hashed without parsing. Known allocation queue handles are checked by PID/start only, without foreign process inspection. No histories, scientific values, training, numerical imports or signals are admitted. Selected-state semantics and scientific outcomes remain deferred to complete39. Require authorized host/GPU and12GiB fresh free memory. This release does not authorize replication fits; it establishes required current facts for a later separate decision.

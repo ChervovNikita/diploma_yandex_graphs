@@ -1,0 +1,7 @@
+# Root prospective allocation replication decision
+
+Inspected the reviewed disabled V2 mapping, scientific constants, freeze/launch/collection contracts and narrow donor-binding repair. Independent mapping review and operational V1 plus resolved V2 review are retained. The current allocation preflight authenticated the predetermined original ten+three b0 terminal/artifact bytes, both known allocation queues absent and exact authorized GPU/free-memory requirement. Deferred selected-state/CONFIG/history semantics remain complete39 requirements.
+
+Authorize the explicit26 additional-fit replication exception to complete the same fixed39-cell logical study after77 access withdrawal. Both old77 scientific blocks were already launched; preserve all old attempts and known costs, mark final status/cost unknown, and choose every new allocation b1/b2 attempt before any outcomes. This is neither setup fallback nor resumption. All scientific constants, sources, seeds, horizons, controls, selectors and bounds stay fixed. Original b0 donors remain fixed. All26 jobs and four serial queues must be generated and independently compared before first fit; this approval alone does not launch a fit.
+
+Only the authorized allocation repository may execute; no77 or relay access, cleanup or signals. Original manuscript scores stay unchanged. No current result, novelty or acceptance claim follows. Later heldout/semantic scoring remains separately reviewed after full39 terminal custody.

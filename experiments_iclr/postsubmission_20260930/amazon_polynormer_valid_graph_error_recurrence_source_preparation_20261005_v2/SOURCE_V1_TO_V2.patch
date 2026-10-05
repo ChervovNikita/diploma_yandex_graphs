@@ -1,0 +1,46 @@
+--- source_v1/metrics.py
++++ source_v2/metrics.py
+@@ -66,11 +66,11 @@
+ 
+ def classify(shared, independent, y):
+     se, ie = shared['pred'] != y, independent['pred'] != y
+-    su = np.all(shared['member'] == shared['member'][:, :1], axis=1) & (shared['member'][:, 0] != y)
+-    iu = np.all(independent['member'] == independent['member'][:, :1], axis=1) & (independent['member'][:, 0] != y)
+-    require(np.all(~su | (se & (shared['pred'] == shared['member'][:, 0]))) and
+-            np.all(~iu | (ie & (independent['pred'] == independent['member'][:, 0]))),
+-            'Unanimity/native-pool consistency failure')
++    # FP32 softmax rounding can create a pooled argmax tie absent in raw logits.
++    # Target flags are unanimity at the native pool's wrong competitor; raw events
++    # remain separately retained in events_for and precision counts below.
++    su = se & np.all(shared['member'] == shared['pred'][:, None], axis=1)
++    iu = ie & np.all(independent['member'] == independent['pred'][:, None], axis=1)
+     s = np.zeros(len(y), dtype=np.int64)
+     loss, recovery, both = se & ~ie, ~se & ie, se & ie
+     s[loss] = 1 + su[loss].astype(np.int64)
+@@ -103,8 +103,15 @@
+     wrong_count = np.zeros((len(STRATA), C, C, 2, 5), dtype=np.int64)
+     np.add.at(by_class, (s, y), 1)
+     np.add.at(joint, (s, y, ks, ki, k0), 1)
+-    pool, member = {}, {}
++    pool, member, precision = {}, {}, {}
+     for name, bank, f in (('shared4', shared, 0), ('independent4', independent, 1)):
++        raw_unanimous = np.all(bank['member'] == bank['member'][:, :1], axis=1)
++        discrepancy = raw_unanimous & (bank['pred'] != bank['member'][:, 0])
++        precision[name] = {
++            'raw_unanimous_pool_class_discrepancy_count': int(discrepancy.sum()),
++            'raw_unanimous_wrong_pool_correct_count': int(np.sum(raw_unanimous & (bank['member'][:, 0] != y) & (bank['pred'] == y))),
++            'discrepancy_raw_member_class_vs_pool_class_confusion': np.bincount(
++                bank['member'][discrepancy, 0]*C + bank['pred'][discrepancy], minlength=C*C).reshape(C, C).tolist()}
+         pool[name] = np.bincount(y * C + bank['pred'], minlength=C*C).reshape(C, C).tolist()
+         member[name] = [np.bincount(y * C + bank['member'][:, m], minlength=C*C).reshape(C, C).tolist()
+                         for m in range(4)]
+@@ -118,7 +125,8 @@
+             int(wrong_count.sum()) == 2*(C-1)*n, 'Complete stratum accounting failure')
+     return {'strata': list(STRATA), 'true_classes': list(range(C)),
+             'pool_stratum_by_true_class': by_class.tolist(), 'pool_confusions': pool,
+-            'individual_member_confusions': member,
++            'individual_member_confusions': member, 'precision_discrepancies': precision,
++            'erroneous_unanimity_flag': 'all raw members equal native pool wrong competitor',
+             'correct_member_joint_axes': ['pool_stratum', 'true_class', 'shared_k', 'independent_k', 'single_correct'],
+             'correct_member_joint_counts': joint.tolist(),
+             'wrong_competitor_member_histogram_axes': ['pool_stratum', 'true_class', 'competitor', 'bank_shared_then_independent', 'members_predicting_competitor'],

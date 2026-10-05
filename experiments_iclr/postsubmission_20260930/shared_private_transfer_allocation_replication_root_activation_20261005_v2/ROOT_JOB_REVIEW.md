@@ -1,0 +1,3 @@
+# Root actual generated-job adoption
+
+All35 returned metadata bytes authenticate. Root reconstructed all26 jobs from sealed disabledV2 previews, enabling only fits_authorized and VALID_values_access. Allfour full queue descriptors/order/hashes and registrations agree with the explicit prospective amendment. The independent generated-metadata PASS and all actual hashes are preserved. Original b0 donors and complete39/old-attempt cost requirements remain fixed. Authorize the first complete queue original30_b1 exactly once; subsequent queues remain subject to genuine complete predecessor and process-absence checks. No scores or histories were read.

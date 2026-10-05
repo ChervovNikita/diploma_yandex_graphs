@@ -1,0 +1,5 @@
+# Root execution decision: graph-conditioned common errors
+
+The exact reviewed diagnostic source and conceptual V3 were inspected. Native bank arithmetic, complete13 strata, same-class direct neighbors/all nonneighbors, fixed competence/confidence matching, identical pair sets, primary equal-target contrast and complete unsupported cells agree with the descriptive contract. The independent source report finds no concrete blocker. The authenticated complete15/nine-family closure and unchanged VALID-only loader are reused.
+
+Authorize one CPU execution of this complete three-split description. No new model training, base-model replay, FIT/control/TEST label use, graph propagation, serving correction or heldout scoring. Original selected VALID is reused; masks/pairs are dependent. Outcomes cannot certify graph causality, novelty, a training mechanism or method promotion. Full outputs and any failure remain on allocation; root may retrieve aggregate diagnostics and exact file hashes. This decision does not select a new training intervention before seeing the diagnostic.

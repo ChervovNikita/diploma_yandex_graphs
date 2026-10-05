@@ -1,16 +1,15 @@
-# Current state: graph-ensemble predictive quality
+# Current state: error-driven graph-ensemble research
 
-Updated: 2026-10-05T18:00:29.201407+00:00. Goal active and unmet; original paper scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
+Updated:2026-10-05T19:08:15.730223+00:00. Goal active and unmet; original manuscript scores unchanged. [Evidence](PUBLIC_STATUS.md).
 
-1. Only the authorized one-GPU allocation is accessed. 18.77/MacLink withdrawn; wrong-allocation evidence excluded.
-2. Complete Amazon original15 comparison and exact replay retained. TEST unopened; TRAIN-control consumed by that comparison.
-3. Completed and independently checked VALID error diagnosis: shared member accuracy 52.2402% versus 52.5859%; pooling gain 0.1633 versus 0.5907 points; error correlation 0.9292 versus 0.7304. All 44,514 rows retained. This is descriptive, not a causal sharing diagnosis.
-4. Fixed aggregation screen complete: nine groups/99 configurations/90 MLP+36 calibration fits. Shared processor accuracy52.5450% versus53.2528% processed independent and53.1276% single. Both full gates fail; moment contribution unsupported. No final refit, confirmation or extra grid.
-5. First CPU failure, actual witness, V3 arithmetic-only repair, source reviews and affected qualification preserved. Completed physical child169.628s/719,511,552B peak RSS. No new base inference or TEST access.
-6. At17:47UTC private allocation block10/10+freeze, matched single3/3; full30/full39 incomplete. Prior77 blocks started, current status unknown; six companions unreleased. Prospective complete26-cell allocation replication amendment in preparation, without outcome selection or setup-fallback relabeling.
-7. PENCIL2/3, final epoch213/300 and856updates; complete collector not released. Existing link/rank outcomes remain mixed.
-8. Next method follows common-error/member-strength diagnosis. NCL/GNCL coupling is a known control, not novelty; graph-conditioned private learning still needs competent controls and complete outcomes.
-9. Index72 unchanged260scoped records/207paper identities/two software identities. Saved supplementsV3 prevent repeated retrieval; GENNN primary method unresolved.
-10. This packet is being explicitly inventoried, inspected and published. Last separately acknowledged push before it:e6fbb8b3a3e4de904994a9fbd3a168902c2a6d7a. No fresh manuscript acceptance verdict.
+1. Only authorized one-GPU allocation.77/MacLink withdrawn; wrong-allocation evidence excluded.
+2. Amazon original15 fits complete with replay. TEST unopened; TRAIN-control consumed. Complete VALID error diagnosis identifies weaker members, smaller averaging gain and high-confidence common errors.
+3. Fixed complete aggregation screen fails against both processed independent and capable single references. No confirmation/refit/extra grid.
+4. Graph-error diagnostic complete53,112 rows/192 primary rows. Independent interpretation check passes. Primary unanimityDelta+4.764pp; pooledDelta−.983pp; no causal graph defect, novelty or training admission.
+5. Private allocation b0 donors10+3 complete. Explicit26 additional-fit replication exception frozen and reviewed; first mainb1 queuePID470117/start6003585737 running. All outcomes/history remain closed until complete39 selected-cell custody. Old77 scientific attempts/costs preserved and final status unknown.
+6. Current source:shared_private_transfer_allocation_replication_preparation_20261005_v2; root receipts/monitor:shared_private_transfer_allocation_replication_root_activation_20261005_v2. Remaining mainb2/F1b1/F1b2 queues must follow genuine predecessors serially. Separate disabled amendedD2 adapter in preparation.
+7. PENCIL2/3; final257/300 in18:37 metadata. Complete collector still gated. Other adopted link results remain mixed.
+8. Saved scoped training synthesis has two attributed conditional adaptations with no novelty or compute. Independent methodological challenge and distinct recent-prior synthesis continue. Index72 counts unchanged; consult supplements before retrieval.
+9. Publish reviewed source/decisions/results from explicit inventory. Current prior verified GitHuba67889ee623635f281c28418a9b6b7cb56c3a38b. No fresh manuscript acceptance verdict.
 
-Prior state is preserved in coordination_snapshots/20261005_complete_prediction_errors_and_negative_fusion_before_state_v1 and ledger/Git.
+Previous status/ledger retained in coordination_snapshots/20261005_graph_error_and_replication_before_state_v1 and prior Git commits.
