@@ -1,0 +1,5 @@
+# Literature index v61
+
+233 conclusion records cover 181 paper groups and two software groups. All 230 v60 records, identifier groups, catalog entries, associated author-source events and history are preserved. Exactly three previously completed primary-method scopes are appended: LowFER arxiv:2008.10858v1, NTN2013 using its exact saved author-paper identity, and Multi-HeadVGAE doi:10.30919/es1406. No unverified cross-scheme NTN alias or venue update is inferred. This integration adds zero primary or full-paper reads and no numerical, predictive, execution or novelty adoption.
+
+Projected-input Hadamard fusion, factorized bilinear pooling, multiple nonlinear tensor interaction channels and graph multi-head fusion are established ancestry. The exact reflected graph-ensemble operation remains an attributed adaptation with unresolved estimation/optimization utility, not universal expressivity or cleared novelty. The Citeseer structural-stratum/frame-movement protocol is separately linked as a prospective hypothesis/decision, with no reading or identity credit. Its descriptive subgroups cannot rescue an unsuccessful aggregate result. ANIL materials are not adopted.
