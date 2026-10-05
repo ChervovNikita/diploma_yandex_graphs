@@ -1,5 +1,18 @@
 # GNNM: shared propagation in graph ensembles
 
+### Research update: 5 October 2026, 09:04 Moscow / 06:04 UTC
+
+The goal is better predictive accuracy from a learnable ensemble with a shared graph backbone. We have not yet established a new method that beats both competent single models and ordinary independently trained ensembles. Original paper scores remain unchanged.
+
+The current hypothesis trains the backbone to support learning by four private members. A member first learns from TRAIN links involving other endpoints; the shared weights then receive credit through that adaptation when predicting a different endpoint query. Member updates are recomputed at the new shared weights before being retained for inference. This is a testable graph-specific learning rule. Meta-learning, persistent private adaptation and the virtual/meta/recomputed-update sequence have close prior work, including SELAR; they are not presented as new principles.
+
+The fixed Citeseer-HeaRT pilot has ten cells and three paired seeds (30 fits). Its controls include capable adapted singles, a paid ordinary single, ordinary joint four, episodic shared F4, untied adapted four, and the previously completed true independent-four and unchanged native-training F4 references. Random-endpoint and detached-adaptation comparisons test the proposed mechanism. Original reference scores are reused verbatim. Outcomes are compared only after all 30 fits and provider records are complete.
+
+The reviewed b0 queue launched once on the authorized singleton at 05:50:59 UTC. Its first ordinary single control was physically live at cycle 8 at 05:55:09 UTC. Fixed order begins with controls: the live-transfer candidate had not started and there is no new predictive success. A fresh repository-local 18.77 runtime passed installation and provider checks, with 43 authenticated input/source files staged. Separate CPU sampling transcripts have launched; 18.77 numerical qualification and fit admission remain separate. Setup is not a scientific result.
+
+See [study and controls](experiments_iclr/postsubmission_20260930/shared_private_transfer_paired_pilot_preparation_20261005_v2/README.md), [independent execution audit](experiments_iclr/postsubmission_20260930/private_transfer_pilot_independent_execution_audit_20261005_v2/REPORT.md), [complete cost decision](experiments_iclr/postsubmission_20260930/private_transfer_complete_cost_root_adoption_20261005_v1/REPORT.md), [launch receipt](experiments_iclr/postsubmission_20260930/shared_private_transfer_paired_pilot_launch_receipts_root_20261005_v2/LAUNCH_RECEIPT.json), [completed 18.77 setup](experiments_iclr/postsubmission_20260930/shared_private_transfer_gpu77_environment_execution_20261005_v1/REPORT.md) and [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). The previous dated updates below remain unchanged.
+
+
 ### Research update: 5 October 2026, 00:09 Moscow / 4 October 21:09 UTC
 
 GNNM's primary objective is better predictive accuracy through ensembling. No confirmed methodological advantage over the independent ensemble or fresh manuscript acceptance exists.
