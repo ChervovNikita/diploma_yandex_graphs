@@ -1,0 +1,11 @@
+# Prospective literature index v66
+
+Prepared for root review. The compact successor contains 245 conclusion records, 193 normalized paper groups and 2 software groups. All 243 v65 records, prior group/catalog prefixes, source events, decision linkages and existing summary/history fields are preserved. The six changed current metadata fields are retained exactly in `integration_v66_predecessor_v65_snapshot`.
+
+Only AUX-TS (`arxiv:2107.08765v2`) and TMAG (`arxiv:2208.05716v2`) are appended, at record indices 243 and 244. Their original saved source rows, exact headings/paragraph/equation/algorithm locators, selected-text hashes, receipt hashes and reading limitations are retained. No unverified DOI alias or title-based merge is introduced. H-GRAM/Meta-iKG are reused memory with zero new reading credit; all metadata leads stay unresolved.
+
+The source scout completed two bounded primary method scopes, zero full-paper reads and zero retained primary rereads. This integration performs zero searches, retrievals, semantic primary rereads, new primary reads, full-paper reads or scientific/numerical work. Paper-group counts remain distinct from reading totals; the uncertified cumulative-reading flags are preserved.
+
+AUX-TS strengthens virtual/meta/recomputed graph-update ancestry, but commits on the full supervised batch including the meta fold. TMAG specifies interaction-set separation and meta-test adaptation, not the exact positive-and-negative endpoint exclusion or persistent served private ensemble. The new scoped summary preserves these qualifications; no global absence, novelty, utility, acceptance or execution verdict is adopted.
+
+The complete JSON is 1,610,531 bytes, below the decimal 2,000,000-byte cap, with a parsed roundtrip equality check. Both predecessor and source manifests/seals, seven candidate byte bindings, all reused-scope bindings, ten selected-text hashes and the two saved retrieval receipts were checked. Deleted full HTML remains represented by original receipt hashes and was not independently retrieved or rehashed. SOURCE_BINDINGS, DELTA, VERIFICATION and SIZE_LIMIT_CHECK document the exact append. Canonical status/ledger and publisher are unchanged.

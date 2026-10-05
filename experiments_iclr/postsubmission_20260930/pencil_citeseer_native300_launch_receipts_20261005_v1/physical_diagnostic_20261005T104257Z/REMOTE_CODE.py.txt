@@ -1,0 +1,42 @@
+print('PHYSICAL_ENTERED',flush=True)
+
+from pathlib import Path
+from datetime import datetime,timezone
+import json,socket,subprocess,sys
+launch={'supervisor_pid': 407356, 'supervisor_start_ticks': 5998031217, 'command': ['/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/native_ncn_runtime_20261005_v1/.venv/bin/python', '/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/pencil_citeseer_native300_train_valid_preparation_20261005_v2/supervisor.py', '--release', '/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/pencil_citeseer_native300_root_release_20261005_v1/ROOT_RELEASE.json', '--release-sha256', '170470763283069a4d19bfe7c93373f3317e6971879879a57fd062dd094fe7c7', '--output', '/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/pencil_citeseer_native300_train_valid_execution_20261005_v1']}
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+phase=repo/'experiments_iclr/postsubmission_20260930'
+root=phase/'pencil_citeseer_native300_train_valid_execution_20261005_v1'
+assert Path.cwd().resolve()==repo and socket.gethostname()=='anogena-2-0'
+assert subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True,timeout=20).split()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+def read(p):
+ assert p.is_file() and not p.is_symlink() and p.stat().st_size<65536
+ return json.loads(p.read_text())
+def physical(role,owner,argv):
+ pid=owner.get('pid',owner.get('PID'));ticks=owner['start_ticks'];p=Path('/proc')/str(pid)
+ try:
+  stat=(p/'stat').read_text();v=stat[stat.rfind(')')+2:].split()
+  if int(v[19])!=ticks:return dict(role=role,PID=pid,start_ticks=ticks,identity_matches=False,PID_reused=True)
+  current=[s.decode() for s in (p/'cmdline').read_bytes().split(bytes([0])) if s]
+  cwd=str((p/'cwd').resolve()) if v[0]!='Z' else None
+  return dict(role=role,PID=pid,start_ticks=ticks,state=v[0],physically_live=v[0]!='Z',identity_matches=v[0]=='Z' or (current==argv and cwd==str(repo)),cwd=cwd)
+ except FileNotFoundError:return dict(role=role,PID=pid,start_ticks=ticks,missing=True)
+owner=dict(pid=launch['supervisor_pid'],start_ticks=launch['supervisor_start_ticks'])
+rows=[physical('supervisor',owner,launch['command'])]
+progress=read(root/'COHORT_PROGRESS.json')
+seed=progress.get('active_seed')
+value=dict(UTC=datetime.now(timezone.utc).isoformat(),host=socket.gethostname(),known_handles=rows,active_seed=seed,completed_fits=len(progress.get('completed_fits',[])),signals_sent=False,new_launches=0,scores_opened=False)
+if seed is not None:
+ assert type(seed) is int and seed in (0,1,2)
+ receipt_path=root/('seed_'+str(seed))/'SUPERVISOR_FIT_RECEIPT.json'
+ if receipt_path.is_file():
+  receipt=read(receipt_path)
+  command=list(launch['command'])
+  assert command[1].endswith('/supervisor.py')
+  command[1]=command[1][:-len('supervisor.py')]+'worker.py'
+  command=command[:-2]+['--seed',str(seed),'--output',str(root/('seed_'+str(seed))/'run01')]
+  rows.append(physical('active_scientific_child',receipt['child_identity'],command))
+  value['active_child_status']=receipt['status']
+  value['active_child_exit_code']=receipt.get('child_exit_code')
+if (root/'COHORT_FAILURE.json').is_file():value['cohort_failure']=read(root/'COHORT_FAILURE.json')
+print(json.dumps(value))

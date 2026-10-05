@@ -1,0 +1,165 @@
+--- original/models.py
++++ port/models.py
+@@ -13,7 +13,7 @@
+         raise ValueError("Explicit supported architecture/initialization required")
+ 
+     def encoder():
+-        return native.GCN(3703, 256, 256, 1, .3, True, False, -1,
++        return native.GCN(500, 256, 256, 1, .3, True, False, -1,
+                           "puregcn", True, 0., xdropout=.4, taildropout=0., noinputlin=False)
+ 
+     def bank():
+@@ -134,9 +134,9 @@
+     shared = tuple(name for name in names if name not in private)
+     if not private or not shared or len(set(shared)|set(private)) != len(names):
+         raise ValueError("Exhaustive shared/private parameter partition failed")
+-    if arm == "shared_f4" and (sum(names[n].numel() for n in shared), sum(names[n].numel() for n in private)) != (1409026, 25608):
++    if arm == "shared_f4" and (sum(names[n].numel() for n in shared), sum(names[n].numel() for n in private)) != (589058, 25608):
+         raise ValueError("Unchanged unframed F4 parameter partition differs")
+-    if arm == "untied4" and (sum(names[n].numel() for n in shared), sum(names[n].numel() for n in private)) != (4*1409026, 25608):
++    if arm == "untied4" and (sum(names[n].numel() for n in shared), sum(names[n].numel() for n in private)) != (4*589058, 25608):
+         raise ValueError("Same-operation untied4 parameter partition differs")
+     if arm == "capable_single" and any(name.startswith("predictor.") for name in shared):
+         raise ValueError("Capable nonlinear predictor must be fully privately adaptable")
+
+--- original/custody.py
++++ port/custody.py
+@@ -16,17 +16,19 @@
+ REPO = Path("/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs")
+ PHASE = REPO / "experiments_iclr/postsubmission_20260930"
+ GPU_UUID = "GPU-44039938-fd82-41d2-fefd-de71514e2fac"
+-DONOR = "citeseer_heart_ncn_trainval_runner_source_20261005_v1"
+-DONOR_MANIFEST = "efa95806d86e3cc261a8506042204d8d32e39506386d6faf90a625d52be12ff9"
+-GEOMETRY = "endpoint_episode_geometry_preparation_20261005_v1"
+-DEPENDENCIES = {
+-    DONOR + "/SOURCE_MANIFEST.json": DONOR_MANIFEST,
+-    GEOMETRY + "/SOURCE_MANIFEST.json": "f1b97911cc13076bc2f72d57f2e7f9999245c5678c7979fad5c22dd82af55f10",
+-    GEOMETRY + "/episode_geometry.py": "f5562c94c8c90b999065e6b570f5a0e7c734f3f4f949274f98eeaf9859bf2321",
+-    GEOMETRY + "/native_episode_cycle.py": "8cd5596459a389aeaf435dcf5ecec819ae94c19a734f24ecf27c96cb4b97c0b9",
+-    "shared_core_private_learning_float64_dense_oracle_preparation_20261005_v1/recursive_adjoint.py":
+-        "14bf734b74983e91dec78ad8bba1ef7dcd910dc71aa20a9e75da466d76362293",
+-}
++DATASET = "pubmed"
++CANDIDATE_PURPOSES = ("fp32_discarded_training_step_qualification", "TRAIN_only_discarded_complete_cycle_cost", "TRAIN_VALID_prospective_private_transfer_fit")
++NATIVE_PURPOSES = ("native_ncnc_discarded_TRAIN_qualification", "TRAIN_VALID_native_ncnc_member_fit", "native_ncnc_selected_pool_replay")
++
++
++def require_evidence(job, key):
++    record = job.get(key, {})
++    if record.get("approved") is not True or not record.get("evidence"):
++        raise ValueError("Separate root admission unresolved: "+key)
++    for row in record["evidence"]:
++        if sha(phase_file(row["path"])) != row["sha256"]:
++            raise ValueError("Exact root evidence changed: "+key)
++
+ AVAILABLE = {"train_pos.txt", "valid_pos.txt", "heart_valid_samples.npy", "gnn_feature"}
+ 
+ 
+@@ -84,13 +86,7 @@
+         path = (ROOT/row["path"]).resolve(strict=True)
+         if not path.is_relative_to(ROOT) or sha(path) != row["sha256"] or path.stat().st_size != row["bytes"]:
+             raise ValueError("Reviewed packet bytes differ: "+row["path"])
+-    for relative, expected in DEPENDENCIES.items():
+-        if sha(phase_file(relative)) != expected: raise ValueError("Pinned dependency differs: "+relative)
+-    donor_manifest = json.loads(phase_file(DONOR+"/SOURCE_MANIFEST.json").read_text())
+-    for row in donor_manifest["files"]:
+-        if sha(phase_file(DONOR+"/"+row["path"])) != row["sha256"]:
+-            raise ValueError("Unchanged donor dependency differs: "+row["path"])
+-    for key in ("source_review", "runtime_qualification", "feature_authority", "negative_pool_authority"):
++    for key in ("source_review", "runtime_qualification", "feature_authority", "negative_pool_authority", "TRAIN_geometry_authority", "owned_supervision"):
+         record = job.get(key, {})
+         if record.get("approved") is not True or not record.get("evidence"):
+             raise ValueError("Root admission unresolved: "+key)
+@@ -99,14 +95,28 @@
+                 raise ValueError("Exact root admission evidence changed: "+key)
+     if type(job.get("seed")) is not int or not 0 <= job["seed"] < 2**32:
+         raise ValueError("Prospectively fixed native-compatible seed required")
+-    if type(job.get("factor_seed")) is not int or not 0 <= job["factor_seed"] < 2**63:
++    if purpose in CANDIDATE_PURPOSES and (type(job.get("factor_seed")) is not int or not 0 <= job["factor_seed"] < 2**63):
+         raise ValueError("Prospectively fixed factor seed required")
+     if job.get("TEST_access") is not False or job.get("retry") is not False:
+         raise ValueError("TEST is closed; no implicit retry")
+-    if job.get("constant_adjacency_recursive_adjoint_authorized") is not True:
++    if purpose in CANDIDATE_PURPOSES and job.get("constant_adjacency_recursive_adjoint_authorized") is not True:
+         raise ValueError("Exact constant-adjacency higher-order repair requires root authorization")
+     if type(job.get("soft_seconds")) is not int or job["soft_seconds"] < 1 or job.get("external_hard_bound_confirmed") is not True:
+         raise ValueError("Root-fixed soft limit and external hard bound required")
++    if job.get("dataset") != DATASET or job.get("data_shape") != {"nodes": 19717, "features": 500, "TRAIN": 37676, "VALID": 2216, "negatives_per_query": 500}:
++        raise ValueError("Prospective Pubmed task identity differs")
++    if purpose not in CANDIDATE_PURPOSES + NATIVE_PURPOSES:
++        raise ValueError("Unreviewed Pubmed execution purpose")
++    if purpose in ("TRAIN_VALID_prospective_private_transfer_fit", "TRAIN_only_discarded_complete_cycle_cost"):
++        if job.get("arm") != "shared_f4" or job.get("geometry") != "endpoint" or job.get("rule") not in ("live_transfer", "detached_transfer", "ordinary_joint"):
++            raise ValueError("Only the proposed three F4 endpoint conditions are supported")
++    if purpose in ("TRAIN_VALID_prospective_private_transfer_fit", "TRAIN_VALID_native_ncnc_member_fit"):
++        require_evidence(job, "original_complete_family_lead")
++        require_evidence(job, "Pubmed_cost_and_evaluator_admission")
++    if purpose in ("native_ncnc_selected_pool_replay", "TRAIN_VALID_native_ncnc_member_fit"):
++        require_evidence(job, "native_wrapper_qualification")
++    if purpose == "native_ncnc_selected_pool_replay":
++        require_evidence(job, "Pubmed_cost_and_evaluator_admission")
+     return job, output
+ 
+ 
+@@ -122,15 +132,14 @@
+ 
+ 
+ def load_sources():
+-    donor = PHASE/DONOR
+-    sys.path.insert(0, str(donor/"vendor"))
++    sys.path.insert(0, str(ROOT/"vendor"))
+     native = importlib.import_module("baseline_models.NCN.model")
+-    if Path(native.__file__).resolve() != donor/"vendor/baseline_models/NCN/model.py":
++    if Path(native.__file__).resolve() != ROOT/"vendor/baseline_models/NCN/model.py":
+         raise ValueError("Native model shadowed")
+-    heads = load_module("private_transfer_donor_heads", donor/"heads.py")
+-    geometry = load_module("private_transfer_geometry", PHASE/GEOMETRY/"episode_geometry.py")
+-    cycle = load_module("private_transfer_native_cycle", PHASE/GEOMETRY/"native_episode_cycle.py")
+-    adjoint = load_module("private_transfer_recursive_adjoint", PHASE/"shared_core_private_learning_float64_dense_oracle_preparation_20261005_v1/recursive_adjoint.py")
++    heads = load_module("private_transfer_donor_heads", ROOT/"heads.py")
++    geometry = load_module("private_transfer_geometry", ROOT/"episode_geometry.py")
++    cycle = load_module("private_transfer_native_cycle", ROOT/"native_episode_cycle.py")
++    adjoint = load_module("private_transfer_recursive_adjoint", ROOT/"recursive_adjoint.py")
+     load_module("private_adam", ROOT/"private_adam.py")
+     models = load_module("private_transfer_models", ROOT/"models.py")
+     steps = load_module("private_transfer_steps", ROOT/"transfer_step.py")
+@@ -172,7 +181,9 @@
+     paths, identities = {}, {}
+     for name in (AVAILABLE if include_valid else {"train_pos.txt", "gnn_feature"}):
+         record = manifest["files"][name]
+-        if tuple(Path(record["relative_path"]).parts) != ("available", "citeseer", name):
++        if name == "train_pos.txt" and (record.get("sha256"), record.get("bytes")) != ("c6de89d86371909f738d620846540168d4b6256fed88dc9d8ab3609cb5357fb4", 409212):
++            raise ValueError("Root-adopted exact Pubmed TRAIN member differs")
++        if tuple(Path(record["relative_path"]).parts) != ("available", "pubmed", name):
+             raise ValueError("Acquisition role/path mismatch")
+         path = (manifest_path.parent/record["relative_path"]).resolve(strict=True)
+         if not path.is_relative_to(PHASE) or sha(path) != record["sha256"] or path.stat().st_size != record["bytes"]:
+@@ -180,7 +191,7 @@
+         paths[name] = path; identities[name] = {"sha256": record["sha256"], "bytes": record["bytes"]}
+     supplied = torch.load(paths["gnn_feature"], map_location="cpu", weights_only=True)
+     x = supplied.get("entity_embedding") if isinstance(supplied, dict) else None
+-    if not isinstance(x, torch.Tensor) or x.layout != torch.strided or x.dtype != torch.float32 or tuple(x.shape) != (3327, 3703) or not bool(torch.isfinite(x).all()):
++    if not isinstance(x, torch.Tensor) or x.layout != torch.strided or x.dtype != torch.float32 or tuple(x.shape) != (19717, 500) or not bool(torch.isfinite(x).all()):
+         raise ValueError("Native full feature geometry differs")
+     rows = {}
+     for split in (("train", "valid") if include_valid else ("train",)):
+@@ -198,15 +209,15 @@
+             raise ValueError("Native positive counts changed")
+         if len({tuple(sorted(p)) for p in pairs}) != len(pairs): raise ValueError("Duplicate positive facts")
+         rows[split] = torch.tensor(pairs, dtype=torch.long)
+-    if len(rows["train"]) != 3870: raise ValueError("Native full TRAIN population differs")
++    if len(rows["train"]) != 37676: raise ValueError("Native full TRAIN population differs")
+     if not include_valid: return x, rows["train"], None, None, identities
+     import numpy as np
+     valid = rows["valid"]
+-    if len(valid) != 227 or {tuple(sorted(p)) for p in valid.tolist()} & {tuple(sorted(p)) for p in rows["train"].tolist()}:
++    if len(valid) != 2216 or {tuple(sorted(p)) for p in valid.tolist()} & {tuple(sorted(p)) for p in rows["train"].tolist()}:
+         raise ValueError("Native VALID population/overlap differs")
+     pool = np.load(paths["heart_valid_samples.npy"], allow_pickle=False)
+     positive = valid.numpy()
+-    if pool.shape != (227, 500, 2) or pool.dtype != np.dtype("<i8") or not pool.flags.c_contiguous:
++    if pool.shape != (2216, 500, 2) or pool.dtype != np.dtype("<i8") or not pool.flags.c_contiguous:
+         raise ValueError("Complete fixed500 VALID pool differs")
+     if np.any((pool < 0)|(pool >= len(x))) or np.any(pool[:, :250, 0] != positive[:, 0, None]) or np.any(pool[:, 250:, 1] != positive[:, 1, None]):
+         raise ValueError("VALID association/range differs")
+
