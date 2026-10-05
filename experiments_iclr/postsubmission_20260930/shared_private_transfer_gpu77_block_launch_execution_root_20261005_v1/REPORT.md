@@ -1,0 +1,9 @@
+# Peptide b1/b2 complete-block launch execution
+
+Root release f2efc428... authorized the two predetermined complete ten-cell blocks. The exact root review and B1/B2 releases were staged alongside original numeric/cost metadata. Both queues froze at06:44:42UTC with their byte-identical original full thirty-cell plan and anchors; actual jobs bind qualified source7f274c09... and raw gateb7eae293.... Provider admission and donor registration preceded both first fits. Exact raw queue, release, all twenty jobs, admission, registration, plan and anchor bytes are retained under authenticated_remote.
+
+One normal detached queue was launched for each block after fresh host/inventory/root/source/gate/queue/job/admission/registration/free-memory checks. b1 started06:46:16UTC on physical GPU0, queuePID3333578/start1733275951; b2 started06:46:17UTC on physical GPU1, queuePID3333657/start1733276050. Both fresh argv/cwd/PGID/SID identities were admitted. Free memory was70,163,365,888bytes on GPU0 and40,887,123,968bytes on GPU1 against the unchanged12GiB minimum. Reviewed ownership supervision remains active, with all original bounds. No retry, method skipping, reorder, source change or provider change occurred.
+
+Initial metadata at06:48:08UTC authenticates both queues and first children live. b1 first E_random_detached: child3333588/start1733275970, cycle3/episode60,1596MiB owned CUDA on its assigned GPU only. b2 first S_end_live: child3333666/start1733276069, cycle4/episode14,838MiB owned CUDA on its assigned GPU only. No queue/fit failure is present. The blocks are running and have no whole-block completion yet.
+
+Scores, validation histories, selected checkpoints and predictions remain closed. Initial progress/resource/child/queue-start/control bytes are retained under authenticated_initial. Future monitoring evidence must go in a successor folder. This packet attests launch custody and initial operation, not completed fits or predictive quality.

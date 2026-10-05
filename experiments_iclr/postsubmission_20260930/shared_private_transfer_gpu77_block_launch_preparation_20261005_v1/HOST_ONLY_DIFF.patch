@@ -1,0 +1,381 @@
+--- shared_private_transfer_paired_pilot_preparation_20261005_v2/pilot_common.py
++++ shared_private_transfer_gpu77_block_launch_preparation_20261005_v1/pilot_common.py
+@@ -9,15 +9,17 @@
+ import subprocess
+ 
+ ROOT = Path(__file__).resolve().parent
+-REPO = Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
++REPO = Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+ PHASE = REPO/'experiments_iclr/postsubmission_20260930'
+-SOURCE = PHASE/'shared_backbone_private_transfer_training_source_20261005_v2'
+-SOURCE_SHA = 'db7102df30491be8809ea4295b9ce0d5c48f3608129f09dcfef74b8f7aa2233f'
+-GATE_RELATIVE = 'shared_backbone_private_transfer_fp32_execution_root_20261005_v1/result/RESULT.json'
+-GATE_SHA = '8601b1138c3f7ab65cb1525d5d8274a8e14e22731cd060801eec437f6169806d'
+-GPU_UUID = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+-SUPERVISOR_RELATIVE = 'shared_backbone_private_transfer_complete_cost_queue_preparation_20261005_v3/queue.py'
+-SUPERVISOR_SHA = '7b195b600ad3cc57c4cf51a1da927164173ca2b0e80e96cf2b6c6449ce7ad468'
++SOURCE = PHASE/'shared_backbone_private_transfer_training_source_gpu77_20261005_v1'
++SOURCE_SHA = '7f274c09bb317e6976d0c8b8636e779dc3ffcd2f2b76493d00f008b8bd08cebc'
++GATE_RELATIVE = 'shared_private_transfer_gpu77_fp32_execution_root_20261005_v2/result/RESULT.json'
++GATE_SHA = 'b7eae293ec549de0746bb951733f8df6e350808669bcfb53a938c28d0768e476'
++GPU_UUIDS = ('GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998', 'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced')
++GPU_UUID = None
++CANONICAL_PLAN_SHA = 'ae4b0f5c77cf48a86ccdbe51179fc95881157ac225f593c3992a5a5014d5346b'
++SUPERVISOR_RELATIVE = 'shared_private_transfer_gpu77_qualification_preparation_20261005_v3/ownership_helpers.py'
++SUPERVISOR_SHA = 'e71503c87865546319cddbbf7a4f9f15d13cdf9e4875e406d65de21e64e047fd'
+ 
+ 
+ def sha(path):
+@@ -67,11 +69,12 @@
+ 
+ 
+ def physical_host():
+-    if platform.system()!='Linux' or socket.gethostname()!='anogena-2-0':
+-        raise ValueError('Only the authorized one-GPU scientific host may run this queue')
++    if platform.system()!='Linux' or socket.gethostname()!='peptide':
++        raise ValueError('Only the authorized peptide repository may run this queue')
+     result=subprocess.run(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],
+         capture_output=True,text=True,check=True,timeout=30)
+-    if result.stdout.split()!=[GPU_UUID]: raise ValueError('Authorized singleton physical GPU differs')
++    if tuple(result.stdout.split())!=GPU_UUIDS or GPU_UUID not in GPU_UUIDS:
++        raise ValueError('Authorized two-GPU inventory or selected physical UUID differs')
+ 
+ 
+ def fresh_phase_directory(path):
+@@ -86,7 +89,8 @@
+              'PYTHONPATH','PYTHONDONTWRITEBYTECODE'}
+     if set(overrides)-allowed or any(not isinstance(v,str) for v in overrides.values()):
+         raise ValueError('Only explicit reviewed runtime environment overrides are allowed')
+-    if overrides.get('CUDA_VISIBLE_DEVICES')!='0': raise ValueError('Only authorized CUDA device0')
++    if GPU_UUID not in GPU_UUIDS or overrides.get('CUDA_VISIBLE_DEVICES')!=GPU_UUID:
++        raise ValueError('Only the frozen block physical GPU UUID is visible')
+     environment=dict(os.environ,**overrides)
+     environment.pop('PYTHONHOME',None)
+     return environment
+@@ -97,4 +101,13 @@
+     if sha(path)!=SUPERVISOR_SHA:raise ValueError('Already reviewed v3 stdlib process supervisor changed')
+     spec=importlib.util.spec_from_file_location('private_transfer_owned_supervisor_v3',path)
+     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
++    module.GPU=GPU_UUID
+     return module
++
++
++def bind_block(blocks):
++    """Host-only binding to one complete prespecified block and physical GPU."""
++    global GPU_UUID
++    if blocks not in (['b1'],['b2']):
++        raise ValueError('Each peptide queue must contain exactly b1 or b2')
++    GPU_UUID=GPU_UUIDS[int(blocks[0][1])-1]
+--- shared_private_transfer_paired_pilot_preparation_20261005_v2/run_queue.py
++++ shared_private_transfer_gpu77_block_launch_preparation_20261005_v1/run_queue.py
+@@ -29,8 +29,10 @@
+     while True:
+         c.physical_host();attempts+=1
+         rows=s.query(['--query-gpu=uuid,memory.free','--format=csv,noheader,nounits'],limits['telemetry_timeout_seconds'])
+-        if len(rows)!=1:raise ValueError('Physical singleton GPU changed')
+-        uuid,free=[part.strip() for part in rows[0].split(',')]
++        if tuple(row.split(',')[0].strip() for row in rows)!=c.GPU_UUIDS:
++            raise ValueError('Physical two-GPU inventory changed')
++        selected=next(row for row in rows if row.split(',')[0].strip()==c.GPU_UUID)
++        uuid,free=[part.strip() for part in selected.split(',')]
+         if uuid!=c.GPU_UUID or not free.isdigit():raise ValueError('Authorized GPU/free-memory telemetry differs')
+         status={'UTC':s.now(),'GPU_UUID':uuid,'GPU_free_bytes':int(free)*1024**2,'attempts':attempts,
+                 'elapsed_seconds':time.monotonic()-started,'scientific_child_started':False}
+@@ -123,7 +125,7 @@
+ def main():
+     parser=argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--queue',type=Path,required=True)
+-    args=parser.parse_args();queue=c.read(args.queue)
++    args=parser.parse_args();queue=c.read(args.queue);c.bind_block(queue['execution_blocks'])
+     c.physical_host();c.verify_packet(queue['pilot_source_manifest_sha256']);c.verify_training();s=c.supervisor()
+     root=(c.PHASE/c.relative_path(queue['execution_directory_relative'])).resolve(strict=True)
+     if args.queue.resolve()!=root/'QUEUE.json' or not root.is_relative_to(c.PHASE) or (root/'QUEUE_START.json').exists():
+@@ -133,6 +135,13 @@
+     if queue.get('retry') is not False or queue.get('read_scores_or_change_family') is not False:
+         raise ValueError('Only frozen outcome-free whole-block execution is admitted')
+     release=c.read(root/'ROOT_RELEASE.json');plan=c.read(root/'COHORT_PLAN.json')
++    if release.get('root_provider_block_approved') is not True:
++        raise ValueError('Separate root peptide block release required')
++    admission=c.read(root/'PROVIDER_ADMISSION.json');registration=c.read(root/'DONOR_REGISTRATION.json')
++    if admission.get('approved') is not True or admission.get('admitted_before_provider_first_fit') is not True or registration.get('registered_before_provider_first_fit') is not True:
++        raise ValueError('Provider admission and donor registration must precede fits')
++    if registration['queue_sha256']!=c.sha(args.queue) or registration['provider_admission']['sha256']!=c.sha(root/'PROVIDER_ADMISSION.json'):
++        raise ValueError('Prefit donor queue/admission binding changed')
+     subset=queue['execution_blocks'];expected=[i for i in plan['execution_order'] if i.split('_',1)[0] in subset]
+     if len(set(subset))!=len(subset) or len(expected)!=10*len(subset) or [row['cell_id'] for row in queue['entries']]!=expected or len(set(plan['execution_order']))!=30:
+         raise ValueError('No partial block, missing/duplicate/reordered prospective cell')
+--- shared_private_transfer_paired_pilot_preparation_20261005_v2/freeze_queue.py
++++ shared_private_transfer_gpu77_block_launch_preparation_20261005_v1/freeze_queue.py
+@@ -9,7 +9,9 @@
+ def main():
+     parser=argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--release',type=Path,required=True)
+-    args=parser.parse_args();release=c.read(args.release)
++    args=parser.parse_args();release=c.read(args.release);c.bind_block(release['execution_blocks'])
++    if release.get('root_provider_block_approved') is not True:
++        raise ValueError('Peptide accuracy fits require a separate root block release')
+     if not args.release.resolve(strict=True).is_relative_to(c.PHASE.resolve(strict=True)):
+         raise ValueError('Root release must stay in the authorized project phase')
+     if release.get('root_numeric_cohort_approved') is not True or release.get('pilot_source_review_approved') is not True:
+@@ -57,13 +59,8 @@
+         raise ValueError('Execution subset must contain distinct complete prespecified blocks')
+     if release.get('resource_assignment')!=spec['resource_assignment']:
+         raise ValueError('Prospective whole-block provider assignment/fallback changed')
+-    fallback=sorted(set(execution_blocks)-{'b0'})
+-    if release.get('singleton_fallback_activated_for_blocks')!=fallback:
+-        raise ValueError('Only b0 or explicitly activated entire-block fallback may run on singleton')
+-    if fallback:
+-        if not release.get('fallback_activation_evidence'):raise ValueError('Root must bind setup-failure fallback before any outcome access')
+-        for row in release['fallback_activation_evidence']:
+-            if c.sha(c.phase_file(row['path']))!=row['sha256']:raise ValueError('Root whole-block fallback activation changed')
++    if release.get('singleton_fallback_activated_for_blocks')!=[] or release.get('fallback_activation_evidence')!=[]:
++        raise ValueError('This launcher admits only the fixed primary peptide provider')
+     budgets=release['fit_bounds_by_cell']
+     if set(budgets)!={r['cell'] for r in cells}: raise ValueError('All thirty fits require pre-outcome cell budget bounds')
+     for cell in cells:
+@@ -83,26 +80,25 @@
+         raise ValueError('Whole block queue must cover every selected hard fit/resource wait and explicit cleanup overhead')
+     root.mkdir();(root/'jobs').mkdir();(root/'runs').mkdir();(root/'logs').mkdir()
+     c.write(root/'ROOT_RELEASE.json',release)
+-    cohort={'schema':'root_frozen_paired_private_transfer_pilot_v1','root_adopted_after_TRAIN_cost':True,
+-        'TEST_closed':True,'selection':spec['selection'],'selection_budget_fairness_approved':True,
+-        'paid_budget_description':release['paid_budget_description'],'complete_cycle_cost_evidence':release['complete_cycle_cost_evidence'],
+-        'include_stale_commit_ablation':False,'blocks':blocks,'source_manifest_sha256':c.SOURCE_SHA,
+-        'external_anchors_sha256':c.sha(c.ROOT/'EXTERNAL_ANCHORS.json'),'analysis_policy':policy,
+-        'root_numeric_decision':numeric,'max_cycles':horizon,'resource_assignment':spec['resource_assignment'],'resource_limits':limits,
+-        'science_contract_sha256':release['science_contract_sha256'],
+-        'fit_bounds_by_cell':budgets,'execution_order':spec['execution_order'],'cells':[]}
+-    for block in blocks:
+-        for cell in cells:
+-            cohort['cells'].append({'cell_id':block['block']+'_'+cell['cell'], 'cell':cell['cell'],
+-                'paired_seed_block':block['paired_seed_block'],'seed':block['seed'],'factor_seed':block['factor_seed'],
+-                **{k:cell[k] for k in ('arm','rule','geometry')},'outer_size':64,'inner_size':256,
+-                'schedule':{'max_cycles':horizon,'eval_every_cycles':5,'validation_miss_limit':11}})
+-    c.write(root/'COHORT_PLAN.json',cohort)
+-    c.write(root/'EXTERNAL_ANCHORS.json',c.read(c.ROOT/'EXTERNAL_ANCHORS.json'))
++    canonical=c.ROOT/'COHORT_PLAN.json'
++    if c.sha(canonical)!=c.CANONICAL_PLAN_SHA:
++        raise ValueError('Canonical full thirty-cell raw plan changed')
++    cohort=c.read(canonical)
++    for key,expected in (('blocks',blocks),('execution_order',spec['execution_order']),('max_cycles',horizon),
++                         ('analysis_policy',policy),('fit_bounds_by_cell',budgets),('resource_limits',limits),
++                         ('resource_assignment',spec['resource_assignment']),('complete_cycle_cost_evidence',release['complete_cycle_cost_evidence'])):
++        if cohort[key]!=expected:raise ValueError('Canonical plan/release differs: '+key)
++    # Preserve original plan source_manifest as scientific lineage. Actual provider
++    # source/runtime/qualifier bindings live in jobs, queue and provider admission.
++    (root/'COHORT_PLAN.json').write_bytes(canonical.read_bytes())
++    (root/'EXTERNAL_ANCHORS.json').write_bytes((c.ROOT/'EXTERNAL_ANCHORS.json').read_bytes())
+     plan_relative=str((root/'COHORT_PLAN.json').relative_to(c.PHASE));plan_sha=c.sha(root/'COHORT_PLAN.json')
+     entries={}
+     for row in cohort['cells']:
++        if row['cell_id'].split('_',1)[0] not in execution_blocks:continue
+         job=copy.deepcopy(base)
++        job['physical_gpu_uuid']=c.GPU_UUID
++        job['source_review']['evidence']+=release['root_review_evidence']
+         selected=row['cell_id'].split('_',1)[0] in execution_blocks
+         job.update(row);job.update(purpose='TRAIN_VALID_prospective_private_transfer_fit',fits_authorized=selected,
+             VALID_values_access=selected,program_sha256=c.sha(c.SOURCE/'run.py'),source_manifest_sha256=c.SOURCE_SHA,
+@@ -121,8 +117,20 @@
+         'resource_limits':limits,'execution_blocks':execution_blocks,'resource_assignment':spec['resource_assignment'],
+         'entries':[entries[i] for i in spec['execution_order'] if i.split('_',1)[0] in execution_blocks],
+         'retry':False,'stop_on_operational_failure':True,'read_scores_or_change_family':False,'TEST_access':False}
++    admission=c.read(c.ROOT/'PROVIDER_ADMISSION_TEMPLATE.json')
++    admission.update(schema='root_admitted_peptide_private_transfer_provider_v1',approved=True,
++        admitted_before_provider_first_fit=True,GPU_UUID=c.GPU_UUID,
++        root_source_review_evidence=base['source_review']['evidence']+release['root_review_evidence'])
++    c.write(root/'PROVIDER_ADMISSION.json',admission)
+     c.write(root/'QUEUE.json',queue)
+-    print('Frozen thirty scientific jobs and '+str(selected_count)+' whole-block queue entries without starting any fit: '+str(root))
++    c.write(root/'DONOR_REGISTRATION.json',{'block':execution_blocks[0],'provider':'authorized_18.77',
++        'hostname':'peptide','GPU_UUID':c.GPU_UUID,'donor_directory_relative':str(root.relative_to(c.PHASE)),
++        'replica_directory_relative':str(root.relative_to(c.PHASE)),
++        'provider_admission':{'path':str((root/'PROVIDER_ADMISSION.json').relative_to(c.PHASE)),
++                              'sha256':c.sha(root/'PROVIDER_ADMISSION.json')},
++        'queue_sha256':c.sha(root/'QUEUE.json'),'root_release_sha256':c.sha(root/'ROOT_RELEASE.json'),
++        'registered_before_provider_first_fit':True,'fallback_activated':False})
++    print('Frozen exact canonical plan and '+str(selected_count)+' complete-block jobs without starting fits: '+str(root))
+ 
+ 
+ if __name__=='__main__':main()
+--- shared_private_transfer_paired_pilot_preparation_20261005_v2/QUALIFIED_BASE_JOB.json
++++ shared_private_transfer_gpu77_block_launch_preparation_20261005_v1/QUALIFIED_BASE_JOB.json
+@@ -6,7 +6,7 @@
+   "constant_adjacency_recursive_adjoint_authorized": true,
+   "cpu_interop_threads": 1,
+   "cpu_threads": 2,
+-  "expected_hostname": "anogena-2-0",
++  "expected_hostname": "peptide",
+   "feature_authority": {
+     "approved": true,
+     "evidence": [
+@@ -33,8 +33,16 @@
+     "approved": true,
+     "evidence": [
+       {
+-        "path": "citeseer_ncn_native_runtime_qualification_20261005_v2/RESULT.json",
+-        "sha256": "2dfa804a4761c559b6fa2f954f98300b81dabd4ac7f8b2da97e5301b9d253496"
++        "path": "shared_private_transfer_gpu77_environment_execution_20261005_v1/PROVIDERS.json",
++        "sha256": "8f266cf0e27e908af087fb18092631eb7410c150e414d437b05ed3e7573b2fe4"
++      },
++      {
++        "path": "shared_private_transfer_gpu77_environment_execution_20261005_v1/ENVIRONMENT_VERIFICATION.json",
++        "sha256": "345ccb1e5ba29532d71d7fdfed4067234cd16020e2514fbd0170ae394cb3ef82"
++      },
++      {
++        "path": "shared_private_transfer_sampling_execution_20261005_v1/COMPARISON.json",
++        "sha256": "c2fc024b0550011c2b7d5b34eec4ea6333e2bcbcc063ba3dd02cbdb224c227e7"
+       }
+     ]
+   },
+@@ -47,28 +55,25 @@
+     "torch_sparse": "0.6.18+pt21cu118"
+   },
+   "schema": "qualified_training_authorities_disabled_pilot_base_v1",
+-  "source_manifest_sha256": "db7102df30491be8809ea4295b9ce0d5c48f3608129f09dcfef74b8f7aa2233f",
++  "scope": "Prospective paired pilot; exact unchanged science with qualified peptide runtime.",
++  "source_manifest_sha256": "7f274c09bb317e6976d0c8b8636e779dc3ffcd2f2b76493d00f008b8bd08cebc",
+   "source_review": {
+     "approved": true,
+     "evidence": [
+       {
+-        "path": "shared_backbone_private_transfer_source_independent_review_20261005_v2/REVIEW_MANIFEST.json",
+-        "sha256": "c8b471f1cff1e7462de768f99564695cb15c7c6bdd8402237697870bea54b5c3"
++        "path": "shared_private_transfer_gpu77_qualification_root_release_20261005_v2/ROOT_REVIEW.md",
++        "sha256": "a579832479b0458b1cec88066814a27fd6ee3f1b3afedceead63365387490c17"
+       },
+       {
+         "path": "shared_backbone_private_transfer_source_independent_review_20261005_v3/REVIEW_MANIFEST.json",
+         "sha256": "ade060b5ad4d380d4b026d9970f9194f0285997e96a4a1b548573f991e21e05f"
+-      },
+-      {
+-        "path": "shared_backbone_private_transfer_fp32_execution_root_20261005_v1/ROOT_REVIEW.md",
+-        "sha256": "d13d77d16f84e49f781ab8b3d6c452439a3cdc2274cba1ec86751a553eabb7d5"
+       }
+     ]
+   },
+   "source_review_approved": true,
+   "training_step_gate": {
+     "approved": true,
+-    "path": "shared_backbone_private_transfer_fp32_execution_root_20261005_v1/result/RESULT.json",
+-    "sha256": "8601b1138c3f7ab65cb1525d5d8274a8e14e22731cd060801eec437f6169806d"
++    "path": "shared_private_transfer_gpu77_fp32_execution_root_20261005_v2/result/RESULT.json",
++    "sha256": "b7eae293ec549de0746bb951733f8df6e350808669bcfb53a938c28d0768e476"
+   }
+ }
+--- shared_private_transfer_paired_pilot_preparation_20261005_v2/PROVIDER_ADMISSION_TEMPLATE.json
++++ shared_private_transfer_gpu77_block_launch_preparation_20261005_v1/PROVIDER_ADMISSION_TEMPLATE.json
+@@ -3,62 +3,95 @@
+   "TEST_access": false,
+   "admitted_before_provider_first_fit": false,
+   "approved": false,
+-  "authorized_repository": null,
++  "authorized_repository": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git",
+   "available_manifest_sha256": "1b9c8bb57278d91b0f6212136225afcfd6b067c6b17e0dfed7ee36dd6316efdc",
+-  "hostname": null,
++  "hostname": "peptide",
+   "numerical_science_changes": false,
+   "numerical_science_files": {
+     "dependency:citeseer_heart_ncn_trainval_runner_source_20261005_v1/SOURCE_MANIFEST.json": {
+-      "path": null,
++      "path": "citeseer_heart_ncn_trainval_runner_source_20261005_v1/SOURCE_MANIFEST.json",
+       "sha256": "efa95806d86e3cc261a8506042204d8d32e39506386d6faf90a625d52be12ff9"
+     },
+     "dependency:endpoint_episode_geometry_preparation_20261005_v1/SOURCE_MANIFEST.json": {
+-      "path": null,
++      "path": "endpoint_episode_geometry_preparation_20261005_v1/SOURCE_MANIFEST.json",
+       "sha256": "f1b97911cc13076bc2f72d57f2e7f9999245c5678c7979fad5c22dd82af55f10"
+     },
+     "dependency:endpoint_episode_geometry_preparation_20261005_v1/episode_geometry.py": {
+-      "path": null,
++      "path": "endpoint_episode_geometry_preparation_20261005_v1/episode_geometry.py",
+       "sha256": "f5562c94c8c90b999065e6b570f5a0e7c734f3f4f949274f98eeaf9859bf2321"
+     },
+     "dependency:endpoint_episode_geometry_preparation_20261005_v1/native_episode_cycle.py": {
+-      "path": null,
++      "path": "endpoint_episode_geometry_preparation_20261005_v1/native_episode_cycle.py",
+       "sha256": "8cd5596459a389aeaf435dcf5ecec819ae94c19a734f24ecf27c96cb4b97c0b9"
+     },
+     "dependency:shared_core_private_learning_float64_dense_oracle_preparation_20261005_v1/recursive_adjoint.py": {
+-      "path": null,
++      "path": "shared_core_private_learning_float64_dense_oracle_preparation_20261005_v1/recursive_adjoint.py",
+       "sha256": "14bf734b74983e91dec78ad8bba1ef7dcd910dc71aa20a9e75da466d76362293"
+     },
+     "models.py": {
+-      "path": null,
++      "path": "shared_backbone_private_transfer_training_source_gpu77_20261005_v1/models.py",
+       "sha256": "ac84c2b7a09ef48d4cb670f98a7dcbf996bb63489873aea2cb967cedc941cf02"
+     },
+     "private_adam.py": {
+-      "path": null,
++      "path": "shared_backbone_private_transfer_training_source_gpu77_20261005_v1/private_adam.py",
+       "sha256": "9687ce7215e1520d2ce4980c693ece2c2f41f6415a2f01f2b360916d29c04516"
+     },
+     "run.py": {
+-      "path": null,
++      "path": "shared_backbone_private_transfer_training_source_gpu77_20261005_v1/run.py",
+       "sha256": "6d7e75f9bae93ef88b2873f55f4f449ae52b9a0b6768fa808fae391da50ed524"
+     },
+     "transfer_step.py": {
+-      "path": null,
++      "path": "shared_backbone_private_transfer_training_source_gpu77_20261005_v1/transfer_step.py",
+       "sha256": "1e350d3e0798bd64fb1f3f4fe860e3810af9847dd104d252e22b95978c9c2352"
+     }
+   },
+   "original_score_recalculation": false,
+   "program": {
+-    "path": null,
++    "path": "shared_backbone_private_transfer_training_source_gpu77_20261005_v1/run.py",
+     "sha256": "6d7e75f9bae93ef88b2873f55f4f449ae52b9a0b6768fa808fae391da50ed524"
+   },
+-  "provider": null,
++  "provider": "authorized_18.77",
+   "provider_source_manifest": {
+-    "path": null,
+-    "sha256": null
++    "path": "shared_backbone_private_transfer_training_source_gpu77_20261005_v1/SOURCE_MANIFEST.json",
++    "sha256": "7f274c09bb317e6976d0c8b8636e779dc3ffcd2f2b76493d00f008b8bd08cebc"
+   },
+-  "python_executable": null,
+-  "qualification_evidence": [],
+-  "root_source_review_evidence": [],
+-  "runtime_versions": null,
++  "python_executable": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/bin/python",
++  "qualification_evidence": [
++    {
++      "path": "shared_private_transfer_gpu77_fp32_execution_root_20261005_v2/result/RESULT.json",
++      "sha256": "b7eae293ec549de0746bb951733f8df6e350808669bcfb53a938c28d0768e476"
++    },
++    {
++      "path": "shared_private_transfer_gpu77_environment_execution_20261005_v1/PROVIDERS.json",
++      "sha256": "8f266cf0e27e908af087fb18092631eb7410c150e414d437b05ed3e7573b2fe4"
++    },
++    {
++      "path": "shared_private_transfer_gpu77_environment_execution_20261005_v1/ENVIRONMENT_VERIFICATION.json",
++      "sha256": "345ccb1e5ba29532d71d7fdfed4067234cd16020e2514fbd0170ae394cb3ef82"
++    },
++    {
++      "path": "shared_private_transfer_sampling_execution_20261005_v1/COMPARISON.json",
++      "sha256": "c2fc024b0550011c2b7d5b34eec4ea6333e2bcbcc063ba3dd02cbdb224c227e7"
++    }
++  ],
++  "root_source_review_evidence": [
++    {
++      "path": "shared_private_transfer_gpu77_qualification_root_release_20261005_v2/ROOT_REVIEW.md",
++      "sha256": "a579832479b0458b1cec88066814a27fd6ee3f1b3afedceead63365387490c17"
++    },
++    {
++      "path": "shared_backbone_private_transfer_source_independent_review_20261005_v3/REVIEW_MANIFEST.json",
++      "sha256": "ade060b5ad4d380d4b026d9970f9194f0285997e96a4a1b548573f991e21e05f"
++    }
++  ],
++  "runtime_versions": {
++    "CUDA": "11.8",
++    "numpy": "1.26.4",
++    "torch": "2.1.2+cu118",
++    "torch_geometric": "2.7.0",
++    "torch_scatter": "2.1.2+pt21cu118",
++    "torch_sparse": "0.6.18+pt21cu118"
++  },
+   "schema": "disabled_paired_pilot_scientific_provider_admission_v1",
+   "science_contract_sha256": "cdca2fe2ca5e2bfcd29e6fdee515d37570d21aaa246fca870f6a5105534d7445"
+ }

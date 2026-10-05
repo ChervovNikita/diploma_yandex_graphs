@@ -1,3 +1,19 @@
+# Current state: three-block private-learning pilot
+
+Updated: 2026-10-05 07:14 UTC. Goal active and unmet; original scores unchanged. [Current scientific status](PUBLIC_STATUS.md).
+
+1. The fixed30-fit pilot is running on all three authorized GPUs: singleton b0 and 18.77 b1/b2. The canonical plan and original controls/anchors are unchanged. No comparative family outcomes have been opened.
+2. Exact launch/source/provider custody is retained. Singleton observation07:14:17UTC finds one completed ordinary-single fit and the jointly trained four-model control live atcycle31/episode61. Latest77 observation07:06:25UTC finds both first children live and no failure.
+3. The member-count audit found that the rich single relocates dense head weights into the private update. A separate nine-fit row0 F1 companion is in source preparation, with matching parameter roles and four explicit inner streams. It has no execution release. Preserve the richer single and the original thirty; do not retroactively change promotion policy.
+4. Broad learning/persistence novelty is excluded by retained priors including SELAR. Endpoint-conditioned live-learning credit remains an unresolved graph-specific hypothesis. The endpoint/random × live/detached interaction is descriptive attribution, not confirmation or a new selection gate.
+5. A fresh retained-source successor scout returned no additional defensible mechanism. Do not rediscover query-conditioned structural correction as new merely by adding private factors.
+6. Latest preexisting verified GitHub headf280d427202d7e14b907c502ee5d2bfb7a9e15da. Publish new launch custody, control caveat and compact notes using existing helper; retain original raw evidence on servers.
+7. Next: complete and source-review the companion, admit its new branch through meaningful numerical checks, then freeze complete companion jobs before any score access. Analyze the original family only after complete authenticated collection. An ensemble-specific claim additionally needs the matched control; fresh task confirmation and strong independent ensembles remain required.
+
+## Retained earlier state and decision history
+
+The entries below are historical observations and authorizations; the current summary above supersedes their runtime status. All ledger values remain preserved.
+
 # Latest update: 77 implementation admitted; literature-to-design triage sealed
 
 At 2026-10-05 06:31 UTC, the 18.77 unchanged FP32/native-Adam qualifier passed

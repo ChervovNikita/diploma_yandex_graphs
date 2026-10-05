@@ -1,0 +1,3 @@
+# Publication scope
+
+Publish exact small source, launch custody, parameter-role caveat, null successor decision and canonical status/ledger. All manifest-listed local files were verified before selection. Omit duplicated compressed transport/raw envelopes from Git; original launch manifests and authenticated bytes remain retained. No datasets, checkpoints, logits, passwords or qualifier tensors are published. No scientific execution or comparative outcome access occurred during preparation. Existing ledger values are unchanged; only one factual event was added. Earlier status text is retained in state history and the previous verified Git commit.
