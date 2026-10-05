@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated:2026-10-05T19:47:52.584241+00:00. Goal active and unmet. Original five-dataset manuscript scores remain unchanged. No new method has established confirmed superiority and novelty; no fresh manuscript acceptance verdict exists.
+Updated:2026-10-05T20:34:00.494155+00:00. Goal active and unmet. Original five-dataset manuscript scores remain unchanged. No new method has established confirmed superiority and novelty; no fresh manuscript acceptance verdict exists.
 
 ## Error analysis guides method design
 
@@ -35,3 +35,13 @@ Latest verified push before this publication:a67889ee623635f281c28418a9b6b7cb56c
 Publication acknowledgment: exact GitHub branch ref verified at2026-10-05T19:09:48.349994+00:00 for commit4613b96ce0d3a4eee8588ec148e3f9394cd1182b. The323-file graph-error/replication packet is pushed; subsequent D2 source/method notes and this local acknowledgment await the next explicit publication.
 
 Latest owned replication observation:2026-10-05T19:45:11UTC, exact mainb1 queuePID470117/start6003585737 live with matchingargv/cwd, two of ten cells complete; third atcycle11. Outcomes stay closed.
+
+Publication acknowledgment: exact GitHub branch ref verified at2026-10-05T19:51:21.827037+00:00 for commit55a0dce312ac574c061bca5b0e1b6a3acc29fa3a. Completed PENCIL reference, disabled corrective-learning operator/protocol, engineering failures/pass, prior conclusions and README are pushed. This local acknowledgment and any later native-port source await the next publication.
+
+Prospective error-to-method decision: native sparse source independently reviewed; complete native numerical/resource qualification is still pending. Separate W/S/R adopted before acquisition, with W-only warmup and S/R first entering subsequent correction episodes; V1 remains unchanged. V2 caller preparation records one extra read-only initial response call (+16 member forwards/+8 private gradient constructions; planned full budget5100). No candidate fit or predictive improvement yet. Decision: CORRECTIVE_LEARNING_PREFIT_DECISION_20261005.md. Latest allocation replication metadata20:09:44UTC: exact owned b1 queue live,2/10complete, third atcycle58/60; no outcomes read. This update is uncommitted.
+
+Native engineering continuation: full-architecture synthetic run failed its fixed shared FD check; failure/cost retained. Same-state independent ordinary-autograd diagnosis matches all shared coordinates to1.11e-16, but central/left finite differences remain unstable. Cause remains unresolved; native/public-episode qualification and G0 training remain incomplete. Safe accessorV2 blocked by missing original self-loop recipe; sealedV3 repair awaits source review. Transfer b1 queue4/10complete at20:27:33UTC, same exact ownedPID470117/start6003585737 live; no outcomes read. Local monitor summary now retains partial metadata explicitly, without restarting jobs. See native_directional_mismatch_diagnostic_root_20261005_v1/REPORT.md. Goal active/unmet.
+
+Recent literature supplementV6 adds three bounded primary method scopes (GAR2026, graph Routing-by-Memory2024, Hellsemble2025). Gradient-based assignment/error-focused specialization have recent direct priors. A same-rule first-order gradient-utility comparison is required before attributing benefit to finite-response terms; no current fit/arm amendment or novelty clearance. Two recent primary methods remain unresolved. Baseindex72 stays unchanged and no new full-paper total is claimed.
+
+V3 edge-recipe source repair independently reviewed PASS. This clears the missing canonical self-loop preprocessing source defect, while the native two-sided derivative gate remains unresolved. No G0 fit released; original failure retained. Review: learnability_responsibility_wsr_v3_edge_delta_engineering_interpretation_20261005_v1/REPORT.md.

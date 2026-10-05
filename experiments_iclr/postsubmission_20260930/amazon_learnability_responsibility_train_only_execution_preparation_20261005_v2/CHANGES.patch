@@ -1,0 +1,455 @@
+--- V1/train_only_accessor.py
++++ V2/train_only_accessor.py
+@@ -30,7 +30,7 @@
+ }
+ ROLE_METHOD = "amazon-response-G0|split=0|seed=17"
+ EXPECTED_COUNTS = {"TRAIN": 12246, "A": 2449, "B": 9797,
+-                   "innerS": 4898, "outerR": 4899}
++                   "W": 4898, "innerS": 2449, "outerR": 2450}
+ VISIBILITY = {
+     "historical_raw_all_node_labels_decoded": True,
+     "custodian_compact_all_TRAIN0_labels_decoded_including_A": True,
+@@ -38,6 +38,8 @@
+     "A_values_excluded_from_new_acquisition_probes_losses_and_selection": True,
+     "VAL_TEST_label_arrays_decoded_by_this_custodian": False,
+     "VAL_TEST_mask_arrays_decoded_by_this_custodian": False,
++    "custodian_W_S_R_labels_decoded": True,
++    "warm_loader_receives_S_R_label_values": False,
+ }
+ 
+ 
+@@ -108,11 +110,12 @@
+     a = sorted(ordered[:len(ids) // 5])
+     a_set = set(a)
+     b = [i for i in ids if i not in a_set]
+-    ordered_b = sorted(b, key=lambda i: key("SR", i))
+-    s = sorted(ordered_b[:len(b) // 2])
+-    s_set = set(s)
+-    r = [i for i in b if i not in s_set]
+-    result = {"TRAIN": ids, "A": a, "B": b, "innerS": s, "outerR": r}
++    ordered_b = sorted(b, key=lambda i: key("WSR", i))
++    n_w, n_s = len(b) // 2, len(b) // 4
++    w = sorted(ordered_b[:n_w])
++    s = sorted(ordered_b[n_w:n_w + n_s])
++    r = sorted(ordered_b[n_w + n_s:])
++    result = {"TRAIN": ids, "A": a, "B": b, "W": w, "innerS": s, "outerR": r}
+     _require({k: len(v) for k, v in result.items()} == EXPECTED_COUNTS,
+              "Source-declared role counts differ; no alternative partition")
+     return result
+@@ -163,6 +166,7 @@
+     _require(bool((np.bincount(s_labels, minlength=5) > 0).all()),
+              "Fixed innerS misses a class; fail without reseeding or rebalancing")
+     a_labels = labels[np.searchsorted(train_ids, roles["A"])].copy()
++    w_labels = labels[np.searchsorted(train_ids, roles["W"])].copy()
+     destination = Path(destination).resolve()
+     destination.mkdir(parents=False, exist_ok=False)
+     public_b = destination / "public_b"
+@@ -170,26 +174,31 @@
+     public_b.mkdir()
+     evaluator_a.mkdir()
+     role_file = public_b / "TRAIN_ROLES.json"
+-    _write_json(role_file, {"schema": "amazon_G0_hash_roles_v1", "method": ROLE_METHOD,
++    _write_json(role_file, {"schema": "amazon_G0_hash_roles_v2", "method": ROLE_METHOD,
+                             "row_order": "increasing_node_ID", "roles": roles})
+     b_file = public_b / "B_LABELS.npz"
+     a_file = evaluator_a / "A_LABELS.npz"
++    w_file = public_b / "W_LABELS.npz"
+     with b_file.open("xb") as stream:
+         np.savez(stream, ids=np.asarray(roles["B"], dtype=np.int64), labels=b_labels)
+     with a_file.open("xb") as stream:
+         np.savez(stream, ids=np.asarray(roles["A"], dtype=np.int64), labels=a_labels)
++    with w_file.open("xb") as stream:
++        np.savez(stream, ids=np.asarray(roles["W"], dtype=np.int64), labels=w_labels)
++    w_file.chmod(0o444)
+     b_file.chmod(0o444)
+     a_file.chmod(0o444)
+     manifest = {
+-        "schema": "amazon_G0_public_B_projection_v1", "split": 0, "seed": 17,
++        "schema": "amazon_G0_public_B_projection_v2", "split": 0, "seed": 17,
+         "source_metadata": DATA_MANIFEST, "public_graph": PUBLIC_GRAPH,
+         "roles": _descriptor(role_file, role_file.name),
+-        "B_labels": _descriptor(b_file, b_file.name), "visibility": VISIBILITY,
++        "B_labels": _descriptor(b_file, b_file.name),
++        "W_labels": _descriptor(w_file, w_file.name), "visibility": VISIBILITY,
+         "custodian_source_sha256": _sha256(Path(__file__)),
+     }
+     manifest_path = public_b / "PUBLIC_B_MANIFEST.json"
+     _write_json(manifest_path, manifest)
+-    custody = {"schema": "amazon_G0_TRAIN_label_custody_v1",
++    custody = {"schema": "amazon_G0_TRAIN_label_custody_v2",
+                "public_b_manifest": _descriptor(manifest_path, "public_b/" + manifest_path.name),
+                "A_labels": _descriptor(a_file, "evaluator_a/" + a_file.name),
+                "visibility": VISIBILITY}
+@@ -202,7 +211,7 @@
+ def load_public_b(project_root, public_b_dir, *, device="cpu"):
+     """Return complete public FP32 graph context, B labels and fixed role IDs.
+ 
+-    Output keys: features, edge_index, B_ids, B_labels, inner_indices,
++    Output keys: features, edge_index, B_ids, B_labels, W_ids, W_labels, inner_indices,
+     inner_labels, query_indices, query_labels, A_ids (IDs ONLY), provenance.
+     Numeric entries are Torch tensors; provenance is JSON-compatible metadata.
+     No masks, compact all-TRAIN label source, A label artifact or old state read.
+@@ -213,32 +222,60 @@
+     import torch
+ 
+     public_b_dir = Path(public_b_dir).resolve()
+-    manifest_path = public_b_dir / "PUBLIC_B_MANIFEST.json"
+-    _require(not manifest_path.is_symlink() and manifest_path.stat().st_mode & 0o222 == 0,
+-             "Frozen B-only manifest required")
+-    manifest = _read_json(manifest_path)
+-    _require(set(manifest) == {"schema", "split", "seed", "source_metadata", "public_graph",
+-                               "roles", "B_labels", "visibility", "custodian_source_sha256"}
+-             and manifest["schema"] == "amazon_G0_public_B_projection_v1"
+-             and manifest["split"] == 0 and manifest["seed"] == 17
+-             and manifest["source_metadata"] == DATA_MANIFEST
+-             and manifest["public_graph"] == PUBLIC_GRAPH and manifest["visibility"] == VISIBILITY
+-             and manifest["custodian_source_sha256"] == _sha256(Path(__file__))
+-             and manifest["roles"]["path"] == "TRAIN_ROLES.json"
+-             and manifest["B_labels"]["path"] == "B_LABELS.npz", "B-only manifest differs")
+-    role_record = _read_json(_verify(public_b_dir, manifest["roles"], frozen=True))
+-    _require(set(role_record) == {"schema", "method", "row_order", "roles"}
+-             and role_record["schema"] == "amazon_G0_hash_roles_v1"
+-             and role_record["method"] == ROLE_METHOD
+-             and role_record["row_order"] == "increasing_node_ID", "Role schema differs")
+-    roles = role_record["roles"]
+-    _require(roles == _roles(roles["TRAIN"]), "ID-only hash roles differ")
++    manifest_path, manifest, roles = _projection(public_b_dir)
+     b_labels = _read_compact(np, _verify(public_b_dir, manifest["B_labels"], frozen=True),
+                              roles["B"])
+     s_labels = b_labels[np.searchsorted(roles["B"], roles["innerS"])].copy()
+     r_labels = b_labels[np.searchsorted(roles["B"], roles["outerR"])].copy()
+     _require(bool((np.bincount(s_labels, minlength=5) > 0).all()),
+              "Fixed innerS misses a class; no alternative partition")
++    features, edges = _public_context(np, project_root)
++
++    def ids(value):
++        return torch.tensor(value, dtype=torch.long, device=device)
++
++    return {"features": torch.from_numpy(features.copy()).to(device),
++            "edge_index": torch.from_numpy(edges.copy()).to(device),
++            "B_ids": ids(roles["B"]), "B_labels": ids(b_labels.tolist()),
++            "W_ids": ids(roles["W"]),
++            "W_labels": ids(b_labels[np.searchsorted(roles["B"], roles["W"])].tolist()),
++            "inner_indices": ids(roles["innerS"]), "inner_labels": ids(s_labels.tolist()),
++            "query_indices": ids(roles["outerR"]), "query_labels": ids(r_labels.tolist()),
++            "A_ids": ids(roles["A"]),
++            "provenance": {"public_b_manifest": _descriptor(manifest_path, str(manifest_path)),
++                           "source_metadata": DATA_MANIFEST, "public_graph": PUBLIC_GRAPH,
++                           "roles": manifest["roles"], "B_labels": manifest["B_labels"],
++                           "W_labels": manifest["W_labels"],
++                           "visibility": VISIBILITY}}
++
++
++def _projection(public_b_dir):
++    public_b_dir = Path(public_b_dir).resolve()
++    manifest_path = public_b_dir / "PUBLIC_B_MANIFEST.json"
++    _require(not manifest_path.is_symlink() and manifest_path.stat().st_mode & 0o222 == 0,
++             "Frozen B-only manifest required")
++    manifest = _read_json(manifest_path)
++    _require(set(manifest) == {"schema", "split", "seed", "source_metadata", "public_graph",
++                               "roles", "B_labels", "W_labels", "visibility", "custodian_source_sha256"}
++             and manifest["schema"] == "amazon_G0_public_B_projection_v2"
++             and manifest["split"] == 0 and manifest["seed"] == 17
++             and manifest["source_metadata"] == DATA_MANIFEST
++             and manifest["public_graph"] == PUBLIC_GRAPH and manifest["visibility"] == VISIBILITY
++             and manifest["custodian_source_sha256"] == _sha256(Path(__file__))
++             and manifest["roles"]["path"] == "TRAIN_ROLES.json"
++             and manifest["B_labels"]["path"] == "B_LABELS.npz"
++             and manifest["W_labels"]["path"] == "W_LABELS.npz", "B-only manifest differs")
++    role_record = _read_json(_verify(public_b_dir, manifest["roles"], frozen=True))
++    _require(set(role_record) == {"schema", "method", "row_order", "roles"}
++             and role_record["schema"] == "amazon_G0_hash_roles_v2"
++             and role_record["method"] == ROLE_METHOD
++             and role_record["row_order"] == "increasing_node_ID", "Role schema differs")
++    roles = role_record["roles"]
++    _require(roles == _roles(roles["TRAIN"]), "ID-only hash roles differ")
++    return manifest_path, manifest, roles
++
++
++def _public_context(np, project_root):
+     with np.load(_verify(project_root, PUBLIC_GRAPH), allow_pickle=False) as archive:
+         _require(set(archive.files) == {"features", "edge_index", "train_mask",
+                                       "val_mask", "test_mask"}, "Public-only schema differs")
+@@ -248,16 +285,28 @@
+              and edges.ndim == 2 and edges.shape[0] == 2
+              and bool(((edges >= 0) & (edges < 24492)).all()), "Public context schema differs")
+ 
+-    def ids(value):
+-        return torch.tensor(value, dtype=torch.long, device=device)
+-
++    return features, edges
++
++
++def load_public_w(project_root, public_b_dir, *, device="cpu"):
++    """Warm-only reader: W labels plus full public features/graph, no S/R values.
++
++    Custody already projected the joint source TRAIN array. This reader opens
++    W_LABELS only and never opens B_LABELS, original TRAIN labels, or A labels.
++    """
++    if not SOURCE_RELEASED:
++        raise RuntimeError("Disabled source-only public+W acquisition accessor")
++    import numpy as np
++    import torch
++    public_b_dir = Path(public_b_dir).resolve()
++    manifest_path, manifest, roles = _projection(public_b_dir)
++    w_labels = _read_compact(np, _verify(public_b_dir, manifest["W_labels"], frozen=True), roles["W"])
++    features, edges = _public_context(np, project_root)
+     return {"features": torch.from_numpy(features.copy()).to(device),
+             "edge_index": torch.from_numpy(edges.copy()).to(device),
+-            "B_ids": ids(roles["B"]), "B_labels": ids(b_labels.tolist()),
+-            "inner_indices": ids(roles["innerS"]), "inner_labels": ids(s_labels.tolist()),
+-            "query_indices": ids(roles["outerR"]), "query_labels": ids(r_labels.tolist()),
+-            "A_ids": ids(roles["A"]),
++            "W_ids": torch.tensor(roles["W"], dtype=torch.long, device=device),
++            "W_labels": torch.tensor(w_labels.tolist(), dtype=torch.long, device=device),
+             "provenance": {"public_b_manifest": _descriptor(manifest_path, str(manifest_path)),
+                            "source_metadata": DATA_MANIFEST, "public_graph": PUBLIC_GRAPH,
+                            "roles": manifest["roles"], "B_labels": manifest["B_labels"],
+-                           "visibility": VISIBILITY}}
++                           "W_labels": manifest["W_labels"], "visibility": VISIBILITY}}
+--- V1/six_arm_worker.py
++++ V2/six_arm_worker.py
+@@ -1,4 +1,4 @@
+-"""Disabled fixed B-only acquisition and six serial G0 H16 continuations.
++"""Disabled fixed W-only acquisition and six serial G0 H16 continuations.
+ 
+ No A label input, A scoring, stock loader, old checkpoint or selector. The exact
+ disabled native port is bound through its PUBLIC gated APIs only. A future
+@@ -65,7 +65,7 @@
+ 
+ def _module(project_root, bindings, key):
+     path = _source_path(project_root, bindings["files"][key])
+-    name = "_amazon_G0_preparation_" + key
++    name = "_amazon_G0_WSR_v2_" + key
+     _require(name not in sys.modules, "Require a fresh process for this source binding")
+     spec = importlib.util.spec_from_file_location(name, path)
+     module = importlib.util.module_from_spec(spec)
+@@ -153,10 +153,10 @@
+     logits = family(data["features"], data["edge_index"])
+     _require(logits.dtype == torch.float32 and logits.shape == (4, 24492, 5),
+              "Complete native FP32 own-member forward required")
+-    _finite(logits, "Nonfinite B acquisition logits")
+-    loss = torch.stack([F.nll_loss(F.log_softmax(logits[m], dim=1).index_select(0, data["B_ids"]),
+-                                   data["B_labels"]) for m in range(4)]).mean()
+-    _finite(loss, "Nonfinite B own-CE acquisition loss")
++    _finite(logits, "Nonfinite W acquisition logits")
++    loss = torch.stack([F.nll_loss(F.log_softmax(logits[m], dim=1).index_select(0, data["W_ids"]),
++                                   data["W_labels"]) for m in range(4)]).mean()
++    _finite(loss, "Nonfinite W own-CE acquisition loss")
+     loss.backward()
+     for name, parameter in family.named_parameters():
+         if _inactive(name, bool(family.core._global)):
+@@ -259,7 +259,7 @@
+                                 "affinity": "K_perm" if arm == "permuted" else "K",
+                                 "episodes": HORIZON} for arm in ARMS]
+              and queue["common"] == {"seed": 17, "split": 0, "local_updates": 200,
+-                                      "global_updates": 200, "all_B_own_CE4": True}
++                                      "global_updates": 200, "all_W_own_CE4": True}
+              and queue["coefficients"] == {"eta_probe": 0.01, "eta_private": 0.01,
+                  "eta_core": 0.001, "extra_margin": 0.1, "pool_fraction": 0.5,
+                  "response_epsilon": 0.001, "entropy": 1.0, "graph": 1.0,
+@@ -269,30 +269,31 @@
+     accessor = _module(project_root, bindings, "accessor")
+     port = _module(project_root, bindings, "native_port")
+     operator = _module(project_root, bindings, "G0V2")
++    warm_probe = _module(project_root, bindings, "warm_response_probe")
+     _require(accessor.SOURCE_RELEASED is True and port.PORT_RELEASED is True
+-             and operator.SOURCE_RELEASED is False,
++             and operator.SOURCE_RELEASED is False and warm_probe.SOURCE_RELEASED is True,
+              "Require separately reviewed released accessor/port and exact disabled G0V2")
+     native = _module(project_root, bindings, "native_model")
+     boundary = _module(project_root, bindings, "boundary_model")
+     import torch
+     _require(device == "cpu" or device.startswith("cuda:"), "Explicit native device required")
+-    data = accessor.load_public_b(project_root, public_b_dir, device=device)
+-    _require(set(data) == {"features", "edge_index", "B_ids", "B_labels", "inner_indices",
+-                           "inner_labels", "query_indices", "query_labels", "A_ids", "provenance"},
+-             "Only the sealed public+B accessor output is accepted")
++    warm_data = accessor.load_public_w(project_root, public_b_dir, device=device)
++    _require(set(warm_data) == {"features", "edge_index", "W_ids", "W_labels", "provenance"},
++             "Only W labels and public context may enter acquisition")
+     output = Path(output_dir).resolve()
+     output.mkdir(parents=False, exist_ok=False)
+     start = time.monotonic()
+     phase, arm, done = "common_acquisition", None, 0
+     common_row, endpoints, diagnostics = None, {}, {}
++    initial_response_row = None
+     recipe = {"queue_sha256": _sha(PACKET / "QUEUE.json"),
+               "bindings_sha256": _sha(PACKET / "SOURCE_BINDINGS.json"),
+               "worker_source_sha256": _sha(Path(__file__)),
+-              "public_b_manifest_sha256": data["provenance"]["public_b_manifest"]["sha256"],
+-              "roles_sha256": data["provenance"]["roles"]["sha256"],
+-              "public_graph_sha256": data["provenance"]["public_graph"]["sha256"]}
++              "public_b_manifest_sha256": warm_data["provenance"]["public_b_manifest"]["sha256"],
++              "roles_sha256": warm_data["provenance"]["roles"]["sha256"],
++              "public_graph_sha256": warm_data["provenance"]["public_graph"]["sha256"]}
+     _write(output / "RUN.json", {"schema": "amazon_G0_six_arm_run_v1", "recipe": recipe,
+-                                 "provenance": data["provenance"], "device": device,
++                                 "provenance": warm_data["provenance"], "device": device,
+                                  "A_labels_received": False, "A_scoring_performed": False})
+     try:
+         family, construction = _fresh_family(native, boundary, device)
+@@ -307,7 +308,7 @@
+         for update in range(400):
+             if update == 200:
+                 family.set_global_stage(True)  # Same weights/Adam/RNG; no restore/reset.
+-            warm_losses.append(_warm_step(family, optimizer, data))
++            warm_losses.append(_warm_step(family, optimizer, warm_data))
+             done = update + 1
+         family.eval()
+         common = _cpu_tree(family.state_dict())
+@@ -315,9 +316,17 @@
+                           "recipe": recipe, "episodes": 0, "warm_updates": 400,
+                           "global_stage": True, "eval_mode": True, "family_state": common,
+                           "Adam": _cpu_tree(optimizer.state_dict()), "rng": _cpu_tree(_rng(device)),
+-                          "construction": _cpu_tree(construction), "B_own_CE_trace": warm_losses}
++                          "construction": _cpu_tree(construction), "W_own_CE_trace": warm_losses,
++                          "warm_role": "W"}
+         common_row = _save_state(output / "initial.pt", common_payload)
+-        del common_payload, optimizer
++        del common_payload, optimizer, warm_data
++        # S/R labels enter this scientific process only after common400 freezes.
++        data = accessor.load_public_b(project_root, public_b_dir, device=device)
++        _require(set(data) == {"features", "edge_index", "B_ids", "B_labels", "W_ids", "W_labels",
++                               "inner_indices", "inner_labels", "query_indices", "query_labels",
++                               "A_ids", "provenance"}, "Exact W/S/R episode accessor required")
++        _require(data["provenance"]["public_b_manifest"]["sha256"] == recipe["public_b_manifest_sha256"],
++                 "Common and continuation role custody differs")
+         frozen_permutation = _permutation(data)
+         permutation_row = _save_state(output / "permutation.pt", _cpu_tree(frozen_permutation))
+         phase = "continuation"
+@@ -333,6 +342,16 @@
+                 node_count=24492, dtype=data["features"].dtype,
+                 affinity_permutation=frozen_permutation if arm == "permuted" else None)
+             history = []
++            if arm == "live":
++                initial_response = warm_probe.inspect_common_response(
++                    operator, bindings["files"]["G0V2"]["sha256"], theta, phis,
++                    forward, pairs, data["inner_indices"], data["inner_labels"],
++                    common_state_sha256=common_row["sha256"],
++                    warm_metadata={"id": "initial", "warm_updates": 400, "episodes": 0,
++                                   "global_stage": True, "eval_mode": True})
++                _finite_tree(initial_response)
++                initial_response_row = _save_state(output / "initial_response.pt", _cpu_tree(initial_response))
++                del initial_response
+             for episode in range(HORIZON):
+                 theta_next, phis_next, info = port.native_sparse_episode(
+                     operator, bindings["files"]["G0V2"]["sha256"], theta, phis, forward, pairs,
+@@ -347,7 +366,7 @@
+             endpoint_state = _cpu_tree(family.state_dict())
+             endpoints[arm] = _save_state(output / (arm + ".pt"),
+                 {"schema": "amazon_G0_frozen_state_v1", "id": arm, "recipe": recipe,
+-                 "episodes": HORIZON, "warm_updates": 400, "common_state": common_row,
++                 "episodes": HORIZON, "warm_updates": 400, "warm_role": "W", "common_state": common_row,
+                  "global_stage": True, "eval_mode": True, "family_state": endpoint_state})
+             diagnostics[arm] = _save_state(output / (arm + "_B_diagnostics.pt"),
+                 {"episodes": tuple(history), "endpoint_vs_common": _distances(endpoint_state, common),
+@@ -355,11 +374,13 @@
+             del history, endpoint_state, theta, phis, theta_next, phis_next, forward, pairs
+         complete = {"schema": "amazon_G0_seven_states_complete_v1", "recipe": recipe,
+                     "common": common_row, "endpoints": endpoints, "B_diagnostics": diagnostics,
+-                    "permutation": permutation_row, "warm_updates": 400,
++                    "permutation": permutation_row, "initial_response": initial_response_row,
++                    "diagnostic_extra_member_forwards": 16, "diagnostic_extra_private_gradients": 8,
++                    "warm_updates": 400, "warm_role": "W",
+                     "episodes_per_arm": HORIZON, "arms_in_order": list(ARMS),
+                     "A_labels_received": False, "A_scoring_performed": False,
+                     "elapsed_fit_seconds": time.monotonic() - start,
+-                    "planned_fit_member_forwards": 5056,
++                    "planned_fit_member_forwards_including_warm_diagnostic": 5072,
+                     "peak_native_bytes": None, "new_runtime_qualification_claim": False}
+         _write(output / "COMPLETE.json", complete)
+         return _descriptor(output / "COMPLETE.json")
+@@ -367,7 +388,8 @@
+         _write(output / "FAILURE.json", {"schema": "amazon_G0_incomplete_run_v1", "phase": phase,
+             "arm": arm, "completed_updates_or_episodes_in_phase": done,
+             "error_type": type(error).__name__, "error": str(error), "common": common_row,
+-            "endpoints": endpoints, "elapsed_fit_seconds": time.monotonic() - start,
++            "endpoints": endpoints, "initial_response": initial_response_row,
++            "elapsed_fit_seconds": time.monotonic() - start,
+             "A_labels_received": False, "A_scoring_performed": False,
+             "replacement_seed_or_arm_or_shortened_H_authorized": False})
+         raise
+--- V1/warm_response_probe.py
++++ V2/warm_response_probe.py
+@@ -2,7 +2,7 @@
+ 
+ No loader, checkpoint reader, parameter commit, core update, R/A labels, scores
+ or scientific acceptance rule. Root must separately authorize a reviewed future
+-caller; the fixed numerical nonvacuity convention is intentionally unresolved.
++caller; no empirical nonvacuity threshold or tuning is part of this design.
+ """
+ 
+ from __future__ import annotations
+@@ -37,6 +37,9 @@
+         theta_warm, phis_warm, forward, inner_indices, inner_labels, pairs, 5,
+         operator.Config(), "live", collect_diagnostics=True)
+     del virtual_private  # Neither preliminary probe nor main response is committed.
++    for pair in diagnostics["pairs"]:
++        pair["response_rms_over_epsilon"] = pair["centered_response_rms"] / operator.Config().response_epsilon
++        pair["normalized_response_rms"] = pair["normalized_cost_rms"]  # live uses response costs.
+     if versions != tuple(value._version for value in values):
+         raise ValueError("Unexpected mutation during unchanged-warm diagnostic")
+     return {"at": "unchanged_common_theta_and_original_phi", "common_state_sha256": common_state_sha256,
+@@ -44,4 +47,5 @@
+             "complete_member_callback_forwards": 16, "private_gradient_constructions": 8,
+             "virtual_probe_private_steps": 4, "virtual_main_private_steps": 4,
+             "assignment_maps": 1, "pair_solver_iterations": 80,
+-            "numeric_nonvacuity_convention_fixed": False, "A_scoring_performed": False}
++            "empirical_scale_threshold_or_tuning": False,
++            "zero_response_is_an_interpretable_result": True, "A_scoring_performed": False}
+--- V1/held_a_evaluator.py
++++ V2/held_a_evaluator.py
+@@ -91,8 +91,8 @@
+                     for row in member["comparisons"].values()),
+             "pool_comparisons": pool_comparisons, "member_comparisons": member_comparisons,
+             "broader_hypothesis_rejected_by_a_G0_failure": False,
+-            "support_interpretation": "Use a prospectively fixed common-state support convention; "
+-                "epsilon-dominated costs or tiny live/stop-Q changes do not establish a broad negative"}
++            "support_interpretation": "Report the unchanged-warm response/Q measurements without an empirical "
++                "scale threshold or tuning; zero responses are interpretable finite results, not a broad rejection"}
+ 
+ 
+ def evaluate_all(project_root, custody_dir, run_dir, output_dir, *, device="cpu"):
+@@ -121,7 +121,9 @@
+              and not (run_dir / "FAILURE.json").exists(), "Incomplete or failed scientific run")
+     complete = worker._read(complete_path)
+     _require(complete["schema"] == "amazon_G0_seven_states_complete_v1"
+-             and complete["warm_updates"] == 400 and complete["episodes_per_arm"] == 16
++             and complete["warm_updates"] == 400 and complete["warm_role"] == "W"
++             and complete["diagnostic_extra_member_forwards"] == 16
++             and complete["diagnostic_extra_private_gradients"] == 8 and complete["episodes_per_arm"] == 16
+              and complete["arms_in_order"] == list(ARMS) and set(complete["endpoints"]) == set(ARMS)
+              and complete["A_labels_received"] is False and complete["A_scoring_performed"] is False,
+              "Require the common state and all six exact H16 endpoints")
+@@ -134,10 +136,11 @@
+     # All immutable state bytes exist before any A label artifact access.
+     state_paths = {name: accessor._verify(run_dir, artifact, frozen=True)
+                    for name, artifact in state_rows.items()}
++    accessor._verify(run_dir, complete["initial_response"], frozen=True)
+     custody_path = custody_dir / "CUSTODY.json"
+     _require(custody_path.stat().st_mode & 0o222 == 0, "Frozen custody required")
+     custody = worker._read(custody_path)
+-    _require(custody["schema"] == "amazon_G0_TRAIN_label_custody_v1"
++    _require(custody["schema"] == "amazon_G0_TRAIN_label_custody_v2"
+              and custody["visibility"] == accessor.VISIBILITY
+              and custody["A_labels"]["path"] == "evaluator_a/A_LABELS.npz"
+              and custody["public_b_manifest"]["path"] == "public_b/PUBLIC_B_MANIFEST.json"
+@@ -159,6 +162,7 @@
+         payload = torch.load(state_paths[name], map_location="cpu", weights_only=True)
+         _require(payload["schema"] == "amazon_G0_frozen_state_v1" and payload["id"] == name
+                  and payload["recipe"] == recipe and payload["warm_updates"] == 400
++                 and payload["warm_role"] == "W"
+                  and payload["episodes"] == (0 if name == "initial" else 16)
+                  and payload["global_stage"] is True and payload["eval_mode"] is True
+                  and (name == "initial" or payload["common_state"] == complete["common"]),
+@@ -210,7 +214,8 @@
+     result = {"schema": "amazon_G0_fixed_full_A_scores_v1", "n": labels.numel(),
+               "complete_run": worker._descriptor(complete_path), "states": state_rows,
+               "custody_manifest": worker._descriptor(custody_path), "A_labels": custody["A_labels"],
+-              "predictions": prediction_rows, "scores": scores, "gate": _gate(scores),
++              "predictions": prediction_rows, "initial_response": complete["initial_response"],
++              "scores": scores, "gate": _gate(scores),
+               "evaluator_source_sha256": worker._sha(Path(__file__)),
+               "A_labels_used_for_fitting_or_selection": False,
+               "historical_or_custodian_A_bytes_unread_claim": False,

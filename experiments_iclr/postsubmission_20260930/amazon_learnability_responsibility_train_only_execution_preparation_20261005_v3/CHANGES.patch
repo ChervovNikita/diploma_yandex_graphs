@@ -1,0 +1,169 @@
+--- V2/train_only_accessor.py
++++ V3/train_only_accessor.py
+@@ -28,6 +28,34 @@
+     "sha256": "9d700d1897bbf73ec70a4c3158e07d6b42909603e28ac54716800f3d4883f749",
+     "bytes": 196440,
+ }
++GRAPH_RECIPE_REFERENCE = {
++    "path": "amazon_polynormer_paired_family_source_preparation_20261003_v6/common.py",
++    "sha256": "1d89b7a4543131f8e0194ff1c891614f31717c6de8ffab5861c199efc28065a3",
++    "bytes": 23270,
++}
++PUBLIC_PRODUCER_REFERENCE = {
++    "path": "amazon_ratings_native_warm_study_preparation_20261003_v2/prepare_data.py",
++    "sha256": "ce792656491529bfa768a9da02184d785b370b2f7efbc3bf6de73ae38bc64ee3",
++    "bytes": 5351,
++}
++PYG_HELPER_SOURCES = {
++    "to_undirected": {
++        "path": "graph_conditional_response_native_source_preparation_20261003_v4/pyg_source_pins/utils__undirected.py",
++        "sha256": "1ff9dfa48d3f5a5b8e1ba55f8cfca576f7232f8c3951200a5aedb1e67500523c",
++        "bytes": 6222,
++    },
++    "remove_self_loops": {
++        "path": "graph_conditional_response_native_source_preparation_20261003_v4/pyg_source_pins/utils__loop.py",
++        "sha256": "3145944bb6b91b1bb12ca942b51abde54d617373277726c086a283e4801ed916",
++        "bytes": 23051,
++    },
++    "add_self_loops": {
++        "path": "graph_conditional_response_native_source_preparation_20261003_v4/pyg_source_pins/utils__loop.py",
++        "sha256": "3145944bb6b91b1bb12ca942b51abde54d617373277726c086a283e4801ed916",
++        "bytes": 23051,
++    },
++}
++
+ ROLE_METHOD = "amazon-response-G0|split=0|seed=17"
+ EXPECTED_COUNTS = {"TRAIN": 12246, "A": 2449, "B": 9797,
+                    "W": 4898, "innerS": 2449, "outerR": 2450}
+@@ -229,7 +257,7 @@
+     r_labels = b_labels[np.searchsorted(roles["B"], roles["outerR"])].copy()
+     _require(bool((np.bincount(s_labels, minlength=5) > 0).all()),
+              "Fixed innerS misses a class; no alternative partition")
+-    features, edges = _public_context(np, project_root)
++    features, edges, preprocessing = _public_context(np, project_root)
+ 
+     def ids(value):
+         return torch.tensor(value, dtype=torch.long, device=device)
+@@ -244,7 +272,7 @@
+             "A_ids": ids(roles["A"]),
+             "provenance": {"public_b_manifest": _descriptor(manifest_path, str(manifest_path)),
+                            "source_metadata": DATA_MANIFEST, "public_graph": PUBLIC_GRAPH,
+-                           "roles": manifest["roles"], "B_labels": manifest["B_labels"],
++                           "preprocessing": preprocessing, "roles": manifest["roles"], "B_labels": manifest["B_labels"],
+                            "W_labels": manifest["W_labels"],
+                            "visibility": VISIBILITY}}
+ 
+@@ -285,7 +313,8 @@
+              and edges.ndim == 2 and edges.shape[0] == 2
+              and bool(((edges >= 0) & (edges < 24492)).all()), "Public context schema differs")
+ 
+-    return features, edges
++    edges, preprocessing = _native_edges(edges, project_root)
++    return features, edges, preprocessing
+ 
+ 
+ def load_public_w(project_root, public_b_dir, *, device="cpu"):
+@@ -301,12 +330,54 @@
+     public_b_dir = Path(public_b_dir).resolve()
+     manifest_path, manifest, roles = _projection(public_b_dir)
+     w_labels = _read_compact(np, _verify(public_b_dir, manifest["W_labels"], frozen=True), roles["W"])
+-    features, edges = _public_context(np, project_root)
++    features, edges, preprocessing = _public_context(np, project_root)
+     return {"features": torch.from_numpy(features.copy()).to(device),
+             "edge_index": torch.from_numpy(edges.copy()).to(device),
+             "W_ids": torch.tensor(roles["W"], dtype=torch.long, device=device),
+             "W_labels": torch.tensor(w_labels.tolist(), dtype=torch.long, device=device),
+             "provenance": {"public_b_manifest": _descriptor(manifest_path, str(manifest_path)),
+                            "source_metadata": DATA_MANIFEST, "public_graph": PUBLIC_GRAPH,
+-                           "roles": manifest["roles"], "B_labels": manifest["B_labels"],
++                           "preprocessing": preprocessing, "roles": manifest["roles"], "B_labels": manifest["B_labels"],
+                            "W_labels": manifest["W_labels"], "visibility": VISIBILITY}}
++
++
++def _native_edges(edges, project_root):
++    """Exact V6 CPU edge recipe, before device transfer; original node IDs.
++
++    No labels/masks or alternate topology. Source files for the actual loaded
++    helpers are recorded and matched to the pinned producer/native snapshots.
++    """
++    import inspect
++    import torch
++    from torch_geometric.utils import to_undirected, remove_self_loops, add_self_loops
++
++    _verify(project_root, GRAPH_RECIPE_REFERENCE)
++    _verify(project_root, PUBLIC_PRODUCER_REFERENCE)
++    loaded = {}
++    for name, function in (("to_undirected", to_undirected),
++                           ("remove_self_loops", remove_self_loops),
++                           ("add_self_loops", add_self_loops)):
++        expected = PYG_HELPER_SOURCES[name]
++        _verify(project_root, expected)
++        source_path = Path(inspect.getfile(function)).resolve()
++        actual = _descriptor(source_path, str(source_path))
++        _require(actual["sha256"] == expected["sha256"] and actual["bytes"] == expected["bytes"],
++                 "Loaded native edge helper source differs: " + name)
++        loaded[name] = {"expected_source": expected, "loaded_source": actual}
++    edge = torch.from_numpy(edges.copy())
++    input_shape = list(edge.shape)
++    input_digest = hashlib.sha256(edge.numpy().tobytes()).hexdigest()
++    # These three statements are identical to frozen V6 common.load_data.
++    edge = to_undirected(edge)
++    edge, _ = remove_self_loops(edge)
++    edge, _ = add_self_loops(edge, num_nodes=24492)
++    preprocessing = {"schema": "amazon_G0_native_public_edge_identity_v1",
++                     "public_graph": PUBLIC_GRAPH, "features": "raw FP32 unchanged",
++                     "original_node_count": 24492, "node_identity": "original IDs0..24491",
++                     "input_edge_shape": input_shape, "input_edge_logical_sha256": input_digest,
++                     "edge_recipe": "to_undirected/remove_self_loops/add_self_loops",
++                     "edge_shape": list(edge.shape),
++                     "edge_logical_sha256": hashlib.sha256(edge.numpy().tobytes()).hexdigest(),
++                     "recipe_source": GRAPH_RECIPE_REFERENCE,
++                     "producer_source": PUBLIC_PRODUCER_REFERENCE, "loaded_helpers": loaded}
++    return edge.numpy().copy(), preprocessing
+--- V2/six_arm_worker.py
++++ V3/six_arm_worker.py
+@@ -286,12 +286,14 @@
+     phase, arm, done = "common_acquisition", None, 0
+     common_row, endpoints, diagnostics = None, {}, {}
+     initial_response_row = None
++    preprocessing_identity = warm_data["provenance"]["preprocessing"]
+     recipe = {"queue_sha256": _sha(PACKET / "QUEUE.json"),
+               "bindings_sha256": _sha(PACKET / "SOURCE_BINDINGS.json"),
+               "worker_source_sha256": _sha(Path(__file__)),
+               "public_b_manifest_sha256": warm_data["provenance"]["public_b_manifest"]["sha256"],
+               "roles_sha256": warm_data["provenance"]["roles"]["sha256"],
+-              "public_graph_sha256": warm_data["provenance"]["public_graph"]["sha256"]}
++              "public_graph_sha256": warm_data["provenance"]["public_graph"]["sha256"],
++              "native_edge_logical_sha256": preprocessing_identity["edge_logical_sha256"]}
+     _write(output / "RUN.json", {"schema": "amazon_G0_six_arm_run_v1", "recipe": recipe,
+                                  "provenance": warm_data["provenance"], "device": device,
+                                  "A_labels_received": False, "A_scoring_performed": False})
+@@ -327,6 +329,8 @@
+                                "A_ids", "provenance"}, "Exact W/S/R episode accessor required")
+         _require(data["provenance"]["public_b_manifest"]["sha256"] == recipe["public_b_manifest_sha256"],
+                  "Common and continuation role custody differs")
++        _require(data["provenance"]["preprocessing"] == preprocessing_identity,
++                 "Warm and continuation native edge identities differ")
+         frozen_permutation = _permutation(data)
+         permutation_row = _save_state(output / "permutation.pt", _cpu_tree(frozen_permutation))
+         phase = "continuation"
+--- V2/held_a_evaluator.py
++++ V3/held_a_evaluator.py
+@@ -149,7 +149,8 @@
+     accessor._verify(custody_dir, custody["public_b_manifest"], frozen=True)
+     data = accessor.load_public_b(project_root, custody_dir / "public_b", device=device)
+     _require(data["provenance"]["roles"]["sha256"] == recipe["roles_sha256"]
+-             and data["provenance"]["public_graph"]["sha256"] == recipe["public_graph_sha256"],
++             and data["provenance"]["public_graph"]["sha256"] == recipe["public_graph_sha256"]
++             and data["provenance"]["preprocessing"]["edge_logical_sha256"] == recipe["native_edge_logical_sha256"],
+              "Public role/graph binding differs")
+     native = worker._module(project_root, bindings, "native_model")
+     boundary = worker._module(project_root, bindings, "boundary_model")
+@@ -215,6 +216,7 @@
+               "complete_run": worker._descriptor(complete_path), "states": state_rows,
+               "custody_manifest": worker._descriptor(custody_path), "A_labels": custody["A_labels"],
+               "predictions": prediction_rows, "initial_response": complete["initial_response"],
++              "preprocessing": data["provenance"]["preprocessing"],
+               "scores": scores, "gate": _gate(scores),
+               "evaluator_source_sha256": worker._sha(Path(__file__)),
+               "A_labels_used_for_fitting_or_selection": False,

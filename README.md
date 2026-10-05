@@ -42,6 +42,20 @@ A concrete error-informed training candidate now measures which private member c
 - [CPU engineering check and failures](experiments_iclr/postsubmission_20260930/learnability_responsibility_math_qualification_root_20261005_v3/REPORT.md)
 - [Fixed TRAIN-only qualification protocol](experiments_iclr/postsubmission_20260930/amazon_learnability_responsibility_train_response_protocol_20261005_v1/PROTOCOL.md)
 
+## Corrective-learning engineering update
+
+The new candidate remains untrained. Full-native synthetic callback/first-gradient and sparse/dense checks passed, but the fixed shared finite-difference check failed. An independent ordinary-autograd construction matches every shared derivative at that same state; asymmetric finite differences remain unresolved. The original failure, sources, costs and diagnostic are preserved. This is engineering evidence, not a predictive result or native gate clearance.
+
+The separately reviewed W/S/R protocol warms on W only; support S and outer R first enter learning after the common state is frozen. Custodial decoding of the joint TRAIN label artifact, including A, is disclosed. A stays excluded from fitting and selection. V2 omitted the native self-loop preprocessing; a preserved, independently reviewed V3 successor restores the exact original recipe. It does not release training or modify the six controls, H16, scoring or original paper scores.
+
+Three new bounded primary methods (Gradient-Aligned Routing, graph Routing-by-Memory and Hellsemble) supply close assignment/specialization precedents. A same-rule first-order gradient-utility cost comparison is required before attributing a future benefit to finite-response terms. Novelty and predictive superiority remain unestablished.
+
+- [Native failure and independent derivative diagnosis](experiments_iclr/postsubmission_20260930/native_directional_mismatch_diagnostic_root_20261005_v1/REPORT.md)
+- [Prospective W/S/R decision](experiments_iclr/postsubmission_20260930/CORRECTIVE_LEARNING_PREFIT_DECISION_20261005.md)
+- [Reviewed native graph repair](experiments_iclr/postsubmission_20260930/learnability_responsibility_wsr_v3_edge_delta_engineering_interpretation_20261005_v1/REPORT.md)
+- [Recent prior methods and missing comparison](experiments_iclr/postsubmission_20260930/finite_private_response_recent_prior_challenge_20261005_v1/REPORT.md)
+- [Scoped literature supplements V6](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261005_v6.json)
+
 ## Original method
 
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.
