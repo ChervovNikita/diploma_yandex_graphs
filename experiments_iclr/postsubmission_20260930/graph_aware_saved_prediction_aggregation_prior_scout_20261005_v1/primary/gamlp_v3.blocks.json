@@ -1,0 +1,1066 @@
+[
+  {
+    "kind": "heading",
+    "id": "modal-title",
+    "sections": [],
+    "text": "Report GitHub Issue",
+    "index": 0
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [],
+    "text": "Graph Attention MLP with Reliable Label Utilization",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "abstract1.1",
+    "sections": [],
+    "text": "Graph neural networks (GNNs) have recently achieved state-of-the-art performance in many graph-based applications. Despite the high performance, they typically need to perform expensive recursive neighborhood expansions during every training epoch and has the scalability issue. Moreover, most of them are inflexible since they are restricted to fixed-hop neighborhoods and insensitive to actual receptive field requirements for each node. We circumvent these limitations by introducing a scalable and flexible method: Graph Attention Multi-Layer Perceptron (GAMLP). Following the routine of decoupled GNNs, the feature propagation in GAMLP is executed during pre-computation, which helps it maintain high scalability. With three proposed receptive field attention, each node in GAMLP is flexible in leveraging the propagated features over the different sizes of reception field. We conduct extensive evaluations on two large open graph benchmarks (ogbn-products and ogbn-papers100M), demonstrating that GAMLP not only achieves state-of-the-art performance, but also enjoys high scalability and efficiency.",
+    "index": 0
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S1"
+    ],
+    "text": "1 Introduction",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Graph Neural Networks (GNNs) are powerful deep neural networks for graph-structured data, becoming the de facto method in many semi-supervised and unsupervised graph representation learning scenarios such as node classification, link prediction, recommendation, and knowledge graphs [19, 12, 2, 8, 9, 35]. Through stacking KK graph convolution layers, GNNs can learn node representations by utilizing information from the KK-hop neighborhood and thus enhance the model performance by getting more unlabeled nodes involved in the training process.",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p2.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Unlike the images, text, or tabular data, where training data are independently distributed, graph data contains extra relationship information between nodes. Besides, the real-world graph is usually huge. For example, the users and their relationships in Wechat can be formed as a graph, and this graph has billions of nodes and ten billion edges. Every node in a KK-layer GNN will incorporate a set of nodes, including the node itself and its KK-hop neighbors. This set is called Receptive Field(RF). As the size of RF grows exponentially to the number of GNN layers, the rapidly expanding RF introduces high computation and memory cost in a single machine. Besides, even in a distributed environment, GNN has to read great amount of data of neighboring nodes to compute the single target node representation, leading to high communication cost. Despite their effectiveness, the utilization of neighborhood information in GNNs leads to the scalability issue for training on large graphs.",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p3.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "A commonly used approach to tackle this issue is sampling, such as node sampling [12, 4], layer sampling [18, 3] and graph sampling [7, 45]. However, the sampling-based methods are imperfect because they still face high communication costs, and the sampling quality highly influences the model performance. Besides, a recent direction for scalable GNNs is based on model simplification. For example, Simplified GCN (SGC) [37] decouples the feature propagation and the non-linear transformation process, and the former is executed during pre-processing. Unlike the sampling-based methods, which still need feature propagation in each training epoch, this time-consuming process in SGC is only executed once, and only the nodes of training set get involved in the model training. As a result, SGC is computation and memory efficient in a single machine and scalable in distributed settings since it does not require fetch features of neighboring nodes in the model training process. Despite the scalability, SGC adopts fixed layers of feature propagation, leading to a fixed RF of all nodes. Such graph-wise propagation lacks the flexibility to model the interesting correlations on node features under different reception fields. This either makes that long-range dependencies cannot be fully leveraged due to the undersized RF, or loses local information due to introducing over-smoothed noise with the oversized RF. Both results in non-optimal discriminative node representations.",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p4.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Lines of simplified models have been proposed to better use propagated features under different propagation layers and RF. As graph-wise propagation only considers features under a fixed layer, SIGN [11] proposes to concatenate all these features without information loss, while S2GC [51] averages all these features to generate the combined feature with the same dimension. Although they have considered the influence of different layers, the importance of different propagated features is ignored. Under a large propagation layer, some over-smoothed features with oversized RF will introduce feature noise and degrade the model performance. GBP [5] tackles this issue by adopting a constant decay factor for weighted average in the propagated features. Motivated by Personalized PageRank, the propagated features with larger propagation layers face a higher risk of over-smoothing, and they will contribute less to the final averaged features in GBP. All these methods adopt a layer-wise propagation mechanism and consider the features after different layers of propagation. Despite their effectiveness, they fail to consider the feature combination from a node-wise level.",
+    "index": 4
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p5.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "As shown in Figure 1(a), different nodes require different propagation steps and corresponding smoothness levels. Besides, the homogeneous and non-adaptive feature averaging may be unsuitable for all nodes due to the inconsistent RF expansion speed shown in Figure 1(b). To support scalable and node-adaptive graph learning, we propose a novel MLP with three RF attention, abbreviated as GAMLP. Experimental results demonstrate that GAMLP achieves the state-of-the-art performance on the three largest ogbn datasets, while maintains high scalability and efficiency.",
+    "index": 5
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S2"
+    ],
+    "text": "2 Preliminaries",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p1.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "In this section, we introduce the notations and review some current works tackling GNN scalability.",
+    "index": 6
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p2.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Notations. We consider an undirected graph 𝒢\\mathcal{G} = (𝒱\\mathcal{V},ℰ\\mathcal{E}) with |𝒱|=N|\\mathcal{V}|=N nodes and |ℰ|=M|\\mathcal{E}|=M edges. We denote by 𝐀\\mathbf{A} the adjacency matrix of 𝒢\\mathcal{G}, weighted or not. Nodes can possibly have features vector of size dd, stacked up in an N×dN\\times d matrix 𝐗\\mathbf{X}. 𝐃=diag⁡(d1,d2,⋯,dN)∈ℝN×N\\mathbf{D}=\\operatorname{diag}\\left(d_{1},d_{2},\\cdots,d_{N}\\right)\\in\\mathbb{R}^{N\\times N} denotes the degree matrix of 𝐀\\mathbf{A}, where di=∑vj∈𝒱𝐀i​jd_{i}=\\sum_{v_{j}\\in\\mathcal{V}}\\mathbf{A}_{ij} is the degree of node viv_{i}. Suppose 𝒱l\\mathcal{V}_{l} is the labeled set, and our goal is to predict the labels for nodes in the unlabeled set 𝒱u\\mathcal{V}_{u} with the supervision of 𝒱l\\mathcal{V}_{l}.",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p3.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Sampling. A commonly used method to tackle the scalability issue (i.e., the recursive neighborhood expansion) in GNN is sampling. As a node-wise sampling method, GraphSAGE [12] randomly samples a fixed size set of neighbors for computing in each mini-batch. VR-GCN [4] analyzes the variance reduction so that it can reduce the size of samples with an additional memory cost. For the layer-wise sampling, Fast-GCN [3] samples a fixed number of nodes at each layer, and ASGCN [18] proposes the adaptive layer-wise sampling with better variance control. In the graph level, Cluster-GCN [7] firstly clusters the nodes and then samples the nodes in the clusters, and GraphSAINT [45] directly samples a subgraph for mini-batch training. As an orthogonal way to model simplification, sampling has already been widely used in many GNNs and GNN systems [50, 52, 10].",
+    "index": 8
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p4.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Graph-wise Propagation. Recently studies have observed that non-linear feature transformation contributes little to the performance of the GNNs as compared to feature propagation. Thus, a new direction recently emerging for scalable GNN is based on the simplified GCN (SGC) [37], which successively removes nonlinearities and collapsing weight matrices between consecutive layers. This reduces GNNs into a linear model operating on KK-layers propagated features:",
+    "index": 9
+  },
+  {
+    "kind": "equation",
+    "id": "S2.E1",
+    "sections": [
+      "S2"
+    ],
+    "text": "𝐗(K)=𝐀^K​𝐗(0),𝐘=softmax​(𝚯​𝐗(K)),\\mathbf{X}^{(K)}=\\mathbf{\\hat{A}}^{K}\\mathbf{X}^{(0)},\\hskip 18.49988pt\\mathbf{Y}=\\text{softmax}(\\mathbf{\\Theta}\\mathbf{X}^{(K)}), (1)",
+    "index": 0
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p4.2",
+    "sections": [
+      "S2"
+    ],
+    "text": "where 𝐗(0)=𝐗\\mathbf{X}^{(0)}=\\mathbf{X}, 𝐗(K)\\mathbf{X}^{(K)} is the KK-layers propagated feature, and 𝐀^=𝐃~r−1​𝐀~​𝐃~−r\\mathbf{\\hat{A}}=\\widetilde{\\mathbf{D}}^{r-1}\\widetilde{\\mathbf{A}}\\widetilde{\\mathbf{D}}^{-r}. By setting r=r= 0.5, 1 and 0, 𝐀^\\mathbf{\\hat{A}} represents the symmetric normalization adjacency matrix 𝐃~−1/2𝐀~𝐃~−1/2\\widetilde{\\mathbf{D}}^{-1/2}\\widetilde{\\mathbf{A}}\\widetilde{\\mathbf{D}}^{-1/2} [20], the transition probability matrix 𝐀~​𝐃~−1\\widetilde{\\mathbf{A}}\\widetilde{\\mathbf{D}}^{-1} [45], or the reverse transition probability matrix 𝐃~−1​𝐀~\\widetilde{\\mathbf{D}}^{-1}\\widetilde{\\mathbf{A}} [39], respectively. As the propagated features 𝐗(K)\\mathbf{X}^{(K)} can be precomputed, SGC is more scalable and efficient for the large graph. However, such graph-wise propagation restricts the same propagation steps and a fixed RF for each node. Therefore, some nodes’ features may be over-smoothed or under-smoothed due to the inconsistent RF expansion speed, leading to non-optimal performance.",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p5.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Layer-wise Propagation. Following SGC, some recent methods adopt layer-wise propagation to combine the features with different propagation layers. SIGN [11] proposes to concatenate the different iterations of propagated features with linear transformation: [𝐗(0)​𝐖0,𝐗(1)​𝐖1,…,𝐗(K)​𝐖K][\\mathbf{X}^{(0)}\\mathbf{W}_{0},\\mathbf{X}^{(1)}\\mathbf{W}_{1},...,\\mathbf{X}^{(K)}\\mathbf{W}_{K}]. S2GC [51] proposes the simple spectral graph convolution to average the propagated features in different iterations as 𝐗(K)=∑l=0K𝐀^l​𝐗(0)\\mathbf{X}^{(K)}=\\sum\\limits_{l=0}\\limits^{K}\\mathbf{\\hat{A}}^{l}\\mathbf{X}^{(0)}. In addition, GBP [5] further improves the combination process by weighted averaging as 𝐗(K)=∑l=0Kwl​𝐀^l​𝐗(0)\\mathbf{X}^{(K)}=\\sum\\limits_{l=0}\\limits^{K}w_{l}\\mathbf{\\hat{A}}^{l}\\mathbf{X}^{(0)} with the layer weight wl=β​(1−β)lw_{l}=\\beta{(1-\\beta)}^{l}. Similar to these works, we also use a linear model for higher training scalability. The difference lies in that we consider the propagation from a node-wise perspective and each node in GAMLP has a personalized combination of different steps of the propagated features.",
+    "index": 11
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p6.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Self Supervision on GNN. Self supervision is widely used in GNN [41], and the corresponding techniques can be mainly classified into the following categories: pretraining & finetuning, self-training, self knowledge distillation, and multi-task learning.",
+    "index": 12
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p7.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Following the paradigm of pretraining & finetuning, some works [14, 25, 15] firstly train a GNN with the self-supervised task and then use the learned model parameters to initialize the other networks. For example, [14] pre-trains an expressive GNN at the level of individual nodes and avoids negative transfer, and improves generalization significantly across downstream tasks. Besides, based on self training [34], some researches [23, 33] propose to assign “pseudo-labels” [21] to the nodes with the high confident model prediction. As stated in previous works [1, 27], SLE [32] considers an unlabeled node confident if its corresponding class probability is larger than a predefined threshold. Different to the one hot label used in self training, recent works [47, 46, 40] incorporate self-knowledge distillation into GNN and directly distill the model predicted soft label or embedding. Besides, we use a predefined threshold to filter reliable soft labels for distillation in this work. At last, multi-task learning [28] regard the self-supervised task of GNN as a regularization term throughout the network training and thus help to improve the model generalizability [41, 26].",
+    "index": 13
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p8.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Label Utilization on GNN. Labels of training nodes are conventionally only used as supervision signals in loss functions in most graph learning methods. However, there also exist some graph learning methods that directly exploit the labels of training nodes. Among them, the label propagation algorithm [53] is the most well-known one. It simply regards the partially observed label matrix 𝐘∈ℝN×C\\mathbf{Y}\\in\\mathbb{R}^{N\\times C} as input features for nodes in the graph and propagates the input features through the graph structure, where CC is the number of candidate classes. UniMP [30] proposes to map the partially observed label matrix 𝐘\\mathbf{Y} to the dimension of the node feature matrix 𝐗\\mathbf{X} and add these two matrices together as the new input feature. To fight against the label leakage problem, UniMP further randomly masks the training nodes during every training epoch.",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p9.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Instead of only using the hard training labels, Correct & Smooth [17] first trains a simple model such as an MLP and gets this simple model’s predicted soft labels for unlabeled nodes. Then, it propagates the learning errors on the labeled nodes to connected nodes and smooths the output in a Personalized PageRank manner like APPNP [20]. Besides, SLE [32] decouples the label utilization procedure in UniMP, and executes the propagation in advance. Unlike UniMP, “label reuse” [36] concatenates the partially observed label matrix 𝐘\\mathbf{Y} with the node feature matrix 𝐗\\mathbf{X} to form the new input matrix. Concretely, it fills the missing elements in the partially observed label matrix 𝐘\\mathbf{Y} with the soft label predicted by the model, and this newly generated 𝐘′\\mathbf{Y}^{\\prime} is again concatenated with 𝐗\\mathbf{X} and then fed into the model to produce new predictions.",
+    "index": 15
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3"
+    ],
+    "text": "3 The GAMLP Model",
+    "index": 4
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "3.1 Overview",
+    "index": 5
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS1.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "As shown in Figure 2, GAMLP decomposes the end-to-end GNN training into three parts: feature propagation, feature combination with RF attention, and the MLP training. As the feature propagation is pre-processed only once, and MLP training is efficient and salable, we can easily scale GAMLP to large graphs. Besides, with the RF attention, each node in GAMLP can adaptively get the suitable combination weights for propagated features under different RF, thus boosting model performance.",
+    "index": 16
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "3.2 Establishment of GAMLP",
+    "index": 6
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS1"
+    ],
+    "text": "3.2.1 Feature Propagation",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS1.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS1"
+    ],
+    "text": "We separate the essential operation of GNNs — feature propagation by removing the neural network 𝚯\\mathbf{\\Theta} and nonlinear activation δ\\delta for feature transformation. Specifically, we construct a parameter-free KK-step feature propagation as:",
+    "index": 17
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS1"
+    ],
+    "text": "𝐗(l)←𝐓𝐗(l−1),∀l=1,…,K,\\mathbf{X}^{(l)}\\leftarrow\\mathbf{T}\\mathbf{X}^{(l-1)},\\ \\forall l=1,\\ldots,K, (2)",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS1.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS1"
+    ],
+    "text": "where 𝐗(l)\\mathbf{X}^{(l)} contains the features of a fixed RF: the node itself and its ll-hop neighborhoods.",
+    "index": 18
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS1.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS1"
+    ],
+    "text": "After KK-step feature propagation shown in E.q. 9, we correspondingly get a list of propagated features under different propagation steps: [𝐗(0),𝐗(1),𝐗(k),…,𝐗(K)][\\mathbf{X}^{(0)},\\mathbf{X}^{(1)},\\mathbf{X}^{(k)},...,\\mathbf{X}^{(K)}]. For a node-wise propagation, we propose to average these propagated features in a weighted manner:",
+    "index": 19
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E3",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS1"
+    ],
+    "text": "𝐇=∑l=0K𝐖l​𝐗(l),\\mathbf{H}=\\sum_{l=0}^{K}\\mathbf{W}_{l}\\mathbf{X}^{(l)}, (3)",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS1.p2.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS1"
+    ],
+    "text": "where 𝐖l=D​i​a​g​(ηl)\\mathbf{W}_{l}=Diag(\\eta_{l}) is the diagonal matrix derived from vector ηl\\eta_{l}, and ηl\\eta_{l} is an NN-dimension vector derived from vector ηl=wi​(l),1≤i≤N\\eta_{l}=w_{i}(l),1\\leq i\\leq N, and wi​(l)w_{i}(l) measures the importance of the ll-step propagated feature for node viv_{i}. To satisfy different RF requirements for each node, we introduce three RF attention mechanisms to get wi​(l)w_{i}(l).",
+    "index": 20
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "3.2.2 Receptive Field Attention",
+    "index": 8
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS2.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "Smoothing Attention. Suppose we execute feature propagation for infinite times. In that case, the node embedding within the same connected component will reach a stationary state, and it is hard to distinguish a specific node from others. This issue is referred to as over-smoothing [24]. Concretely, when applying 𝐃~r−1​𝐀~​𝐃~−r\\widetilde{\\mathbf{D}}^{r-1}\\tilde{\\mathbf{A}}\\widetilde{\\mathbf{D}}^{-r} as adjacency matrix 𝐀^\\hat{\\mathbf{A}}, the stationary state follows",
+    "index": 21
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E4",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "𝐀^i,j∞=(di+1)r​(dj+1)1−r2​m+n,\\hat{\\mathbf{A}}^{\\infty}_{i,j}=\\frac{(d_{i}+1)^{r}(d_{j}+1)^{1-r}}{2m+n}, (4)",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS2.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "To avoid the over-smoothing issue introduced by large RF, the weight wi​(k)w_{i}(k) parameterized by node ii and aggregation step kk is defined as:",
+    "index": 22
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E5",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "𝐗~i(l)=𝐗i(l)|𝐗i(∞),w~i​(l)=δ⁡(𝐗~i(l)⋅s),wi​(l)=ew~i​(l)/∑k=0Kew~i​(k),\\widetilde{\\mathbf{X}}_{i}^{(l)}=\\mathbf{X}_{i}^{(l)}\\parallel\\mathbf{X}_{i}^{(\\infty)},\\quad{\\widetilde{w}_{i}(l)}=\\delta(\\widetilde{\\mathbf{X}}_{i}^{(l)}\\cdot s),\\quad w_{i}(l)={e^{\\widetilde{w}_{i}(l)}}/{\\sum\\limits_{k=0}\\limits^{K}e^{\\widetilde{w}_{i}(k)}}, (5)",
+    "index": 4
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS2.p2.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "where ∥\\parallel stands for concatenation, and s∈ℝ1×ds\\in\\mathbb{R}^{1\\times d} is a trainable vector. Larger wi​(l)w_{i}(l) means that the ll-step propagated feature of node viv_{i} is more distant from the stationary state, and has less risk of being noise. Therefore, propagated feature with larger wi​(k)w_{i}(k) should contribute more to the feature combination.",
+    "index": 23
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS2.p3.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "Recursive Attention At each propagation step ll, suppose s∈ℝds\\in\\mathbb{R}^{d} is a learnable parameter vector, we recursively measure the feature information gain compared with the previous combined feature as:",
+    "index": 24
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E6",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "𝐗~i(l)=𝐗i(l)|∑k=0l−1wi​(k)​𝐗i(k),wi​(k)=ew~i​(k)/∑j=0l−1ew~i​(j),\\small\\widetilde{\\mathbf{X}}_{i}^{(l)}=\\mathbf{X}_{i}^{(l)}\\parallel\\sum_{k=0}^{l-1}w_{i}(k)\\mathbf{X}_{i}^{(k)},\\hskip 9.24994ptw_{i}(k)={e^{\\widetilde{w}_{i}(k)}}/{\\sum\\limits_{j=0}\\limits^{l-1}e^{\\widetilde{w}_{i}(j)}}, (6)",
+    "index": 5
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS2.p3.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "As 𝐗~i(l−1)\\widetilde{\\mathbf{X}}_{i}^{(l-1)} combines the graph information under different propagation steps and RF, large proportion of the information in 𝐗~i(l)\\widetilde{\\mathbf{X}}_{i}^{(l)} may have already existed in ∑k=0l−1wi​(k)​𝐗i(k)\\sum_{k=0}^{l-1}w_{i}(k)\\mathbf{X}_{i}^{(k)}, leading to small information gain . larger wi​(l)w_{i}(l) means the feature 𝐗i(l)\\mathbf{X}_{i}^{(l)} is more important to the current state of node viv_{i} since combining 𝐗~i(l)\\widetilde{\\mathbf{X}}_{i}^{(l)} will introduce higher information gain.",
+    "index": 25
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS2.p4.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "JK Attention Jumping Knowledge Network (JK-Net) [39] adopts layer aggregation to combine the node embeddings of different GCN layers, and thus it can leverage the propagated nodes information with different RF. Motivated by JK-Net, we propose to guide the feature combination process with the model prediction trained on all the propagated features. Figure 3 shows the corresponding model architecture of GAMLP with JK attention, which includes two branches: the concatenated JK branch and the attention-based combination branch. We define the MLP prediction of the JK branch as 𝐄i=MLP(𝐗i(1)∥𝐗i(2)∥…∥𝐗i(K))\\mathbf{E}_{i}=\\text{MLP}(\\mathbf{X}_{i}^{(1)}\\parallel\\mathbf{X}_{i}^{(2)}\\parallel...\\parallel\\mathbf{X}_{i}^{(K)}), and then define the combination weight as:",
+    "index": 26
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E7",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "𝐗~i(l)=𝐗i(l)|𝐄i,w~i​(l)=δ⁡(𝐗~i(l)⋅s),wi​(l)=ew~i​(l)/∑k=0Kew~i​(k),\\widetilde{\\mathbf{X}}_{i}^{(l)}=\\mathbf{X}_{i}^{(l)}\\parallel\\mathbf{E}_{i},\\quad{\\widetilde{w}_{i}(l)}=\\delta(\\widetilde{\\mathbf{X}}_{i}^{(l)}\\cdot s),\\quad w_{i}(l)={e^{\\widetilde{w}_{i}(l)}}/{\\sum\\limits_{k=0}\\limits^{K}e^{\\widetilde{w}_{i}(k)}}, (7)",
+    "index": 6
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS2.p5.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS2"
+    ],
+    "text": "The JK branch aims to create a multi-scale feature representation for each node, which helps the attention mechanism learn the weight wi​(k)w_{i}(k). The learned weights are then fed into the attention-based combination branch to generate each node’s refined attention feature representation. As the training process continues, the attention-based combination branch will gradually emphasize those neighborhood regions that are more helpful to the target nodes. The JK attention can model a wider neighborhood while enhancing correlations, bringing a better feature representation for each node.",
+    "index": 27
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS3"
+    ],
+    "text": "3.2.3 Incorporating Label Propagation.",
+    "index": 9
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS3.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS3"
+    ],
+    "text": "Similar to previous works [30, 17, 32, 36], we also use label propagation for better utilization of label information . Concretely, the label embedding matrix 𝐘^(0)\\hat{\\mathbf{Y}}^{(0)} is firstly initialized as all zero. Then, we use the hard training labels, 𝐘𝒱l\\mathbf{Y}_{\\mathcal{V}_{l}}, to fill in the all zero matrix and propagate it with the normalized adjacency matrix 𝐀^\\hat{\\mathbf{A}}:",
+    "index": 28
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E8",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS3"
+    ],
+    "text": "𝐘^𝒱l(0)=𝐘𝒱l,𝐘^(k+1)=𝐀^​𝐘^(k),\\hat{\\mathbf{Y}}_{\\mathcal{V}_{l}}^{(0)}=\\mathbf{Y}_{\\mathcal{V}_{l}},\\hat{\\mathbf{Y}}^{(k+1)}=\\hat{\\mathbf{A}}\\hat{\\mathbf{Y}}^{(k)}, (8)",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS3.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS3"
+    ],
+    "text": "where 𝒱l\\mathcal{V}_{l} is the labeled node set. After KK-steps Label Propagation, we get the final label embedding 𝐘^(K)\\hat{\\mathbf{Y}}^{(K)} and then use it to enhance the model prediction.",
+    "index": 29
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "3.2.4 Model Training",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS4.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "Previous work [49] shows that the main limitations of deep GNNs are the over-smoothing introduced by large steps of propagation and model degradation introduced by too many layers of non-linear transformation. The proposed attention-based feature propagation can adaptively leverage the propagated features over the different sizes of reception field and avoid the over-smoothing issue.",
+    "index": 30
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS4.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "Large graph [49] require large steps of non-liner transformation. To tackle the model degradation problem, we propose to use initial residual as:",
+    "index": 31
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E9",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "𝐇^(l)←δ(𝐖(l)𝐇^(l−1)+𝐗(0)),l=1,…,L,\\hat{\\mathbf{H}}^{(l)}\\leftarrow\\delta(\\mathbf{W}^{(l)}\\hat{\\mathbf{H}}^{(l-1)}+\\mathbf{X}^{(0)}),\\ l=1,\\ldots,L, (9)",
+    "index": 8
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS4.p2.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "where LL is the MLP layers, and 𝐇(0)=𝐇^\\mathbf{H}^{(0)}=\\hat{\\mathbf{H}} is the combined feature matrix.",
+    "index": 32
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS4.p3.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "Then the output of this LL layers MLP is added with the label embedding from Sec. 3.2.3 to get the final output embedding:",
+    "index": 33
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E10",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "𝐇~=𝐇^(L)+MLP​(𝐘^(K)).\\widetilde{\\mathbf{H}}=\\hat{\\mathbf{H}}^{(L)}+\\text{MLP}(\\hat{\\mathbf{Y}}^{(K)}). (10)",
+    "index": 9
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS4.p4.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "The MLP here is used to map the embedding 𝐘^(K)\\hat{\\mathbf{Y}}^{(K)} to the same space as 𝐇^(L)\\hat{\\mathbf{H}}^{(L)}.",
+    "index": 34
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS4.p5.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "We adopt the Cross-Entropy (CE) measurement between the predicted softmax outputs and the one-hot ground-truth label distributions as the objective function:",
+    "index": 35
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E11",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "ℒC​E=−∑i∈𝒱l∑j𝐘i​jlog(softmax(𝐇~)i​j)\\displaystyle\\mathcal{L}_{CE}=-\\sum_{i\\in\\mathcal{V}_{l}}\\sum_{j}\\mathbf{Y}_{ij}\\log(\\text{softmax}(\\widetilde{\\mathbf{H}})_{ij}) (11)",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS4.p5.3",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS4"
+    ],
+    "text": "where 𝐘i\\mathbf{Y}_{i} is the one-hot label indicator vector.",
+    "index": 36
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5"
+    ],
+    "text": "3.2.5 Reliable Label Utilization (RLU)",
+    "index": 11
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px1"
+    ],
+    "text": "Reliable Label Propagation.",
+    "index": 12
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px1.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px1"
+    ],
+    "text": "To better utilize the predicted soft label (i.e., softmax outputs), we split the whole training process into multiple stages, each containing a full training procedure of the GAMLP model. At the first stage, the GAMLP model is trained according to the above-mentioned procedure. However, at later stages, we take advantage of the predicted reliable soft label of the last stage to improve the label embedding 𝐘^(0)\\hat{\\mathbf{Y}}^{(0)}. Here, we denote the prediction results of mm-th stage as 𝐏(m)\\mathbf{P}^{(m)}:",
+    "index": 37
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E12",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px1"
+    ],
+    "text": "𝐏(m)=softmax​(𝐇^/T),T∈(0,1],\\mathbf{P}^{(m)}=\\text{softmax}(\\hat{\\mathbf{H}}/T),\\quad T\\in(0,1], (12)",
+    "index": 11
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px1.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px1"
+    ],
+    "text": "where the parameter TT controls the softness of the softmax distribution. Lower values of TT leads to more hardened distribution.",
+    "index": 38
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px1.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px1"
+    ],
+    "text": "Suppose we are now at the beginning of the mm-th stage (m>1m>1) of the whole training process. Rather than just using the training labels to construct the initial label embedding 𝐘^(0)\\hat{\\mathbf{Y}}^{(0)}, we adopt the predicted results for the nodes in the validation set and the test set at the last stage as well. To ensure the reliability of the predicted soft label, we use a threshold ϵ\\epsilon to filter out the low-confident nodes in the validation set and the test set. The formulation for the reliable label is as follows:",
+    "index": 39
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E13",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px1"
+    ],
+    "text": "𝐘^i(0)={𝐘i,if​i∈𝒱l,𝐏i(m−1)​if​i∈𝒱r,𝟎,otherwise.​𝐘^(k+1)=𝐀^​𝐘^(k).\\hat{\\mathbf{Y}}^{(0)}_{i}=\\left\\{\\begin{array}[]{lll}\\mathbf{Y}_{i},\\ \\ \\text{if}\\ \\ i\\in\\mathcal{V}_{l},\\\\ \\mathbf{P}^{(m-1)}_{i}\\ \\ \\text{if}\\ \\ i\\in\\mathcal{V}_{r},\\\\ \\mathbf{0},\\ \\ \\text{otherwise}.\\end{array}\\right.\\hat{\\mathbf{Y}}^{(k+1)}=\\hat{\\mathbf{A}}\\hat{\\mathbf{Y}}^{(k)}. (13)",
+    "index": 12
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px1.p2.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px1"
+    ],
+    "text": "In the formulation, the reliable node set 𝒱r\\mathcal{V}_{r} is composed of nodes whose predicted probability belonging to the most likely class at (m−1)(m-1)-th stage is greater than the threshold ϵ\\epsilon.",
+    "index": 40
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px2"
+    ],
+    "text": "Reliable Label Distillation.",
+    "index": 13
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px2.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px2"
+    ],
+    "text": "To fully take advantage of the helpful information of the last stage, we also included a knowledge distillation module in our model. Again to guarantee the reliability of the knowledge distillation module, we only include the nodes in the reliable node set 𝒱r\\mathcal{V}_{r} at mm-th stage (m>1m>1) and then define the weighted KL divergence as:",
+    "index": 41
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E14",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px2"
+    ],
+    "text": "ℒK​D=∑i∈𝒱r∑jαi​𝐏i​j(m−1)​log⁡𝐏i​j(m−1)𝐏i​j(m),\\displaystyle\\mathcal{L}_{KD}=\\sum_{i\\in\\mathcal{V}_{r}}\\sum_{j}\\alpha_{i}\\mathbf{P}_{ij}^{(m-1)}\\log\\frac{\\mathbf{P}_{ij}^{(m-1)}}{\\mathbf{P}_{ij}^{(m)}}, (14)",
+    "index": 13
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px2.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px2"
+    ],
+    "text": "where αi\\alpha_{i} for reliable node ii is its predicted probability belonging to the mostly likely class at (m−1)(m-1)-th stage. We further incorporate αi\\alpha_{i} here to better guide the distillation process, assigning higher weights to more confident nodes.",
+    "index": 42
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px2.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px2"
+    ],
+    "text": "The complete training loss for mm-th stage (m>1m>1) is defined as:",
+    "index": 43
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E15",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px2"
+    ],
+    "text": "ℒ=ℒC​E+γ​ℒK​D,\\mathcal{L}=\\mathcal{L}_{CE}+\\gamma\\mathcal{L}_{KD}, (15)",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.SSS5.Px2.p2.2",
+    "sections": [
+      "S3",
+      "S3.SS2",
+      "S3.SS2.SSS5",
+      "S3.SS2.SSS5.Px2"
+    ],
+    "text": "where γ\\gamma is a hyperparameter, balancing the importance of the knowledge distillation module.",
+    "index": 44
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "3.3 Relation with current methods",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "GAMLP vs. GBP. Both GAMLP and GBP propose to weighted average the propagated features under different propagation steps and RF. However, GBP adopts a layer-wise propagation and ignores the inconsistent RF expansion speed for different nodes. As the optimal propagation steps and smoothing levels of different nodes are different, some nodes may face the over-smoothing or under-smoothing issue even propagated the same step. GAMLP considers the feature propagation in a more fine-grained node perspective. Compared with GBP, SGC, and S2GC, the limitation of GAMLP is that all the propagated features are required in the model training, leading to high memory cost.",
+    "index": 45
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "GAMLP vs. GAT. Each node in a GAT layer learns to weighted combine the embedding (or feature) of its neighborhoods with an attention mechanism, and the attention weights are measured by the local information in a fixed RF – the node itself and its direct neighbors. Different from the attention mechanism in GAT, GAMLP considers more global information under different RF.",
+    "index": 46
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p3.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "GAMLP vs. DAGNN. Similar to AP-GCN [31], DAGNN can adaptively learn the combination weights via the gating mechanism and thus assign proper weights for different nodes. However, the gating mechanism in DAGNN is correlated with the parameterized node embedding rather than the training-free node feature used in GAMLP, leading to low scalability and efficiency.",
+    "index": 47
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p4.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "GAMLP vs. JK-Net. Motivated by JK-Net, GAMLP with JK attention concatenate the propagated features under different propagation steps. However, the model prediction based on the concatenated feature is just used as a reference vector for the attention-based combination branch in GAMLP rather than the final results. Compared with JK-Net, GAMLP with JK attention is more effective in alleviating the over-smoothing and scalability issue that deep architecture introduces.",
+    "index": 48
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p5.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "GAMLP vs. SAGN. Both GAMLP and SAGN propose to do node specific propagation in GNN. Specially, they enable the adaptive propagation in a feature message passing way [48] and thus get high scalability. More concretely, SAGN learns the node-specific attention weights with the original node feature. Based on the observation of inconsistent RF expansion speed, GAMLP adopts three receptive field attention mechanisms to better combine the propagated features over different sizes of reception fields. Besides, the initial residual connection [6] is also employed in GAMLP to support large steps of non-linear transformation.",
+    "index": 49
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4"
+    ],
+    "text": "4 Experiments",
+    "index": 15
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.p1.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "In this section, we verify the effectiveness of GAMLP on seven graph datasets. We aim to answer the following two questions. Q1: Compared with current methods, can GAMLP achieve higher predictive accuracy? Q2: Why GAMLP is effective?",
+    "index": 50
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "4.1 Experimental Setup",
+    "index": 16
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "Datasets and baselines. We conduct the experiments on the ogbn-products and ogbn-papers100M datasets in [13]. The dataset statistics are shown in Table 1. For the comparison on the ogbn-products dataset, we choose the following baseline methods: GCN [19], GraphSAGE [12], SIGN [11], DeeperGCN [22], SAGN+0-SLE and SAGN+2-SLE [32], UniMP [30], and MLP+C&S [17]. For the comparison on the ogbn-papers100M dataset, we choose the following baseline methods: SGC [37], SIGN and SIGN-XL [11], SAGN+0-SLE and SAGN+2-SLE [32]. The validation and test accuracy of these all the baseline methods are directly from the OGB leaderboard.",
+    "index": 51
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "Implementation.",
+    "index": 52
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p3.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "To alleviate the influence of randomness, we repeat each method ten times and report the mean performance and the standard deviations. The experiments are conducted on a machine with Intel(R) Xeon(R) Platinum 8255C CPU@2.50GHz, and a single Tesla V100 GPU with 32GB GPU memory. The operating system of the machine is Ubuntu 16.04. As for software versions, we use Python 3.6, Pytorch 1.7.1, and CUDA 10.1. The hyper-parameters in each baseline are set according to the original paper if available. Please refer to Appendix B for the detailed hyperparameter settings for our GAMLP+RLU.",
+    "index": 53
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "4.2 Experimental Results.",
+    "index": 17
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS2.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "End-to-end comparison. To answer Q1, Table 2, 3 show the validation and test accuracy of our GAMLP and GAMLP+RLU and all the baseline methods. The raw performance of our method GAMLP is very competitive compared to other baseline methods, which outperforms the current SOTA single model UniMP and SAGN+0-SLE. With the help of RLU, the test accuracy of GAMLP+RLU gets a decent improvement further and outperforms all the compared baselines, exceeding the strongest baseline SAGN+2-SLE by 0.17% and 0.25% on ogbn-products and ogbn-papers100M datasets, respectively. The performance of our GAMLP empirically illustrates the effectiveness of our proposed attention mechanisms.",
+    "index": 54
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS2.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "Interpretability. GAMLP can adaptively and effectively combine multi-scale propagated features for each node. To demonstrate this, Figure 4 shows the average attention weights of propagated features according to the number of steps and degrees of input nodes, where the maximum step is 6. In this experiment, we randomly select 20 nodes for each degree range (1-4, 5-8, 9-12) and plot the relative weight based on the maximum value. We get two observations from the heat map: 1) The 1-step and 2-step propagated features are always of great importance, which shows that GAMLP captures the local information as those widely 2-layer methods do; 2) The weights of propagated features with larger steps drop faster as the degree grows, which indicates that our attention mechanism could prevent high-degree nodes from including excessive irrelevant nodes which lead to over-smoothing. From the two observations, we conclude that GAMLP is able to identify the different RF demands of nodes and explicitly weight each propagated feature.",
+    "index": 55
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5"
+    ],
+    "text": "5 Conclusion",
+    "index": 18
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.p1.1",
+    "sections": [
+      "S5"
+    ],
+    "text": "This paper presents Graph Attention Multilayer Perceptron (GAMLP), a scalable, efficient, and powerful graph learning method based on the reception field attention. Concretely, GAMLP defines three principled attention mechanisms, i.e., smoothing attention, recursive attention, and JK attention, and each node in GAMLP can leverage the propagated features over different size of RF in a node-specific way. Extensive experiments on three large ogbn graphs verify the effectiveness of the proposed method.",
+    "index": 56
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "bib"
+    ],
+    "text": "References",
+    "index": 19
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1"
+    ],
+    "text": "Appendix A Experiments on ogbn-mag",
+    "index": 20
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "A.1 Compared Baselines",
+    "index": 21
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS1.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "Ogbn-mag dataset is a heterogeneous graph consists of 1,939,743 nodes and 21,111,007 edges of different types. For comparison, we choose eight baseline methods from the OGB ogbn-mag leaderboard: R-GCN [29], SIGN [11], HGT [16], R-GSN [38], HGConv [43], R-HGNN [44], NARS [42], NARS-SAGN+0-SLE and NARS-SAGN+2-SLE [32].",
+    "index": 57
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "A.2 Adapt GAMLP to Heterogeneous Graphs",
+    "index": 22
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "In its original design, GAMLP does not support training on heterogeneous graphs. Here we imitate the model design of NARS to adapt GAMLP to heterogeneous graphs.",
+    "index": 58
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p2.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "First, we sample subgraphs from the original heterogeneous graphs according to relation types and regard the subgraph as a homogeneous graph although it may have different kinds of nodes and edges. Then, on each subgraph, the propagated features of different steps are generated. The propagated features of the same propagation step across different subgraphs are aggregated using 1-d convolution. After that, aggregated features of different steps are fed into our GAMLP to get the final results. This variant of our GAMLP is called NARS-GAMLP as it mimics the design of NARS.",
+    "index": 59
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p3.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "As ogbn-mag dataset only contains node features for “paper” nodes, we here adopt the ComplEx algorithm [35] to generate features for other nodes.",
+    "index": 60
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "A.3 Experiment Results",
+    "index": 23
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "We report the validation and test accuracy of our proposed GAMLP and GAMLP+RLU on ogbn-mag dataset in Table 4. It can be seen from the results that NARS-GAMLP achieves great performance on the heterogeneous graph ogbn-mag, outperforming the performance of the strongest single model baseline NARS. Equipped with RLU, NARS-GAMLP+RLU further improves the test accuracy, and exceeds the test accuracy of SOTA method NARS-SAGN+2-SLE by a significant margin of 1.50%.",
+    "index": 61
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2"
+    ],
+    "text": "Appendix B Detailed Hyperparameters",
+    "index": 24
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "We provide the detailed hyperparameter setting on GAMLP+RLU in Table 5, 6 and 7 to help reproduce the results. To reproduce the experimental results of GAMLP, just follow the same hyperparameter setting yet only run the first stage.",
+    "index": 62
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [],
+    "text": "Instructions for reporting errors",
+    "index": 25
+  }
+]

@@ -1,0 +1,914 @@
+[
+  {
+    "i": 0,
+    "tag": "h1",
+    "id": null,
+    "text": "Vertical Fusion: Condensing Internal Representations for Robust ViT Classification"
+  },
+  {
+    "i": 1,
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "i": 2,
+    "tag": "div",
+    "id": "S1.p1",
+    "text": "Vision Transformers (ViTs) have achieved remarkable performance across a wide range of computer vision tasks [10, 43, 38], enabled by large-scale pre-training. Despite these advances, their reliability in real-world deployment remains a critical concern [48]. In safety-critical domains such as healthcare [21] and autonomous driving [28], robustness to distribution shifts and inherent sample difficulty is fundamental. Current paradigms in uncertainty quantification [16], calibration [35, 40], and robustness evaluation [15, 18, 40] share a common implicit assumption: the last ViT layer provides the most informative representation for downstream applications. Consequently, predictive signals are almost exclusively derived from last-layer features. While effective, this reliance on the last-layer representation assumes the model has optimally retained and condensed all task-relevant information at the last layer, a design choice that remains largely undiscussed. Unlike the clear hierarchical abstraction found in convolutional neural networks, ViTs maintain a more uniform representational profile across depth [42]. Nevertheless, downstream applications still treat them as naive feature extractors, ignoring the potential of their rich internal representations."
+  },
+  {
+    "i": 3,
+    "tag": "div",
+    "id": "S1.p2",
+    "text": "Recent works in out-of-distribution (OOD) detection across vision [52], language [23], and vision-language models [22] suggest that this assumption may be suboptimal, as intermediate layers often encode complementary information. However, the utility of these internal representations has been primarily studied for binary classification problems (i.e., identifying OOD samples). This leaves a gap in existing work: whether corrective or complementary signals embedded in intermediate representations can be used to improve general multi-class classification performance. While prior work on convolutional neural networks suggests that intermediate layers can outperform the last layer under distribution shift, these findings do not consistently extend to Vision Transformers [49]."
+  },
+  {
+    "i": 4,
+    "tag": "div",
+    "id": "S1.p3",
+    "text": "Due to the high representational redundancy inherent in ViTs [22, 42], extracting a relevant corrective signal across intermediate representations is non-trivial. This raises a fundamental set of questions: does an internal corrective signal exist in intermediate ViT layers that can recover last-layer failures? If so, does this signal emerge from predictive diversity or a different representational phenomenon?"
+  },
+  {
+    "i": 5,
+    "tag": "div",
+    "id": "S1.p4",
+    "text": "Motivated by these questions, we investigate complementarity within a single frozen Vision Transformer, using lightweight layer-wise probes. We further introduce the notion of recoverability, defined as the capacity of intermediate probes to correctly classify samples misclassified by the last-layer probe. Across 1616 diverse classification datasets covering small-scale, fine-grained, and texture-dominated settings, we find substantial internal corrective capacity: 18%18\\%–76%76\\% of last-layer failures are recoverable by at least one intermediate probe (cf. Table 1), indicating that discriminative information often persists outside the final representation. In Section 3.2, we show that this gain is not driven by predictive diversity, but by a redundancy-correctness correspondence (cf. Figure 1), where layers act as stable, slightly perturbed probes of a shared discriminative signal."
+  },
+  {
+    "i": 6,
+    "tag": "div",
+    "id": "S1.p5",
+    "text": "Building upon these insights, we propose VFusion (Figure 2), a principled aggregation strategy that employs a learnable encoder to suppress task-irrelevant information and condenses the internal hierarchy into a robust global token. Unlike traditional ensembles that are computationally expensive and rely on horizontal diversity across different models [44], VFusion performs a “vertical” synthesis, exploiting the redundancy of ViT layers to identify and amplify stable, discriminative signals. Moreover, horizontal ensembling presupposes access to several backbones. While feasible in general vision, this assumption becomes restrictive in specialized domains such as medical image analysis, where such a diverse set of pre-trained models is often unavailable. Through an extensive evaluation across a total of 2121 classification datasets, we demonstrate that VFusion substantially outperforms standard aggregation methods in both in-distribution (ID, 1616 datasets) and out-of-distribution (OOD, 55 datasets) settings."
+  },
+  {
+    "i": 7,
+    "tag": "div",
+    "id": "S1.p6",
+    "text": "Our contributions can be summarized as follows:"
+  },
+  {
+    "i": 8,
+    "tag": "div",
+    "id": "S1.p7",
+    "text": "1. We introduce and quantify the concept of recoverability in Vision Transformers, demonstrating that intermediate layers can correct between 18%18\\% and 76%76\\% of last-layer misclassifications. 2. We empirically show that this corrective signal is not driven by layer-wise diversity. Instead, robustness arises from isolating stable discriminative signals that persist across the redundant internal feature hierarchy. 3. We propose VFusion, a lightweight fusion head that outperforms established aggregation baselines in both ID and OOD classification benchmarks. 4. We provide an empirical layer-selection guideline: fusing deeper contiguous layers preserves fusion benefits, while strided subsampling is less effective. 5. We validate VFusion through a broad set of ablation studies, showing that its gains persist across backbone families, model scales, and latent-dimensionality choices, while improving latent-space separability and remaining efficient."
+  },
+  {
+    "i": 9,
+    "tag": "h2",
+    "id": null,
+    "text": "2 Related work"
+  },
+  {
+    "i": 10,
+    "tag": "h3",
+    "id": null,
+    "text": "2.1 Vision foundation models"
+  },
+  {
+    "i": 11,
+    "tag": "div",
+    "id": "S2.SS1.p1",
+    "text": "Vision foundation models trained via large-scale pre-training objectives have become a dominant paradigm for general-purpose feature extraction [10, 41, 38]. These models are increasingly deployed as frozen backbones [36, 8, 55], shifting the challenge of robust downstream performance from architectural design to the effective extraction and combination of their latent representations. Despite their success, model robustness depends heavily on the alignment between pre-training data and downstream benchmarks, rather than architecture alone [48, 34]. However, these assessments rely mainly on final-layer features, overlooking the robust, task-relevant information preserved in earlier representations. While standard practice ignores the internal hierarchy, ViTs exhibit intermediate features that may encode complementary signals. We analyze and exploit this representational hierarchy for downstream classification."
+  },
+  {
+    "i": 12,
+    "tag": "h3",
+    "id": null,
+    "text": "2.2 Utilizing intermediate representations"
+  },
+  {
+    "i": 13,
+    "tag": "div",
+    "id": "S2.SS2.p1",
+    "text": "Neural networks are traditionally viewed as learning hierarchical representations, moving from general patterns to task-specific features. Consequently, downstream applications have primarily relied on the final layer for classification, out-of-distribution detection [19, 47], and robustness analysis [18]. However, while this hierarchy is pronounced in convolutional networks, Vision Transformers exhibit a more uniform representational profile with significant redundancy across depth [42]. This lack of sharp semantic transitions suggests that discriminative features are distributed throughout the hierarchy, inherently limiting the performance of approaches that rely on selecting a single “optimal” layer, regardless of how that layer is identified."
+  },
+  {
+    "i": 14,
+    "tag": "div",
+    "id": "S2.SS2.p2",
+    "text": "Recent efforts to exploit these distributed signals have emerged primarily in out-of-distribution detection. These include strategies such as adaptive importance weighting [52], optimal layer selection [22], learning layer-specific weights for softmax aggregation in fake image detection [25], or characterizing the transition smoothness between intermediate representations [23]. While effective for binary discrimination, these methods rarely extend to the more complex requirements of multi-class classification. In this regime, Uselis et al. [49] demonstrate that intermediate probes can improve robustness, yet they report limited gains for ViTs and select layers using validation data drawn from the target distribution, a setting that is often impractical in real-world deployments. Nonetheless, we argue that these limited gains stem from the uniform nature of ViT representations, where selection-based approaches fail to capture the collective evidence available across layers. In contrast, we propose a principled aggregation strategy for combining intermediate ViT representations that exploits cross-layer information without requiring access to target distributions."
+  },
+  {
+    "i": 15,
+    "tag": "h3",
+    "id": null,
+    "text": "2.3 Information fusion"
+  },
+  {
+    "i": 16,
+    "tag": "div",
+    "id": "S2.SS3.p1",
+    "text": "Combining information from multiple predictors is a long-standing strategy for improving downstream performance. Classical ensemble methods [9, 14] and deep ensembles [29, 13] take advantage of the diversity across models to reduce variance. Related approaches aggregate model parameters rather than predictions, such as model merging [53, 1] and model stitching [31, 2], demonstrating that meaningful information can be combined post-hoc. Beyond fixed schemes, learning-based ensembles learn to combine predictions from multiple predictors. Super Learner (SL) learns aggregation weights in logit space using only model outputs [24], whereas the Neural Logit Controller (NLC) performs input-conditional logit fusion by predicting aggregation weights from input features [44]. While effective, these horizontal fusion strategies require running multiple models and benefit from the complementarity of independently trained base predictors. In contrast to ensembling across independently trained models, aggregating representations within the internal hierarchy of a single network (i.e., “vertical fusion”) introduces distinct challenges."
+  },
+  {
+    "i": 17,
+    "tag": "div",
+    "id": "S2.SS3.p2",
+    "text": "Intermediate layers of a Vision Transformer are highly correlated and exhibit subtler forms of complementarity, making it harder to reliably learn aggregation weights in logit space. Furthermore, in CLIP-style models, intermediate representations cannot be meaningfully classified in zero-shot settings because the projection into the shared vision-text space is learned only at the final layer [44]. Applying the final-layer projection to earlier layers can lead to a substantial performance degradation. Motivated by these limitations, we focus on feature-level fusion within a single frozen vision backbone. Our goal is to develop an aggregation strategy that operates directly on intermediate representations and exploits their redundant yet complementary structure for downstream classification."
+  },
+  {
+    "i": 18,
+    "tag": "h2",
+    "id": null,
+    "text": "3 Layer-wise analysis"
+  },
+  {
+    "i": 19,
+    "tag": "h3",
+    "id": null,
+    "text": "3.1 Notation"
+  },
+  {
+    "i": 20,
+    "tag": "div",
+    "id": "S3.SS1.p1",
+    "text": "Let {(xi,yi)}i=1N\\{(x_{i},y_{i})\\}_{i=1}^{N} denote the training dataset of NN image-label pairs, with xi∈𝒳x_{i}\\in\\mathcal{X} and yi∈𝒴y_{i}\\in\\mathcal{Y}. We consider a frozen vision backbone Φ\\Phi composed of LL layers, used as a feature extractor. For notational simplicity, we omit the sample index ii when it is clear from context. Given a training image xx, the backbone outputs a sequence of intermediate representations Φ⁡(x)=(h(1),h(2),…,h(L))\\Phi(x)=\\bigl(h^{(1)},h^{(2)},\\ldots,h^{(L)}\\bigr), where h(ℓ)∈ℝdh^{(\\ell)}\\in\\mathbb{R}^{d} denotes the layer-ℓ\\ell [CLS] token (dd is the embedding dimension), used as a compact global descriptor of layer ℓ\\ell. Collecting all [CLS] tokens over the training set yields a feature tensor ℋ∈ℝN×L×d\\mathcal{H}\\in\\mathbb{R}^{N\\times L\\times d}, exposing the full representational hierarchy across depth. In contrast to standard practice, which typically relies only on the final layer, our goal is to exploit information across layers."
+  },
+  {
+    "i": 21,
+    "tag": "h3",
+    "id": null,
+    "text": "3.2 Recoverability analysis"
+  },
+  {
+    "i": 22,
+    "tag": "div",
+    "id": "S3.SS2.p1",
+    "text": "Before introducing our fusion mechanism, we first examine whether intermediate layers contain information that can compensate for final-layer failures. Using independently trained layer-wise probes, we quantify both the amount and the structure of this corrective signal. This analysis motivates treating the ViT depth hierarchy as a source of recoverable information rather than as redundant intermediate computation."
+  },
+  {
+    "i": 23,
+    "tag": "h4",
+    "id": null,
+    "text": "3.2.1 Recoverability"
+  },
+  {
+    "i": 24,
+    "tag": "div",
+    "id": "S3.SS2.SSS1.p1",
+    "text": "To understand whether intermediate layers contain recoverable signal beyond the final representation, we probe each layer independently using an MLP. Let a(ℓ)a^{(\\ell)} denote the accuracy at an intermediate layer ℓ\\ell, and a(L)a^{(L)} the accuracy of the final layer. As an upper bound, we define oracle accuracy by marking a sample correct if any layer predicts the correct label: aoracle=1N∑i=1N(∃ℓ∈{1,…,L}:y^i(ℓ)=yi).a^{\\mathrm{oracle}}=\\frac{1}{N}\\sum_{i=1}^{N}\\mathbbm{1}\\!\\left(\\exists\\ell\\in\\{1,\\dots,L\\}:\\hat{y}_{i}^{(\\ell)}=y_{i}\\right). (1) Next, we define recoverability as the fraction of final-layer errors corrected by at least one intermediate layer. Formally, we quantify it via the recovery rate: Recovery​Rate=aoracle−a(L)100−a(L).\\mathrm{Recovery~Rate}=\\frac{a^{\\mathrm{oracle}}-a^{(L)}}{100-a^{(L)}}. (2)"
+  },
+  {
+    "i": 25,
+    "tag": "table",
+    "id": "S3.E1",
+    "text": "aoracle=1N∑i=1N(∃ℓ∈{1,…,L}:y^i(ℓ)=yi).a^{\\mathrm{oracle}}=\\frac{1}{N}\\sum_{i=1}^{N}\\mathbbm{1}\\!\\left(\\exists\\ell\\in\\{1,\\dots,L\\}:\\hat{y}_{i}^{(\\ell)}=y_{i}\\right). (1)"
+  },
+  {
+    "i": 26,
+    "tag": "table",
+    "id": "S3.E2",
+    "text": "Recovery​Rate=aoracle−a(L)100−a(L).\\mathrm{Recovery~Rate}=\\frac{a^{\\mathrm{oracle}}-a^{(L)}}{100-a^{(L)}}. (2)"
+  },
+  {
+    "i": 27,
+    "tag": "div",
+    "id": "S3.SS2.SSS1.p2",
+    "text": "This normalization makes recovery rates comparable across datasets with different baseline accuracies. A high recovery rate indicates that information missed by the final representation remains accessible in intermediate layers."
+  },
+  {
+    "i": 28,
+    "tag": "h4",
+    "id": null,
+    "text": "3.2.2 Distributed correction capacity"
+  },
+  {
+    "i": 29,
+    "tag": "div",
+    "id": "S3.SS2.SSS2.p1",
+    "text": "To characterize how correction capacity is distributed across depth, we consider the conditional correction probability cℓc_{\\ell} for each intermediate layer ℓ∈{1,…,L−1}\\ell\\in\\{1,\\dots,L-1\\}: cℓ=P⁡(y^(ℓ)=y|y^(L)≠y),c_{\\ell}=P\\big(\\hat{y}^{(\\ell)}=y\\,\\big|\\,\\hat{y}^{(L)}\\neq y\\big), (3) which measures how often layer ℓ\\ell is correct on examples misclassified by the final layer. Normalizing by the sum of these probabilities over layers yields a distribution over correction mass, whose dispersion we quantify via the correction entropy: Hcorr=−∑ℓc~ℓlogc~ℓ,c~ℓ=cℓ∑kck.H_{\\mathrm{corr}}=-\\sum_{\\ell}\\tilde{c}_{\\ell}\\log\\tilde{c}_{\\ell},\\qquad\\tilde{c}_{\\ell}=\\frac{c_{\\ell}}{\\sum_{k}c_{k}}. (4)"
+  },
+  {
+    "i": 30,
+    "tag": "table",
+    "id": "S3.E3",
+    "text": "cℓ=P⁡(y^(ℓ)=y|y^(L)≠y),c_{\\ell}=P\\big(\\hat{y}^{(\\ell)}=y\\,\\big|\\,\\hat{y}^{(L)}\\neq y\\big), (3)"
+  },
+  {
+    "i": 31,
+    "tag": "table",
+    "id": "S3.E4",
+    "text": "Hcorr=−∑ℓc~ℓlogc~ℓ,c~ℓ=cℓ∑kck.H_{\\mathrm{corr}}=-\\sum_{\\ell}\\tilde{c}_{\\ell}\\log\\tilde{c}_{\\ell},\\qquad\\tilde{c}_{\\ell}=\\frac{c_{\\ell}}{\\sum_{k}c_{k}}. (4)"
+  },
+  {
+    "i": 32,
+    "tag": "div",
+    "id": "S3.SS2.SSS2.p2",
+    "text": "Low correction entropy indicates that corrections are concentrated in a few layers, whereas high entropy indicates broadly distributed correction capacity across depth."
+  },
+  {
+    "i": 33,
+    "tag": "h4",
+    "id": null,
+    "text": "3.2.3 Predictive diversity"
+  },
+  {
+    "i": 34,
+    "tag": "div",
+    "id": "S3.SS2.SSS3.p1",
+    "text": "While correction entropy HcorrH_{\\mathrm{corr}} captures how correction capacity is distributed across layers, it does not determine whether this capacity reflects ensemble-like diversity (high disagreement) or a shared decision boundary (low disagreement)."
+  },
+  {
+    "i": 35,
+    "tag": "div",
+    "id": "S3.SS2.SSS3.p2",
+    "text": "To disambiguate these mechanisms, we define the geometric disagreement Dcos​(p,q)D_{\\mathrm{cos}}(p,q) as the expected cosine distance between logit vectors upu_{p} and uqu_{q}, restricted to samples that both layers misclassify: Dcos​(p,q)=1−𝔼⁡[up⊤​uq‖up‖​‖uq‖|y^(p)≠y∧y^(q)≠y].D_{\\mathrm{cos}}(p,q)=1-\\mathbb{E}\\!\\left[\\frac{u_{p}^{\\top}u_{q}}{\\|u_{p}\\|\\,\\|u_{q}\\|}\\;\\middle|\\;\\hat{y}^{(p)}\\neq y\\wedge\\hat{y}^{(q)}\\neq y\\right]. (5) For each dataset, we aggregate this quantity by averaging Dcos​(p,q)D_{\\mathrm{cos}}(p,q) over all layer pairs. A low value indicates that even when two layers fail, on average, they do so in a consistent, non-stochastic manner. We further evaluate disagreement using Jensen-Shannon divergence in Appendix A.1."
+  },
+  {
+    "i": 36,
+    "tag": "table",
+    "id": "S3.E5",
+    "text": "Dcos​(p,q)=1−𝔼⁡[up⊤​uq‖up‖​‖uq‖|y^(p)≠y∧y^(q)≠y].D_{\\mathrm{cos}}(p,q)=1-\\mathbb{E}\\!\\left[\\frac{u_{p}^{\\top}u_{q}}{\\|u_{p}\\|\\,\\|u_{q}\\|}\\;\\middle|\\;\\hat{y}^{(p)}\\neq y\\wedge\\hat{y}^{(q)}\\neq y\\right]. (5)"
+  },
+  {
+    "i": 37,
+    "tag": "h4",
+    "id": null,
+    "text": "3.2.4 Key insights"
+  },
+  {
+    "i": 38,
+    "tag": "div",
+    "id": "S3.SS2.SSS4.p1",
+    "text": "Across 1616 classification datasets, we quantify recoverability (cf. Table 1), and analyze its relationship with correction entropy and geometric disagreement (cf. Figure 1). We observe three trends: (i) intermediate probes recover 18%18\\%–76%76\\% of samples misclassified by the final layer, revealing substantial corrective capacity outside the final layer; (ii) recoverability varies substantially across datasets, indicating that the usefulness of intermediate layers depends on dataset characteristics; (iii) recoverability correlates strongly with correction entropy but negatively with cosine distance, suggesting that correction arises from distributed capacity across depth rather than from logit disagreement. Together, these findings point to a redundancy-correctness correspondence, where layers behave as correlated yet non-identical probes (cf. Appendix A.2), motivating VFusion, our vertical ensembling strategy."
+  },
+  {
+    "i": 39,
+    "tag": "h2",
+    "id": null,
+    "text": "4 VFusion"
+  },
+  {
+    "i": 40,
+    "tag": "div",
+    "id": "S4.p1",
+    "text": "The recoverability analysis shows that intermediate ViT layers contain corrective signals distributed across depth, but not in the form of independent ensemble diversity. This motivates VFusion: a lightweight mechanism that treats the layer hierarchy as a redundant yet informative representation trace and compresses selected frozen features into a compact task-specific latent token. Figure 2 illustrates the proposed framework, which consists of three components. Layer selection chooses a subset of layers from the frozen backbone. Layer fusion concatenates their representations and compresses them into a single global token via a learnable fusion encoder. Supervised training jointly learns the fusion encoder and a lightweight classifier head while keeping the backbone parameters fixed. We describe each component below."
+  },
+  {
+    "i": 41,
+    "tag": "h3",
+    "id": null,
+    "text": "4.1 Layer selection"
+  },
+  {
+    "i": 42,
+    "tag": "div",
+    "id": "S4.SS1.p1",
+    "text": "The vertical scope of the fusion manifold is defined by selecting a subset of layers 𝒮⊆{1,…,L}\\mathcal{S}\\subseteq\\{1,\\dots,L\\} of size MM. We consider three selection strategies to balance computational cost and corrective signal diversity: (i) holistic, utilizing the full depth (M=LM=L) to preserve the complete information trace; (ii) last-half (𝒮={L/2,…,L}\\mathcal{S}=\\{L/2,\\dots,L\\}) to focus on the deepest part of the network, and (iii) strided (𝒮={2,4,6,…}\\mathcal{S}=\\{2,4,6,\\dots\\}) (up to LL) to reduce dimensionality while maintaining coverage across depth."
+  },
+  {
+    "i": 43,
+    "tag": "h3",
+    "id": null,
+    "text": "4.2 Layer fusion"
+  },
+  {
+    "i": 44,
+    "tag": "div",
+    "id": "S4.SS2.p1",
+    "text": "Given a selected subset of layers 𝒮\\mathcal{S}, our objective is to aggregate their representations into a single global token that consolidates complementary information distributed across depth. Our layer-wise analysis (cf. Table 1, Figure 1) shows that intermediate layers frequently correct mistakes made by the final layer, with recoverability strongly correlated with correction entropy. Importantly, this recoverability is not explained by geometric disagreement between logits, suggesting that complementarity arises from distributed conditional correction capacity rather than from purely divergent predictions. These findings motivate aggregation mechanisms that consolidate cross-layer corrective signals instead of selecting a single “best” layer."
+  },
+  {
+    "i": 45,
+    "tag": "h4",
+    "id": null,
+    "text": "4.2.1 Cross-layer shared structure"
+  },
+  {
+    "i": 46,
+    "tag": "div",
+    "id": "S4.SS2.SSS1.p1",
+    "text": "We interpret each layer representation h(ℓ)h^{(\\ell)} as containing a task-relevant component s(ℓ)∈ℝds^{(\\ell)}\\in\\mathbb{R}^{d} and a task-irrelevant component r(ℓ)∈ℝdr^{(\\ell)}\\in\\mathbb{R}^{d}: h(ℓ)=s(ℓ)+r(ℓ)h^{(\\ell)}=s^{(\\ell)}+r^{(\\ell)}, where ℓ∈𝒮\\ell\\in\\mathcal{S} represents the respective layer and dd the embedding dimension. Under this model, multiple layers provide distinct but potentially overlapping task-relevant information."
+  },
+  {
+    "i": 47,
+    "tag": "div",
+    "id": "S4.SS2.SSS1.p2",
+    "text": "Concatenating the selected features yields a single vector v=[h(ℓ)]ℓ∈𝒮∈ℝM⋅d,v=\\big[\\,h^{(\\ell)}\\,\\big]_{\\ell\\in\\mathcal{S}}\\in\\mathbb{R}^{M\\cdot d}, (6) which enables a fusion model to explicitly access all relevant information, even if a specific piece of it was available in intermediate layers before being transformed into more complex but task-irrelevant information."
+  },
+  {
+    "i": 48,
+    "tag": "table",
+    "id": "S4.E6",
+    "text": "v=[h(ℓ)]ℓ∈𝒮∈ℝM⋅d,v=\\big[\\,h^{(\\ell)}\\,\\big]_{\\ell\\in\\mathcal{S}}\\in\\mathbb{R}^{M\\cdot d}, (6)"
+  },
+  {
+    "i": 49,
+    "tag": "h4",
+    "id": null,
+    "text": "4.2.2 Fusion encoder"
+  },
+  {
+    "i": 50,
+    "tag": "div",
+    "id": "S4.SS2.SSS2.p1",
+    "text": "We introduce a learnable fusion encoder ℰ:ℝM⋅d→ℝdz,z=ℰ⁡(v),z∈ℝdz,\\mathcal{E}:\\mathbb{R}^{M\\cdot d}\\rightarrow\\mathbb{R}^{d_{z}},\\quad z=\\mathcal{E}(v),\\quad z\\in\\mathbb{R}^{d_{z}}, (7) which maps the concatenated multi-layer feature vector vv into a low-dimensional latent zz with dz≪M⋅dd_{z}\\ll M\\cdot d, and applies LayerNorm to produce an approximately standard-normalized latent. By imposing this low-dimensional representation, the encoder acts as a noise-suppression filter that discards layer-specific residuals r(ℓ)r^{(\\ell)} to isolate the task-relevant signal ss shared across the representational hierarchy. In practice, ℰ\\mathcal{E} is implemented as a multi-layer perceptron with non-linear activations, enabling flexible interactions across layers and allowing the fusion encoder to learn non-trivial cross-depth dependencies. Under this formulation, layer fusion becomes a supervised cross-layer dimensionality reduction problem: the encoder learns how to align and compress complementary evidence distributed across intermediate representations into a single global token suitable for downstream prediction. This avoids committing to any single layer and instead leverages the distributed correction capacity observed empirically in Table 1."
+  },
+  {
+    "i": 51,
+    "tag": "table",
+    "id": "S4.E7",
+    "text": "ℰ:ℝM⋅d→ℝdz,z=ℰ⁡(v),z∈ℝdz,\\mathcal{E}:\\mathbb{R}^{M\\cdot d}\\rightarrow\\mathbb{R}^{d_{z}},\\quad z=\\mathcal{E}(v),\\quad z\\in\\mathbb{R}^{d_{z}}, (7)"
+  },
+  {
+    "i": 52,
+    "tag": "h3",
+    "id": null,
+    "text": "4.3 Supervised training"
+  },
+  {
+    "i": 53,
+    "tag": "div",
+    "id": "S4.SS3.p1",
+    "text": "Given the fused latent representation z=ℰ⁡(v)∈ℝdzz=\\mathcal{E}(v)\\in\\mathbb{R}^{d_{z}}, we attach a lightweight classifier Γ:ℝdz→ℝ|𝒴|\\Gamma:\\mathbb{R}^{d_{z}}\\rightarrow\\mathbb{R}^{|\\mathcal{Y}|} that maps the compact global token to class logits 𝐲^=Γ⁡(z)\\hat{\\mathbf{y}}=\\Gamma(z). The fusion encoder ℰ\\mathcal{E} and classifier Γ\\Gamma are trained jointly under supervised classification loss, while the backbone Φ\\Phi remains frozen throughout."
+  },
+  {
+    "i": 54,
+    "tag": "h4",
+    "id": null,
+    "text": "4.3.1 Latent orthogonalization"
+  },
+  {
+    "i": 55,
+    "tag": "div",
+    "id": "S4.SS3.SSS1.p1",
+    "text": "Inspired by redundancy-reduction objectives [54, 3], we mitigate redundancy in the fused latent representation by introducing a decorrelation regularizer that penalizes linear dependencies across dimensions. While the low-dimensional projection imposes a strong inductive bias for information compression, it does not explicitly prevent different latent dimensions from encoding redundant features. Given a mini-batch (size BB) of encoded latent representations 𝐙∈ℝB×dz\\mathbf{Z}\\in\\mathbb{R}^{B\\times d_{z}}, we compute the empirical covariance matrix as: 𝐂=1B−1​(𝐙−𝐙¯)⊤​(𝐙−𝐙¯),\\mathbf{C}=\\frac{1}{B-1}(\\mathbf{Z}-\\bar{\\mathbf{Z}})^{\\top}(\\mathbf{Z}-\\bar{\\mathbf{Z}}), (8) where 𝐙¯\\bar{\\mathbf{Z}} denotes the batch mean. To ensure scale invariance across latent dimensions, we normalize 𝐂\\mathbf{C} into the correlation matrix 𝐑=𝐃−1/2𝐂𝐃−1/2\\mathbf{R}=\\mathbf{D}^{-1/2}\\mathbf{C}\\mathbf{D}^{-1/2}, where 𝐃=diag⁡(𝐂)\\mathbf{D}=\\mathrm{diag}(\\mathbf{C}). The orthogonalization loss penalizes off-diagonal correlations as: ℒorth=1dz​(dz−1)​∑i≠j𝐑i​j2.\\mathcal{L}_{\\mathrm{orth}}=\\frac{1}{d_{z}(d_{z}-1)}\\sum_{i\\neq j}\\mathbf{R}_{ij}^{2}. (9)"
+  },
+  {
+    "i": 56,
+    "tag": "table",
+    "id": "S4.E8",
+    "text": "𝐂=1B−1​(𝐙−𝐙¯)⊤​(𝐙−𝐙¯),\\mathbf{C}=\\frac{1}{B-1}(\\mathbf{Z}-\\bar{\\mathbf{Z}})^{\\top}(\\mathbf{Z}-\\bar{\\mathbf{Z}}), (8)"
+  },
+  {
+    "i": 57,
+    "tag": "table",
+    "id": "S4.E9",
+    "text": "ℒorth=1dz​(dz−1)​∑i≠j𝐑i​j2.\\mathcal{L}_{\\mathrm{orth}}=\\frac{1}{d_{z}(d_{z}-1)}\\sum_{i\\neq j}\\mathbf{R}_{ij}^{2}. (9)"
+  },
+  {
+    "i": 58,
+    "tag": "div",
+    "id": "S4.SS3.SSS1.p2",
+    "text": "Minimizing ℒorth\\mathcal{L}_{\\mathrm{orth}} encourages different latent dimensions to encode complementary, decorrelated components of the fused representation, reducing unnecessary duplication within the global token."
+  },
+  {
+    "i": 59,
+    "tag": "h4",
+    "id": null,
+    "text": "4.3.2 Training objective"
+  },
+  {
+    "i": 60,
+    "tag": "div",
+    "id": "S4.SS3.SSS2.p1",
+    "text": "We train the fusion encoder and classifier end-to-end on a combination of the standard classification cross-entropy loss ℒCE\\mathcal{L}_{\\mathrm{CE}} and orthogonalization loss ℒorth\\mathcal{L}_{\\mathrm{orth}}: ℒtotal=ℒCE+λ​ℒorth,\\mathcal{L}_{\\mathrm{total}}=\\mathcal{L}_{\\mathrm{CE}}+\\lambda\\mathcal{L}_{\\mathrm{orth}}, (10) where λ\\lambda controls the strength of the decorrelation constraint."
+  },
+  {
+    "i": 61,
+    "tag": "table",
+    "id": "S4.E10",
+    "text": "ℒtotal=ℒCE+λ​ℒorth,\\mathcal{L}_{\\mathrm{total}}=\\mathcal{L}_{\\mathrm{CE}}+\\lambda\\mathcal{L}_{\\mathrm{orth}}, (10)"
+  },
+  {
+    "i": 62,
+    "tag": "h2",
+    "id": null,
+    "text": "5 Experiments"
+  },
+  {
+    "i": 63,
+    "tag": "div",
+    "id": "S5.p1",
+    "text": "We evaluate VFusion along two complementary axes. We first assess vertical fusion for standard classification across 1616 diverse benchmarks (Section 5.2), and subsequently evaluate its robustness under covariate and subpopulation shifts (Section 5.3)."
+  },
+  {
+    "i": 64,
+    "tag": "h3",
+    "id": null,
+    "text": "5.1 Experimental details"
+  },
+  {
+    "i": 65,
+    "tag": "h4",
+    "id": null,
+    "text": "5.1.1 Datasets"
+  },
+  {
+    "i": 66,
+    "tag": "div",
+    "id": "S5.SS1.SSS1.p1",
+    "text": "We evaluate our method and established baselines on a diverse suite of widely adopted computer vision benchmarks spanning multiple domains and levels of granularity. Specifically, we consider CIFAR-10 and CIFAR-100 [27] (C10, C100), Caltech-101 [12] (Cal), Stanford Cars [26] (Cars), CUB [51], DTD [5], EuroSAT [17] (ESAT), FGVC-Aircraft [33] (FGVC), Oxford Flowers [37] (Flow), Food-101 [4] (Food), GTSRB [20] (GTS), MNIST [30] (MN), PCAM [50] (PC), Oxford-IIIT Pets [39] (Pets), STL-10 [6] (STL), and ImageNet-1k [7] (IN1k). Furthermore, to evaluate the robustness performance of all methods, we consider datasets covering two types of distribution shifts: covariate shifts, evaluated using CIFAR-10C, CIFAR-100C, and ImageNet200-C [18] (C-10C, C-100C, IN-200C), and subpopulation shifts, assessed by CelebA [32] (celebrity face images with facial attribute annotations) and Waterbirds [45] (bird images with spurious background correlations)."
+  },
+  {
+    "i": 67,
+    "tag": "h4",
+    "id": null,
+    "text": "5.1.2 Baselines"
+  },
+  {
+    "i": 68,
+    "tag": "div",
+    "id": "S5.SS1.SSS2.p1",
+    "text": "We compare VFusion against several layer-aggregation baselines, treating each intermediate layer representation as an independent expert. Non-parametric methods combine layer-wise predictions without learning additional parameters: probability averaging (Average), majority voting (Majority), and selecting the best-performing individual layer (Best layer). Parametric methods learn combinations of layer-wise outputs. Super Learner (SL) [24] learns a fixed linear combination of layer predictors, whereas the Neural Logit Controller (NLC) [44] performs input-dependent calibration by predicting temperature-scaling parameters for the layer experts. Feature-based routing methods operate on the concatenated feature representation, including sparse Mixture of Experts (MoE) [46] and Switch-MoE (sw-MoE) [11]. For a fair comparison, MoE and sw-MoE receive the same concatenated features as VFusion. MoE uses top-kk routing (k=4k=4), while sw-MoE is the hard-routing case (k=1k=1)."
+  },
+  {
+    "i": 69,
+    "tag": "h4",
+    "id": null,
+    "text": "5.1.3 Implementation details"
+  },
+  {
+    "i": 70,
+    "tag": "div",
+    "id": "S5.SS1.SSS3.p1",
+    "text": "We define all classification heads Γ\\Gamma as MLPs with hidden dimension 128128, optimized with Adam under cross-entropy loss. We train with batch size 512512 for up to 20,00020{,}000 iterations, and apply early stopping based on validation loss evaluated every 500500 iterations: training stops if the loss does not decrease by at least 10−410^{-4} for 55 consecutive evaluations, and we retain the checkpoint with the best validation loss. The backbone remains frozen throughout. For layer-wise probes, we select hyperparameters on a held-out validation set via a per-layer grid search over learning rate {10−4,10−3,10−2,10−1}\\{10^{-4},10^{-3},10^{-2},10^{-1}\\} and weight decay {0,10−3,10−2}\\{0,10^{-3},10^{-2}\\}. For MoE, we set the number of experts to MM and a learning rate of 2×10−42\\times 10^{-4} [44]. For VFusion, we set the latent dimension to dz=256d_{z}=256 and the orthogonalization weight to λ=2.0\\lambda=2.0. The encoder ℰ\\mathcal{E} is a 33-layer MLP with widths [2048,1024,512][2048,1024,512] and output dimension 256256. We train (ℰ,Γ)(\\mathcal{E},\\Gamma) with learning rate 10−410^{-4} and weight decay 10−310^{-3}. Unless stated otherwise, we adopt the holistic layer-selection strategy. All results are averaged over three seed runs."
+  },
+  {
+    "i": 71,
+    "tag": "h3",
+    "id": null,
+    "text": "5.2 Vertical fusion for classification"
+  },
+  {
+    "i": 72,
+    "tag": "div",
+    "id": "S5.SS2.p1",
+    "text": "As demonstrated in Table 2, VFusion achieves an average accuracy of 91.4%91.4\\%, representing a 1.9%1.9\\% improvement over the best individual layer-wise probe and a 1.7%1.7\\% margin over the strongest baseline, Super Learner (SL). Most baselines fail to substantially outperform the best layer on average. One exception is the DTD dataset, where SL outperforms VFusion. MoE and sw-MoE show a remarkably different behavior, with more pronounced gaps in fine-grained datasets. In contrast, VFusion exhibits substantial gains on challenging datasets such as GTS (+7.2%+7.2\\%), where samples suffer from varying resolutions and luminance. Similar improvements are observed in high-granularity tasks like Cars (+4.4%+4.4\\%) and FGVC (+7.0%+7.0\\%). VFusion also approaches or surpasses the theoretical oracle performance on Cars, Flow, IN1k, and ESAT, suggesting the method does not merely select the correct layer, but condenses complementary information across the network to form a global token that may exceed the predictive capacity of any single layer in isolation. VFusion closes 45%45\\% of the headroom between the best layer and the theoretical oracle, capturing a substantial fraction of the unused corrective signal."
+  },
+  {
+    "i": 73,
+    "tag": "h3",
+    "id": null,
+    "text": "5.3 Vertical fusion under distribution shift"
+  },
+  {
+    "i": 74,
+    "tag": "div",
+    "id": "S5.SS3.p1",
+    "text": "After establishing the effectiveness of VFusion for standard classification, we evaluate its robustness under distribution shift. As shown in Table 3, VFusion achieves the highest average accuracy (84.6%84.6\\%) across all five benchmarks. On CelebA, Waterbirds, and C-10C, our method performs on par with the strongest baselines, yielding marginal but consistent gains. We attribute this to the lower label granularity of these tasks, where simple aggregation provides similar results. In contrast, on fine-grained settings such as C-100C and IN-200C, VFusion achieves larger improvements, surpassing the second-best method (best layer) by 1.3%1.3\\% and 0.8%0.8\\%, respectively. Overall, these results suggest that while simpler strategies may suffice for low-complexity shifts, vertical fusion becomes increasingly beneficial as task complexity and class granularity increase."
+  },
+  {
+    "i": 75,
+    "tag": "h2",
+    "id": null,
+    "text": "6 Ablation studies"
+  },
+  {
+    "i": 76,
+    "tag": "div",
+    "id": "S6.p1",
+    "text": "We conduct targeted ablation studies to analyze the main design choices of VFusion. In this section, we study layer selection strategies (Section 6.1), generalization across backbone families, model scales, and pre-training paradigms (Section 6.2), and horizontal aggregation across backbones (Section 6.3). Additional analyses of representation geometry, orthogonalization, computational efficiency, model capacity, latent-dimension sensitivity, and extended layer-selection settings are reported in the Appendix. Together, these results clarify the benefits and robustness of VFusion across architectural and experimental settings."
+  },
+  {
+    "i": 77,
+    "tag": "h3",
+    "id": null,
+    "text": "6.1 Layer selection strategies"
+  },
+  {
+    "i": 78,
+    "tag": "div",
+    "id": "S6.SS1.p1",
+    "text": "We ablate the effect of layer selection on downstream classification performance, focusing on the two strongest feature-level fusion methods, VFusion and MoE."
+  },
+  {
+    "i": 79,
+    "tag": "div",
+    "id": "S6.SS1.p2",
+    "text": "To ensure that differences between strategies remain non-trivial, we restrict the evaluation to 99 datasets where performance is not saturated, i.e., with accuracy <95%<95\\%. All experiments use DINOv2 ViT-B as the backbone."
+  },
+  {
+    "i": 80,
+    "tag": "div",
+    "id": "S6.SS1.p3",
+    "text": "Table 4 shows the ablation results. Although MoE achieves substantially lower overall accuracy than VFusion, it varies little across selection strategies. This weak sensitivity is consistent with routing that concentrates on a small subset of experts (i.e., a form of expert collapse), making MoE less sensitive to the layer pool. Likewise, VFusion is largely insensitive to the chosen subset: using all layers achieves the highest average accuracy, while restricting fusion to the last half incurs a minor 0.3%0.3\\% drop, indicating that strong performance does not require carefully tuned layer selection. In contrast, the strided strategy yields a more noticeable decrease for VFusion (an average drop of 0.9%0.9\\% relative to holistic), with the largest degradations on challenging benchmarks such as FGVC (79.6%→76.6%79.6\\%\\rightarrow 76.6\\%) and GTS (79.3%→76.8%79.3\\%\\rightarrow 76.8\\%). Overall, while much of the corrective signal resides in the deepest layers, earlier layers can still contribute useful evidence, and holistic selection achieves the best average performance. Therefore, we recommend using the holistic (contiguous) strategy."
+  },
+  {
+    "i": 81,
+    "tag": "h3",
+    "id": null,
+    "text": "6.2 Generalization across backbone sizes and families"
+  },
+  {
+    "i": 82,
+    "tag": "div",
+    "id": "S6.SS2.p1",
+    "text": "We evaluate whether the benefits of VFusion generalize across backbone families, model scales, and pre-training paradigms. We consider supervised IN21k ViTs [10], self-supervised DINOv2 [38], and multimodal CLIP [41] using only the vision encoder. For each family, we evaluate the available ViT scales: ViT-S, ViT-B, and ViT-L, with no official CLIP ViT-S model available. Since absolute accuracy varies across backbones, we report the average accuracy improvement (Δ\\Delta) relative to the best single-layer probe, isolating the benefit of vertical fusion from the base quality of the representation."
+  },
+  {
+    "i": 83,
+    "tag": "div",
+    "id": "S6.SS2.p2",
+    "text": "As shown in Figure 3, VFusion consistently improves over the best single-layer probe across backbone families and model scales. Gains are moderate for supervised IN21k backbones, reaching up to approximately 1.7%1.7\\%, and larger for self-supervised and multimodal pre-training, exceeding 6%6\\% on CLIP ViT-B. In contrast, logit-level aggregation methods such as SL and NLC provide limited gains, often remaining close to best-layer performance, suggesting that the advantage of VFusion comes from feature-level compression of the internal hierarchy rather than prediction averaging."
+  },
+  {
+    "i": 84,
+    "tag": "h3",
+    "id": null,
+    "text": "6.3 Horizontal fusion across backbones"
+  },
+  {
+    "i": 85,
+    "tag": "h4",
+    "id": null,
+    "text": "6.3.1 Baselines"
+  },
+  {
+    "i": 86,
+    "tag": "div",
+    "id": "S6.SS3.SSS1.p1",
+    "text": "We next test whether the same feature-level fusion principle extends from vertical aggregation within a model to horizontal aggregation across models. Using the three ViT-B backbones introduced above, IN21k, DINOv2, and CLIP, we treat each backbone as an expert. For logit-level baselines (Average, Majority, SL, NLC), we train an MLP probe on each backbone’s last-layer features and aggregate the resulting predictions. Feature-level methods, namely sw-MoE and HFusion, instead operate on the concatenated last-layer features from the three backbones. Since the ensemble contains only three experts, we omit sparse MoE and report sw-MoE with k=1k{=}1. Finally, VFusion denotes vertical fusion within the strongest single backbone, DINOv2, using holistic layer selection, whereas HFusion denotes horizontal fusion across the three backbones."
+  },
+  {
+    "i": 87,
+    "tag": "div",
+    "id": "S6.SS3.SSS1.p2",
+    "text": "Table 5 reports the horizontal-aggregation results. Compared with the vertical setting (cf. Table 2), post-hoc aggregation benefits from cross-backbone diversity: SL and NLC improve over the best individual probe by +1.7%+1.7\\% and +1.5%+1.5\\%, respectively. Despite this favorable setting, VFusion on a single DINOv2 backbone remains competitive and surpasses SL by +0.5%+0.5\\% on average. Extending the same feature-fusion mechanism across backbones yields the best overall performance, with HFusion improving by a further +0.5%+0.5\\% over VFusion. These results show that our fusion mechanism generalizes beyond cross-layer aggregation to heterogeneous architectures."
+  },
+  {
+    "i": 88,
+    "tag": "h2",
+    "id": null,
+    "text": "7 Discussion"
+  },
+  {
+    "i": 89,
+    "tag": "h3",
+    "id": null,
+    "text": "7.1 Limitations"
+  },
+  {
+    "i": 90,
+    "tag": "div",
+    "id": "S7.SS1.p1",
+    "text": "While VFusion demonstrates substantial performance gains, the fusion encoder currently requires supervision to learn a task-specific aggregation of the feature representations. Future work could explore how to learn such a latent space in unsupervised or self-supervised regimes, potentially enabling large-scale fusion pre-training without the need for labeled data."
+  },
+  {
+    "i": 91,
+    "tag": "div",
+    "id": "S7.SS1.p2",
+    "text": "Furthermore, layer selection is currently based on simple, predefined strategies rather than being learned jointly with the fusion encoder. We also evaluate VFusion primarily in the frozen-backbone setting. Studying how vertical fusion interacts with partial or full fine-tuning remains an important direction."
+  },
+  {
+    "i": 92,
+    "tag": "div",
+    "id": "S7.SS1.p3",
+    "text": "Lastly, we evaluate VFusion only for supervised classification. Future work can adapt vertical fusion to other computer vision tasks, including dense prediction (e.g., segmentation)."
+  },
+  {
+    "i": 93,
+    "tag": "h3",
+    "id": null,
+    "text": "7.2 Conclusions"
+  },
+  {
+    "i": 94,
+    "tag": "div",
+    "id": "S7.SS2.p1",
+    "text": "In this work, we provide quantitative evidence of the substantial predictive value residing within the hidden representations of Vision Transformers. We propose VFusion, a vertical aggregation strategy that outperforms established baselines by effectively condensing the high redundancy of intermediate layers. Our experiments demonstrate that latent redundancy is a beneficial asset rather than a limitation, as VFusion learns a compact global token that generally outperforms any single layer and established aggregation strategies, even surpassing the theoretical layer-wise oracle in several benchmarks. These gains are particularly pronounced in fine-grained and degraded image tasks, where the fusion module acts as a robust filter for subtle semantic signals. Furthermore, we demonstrate that our method is stable across various latent sizes and regularization parameters while generalizing across different backbone scales and pre-training regimes."
+  },
+  {
+    "i": 95,
+    "tag": "div",
+    "id": "S7.SS2.p2",
+    "text": "Beyond vertical aggregation, our horizontal fusion results show that the same feature-level compression principle also extends to heterogeneous backbones, yielding additional gains when complementary representations from different pre-trained models are available. We also find that performance generally benefits from exploiting information throughout the entire hierarchy, rather than from a selected subset. Crucially, these improvements are achieved with minimal computational overhead, providing a lightweight and efficient mechanism for maximizing the utility of pre-trained, off-the-shelf models."
+  },
+  {
+    "i": 96,
+    "tag": "h2",
+    "id": null,
+    "text": "CRediT authorship contribution statement"
+  },
+  {
+    "i": 97,
+    "tag": "div",
+    "id": "Sx1.p1",
+    "text": "Francesco Di Salvo: Conceptualization, methodology, software, investigation, validation, writing – original draft. Shyam Nandan Rai: Conceptualization, methodology, investigation, writing – review and editing. Hamed Damirchi: Conceptualization. Ignacio Meza De la Jara: Conceptualization. Sebastian Doerrich: Writing – review and editing. Marco Lents: Writing – review and editing. Christian Ledig: Supervision, conceptualization, writing – review and editing, funding acquisition."
+  },
+  {
+    "i": 98,
+    "tag": "h2",
+    "id": null,
+    "text": "Declaration of competing interest"
+  },
+  {
+    "i": 99,
+    "tag": "div",
+    "id": "Sx2.p1",
+    "text": "The authors declare that they have no known competing financial interests or personal relationships that could have influenced the work reported in this paper."
+  },
+  {
+    "i": 100,
+    "tag": "h2",
+    "id": null,
+    "text": "Acknowledgments"
+  },
+  {
+    "i": 101,
+    "tag": "div",
+    "id": "Sx3.p1",
+    "text": "This study was funded through the Hightech Agenda Bayern (HTA) of the Free State of Bavaria, Germany."
+  },
+  {
+    "i": 102,
+    "tag": "h2",
+    "id": null,
+    "text": "Data availability"
+  },
+  {
+    "i": 103,
+    "tag": "div",
+    "id": "Sx4.p1",
+    "text": "The datasets used in this study are publicly available benchmark datasets. All data sources are referenced and described in the manuscript."
+  },
+  {
+    "i": 104,
+    "tag": "h2",
+    "id": null,
+    "text": "Declaration of generative AI and AI-assisted technologies in the manuscript preparation process"
+  },
+  {
+    "i": 105,
+    "tag": "div",
+    "id": "Sx5.p1",
+    "text": "The core ideas, research design, and initial drafting of this manuscript were conducted entirely by the human authors. During the refinement phase, the authors utilized GPT models from OpenAI strictly to assist with language polishing, proofreading, and improving overall text readability. The final manuscript was fully reviewed, verified, and approved by the authors, who take full responsibility for the content of the published article."
+  },
+  {
+    "i": 106,
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "i": 107,
+    "tag": "div",
+    "id": "p1",
+    "text": "Vertical Fusion: Condensing Internal Representations for Robust ViT Classification"
+  },
+  {
+    "i": 108,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix"
+  },
+  {
+    "i": 109,
+    "tag": "div",
+    "id": "Ax1.p1",
+    "text": "This document reports additional analyses complementing the main manuscript. A extends the layer-wise analysis by examining predictive diversity and localized recovery. B studies the geometry of the fused latent representation and the effect of orthogonalization. C evaluates inference efficiency, capacity control, and sensitivity to the latent dimension. D further analyzes layer-selection strategies on larger backbones and for Super Learner."
+  },
+  {
+    "i": 110,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A Layer-wise analysis"
+  },
+  {
+    "i": 111,
+    "tag": "h3",
+    "id": null,
+    "text": "A.1 Predictive diversity via Jensen-Shannon (JS) divergence"
+  },
+  {
+    "i": 112,
+    "tag": "div",
+    "id": "A1.SS1.p1",
+    "text": "This ablation complements the notion of predictive diversity in Section 3.2 of the main manuscript. Besides cosine distance between logit vectors, we report the temperature-normalized Jensen-Shannon (JS) divergence between the corresponding softmax distributions. Unlike cosine distance, which can remain small when two layers produce similarly oriented logits but differ in calibration, JS captures differences in the full predictive distribution. To account for logit-scale differences across layers, we apply a layer-wise temperature normalization prior to the softmax. Disagreement is computed on samples that are jointly misclassified by the two layers and then averaged over layer pairs. Overall, Figure A1 confirms the same trend under both metrics."
+  },
+  {
+    "i": 113,
+    "tag": "h3",
+    "id": null,
+    "text": "A.2 Localized recovery"
+  },
+  {
+    "i": 114,
+    "tag": "div",
+    "id": "A1.SS2.p1",
+    "text": "A natural question regarding layer aggregation in ViTs is whether the high representational redundancy renders additional layers superfluous. However, we argue that this redundancy is a key strength rather than a limitation. If layers act as correlated yet non-identical probes, they might correct mistakes made by their neighbors."
+  },
+  {
+    "i": 115,
+    "tag": "div",
+    "id": "A1.SS2.p2",
+    "text": "Table A1 quantifies this effect by reporting the number of samples uniquely recovered by each layer relative to its neighbors. As observed, while layers are functionally similar, they exhibit significant local complementarity. We quantify this by counting samples that are correctly classified by a specific layer ℓ\\ell while being misclassified by its immediate neighbors (¬cℓ−1∧cℓ∧¬cℓ+1\\neg c_{\\ell-1}\\land c_{\\ell}\\land\\neg c_{\\ell+1}). Our findings reveal that (i) every layer across the hierarchy, from the early blocks to the final layer, uniquely recovers a subset of samples that its neighbors fail to identify. For instance, in the EuroSAT (ESAT) dataset, L1 uniquely corrects 1,1541,154 samples that L2 misses. (ii) The distribution of these local recoveries varies by domain and label granularity. In fine-grained tasks like FGVC-Aircraft (FGVC) and Stanford Cars (Cars), unique successes are concentrated in the deeper layers (L10−L12\\texttt{L10}-\\texttt{L12}), whereas in texture-based or simpler tasks like EuroSAT (ESAT), PCAM (PC), or MNIST (MN), the early layers contribute more. This local complementarity demonstrates that while the layers are redundant in aggregate, they are not functionally identical."
+  },
+  {
+    "i": 116,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix B Analysis of the fused manifold"
+  },
+  {
+    "i": 117,
+    "tag": "div",
+    "id": "A2.p1",
+    "text": "This section analyzes the representation learned by VFusion. We evaluate class separability relative to the frozen last-layer representation and assess the effect of orthogonalization on accuracy and latent redundancy."
+  },
+  {
+    "i": 118,
+    "tag": "h3",
+    "id": null,
+    "text": "B.1 Class separability of the fused latent space"
+  },
+  {
+    "i": 119,
+    "tag": "div",
+    "id": "A2.SS1.p1",
+    "text": "To study how VFusion reshapes representation geometry, we compare the frozen last-layer [CLS] token h(L)h^{(L)} with the fused latent z=ℰ⁡(v)z=\\mathcal{E}(v), using DINOv2 ViT-B. Although the backbone is fixed, the supervised fusion module can reorganize redundant cross-layer information into a more separable representation. In particular, we evaluate class structure on normalized test feature embeddings using two complementary metrics. Let fif_{i} denote the normalized feature embedding of sample ii in the feature space being evaluated: fi=hi(L)f_{i}=h_{i}^{(L)} for the last-layer representation and fi=zif_{i}=z_{i} for VFusion’s latent. First, we compute a centroid-based separation ratio, Sep=2C⁡(C−1)​∑1≤c<c′≤C‖μc−μc′‖21N​∑i=1N‖fi−μyi‖2,\\mathrm{Sep}=\\frac{\\frac{2}{C(C-1)}\\sum_{1\\leq c<c^{\\prime}\\leq C}\\|\\mu_{c}-\\mu_{c^{\\prime}}\\|_{2}}{\\frac{1}{N}\\sum_{i=1}^{N}\\|f_{i}-\\mu_{y_{i}}\\|_{2}}, (11)"
+  },
+  {
+    "i": 120,
+    "tag": "table",
+    "id": "A2.E11",
+    "text": "Sep=2C⁡(C−1)​∑1≤c<c′≤C‖μc−μc′‖21N​∑i=1N‖fi−μyi‖2,\\mathrm{Sep}=\\frac{\\frac{2}{C(C-1)}\\sum_{1\\leq c<c^{\\prime}\\leq C}\\|\\mu_{c}-\\mu_{c^{\\prime}}\\|_{2}}{\\frac{1}{N}\\sum_{i=1}^{N}\\|f_{i}-\\mu_{y_{i}}\\|_{2}}, (11)"
+  },
+  {
+    "i": 121,
+    "tag": "div",
+    "id": "A2.SS1.p2",
+    "text": "where μc\\mu_{c} denotes the centroid of class cc and CC is the number of classes. This metric increases when class centroids move farther apart relative to the within-class spread, providing an intuitive measure of centroid-level separation."
+  },
+  {
+    "i": 122,
+    "tag": "div",
+    "id": "A2.SS1.p3",
+    "text": "Second, we compute the Fisher trace ratio, Fisher=tr⁡(SB)tr⁡(SW),\\mathrm{Fisher}=\\frac{\\mathrm{tr}(S_{B})}{\\mathrm{tr}(S_{W})}, (12) where SBS_{B} and SWS_{W} denote the between-class and within-class scatter matrices, respectively. While the separation ratio captures centroid-level geometry, the Fisher ratio additionally summarizes the global balance between inter-class and intra-class scatter."
+  },
+  {
+    "i": 123,
+    "tag": "table",
+    "id": "A2.E12",
+    "text": "Fisher=tr⁡(SB)tr⁡(SW),\\mathrm{Fisher}=\\frac{\\mathrm{tr}(S_{B})}{\\mathrm{tr}(S_{W})}, (12)"
+  },
+  {
+    "i": 124,
+    "tag": "div",
+    "id": "A2.SS1.p4",
+    "text": "Table B1 shows consistent improvements across all datasets and for both separability metrics. The separation ratio increases by 1.8×1.8\\times–17.9×17.9\\times, while the Fisher ratio increases by 2.8×2.8\\times–191.5×191.5\\times relative to the last-layer embedding. Since these metrics capture complementary aspects of class geometry, their agreement indicates that VFusion both increases inter-class separation and reduces relative within-class scatter. These improvements also extend to fine-grained datasets such as Cars, FGVC, Food, and Pets, suggesting that the fused latent space preserves discriminative structure useful for subtle class distinctions. Overall, VFusion not only improves predictive accuracy, but reorganizes the redundant cross-layer hierarchy into a substantially more class-structured latent manifold."
+  },
+  {
+    "i": 125,
+    "tag": "h3",
+    "id": null,
+    "text": "B.2 Effect of orthogonalization"
+  },
+  {
+    "i": 126,
+    "tag": "div",
+    "id": "A2.SS2.p1",
+    "text": "To reduce redundancy in the fused manifold, we add an orthogonalization penalty to the training objective, weighted by λ\\lambda. This term encourages the encoder to extract decorrelated and complementary factors from the concatenated hierarchy. We evaluate its effect by sweeping λ∈{0.2,0.5,0.7,1.0,2.0,5.0,10.0}\\lambda\\in\\{0.2,0.5,0.7,1.0,2.0,5.0,10.0\\} and compare against the unregularized baseline (λ=0\\lambda=0)."
+  },
+  {
+    "i": 127,
+    "tag": "div",
+    "id": "A2.SS2.p2",
+    "text": "As summarized in Table B2, the inclusion of the orthogonalization loss yields an overall improvement. The average gain is partially diluted by datasets whose performance is already near-saturated (e.g., ≥95%\\geq 95\\%), where there is limited headroom for improvement. Nonetheless, the gains are most pronounced in fine-grained datasets, such as Cars (up to +0.6%+0.6\\%), FGVC (up to +1.5%+1.5\\%), and Food (up to +0.8%+0.8\\%), where resolving subtle inter-class differences benefits from a more diverse feature set. Importantly, the benefit is not tied to a single favorable value of λ\\lambda: across the full 50×50\\times sweep, the mean orthogonalized model improves over the unregularized baseline. We use λ=2.0\\lambda=2.0 throughout our experiments unless stated otherwise."
+  },
+  {
+    "i": 128,
+    "tag": "div",
+    "id": "A2.SS2.p3",
+    "text": "To confirm that our fused manifold indeed reduces redundancy, we measure a test-set proxy of ℒorth\\mathcal{L}_{\\mathrm{orth}}, namely the mean squared off-diagonal correlation of the fused latent dimensions. Across all datasets, setting the orthogonalization-loss weight to λ=2\\lambda{=}2 consistently reduces this quantity compared to λ=0\\lambda{=}0, with a 0.25×0.25\\times average ratio and a 0.01–0.75×0.01\\text{--}0.75\\times min–max range. This further confirms that the regularizer effectively decorrelates the fused representation."
+  },
+  {
+    "i": 129,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix C Model efficiency and sensitivity"
+  },
+  {
+    "i": 130,
+    "tag": "div",
+    "id": "A3.p1",
+    "text": "We further report three additional analyses addressing practical aspects of VFusion. Specifically, we compare its inference cost against horizontal ensembling, test whether its gains are explained by increased model capacity, and assess sensitivity to the latent dimensionality dzd_{z}. These analyses complement the accuracy results by examining whether the proposed vertical fusion mechanism remains efficient, capacity-controlled, and robust to implementation choices."
+  },
+  {
+    "i": 131,
+    "tag": "h3",
+    "id": null,
+    "text": "C.1 Computational efficiency"
+  },
+  {
+    "i": 132,
+    "tag": "div",
+    "id": "A3.SS1.p1",
+    "text": "To quantify computational efficiency, we compare VFusion against horizontal Super Learner (H-SL), a strong ensemble baseline that aggregates predictions from three frozen backbones. This comparison is intentionally conservative: H-SL benefits from cross-backbone diversity, but requires evaluating multiple models at inference time. In contrast, VFusion operates within a single frozen backbone and adds only a lightweight fusion encoder and classifier head. We use CIFAR-100 as a representative benchmark for measuring end-to-end cost."
+  },
+  {
+    "i": 133,
+    "tag": "div",
+    "id": "A3.SS1.p2",
+    "text": "Table C1 shows that VFusion substantially reduces inference cost compared to H-SL, requiring 60.5%60.5\\% fewer GFLOPs and achieving a 2.32×2.32\\times speedup in latency per sample. Importantly, this efficiency gain does not come at the cost of accuracy: across 9 datasets (cf. Table 5 of the main manuscript), VFusion also outperforms H-SL by +0.5%+0.5\\% on average."
+  },
+  {
+    "i": 134,
+    "tag": "div",
+    "id": "A3.SS1.p3",
+    "text": "These results show that vertical fusion provides an efficient alternative to horizontal ensembling, preserving the benefits of representation aggregation while avoiding the overhead of evaluating multiple backbones."
+  },
+  {
+    "i": 135,
+    "tag": "h3",
+    "id": null,
+    "text": "C.2 Capacity-controlled final-layer baseline"
+  },
+  {
+    "i": 136,
+    "tag": "div",
+    "id": "A3.SS2.p1",
+    "text": "We next test whether VFusion’s gains come from intermediate-layer information rather than added module capacity. We introduce a capacity-controlled Final-only baseline with the same Enc+LN+Head architecture and training protocol as VFusion, but using only the final-layer representation h(L)h^{(L)} as input."
+  },
+  {
+    "i": 137,
+    "tag": "div",
+    "id": "A3.SS2.p2",
+    "text": "As shown in Table C2, VFusion consistently outperforms this capacity-matched baseline on average (91.4%91.4\\% vs. 90.7%90.7\\%). The difference is small on saturated datasets, where both methods already approach ceiling performance, but becomes pronounced on less-saturated benchmarks. In particular, VFusion notably improves over Final-only on GTS (+4.3%+4.3\\%), FGVC (+4.2%+4.2\\%), Cars (+1.2%+1.2\\%), and PC (+0.8%+0.8\\%). These results indicate that the gains observed in previous experiments are not merely due to a larger classifier head, but arise from fusing complementary information distributed across intermediate layers."
+  },
+  {
+    "i": 138,
+    "tag": "h3",
+    "id": null,
+    "text": "C.3 Latent dimension sensitivity"
+  },
+  {
+    "i": 139,
+    "tag": "div",
+    "id": "A3.SS3.p1",
+    "text": "Finally, we analyze the sensitivity of VFusion to the latent dimension dzd_{z}, which controls the capacity of the fusion encoder ℰ\\mathcal{E}. Since dzd_{z} defines the compression bottleneck between the concatenated layer features and the classifier head, it determines how aggressively the model must compress the internal hierarchy."
+  },
+  {
+    "i": 140,
+    "tag": "div",
+    "id": "A3.SS3.p2",
+    "text": "We sweep dz∈{64,128,256,512}d_{z}\\in\\{64,128,256,512\\} while disabling the orthogonalization term (λ=0\\lambda=0), thereby isolating the effect of latent dimensionality from the decorrelation regularizer."
+  },
+  {
+    "i": 141,
+    "tag": "div",
+    "id": "A3.SS3.p3",
+    "text": "Table C3 shows that VFusion is robust to the choice of dzd_{z}. On simple datasets with near-saturated performance, accuracy remains essentially unchanged across latent dimensions. Even on more challenging datasets such as FGVC-Aircraft and DTD, the performance spread remains moderate. Across datasets, the mean Δmax\\Delta_{\\mathrm{max}} is only 0.3%0.3\\%, indicating that the method is largely insensitive to this hyperparameter. This suggests that VFusion does not depend on a carefully tuned latent capacity. Rather, the redundant cross-layer hierarchy can be compressed over a broad range of bottleneck sizes. We therefore use dz=256d_{z}=256 throughout our experiments as a balanced choice between compression and signal preservation."
+  },
+  {
+    "i": 142,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix D Layer selection"
+  },
+  {
+    "i": 143,
+    "tag": "h3",
+    "id": null,
+    "text": "D.1 Effect on larger backbones"
+  },
+  {
+    "i": 144,
+    "tag": "div",
+    "id": "A4.SS1.p1",
+    "text": "This ablation complements Section 6.1 of the main manuscript by evaluating layer selection strategies (holistic, strided, last-half) on VFusion and MoE with DINOv2 ViT-L, which doubles the hierarchical depth of the ViT-B model (L=24L=24 vs. L=12L=12)."
+  },
+  {
+    "i": 145,
+    "tag": "div",
+    "id": "A4.SS1.p2",
+    "text": "As shown in Table D1, we observe trends consistent with the ViT-B backbone. MoE is essentially invariant to the layer selection, consistent with routing concentrating on a small subset of experts and thus limiting sensitivity to the available layers."
+  },
+  {
+    "i": 146,
+    "tag": "div",
+    "id": "A4.SS1.p3",
+    "text": "For VFusion, holistic fusion remains a safe default and achieves the best (or tied-best) average performance. On ViT-L, restricting fusion to the last half (i.e., last 1212 layers) matches holistic on average, suggesting that much of the recoverable signal is concentrated in deeper layers for this backbone. However, holistic fusion never hurts and retains access to any complementary evidence present earlier in the hierarchy. In contrast, strided subsampling consistently underperforms (by 0.5%0.5\\% on average), with the largest degradations on challenging datasets such as FGVC (84.8%→83.0%84.8\\%\\rightarrow 83.0\\%) and GTS (81.7%→80.5%81.7\\%\\rightarrow 80.5\\%)."
+  },
+  {
+    "i": 147,
+    "tag": "div",
+    "id": "A4.SS1.p4",
+    "text": "Overall, VFusion is robust to layer selection, but when subsampling is required, preserving contiguous depth (holistic or last-half) is preferable to striding."
+  },
+  {
+    "i": 148,
+    "tag": "h3",
+    "id": null,
+    "text": "D.2 Effect on Super Learner"
+  },
+  {
+    "i": 149,
+    "tag": "div",
+    "id": "A4.SS2.p1",
+    "text": "Super Learner (SL) aggregates predictions by learning optimal weights over layer-wise logits. In the vertical setting, a natural concern is that incorporating the full hierarchy could introduce noise from shallower, less discriminative layers and thus degrade performance. To test this, we ablate SL under the three-layer selection regimes (holistic, strided, last-half) on two DINOv2 backbones: ViT-B and ViT-L."
+  },
+  {
+    "i": 150,
+    "tag": "div",
+    "id": "A4.SS2.p2",
+    "text": "Table D2 shows that Super Learner is largely robust to the inclusion of shallow layers. On both DINOv2 ViT-B and ViT-L, holistic aggregation matches last-half results, indicating that incorporating the full hierarchy does not degrade performance. Strided selection yields only a minor drop (by 0.3%0.3\\% on ViT-B, and by 0.2%0.2\\% on ViT-L). Overall, SL does not appear sensitive to potential “noise” from earlier probes in the vertical setting. Furthermore, even in this logit-level aggregation setting, strided selection underperforms last-half, consistent with our observation that a useful corrective signal is locally distributed across adjacent layers."
+  },
+  {
+    "i": 151,
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  }
+]

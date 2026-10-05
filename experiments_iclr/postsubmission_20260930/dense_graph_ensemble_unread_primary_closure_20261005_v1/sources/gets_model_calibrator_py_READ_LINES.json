@@ -1,0 +1,406 @@
+[
+  {
+    "line": 16,
+    "text": "def fit_calibration(temp_model, eval, g, features, labels, masks, epochs, patience):"
+  },
+  {
+    "line": 17,
+    "text": "    train_idx = masks[1]"
+  },
+  {
+    "line": 18,
+    "text": "    val_idx = masks[0]"
+  },
+  {
+    "line": 19,
+    "text": "    vlss_mn = float('Inf')"
+  },
+  {
+    "line": 20,
+    "text": "    with torch.no_grad():"
+  },
+  {
+    "line": 21,
+    "text": "        logits = temp_model.model(g, features)"
+  },
+  {
+    "line": 22,
+    "text": "        model_dict = temp_model.state_dict()"
+  },
+  {
+    "line": 23,
+    "text": "        parameters = {k: v for k,v in model_dict.items() if k.split(\".\")[0] != \"model\"}"
+  },
+  {
+    "line": 24,
+    "text": "    for epoch in range(epochs):"
+  },
+  {
+    "line": 25,
+    "text": "        temp_model.optimizer.zero_grad()"
+  },
+  {
+    "line": 26,
+    "text": "        temp_model.train()"
+  },
+  {
+    "line": 27,
+    "text": "        # Post-hoc calibration set the classifier to the evaluation mode"
+  },
+  {
+    "line": 28,
+    "text": "        temp_model.model.eval()"
+  },
+  {
+    "line": 29,
+    "text": "        assert not temp_model.model.training"
+  },
+  {
+    "line": 30,
+    "text": "        ret = eval(logits)"
+  },
+  {
+    "line": 31,
+    "text": "        loss_load = None"
+  },
+  {
+    "line": 32,
+    "text": "        if isinstance(ret, tuple):"
+  },
+  {
+    "line": 33,
+    "text": "            calibrated, loss_load, _ = ret"
+  },
+  {
+    "line": 34,
+    "text": "        else:"
+  },
+  {
+    "line": 35,
+    "text": "            calibrated = ret"
+  },
+  {
+    "line": 36,
+    "text": "        loss = F.cross_entropy(calibrated[train_idx], labels[train_idx])"
+  },
+  {
+    "line": 37,
+    "text": "        if loss_load is not None:"
+  },
+  {
+    "line": 38,
+    "text": "            loss += loss_load"
+  },
+  {
+    "line": 39,
+    "text": "        loss.backward()"
+  },
+  {
+    "line": 40,
+    "text": "        temp_model.optimizer.step()"
+  },
+  {
+    "line": 41,
+    "text": ""
+  },
+  {
+    "line": 42,
+    "text": "        with torch.no_grad():"
+  },
+  {
+    "line": 43,
+    "text": "            temp_model.eval()"
+  },
+  {
+    "line": 44,
+    "text": "            ret = eval(logits)"
+  },
+  {
+    "line": 45,
+    "text": "            loss_load = None"
+  },
+  {
+    "line": 46,
+    "text": "            if isinstance(ret, tuple):"
+  },
+  {
+    "line": 47,
+    "text": "                calibrated, loss_load, _ = ret"
+  },
+  {
+    "line": 48,
+    "text": "            else:"
+  },
+  {
+    "line": 49,
+    "text": "                calibrated = ret"
+  },
+  {
+    "line": 50,
+    "text": "            val_loss = F.cross_entropy(calibrated[val_idx], labels[val_idx])"
+  },
+  {
+    "line": 51,
+    "text": "            flag = False"
+  },
+  {
+    "line": 52,
+    "text": "            if val_loss <= vlss_mn:"
+  },
+  {
+    "line": 53,
+    "text": "                flag = True"
+  },
+  {
+    "line": 54,
+    "text": "                with torch.no_grad():"
+  },
+  {
+    "line": 55,
+    "text": "                    logits = temp_model.model(g, features)"
+  },
+  {
+    "line": 56,
+    "text": "                    model_dict = temp_model.state_dict()"
+  },
+  {
+    "line": 57,
+    "text": "                    parameters = {k: v for k,v in model_dict.items() if k.split(\".\")[0] != \"model\"}"
+  },
+  {
+    "line": 58,
+    "text": "                state_dict_early_model = copy.deepcopy(parameters)"
+  },
+  {
+    "line": 59,
+    "text": "                vlss_mn = np.min((val_loss.cpu().numpy(), vlss_mn))"
+  },
+  {
+    "line": 60,
+    "text": "                curr_step = 0"
+  },
+  {
+    "line": 61,
+    "text": "            else:"
+  },
+  {
+    "line": 62,
+    "text": "                curr_step += 1"
+  },
+  {
+    "line": 63,
+    "text": "                if curr_step >= patience:"
+  },
+  {
+    "line": 64,
+    "text": "                    break"
+  },
+  {
+    "line": 65,
+    "text": "        if isinstance(ret, tuple):"
+  },
+  {
+    "line": 66,
+    "text": "            print(\"Epoch {:05d} | Loss(calibration) {:.4f} | Loss(load) {:.4f} |{}\""
+  },
+  {
+    "line": 67,
+    "text": "                  .format(epoch + 1, val_loss.item(), loss_load.item(), \"*\" if flag else \"\"))"
+  },
+  {
+    "line": 68,
+    "text": "    model_dict.update(state_dict_early_model)"
+  },
+  {
+    "line": 69,
+    "text": "    temp_model.load_state_dict(model_dict)"
+  },
+  {
+    "line": 70,
+    "text": ""
+  },
+  {
+    "line": 71,
+    "text": "class ETS(nn.Module):"
+  },
+  {
+    "line": 72,
+    "text": "    def __init__(self, model, num_classes, device, conf):"
+  },
+  {
+    "line": 73,
+    "text": "        super().__init__()"
+  },
+  {
+    "line": 74,
+    "text": "        self.model = model"
+  },
+  {
+    "line": 75,
+    "text": "        self.weight1 = nn.Parameter(torch.ones(1))"
+  },
+  {
+    "line": 265,
+    "text": "        self.train_param = self.cagcn.parameters()"
+  },
+  {
+    "line": 266,
+    "text": "        self.optimizer = optim.Adam(self.train_param, lr=self.conf.calibration[\"cal_lr\"], weight_decay=self.conf.calibration[\"cal_weight_decay\"])"
+  },
+  {
+    "line": 267,
+    "text": "        fit_calibration(self, eval, g, features, labels, masks, self.conf.calibration[\"epochs\"], self.conf.calibration[\"patience\"])"
+  },
+  {
+    "line": 268,
+    "text": "        return self"
+  },
+  {
+    "line": 269,
+    "text": ""
+  },
+  {
+    "line": 270,
+    "text": "class CaGCN_GETS(nn.Module):"
+  },
+  {
+    "line": 271,
+    "text": "    def __init__(self, model, feature_dim, num_class, device, conf):"
+  },
+  {
+    "line": 272,
+    "text": "        super().__init__()"
+  },
+  {
+    "line": 273,
+    "text": "        self.model = model"
+  },
+  {
+    "line": 274,
+    "text": "        self.device = device"
+  },
+  {
+    "line": 275,
+    "text": ""
+  },
+  {
+    "line": 276,
+    "text": "        self.learner = GETS("
+  },
+  {
+    "line": 277,
+    "text": "            num_classses=num_class,"
+  },
+  {
+    "line": 278,
+    "text": "            hidden_dim=conf.calibration[\"hidden_dim\"],"
+  },
+  {
+    "line": 279,
+    "text": "            dropout_rate=conf.calibration[\"cal_dropout\"],"
+  },
+  {
+    "line": 280,
+    "text": "            num_layer=conf.calibration[\"cal_num_layer\"],"
+  },
+  {
+    "line": 281,
+    "text": "            expert_select=conf.calibration[\"expert_select\"],"
+  },
+  {
+    "line": 282,
+    "text": "            expert_configs=conf.calibration[\"expert_configs\"],"
+  },
+  {
+    "line": 283,
+    "text": "            feature_dim=feature_dim,"
+  },
+  {
+    "line": 284,
+    "text": "            feature_hidden_dim=conf.calibration[\"feature_hidden_dim\"],"
+  },
+  {
+    "line": 285,
+    "text": "            degree_hidden_dim=conf.calibration[\"degree_hidden_dim\"],"
+  },
+  {
+    "line": 286,
+    "text": "            noisy_gating=conf.calibration[\"noisy_gating\"],"
+  },
+  {
+    "line": 287,
+    "text": "            coef=conf.calibration[\"coef\"],"
+  },
+  {
+    "line": 288,
+    "text": "            device=device,"
+  },
+  {
+    "line": 289,
+    "text": "            backbone=conf.calibration['backbone']"
+  },
+  {
+    "line": 290,
+    "text": "        )"
+  },
+  {
+    "line": 291,
+    "text": "        self.conf = conf"
+  },
+  {
+    "line": 292,
+    "text": "        "
+  },
+  {
+    "line": 293,
+    "text": "    def forward(self, g, features):"
+  },
+  {
+    "line": 294,
+    "text": "        logits = self.model(g, features)"
+  },
+  {
+    "line": 295,
+    "text": "        return self.learner(g, logits, features)"
+  },
+  {
+    "line": 296,
+    "text": "    "
+  },
+  {
+    "line": 297,
+    "text": "    def fit(self, g, features, labels, masks):"
+  },
+  {
+    "line": 298,
+    "text": "        self.to(self.device)"
+  },
+  {
+    "line": 299,
+    "text": "        def eval(logits):"
+  },
+  {
+    "line": 300,
+    "text": "            return self.learner(g, logits, features)"
+  },
+  {
+    "line": 301,
+    "text": ""
+  },
+  {
+    "line": 302,
+    "text": "        self.train_param = self.parameters()"
+  },
+  {
+    "line": 303,
+    "text": "        self.optimizer = optim.Adam(self.train_param, lr=self.conf.calibration[\"cal_lr\"], weight_decay=self.conf.calibration[\"cal_weight_decay\"])"
+  },
+  {
+    "line": 304,
+    "text": "        fit_calibration(self, eval, g, features, labels, masks, self.conf.calibration[\"epochs\"], self.conf.calibration[\"patience\"])"
+  },
+  {
+    "line": 305,
+    "text": "        return self"
+  }
+]

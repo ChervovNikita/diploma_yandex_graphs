@@ -1,0 +1,1594 @@
+[
+  {
+    "kind": "heading",
+    "id": "modal-title",
+    "sections": [],
+    "text": "Report GitHub Issue",
+    "index": 0
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [],
+    "text": "Mixture of Experts for Node Classification",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "abstract1.1",
+    "sections": [],
+    "text": "Nodes in the real-world graphs exhibit diverse patterns in numerous aspects, such as degree and homophily. However, most existent node predictors fail to capture a wide range of node patterns or to make predictions based on distinct node patterns, resulting in unsatisfactory classification performance. In this paper, we reveal that different node predictors are good at handling nodes with specific patterns and only apply one node predictor uniformly could lead to suboptimal result. To mitigate this gap, we propose a mixture of experts framework, MoE-NP , for node classification. Specifically, MoE-NP combines a mixture of node predictors and strategically selects models based on node patterns. Experimental results from a range of real-world datasets demonstrate significant performance improvements from MoE-NP .",
+    "index": 0
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S1"
+    ],
+    "text": "1. Introduction",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Node classification, which aims to predict the class of nodes in a graph, has a wide range of applications (Tang et al., 2016; Xiao et al., 2022), such as citation networks and co-author networks (Lin et al., 2020; Xiao et al., 2022). The key to node classification tasks lies in node representation learning (Jin et al., 2021), which has been theoretically and empirically proven to be one of the key strengths of Graph Neural Networks (GNNs) (Hamilton et al., 2017). GNNs typically refine node representations through information aggregation and feature transformation among the nodes, and have achieved impressive performance in various graph-related tasks, such as social analysis (Ben Yahia, 2024), recommendation system (Wu et al., 2022) and traffic prediction (Yu et al., 2018).",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p2.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Most existent GNN models are designed based on the homophily assumption (Bi et al., 2024; Zheng et al., 2024; Platonov et al., 2024), i.e., nodes tend to be similar with those connected to them. However, this assumption is not always true. There exist numerous heterophilic graphs in reality, such as the social network in a dating website (Wang et al., 2024), where numerous users tend to follow people of different genders. To solve node classification in these scenarios, several studies propose to integrate information from broader neighborhoods so as to strengthen the relationships between originally-unconnected nodes. For instance, MixHop (Abu-El-Haija et al., 2019) repeatedly mixes feature representations of neighbors at various distances. Geom-GCN (Pei et al., 2020) proposes to add virtual nodes in feature aggregation. WRGCN (Suresh et al., 2021) constructs a modified computation graph to enhance the connections and information for disassortative nodes. Furthermore, some recent work (Luan et al., 2022; Chen et al., 2023) proposes to deal with this heterophliy challenge in a node-wise manner, given the consideration that different nodes in the same graph can be faced with distinct heterophliy challenges.",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p3.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "While heterophily issue has been widely studied, some latest research (Ma et al., 2021; Mao et al., 2024) suggests that node classification is essentially related to the node pattern, rather than merely the label homophliy. However, the node pattern is quite complex, which can be described from various perspectives, including label homophily, structure information and attribute information. In addition, nodes within the same graph can possess diverse node patterns from different perspectives. This naturally raises a problem: Do nodes with different node patterns within the same graph require distinct node predictors?",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p4.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "To answer this question, we first conducted some empirical investigations over node patterns. We have observed that nodes with different patterns in one graph require distinct node classifiers and their preferences for classifiers are affected by numerous factors. Furthermore, we have noticed that the classifier preference is not only related to node pattern, but also associated with the overall graph context. Based on these observation, we then propose MoE-NP , a mixture-of-expert model for the node classification task, which consists of a bunch of diverse node predictors and a specially designed gating network. The gating network is able to adaptively assign experts to each node according to both its local node pattern and the overall graph context. Extensive experiments have shown the superior performance of the proposed MoE-NP . Specifically, it surpasses the best baseline on PubMed and Actor datasets by 4.4% and 3.4 % in accuracy. In addition, a theoretical analysis is provided to demonstrate the rationality of MoE-NP .",
+    "index": 4
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S2"
+    ],
+    "text": "2. Preliminary",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p1.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "In this section, We investigate node patterns within the same graph from different perspectives and their influence towards the classifiers. Some notations and backgrounds are first introduced, and then we discuss the empirical observations and key insights.",
+    "index": 5
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S2",
+      "S2.SS1"
+    ],
+    "text": "2.1. Notations and Backgrouds",
+    "index": 4
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS1.p1.1",
+    "sections": [
+      "S2",
+      "S2.SS1"
+    ],
+    "text": "We denote an undirected graph without self-loops as 𝒢=(𝒱,ℰ)\\mathcal{G}=(\\mathcal{V},\\mathcal{E}), where 𝒱={vi}i=1n\\mathcal{V}=\\{v_{i}\\}_{i=1}^{n} is the node set and ℰ⊆𝒱×𝒱\\mathcal{E}\\subseteq\\mathcal{V}\\times\\mathcal{V} is the edge set. Let 𝒩⁡(vi)\\mathcal{N}\\left(v_{i}\\right) denote the neighbors of node viv_{i}. 𝐀∈ℝn×n\\mathbf{A}\\in\\mathbb{R}^{n\\times n} denotes the adjacency matrix, and 𝐃\\mathbf{D} represents the diagonal matrix standing for the degree matrix such that 𝐃i​i=∑j=1n𝐀i​j\\mathbf{D}_{ii}=\\sum_{j=1}^{n}\\mathbf{A}_{ij}. Let 𝐀~\\tilde{\\mathbf{A}} and 𝐃~\\tilde{\\mathbf{D}} be the corresponding matrices with self-loops, i.e., 𝐀~=𝐀+𝐈\\tilde{\\mathbf{A}}=\\mathbf{A}+\\mathbf{I} and 𝐃~=𝐃+𝐈\\tilde{\\mathbf{D}}=\\mathbf{D}+\\mathbf{I}, where 𝐈\\mathbf{I} is the identity matrix. 𝐗∈ℝn×d\\mathbf{X}\\in\\mathbb{R}^{n\\times d} denotes the initial node feature matrix, where dd is the number of dimensions. We use yy to denote the ground-truth node label and yiy_{i} denote the label of node ii. In this paper, we define homophily hh on graph 𝒢\\mathcal{G} as",
+    "index": 6
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx1",
+    "sections": [
+      "S2",
+      "S2.SS1"
+    ],
+    "text": "(1) h⁡(𝒢)=1|𝒱|​∑vi∈𝒱|{u∣u∈𝒩(vi),yu=yvi}|𝐃i​i.\\displaystyle h(\\mathcal{G})=\\frac{1}{|\\mathcal{V}|}\\sum_{v_{i}\\in\\mathcal{V}}\\frac{\\left|\\{u\\mid u\\in\\mathcal{N}_{\\left(v_{i}\\right)},y_{u}=y_{v_{i}}\\}\\right|}{\\mathbf{D}_{ii}}.",
+    "index": 0
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS1.p2.1",
+    "sections": [
+      "S2",
+      "S2.SS1"
+    ],
+    "text": "where h⁡(𝒢)h(\\mathcal{G}) is the average node homophily value for Graph 𝒢\\mathcal{G}, within the range of [0,1][0,1].",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS1.p3.1",
+    "sections": [
+      "S2",
+      "S2.SS1"
+    ],
+    "text": "Most Graph Neural Networks (GNNs) are designed to use low-pass filters to refine node representation, which tend to smooth node features across the graph based on the homophily assumption. On the contrary, the high-pass GNNs are designed to capture differences between a node and its neighbors, which are more suitable for heterophilic graphs, where nodes tend to connect with different counterparts. In addition, there exist some models, such as multilayer perceptrons (MLPs), not aggregating neighbor information. Instead, they solely transform features based on the its own data, ignoring the graph structure.",
+    "index": 8
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S2",
+      "S2.SS2"
+    ],
+    "text": "2.2. Empirical Study",
+    "index": 5
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS2.p1.1",
+    "sections": [
+      "S2",
+      "S2.SS2"
+    ],
+    "text": "As illustrated in Figure 1, nodes within the same graph can exhibit significant variability in their patterns when assessed from various perspectives, including homophily and degree. Notably, irrespective of whether the overall graph is characterized as homophilic or heterophilic, the distributions of nodes, in terms of their homophily and degree values, can display substantial diversity within a single graph. Specifically, it is important to recognize that considerable heterogeneity among nodes can exist in graphs generally classified as homophilic, and conversely, graphs deemed heterophilic may also contain nodes manifesting homophilic characteristics.",
+    "index": 9
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS2.p2.1",
+    "sections": [
+      "S2",
+      "S2.SS2"
+    ],
+    "text": "To investigate the impact of node patterns on the accuracy of node classification, we have conducted a series of preliminary studies. In these studies, nodes from a single dataset were categorized into five distinct groups based on their homophily values, and we subsequently analyzed their affinities for various node classifiers. The findings pertaining to both homophilic and heterophilic graphs are presented in Figure 2. It is evident that nodes belonging to different homophily groups demonstrate diverse preferences for specific node classifiers. Furthermore, this variation in preferences is not solely attributable to the homophily group itself; rather, it is influenced by the overall homophilic nature of the graph. This is corroborated by observations indicating that the most effective classifiers for nodes in the low and medium homophily groups differ significantly between the Chameleon and PubMed datasets.",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS2.p3.1",
+    "sections": [
+      "S2",
+      "S2.SS2"
+    ],
+    "text": "To further elucidate the diversity of node patterns and their implications for node classification, we conducted a more granular analysis of one homophily group, dividing it into five distinct subsets based on node degree values. As demonstrated in Figure 2(c), even within the same homophily group, the degree of individual nodes markedly influences the performance and effectiveness of various node predictors.",
+    "index": 11
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS2.p4.1",
+    "sections": [
+      "S2",
+      "S2.SS2"
+    ],
+    "text": "The observed variations in classifier effectiveness across different homophily and degree groups suggest that complex node patterns play a critical role in node classification tasks. Consequently, it is essential to represent node patterns from multiple perspectives. Moreover, both local properties and the broader structural context of the graph significantly affect preferences regarding node classifiers. These insights underscore the necessity of assigning distinct classifiers to different nodes based on their unique patterns across various dimensions, as well as considering the overarching context of the graph itself.",
+    "index": 12
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "2.3. Theoretical analysis",
+    "index": 6
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p1.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "In this section, we provide a theoretical foundation to show that a single node predictor may be inadequate for nodes exhibiting distinct connectivity patterns. For simplicity, the derivation is presented in the context of a binary classification problem. Our proof builds upon the conclusions of (Baranwal et al., 2021) and (Han et al., 2024), further extending their results.",
+    "index": 13
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p2.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "Our analysis is based on a widely used graph generative model, the Contextual Stochastic Block Model (CSBM) (Deshpande et al., 2018). CSBMs assume that edges are formed in either a homophilic or heterophilic manner. Nodes with the same label connect with a probability of pp. In contrast, nodes with different labels connect with a probability of qq.",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p3.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "The training subgraph is generated from",
+    "index": 15
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx2",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(2) (𝐀,𝐗)∼CSBM⁡(n,p,q,𝝁,𝝂),\\displaystyle(\\mathbf{A},\\mathbf{X})\\sim\\operatorname{CSBM}(n,p,q,\\bm{\\mu},\\bm{\\nu}),",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p3.2",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "where nn is the number of training nodes. The vector 𝝁\\bm{\\mu} and 𝝂\\bm{\\nu} denote the average feature vectors for different classes. We assume that ‖𝝁‖,‖𝝂‖≤1\\|\\bm{\\mu}\\|,\\|\\bm{\\nu}\\|\\leq 1. The node features are sampled from a Gaussian distribution 𝒩⁡(𝝁,σ2​𝐈)\\mathcal{N}(\\bm{\\mu},\\sigma^{2}\\mathbf{I}), where 𝐈\\mathbf{I} is the identity matrix.",
+    "index": 16
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p4.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "Test the model on another subgraph generated from a distinct CSBM:",
+    "index": 17
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx3",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(3) (𝐀′,𝐗′)∼CSBM⁡(n,p′,q′,𝝁,𝝂),\\displaystyle(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime})\\sim\\operatorname{CSBM}(n,p^{\\prime},q^{\\prime},\\bm{\\mu},\\bm{\\nu}),",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p4.2",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "where n′n^{\\prime} denotes the number of test nodes, and p′p^{\\prime} and q′q^{\\prime} represent the intra-class and inter-class edge probabilities, respectively.",
+    "index": 18
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p5.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "A Simplified Graph Convolution (SGC) is employed to update the node embeddings, defined as follows:",
+    "index": 19
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx4",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(4) 𝐗~=𝐃−1​𝐀𝐗.\\displaystyle\\tilde{\\mathbf{X}}=\\mathbf{D}^{-1}\\mathbf{A}\\mathbf{X}.",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p6.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "A linear classifier parameterized by 𝐰∈ℝd×1\\mathbf{w}\\in\\mathbb{R}^{d\\times 1} and b∈ℝb\\in\\mathbb{R} predicts labels as follows:",
+    "index": 20
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx5",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(5) 𝐲^=σ⁡(𝐗~​𝐰+b​𝟏),\\displaystyle\\mathbf{\\hat{y}}=\\sigma(\\tilde{\\mathbf{X}}\\mathbf{w}+b\\mathbf{1}),",
+    "index": 4
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p6.2",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "where σ⁡(x)=(1+e−x)−1\\sigma(x)=\\left(1+e^{-x}\\right)^{-1} represents the sigmoid function.",
+    "index": 21
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p7.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "The learning objective is defined by the binary cross-entropy loss function:",
+    "index": 22
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx6",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(6) L(𝒱,𝐰,b)=−1|𝒱|∑i∈𝒱[𝐲ilog(𝐲^i)+(1−𝐲i)log(1−𝐲^i)],\\displaystyle L(\\mathcal{V},\\mathbf{w},b)=-\\frac{1}{|\\mathcal{V}|}\\sum_{i\\in\\mathcal{V}}\\bigl[\\,\\mathbf{y}_{i}\\log\\bigl(\\hat{\\mathbf{y}}_{i}\\bigr)+(1-\\mathbf{y}_{i})\\log\\bigl(1-\\hat{\\mathbf{y}}_{i}\\bigr)\\bigr],",
+    "index": 5
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p7.2",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "where 𝒱\\mathcal{V} denotes the set of examples used for evaluation.",
+    "index": 23
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p8.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "To ensure linear separability, additional constraints must be imposed by requiring the distance between the class means 𝝁\\bm{\\mu} and 𝝂\\bm{\\nu} to satisfy a specific asymptotic lower bound. Formally, the separation condition ‖𝝂−𝝁‖=Ω⁡(log⁡ndn​(p+q))\\|\\bm{\\nu}-\\bm{\\mu}\\|=\\Omega\\left(\\tfrac{\\log n}{d_{n}(p+q)}\\right) and ‖𝐰‖≤R||\\mathbf{w}||\\leq R must hold, where Ω⁡(⋅)\\Omega(\\cdot) denotes the asymptotic lower bound complexity notation, dnd_{n} represents the dimension-dependent coefficient, and p,qp,q correspond to the model parameters in the given context.",
+    "index": 24
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p9.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "Furthermore, a sufficiently large nn (specifically, ω⁡(d​log⁡d)\\omega(d\\log d), while remaining poly⁡(d)\\mathrm{poly}(d)) is required. Moreover, the graph should not be excessively sparse. This stipulation ensures that",
+    "index": 25
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx7",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(7) p,q,p′,q′=ω⁡(log2⁡(n)n).\\displaystyle p,q,p^{\\prime},q^{\\prime}=\\omega\\left(\\tfrac{\\log^{2}(n)}{n}\\right).",
+    "index": 6
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p11.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "Based on the findings in (Baranwal et al., 2021), it has been established that, under specific separability conditions, the optimal linear classifier for the training set (𝐀,𝐗)(\\mathbf{A},\\mathbf{X}) takes the form:",
+    "index": 26
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx8",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(8) 𝐰∗=R​𝝂−𝝁‖𝝂−𝝁‖,𝐛∗=−12​⟨𝝂+𝝁,𝐰∗⟩.\\displaystyle\\mathbf{w}^{*}=R\\frac{\\bm{\\nu}-\\bm{\\mu}}{\\|\\bm{\\nu}-\\bm{\\mu}\\|},\\quad\\mathbf{b}^{*}=-\\tfrac{1}{2}\\bigl\\langle\\bm{\\nu}+\\bm{\\mu},\\mathbf{w}^{*}\\bigr\\rangle.",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p12.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "Next, analyze the performance of the optimal classifier 𝐰∗,b∗\\mathbf{w}^{*},b^{*} on the new node pattern graph (𝐀′,𝐗′)\\bigl(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime}\\bigr). Our aim is to demonstrate that a single linear classifier may not effectively generalize across different connection patterns determined by (p,q)(p,q) and (p′,q′)(p^{\\prime},q^{\\prime}).",
+    "index": 27
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.Thmtheorem1.p1.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "If (p−q)​(p′−q′)≤0(p-q)(p^{\\prime}-q^{\\prime})\\leq 0, with high probability, the following inequality holds:",
+    "index": 28
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx9",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(9) L⁡(𝐀′,𝐗′,𝐰∗,b∗)≥R⁡(q′−p′)2​(p′+q′)​‖𝝁−𝝂‖​(1+o⁡(1)),\\displaystyle L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)\\geq\\frac{R\\left(q^{\\prime}-p^{\\prime}\\right)}{2\\left(p^{\\prime}+q^{\\prime}\\right)}\\|\\bm{\\mu}-\\bm{\\nu}\\|(1+o(1)),",
+    "index": 8
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.Thmtheorem1.p1.2",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "where 𝐰∗\\mathbf{w}^{*}, b∗b^{*} minimize L⁡(𝐀,𝐗,𝐰,b)L\\left(\\mathbf{A},\\mathbf{X},\\mathbf{w},b\\right). That is, the generalization loss becomes significantly large when the signs of p−qp-q and p′−q′p^{\\prime}-q^{\\prime} differ.",
+    "index": 29
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.Thmtheorem2.p1.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "If the sample sizes of the two categories are equal, (p−q)​(p′−q′)≥0(p-q)(p^{\\prime}-q^{\\prime})\\geq 0, and p+q≠p′+q′p+q\\neq p^{\\prime}+q^{\\prime}, then the following inequality holds:",
+    "index": 30
+  },
+  {
+    "kind": "equation",
+    "id": "S2.EGx10",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "(10) L⁡(𝐀′,𝐗′,𝐰∗,b∗)≥log⁡(2)​(1−R​‖𝝁−𝝂‖​|p′−q′|8​σ​(p′+q′))​(1+o⁡(1)).\\displaystyle L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)\\geq\\log(2)\\left(1-\\frac{R\\|\\bm{\\mu}-\\bm{\\nu}\\||p^{\\prime}-q^{\\prime}|}{\\sqrt{8}\\sigma(p^{\\prime}+q^{\\prime})}\\right)(1+o(1)).",
+    "index": 9
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.Thmtheorem2.p1.2",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "where 𝐰∗\\mathbf{w}^{*}, b∗b^{*} minimize L⁡(𝐀,𝐗,𝐰,b)L\\left(\\mathbf{A},\\mathbf{X},\\mathbf{w},b\\right). That is, when p−qp-q and p′−q′p^{\\prime}-q^{\\prime} are the same, but p+q≠p′+q′p+q\\neq p^{\\prime}+q^{\\prime}, i.e., the degree distributions of two sets are different, the generalization loss is also large.",
+    "index": 31
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.SS3.p13.1",
+    "sections": [
+      "S2",
+      "S2.SS3"
+    ],
+    "text": "Remark. Theorem 1 demonstrates that when the homophily assumption holds for graphs in the training set while not holding for those in the test set (i.e., (p−q)(p-q) and (p′−q′)(p^{\\prime}-q^{\\prime}) possess opposite signs), a classifier trained solely on (𝐀,𝐗)\\bigl(\\mathbf{A},\\mathbf{X}\\bigr) incurs a large loss on (𝐀′,𝐗′)\\bigl(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime}\\bigr). Theorem 2 further indicates that even when the homophily conditions are identical in two sets, the performance of a single-node predictor can still be negatively affected by degree disparity. More details can be found in the appendix A.",
+    "index": 32
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3"
+    ],
+    "text": "3. Method",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.p1.1",
+    "sections": [
+      "S3"
+    ],
+    "text": "Based on the preliminary study, nodes within the same graph can exhibit diverse node patterns from different perspectives, and this affects their preference for node predictors significantly. To accommodate the node pattern diversity, this paper proposes a Mixture of Experts (MoE) framework to solve node classification, which is able to assign node predictors with different weights to each node based on its node patterns. There are several challenges to be addressed. First, how to accurately define node patterns given they are complex and multi-modal? Second, how to appropriately combine different node predictors for distinct node? In the following sections, we will give an overall framework description, and then illustrate how we address these challenges.",
+    "index": 33
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "3.1. MoE-NP – A General Framework",
+    "index": 8
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS1.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "The overall MoE-NP framework is illustrated in Figure 3, which consists of two main components, the node pattern extractor and the gating model. Specifically, the node pattern extractor is designed to extract multi-modal node patterns for each node. The gating model is developed to generate node-wise expert weights for different nodes based on their extracted node patterns. There are five common node predictors adopted as experts in the proposed MoE-NP , and more advanced experts can be easily added into the flexible MoE-NP framework.",
+    "index": 34
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "3.2. Node Pattern Extractor",
+    "index": 9
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "As highlighted in prior research, the presence of distinct node patterns exerts a significant impact on the accuracy of node classification. Consequently, it is paramount to develop a robust node pattern extractor for the proposed MoE-NP . However, designing such an extractor is nontrivial. First, node patterns encompassing a range of properties such as degree distributions and label homophily distributions. Second, computing label homophily distributions precisely remains challenging because the test graph lacks ground-truth labels.",
+    "index": 35
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "To address these issues, we propose a carefully structured node pattern extractor. Specifically, we employ random walk sampling in each node’s neighborhood to objectively capture local structural context. The sampled nodes form a local context for the target node, within which pattern extraction is performed. Recognizing that node labels are unavailable, MoE-NP introduces an edge discriminator—implemented as a multi-layer perceptron (MLP)—designed to predict the relationship between a target node and its sampled neighbors based on their node features. By learning this relationship, the system effectively harnesses node feature information to compensate for the absence of explicit label data.",
+    "index": 36
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS2.p3.1",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "Furthermore, to incorporate structural information more comprehensively, we concatenate the degree of each node with its corresponding edge discriminator output on a node-by-node basis, thereby creating an enriched representation of local patterns. As depicted in Figure 3, this design offers a systematic approach to extracting node patterns, ultimately improving classification performance in challenging graph settings.",
+    "index": 37
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.T1.3.1",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "Homophilic Datasets Heterophilic Datasets Avg Rank models Cora PubMed Texas Cornell Wisconsin Chameleon Actor MLP 75.01±2.2975.01\\pm 2.29 87.78±0.387.78\\pm 0.3 76.76±4.5576.76\\pm 4.55 78.11+8.1578.11+8.15 81.37+6.6381.37+6.63 49.25+2.1249.25+2.12 36.53+0.7836.53+0.78 6.14 GCN 87.26±1.2487.26\\pm 1.24 88.02±0.4988.02\\pm 0.49 62.43±5.0562.43\\pm 5.05 62.43±3.362.43\\pm 3.3 60.59±7.8260.59\\pm 7.82 68.11±1.3268.11\\pm 1.32 30.57±0.7430.57\\pm 0.74 6.43 HighPass GCN 38.15±2.2138.15\\pm 2.21 63.74±0.8963.74\\pm 0.89 78.11±4.4378.11\\pm 4.43 59.73±5.0559.73\\pm 5.05 74.51±5.1174.51\\pm 5.11 59.50±2.459.50\\pm 2.4 32.71±1.1132.71\\pm 1.11 6.71 ACMGCN 88.27±1.1588.27\\pm 1.15 89.74±0.589.74\\pm 0.5 87.30±2.97\\mathbf{87.30\\pm 2.97} 77.57±4.8477.57\\pm 4.84 84.9±2.7884.9\\pm 2.78 68.62±1.868.62\\pm 1.8 36.07±1.2936.07\\pm 1.29 3.29 LINK 78.91±2.0878.91\\pm 2.08 80.51±0.780.51\\pm 0.7 65.41±4.4965.41\\pm 4.49 55.68±7.0755.68\\pm 7.07 61.57±6.461.57\\pm 6.4 70.99±2.1670.99\\pm 2.16 24.26±1.124.26\\pm 1.1 6.57 LSGNN 87.36±0.8987.36\\pm 0.89 89.33±0.4489.33\\pm 0.44 81.08±3.6381.08\\pm 3.63 79.73±5.5779.73\\pm 5.57 84.31±4.0284.31\\pm 4.02 74.12±1.33\\mathbf{74.12\\pm 1.33} 35.50±1.2935.50\\pm 1.29 3.57 GloGNN 88.31±1.1388.31\\pm 1.13 89.62±0.3589.62\\pm 0.35 84.32±4.1584.32\\pm 4.15 83.51±4.2683.51\\pm 4.26 87.06±3.53\\mathbf{87.06\\pm 3.53} 69.78±2.4269.78\\pm 2.42 37.35±1.3037.35\\pm 1.30 2.43 MoE-NP 89.31±0.91\\mathbf{89.31\\pm 0.91} 94.02±0.33\\mathbf{94.02\\pm 0.33} 86.76±4.2686.76\\pm 4.26 86.49±5.54\\mathbf{86.49\\pm 5.54} 85.29±3.0785.29\\pm 3.07 73.82±2.173.82\\pm 2.1 40.74±1.36\\mathbf{40.74\\pm 1.36} 1.43",
+    "index": 38
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "3.3. Design of the Gating Model",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "Building on the local patterns generated by the node pattern extractor, it is crucial to construct a gating model capable of adaptively determining the relative importance of each node classifier in accordance with the node’s specific pattern characteristics. Prior research (Mao et al., 2024) and preliminary analyses reveal that node classification depends not only on local node attributes but also on broader graph-wide characteristics. For example, nodes with low homophily may necessitate specialized classifiers due to the variations in the underlying graph.",
+    "index": 39
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "To capture such global properties, MoE-NP computes a global graph pattern by averaging the local patterns across all nodes within the graph. Both the local node pattern and the global graph pattern are then independently transformed into a uniform embedding space by means of two learnable multi-layer perceptron (MLP) models. Subsequently, the embeddings from these two perspectives—local and global—are concatenated to construct a more comprehensive representation of each node and the graph it resides in.",
+    "index": 40
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS3.p3.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "Finally, this concatenated representation is fed into the gating model, which is itself an MLP equipped with a softmax activation function. The softmax outputs are interpreted as weights that reflect the contribution of each expert classifier to the final prediction for a given node. Through this mechanism, MoE-NP effectively leverages both local and global contextual information to optimize the assignment of node classification tasks among the available experts.",
+    "index": 41
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "3.4. Optimization Objective",
+    "index": 11
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS4.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "Because MoE-NP aims primarily at improving node classification, it employs a canonical node classification loss as the overarching optimization objective. Formally, the loss function is defined as:",
+    "index": 42
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E11",
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "(11) LMoE​_​NP=∑i=1nlog⁡(1+exp⁡(−yi​(∑j=1twj​Ej​(x)))),L_{\\mathrm{MoE\\_NP}}=\\sum_{i=1}^{n}\\log\\bigl(1+\\exp\\bigl(-y_{i}\\bigl(\\sum_{j=1}^{t}w_{j}E_{j}(x)\\bigr)\\bigr)\\bigr),",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.SS4.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "where nn is the total number of training nodes, yiy_{i} is the true label of node ii, and Ej​(⋅)E_{j}(\\cdot) represents the prediction output of the jj-th expert. The weights wjw_{j}, determined by the gating model, modulate the contribution of each expert’s prediction to the final output. By simultaneously optimizing the edge discriminator and the gating model in accordance with this objective, MoE-NP enables end-to-end learning of both the node pattern extractor and the expert gating model, thus improving classification performance.",
+    "index": 43
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4"
+    ],
+    "text": "4. Experiments",
+    "index": 12
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.p1.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "In this section, comprehensive experiments have been conducted to validate the effctiveness and rationality of the propsoed MoE-NP . The experiments settings are first introduced, then the comparison of MoE-NP and the state-of-the-art baseline on different datasets are demonstrated. Next comes further analysis of the proposed MoE-NP .",
+    "index": 44
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "4.1. Experimental settings.",
+    "index": 13
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "Datasets. We have conducted experiments on seven widely-used datasets, including two homophilic datasets, Cora and Pubmed (Sen et al., 2008) and five heterophilic datasets, Texas, Wisconsin, Cornell, Chameleon, and Actor (Rozemberczki et al., 2021). For each dataset, 10 random splits are generated with 60% training, 20% validation, and 20 % testing partitions. In each split, the models are trained with 3 different random seeds, and the average performance and standard deviation are reported.",
+    "index": 45
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "Baselines. Seven baselines have been adopted for comparison, including basic methods, such as MLP, common GCN (Kipf and Welling, 2017)and high-pass GCN, and some latest methods that are specially designed for heterotrophic graphs, such as ACMGCN (Luan et al., 2022), GloGNN (Li et al., 2022), LinkX (Lim et al., 2021) and LSGNN (Chen et al., 2023).",
+    "index": 46
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p3.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "MoE-NP Implementations. In this work, we implement five commonly-used models as experts. They are GCN, GCN with residual connect, High-pass GNN, High-pass GNN with residual connect, and MLP. Additional node predictors can be easily added as experts, given the flexibility of MoE-NP .",
+    "index": 47
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "4.2. The Overall Performance Comparison",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS2.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "We have compared the proposed MoE-NP with seven baselines on seven datasets, including both the homophilic and heterophilic graphs. The results are shown in Table 1. The proposed MoE-NP has demonstrated impressive performance on both the homophilic and heterophilic graphs, achieving the best overall rank among all the methods. The basic baselines, such as MLP and GCN, tend to perform well only on specific groups, while MoE-NP leveraging several such baselines as experts can achieve significant improvements in terms of classification performance, even surpassing other SOTA baselines, such as ACMGNN and GloGNN. This demonstrates the effectiveness of the proposed MoE-NP .",
+    "index": 48
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS2.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "Despite these positive observations, there are instances on certain datasets where MoE-NP underperforms relative to specific baselines, particularly for node subsets characterized by moderate or mixed homophily levels. In these scenarios, we observe that the gating model may not fully capture the nuanced interaction patterns required for accurate expert selection, which can lead to decreased accuracy for those subsets. In light of these findings, MoE-NP remains highly effective overall, as evidenced by its superior ranking in Table 1. However, the occasional underperformance illustrates the need for further refinements to the gating mechanism, especially with respect to training data diversity and parameter tuning. In future work, augmenting the gating network with structured regularization techniques, developing more adaptive training strategies, or integrating additional expert models could further improve MoE-NP ’s ability to handle mixed-homophily scenarios and consistently outperform baseline methods across all graph types.",
+    "index": 49
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "4.3. Optimization of MoE-NP",
+    "index": 15
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS3.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "The proposed MoE-NP adopts multiple optimization strategies, including (1) an end-to-end approach that simultaneously trains both the gating network and the expert models, and (2) a two-step approach that first trains the experts and subsequently trains the gating network. The following subsections discuss two key elements of these strategies:",
+    "index": 50
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS3.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "(1) Load or Train? In a conventional mixture of experts (MoE) framework, pre-trained expert models are typically used directly for subsequent tasks. In our implementation, we first train these experts to leverage domain-specific knowledge, then continue training them within the proposed MoE-NP from their previously states. In this way, experts are expected to learn both the domain knowledge and the transferable node patterns required by MoE-NP .",
+    "index": 51
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS3.p3.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "(2) Training Experts with Fewer Samples. Throughout the training process, we observed that if the experts are fully trained on the entire dataset first and then the MoE-NP is trained on the same dataset, the second stage’s loss reduction can be minimal. To address this, we train the experts on a smaller subset of the data, thus leaving more room for the gating model to reduce the loss. This revised approach has demonstrated increased effectiveness over the original training procedure.",
+    "index": 52
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.T2.3.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "MoE-NP Cora Chameleon w/o few samples 88.45±1.1288.45\\pm 1.12 71.82±2.271.82\\pm 2.2 w few samples 89.31±0.91\\mathbf{89.31\\pm 0.91} 73.82±2.1\\mathbf{73.82\\pm 2.1}",
+    "index": 53
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.T3.3.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "Cora PubMed Texas Cornell Wisconsin Chameleon Actor Average 79.52±0.8179.52\\pm 0.81 88.28±0.4988.28\\pm 0.49 82.70±3.6782.70\\pm 3.67 82.35±4.6482.35\\pm 4.64 77.03±5.8377.03\\pm 5.83 71.29±1.6971.29\\pm 1.69 36.84±0.8736.84\\pm 0.87 MoE-NP 89.31±0.91\\mathbf{89.31\\pm 0.91} 94.02±0.33\\mathbf{94.02\\pm 0.33} 86.76±4.26\\mathbf{86.76\\pm 4.26} 86.49±5.54\\mathbf{86.49\\pm 5.54} 85.29±3.07\\mathbf{85.29\\pm 3.07} 73.82±2.1\\mathbf{73.82\\pm 2.1} 40.74±1.36\\mathbf{40.74\\pm 1.36}",
+    "index": 54
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS3.p4.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "Then we validate the effectiveness of our MoE-NP optimization method by comparing the performance of models trained with and without using few-samples training experts. As shown in Table 2, we present the results for the Cora and Chameleon datasets. It is evident that reducing the sample size of the training experts contributes positively to the overall model performance.",
+    "index": 55
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "4.4. Analysis of MoE-NP",
+    "index": 16
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS4.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "In this section, we conduct some further analysis towards MoE-NP to demonstrate the rationality and effectiveness of its design. To examine the effectiveness of the gating model and the pattern extractor, we divide nodes in chameleon into five groups, following an increasing order of node homophily value, and then observe the expert weights assigned to different groups in MoE-NP . To simplify the analysis, we implement three basic models as experts.",
+    "index": 56
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS4.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "As illustrated in Figures 6 and 7, the gating model implemented in MoE-NP effectively generates varying expert weights for node groups characterized by different homophily metrics across distinct datasets, namely Chameleon and PubMed. In Figure 6, depicting results from the Chameleon dataset, the pronounced allocation of weights toward low-pass GNNs in the higher homophily groups suggests that these models are particularly well-suited for the classification of densely connected nodes, which aligns with emphical study. Conversely, in groups with lower homophily values, the reliance on high-pass GNNs and MLPs becomes more pronounced, indicating a strategic adaptation to the unique structural features present in those groups.",
+    "index": 57
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS4.p3.1",
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "Similarly, Figure 7, which presents data from the PubMed dataset, reinforces the observations drawn from Chameleon. The expert weight distributions again highlight a preference for low-pass GNNs in the higher homophily groups, while the performance of high-pass GNNs is relatively increased in groups characterized by lower homophily. This consistent finding across different datasets emphasizes the robustness of the gating mechanism in MoE-NP , as it not only adapts the expert weights based on local node relationships but also aligns with broader graph characteristics. These findings collectively affirm the critical role that the gating model plays in optimizing node classification performance through a nuanced understanding of node patterns.",
+    "index": 58
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS4.p4.1",
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "Moreover, we conducted a detailed parameter sensitivity analysis focusing on the maximum length of the random walk, a key factor influencing the amount of node pattern information encoded. Specifically, we evaluated random walk lengths of 5, 10, 20, and 40 on both the Cora and Chameleon datasets. As illustrated in Figure 4, the results do not indicate a strictly monotonic relationship wherein longer walks always yield better performance. Instead, the optimal length is dataset-dependent, reflecting the distinct structural characteristics and node feature distributions in each dataset. Furthermore, the analysis suggests that this parameter is not particularly sensitive: moderate deviations from an optimal setting do not lead to substantial performance degradation.",
+    "index": 59
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "4.5. Analysis the of experts selection",
+    "index": 17
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS5.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "We not only use the model proposed in Empirical Study, also add the two node predictors with residual connection. The node predictor with residual means feeds the information that has never been processed from the original input into the next layer, thereby fully exploiting all the information from the initial node features. Simply aggregating representation from the previous layer might lose important information and consequently incur over-smoothing issues. We use a node predictor with residual that can better obtain more informative intermediate representations and avoid the negative influence of neighbors.",
+    "index": 60
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.T4.3.1",
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "MoE-NP texas Chameleon w/o residual GNNs 84.9±5.0484.9\\pm 5.04 73.05±1.4473.05\\pm 1.44 w residual GNNs 86.76±4.26\\mathbf{86.76\\pm 4.26} 73.82±2.1\\mathbf{73.82\\pm 2.1}",
+    "index": 61
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS5.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "Then we validate the effectiveness of adding the residual experts of node predictors. We compare the performance of models trained with and without the inclusion of residual experts. As shown in Table 4, the results for the Texas and Chameleon datasets are presented. It is evident that adding the residual experts of node predictors positively contributes to the overall model performance.",
+    "index": 62
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS6"
+    ],
+    "text": "4.6. ablation study",
+    "index": 18
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS6.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS6"
+    ],
+    "text": "In order to further substantiate the effectiveness of the gating mechanism, we compare MoE-NP against an average weight allocation strategy (see Table 3). Furthermore, to validate the rationale behind the node extractor, we perform an ablation study in which we exclude either the global pattern component or the local pattern component. As illustrated in Figure 5, removing either the global or the local pattern leads to a notable decrease in MoE-NP ’s overall performance, underscoring the importance of incorporating both local and global node pattern information.",
+    "index": 63
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5"
+    ],
+    "text": "5. Related Work",
+    "index": 19
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.p1.1",
+    "sections": [
+      "S5"
+    ],
+    "text": "MoE-NP utilizes a mixture-of-experts paradigm to enhance node classification. In early work, the Graph Convolutional Network (GCN) (Kipf and Welling, 2017) introduced a novel approach that integrates spectral filtering of graph signals with non-linear transformations for supervised node classification. However, GCNs are known to perform suboptimally on heterophilic graphs, where nodes connected by edges often belong to different classes. Recognizing this limitation, a range of specialized techniques—such as GloGNN (Li et al., 2022), LinkX (Lim et al., 2021), LSGNN (Chen et al., 2023), Mixhop (Abu-El-Haija et al., 2019), and ACM-GNN (Luan et al., 2022)—have been proposed to better handle structural variations and improve classification in heterophilic settings. Meanwhile, mounting evidence suggests that real-world graphs commonly exhibit a diverse mixture of node patterns (Mao et al., 2024), reducing the effectiveness of conventional GNNs that assume consistent relationships across all nodes.",
+    "index": 64
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.p2.1",
+    "sections": [
+      "S5"
+    ],
+    "text": "Motivated by the complexities revealed in such heterogeneous environments, researchers have turned to the Mixture of Experts (MoE) framework (Jacobs et al., 1991; Jordan and Jacobs, 1994), which adopts a divide-and-conquer strategy to assign subsets of tasks to specialized experts. Widely employed in areas like natural language processing (Du et al., 2022; Zhou et al., 2022) and computer vision (Riquelme et al., 2021), MoE techniques have also demonstrated promise in graph-based applications. For instance, GraphMETRO (Wu et al., 2023) leverages MoE to mitigate distribution shifts in GNN models, while Link-MoE (Ma et al., 2024) stacks multiple GNNs as experts and adaptively selects the optimal expert for each node pair based on their pairwise attributes. By integrating such principles into MoE-NP , we aim to more effectively accommodate the varied patterns encountered in real-world graphs and ultimately boost node classification performance.",
+    "index": 65
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6"
+    ],
+    "text": "6. Conclusion",
+    "index": 20
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.p1.1",
+    "sections": [
+      "S6"
+    ],
+    "text": "In this paper, we explored the complex node patterns from different perspectives in the real-world graph datasets and reveal their influences towards node predictors. To accommodate the diverse needs for node classifiers of different nodes, we propose MoE-NP , a mixture of experts framework for node classification. Specifically, MoE-NP combines a mixture of node predictors and strategically selects models based on node patterns. Extensive experiments demonstrate the proposed MoE-NP demonstrated superior performance on both homophilic and heterophilic datasets. Further, our theoretical analysis and empirical studies validate the rationality and effectiveness of the proposed MoE-NP .",
+    "index": 66
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "bib"
+    ],
+    "text": "References",
+    "index": 21
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1"
+    ],
+    "text": "Appendix A Proof of Theorem 2",
+    "index": 22
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "A.1. Expected Node Features Under CSBM",
+    "index": 23
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS1.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "For any node ii :",
+    "index": 67
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex1",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "𝔼⁡[𝐱~i|yi=0]=p⋅𝝁+q⋅𝝂p+q(training),\\mathbb{E}[\\tilde{\\mathbf{x}}_{i}|y_{i}=0]=\\frac{p\\cdot\\bm{\\mu}+q\\cdot\\bm{\\nu}}{p+q}\\quad\\text{(training)},",
+    "index": 11
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex2",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "𝔼⁡[𝐱~i|yi=1]=q⋅𝝁+p⋅𝝂p+q(training),\\mathbb{E}[\\tilde{\\mathbf{x}}_{i}|y_{i}=1]=\\frac{q\\cdot\\bm{\\mu}+p\\cdot\\bm{\\nu}}{p+q}\\quad\\text{(training)},",
+    "index": 12
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex3",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "𝔼⁡[𝐱~i′|yi=0]=p′⋅𝝁+q′⋅𝝂p′+q′(testing).\\mathbb{E}[\\tilde{\\mathbf{x}}^{\\prime}_{i}|y_{i}=0]=\\frac{p^{\\prime}\\cdot\\bm{\\mu}+q^{\\prime}\\cdot\\bm{\\nu}}{p^{\\prime}+q^{\\prime}}\\quad\\text{(testing)}.",
+    "index": 13
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex4",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "𝔼⁡[𝐱~i′|yi=0]=q′⋅𝝁+p′⋅𝝂p′+q′(testing).\\mathbb{E}[\\tilde{\\mathbf{x}}^{\\prime}_{i}|y_{i}=0]=\\frac{q^{\\prime}\\cdot\\bm{\\mu}+p^{\\prime}\\cdot\\bm{\\nu}}{p^{\\prime}+q^{\\prime}}\\quad\\text{(testing)}.",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS1.p2.1",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "Follows from CSBM’s definition, where neighbors are sampled with probabilities pp (same class) and qq (different class). The SGC operation 𝐃−1​𝐀𝐗\\mathbf{D}^{-1}\\mathbf{A}\\mathbf{X} averages neighbor features.",
+    "index": 68
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "A.2. Classification Margin Analysis",
+    "index": 24
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "The optimal classifier 𝐰∗\\mathbf{w}^{*} induces a margin proportional to the separation between class means.",
+    "index": 69
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p2.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "Training Margin:",
+    "index": 70
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex5",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "Δtrain=𝐰∗⁣⊤​(𝔼⁡[𝐱~|y=1]−𝔼⁡[𝐱~|y=0])=R​‖𝝁−𝝂‖⋅p−qp+q.\\Delta_{\\text{train}}=\\mathbf{w}^{*\\top}\\left(\\mathbb{E}[\\tilde{\\mathbf{x}}|y=1]-\\mathbb{E}[\\tilde{\\mathbf{x}}|y=0]\\right)=R\\|\\bm{\\mu}-\\bm{\\nu}\\|\\cdot\\frac{p-q}{p+q}.",
+    "index": 15
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p3.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "Test Margin:",
+    "index": 71
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex6",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "Δtest=R​‖𝝁−𝝂‖⋅p′−q′p′+q′.\\Delta_{\\text{test}}=R\\|\\bm{\\mu}-\\bm{\\nu}\\|\\cdot\\frac{p^{\\prime}-q^{\\prime}}{p^{\\prime}+q^{\\prime}}.",
+    "index": 16
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p3.2",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "Substitute 𝐰∗\\mathbf{w}^{*} and class means into the margin definition. Homophily consistency ensures sign​(p−q)=sign​(p′−q′)\\text{sign}(p-q)=\\text{sign}(p^{\\prime}-q^{\\prime}).",
+    "index": 72
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "A.3. Cross-Entropy Loss Lower Bound",
+    "index": 25
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "3.1 Error Probability Lower Bound:",
+    "index": 73
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p2.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "The projected feature zi|yi=1z_{i}|y_{i}=1 follows 𝒩⁡(Δtest/2,σ2​‖𝐰∗‖2)\\mathcal{N}(\\Delta_{\\text{test}}/2,\\sigma^{2}\\|\\mathbf{w}^{*}\\|^{2}), and zi|yi=0z_{i}|y_{i}=0 follows 𝒩(−Δtest/2,σ2∥𝐰∗∥2)\\mathcal{N}(-\\Delta_{\\text{test}}/2,\\sigma^{2}\\|\\mathbf{w}^{*}\\|^{2}).",
+    "index": 74
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p3.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Misclassification occurs when zi≤0z_{i}\\leq 0 for yi=1y_{i}=1 or zi≥0z_{i}\\geq 0 for yi=0y_{i}=0. Using the Gaussian tail bound:",
+    "index": 75
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex7",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "ℙ⁡(zi≤0|yi=1)=ℙ⁡(Z≥Δtest2​σ​‖𝐰∗‖),\\mathbb{P}(z_{i}\\leq 0|y_{i}=1)=\\mathbb{P}\\left(Z\\geq\\frac{\\Delta_{\\text{test}}}{2\\sigma\\|\\mathbf{w}^{*}\\|}\\right),",
+    "index": 17
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p3.2",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "where Z∼𝒩⁡(0,1)Z\\sim\\mathcal{N}(0,1).",
+    "index": 76
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p4.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Applying the inequality ℙ(Z≥t)≥12exp(−t2/2)\\mathbb{P}(Z\\geq t)\\geq\\frac{1}{2}\\exp(-t^{2}/2) for t≥0t\\geq 0:",
+    "index": 77
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex8",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "ℙ⁡(y^i≠yi)≥12​exp⁡(−Δtest28​σ2).\\mathbb{P}(\\hat{y}_{i}\\neq y_{i})\\geq\\frac{1}{2}\\exp\\left(-\\frac{\\Delta_{\\text{test}}^{2}}{8\\sigma^{2}}\\right).",
+    "index": 18
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p4.2",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "The factor 88 arises from ‖𝐰∗‖≤R\\|\\mathbf{w}^{*}\\|\\leq R and Δtest=R​‖𝝁−𝝂‖⋅p′−q′p′+q′\\Delta_{\\text{test}}=R\\|\\bm{\\mu}-\\bm{\\nu}\\|\\cdot\\frac{p^{\\prime}-q^{\\prime}}{p^{\\prime}+q^{\\prime}}.",
+    "index": 78
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p5.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "3.2 Cross-Entropy Loss Per Sample For misclassified samples, y^i≤0.5\\hat{y}_{i}\\leq 0.5 when yi=1y_{i}=1, or y^i≥0.5\\hat{y}_{i}\\geq 0.5 when yi=0y_{i}=0.",
+    "index": 79
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p6.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "The minimum loss occurs at the decision boundary (y^i=0.5\\hat{y}_{i}=0.5):",
+    "index": 80
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex9",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "ℓ⁡(0.5,1)=−log⁡(0.5)=log⁡(2),\\ell(0.5,1)=-\\log(0.5)=\\log(2),",
+    "index": 19
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p6.2",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "and similarly for ℓ⁡(0.5,0)\\ell(0.5,0).",
+    "index": 81
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p7.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Since ℓ⁡(y^i,yi)\\ell(\\hat{y}_{i},y_{i}) is convex and minimized at y^i=0.5\\hat{y}_{i}=0.5, the inequality holds. If y^i≠yi\\hat{y}_{i}\\neq y_{i}, then:",
+    "index": 82
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex10",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "ℓ⁡(y^i,yi)≥log⁡(2).\\ell(\\hat{y}_{i},y_{i})\\geq\\log(2).",
+    "index": 20
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p8.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "3.3 Aggregate Loss Lower Bound",
+    "index": 83
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p9.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "The expectation of the loss over all test nodes is:",
+    "index": 84
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex11",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "L⁡(𝐀′,𝐗′,𝐰∗,b∗)=𝔼⁡[ℓ⁡(y^i,yi)].L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)=\\mathbb{E}\\left[\\ell(\\hat{y}_{i},y_{i})\\right].",
+    "index": 21
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p10.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Split the expectation into correctly and incorrectly classified samples:",
+    "index": 85
+  },
+  {
+    "kind": "equation",
+    "id": "A1.EGx11",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "L⁡(𝐀′,𝐗′,𝐰∗,b∗)=𝔼⁡[ℓ⁡(y^i,yi)|y^i=yi]​ℙ​(y^i=yi)\\displaystyle L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)=\\mathbb{E}\\left[\\ell(\\hat{y}_{i},y_{i})|\\hat{y}_{i}=y_{i}\\right]\\mathbb{P}(\\hat{y}_{i}=y_{i}) +𝔼⁡[ℓ⁡(y^i,yi)|y^i≠yi]​ℙ​(y^i≠yi).\\displaystyle+\\mathbb{E}\\left[\\ell(\\hat{y}_{i},y_{i})|\\hat{y}_{i}\\neq y_{i}\\right]\\mathbb{P}(\\hat{y}_{i}\\neq y_{i}).",
+    "index": 22
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p11.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Dropping the first non-negative term and bounding the second term using Proposition 2, we obtain the following upper bound for the total cross-entropy loss over the test set:",
+    "index": 86
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex14",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "L⁡(𝐀′,𝐗′,𝐰∗,b∗)≥log⁡(2)⋅ℙ⁡(y^i≠yi).L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)\\geq\\log(2)\\cdot\\mathbb{P}(\\hat{y}_{i}\\neq y_{i}).",
+    "index": 23
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p12.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "3.4 Final Lower Bound Under the assumptions of Gaussian feature noise and homophily consistency ((p−q)​(p′−q′)≥0(p-q)(p^{\\prime}-q^{\\prime})\\geq 0), Substitute Proposition 1 into Proposition 3:",
+    "index": 87
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex15",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "L⁡(𝐀′,𝐗′,𝐰∗,b∗)≥log⁡(2)⋅12​exp⁡(−Δtest28​σ2).L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)\\geq\\log(2)\\cdot\\frac{1}{2}\\exp\\left(-\\frac{\\Delta_{\\text{test}}^{2}}{8\\sigma^{2}}\\right).",
+    "index": 24
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p12.2",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Approximate exp⁡(−x)≥1−x\\exp(-x)\\geq 1-x for x≥0x\\geq 0 (valid for small xx):",
+    "index": 88
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex16",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "exp⁡(−Δtest28​σ2)≥1−Δtest8​σ.\\exp\\left(-\\frac{\\Delta_{\\text{test}}^{2}}{8\\sigma^{2}}\\right)\\geq 1-\\frac{\\Delta_{\\text{test}}}{\\sqrt{8}\\sigma}.",
+    "index": 25
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p12.3",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Combine results:",
+    "index": 89
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex17",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "L⁡(𝐀′,𝐗′,𝐰∗,b∗)≥log⁡(2)​(1−Δtest8​σ).L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)\\geq\\log(2)\\left(1-\\frac{\\Delta_{\\text{test}}}{\\sqrt{8}\\sigma}\\right).",
+    "index": 26
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p12.4",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "Substitute Δtest=R​‖𝝁−𝝂‖⋅p′−q′p′+q′\\Delta_{\\text{test}}=R\\|\\bm{\\mu}-\\bm{\\nu}\\|\\cdot\\frac{p^{\\prime}-q^{\\prime}}{p^{\\prime}+q^{\\prime}} to obtain the final bound",
+    "index": 90
+  },
+  {
+    "kind": "equation",
+    "id": "A1.Ex18",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "L⁡(𝐀′,𝐗′,𝐰∗,b∗)≥log⁡(2)​(1−R​‖𝝁−𝝂‖​|p′−q′|8​σ​(p′+q′))​(1+o⁡(1)).L\\left(\\mathbf{A}^{\\prime},\\mathbf{X}^{\\prime},\\mathbf{w}^{*},b^{*}\\right)\\geq\\log(2)\\left(1-\\frac{R\\|\\bm{\\mu}-\\bm{\\nu}\\||p^{\\prime}-q^{\\prime}|}{\\sqrt{8}\\sigma(p^{\\prime}+q^{\\prime})}\\right)(1+o(1)).",
+    "index": 27
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2"
+    ],
+    "text": "Appendix B Experimental Settings",
+    "index": 26
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "For the baseline models, we adopt the same parameter setting in their original paper. For the proposed MoE-NP , we adopt the MLP as the gating model and employ pretrained node predictors as experts. We use a single GPU of NVIDIA RTX 4090 24 GB , to conduct the experiments.",
+    "index": 91
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.p2.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "All the hyperparameters are tuned based on the validation set from the following search space:",
+    "index": 92
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.p3.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Experts Training",
+    "index": 93
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I1.i1.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Learning Rate: {0.0005,0.001}\\{0.0005,0.001\\}",
+    "index": 94
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I1.i2.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Dropout: {0∼0.9}\\{0\\sim 0.9\\}",
+    "index": 95
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I1.i3.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Weight Decay: {1​e−5,5​e−5,1​e−4}\\{1\\mathrm{e}-5,5\\mathrm{e}-5,1\\mathrm{e}-4\\}",
+    "index": 96
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I1.i4.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "number of layers = {2,3,4}\\{2,3,4\\}",
+    "index": 97
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I1.i5.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "hidden channels ={32,64,128,256}\\{32,64,128,256\\}",
+    "index": 98
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.p4.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Gating Networks Training",
+    "index": 99
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i1.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Gating Learning Rate: {0.0005,0.001}\\{0.0005,0.001\\}",
+    "index": 100
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i2.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Gating Weight Decay: {1​e−5,5​e−5,1​e−4}\\{1\\mathrm{e}-5,5\\mathrm{e}-5,1\\mathrm{e}-4\\}",
+    "index": 101
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i3.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Expert Learning Rate: {0.001,0.01,0.1,0.5}\\{0.001,0.01,0.1,0.5\\}",
+    "index": 102
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i4.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Expert Weight Decay: {0,5​e−5,5​e−3,5​e−2}\\{0,5\\mathrm{e}-5,5\\mathrm{e}-3,5\\mathrm{e}-2\\}",
+    "index": 103
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i5.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "hidden channels ={32,64,128,256}\\{32,64,128,256\\}",
+    "index": 104
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i6.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Dropout: {0∼0.9}\\{0\\sim 0.9\\}",
+    "index": 105
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i7.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "number of MLP layers : {1,2,3,4}\\{1,2,3,4\\}",
+    "index": 106
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.I2.i8.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "max random walk length : {5,10,20,40}\\{5,10,20,40\\}",
+    "index": 107
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [],
+    "text": "Instructions for reporting errors",
+    "index": 27
+  }
+]

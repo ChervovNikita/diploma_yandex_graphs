@@ -1,0 +1,39 @@
+# Amazon/Polynormer aggregation protocol V2
+
+This specification amends the preserved V1 before any fusion fit or score. It addresses all six findings of the independent V1 protocol review. V1 remains the complete description of bank custody, VALID-only outer/inner folds, nine bank operators, fixed graph diffusion/C&S, metrics and future confirmation boundary. The V2 JSON is the operative machine-readable specification. The definitions below supersede conflicting V1 text; all unamended scientific constants and role restrictions remain fixed. This is retrospective development, not untouched confirmation.
+
+## Purpose and references
+
+Test whether transported local member-error moments improve combination of the existing complete four-member prediction banks. All members have already run. Both shared and independent banks receive identical processing opportunities. The member0 single receives its own capable, comparable-budget processing. No extra backbone fit, hidden export or GPU forward is part of this screen. All outputs, failures and costs are retained. This study can reject an idea cheaply; it cannot establish novelty or acceptance by itself.
+
+## F1: exact graph
+
+The graph mask uses each bank's native FP32 member softmax and arithmetic probability mean argmax; the single uses native member0 FP32 softmax argmax. Ties select the smallest class. FP64 discrepancies are diagnostics and cannot choose a different mask. Retained non-loop edges join equal predicted classes and every original self-loop remains. The source graph is canonical undirected int64 [2,210592], with duplicates forbidden. T[u,v] uses edge_index[0]=u and edge_index[1]=v, degree counts the self-loop, CSR indices are sorted and values are FP64 1/degree[u]. Bind retained edges and actual normalized CSR arrays before outcome selection. Different banks have different fixed masks.
+
+## F2: processed single
+
+The independent member0 is the fixed native single alias, with no favorable-member selection. Native ID0 and residual-head ID10 use the same VALID-only folds and C&S adaptation, with the single's own graph. The head has 17 inputs: probabilities5, stable log-probabilities5, H(probabilities)5, log1p(degree)1 and permitted anchor mass1. Its width156 gives3678 parameters, versus3650/3675 in bank heads. Its two regularizers, training/standardization rule and seed recipe match the bank heads; bank token is single_author, operator10. Native+C&S and the tuned head+C&S compete by that split's corrected OOF Brier. Report all three single configurations raw and corrected.
+
+## F3: fitted-control competence
+
+Within exactly150 full-batch Adam updates, evaluate steps0..150 and retain the lowest permitted B-training penalized objective, including the initial zero-residual state. Strict improvement wins, exact ties retain the earliest step. D labels never select the iterate. Apply this rule to bank heads, single heads and global calibration. Record initial, final-update and selected Brier, penalty, objective and gradient L2, trajectory, selected step and time. Failure to optimize a control cannot support analytic superiority. Adam uses betas(0.9,0.999), epsilon1e-8, no AMSGrad/maximize/foreach/fused path. Population standardization has ddof0 and std floor1e-6. Xavier gain1 uses the pinned Torch CPU generator and existing SHA256 seed recipe.
+
+## F4: complete processed comparisons
+
+For each split independently, select settings and bank finalists by the V1 corrected-OOF-Brier rule. Add the processed single to each bank's strongest cheap reference. For a shared-superiority confirmation proposal, best processed shared must meet all V1 practical quality thresholds against both best processed independent and best processed single: mean Brier improvement>=0.002, positive Brier difference in at least2/3 splits, mean accuracy gain>=0.25points, no split accuracy loss>0.5points and mean NLL harm<=0.01nats. The per-bank own-native/cheap gates also remain. These are fixed screening thresholds, not significance tests. If this fails, no shared superiority is promoted; an effective common processor may remain an attributed separate hypothesis. Because bank graphs differ, this is a complete-pipeline quality comparison, with no causal-sharing conclusion.
+
+Display all already computed matched-rho local-full versus global-full/local-diagonal contrasts, alongside the tuned-route contrasts. The0.001 Brier match tolerance for capable full-information stacking or label-posterior projection applies to the mean three-split corrected difference. It limits interpretation; it does not erase useful quality evidence.
+
+## F5: stable arithmetic
+
+All new processing is FP64 CPU with one numerical thread and deterministic Torch algorithms. Bind package/BLAS versions at source qualification before fitting. Use stable log-softmax/log-sum-exp skip probabilities, then softmax(log skip+residual); never take log of an underflowed probability. Zero residual recovers the analytic skip algebraically, with FP64 discrepancy reported. New NLL uses q_delta=(1-1e-12)q+1e-12/5; the original native uncorrected NLL retains its stable uncontaminated mixture calculation.
+
+Solve each four-variable convex problem by batched enumeration of all15 nonempty free faces, increasing face size then lexicographic member indices. Inactive weights are0.0125. Solve the equality-constrained KKT system for the scaled objective w'A w-2b'w: divide A,b by max(maxabsA,maxabsb,1e-12). Ridge moment problems use direct solve; singular posterior projection uses Moore-Penrose pseudoinverse rcond1e-12 without added ridge. Feasible candidates satisfy floor/sum/KKT checks; lowest scaled objective wins, differences<=1e-14 are numerical ties resolved by lowest squared weight norm, then first face. This implements a numerical minimum-norm projection tie rule. Clip/renormalize only roundoff excess above the floor and repeat checks. Assert finite/symmetric/PSD matrices and report scaled/raw stationarity separately at tolerance1e-10, plus probability and weight simplex checks. Preserve failed attempts; arithmetic repairs cannot change scientific constants or selectively spare an arm.
+
+## F6: costs and boundaries
+
+Development has90 MLP fits and36 calibration fits: the original72+36 plus18 single-head fits. There are297 outer configuration predictions,594 logical C&S H applications,54 bank seed-context H applications,27 single-mass H applications and9 label-free H applications:684 logical H applications/13680 twenty-step field propagations. Batching all C&S configurations into shared block fields reduces sparse call counts; with context reuse this is at most144 batched H calls/2880 sparse matrix calls, with differing widths. Report actual counters/time/RSS and field widths, not an equivalence between a3.1MB context and peak memory. Charge solves, feature/head work, cacheI/O and serving.
+
+No final refit is admitted here. A separately released frozen confirmation recipe must charge up to6 selected bank learned refits plus3 single-head refits, full-VALID fields/C&S and any feature reconstruction. Historical fifteen-model acquisition, qualification, the failed CPU-configured evaluator and corrected CUDA evaluator, replay and forward costs remain separately retained. All bank members still execute in deployment.
+
+Fusion fits and scores use each split's own VALID only. FIT, TRAIN-control and TEST stay excluded. Cross-fitting the aggregator does not remove base VALID checkpoint selection or OOF tuning bias. Across-split screening cannot alter a split's predictor using another split's outcomes, drop an unfavorable block or imply independence. Original native endpoints and manuscript scores remain unchanged. Source implementation and numerical/custody qualification are prerequisites before root execution admission.

@@ -2,18 +2,21 @@
 
 ## Current research — 5 October 2026
 
-The objective is predictive quality from a learnable graph ensemble with a shared backbone. No new method yet establishes both methodological novelty and better prediction than competent singles and independent ensembles. Original five-dataset manuscript scores remain unchanged.
+We are testing predictive quality of shared graph ensembles against strong single models and independent ensembles. Original five-dataset paper scores remain unchanged. No new method has established both novelty and confirmed superiority.
 
-Only the authorized one-GPU allocation is currently accessed. Access to18.77/MacLink is withdrawn; its jobs remain untouched and unobserved. The private-learning rule and matched controls continue: at14:05 UTC, the allocation original block was4/10 complete and its single companion2/3. The original30/full39 gates remain unchanged. Amazon/Polynormer was14/15 complete; PENCIL had2/3 frozen full native300 fits, with its final seed running. Outcomes stay closed until full-family custody.
+The complete fifteen-fit Amazon/Polynormer comparison finished with exact selected-checkpoint logit replay. Reserved TRAIN-control mean accuracy is52.7203% member0 single,52.9243% shared4 and54.0533% independent4. Shared4 loses1.1290percentage points and2.2709NLL nats on average to independent4. This supplies no shared-superiority claim; TEST remains unopened. The root CPU-configuration evaluator failure and successful corrected evaluator are both preserved.
 
-The retained Pubmed discarded TRAIN-step checks now have a separate retrospective adoption after complete read-only source/control/input/result/inventory closure. All three numerical architectures passed; the original supervisor workflow and first collector remain failed and preserved. There was no numerical rerun, fit, predictive score or TEST access. Full native cost/evaluator/resource qualification and a surviving complete original30 quality lead still precede Pubmed fits.
+Two aggregation hypotheses remain: transport local member-error moments to weight the existing predictions, and fuse fixed private hidden states with a small nonlinear readout. Learned weighting, graph correction and feature/depth fusion have direct precedents. The fixed V2 CPU screen includes capable same-information stacking, complete processed independent banks and a comparable-budget processed member0 single. It uses each split's own VALID with whole-fold exclusion, but checkpoint/OOF reuse remains retrospective development. No fusion fit, hidden export or new backbone forward has yet occurred.
 
-Literature index69 preserves249 scoped records/197 paper groups/two software groups, and adds one bounded MGL author-source event with zero new paper-reading credit. Elementary information/kernel analysis clarifies where a route must preserve upstream graph information, without establishing generalization, ensemble necessity or novelty. Two existing composition families are being reassessed using PNA/FSW and LPFormer ingredients. Latest human steering permits building on third-party methods and prioritizes prediction/hidden-state fusion; separate primary-literature and aggregation analysis tasks are active. No late-fusion experiment is yet admitted.
+The completed saved Citeseer independent-four rank screen gives27.9204% raw-pool versus28.0921% equal-Borda VALID MRR, mixed three-block gains with an interval including zero. Keep Borda as a cheap control, without shared-bank or final-score promotion.
 
-- [Measured state and preserved results](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
-- [Retrospective Pubmed qualification scope](experiments_iclr/postsubmission_20260930/private_transfer_pubmed_fp32_retrospective_collection_execution_root_20261005_v2/ROOT_ADOPTION_REPORT.md)
-- [Literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v69/LITERATURE_INDEX.json)
-- [Broader attributed directions](experiments_iclr/postsubmission_20260930/shared_backbone_broader_quality_synthesis_20261005_v1/REPORT.md)
+Only the authorized one-GPU allocation is accessed;18.77/MacLink remains withdrawn. At16:14UTC the original private-learning block was7/10, its matched-single block3/3 and PENCIL2/3. Full-cohort requirements remain. Index72 preserves260 scoped records/207paper identities/two software identities, not full-paper reading counts. A sealed standalone scout includes VFusion's directly relevant frozen depth/feature fusion. GENNN primary method access remains unresolved.
+
+- [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
+- [Fixed aggregation development protocol](experiments_iclr/postsubmission_20260930/amazon_polynormer_logits_graph_moment_retrospective_protocol_20261005_v2/REPORT.md)
+- [Complete Amazon comparison](experiments_iclr/postsubmission_20260930/amazon_polynormer_complete15_original_comparison_root_adoption_20261005_v1/REPORT.md)
+- [Complete cheap rank screen](experiments_iclr/postsubmission_20260930/citeseer_saved_independent_bank_pooling_screen_20261005_v3/OUTCOME.md)
+- [Literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v72/LITERATURE_INDEX.json)
 - [Preserved research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json)
 
 ## Original method
@@ -260,4 +263,4 @@ The fixed BUDDY family completed15served cells/24physical fits, selected-checkpo
 
 The completed whole-pattern versus individual-incidence comparison scored64.3066% versus64.0903% validation Hits@50: +0.2164 percentage points in one seed. All100 training streams matched and both1700-update fits, diagnostics, closure and complete-pair reader finished. Pooling the learned completion weights outperformed private completion at the fixed selected states; that adverse mechanism diagnostic is preserved. No serving route is promoted from this inspection. The next prospective source includes pooled J/F training, a capable count-aware single and a no-auxiliary control. It is not an executed experiment or established contribution.
 
-The authored Amazon Polynormer queue was healthy at2483/2700updates in its first fit at02:32:30UTC on4October, with the original15-fit comparison unchanged. Pubmed CPU and full native SAGE/NCNC numerical/continuation qualification completed under ordinary supervision; all292 engineering updates,12 complete validation serves, six evaluator agreements and four continuation checks passed. These states are barred as scientific donors. The initial missing-public-source preflight failure is retained with the corrected dispatch. The all25 NCNC checkpoint-metric audit remains pending: v4 source review and four limited stdlib checks passed, while its22-case CUDA qualification and real all25 execution remain unrun. Existing manuscript scores remain unchanged. See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) and the ledger.
+For the latest completed Amazon comparison, queue state and qualification limits, see [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Existing manuscript scores remain unchanged.

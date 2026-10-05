@@ -1,0 +1,1987 @@
+[
+  {
+    "kind": "heading",
+    "id": "modal-title",
+    "sections": [],
+    "text": "Report GitHub Issue",
+    "index": 0
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [],
+    "text": "What Makes Graph Neural Networks Miscalibrated?",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "abstract1.1",
+    "sections": [],
+    "text": "Given the importance of getting calibrated predictions and reliable uncertainty estimations, various post-hoc calibration methods have been developed for neural networks on standard multi-class classification tasks. However, these methods are not well suited for calibrating graph neural networks (GNNs), which presents unique challenges such as accounting for the graph structure and the graph-induced correlations between the nodes. In this work, we conduct a systematic study on the calibration qualities of GNN node predictions. In particular, we identify five factors which influence the calibration of GNNs: general under-confident tendency, diversity of nodewise predictive distributions, distance to training nodes, relative confidence level, and neighborhood similarity. Furthermore, based on the insights from this study, we design a novel calibration method named Graph Attention Temperature Scaling (GATS), which is tailored for calibrating graph neural networks. GATS incorporates designs that address all the identified influential factors and produces nodewise temperature scaling using an attention-based architecture. GATS is accuracy-preserving, data-efficient, and expressive at the same time. Our experiments empirically verify the effectiveness of GATS, demonstrating that it can consistently achieve state-of-the-art calibration results on various graph datasets for different GNN backbones.11 1 Source code available at https://github.com/hans66hsu/GATS",
+    "index": 0
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S1"
+    ],
+    "text": "1 Introduction",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Graph-structured data, such as social networks, knowledge graphs and internet of things, have wide-spread presence and learning on graphs using neural networks has been an active area of research. For node classification on graphs, a wide range of graph neural network (GNN) models, including GCN [14], GAT [40] and GraphSAGE [9], have been proposed to achieve high classification accuracy.",
+    "index": 1
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.p2.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "This said, high accuracy is not the only desideratum for a classifier. Especially, reliable uncertainty estimation is crucial for applications like safety critical tasks and active learning. Neural networks are known to produce poorly calibrated predictions that are either overconfident or under-confident [7, 41]. To mitigate this issue a variety of post-hoc calibration methods [7, 19, 43, 38, 8] have been introduced over the last few years for calibrating neural networks on standard multi-class classification problems. However, calibration of GNNs, in the context of node classification on graphs, is currently still an underexplored topic. While it is possible to apply existing calibration methods designed for multi-class classification to GNNs in a nodewise manner, this does not address the specific challenges of node classification on graphs. Especially, node predictions in a graph are not i.i.d. but correlated, and we are tackling a structured prediction problem [25]. A uniform treatment when calibrating node predictions would fail to account for the structural information from graphs and the non i.i.d. behavior of node predictions.",
+    "index": 2
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S1",
+      "S1.SS0.SSS0.Px1"
+    ],
+    "text": "Our contribution.",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S1.SS0.SSS0.Px1.p1.1",
+    "sections": [
+      "S1",
+      "S1.SS0.SSS0.Px1"
+    ],
+    "text": "In this work, we focus on calibrating GNNs for the node classification task [14, 40]. First, we aim at understanding the specific challenges posed by GNNs by conducting a systematic study on the calibration qualities of GNN node predictions. Our study reveals five factors that influence the calibration performance of GNNs: general under-confident tendency, diversity of nodewise predictive distributions, distance to training nodes, relative confidence level, and neighborhood similarity. Second, we develop Graph Attention Temperature Scaling (GATS) approach, which is designed in a way that accounts for the aforementioned influential factors. GATS generates nodewise temperatures that calibrate GNN predictions based on the graph topology. Third, we conduct a series of GNN calibration experiments and empirically verify the effectiveness of GATS in terms of calibration, data-efficiency, and expressivity.",
+    "index": 3
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S2"
+    ],
+    "text": "2 Related work",
+    "index": 4
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p1.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "For standard multi-class classification tasks, a variety of post-hoc calibration methods have been proposed in order to make neural networks uncertainty aware: temperature scaling (TS) [7], ensemble temperature scaling (ETS) [43], multi-class isotonic regression (IRM) [43], Dirichlet calibration [19], spline calibration [8], etc. Additionally, calibration has been formulated for regression tasks [17]. More generally, instead of transforming logits after training a classifier, a plethora of methods exists that modify either the model architecture or the training process itself. This includes methods that are based on Bayesian paradigm [12, 1, 6, 22, 42], evidential theory [33], adversarial calibration [37] and model ensembling [20]. One common caveat of these methods is the trade-off between accuracy and calibration, which oftentimes do not go hand in hand. Post-hoc methods like temperature scaling, on the other hand, are accuracy preserving. They ensure that the per node logit rankings are unaltered.",
+    "index": 4
+  },
+  {
+    "kind": "paragraph",
+    "id": "S2.p2.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Calibration of GNNs is currently a substantially less explored topic. Nodewise post-hoc calibration on GNNs using methods developed for the multi-class setting has been empirically evaluated by Teixeira et al. [36]. They show that these methods, which perform uniform calibration of nodewise predictions, are unable to produce calibrated predictions for some harder tasks. Wang et al. [41] observe that GNNs tend to be under-confident in contrast to the majority of multi-class classifiers, which are generally overconfident [7]. Based on their findings, Wang et al. [41] propose the CaGCN approach, which attaches a GCN on top of the backbone GNN for calibration. Some approaches improve the uncertainty estimation of GNNs by adjusting model training. This includes Bayesian learning approaches [45, 10] and methods based on the evidential theory [46, 35].",
+    "index": 5
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S3"
+    ],
+    "text": "3 Problem setup for GNN calibration",
+    "index": 5
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.p1.1",
+    "sections": [
+      "S3"
+    ],
+    "text": "We consider the problem of calibrating GNNs for node classification tasks: given a graph 𝒢=(𝒱,ℰ)\\mathcal{G}=(\\mathcal{V},\\mathcal{E}), the training data consist of nodewise input features {xi}i∈𝒱∈𝒳\\{x_{i}\\}_{i\\in\\mathcal{V}}\\in\\mathcal{X} and ground-truth labels {yi}i∈ℒ∈𝒴={1,…,K}\\{y_{i}\\}_{i\\in\\mathcal{L}}\\in\\mathcal{Y}=\\{1,\\dots,K\\} for a subset ℒ⊂𝒱\\mathcal{L}\\subset\\mathcal{V} of nodes, and the goal is to predict the labels {yi}i∈𝒰∈𝒴\\{y_{i}\\}_{i\\in\\mathcal{U}}\\in\\mathcal{Y} for the rest of the nodes 𝒰=𝒱∖ℒ\\mathcal{U}=\\mathcal{V}\\setminus\\mathcal{L}. A graph neural network tackles the problem by producing nodewise probabilistic forecasts p^i\\hat{p}_{i}. These forecasts yield the corresponding label predictions y^i:=argmaxyp^i​(y)\\hat{y}_{i}:=\\argmax_{y}\\hat{p}_{i}(y) and confidences c^i:=maxy⁡p^i​(y)\\hat{c}_{i}:=\\max_{y}\\hat{p}_{i}(y). The GNN is calibrated when its probabilistic forecasts are reliable, e.g., for predictions with confidence 0.80.8, they should be correct 80%80\\% of the time. Formally, a GNN is perfectly calibrated [41] if",
+    "index": 6
+  },
+  {
+    "kind": "equation",
+    "id": "S3.E1",
+    "sections": [
+      "S3"
+    ],
+    "text": "∀c∈[0,1],ℙ⁡(yi=y^i|c^i=c)=c.\\forall c\\in[0,1],\\quad\\mathbb{P}(y_{i}=\\hat{y}_{i}|\\hat{c}_{i}=c)=c. (1)",
+    "index": 0
+  },
+  {
+    "kind": "paragraph",
+    "id": "S3.p1.2",
+    "sections": [
+      "S3"
+    ],
+    "text": "In practice, we quantify the calibration quality with the expected calibration error (ECE) [27, 7]. We follow the commonly used definition from Guo et al. [7] which uses a equal width binning scheme to estimate calibration error for any node subset 𝒩⊂𝒱\\mathcal{N}\\subset\\mathcal{V}: the predictions are regrouped according to MM equally spaced confidence intervals, i.e. (B1,…,BM)(B_{1},\\dots,B_{M}) with Bm={j∈𝒩|m−1M<c^j≤mM}B_{m}=\\{j\\in\\mathcal{N}\\,|\\,\\frac{m-1}{M}<\\hat{c}_{j}\\leq\\frac{m}{M}\\}, and the expected calibration error of the GNN forecasts is defined as",
+    "index": 7
+  },
+  {
+    "kind": "equation",
+    "id": "S3.EGx1",
+    "sections": [
+      "S3"
+    ],
+    "text": "ECE=∑m=1M|Bm||𝒩|​|acc​(Bm)−conf​(Bm)|, with\\displaystyle\\text{ECE}=\\sum_{m=1}^{M}\\frac{|B_{m}|}{|\\mathcal{N}|}\\Big|\\text{acc}(B_{m})-\\text{conf}(B_{m})\\Big|,\\text{ with } (2) acc​(Bm)=1|Bm|​∑i∈Bm𝟏​(yi=y^i)​ and conf​(Bm)=1|Bm|​∑i∈Bmc^i.\\displaystyle\\text{acc}(B_{m})=\\frac{1}{|B_{m}|}\\sum_{i\\in B_{m}}\\mathbf{1}(y_{i}=\\hat{y}_{i})\\text{ and }\\text{conf}(B_{m})=\\frac{1}{|B_{m}|}\\sum_{i\\in B_{m}}\\hat{c}_{i}. (3)",
+    "index": 1
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4"
+    ],
+    "text": "4 Factors that influence GNN calibration",
+    "index": 6
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.p1.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "To design calibration methods adapted to GNNs, we need to figure out the particular factors that influence the calibration quality of GNN predictions. For this we train a series of GCN [14] and GAT [40] models on seven graph datasets: Cora [32], Citeseer [32], Pubmed [23], Amazon Computers [34], Amazon Photo [34], Coauthor CS [34], and Coauthor Physics [34]. We summarize the dataset statistics in Appendix A.1. Details about model training are provided in Appendix A.2 for reproducibility. To compare with the standard multi-class classification case, we additionally train ResNet-20 [11] models on the CIFAR-10 image classification task [16] as a reference.",
+    "index": 8
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.p2.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "Our experiments uncover five decisive factors that affect the calibration quality of GNNs. In the following we discuss them in detail.",
+    "index": 9
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "4.1 General under-confident tendency",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "Starting with a global perspective, we notice that GNNs tend to produce under-confident predictions. In Figure 1 we plot the reliability diagrams [24] for results on different graph datasets using GCN. Similar to Wang et al. [41], we see a general trend of under-confident predictions for GNNs. This is in contrast to the standard multi-class image classification case which has overconfident behavior. Also, it is interesting to see that this under-confident trend can be more or less pronounced depending on the dataset. For Coauthor Physics, the predictions are well calibrated and have no significant bias.",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS1.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS1"
+    ],
+    "text": "Results using GAT models lead to similar conclusions and are provided in Appendix B.1.",
+    "index": 11
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "4.2 Diversity of nodewise predictive distributions",
+    "index": 8
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS2.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "Contrary to the standard multi-class case, GNN outputs can have varying roles depending on their positions in the graph, which means that their output distributions could exhibit dissimilar behaviors. This is empirically evident in Figure 2, where we visualize the entropy distributions of GCN output predictions v.s. the standard multi-class results (GAT results are available in Appendix B.2). We see that the entropies of GNN outputs have more spread-out distributions, which indicates that they have distinct roles and behaviors in graphs.",
+    "index": 12
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS2.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS2"
+    ],
+    "text": "In terms of GNN calibration, this observation implies that uniform node-agnostic adjustments like temperature scaling [7] might be insufficient for GNNs, whereas nodewise adaptive approaches could be beneficial.",
+    "index": 13
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "4.3 Distance to training nodes",
+    "index": 9
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS3.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "A graph provides additional structural information for its nodes. One insightful feature is the minimum distance to training nodes. We discover that nodes with shorter distances, especially the training nodes themselves and their direct neighbors, tend to be better calibrated.",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS3.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "To evaluate the calibration quality nodewise, we propose the nodewise calibration error, which is based on the binning scheme used to compute the global expected calibration error (ECE) [27, 7]: for each node, we find its corresponding bin depending on its predicted confidence, and the calibration error of this bin is assigned to be its nodewise calibration error.",
+    "index": 15
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS3.p3.1",
+    "sections": [
+      "S4",
+      "S4.SS3"
+    ],
+    "text": "Using this nodewise metric, in Figure 3 we visualize the influence of minimum distance to training nodes on the nodewise calibration quality (c.f. Appendix B.3 for GAT results). We see that nodes close to training ones typically have lower nodewise calibration error. This suggests that minimum distance to training nodes can be useful for GNN calibration.",
+    "index": 16
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "4.4 Relative confidence level",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS4.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "Another important structural information is the neighborhood relation. We find out that the relative confidence level δ​c^i\\delta\\hat{c}_{i} of a node ii, i.e., the difference between the nodewise confidence c^i\\hat{c}_{i} and the average confidence of its neighbors",
+    "index": 17
+  },
+  {
+    "kind": "equation",
+    "id": "S4.E4",
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "δ​c^i=c^i−1|n⁡(i)|​∑j∈n⁡(i)c^j\\delta\\hat{c}_{i}=\\hat{c}_{i}-\\frac{1}{|n(i)|}\\sum_{j\\in n(i)}\\hat{c}_{j} (4)",
+    "index": 2
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS4.p1.2",
+    "sections": [
+      "S4",
+      "S4.SS4"
+    ],
+    "text": "has an interesting correlation to the nodewise calibration quality. In Figure 4 we show the relation between the relative confidence level of a node and its nodewise calibration error (c.f. Appendix B.4 for GAT results). Especially, We observe that nodes which are less confident than their neighbors tend to have worse calibration, and it is in general desirable to have comparable confidence level w.r.t. the neighbors. For GNN calibration, the relative confidence level δ​c^i\\delta\\hat{c}_{i} can be a useful node feature to consider.",
+    "index": 18
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "4.5 Neighborhood similarity",
+    "index": 11
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS5.p1.1",
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "Furthermore, we find that different neighbors tend to introduce distinct influences. For assortative graphs which are the focus of this work, we find out that calibration of nodes are affected by node homophily, i.e., whether a node tends to have the same label prediction as its neighbors. For a node with nan_{a} agreeing neighbors and ndn_{d} disagreeing ones, we measure the node homophily as",
+    "index": 19
+  },
+  {
+    "kind": "equation",
+    "id": "S4.E5",
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "Node homophily=log⁡(na+1nd+1),\\text{Node homophily}=\\log\\Big(\\frac{n_{a}+1}{n_{d}+1}\\Big), (5)",
+    "index": 3
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS5.p1.2",
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "where positive values indicate greater ratio of agree neighbors and vice versa.",
+    "index": 20
+  },
+  {
+    "kind": "paragraph",
+    "id": "S4.SS5.p2.1",
+    "sections": [
+      "S4",
+      "S4.SS5"
+    ],
+    "text": "Figure 5 summarizes the variation of nodewise calibration error w.r.t. the node homophily for different graph datasets (c.f. Appendix B.5 for GAT results). We find out that nodewise calibration errors tend to decrease significantly for nodes with strongly agreeing neighbors. This suggests that neighborhood predictive similarity should be considered when doing GNN calibration.",
+    "index": 21
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5"
+    ],
+    "text": "5 Graph attention temperature scaling (GATS)",
+    "index": 12
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.p1.1",
+    "sections": [
+      "S5"
+    ],
+    "text": "Based on the findings in Section 4, we design a new post-hoc calibration method, named Graph Attention Temperature Scaling (GATS), which is tailored for GNNs.",
+    "index": 22
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "5.1 Formulation and design of GATS",
+    "index": 13
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS1.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "To obtain a calibration method that is adapted to the graph structure 𝒢=(𝒱,ℰ)\\mathcal{G}=(\\mathcal{V},\\mathcal{E}) and reflects the observed influential factors in Section 4, the graph attention temperature scaling approach extends the temperature scaling [7] method to produce a distinct temperature TiT_{i} for each node i∈𝒱i\\in\\mathcal{V}. TiT_{i} is then used to scale the uncalibrated nodewise output logits ziz_{i} and produce calibrated node predictions p^i\\hat{p}_{i}",
+    "index": 23
+  },
+  {
+    "kind": "equation",
+    "id": "S5.E6",
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "∀i∈𝒱,p^i=softmax(ziTi).\\forall i\\in\\mathcal{V},\\quad\\hat{p}_{i}=\\softmax\\Big(\\frac{z_{i}}{T_{i}}\\Big). (6)",
+    "index": 4
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "Formulation of TiT_{i}.",
+    "index": 14
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS1.SSS0.Px1.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "The nodewise temperature TiT_{i} should address the five factors discussed in Section 4. We achieve this via the following considerations:",
+    "index": 24
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I1.i1.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "We introduce a global bias parameter T0T_{0} to account for the general under-confident tendency;",
+    "index": 25
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I1.i2.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "To tackle the diverse behavior of node predictions, we learn a nodewise temperature contribution τi\\tau_{i} based on the predicted nodewise logits ziz_{i};",
+    "index": 26
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I1.i3.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "To incorporate the relative confidence w.r.t. neighbors, we introduce δ​c^i\\delta\\hat{c}_{i} from Eq. 4 as an additional contribution term scaled by a learnable coefficient ω\\omega;",
+    "index": 27
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I1.i4.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "To model the influence of neighborhood similarity, we use an attention mechanism [39] to aggregate neighboring contributions τj\\tau_{j} with attention coefficients αi,j\\alpha_{i,j} depending on the output similarities between the neighbors ii and jj;",
+    "index": 28
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I1.i5.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "Distance to training nodes is used to introduce a nodewise scaling factor γi\\gamma_{i} to adjust the node contribution and the aggregation process. It is learnable for training nodes and their direct neighbors and fixed to 11 for the rest:",
+    "index": 29
+  },
+  {
+    "kind": "equation",
+    "id": "S5.E7",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "γi={γt, if ​i​ is a training nodeγn, if ​i​ is a neighbor of training node1, otherwise,γt,γn​ learnable parameters.\\gamma_{i}=\\begin{cases}\\gamma_{t},&\\text{ if }i\\text{ is a training node}\\\\ \\gamma_{n},&\\text{ if }i\\text{ is a neighbor of training node}\\\\ 1,&\\text{ otherwise}\\end{cases},\\quad\\gamma_{t},\\gamma_{n}\\text{ learnable parameters}. (7)",
+    "index": 5
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS1.SSS0.Px1.p1.2",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "Putting together the above components, the nodewise temperature TiT_{i} has the following expression:",
+    "index": 30
+  },
+  {
+    "kind": "equation",
+    "id": "S5.E8",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "∀i∈𝒱,Ti=1H​∑h=1Hsoftplus⁡(ω​δ​c^i+∑j∈n^​(i)αi,j​γj​τjh)+T0.\\forall i\\in\\mathcal{V},\\quad T_{i}=\\frac{1}{H}\\sum_{h=1}^{H}\\softplus\\big(\\omega\\ \\delta\\hat{c}_{i}+\\sum_{j\\in\\hat{n}(i)}\\alpha_{i,j}\\ \\gamma_{j}\\ \\tau^{h}_{j}\\big)+T_{0}. (8)",
+    "index": 6
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS1.SSS0.Px1.p1.3",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px1"
+    ],
+    "text": "Here we have a multi-head formulation where hh indicates the hh-th attention head, and n^​(i)\\hat{n}(i) denotes the neighbors of node ii including self-loop. We uses 8 heads (H=8H=8), which works well in practice. (c.f. Section 6.3.)",
+    "index": 31
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px2"
+    ],
+    "text": "Defining τih\\tau^{h}_{i}.",
+    "index": 15
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS1.SSS0.Px2.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px2"
+    ],
+    "text": "Nodewise contribution τih\\tau^{h}_{i} are computed as the outputs of parameterized linear layers ϕh​(⋅,θ)\\phi^{h}(\\cdot;\\theta) which take transformed nodewise output logits z~i\\tilde{z}_{i} as input",
+    "index": 32
+  },
+  {
+    "kind": "equation",
+    "id": "S5.E9",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px2"
+    ],
+    "text": "∀i∈𝒱,∀h∈[1,H],τih=ϕh​(z~i,θh)=(θh)⊤​z~i.\\forall i\\in\\mathcal{V},\\forall h\\in[1,H],\\quad\\tau^{h}_{i}=\\phi^{h}(\\tilde{z}_{i};\\theta^{h})=(\\theta^{h})^{\\top}\\ \\tilde{z}_{i}. (9)",
+    "index": 7
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS1.SSS0.Px2.p1.2",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px2"
+    ],
+    "text": "The transformed nodewise output logits z~i\\tilde{z}_{i} are produced as follows: we first normalize the original logits ziz_{i} to range [0,1][0,1], then sort the classwise logits for each node. This makes the linear layers ϕh\\phi^{h} focus on the general logit distributions rather than class predictions. A similar idea has been explored by Rahimi et al. [30], where they show that intra order-preserving functions improve the model calibration. Here we find out that this sorting-based transformation helps GATS to learn useful representations of nodewise contributions τih\\tau^{h}_{i}. (c.f. Section 6.3.)",
+    "index": 33
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px3"
+    ],
+    "text": "Defining αi,j\\alpha_{i,j}.",
+    "index": 16
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS1.SSS0.Px3.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px3"
+    ],
+    "text": "The attention coefficients αi,j\\alpha_{i,j} are defined based on the neighbor similarity, which is determined by the inner product between rescaled nodewise logits zi/γiz_{i}/\\gamma_{i} and zj/γjz_{j}/\\gamma_{j}. Inspired by Veličković et al. [40], we compute the attention coefficients αi,j\\alpha_{i,j} as follows:",
+    "index": 34
+  },
+  {
+    "kind": "equation",
+    "id": "S5.E10",
+    "sections": [
+      "S5",
+      "S5.SS1",
+      "S5.SS1.SSS0.Px3"
+    ],
+    "text": "(αi,j)j∈n^​(i)=softmaxj∈n^​(i)(leakyReLU⁡(1γi​γj​zi⊤​zj)).(\\alpha_{i,j})_{j\\in\\hat{n}(i)}=\\softmax_{j\\in\\hat{n}(i)}\\Big(\\leakyrelu\\Big(\\frac{1}{\\gamma_{i}\\ \\gamma_{j}}z_{i}^{\\top}\\ z_{j}\\Big)\\Big). (10)",
+    "index": 8
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "5.2 Calibration properties of GATS",
+    "index": 17
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS2.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "Zhang et al. [43] propose three desiderata for calibration methods: accuracy-preserving, data-efficient, and expressive. GATS fulfills all of them:",
+    "index": 35
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I2.i1.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "GATS is accuracy-preserving: since all node predictions are scaled by inverse temperatures 1/Ti1/T_{i} which are positive scalars, the order of output logits is preserved;",
+    "index": 36
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I2.i2.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "GATS is data-efficient. It is a parametric calibration model with C⋅H+4C\\cdot H+4 learnable parameters (T0,ω,γt,γn,(θh)1≤h≤HT_{0},\\omega,\\gamma_{t},\\gamma_{n},(\\theta^{h})_{1\\leq h\\leq H}). According to Zhang et al. [43], parametric methods are already data-efficient;",
+    "index": 37
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.I2.i3.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "GATS is expressive, as it produces nodewise temperatures TiT_{i} adapted to the graph structure.",
+    "index": 38
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS2.p1.2",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "Experiments in Section 6.2 empirically confirm the data-efficiency and expressivity of GATS.",
+    "index": 39
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS3"
+    ],
+    "text": "5.3 Comparison with CaGCN",
+    "index": 18
+  },
+  {
+    "kind": "paragraph",
+    "id": "S5.SS3.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS3"
+    ],
+    "text": "It is interesting to compare our proposed GATS approach to the CaGCN method proposed by Wang et al. [41], since both approaches aim at calibrating GNNs, and both make use of the graph structure to produce nodewise temperatures. While CaGCN uses a GCN to generate nodewise temperatures straightforwardly, GATS uses an attention mechanism which differentiates the influence from various neighbors. GATS also integrates a series of careful designs following the insights from the study in Section 4. Experiments in Section 6.1 shows that GATS tends to produce better calibration results compared to CaGCN.",
+    "index": 40
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6"
+    ],
+    "text": "6 Experiments",
+    "index": 19
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.p1.1",
+    "sections": [
+      "S6"
+    ],
+    "text": "To evaluate the performance of GATS on GNN calibration and understand the effects of its designs, we conduct a series of experiments for baseline comparison and ablation study. We use two representative GNNs: GCN and GAT, which are trained on the seven aforementioned graph datasets plus a larger graph, CoraFull [2], for post-hoc calibration. We display the ECE results with M=15M=15 bins. We use the expected calibration error (ECE) [27, 7] with M=15M=15 bins as an evaluation metric, and follow an experimental protocol similar to Kull et al. [19], Kull et al. [18]: For all the experiments, we randomly split the labeled/unlabeled (15%15\\%/85%85\\%) data five times, and use three-fold internal cross-validation of the labeled data to train the GNNs and the calibrators. We also utilize five random initializations, resulting in 75 total runs for each experiment. We provide detailed experimental settings in Appendix A.",
+    "index": 41
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "6.1 Performance comparison",
+    "index": 20
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS1.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "We benchmark GATS against existing baselines on a variety of GNN calibration tasks. We compare GATS with the following baselines:",
+    "index": 42
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.I1.i1.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "Temperature scaling (TS) [7] simply uses a global temperature to scale the logits.",
+    "index": 43
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.I1.i2.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "Vector scaling (VS) [7] scales the logits separately over the class dimension and additionally introduces a classwise bias for the recalibrated output logits.",
+    "index": 44
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.I1.i3.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "Ensemble temperature scaling (ETS) [43] learns a mixture of uncalibrated, TS-calibrated, and uniform probabilistic outputs.",
+    "index": 45
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.I1.i4.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "GCN as a calibration function (CaGCN) [41] is specifically designed for calibrating GNNs. It uses a GCN on top to generate nodewise temperatures.",
+    "index": 46
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS1.p1.2",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "Additionally, we also report the ECEs of uncalibrated predictions as a reference. Among the above baselines, TS, VS, and ETS are calibration methods designed for standard classification cases and operate on nodes uniformly. CaGCN on the other hand performs separate nodewise adjustments and uses the graph structure, similar to our proposed GATS approach.",
+    "index": 47
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS1.p2.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "For the post-hoc calibration experiments, we fix the weight of the trained GNN backbones and adjust the parameters of the calibration methods on the validation set. Negative log-likelihood is chosen as the objective for the calibration process. We provide details of method configurations and calibration settings in Appendix A.3. Table 1 summarizes the calibration results.",
+    "index": 48
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS1.p3.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "Overall, we observe that GATS consistently produces well-calibrated predictions for all graph datasets and GNN backbones. Except for the GAT model trained on Pubmed (3rd best) and the GCN model trained on Amazon Computers (2nd best), GATS achieves the highest calibration quality in all cases.",
+    "index": 49
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS1.p4.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "Also, it is interesting to see that for all cases the best result is achieved by methods which use the graph structure and produce adapted adjustments for different nodes. This demonstrates the necessity of designing calibration methods that address the unique challenges posed by GNN calibration.",
+    "index": 50
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS1.p5.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "Although CaGCN can get the best results for Pubmed using GAT and Amazon Computers using GCN, we see that its performance is rather unstable for different scenarios, and sometimes it can even produce worse calibration results than the uncalibrated baseline. Using their proposed margin-based loss did not help in our settings. We suspect that CaGCN might have an overly complex architecture for the task, and it cannot differentiate neighborhood influences with the common normalized adjacency matrix. Our proposed GATS model does not have this issue. It has consistent and good calibration performance in all cases.",
+    "index": 51
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS1.p6.1",
+    "sections": [
+      "S6",
+      "S6.SS1"
+    ],
+    "text": "We also observe that the results tend to have high variations, since GNN backbones tend to predict highly varying results when trained with different initial weights and random splits [34]. We ensure the reliability of the results by averaging over a total of 75 runs with various initial weights and random splits for each case.",
+    "index": 52
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS2"
+    ],
+    "text": "6.2 Data-efficiency and expressivity of GATS",
+    "index": 21
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS2.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS2"
+    ],
+    "text": "Furthermore, we analyze the data-efficiency and the expressivity of GATS for GNN calibration. For this we reuse the GNN models trained on the CoraFull dataset, and consider the influence of calibration sample size on the GNN calibration performance. For comparison we also report the corresponding results using ensemble temperature scaling and CaGCN. Figure 7 visualizes the results with GCN backbone. The results for GAT backbone are summarized in Appendix D.",
+    "index": 53
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS2.p2.1",
+    "sections": [
+      "S6",
+      "S6.SS2"
+    ],
+    "text": "Overall, we see that GATS is both data-efficient and expressive. It requires few calibration samples to get decent calibration performance. This is in contrast to CaGCN which needs more than 5%5\\% of nodes for calibration to get acceptable results. Compared to ETS, GATS is more expressive and has a considerably lower calibration error for CoraFull, which is a large graph dataset.",
+    "index": 54
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS3"
+    ],
+    "text": "6.3 Ablation study",
+    "index": 22
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS3.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS3"
+    ],
+    "text": "To empirically analyze the effect of various GATS design choices, we conduct a series of ablation study experiments in this section. Overall, we notice that all designs are advantageous and removing any of them leads to a general decrease in performance.",
+    "index": 55
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px1"
+    ],
+    "text": "Effect of global bias T0T_{0}.",
+    "index": 23
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS3.SSS0.Px1.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px1"
+    ],
+    "text": "We consider the effect of global bias T0T_{0} by comparing to a GATS variant without it (i.e., setting T0=0T_{0}=0 in Eq. (8)). Its results are collected in column “w/o T0T_{0}” of Table 2. Overall we see that a learnable bias T0T_{0} is beneficial in most cases.",
+    "index": 56
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px2"
+    ],
+    "text": "Effect of nodewise scaling factor γi\\gamma_{i}.",
+    "index": 24
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS3.SSS0.Px2.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px2"
+    ],
+    "text": "The nodewise scaling factors γi\\gamma_{i} provide custom adjustment for training nodes and their neighbors. Removing its influence can be done by fixing all γi\\gamma_{i} to one in Eqs. (8) and (10). The results of the variant without γi\\gamma_{i} are recorded in column “w/o γi\\gamma_{i}” of Table 2. They are worse in general, suggesting that nodewise scaling factors γi\\gamma_{i} are indeed helpful.",
+    "index": 57
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px3"
+    ],
+    "text": "Effect of relative confidence level δ​c^i\\delta\\hat{c}_{i}.",
+    "index": 25
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS3.SSS0.Px3.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px3"
+    ],
+    "text": "To evaluate the impact of introducing nodewise relative confidence level δ​c^i\\delta\\hat{c}_{i}, we create a GATS variant where ω\\omega in Eq. (8) is fixed to zero, which effectively removes the influence of the relative confidence level δ​c^i\\delta\\hat{c}_{i}. In column “w/o δ​c^i\\delta\\hat{c}_{i}” of Table 2 we have the results corresponding to this variant, which is in general slightly worse than the standard GATS which includes δ​c^i\\delta\\hat{c}_{i}.",
+    "index": 58
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px4"
+    ],
+    "text": "Effect of attention-based aggregation.",
+    "index": 26
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS3.SSS0.Px4.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px4"
+    ],
+    "text": "To understand the role played by the attention mechanism, we create a GATS variant which completely removes the attention related term (∑j∈n^​(i)αi,j​γj​τjh\\sum_{j\\in\\hat{n}(i)}\\alpha_{i,j}\\ \\gamma_{j}\\ \\tau^{h}_{j}) from Eq. (8). Its performance is shown in column “w/o attention” of Table 2. Again, we observe that removing the attention-based component tends to worsen the calibration performance.",
+    "index": 59
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px5"
+    ],
+    "text": "Effect of logit sorting.",
+    "index": 27
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS3.SSS0.Px5.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px5"
+    ],
+    "text": "GATS uses normalized and sorted logits z~i\\tilde{z}_{i} as input to generate nodewise temperature contributions τih\\tau_{i}^{h}. And we find that this sorting transform is essential for learning good representations of τih\\tau_{i}^{h}. In column “w/o sorting” of Table 2 we have the results for GATS variants which uses the logits without sorting to compute τih\\tau_{i}^{h}. And we observe that this deteriorates the calibration performance.",
+    "index": 60
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px6"
+    ],
+    "text": "Effect of attention head count HH.",
+    "index": 28
+  },
+  {
+    "kind": "paragraph",
+    "id": "S6.SS3.SSS0.Px6.p1.1",
+    "sections": [
+      "S6",
+      "S6.SS3",
+      "S6.SS3.SSS0.Px6"
+    ],
+    "text": "Finally, we analyze the influence of multi-head count HH on the GNN calibration results. For this we run a series of experiments using GATS models with 1, 2, 4, 8, and 16 attention heads. The results are collected in Table 3. We see that for GCN backbones, GATS models with more attention heads tend to get better results. However, for GAT backbones, using 16 heads results in worse performance compared to 8 heads. Accounting also for the fact that doubling the attention head count effectively doubles the computational requirements, 8 attention heads is a decent general setting for GATS.",
+    "index": 61
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "S7"
+    ],
+    "text": "7 Conclusion",
+    "index": 29
+  },
+  {
+    "kind": "paragraph",
+    "id": "S7.p1.1",
+    "sections": [
+      "S7"
+    ],
+    "text": "In this work, we tackle the GNN calibration problem. We conduct a systematic study to analyze the calibration properties of GNNs predictions. Our study reveals five influential factors and manifests the unique challenges raised by GNN calibration. Based on the insights from our studies, we propose a novel calibrator, GATS, which accounts for the identified factors and is tailored for calibrating GNNs. GATS is accuracy-preserving, data-efficient, and expressive at the same time. Our experiments demonstrate that GATS achieves state-of-the-art performance for GNN calibration on various graph datasets and for different GNN backbones.",
+    "index": 62
+  },
+  {
+    "kind": "paragraph",
+    "id": "S7.p2.1",
+    "sections": [
+      "S7"
+    ],
+    "text": "Our work focuses on the node classification tasks for assortative graphs, where neighbors tend to agree with each other. It is thus important to realize that the validity of the conclusions from Section 4 is limited to the assortative case, and might no longer hold for disassortative graphs [47, 29]. It can be an interesting future work to conduct similar studies for GNN calibration in the heterophilous case, especially when more established GNN architectures are available. More generally, devising calibration methodologies for other graph learning tasks such as link prediction [44] and graph classification [4] could also be an interesting direction for future research.",
+    "index": 63
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "Sx1"
+    ],
+    "text": "Acknowledgments and Disclosure of Funding",
+    "index": 30
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx1.p1.1",
+    "sections": [
+      "Sx1"
+    ],
+    "text": "This work was supported by the Munich Center for Machine Learning (MCML) and by the ERC Advanced Grant SIMULACRON. The authors would like to thank Nikita Araslanov for proofreading and helpful discussions, as well as the anonymous reviewers for their constructive feedback.",
+    "index": 64
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "bib"
+    ],
+    "text": "References",
+    "index": 31
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Checklist",
+    "index": 32
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i1.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "For all authors…",
+    "index": 65
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i1.I1.i1.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? [Yes]",
+    "index": 66
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i1.I1.i2.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you describe the limitations of your work? [Yes] c.f. Section 7.",
+    "index": 67
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i1.I1.i3.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you discuss any potential negative societal impacts of your work? [N/A]",
+    "index": 68
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i1.I1.i4.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Have you read the ethics review guidelines and ensured that your paper conforms to them? [Yes]",
+    "index": 69
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i2.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "If you are including theoretical results…",
+    "index": 70
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i2.I1.i1.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you state the full set of assumptions of all theoretical results? [N/A]",
+    "index": 71
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i2.I1.i2.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you include complete proofs of all theoretical results? [N/A]",
+    "index": 72
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i3.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "If you ran experiments…",
+    "index": 73
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i3.I1.i1.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you include the code, data, and instructions needed to reproduce the main experimental results (either in the supplemental material or as a URL)? [Yes]",
+    "index": 74
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i3.I1.i2.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you specify all the training details (e.g., data splits, hyperparameters, how they were chosen)? [Yes]",
+    "index": 75
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i3.I1.i3.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you report error bars (e.g., with respect to the random seed after running experiments multiple times)? [Yes]",
+    "index": 76
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i3.I1.i4.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you include the total amount of compute and the type of resources used (e.g., type of GPUs, internal cluster, or cloud provider)? [Yes]",
+    "index": 77
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i4.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "If you are using existing assets (e.g., code, data, models) or curating/releasing new assets…",
+    "index": 78
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i4.I1.i1.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "If your work uses existing assets, did you cite the creators? [Yes]",
+    "index": 79
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i4.I1.i2.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you mention the license of the assets? [N/A]",
+    "index": 80
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i4.I1.i3.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you include any new assets either in the supplemental material or as a URL? [Yes]",
+    "index": 81
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i4.I1.i4.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you discuss whether and how consent was obtained from people whose data you’re using/curating? [N/A]",
+    "index": 82
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i4.I1.i5.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you discuss whether the data you are using/curating contains personally identifiable information or offensive content? [N/A]",
+    "index": 83
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i5.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "If you used crowdsourcing or conducted research with human subjects…",
+    "index": 84
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i5.I1.i1.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you include the full text of instructions given to participants and screenshots, if applicable? [N/A]",
+    "index": 85
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i5.I1.i2.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you describe any potential participant risks, with links to Institutional Review Board (IRB) approvals, if applicable? [N/A]",
+    "index": 86
+  },
+  {
+    "kind": "paragraph",
+    "id": "Sx2.I1.i5.I1.i3.p1.1",
+    "sections": [
+      "Sx2"
+    ],
+    "text": "Did you include the estimated hourly wage paid to participants and the total amount spent on participant compensation? [N/A]",
+    "index": 87
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1"
+    ],
+    "text": "Appendix A Experimental settings",
+    "index": 33
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "A.1 Dataset statistics",
+    "index": 34
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS1.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "We consider eight real-world graph datasets including citation networks Cora [32], Citeseer [32], Pubmed [23], Coauthor CS [34], Coauthor Physics [34], and CoraFull [2] together with Amazon co-purchase networks Computers [34] and Photo [34]. Table 4 summarizes their statistics.",
+    "index": 88
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS1.p2.1",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "We report the homophily index proposed by Pei et al. [29], which provides a global view of the neighborhood similarity for a graph. Given a graph 𝒢=(𝒱,ℰ)\\mathcal{G}=(\\mathcal{V},\\mathcal{E}), the homophily is defined as",
+    "index": 89
+  },
+  {
+    "kind": "equation",
+    "id": "A1.E11",
+    "sections": [
+      "A1",
+      "A1.SS1"
+    ],
+    "text": "ℋ⁡(𝒢)=1|𝒱|​∑i∈𝒱Number of node ​i​’s neighbors who have the same label as ​iNumber of ​i​’s neighbors.\\mathcal{H}(\\mathcal{G})=\\frac{1}{|\\mathcal{V}|}\\sum_{i\\in\\mathcal{V}}\\frac{\\text{Number of node }i\\text{'s neighbors who have the same label as }i}{\\text{Number of }i\\text{'s neighbors}}. (11)",
+    "index": 9
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "A.2 Details of model training setup",
+    "index": 35
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "We follow the setting of Shchur et al. [34] to define GCN [14] and GAT [40] models. Both models consist of 2 layers and the hidden dimension is fixed to 64. For the multi-head layer in GAT, the number of attention heads is fixed to 8 with 8 hidden units per head. We implement the models and training pipelines in PyTorch [28] and PyTorch Geometric [5]. All models are trained for a maximum of 2000 epochs, using early stopping with a patience of 100 epochs. We choose Adam [13] as the optimizer with initial learning rate 0.01. We add a weight decay of 5e-4 for Cora, Citeseer, and Pubmed, and 0 for the rest.",
+    "index": 90
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS2.p2.1",
+    "sections": [
+      "A1",
+      "A1.SS2"
+    ],
+    "text": "We use stratified sampling to randomly select 15% of the nodes as observed set, mask out the output labels of the rest 85% of the nodes for test prediction, and ensure that the nodes with the same label are split proportionally. Following Kull et al. [19], Kull et al. [18], we further divide the labeled set with three-fold cross-validation. The bigger portions (10%) are used as training sets and the rest (5%) are used as validation sets. The GNN models (GCN and GAT) are trained on the training set, then used to predict the masked-out test set. Figure 8 illustrates the aforementioned data partition in our experiments. In total, we use 5 random data splits, three-fold cross-validation for each split, and 5 random model initializations per data partition, resulting in 75 total runs for each experiment.",
+    "index": 91
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "A.3 Details of model calibration setup",
+    "index": 36
+  },
+  {
+    "kind": "paragraph",
+    "id": "A1.SS3.p1.1",
+    "sections": [
+      "A1",
+      "A1.SS3"
+    ],
+    "text": "We compare GATS with four scaling-based calibrators: temperature scaling (TS) [7], vector scaling (VS) [7], ensemble temperature scaling (ETS) [43] , CaGCN [41]. The calibrators are trained on the validation set using the negative log-likelihood (NLL) loss and validated on the training set for early stopping and hyperparameter search. The optimizer configuration and the training schedule are the same as Section A.2. We observe TS and VS using Adam with weight decay 0 achieves better performance than using L-BFGS [21] in the original implementation22 2 https://github.com/gpleiss/temperature_scaling. For ETS, we follow the official implementation that uses Sequential Least SQuares Programming (SLSQP) [15]. For CaGCN, we use a two-layer GCN with 16 hidden units and choose the hyperparameters following the original paper. For GATS, we utilize one message passing layer and initialize T0T_{0}, γt\\gamma_{t}, and γn\\gamma_{n} to 1 and ω\\omega to 0. We find the best hyperparameter using cross-validation. Table 5 shows the search space for GATS hyperparameters.",
+    "index": 92
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2"
+    ],
+    "text": "Appendix B Additional plots",
+    "index": 37
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.p1.1",
+    "sections": [
+      "A2"
+    ],
+    "text": "Here we include additional plots which shows the corresponding factors influencing the calibration of GAT models (c.f. Section 4). Overall, we reach the same conclusions as the GCN case.",
+    "index": 93
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2",
+      "A2.SS1"
+    ],
+    "text": "B.1 General under-confident tendency for GAT",
+    "index": 38
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.SS1.p1.1",
+    "sections": [
+      "A2",
+      "A2.SS1"
+    ],
+    "text": "Figure 9 summarizes the GAT results. We see a general tendency of under-confident predictions (plots above the diagonal) except for the Physics dataset, which differs from the overconfident behavior of multiclass image classification using CNNs.",
+    "index": 94
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2",
+      "A2.SS2"
+    ],
+    "text": "B.2 Diversity of node distributions for GAT",
+    "index": 39
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.SS2.p1.1",
+    "sections": [
+      "A2",
+      "A2.SS2"
+    ],
+    "text": "Figure 10 shows the GAT results. Compared to the standard classification case, predictions of GAT also tend to be more spread out.",
+    "index": 95
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2",
+      "A2.SS3"
+    ],
+    "text": "B.3 Effect of distance to training nodes for GAT",
+    "index": 40
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.SS3.p1.1",
+    "sections": [
+      "A2",
+      "A2.SS3"
+    ],
+    "text": "GAT result are shown in Figure 11. We also see that training nodes and their neighbors tend to be better calibrated.",
+    "index": 96
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2",
+      "A2.SS4"
+    ],
+    "text": "B.4 Relative confidence level for GAT",
+    "index": 41
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.SS4.p1.1",
+    "sections": [
+      "A2",
+      "A2.SS4"
+    ],
+    "text": "The plots for the GAT case are shown in Figure 12. Similar to the GCN case, we observe that nodes which are less confident than their neighbors tend to be poorly calibrated and it is in general desirable to have a comparable confidence level w.r.t. the neighbors.",
+    "index": 97
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A2",
+      "A2.SS5"
+    ],
+    "text": "B.5 Neighborhood similarity for GAT",
+    "index": 42
+  },
+  {
+    "kind": "paragraph",
+    "id": "A2.SS5.p1.1",
+    "sections": [
+      "A2",
+      "A2.SS5"
+    ],
+    "text": "Figure 13 shows tha GAT results. Analogue to the GCN case, nodes with strongly agreeing neighbors tend to have lower calibration errors.",
+    "index": 98
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A3"
+    ],
+    "text": "Appendix C Additional calibration results",
+    "index": 43
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.p1.1",
+    "sections": [
+      "A3"
+    ],
+    "text": "This section includes supplementary results with additional metrics and calibration methods.",
+    "index": 99
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A3",
+      "A3.SS1"
+    ],
+    "text": "C.1 Results using additional metrics",
+    "index": 44
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "Variants of ECE",
+    "index": 45
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS1.SSS0.Px1.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "Even though ECE [27, 7] is the most commonly used metric for measuring calibration, it has some limitations: (1) ECE only considers top-1 probabilistic output but can not reflect classwise calibration. (2) The binning-based estimator [27] is dependent on the choice of binning scheme. To alleviate these disadvantages, we evaluate the trained calibrators using the classwise-ECE [19] and the kernel density estimation (KDE) based KDE-ECE [43] which is a binning-free metric:",
+    "index": 100
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I1.i1.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "Classwise-ECE measures the gap between the classwise average prediction conf​(Bm,k)\\text{conf}(B_{m,k}) and the actual frequency of that class freq​(Bm,k)\\text{freq}(B_{m,k}) in MM equally spaced bins across all classes k∈Kk\\in K:",
+    "index": 101
+  },
+  {
+    "kind": "equation",
+    "id": "A3.EGx2",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "Classwise-ECE=1K∑kK∑mM\\displaystyle\\text{Classwise-ECE}=\\frac{1}{K}\\sum_{k}^{K}\\sum_{m}^{M} |Bm,k||𝒩|​|freq​(Bm,k)−conf​(Bm,k)|\\displaystyle\\frac{|B_{m,k}|}{|\\mathcal{N}|}|\\text{freq}(B_{m,k})-\\text{conf}(B_{m,k})| (12) freq​(Bm,k)\\displaystyle\\text{freq}(B_{m,k}) =1|Bm,k|​∑i∈Bm,k𝟏​(yi=k)\\displaystyle=\\frac{1}{|B_{m,k}|}\\sum_{i\\in B_{m,k}}\\mathbf{1}(y_{i}=k) (13) conf​(Bm,k)\\displaystyle\\text{conf}(B_{m,k}) =1|Bm,k|​∑i∈Bm,kp^i,k\\displaystyle=\\frac{1}{|B_{m,k}|}\\sum_{i\\in B_{m,k}}\\hat{p}_{i,k} (14)",
+    "index": 10
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I1.i1.p1.2",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "where p^i,k\\hat{p}_{i,k} denotes the probability of predicting class kk for sample ii in bin Bm,kB_{m,k}. We compute classwise-ECE using M=15M=15 bins in our implementation.",
+    "index": 102
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I1.i2.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "Instead of using a binning-based estimator, KDE-ECE uses a kernel function KhK_{h} to estimate the accuracy π~​(c)\\tilde{\\pi}(c) given confidence prediction cc and the marginal density function f⁡(c)f(c) of the predictive confidence:",
+    "index": 103
+  },
+  {
+    "kind": "equation",
+    "id": "A3.EGx3",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "KDE-ECE=∫\\displaystyle\\text{KDE-ECE}=\\int |π~​(c)−c|​f~​(c)​d​c\\displaystyle\\left|\\tilde{\\pi}(c)-c\\right|\\tilde{f}(c)dc (15) π~​(c)=\\displaystyle\\tilde{\\pi}(c)= ∑i∈𝒩𝟏​(yi=y^i)​Kh​(c−c^i)∑i∈𝒩Kh​(c−c^i)\\displaystyle\\frac{\\sum\\limits_{i\\in\\mathcal{N}}\\mathbf{1}(y_{i}=\\hat{y}_{i})K_{h}(c-\\hat{c}_{i})}{\\sum\\limits_{i\\in\\mathcal{N}}K_{h}(c-\\hat{c}_{i})} (16) f~​(c)=\\displaystyle\\tilde{f}(c)= h−1|𝒩|​∑i∈𝒩Kh​(c−c^i)\\displaystyle\\frac{h^{-1}}{|\\mathcal{N}|}\\sum_{i\\in\\mathcal{N}}K_{h}(c-\\hat{c}_{i}) (17)",
+    "index": 11
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I1.i2.p1.2",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "where i∈𝒩⊂𝒱i\\in\\mathcal{N}\\subset\\mathcal{V} denotes the evaluated node, and hh is the bandwidth of the kernel function. We follow the official implementation33 3 https://github.com/zhang64-llnl/Mix-n-Match-Calibration of KDE-ECE, where the the Triweight Kernel Kh​(u)=(1/h)​3532​(1−(u/h)2)3K_{h}(u)=(1/h)\\frac{35}{32}(1-(u/h)^{2})^{3} [3] on [−1,1][-1,1] is chosen as the kernel function and bandwidth is calculated as h=1.06σ|𝒩|−1/5h=1.06\\sigma|\\mathcal{N}|^{-1/5} [31] with σ\\sigma being the standard deviation of the confidence.",
+    "index": 104
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS1.SSS0.Px1.p2.1",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px1"
+    ],
+    "text": "The classwise-ECEs are summarized in Table 6, and the KDE-ECEs are collected in Table 7. In general, we observe similar conclusions as in the confidence ECE case (c.f. Section 6.1): Overall GATS achieves the state-of-the-art calibration results.",
+    "index": 105
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px2"
+    ],
+    "text": "Non calibration metrics",
+    "index": 46
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS1.SSS0.Px2.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS1",
+      "A3.SS1.SSS0.Px2"
+    ],
+    "text": "Although not calibration metrics, we also report the results in terms of negative log-likelihood (Table 8) and Brier score (Table 9) for reference.",
+    "index": 106
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "C.2 Results for additional baselines",
+    "index": 47
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS2.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "While in the main paper we focus on “temperature scaling style” methods which directly rescale the output logits, here we compare with the following additional calibration methods which have different principles. These methods are all designed for multi-class classification and do not consider the structural information of the graph.",
+    "index": 107
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I2.i1.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "Multi-class isotonic regression (IRM) [43] is a multi-class generalization of the non-parametric isotonic regression method;",
+    "index": 108
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I2.i2.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "Calibration using spline (Spline) [8] fits the calibration function with splines;",
+    "index": 109
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I2.i3.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "Dirichlet calibration (DIR) [19] uses the Dirichlet distribution to model the distribution of probabilistic outputs. It also employs an off-diagonal and intercept regularization (ODIR);",
+    "index": 110
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.I2.i4.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "Order invariant calibration (OI) [30] is the order-invariant intra order-preserving model. It uses sorted output logits as calibration input and builds up a neural network with special structures to preserve the accuracy and the intra order of the predicted logits.",
+    "index": 111
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS2.p2.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "The authors of spline calibration specify how to calibrate a specific class or a chosen top-rr class, and in their implementation44 4 https://github.com/kartikgupta-at-anu/spline-calibration they focus on calibrating the top-11 class. However, it is not clear how to adjust the rest of the predictions to ensure valid probabilistic predictions after calibration. We adopt a heuristic which proportionally rescales the non top-11 output probabilities so that the calibrated probabilistic output sums up to one. Also, the authors wrongly claimed that calibrating the top-11 score “does not alter the classification accuracy” [8]. In practice, the score after calibration might no longer remain top-11 and the predictions could be altered.",
+    "index": 112
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS2.p3.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "For Dirichlet calibration, we find out that the scaling factors λ,μ\\lambda,\\mu of ODIR affect the performance and need to be tuned depending on the dataset. Thus we do a hyperparameter search for each dataset with search space (0.01,0.1,1,10,100,1000,10000,100000)(0.01,0.1,1,10,100,1000,10000,100000).",
+    "index": 113
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS2.p4.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "Table 10 summarizes the calibration results in terms of ECE. Note that we do not include the results for Dirichlet calibration on CoraFull because it fails to calibrate the GNN backbones and significantly deteriorates the predictive accuracies (<10%<10\\% v.s. >60%>60\\% before calibration).",
+    "index": 114
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS2.p5.1",
+    "sections": [
+      "A3",
+      "A3.SS2"
+    ],
+    "text": "Overall we observe that GATS still achieves the state-of-the-art performance compared to the additional baselines for GNN calibration.",
+    "index": 115
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A3",
+      "A3.SS3"
+    ],
+    "text": "C.3 Accuracies of calibration methods",
+    "index": 48
+  },
+  {
+    "kind": "paragraph",
+    "id": "A3.SS3.p1.1",
+    "sections": [
+      "A3",
+      "A3.SS3"
+    ],
+    "text": "Since many baseline calibration methods are not accuracy-preserving, in Table 11 we additionally report their test accuracies. Accuracy preserving methods (GATS, TS, ETS, CaGCN, OI) have the same accuracies as the uncalibrated case, which is also reported for reference.",
+    "index": 116
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A4"
+    ],
+    "text": "Appendix D Data efficiency and expressiveness of GATS: GAT results",
+    "index": 49
+  },
+  {
+    "kind": "paragraph",
+    "id": "A4.p1.1",
+    "sections": [
+      "A4"
+    ],
+    "text": "Figure 14 shows the results for the GAT case. We see that GATS is also data efficient and expressive when calibrating GAT models.",
+    "index": 117
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A5"
+    ],
+    "text": "Appendix E CaGCN results discussion",
+    "index": 50
+  },
+  {
+    "kind": "paragraph",
+    "id": "A5.p1.1",
+    "sections": [
+      "A5"
+    ],
+    "text": "While the ECEs of CaGCN in its original paper are promising [41], we observe that the ECEs of CaGCN are often unstable and sometimes even worse than that of the uncalibrated model in our experiments. One possible reason is that we use a different splitting from the CaGCN paper, where they follow a fixed splitting from Kipf and Welling [14]. A significant difference is that the splitting from Kipf and Welling [14] has more validation nodes than the training nodes. This differs from typical real-world applications, where the larger fold would often be used to train a good classifier [26], and only the smaller fold is available for fitting the calibrator.",
+    "index": 118
+  },
+  {
+    "kind": "paragraph",
+    "id": "A5.p2.1",
+    "sections": [
+      "A5"
+    ],
+    "text": "In our splitting, the validation sets of Cora and Citeseer are substantially smaller than those in Kipf and Welling [14]. We observe that CaGCN yields suboptimal calibration results (see Section 6.1) and predictions with higher confidence tend to be over-confident in the reliability diagram in Figure 15. By contrast, the validation set in Pubmed is relatively large since it has more nodes. We notice that CaGCN achieves competitive results in Pubmed and the confidence-accuracy curve almost lies on the diagonal. We observe that CaGCN also produces suboptimal calibration results in CoraFull, even though the validation set is large. We suspect that this is caused by the class imbalance of the CoraFull data. Class imbalance is known to be a challenge for many calibration methods [36].",
+    "index": 119
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A6"
+    ],
+    "text": "Appendix F GATS weight visualization",
+    "index": 51
+  },
+  {
+    "kind": "paragraph",
+    "id": "A6.p1.1",
+    "sections": [
+      "A6"
+    ],
+    "text": "GATS learns τih\\tau^{h}_{i} from sorted logits. We discover that the absolute value of the learned weights in the linear layer generally follows the ranking of the logits across the class. That is to say, logits with higher value have stronger influence to τih\\tau^{h}_{i}. In Figure 16 we visualize the weights θ=(θ1,…,θH)\\theta=(\\theta^{1},\\dots,\\theta^{H}) of the linear layers ϕh\\phi^{h} in GATS. Here, it is interesting to see that the weights θh\\theta^{h} from different heads hh have slight variations. Combining multiple heads in the attention with sorting could be considered as a form of ensemble without the model being overly parameterized.",
+    "index": 120
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A7"
+    ],
+    "text": "Appendix G Analysis of correlations between the factors",
+    "index": 52
+  },
+  {
+    "kind": "paragraph",
+    "id": "A7.p1.1",
+    "sections": [
+      "A7"
+    ],
+    "text": "In this section we visualize the correlation between the local-view factors: the distance to training nodes, the relative confidence level, and the neighborhood similarity. Each plot shows how the factor on the y-axis varies when the factor on the x-axis is fixed to a given value. Two factors are independent when we observe a horizontal line in the plot. As the relative confidence level is a model dependent factor, GCN and GAT will have different correlation plots when it is involved.",
+    "index": 121
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A7",
+      "A7.SS1"
+    ],
+    "text": "G.1 Distance to training nodes – relative confidence level",
+    "index": 53
+  },
+  {
+    "kind": "paragraph",
+    "id": "A7.SS1.p1.1",
+    "sections": [
+      "A7",
+      "A7.SS1"
+    ],
+    "text": "Figures 17, 18, 19, and 20 show the correlation plots between the distance to training nodes and the relative confidence level. In Figure 17 and 19 we see that regardless of the distance to the training nodes, the averaged relative confidence level stays around zero.",
+    "index": 122
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A7",
+      "A7.SS2"
+    ],
+    "text": "G.2 Relative confidence level – neighborhood similarity",
+    "index": 54
+  },
+  {
+    "kind": "paragraph",
+    "id": "A7.SS2.p1.1",
+    "sections": [
+      "A7",
+      "A7.SS2"
+    ],
+    "text": "Figures 21, 22, 23, and 24 show the correlations between the relative confidence level and the neighborhood similarity. We observe some partial correlation between these two factors, especially in the negative region of the node homophily.",
+    "index": 123
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A7",
+      "A7.SS3"
+    ],
+    "text": "G.3 Distance to training nodes – neighborhood similarity",
+    "index": 55
+  },
+  {
+    "kind": "paragraph",
+    "id": "A7.SS3.p1.1",
+    "sections": [
+      "A7",
+      "A7.SS3"
+    ],
+    "text": "Figures 25 and 26 show the correlation between the distance to training nodes and neighborhood similarity. Note that these two factors are not model-dependent and thus GCN and GAT share the same results. We observe that these two factors have a less significant correlation.",
+    "index": 124
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A8"
+    ],
+    "text": "Appendix H Factor node count analysis",
+    "index": 56
+  },
+  {
+    "kind": "paragraph",
+    "id": "A8.p1.1",
+    "sections": [
+      "A8"
+    ],
+    "text": "In this section we plot the number of test nodes depending on the three local view factors: distance to training nodes, relative confidence level, and neighborhood similarity.",
+    "index": 125
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A8",
+      "A8.SS1"
+    ],
+    "text": "H.1 Node count for distance to training nodes",
+    "index": 57
+  },
+  {
+    "kind": "paragraph",
+    "id": "A8.SS1.p1.1",
+    "sections": [
+      "A8",
+      "A8.SS1"
+    ],
+    "text": "Figure 27 summarizes the node count results of the distance to training nodes. We see the majority of nodes can be connected to the training nodes by one or two hops.",
+    "index": 126
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A8",
+      "A8.SS2"
+    ],
+    "text": "H.2 Node count for relative confidence level",
+    "index": 58
+  },
+  {
+    "kind": "paragraph",
+    "id": "A8.SS2.p1.1",
+    "sections": [
+      "A8",
+      "A8.SS2"
+    ],
+    "text": "Figure 28 and 29 are the node count results of the relative confidence level for GCN and GAT respectively. We observe that most of the nodes are concentrated around the zero relative confidence level.",
+    "index": 127
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [
+      "A8",
+      "A8.SS3"
+    ],
+    "text": "H.3 Node count for neighborhood similarity",
+    "index": 59
+  },
+  {
+    "kind": "paragraph",
+    "id": "A8.SS3.p1.1",
+    "sections": [
+      "A8",
+      "A8.SS3"
+    ],
+    "text": "Figure 30 shows that the majority of nodes lie in the positive homophily region.",
+    "index": 128
+  },
+  {
+    "kind": "heading",
+    "id": null,
+    "sections": [],
+    "text": "Instructions for reporting errors",
+    "index": 60
+  }
+]

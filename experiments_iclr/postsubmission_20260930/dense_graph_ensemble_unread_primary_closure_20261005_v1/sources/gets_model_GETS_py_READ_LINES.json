@@ -1,0 +1,1574 @@
+[
+  {
+    "line": 13,
+    "text": "class GCN_GETS(torch.nn.Module):"
+  },
+  {
+    "line": 14,
+    "text": "    def __init__(self,"
+  },
+  {
+    "line": 15,
+    "text": "                 num_classes, "
+  },
+  {
+    "line": 16,
+    "text": "                 hidden_dim, "
+  },
+  {
+    "line": 17,
+    "text": "                 dropout_rate, "
+  },
+  {
+    "line": 18,
+    "text": "                 num_layers,"
+  },
+  {
+    "line": 19,
+    "text": "                 device,"
+  },
+  {
+    "line": 20,
+    "text": "                 expert_config,"
+  },
+  {
+    "line": 21,
+    "text": "                 feature_dim,"
+  },
+  {
+    "line": 22,
+    "text": "                 feature_hidden_dim,"
+  },
+  {
+    "line": 23,
+    "text": "                 degree_hidden_dim):"
+  },
+  {
+    "line": 24,
+    "text": "        super().__init__()"
+  },
+  {
+    "line": 25,
+    "text": "        self.dropout_rate = dropout_rate"
+  },
+  {
+    "line": 26,
+    "text": "        self.expert_config = expert_config"
+  },
+  {
+    "line": 27,
+    "text": "        self.device = device"
+  },
+  {
+    "line": 28,
+    "text": ""
+  },
+  {
+    "line": 29,
+    "text": "        in_channels = 0"
+  },
+  {
+    "line": 30,
+    "text": "        if \"logits\" in expert_config:"
+  },
+  {
+    "line": 31,
+    "text": "            in_channels += num_classes"
+  },
+  {
+    "line": 32,
+    "text": "        if \"features\" in expert_config:"
+  },
+  {
+    "line": 33,
+    "text": "            self.proj_feature = nn.Linear(feature_dim, feature_hidden_dim)"
+  },
+  {
+    "line": 34,
+    "text": "            in_channels += feature_hidden_dim"
+  },
+  {
+    "line": 35,
+    "text": "        if \"degrees\" in expert_config:"
+  },
+  {
+    "line": 36,
+    "text": "            in_channels += degree_hidden_dim"
+  },
+  {
+    "line": 37,
+    "text": "        for _ in range(num_layers-2):"
+  },
+  {
+    "line": 38,
+    "text": "            self.feature_list.insert(-1, hidden_dim)"
+  },
+  {
+    "line": 39,
+    "text": "        self.feature_list = [in_channels, hidden_dim, num_classes]"
+  },
+  {
+    "line": 40,
+    "text": ""
+  },
+  {
+    "line": 41,
+    "text": "        layer_list = []"
+  },
+  {
+    "line": 42,
+    "text": "        for i in range(len(self.feature_list)-1):"
+  },
+  {
+    "line": 43,
+    "text": "            layer_list.append([\"conv\"+str(i+1), dglnn.GraphConv(self.feature_list[i], self.feature_list[i+1])])"
+  },
+  {
+    "line": 44,
+    "text": "        "
+  },
+  {
+    "line": 45,
+    "text": "        self.layer_list = torch.nn.ModuleDict(layer_list)"
+  },
+  {
+    "line": 46,
+    "text": ""
+  },
+  {
+    "line": 47,
+    "text": "        self.degree_dim = degree_hidden_dim"
+  },
+  {
+    "line": 48,
+    "text": ""
+  },
+  {
+    "line": 49,
+    "text": "    def forward(self, g, logits, features):"
+  },
+  {
+    "line": 50,
+    "text": "        inputs = []"
+  },
+  {
+    "line": 51,
+    "text": "        if \"logits\" in self.expert_config:"
+  },
+  {
+    "line": 52,
+    "text": "            inputs.append(logits)"
+  },
+  {
+    "line": 53,
+    "text": "        if \"features\" in self.expert_config:"
+  },
+  {
+    "line": 54,
+    "text": "            features = self.proj_feature(features)"
+  },
+  {
+    "line": 55,
+    "text": "            inputs.append(features)"
+  },
+  {
+    "line": 56,
+    "text": "        if \"degrees\" in self.expert_config:"
+  },
+  {
+    "line": 57,
+    "text": "            # only compute once"
+  },
+  {
+    "line": 58,
+    "text": "            if not hasattr(self, \"degrees\"):"
+  },
+  {
+    "line": 59,
+    "text": "                degrees = g.in_degrees() + g.out_degrees()"
+  },
+  {
+    "line": 60,
+    "text": "                max_degree = degrees.max() + 1"
+  },
+  {
+    "line": 61,
+    "text": "                self.degree_embdder = nn.Embedding(num_embeddings=max_degree, embedding_dim=self.degree_dim).to(self.device)"
+  },
+  {
+    "line": 62,
+    "text": "                self.degrees= degrees.unsqueeze(-1)"
+  },
+  {
+    "line": 63,
+    "text": "            degree_embeds = self.degree_embdder(self.degrees.squeeze(-1))"
+  },
+  {
+    "line": 64,
+    "text": "            inputs.append(degree_embeds)"
+  },
+  {
+    "line": 65,
+    "text": "        x = torch.concat(inputs,dim=-1)"
+  },
+  {
+    "line": 66,
+    "text": "        for i in range(len(self.feature_list)-1):"
+  },
+  {
+    "line": 67,
+    "text": "            x = self.layer_list[\"conv\"+str(i+1)](g, x)"
+  },
+  {
+    "line": 68,
+    "text": "            if i < len(self.feature_list)-2:"
+  },
+  {
+    "line": 69,
+    "text": "                x = F.relu(x)"
+  },
+  {
+    "line": 70,
+    "text": "                x = F.dropout(x, self.dropout_rate, self.training)"
+  },
+  {
+    "line": 71,
+    "text": "        return x"
+  },
+  {
+    "line": 72,
+    "text": "    "
+  },
+  {
+    "line": 73,
+    "text": "class GAT_GETS(torch.nn.Module):"
+  },
+  {
+    "line": 74,
+    "text": "    def __init__(self,"
+  },
+  {
+    "line": 75,
+    "text": "                 num_classes,  "
+  },
+  {
+    "line": 76,
+    "text": "                 hidden_dim, "
+  },
+  {
+    "line": 77,
+    "text": "                 dropout_rate, "
+  },
+  {
+    "line": 78,
+    "text": "                 num_layers,"
+  },
+  {
+    "line": 79,
+    "text": "                 device,"
+  },
+  {
+    "line": 80,
+    "text": "                 expert_config,"
+  },
+  {
+    "line": 81,
+    "text": "                 feature_dim,"
+  },
+  {
+    "line": 82,
+    "text": "                 feature_hidden_dim,"
+  },
+  {
+    "line": 83,
+    "text": "                 degree_hidden_dim,"
+  },
+  {
+    "line": 84,
+    "text": "                 num_heads=2):  "
+  },
+  {
+    "line": 85,
+    "text": "        super().__init__()"
+  },
+  {
+    "line": 86,
+    "text": "        self.dropout_rate = dropout_rate"
+  },
+  {
+    "line": 87,
+    "text": "        self.expert_config = expert_config"
+  },
+  {
+    "line": 88,
+    "text": "        self.device = device"
+  },
+  {
+    "line": 89,
+    "text": "        self.num_heads = num_heads"
+  },
+  {
+    "line": 90,
+    "text": ""
+  },
+  {
+    "line": 91,
+    "text": "        in_channels = 0"
+  },
+  {
+    "line": 92,
+    "text": "        if \"logits\" in expert_config:"
+  },
+  {
+    "line": 93,
+    "text": "            in_channels += num_classes "
+  },
+  {
+    "line": 94,
+    "text": "        if \"features\" in expert_config:"
+  },
+  {
+    "line": 95,
+    "text": "            self.proj_feature = nn.Linear(feature_dim, feature_hidden_dim)"
+  },
+  {
+    "line": 96,
+    "text": "            in_channels += feature_hidden_dim"
+  },
+  {
+    "line": 97,
+    "text": "        if \"degrees\" in expert_config:"
+  },
+  {
+    "line": 98,
+    "text": "            in_channels += degree_hidden_dim"
+  },
+  {
+    "line": 99,
+    "text": "        self.feature_list = [in_channels] + [hidden_dim] * (num_layers - 1)"
+  },
+  {
+    "line": 100,
+    "text": "        layer_list = []"
+  },
+  {
+    "line": 101,
+    "text": "        for i in range(len(self.feature_list) - 1):"
+  },
+  {
+    "line": 102,
+    "text": "            layer_list.append("
+  },
+  {
+    "line": 103,
+    "text": "                (\"conv\" + str(i + 1), "
+  },
+  {
+    "line": 104,
+    "text": "                 dglnn.GATConv(self.feature_list[i], self.feature_list[i + 1] // num_heads, num_heads=num_heads))"
+  },
+  {
+    "line": 105,
+    "text": "            )"
+  },
+  {
+    "line": 106,
+    "text": ""
+  },
+  {
+    "line": 107,
+    "text": "        self.layer_list = nn.ModuleDict(layer_list)"
+  },
+  {
+    "line": 108,
+    "text": "        self.degree_dim = degree_hidden_dim"
+  },
+  {
+    "line": 109,
+    "text": "        self.final_proj = nn.Linear(hidden_dim , num_classes)"
+  },
+  {
+    "line": 110,
+    "text": ""
+  },
+  {
+    "line": 111,
+    "text": "    def forward(self, g, logits, features):"
+  },
+  {
+    "line": 112,
+    "text": "        inputs = []"
+  },
+  {
+    "line": 113,
+    "text": "        if \"logits\" in self.expert_config:"
+  },
+  {
+    "line": 114,
+    "text": "            inputs.append(logits)"
+  },
+  {
+    "line": 115,
+    "text": "        if \"features\" in self.expert_config:"
+  },
+  {
+    "line": 116,
+    "text": "            features = self.proj_feature(features)"
+  },
+  {
+    "line": 117,
+    "text": "            inputs.append(features)"
+  },
+  {
+    "line": 118,
+    "text": "        if \"degrees\" in self.expert_config:"
+  },
+  {
+    "line": 119,
+    "text": "            if not hasattr(self, \"degrees\"):"
+  },
+  {
+    "line": 120,
+    "text": "                degrees = g.in_degrees() + g.out_degrees()"
+  },
+  {
+    "line": 121,
+    "text": "                max_degree = degrees.max().item() + 1"
+  },
+  {
+    "line": 122,
+    "text": "                self.degree_embdder = nn.Embedding(num_embeddings=max_degree, embedding_dim=self.degree_dim).to(self.device)"
+  },
+  {
+    "line": 123,
+    "text": "                self.degrees = degrees.unsqueeze(-1)"
+  },
+  {
+    "line": 124,
+    "text": "            degree_embeds = self.degree_embdder(self.degrees.squeeze(-1))"
+  },
+  {
+    "line": 125,
+    "text": "            inputs.append(degree_embeds)"
+  },
+  {
+    "line": 126,
+    "text": "        x = torch.cat(inputs, dim=-1)"
+  },
+  {
+    "line": 127,
+    "text": "        for i in range(len(self.feature_list) - 1):"
+  },
+  {
+    "line": 128,
+    "text": "            x = self.layer_list[\"conv\" + str(i + 1)](g, x)"
+  },
+  {
+    "line": 129,
+    "text": "            x = x.flatten(start_dim=2)              "
+  },
+  {
+    "line": 130,
+    "text": "            if i < len(self.feature_list) - 2:"
+  },
+  {
+    "line": 131,
+    "text": "                x = F.relu(x)"
+  },
+  {
+    "line": 132,
+    "text": "                x = F.dropout(x, self.dropout_rate, training=self.training)"
+  },
+  {
+    "line": 133,
+    "text": "        x = self.final_proj(x.view(x.size(0),-1))"
+  },
+  {
+    "line": 134,
+    "text": ""
+  },
+  {
+    "line": 135,
+    "text": "        return x"
+  },
+  {
+    "line": 136,
+    "text": "    "
+  },
+  {
+    "line": 137,
+    "text": ""
+  },
+  {
+    "line": 138,
+    "text": "class GIN_GETS(torch.nn.Module):"
+  },
+  {
+    "line": 139,
+    "text": "    def __init__(self,"
+  },
+  {
+    "line": 140,
+    "text": "                 num_classes, "
+  },
+  {
+    "line": 141,
+    "text": "                 hidden_dim, "
+  },
+  {
+    "line": 142,
+    "text": "                 dropout_rate, "
+  },
+  {
+    "line": 143,
+    "text": "                 num_layers,"
+  },
+  {
+    "line": 144,
+    "text": "                 device,"
+  },
+  {
+    "line": 145,
+    "text": "                 expert_config,"
+  },
+  {
+    "line": 146,
+    "text": "                 feature_dim,"
+  },
+  {
+    "line": 147,
+    "text": "                 feature_hidden_dim,"
+  },
+  {
+    "line": 148,
+    "text": "                 degree_hidden_dim):"
+  },
+  {
+    "line": 149,
+    "text": "        super().__init__()"
+  },
+  {
+    "line": 150,
+    "text": "        self.dropout_rate = dropout_rate"
+  },
+  {
+    "line": 151,
+    "text": "        self.expert_config = expert_config"
+  },
+  {
+    "line": 152,
+    "text": "        self.device = device"
+  },
+  {
+    "line": 153,
+    "text": ""
+  },
+  {
+    "line": 154,
+    "text": "        in_channels = 0"
+  },
+  {
+    "line": 155,
+    "text": "        if \"logits\" in expert_config:"
+  },
+  {
+    "line": 156,
+    "text": "            in_channels += num_classes"
+  },
+  {
+    "line": 157,
+    "text": "        if \"features\" in expert_config:"
+  },
+  {
+    "line": 158,
+    "text": "            self.proj_feature = nn.Linear(feature_dim, feature_hidden_dim)"
+  },
+  {
+    "line": 159,
+    "text": "            in_channels += feature_hidden_dim"
+  },
+  {
+    "line": 160,
+    "text": "        if \"degrees\" in expert_config:"
+  },
+  {
+    "line": 161,
+    "text": "            in_channels += degree_hidden_dim"
+  },
+  {
+    "line": 162,
+    "text": ""
+  },
+  {
+    "line": 163,
+    "text": "        self.feature_list = [in_channels, hidden_dim, num_classes]"
+  },
+  {
+    "line": 164,
+    "text": "        for _ in range(num_layers - 2):"
+  },
+  {
+    "line": 165,
+    "text": "            self.feature_list.insert(-1, hidden_dim)"
+  },
+  {
+    "line": 166,
+    "text": ""
+  },
+  {
+    "line": 167,
+    "text": "        layer_list = []"
+  },
+  {
+    "line": 168,
+    "text": "        for i in range(len(self.feature_list) - 1):"
+  },
+  {
+    "line": 169,
+    "text": "            layer_list.append([\"conv\" + str(i + 1), dglnn.GINConv("
+  },
+  {
+    "line": 170,
+    "text": "                nn.Sequential("
+  },
+  {
+    "line": 171,
+    "text": "                    nn.Linear(self.feature_list[i], self.feature_list[i+1]),"
+  },
+  {
+    "line": 172,
+    "text": "                    nn.ReLU(),"
+  },
+  {
+    "line": 173,
+    "text": "                    nn.Linear(self.feature_list[i+1], self.feature_list[i+1])"
+  },
+  {
+    "line": 174,
+    "text": "                )"
+  },
+  {
+    "line": 175,
+    "text": "            )])"
+  },
+  {
+    "line": 176,
+    "text": ""
+  },
+  {
+    "line": 177,
+    "text": "        self.layer_list = torch.nn.ModuleDict(layer_list)"
+  },
+  {
+    "line": 178,
+    "text": "        self.degree_dim = degree_hidden_dim"
+  },
+  {
+    "line": 179,
+    "text": ""
+  },
+  {
+    "line": 180,
+    "text": "    def forward(self, g, logits, features):"
+  },
+  {
+    "line": 181,
+    "text": "        inputs = []"
+  },
+  {
+    "line": 182,
+    "text": "        if \"logits\" in self.expert_config:"
+  },
+  {
+    "line": 183,
+    "text": "            inputs.append(logits)"
+  },
+  {
+    "line": 184,
+    "text": "        if \"features\" in self.expert_config:"
+  },
+  {
+    "line": 185,
+    "text": "            features = self.proj_feature(features)"
+  },
+  {
+    "line": 186,
+    "text": "            inputs.append(features)"
+  },
+  {
+    "line": 187,
+    "text": "        if \"degrees\" in self.expert_config:"
+  },
+  {
+    "line": 188,
+    "text": "            # only compute once"
+  },
+  {
+    "line": 189,
+    "text": "            if not hasattr(self, \"degrees\"):"
+  },
+  {
+    "line": 190,
+    "text": "                degrees = g.in_degrees() + g.out_degrees()"
+  },
+  {
+    "line": 191,
+    "text": "                max_degree = degrees.max() + 1"
+  },
+  {
+    "line": 192,
+    "text": "                self.degree_embdder = nn.Embedding(num_embeddings=max_degree, embedding_dim=self.degree_dim).to(self.device)"
+  },
+  {
+    "line": 193,
+    "text": "                self.degrees = degrees.unsqueeze(-1)"
+  },
+  {
+    "line": 194,
+    "text": "            degree_embeds = self.degree_embdder(self.degrees.squeeze(-1))"
+  },
+  {
+    "line": 195,
+    "text": "            inputs.append(degree_embeds)"
+  },
+  {
+    "line": 196,
+    "text": ""
+  },
+  {
+    "line": 197,
+    "text": "        x = torch.concat(inputs, dim=-1)"
+  },
+  {
+    "line": 198,
+    "text": "        for i in range(len(self.feature_list) - 1):"
+  },
+  {
+    "line": 199,
+    "text": "            x = self.layer_list[\"conv\" + str(i + 1)](g, x)"
+  },
+  {
+    "line": 200,
+    "text": "            if i < len(self.feature_list) - 2:"
+  },
+  {
+    "line": 201,
+    "text": "                x = F.relu(x)"
+  },
+  {
+    "line": 202,
+    "text": "                x = F.dropout(x, self.dropout_rate, training=self.training)"
+  },
+  {
+    "line": 203,
+    "text": "        return x"
+  },
+  {
+    "line": 204,
+    "text": "class GETS(nn.Module):"
+  },
+  {
+    "line": 205,
+    "text": ""
+  },
+  {
+    "line": 206,
+    "text": "    \"\"\"Call a Sparsely gated mixture of experts layer with 1-layer Feed-Forward networks as experts."
+  },
+  {
+    "line": 207,
+    "text": "    Args:"
+  },
+  {
+    "line": 208,
+    "text": "    input_size: integer - size of the input"
+  },
+  {
+    "line": 209,
+    "text": "    num_experts: an integer - number of experts"
+  },
+  {
+    "line": 210,
+    "text": "    hidden_size: an integer - hidden size of the experts"
+  },
+  {
+    "line": 211,
+    "text": "    noisy_gating: a boolean"
+  },
+  {
+    "line": 212,
+    "text": "    k: an integer - how many experts to use for each batch element"
+  },
+  {
+    "line": 213,
+    "text": "    \"\"\""
+  },
+  {
+    "line": 214,
+    "text": ""
+  },
+  {
+    "line": 215,
+    "text": "    def __init__(self,"
+  },
+  {
+    "line": 216,
+    "text": "                 num_classses,"
+  },
+  {
+    "line": 217,
+    "text": "                 hidden_dim,"
+  },
+  {
+    "line": 218,
+    "text": "                 dropout_rate,"
+  },
+  {
+    "line": 219,
+    "text": "                 num_layer,"
+  },
+  {
+    "line": 220,
+    "text": "                 expert_select,"
+  },
+  {
+    "line": 221,
+    "text": "                 expert_configs,"
+  },
+  {
+    "line": 222,
+    "text": "                 feature_dim,"
+  },
+  {
+    "line": 223,
+    "text": "                 feature_hidden_dim,"
+  },
+  {
+    "line": 224,
+    "text": "                 degree_hidden_dim,"
+  },
+  {
+    "line": 225,
+    "text": "                 noisy_gating,"
+  },
+  {
+    "line": 226,
+    "text": "                 coef,"
+  },
+  {
+    "line": 227,
+    "text": "                 device,"
+  },
+  {
+    "line": 228,
+    "text": "                 backbone='gcn'):"
+  },
+  {
+    "line": 229,
+    "text": "        super(GETS, self).__init__()"
+  },
+  {
+    "line": 230,
+    "text": "        self.noisy_gating = noisy_gating"
+  },
+  {
+    "line": 231,
+    "text": "        self.num_experts = len(expert_configs)"
+  },
+  {
+    "line": 232,
+    "text": "        self.k = expert_select # an integer - how many experts to use for each batch element"
+  },
+  {
+    "line": 233,
+    "text": "        self.loss_coef = coef"
+  },
+  {
+    "line": 234,
+    "text": "        self.device = device"
+  },
+  {
+    "line": 235,
+    "text": "        self.backbone = backbone"
+  },
+  {
+    "line": 236,
+    "text": "        # self.k_list = k_list"
+  },
+  {
+    "line": 237,
+    "text": "        # instantiate experts"
+  },
+  {
+    "line": 238,
+    "text": "        # self.cagcn = GCN(num_class, 1, 16, drop_rate=dropout_rate, num_layers=2)"
+  },
+  {
+    "line": 239,
+    "text": "        self.proj_feature = nn.Linear(feature_dim, feature_hidden_dim)"
+  },
+  {
+    "line": 240,
+    "text": "        if backbone == 'gcn':"
+  },
+  {
+    "line": 241,
+    "text": "            self.experts = nn.ModuleList(["
+  },
+  {
+    "line": 242,
+    "text": "                GCN_GETS("
+  },
+  {
+    "line": 243,
+    "text": "                    num_classes=num_classses, "
+  },
+  {
+    "line": 244,
+    "text": "                    hidden_dim=hidden_dim,"
+  },
+  {
+    "line": 245,
+    "text": "                    dropout_rate=dropout_rate,"
+  },
+  {
+    "line": 246,
+    "text": "                    num_layers=num_layer,"
+  },
+  {
+    "line": 247,
+    "text": "                    device=device,"
+  },
+  {
+    "line": 248,
+    "text": "                    expert_config=expert_configs[i],"
+  },
+  {
+    "line": 249,
+    "text": "                    feature_dim=feature_dim,"
+  },
+  {
+    "line": 250,
+    "text": "                    feature_hidden_dim=feature_hidden_dim,"
+  },
+  {
+    "line": 251,
+    "text": "                    degree_hidden_dim=degree_hidden_dim,"
+  },
+  {
+    "line": 252,
+    "text": "                ) for i in range(self.num_experts)])"
+  },
+  {
+    "line": 253,
+    "text": "        elif backbone == 'gat':"
+  },
+  {
+    "line": 254,
+    "text": "            self.experts = nn.ModuleList(["
+  },
+  {
+    "line": 255,
+    "text": "                GAT_GETS("
+  },
+  {
+    "line": 256,
+    "text": "                    num_classes=num_classses, "
+  },
+  {
+    "line": 257,
+    "text": "                    hidden_dim=hidden_dim,"
+  },
+  {
+    "line": 258,
+    "text": "                    dropout_rate=dropout_rate,"
+  },
+  {
+    "line": 259,
+    "text": "                    num_layers=num_layer,"
+  },
+  {
+    "line": 260,
+    "text": "                    device=device,"
+  },
+  {
+    "line": 261,
+    "text": "                    expert_config=expert_configs[i],"
+  },
+  {
+    "line": 262,
+    "text": "                    feature_dim=feature_dim,"
+  },
+  {
+    "line": 263,
+    "text": "                    feature_hidden_dim=feature_hidden_dim,"
+  },
+  {
+    "line": 264,
+    "text": "                    degree_hidden_dim=degree_hidden_dim,"
+  },
+  {
+    "line": 265,
+    "text": "                ) for i in range(self.num_experts)])"
+  },
+  {
+    "line": 266,
+    "text": "        elif backbone =='gin':"
+  },
+  {
+    "line": 267,
+    "text": "            self.experts = nn.ModuleList(["
+  },
+  {
+    "line": 268,
+    "text": "                GIN_GETS("
+  },
+  {
+    "line": 269,
+    "text": "                    num_classes=num_classses, "
+  },
+  {
+    "line": 270,
+    "text": "                    hidden_dim=hidden_dim,"
+  },
+  {
+    "line": 271,
+    "text": "                    dropout_rate=dropout_rate,"
+  },
+  {
+    "line": 272,
+    "text": "                    num_layers=num_layer,"
+  },
+  {
+    "line": 273,
+    "text": "                    device=device,"
+  },
+  {
+    "line": 274,
+    "text": "                    expert_config=expert_configs[i],"
+  },
+  {
+    "line": 275,
+    "text": "                    feature_dim=feature_dim,"
+  },
+  {
+    "line": 276,
+    "text": "                    feature_hidden_dim=feature_hidden_dim,"
+  },
+  {
+    "line": 277,
+    "text": "                    degree_hidden_dim=degree_hidden_dim,"
+  },
+  {
+    "line": 278,
+    "text": "                ) for i in range(self.num_experts)])"
+  },
+  {
+    "line": 279,
+    "text": "        else:"
+  },
+  {
+    "line": 280,
+    "text": "            raise NotImplementedError"
+  },
+  {
+    "line": 281,
+    "text": "        self.w_gate = nn.Parameter(torch.zeros(feature_hidden_dim+num_classses, self.num_experts), requires_grad=True)"
+  },
+  {
+    "line": 282,
+    "text": "        self.w_noise = nn.Parameter(torch.zeros(feature_hidden_dim+num_classses, self.num_experts), requires_grad=True)"
+  },
+  {
+    "line": 283,
+    "text": "        self.topo_val = None"
+  },
+  {
+    "line": 284,
+    "text": "        self.softplus = nn.Softplus()"
+  },
+  {
+    "line": 285,
+    "text": "        self.softmax = nn.Softmax(1)"
+  },
+  {
+    "line": 286,
+    "text": "        self.register_buffer(\"mean\", torch.tensor([0.0]))"
+  },
+  {
+    "line": 287,
+    "text": "        self.register_buffer(\"std\", torch.tensor([1.0]))"
+  },
+  {
+    "line": 288,
+    "text": "        assert(self.k <= self.num_experts)"
+  },
+  {
+    "line": 289,
+    "text": ""
+  },
+  {
+    "line": 290,
+    "text": "    def cv_squared(self, x):"
+  },
+  {
+    "line": 291,
+    "text": "        \"\"\"The squared coefficient of variation of a sample."
+  },
+  {
+    "line": 292,
+    "text": "        Useful as a loss to encourage a positive distribution to be more uniform."
+  },
+  {
+    "line": 293,
+    "text": "        Epsilons added for numerical stability."
+  },
+  {
+    "line": 294,
+    "text": "        Returns 0 for an empty Tensor."
+  },
+  {
+    "line": 295,
+    "text": "        Args:"
+  },
+  {
+    "line": 296,
+    "text": "        x: a `Tensor`."
+  },
+  {
+    "line": 297,
+    "text": "        Returns:"
+  },
+  {
+    "line": 298,
+    "text": "        a `Scalar`."
+  },
+  {
+    "line": 299,
+    "text": "        \"\"\""
+  },
+  {
+    "line": 300,
+    "text": "        eps = 1e-10"
+  },
+  {
+    "line": 301,
+    "text": "        # if only num_experts = 1"
+  },
+  {
+    "line": 302,
+    "text": ""
+  },
+  {
+    "line": 303,
+    "text": "        if x.shape[0] == 1:"
+  },
+  {
+    "line": 304,
+    "text": "            return torch.tensor([0], device=x.device, dtype=x.dtype)"
+  },
+  {
+    "line": 305,
+    "text": "        return x.float().var() / (x.float().mean()**2 + eps)"
+  },
+  {
+    "line": 306,
+    "text": ""
+  },
+  {
+    "line": 307,
+    "text": "    def _gates_to_load(self, gates):"
+  },
+  {
+    "line": 308,
+    "text": "        \"\"\"Compute the true load per expert, given the gates."
+  },
+  {
+    "line": 309,
+    "text": "        The load is the number of examples for which the corresponding gate is >0."
+  },
+  {
+    "line": 310,
+    "text": "        Args:"
+  },
+  {
+    "line": 311,
+    "text": "        gates: a `Tensor` of shape [batch_size, n]"
+  },
+  {
+    "line": 312,
+    "text": "        Returns:"
+  },
+  {
+    "line": 313,
+    "text": "        a float32 `Tensor` of shape [n]"
+  },
+  {
+    "line": 314,
+    "text": "        \"\"\""
+  },
+  {
+    "line": 315,
+    "text": "        return (gates > 0).sum(0)"
+  },
+  {
+    "line": 316,
+    "text": ""
+  },
+  {
+    "line": 317,
+    "text": "    def _prob_in_top_k(self, clean_values, noisy_values, noise_stddev, noisy_top_values):"
+  },
+  {
+    "line": 318,
+    "text": "        \"\"\"Helper function to NoisyTopKGating."
+  },
+  {
+    "line": 319,
+    "text": "        Computes the probability that value is in top k, given different random noise."
+  },
+  {
+    "line": 320,
+    "text": "        This gives us a way of backpropagating from a loss that balances the number"
+  },
+  {
+    "line": 321,
+    "text": "        of times each expert is in the top k experts per example."
+  },
+  {
+    "line": 322,
+    "text": "        In the case of no noise, pass in None for noise_stddev, and the result will"
+  },
+  {
+    "line": 323,
+    "text": "        not be differentiable."
+  },
+  {
+    "line": 324,
+    "text": "        Args:"
+  },
+  {
+    "line": 325,
+    "text": "        clean_values: a `Tensor` of shape [batch, n]."
+  },
+  {
+    "line": 326,
+    "text": "        noisy_values: a `Tensor` of shape [batch, n].  Equal to clean values plus"
+  },
+  {
+    "line": 327,
+    "text": "          normally distributed noise with standard deviation noise_stddev."
+  },
+  {
+    "line": 328,
+    "text": "        noise_stddev: a `Tensor` of shape [batch, n], or None"
+  },
+  {
+    "line": 329,
+    "text": "        noisy_top_values: a `Tensor` of shape [batch, m]."
+  },
+  {
+    "line": 330,
+    "text": "           \"values\" Output of tf.top_k(noisy_top_values, m).  m >= k+1"
+  },
+  {
+    "line": 331,
+    "text": "        Returns:"
+  },
+  {
+    "line": 332,
+    "text": "        a `Tensor` of shape [batch, n]."
+  },
+  {
+    "line": 333,
+    "text": "        \"\"\""
+  },
+  {
+    "line": 334,
+    "text": "        batch = clean_values.size(0)"
+  },
+  {
+    "line": 335,
+    "text": "        m = noisy_top_values.size(1)"
+  },
+  {
+    "line": 336,
+    "text": "        top_values_flat = noisy_top_values.flatten()"
+  },
+  {
+    "line": 337,
+    "text": ""
+  },
+  {
+    "line": 338,
+    "text": "        threshold_positions_if_in = torch.arange(batch, device=clean_values.device) * m + self.k"
+  },
+  {
+    "line": 339,
+    "text": "        threshold_if_in = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_in), 1)"
+  },
+  {
+    "line": 340,
+    "text": "        is_in = torch.gt(noisy_values, threshold_if_in)"
+  },
+  {
+    "line": 341,
+    "text": "        threshold_positions_if_out = threshold_positions_if_in - 1"
+  },
+  {
+    "line": 342,
+    "text": "        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)"
+  },
+  {
+    "line": 343,
+    "text": "        # is each value currently in the top k."
+  },
+  {
+    "line": 344,
+    "text": "        normal = Normal(self.mean, self.std)"
+  },
+  {
+    "line": 345,
+    "text": "        prob_if_in = normal.cdf((clean_values - threshold_if_in)/noise_stddev)"
+  },
+  {
+    "line": 346,
+    "text": "        prob_if_out = normal.cdf((clean_values - threshold_if_out)/noise_stddev)"
+  },
+  {
+    "line": 347,
+    "text": "        prob = torch.where(is_in, prob_if_in, prob_if_out)"
+  },
+  {
+    "line": 348,
+    "text": "        return prob"
+  },
+  {
+    "line": 349,
+    "text": "    "
+  },
+  {
+    "line": 350,
+    "text": "    "
+  },
+  {
+    "line": 351,
+    "text": "    def noisy_top_k_gating(self, x,  train, noise_epsilon=1e-2):"
+  },
+  {
+    "line": 352,
+    "text": "        \"\"\"Noisy top-k gating."
+  },
+  {
+    "line": 353,
+    "text": "          See paper: https://arxiv.org/abs/1701.06538."
+  },
+  {
+    "line": 354,
+    "text": "          Args:"
+  },
+  {
+    "line": 355,
+    "text": "            x: input Tensor with shape [batch_size, input_size]"
+  },
+  {
+    "line": 356,
+    "text": "            train: a boolean - we only add noise at training time."
+  },
+  {
+    "line": 357,
+    "text": "            noise_epsilon: a float"
+  },
+  {
+    "line": 358,
+    "text": "          Returns:"
+  },
+  {
+    "line": 359,
+    "text": "            gates: a Tensor with shape [batch_size, num_experts]"
+  },
+  {
+    "line": 360,
+    "text": "            load: a Tensor with shape [num_experts]"
+  },
+  {
+    "line": 361,
+    "text": "        \"\"\""
+  },
+  {
+    "line": 362,
+    "text": "        clean_logits = x @ self.w_gate # size:(nums_node,nums_expert)"
+  },
+  {
+    "line": 363,
+    "text": "        if self.noisy_gating and train:"
+  },
+  {
+    "line": 364,
+    "text": "            raw_noise_stddev = x @ self.w_noise"
+  },
+  {
+    "line": 365,
+    "text": "            noise_stddev = ((self.softplus(raw_noise_stddev) + noise_epsilon))"
+  },
+  {
+    "line": 366,
+    "text": "            noisy_logits = clean_logits + (torch.randn_like(clean_logits) * noise_stddev)"
+  },
+  {
+    "line": 367,
+    "text": "            logits = noisy_logits"
+  },
+  {
+    "line": 368,
+    "text": "        else:"
+  },
+  {
+    "line": 369,
+    "text": "            logits = clean_logits"
+  },
+  {
+    "line": 370,
+    "text": ""
+  },
+  {
+    "line": 371,
+    "text": "        # calculate topk + 1 that will be needed for the noisy gates"
+  },
+  {
+    "line": 372,
+    "text": "        top_logits, top_indices = logits.topk(min(self.k+1, self.num_experts), dim=1) "
+  },
+  {
+    "line": 373,
+    "text": "        top_k_logits = top_logits[:, :self.k] # size:(batch_size,self.k)"
+  },
+  {
+    "line": 374,
+    "text": "        top_k_indices = top_indices[:, :self.k] # size:(batch_size,self.k)"
+  },
+  {
+    "line": 375,
+    "text": "        top_k_gates = self.softmax(top_k_logits)"
+  },
+  {
+    "line": 376,
+    "text": ""
+  },
+  {
+    "line": 377,
+    "text": "        zeros = torch.zeros_like(logits, requires_grad=True)"
+  },
+  {
+    "line": 378,
+    "text": "        gates = zeros.scatter(1, top_k_indices, top_k_gates)  # size:(batch_size,num_experts)"
+  },
+  {
+    "line": 379,
+    "text": ""
+  },
+  {
+    "line": 380,
+    "text": "        if self.noisy_gating and self.k < self.num_experts and train:"
+  },
+  {
+    "line": 381,
+    "text": "            load = (self._prob_in_top_k(clean_logits, noisy_logits, noise_stddev, top_logits)).sum(0)"
+  },
+  {
+    "line": 382,
+    "text": "        else:"
+  },
+  {
+    "line": 383,
+    "text": "            load = self._gates_to_load(gates)"
+  },
+  {
+    "line": 384,
+    "text": "        return gates, load  "
+  },
+  {
+    "line": 385,
+    "text": "    "
+  },
+  {
+    "line": 386,
+    "text": "    def forward(self, g, logits, features):"
+  },
+  {
+    "line": 387,
+    "text": "        features_trans = self.proj_feature(features)"
+  },
+  {
+    "line": 388,
+    "text": "        gating_input = torch.cat([features_trans, logits], dim=1)"
+  },
+  {
+    "line": 389,
+    "text": "        node_gates, load = self.noisy_top_k_gating(gating_input, self.training) # N, |E|"
+  },
+  {
+    "line": 390,
+    "text": "        importance = node_gates.sum(0) "
+  },
+  {
+    "line": 391,
+    "text": "        loss = self.cv_squared(importance) + self.cv_squared(load)"
+  },
+  {
+    "line": 392,
+    "text": "        loss *= self.loss_coef"
+  },
+  {
+    "line": 393,
+    "text": ""
+  },
+  {
+    "line": 394,
+    "text": "        expert_outputs = []"
+  },
+  {
+    "line": 395,
+    "text": "        for i in range(self.num_experts):"
+  },
+  {
+    "line": 396,
+    "text": "            expert_i_output = self.experts[i](g, logits, features)"
+  },
+  {
+    "line": 397,
+    "text": "            expert_outputs.append(expert_i_output)"
+  },
+  {
+    "line": 398,
+    "text": "        expert_outputs = torch.stack(expert_outputs, dim=1)"
+  },
+  {
+    "line": 399,
+    "text": "        "
+  },
+  {
+    "line": 400,
+    "text": "        # print(expert_outputs.shape)"
+  },
+  {
+    "line": 401,
+    "text": "        # print(node_gates.shape)"
+  },
+  {
+    "line": 402,
+    "text": ""
+  },
+  {
+    "line": 403,
+    "text": "        temperature = (expert_outputs * node_gates.unsqueeze(-1)).sum(dim=1)"
+  },
+  {
+    "line": 404,
+    "text": "        calibrated = logits * F.softplus(temperature)"
+  },
+  {
+    "line": 405,
+    "text": "        return calibrated, loss, node_gates"
+  }
+]
