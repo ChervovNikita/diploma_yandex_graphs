@@ -1,0 +1,5 @@
+# Literature index v63
+
+238 conclusion records cover 186 paper groups and two software groups. All 236 v62 records, identifier groups, catalog entries, source events, proposal/decision linkages and history are preserved. Exactly two previously completed scopes are appended: the exact NeurIPS 2018 MetaReg publisher identity and MLDG arxiv:1710.03463v1. PDF and extracted-text hashes are bound without embedding raw text. No inferred MetaReg arXiv/DOI alias, integration retrieval, primary/full-paper read or numerical/predictive/novelty/execution adoption follows.
+
+Train-only transfer, deployment without adaptation, persistent source heads and differentiated virtual updates have direct MetaReg/MLDG ancestry. The graph-specific endpoint construction, served ensemble objective and recomputed committed route weights remain unproved recipe differences. They require adapted-single, untied-ensemble, detached-credit and matched-random-separation controls. No graph-task independence or gradient-transfer novelty is claimed.

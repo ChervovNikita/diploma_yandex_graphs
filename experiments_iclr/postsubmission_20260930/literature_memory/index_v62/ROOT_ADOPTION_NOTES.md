@@ -1,0 +1,5 @@
+# Literature index v62
+
+236 conclusion records cover 184 paper groups and two software groups. All 233 v61 records, identifier groups, catalog entries, associated source events, mechanism linkages and history are preserved. Exactly three previously completed primary-method scopes are appended: ANIL arxiv:1909.09157v2, Meta-Graph arxiv:1912.09867v2 and BMAML arxiv:1806.03836v4. Identity and exact scope were deduplicated before append. This integration adds zero retrievals, primary or full-paper reads and no numerical, predictive, execution or novelty adoption.
+
+Head-only adaptation with shared-feature meta-updates is ANIL ancestry. Actual graph-task link-prediction meta-learning is Meta-Graph ancestry. Shared feature extractors, private ensemble classifiers and head-only inner updates are explicit BMAML/EMAML ancestry. The endpoint-separated persistent-route recomputation recipe remains a conditional composition hypothesis. The bounded proposal and ROOT_TRIAGE_DECISION are linked separately with no reading credit or fit admission; source feasibility and representative controls remain required.
