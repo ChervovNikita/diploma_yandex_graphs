@@ -1,9 +1,3 @@
-# Current access override — 5 October 2026
-
-The human temporarily withdrew18.77 and MacLink access. Until explicit restoration, use only anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222 and verify anogena-2-0/sole UUID GPU-44039938-fd82-41d2-fefd-de71514e2fac. No 18.77 contact, monitoring, fetch, launch, stop or cleanup. Detached jobs remain untouched and unobserved. This supersedes earlier access text below. Current state is in PUBLIC_STATUS.md and RESEARCH_STATE.md.
-
-## Preserved earlier context
-
 # Post-submission GNNM research
 
 The paper was submitted before this phase. Existing reported scores are fixed. The user requests methodological ideas, representative new experiments, literature comparisons, parallel distinct hypotheses, and unbiased fresh reviewer evaluation. Do not re-score or rerun the existing benchmark to replace its published values.

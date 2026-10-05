@@ -1,57 +1,20 @@
-# Research update: 5 October 2026, allocation only
-
-The user temporarily withdrew 18.77 access. Research now uses only the authorized one-GPU allocation; no 18.77 or MacLink contact is permitted until human restoration. Its detached jobs remain untouched and unobserved.
-
-The original private-learning pilot continues unchanged. A separate matched-single block launched once on the allocation at 08:43:11 UTC. The latest exact owned-process observations find both queues and their current control fits live with no recorded failure. The full scientific cohort remains 30 original fits plus nine companions; six companion fits are unreleased while access is withdrawn. Complete-family comparisons remain pending.
-
-Five prospective diagnostics will measure quality, complementary errors, graph exposure, separate Adam responses and the actual effect of differentiating through private learning. They do not change selection or promotion. Literature memory v64 preserves 241 scoped conclusions across 189 paper groups; these are not full-paper reading counts. Nearby meta-learning and graph-sharing methods constrain novelty. No new method has established superiority or an acceptance verdict, and original manuscript scores remain unchanged.
-
-Amazon has 12 of 15 fits complete. PENCIL's first native 300-epoch fit completed with exit 0; its second is running. Scores remain closed until complete-family authentication. See [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [analysis plan](experiments_iclr/postsubmission_20260930/shared_private_transfer_fixed30_plus9_mechanism_analysis_plan_20261005_v1/REPORT.md) and [preserved decisions](experiments_iclr/postsubmission_20260930/research_ledger.json).
-
-## Preserved preceding README and updates
-
-# Research update: 5 October 2026, 08:10 UTC
-
-The objective is a shared graph ensemble that predicts better than capable single models and ordinary independently trained ensembles. No new method has yet demonstrated both superiority and methodological novelty. Original paper scores are unchanged.
-
-The current learning rule trains shared features through the private members' learning steps on other graph endpoints. Its fixed30-fit study is running on all three authorized GPUs. Fresh owned-process observations find5/30 operationally complete, all queues and current children live, no failures and no comparative score access. Closest meta-learning and graph-training priors limit novelty. [Literature-to-design synthesis](experiments_iclr/postsubmission_20260930/quality_literature_to_design_triage_20261005_v1/REPORT.md).
-
-A source audit found that the first capable-single control changed which parameters learn privately. A separate matched single preserves the four-member model's parameter roles and four inner streams. Both actual provider implementation checks and three complete TRAIN cost cycles passed. The nine companion fits remain unreleased while final launch adapters are independently reviewed. These checks establish implementation and cost, not accuracy. [Control audit](experiments_iclr/postsubmission_20260930/shared_private_transfer_member_count_partition_audit_20261005_v1/REPORT.md). [Companion design and queues](experiments_iclr/postsubmission_20260930/shared_private_transfer_row0_companion_queue_preparation_20261005_v1/REPORT.md).
-
-Amazon/Polynormer has12/15 operationally complete; the PENCIL comparator is at seed0 epoch259. Outcomes remain closed until each full family is authenticated. [Current status, completed evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). [Preserved decisions/history](experiments_iclr/postsubmission_20260930/research_ledger.json).
-
-## Preserved preceding README and updates
-
 # GNNM: shared propagation in graph ensembles
 
-### Research update: 5 October 2026, 09:04 Moscow / 06:04 UTC
+## Current research — 5 October 2026
 
-The goal is better predictive accuracy from a learnable ensemble with a shared graph backbone. We have not yet established a new method that beats both competent single models and ordinary independently trained ensembles. Original paper scores remain unchanged.
+The objective is better prediction from a learnable ensemble with a shared graph backbone. No new extension has yet established superiority over strong single models and independent ensembles, methodological novelty or an acceptance verdict. Original five-dataset paper scores remain unchanged.
 
-The current hypothesis trains the backbone to support learning by four private members. A member first learns from TRAIN links involving other endpoints; the shared weights then receive credit through that adaptation when predicting a different endpoint query. Member updates are recomputed at the new shared weights before being retained for inference. This is a testable graph-specific learning rule. Meta-learning, persistent private adaptation and the virtual/meta/recomputed-update sequence have close prior work, including SELAR; they are not presented as new principles.
+Research currently uses only the authorized one-GPU allocation. Access to 18.77 and MacLink is temporarily withdrawn; existing detached jobs remain untouched and unobserved until the human restores access.
 
-The fixed Citeseer-HeaRT pilot has ten cells and three paired seeds (30 fits). Its controls include capable adapted singles, a paid ordinary single, ordinary joint four, episodic shared F4, untied adapted four, and the previously completed true independent-four and unchanged native-training F4 references. Random-endpoint and detached-adaptation comparisons test the proposed mechanism. Original reference scores are reused verbatim. Outcomes are compared only after all 30 fits and provider records are complete.
+The active rule trains the backbone through private members' learning on links involving other graph endpoints, then recomputes the committed private updates at the new shared weights. This virtual lookahead anticipates an actual retained training update; prediction needs no new adaptation. It does not guarantee Adam descent or better ranking. [Exact identity and assumptions](experiments_iclr/postsubmission_20260930/adaptation_free_private_learning_regularization_assessment_20261005_v1/REPORT.md). The fixed 30-fit original comparison and nine matched-single companions retain their controls and selection rules. At 10:12:12 UTC the allocation original block was 3/10 complete with its live-learning candidate at cycle 21; the matched-single block was 1/3 complete and its live-learning variant was at cycle 8. Complete-family comparisons remain closed.
 
-The reviewed b0 queue launched once on the authorized singleton at 05:50:59 UTC. Its first ordinary single control was physically live at cycle 8 at 05:55:09 UTC. Fixed order begins with controls: the live-transfer candidate had not started and there is no new predictive success. A fresh repository-local 18.77 runtime passed installation and provider checks, with 43 authenticated input/source files staged. Separate CPU sampling transcripts have launched; 18.77 numerical qualification and fit admission remain separate. Setup is not a scientific result.
+A CPU-only Pubmed check completed all 589 seed-0/cycle-0 sampling episodes, retaining full TRAIN coverage with no fallback or redraw. The paired support mask removed a mean 5.1334% of training edges, versus roughly 40–42% in the smaller Citeseer measurement. This identifies a useful future test with less graph deletion; it is not accuracy evidence or a training admission. Raw geometry evidence stays on the allocation.
 
-See [study and controls](experiments_iclr/postsubmission_20260930/shared_private_transfer_paired_pilot_preparation_20261005_v2/README.md), [independent execution audit](experiments_iclr/postsubmission_20260930/private_transfer_pilot_independent_execution_audit_20261005_v2/REPORT.md), [complete cost decision](experiments_iclr/postsubmission_20260930/private_transfer_complete_cost_root_adoption_20261005_v1/REPORT.md), [launch receipt](experiments_iclr/postsubmission_20260930/shared_private_transfer_paired_pilot_launch_receipts_root_20261005_v2/LAUNCH_RECEIPT.json), [completed 18.77 setup](experiments_iclr/postsubmission_20260930/shared_private_transfer_gpu77_environment_execution_20261005_v1/REPORT.md) and [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). The previous dated updates below remain unchanged.
+Independent source review found that the disabled D2 analysis reads some validation histories before finishing all 39 custody checks. Successor v2 passed independent static re-review with the ordering repaired; v1 remains preserved and numerical execution stays disabled. No analysis payloads have been opened. Screening criteria were also corrected: representability by a richer branched single does not invalidate a useful finite-sample or optimization contribution; all quality gates remain unchanged.
 
+Amazon/Polynormer is 13/15 complete and the second PENCIL seed is training. Canonical literature memory v65 retains 243 scoped conclusions across 191 paper groups and two software groups; these are not full-paper-read totals. The two newer graph-sharing scopes are now integrated with no new primary rereads. See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [Pubmed result and limits](experiments_iclr/postsubmission_20260930/private_transfer_pubmed_train_geometry_execution_root_20261005_v1/ROOT_ADOPTION_REPORT.md), [independent D2 review](experiments_iclr/postsubmission_20260930/shared_private_transfer_fixed39_d2_analysis_independent_review_20261005_v2/REPORT.md), [screening audit](experiments_iclr/postsubmission_20260930/method_screening_criteria_independent_audit_20261005_v1/REPORT.md) and [preserved decisions](experiments_iclr/postsubmission_20260930/research_ledger.json).
 
-### Research update: 5 October 2026, 00:09 Moscow / 4 October 21:09 UTC
-
-GNNM's primary objective is better predictive accuracy through ensembling. No confirmed methodological advantage over the independent ensemble or fresh manuscript acceptance exists.
-
-The complete five-seed ogbl-collab TEST result remains 67.2909% Hits@50 for private completion, 66.4426% for native single64 and 67.6298% for independent4. The gain over the single is exploratory. Private versus pooled completion is inconclusive. Collab TEST is consumed; its full history remains disclosed.
-
-The fixed predictive queues remain running: Amazon/Polynormer 9/15 fits complete, conditional-pattern Collab 4/9 and DDI 2/12. Comparisons remain unopened until the complete respective cohorts finish. No predictive result follows from queue progress.
-
-The new private-head initialization hypothesis uses graph-filtered training errors to propose different initial member directions, then selects using a discarded native training update. Related shared-head covariance initialization is already known. The source-only mechanism analysis permits changed learning responses but guarantees neither persistent diversity nor better predictions.
-
-Actual Squirrel17 and Photo17 engineering checks are now closed. Earlier identity/AD checks passed, but returned-state reconstruction failed. A named Squirrel diagnostic found a small final-factor recomputation discrepancy. Exact installation custody remains under diagnosis. A separate preprocessing replay also found that identical raw inputs produce slightly different native preprocessed features under the recorded deterministic policy. Actual preprocessed input must be retained with each fresh warm state. Original failures and measured costs remain preserved; no initializer predictive continuation has begun.
-
-A post-update terminal reporter has passed fresh source review; runtime boundary qualification is pending. A separate head-only cache is pending numerical equivalence checks and leaves complete native training and Adam trials unchanged. Neither is a scientific result.
-
-See [current evidence](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [mechanism analysis](experiments_iclr/postsubmission_20260930/graph_curvature_mechanism_theory_check_20261004_v1/REPORT.md), [replay diagnosis](experiments_iclr/postsubmission_20260930/graph_curvature_saved_warm_replay_diagnostic_root_20261005_v1/README.md) and [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md). Original scores, failures and independent reviews remain preserved. Large checkpoints and raw records stay on authorized servers.
+## Original method
 
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.
 
@@ -71,15 +34,6 @@ node features and graph edges
 Sharing weights reduces trainable-parameter storage. It still requires four propagation paths and does not imply lower latency. The method uses uniform averaging, without an expert-routing gate.
 
 BatchEnsemble is prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715)). [Kim (2023)](https://koasas.kaist.ac.kr/handle/10203/308201) previously placed its factors inside GNN layers. This repository studies factors at both boundary projectors, tied propagation weights, partial sharing, and the limits of these constructions. It does not claim the first graph ensemble or the first use of BatchEnsemble in GNNs.
-
-## Post-submission research
-
-Quality is the research priority. Current work tests a paired two-endpoint neighbour-pattern objective on Collab/DDI, transfer between members trained on different graph views, and graph-based selection of initial private-head covariance. Every direction has preserved prior-work checks and prospectively specified controls. Fresh native engineering checks for Squirrel and Photo are closed with reconstruction failures; their costs and subsequent diagnostics are retained. A theoretical or numerical property alone does not establish predictive utility.
-
-The original GNNM and current Collab/DDI rankers average raw member scores. The separately specified graph-view experiment averages class probabilities. These pooling rules are explicit per experiment and are not interchangeable.
-
-See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md), [literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v55/LITERATURE_INDEX.json) and [complete ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). The literature index preserves 218 scoped conclusion records across 166 paper identities and two software identities. These are not full-paper-read totals. Historical dated updates below remain as recorded. Science uses only the authorized one-GPU allocation and 18.77 project repositories. The seven-GPU route is forwarding only.
-
 
 ## Repository contents
 
@@ -295,19 +249,6 @@ Optimizer seeds repeat training on one split. Official masks overlap on a graph.
 
 This public repository identifies its contributors. Conference review uses a separately assembled anonymous code archive without Git history or identifying metadata. Ongoing studies are not evidence until their complete audit passes.
 
-### Runtime update, 2 October 2026
-
-The paired ogbl-collab study is running normally on two authorized A100 GPUs. Research files and deliberate outputs stay in the project repository. Standard incidental runtime caches are allowed; private filesystem guard prototypes are retired from active execution. Previous interrupted fits and their costs are preserved and excluded. No new predictive superiority is established until all fixed comparison cells complete and pass audit. See the post-submission research status for the live evidence and scientific scope.
-
-### Research update, 3 October 2026
-
-The Mixed40 extension failed its unchanged primary and reverse-role practical gates on both development graphs. The numerical audit includes all 40 selected models plus 15 native secondary rows. Earlier failed evaluator transports and schema diagnosis are retained.
-
-Amazon V6 runtime, five-form numerical qualification and measured resource admission are complete; the original 15-fit queue is running. NCNC V4 independent source reviews and the small-input numerical pair passed. The two earlier full-graph failures remain preserved, and full-graph parity and feasibility remain pending. These engineering results establish no predictive winner.
-
-Canonical [literature index_v41](experiments_iclr/postsubmission_20260930/literature_memory/index_v41/INTEGRATION.json) now preserves 180 scoped conclusions across 131 paper identities and two software identities. It integrates the first coherent-reconstruction scout and the [second structural-specialization scout](experiments_iclr/postsubmission_20260930/graph_conditioned_low_rank_structural_specialization_literature_scout_20261003_v1/REPORT.md): twelve new method scopes and zero whole-paper certifications. Relevant prior work is retained. Any contribution still requires capable controls, prospective paired replication, heldout confirmation and fresh independent manuscript review.
-
-Original paper scores, unsuccessful experiments, reviews and research decisions are preserved. See [current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) and the research ledger.
 
 ## Complete link-prediction follow-up (4 October 2026)
 

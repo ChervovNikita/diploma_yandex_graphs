@@ -1,0 +1,9 @@
+# Prospective literature index v65
+
+Recommend root adoption after reviewing this sealed integration packet. It contains 243 conclusion records, 191 normalized paper groups and 2 software groups. All 241 v64 records and every prior group/catalog value, source event, decision linkage and historical field are preserved. Changed current metadata is retained exactly in the v64 snapshot.
+
+Only the two already-adopted saved scopes are appended: HOPPER (arxiv:2608.09031v1) and NBA-GNN (arxiv:2310.07430v1). The source recorded five complete subsections and 21 paragraph/theorem/list-item containers, zero full-paper reads, no proof audit or author-code/result read. Integration adds zero searches, retrievals, semantic primary rereads, primary reads or full-paper reads. Paper-group counts are not full-paper reading counts; uncertified cumulative flags remain unchanged.
+
+Original scoped source conclusions are retained verbatim. The adopted screening correction is recorded separately: a fixed-complete-input obstruction excludes a downstream-only remedy under its assumptions; an upstream representation change may still yield finite-sample or optimization benefit. An available capable single or untied implementation is not a logical rejection. The unsupported successor remains unpromoted; no quality, novelty, current-NCN failure or inference claim is adopted. Frozen study and gates remain unchanged.
+
+The full schema-compatible UTF-8 JSON was measured before writing: 1,578,720 bytes, below the 2,000,000-byte publication cap. Compact whitespace changes no parsed value. Saved excerpt hashes and versioned receipt fields were mechanically checked; deleted full HTML is represented by receipt hashes, not re-certified raw custody. SOURCE_BINDINGS, DELTA and VERIFICATION document the exact append. Canonical ledger/state and publisher were not changed.

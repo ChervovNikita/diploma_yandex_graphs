@@ -1,0 +1,223 @@
+--- shared_private_transfer_fixed39_d2_analysis_preparation_20261005_v1/analyze_d2.py
++++ shared_private_transfer_fixed39_d2_analysis_preparation_20261005_v2/analyze_d2.py
+@@ -106,9 +106,8 @@
+     packet(release)
+ 
+ 
+-def existing_selector(freeze, path, cell):
++def existing_selector(freeze, history, cell):
+     """Audit the retained source choice; return no alternative checkpoint."""
+-    history = phase_file(str((path.parent/'VALID_HISTORY.jsonl').relative_to(PHASE)))
+     require(sha(history) == freeze['history']['VALID_HISTORY.jsonl'], 'Selector history custody changed')
+     rows = [read_line(line) for line in history.read_text().splitlines()]
+     last = freeze['last_cycle']
+@@ -212,10 +211,29 @@
+     return authority, reference, runtime
+ 
+ 
++def history_inventory(release, joined):
++    """Authenticate retrospective byte custody, not pre-fit/historical authority."""
++    inventory = read(binding(release['VALID_history_inventory']))
++    require(inventory['schema'] == 'retrospective_full39_VALID_history_inventory_v1'
++            and inventory['complete'] is True and inventory['physical_fits'] == 39
++            and inventory['created_after_all39_terminal_and_completeness_checks'] is True
++            and inventory['history_or_FREEZE_JSON_parsed'] is False
++            and inventory['scores_read'] is False and inventory['pre_fit_authority'] is False,
++            'Complete score-unparsed retrospective history byte inventory required')
++    require(inventory['registries'] == release['registries'], 'History inventory registry custody differs')
++    expected = [row['cell_id'] for _, _, _, _, rows in joined for row in rows]
++    records = inventory['records']
++    require(len(records) == 39 and [r['cell_id'] for r in records] == expected
++            and len({r['cell_id'] for r in records}) == 39,
++            'History byte inventory must retain exactly all39 original identities/order')
++    return {r['cell_id']: r for r in records}
++
++
+ def custody(release, joined, common_inputs):
+-    """Recheck metadata and binary hashes for every39 fit before numerical import."""
++    """Complete all39 metadata/source/artifact hash checks; parse no fit outcomes."""
+     authorized = []
+     science = read(binding(SCIENCE))
++    histories = history_inventory(release, joined)
+     for family, spec, registry_path, registry, rows in joined:
+         root = registry_path.parent
+         collection_release_path = phase_file(str((root/'COLLECTION_RELEASE.json').relative_to(PHASE)))
+@@ -284,28 +302,65 @@
+                 require(sha(source_path) == source_file['sha256'] and source_path.stat().st_size == source_file['bytes'],
+                         'Qualified provider source bytes changed')
+             path = binding({'path': row['freeze_relative'], 'sha256': row['freeze_sha256']})
+-            value = read(path)
+-            require(value['scope'] == 'TRAIN_VALID_freeze' and value['complete_VALID_scoring'] is True
+-                    and value['TEST_access'] is False and value['cohort_plan_sha256'] == registry['cohort_plan_sha256']
+-                    and value['source_manifest_sha256'] == row['source_manifest_sha256']
+-                    and value['job_sha256'] == row['job_sha256'] and value['input_identities'] == common_inputs
+-                    and all(value[k] == cell[k] for k in ('arm', 'rule', 'geometry', 'seed', 'paired_seed_block')),
+-                    'Selected-state freeze source/input/job identity differs')
+-            if family == 'companion9' and runtime['training_runtime_observation_available'] is True:
+-                observation = binding(runtime['training_runtime_observation'])
+-                require(observation.parent == path.parent and observation.name == 'CONFIG.json'
+-                        and sha(observation) == value['config_sha256']
+-                        and read(observation)['runtime'] == runtime['observed_training_runtime_versions'],
+-                        'Observed training runtime must be the actual source CONFIG bound by this FREEZE')
+             logits = binding({'path': row['selected_VALID_logits_relative'], 'sha256': row['VALID_logits_sha256']})
+             checkpoint = binding({'path': row['selected_checkpoint_relative'], 'sha256': row['checkpoint_sha256']})
+             require(logits.parent == checkpoint.parent == path.parent
+-                    and logits.name == 'selected_VALID_logits.pt' and checkpoint.name == 'selected_checkpoint.pt'
+-                    and value['VALID_logits_sha256'] == row['VALID_logits_sha256']
+-                    and value['checkpoint_sha256'] == row['checkpoint_sha256'], 'Retained state/logit custody differs')
+-            selected_quality = existing_selector(value, path, cell)
+-            authorized.append((cell, row, value, logits, selected_quality, provider_reference, runtime))
+-    require(len(authorized) == 39, 'All39 custody checks must precede numerical import')
++                    and path.name == 'FREEZE.json' and logits.name == 'selected_VALID_logits.pt'
++                    and checkpoint.name == 'selected_checkpoint.pt', 'Retained state/logit paths differ')
++            history_record = histories[row['cell_id']]
++            require(history_record['freeze_binding'] == {'path': row['freeze_relative'], 'sha256': row['freeze_sha256']},
++                    'Retrospective history inventory must preserve the original FREEZE identity')
++            history = binding(history_record['history_binding'])
++            require(history.parent == path.parent and history.name == 'VALID_HISTORY.jsonl',
++                    'Source-fixed retained VALID history path differs')
++            authorized.append({'family': family, 'cell': cell, 'row': row, 'freeze_path': path,
++                               'logits': logits, 'history': history,
++                               'history_sha256': history_record['history_binding']['sha256'],
++                               'cohort_plan_sha256': registry['cohort_plan_sha256'],
++                               'provider_reference': provider_reference, 'runtime': runtime})
++    require(len(authorized) == 39, 'All39 metadata/source/artifact custody must finish before outcome JSON reads')
++    return authorized
++
++
++def selected_state_custody(authorized, common_inputs):
++    """Only after complete byte custody, bind every retained FREEZE to its artifacts."""
++    require(len(authorized) == 39, 'All39 prior byte custody required')
++    states = []
++    for item in authorized:
++        row, cell, path, runtime = item['row'], item['cell'], item['freeze_path'], item['runtime']
++        # This is the first outcome-bearing JSON read. All39 original/companion
++        # collection, metadata, source and artifact byte checks already returned.
++        value = read(path)
++        require(value['scope'] == 'TRAIN_VALID_freeze' and value['complete_VALID_scoring'] is True
++                and value['TEST_access'] is False and value['cohort_plan_sha256'] == item['cohort_plan_sha256']
++                and value['source_manifest_sha256'] == row['source_manifest_sha256']
++                and value['job_sha256'] == row['job_sha256'] and value['input_identities'] == common_inputs
++                and all(value[k] == cell[k] for k in ('arm', 'rule', 'geometry', 'seed', 'paired_seed_block')),
++                'Selected-state freeze source/input/job identity differs')
++        require(value['VALID_logits_sha256'] == row['VALID_logits_sha256']
++                and value['checkpoint_sha256'] == row['checkpoint_sha256']
++                and value['history']['VALID_HISTORY.jsonl'] == item['history_sha256'],
++                'Actual source FREEZE checkpoint/logit/history reference differs from authenticated byte custody')
++        if item['family'] == 'companion9' and runtime['training_runtime_observation_available'] is True:
++            observation = binding(runtime['training_runtime_observation'])
++            require(observation.parent == path.parent and observation.name == 'CONFIG.json'
++                    and sha(observation) == value['config_sha256']
++                    and read(observation)['runtime'] == runtime['observed_training_runtime_versions'],
++                    'Observed training runtime must be the actual source CONFIG bound by this FREEZE')
++        states.append(dict(item, frozen=value))
++    require(len(states) == 39, 'All39 FREEZE semantic bindings must finish before history score audits')
++    return states
++
++
++def selector_audits(states):
++    """Audit every original retained choice only after all39 byte/semantic custody."""
++    require(len(states) == 39, 'Complete retained-state custody required before scores')
++    authorized = []
++    for item in states:
++        selected_quality = existing_selector(item['frozen'], item['history'], item['cell'])
++        authorized.append((item['cell'], item['row'], item['frozen'], item['logits'], selected_quality,
++                           item['provider_reference'], item['runtime']))
++    require(len(authorized) == 39, 'All39 selector audits required before numeric import/logits')
+     return authorized
+ 
+ 
+@@ -437,7 +492,9 @@
+     release = read(args.release)
+     release_scope(release)
+     joined, common_inputs = populations(release)
+-    authorized = custody(release, joined, common_inputs)
++    metadata = custody(release, joined, common_inputs)
++    states = selected_state_custody(metadata, common_inputs)
++    authorized = selector_audits(states)
+     output = args.output.resolve()
+     require(output.is_relative_to(PHASE) and not output.exists() and output.parent.is_dir(), 'Fresh phase output required')
+     # No numeric library, logit payload or checkpoint deserialization precedes
+--- shared_private_transfer_fixed39_d2_analysis_preparation_20261005_v1/ANALYSIS_RELEASE_DISABLED.json
++++ shared_private_transfer_fixed39_d2_analysis_preparation_20261005_v2/ANALYSIS_RELEASE_DISABLED.json
+@@ -1,5 +1,9 @@
+ {
+   "TEST_access": false,
++  "VALID_history_inventory": {
++    "path": null,
++    "sha256": null
++  },
+   "all_39_required_before_payload_access": true,
+   "analysis_source_manifest_sha256": null,
+   "checkpoint_reselection": false,
+@@ -34,8 +38,8 @@
+     }
+   },
+   "root_analysis_approved": false,
+-  "schema": "disabled_prospective_fixed39_D2_analysis_release_v1",
++  "schema": "disabled_prospective_fixed39_D2_analysis_release_v2",
+   "scientific_model_execution": false,
+   "selection": "first_maximum_complete_VALID_MRR_rounded4",
+-  "status": "DISABLED_PENDING_COMPLETE_EXACT30_PLUS_AUTHENTICATED9_AND_INDEPENDENT_CUSTODY_REVIEW"
++  "status": "DISABLED_PENDING_EXACT9_CUSTODY_RETROSPECTIVE_FULL39_HISTORY_BYTE_INVENTORY_AND_INDEPENDENT_REVIEW"
+ }
+--- shared_private_transfer_fixed39_d2_analysis_preparation_20261005_v1/REGISTRY_INTERFACE_PROPOSAL.json
++++ shared_private_transfer_fixed39_d2_analysis_preparation_20261005_v2/REGISTRY_INTERFACE_PROPOSAL.json
+@@ -91,6 +91,13 @@
+       "sha256": "774f45e1778ab7f0708aaa5f5a3a7aa6970968c63594218993673541856f72e4"
+     }
+   },
++  "consumer_order": [
++    "Hard-disabled source guard, then separate release/source packet and immutable plan/promotion/spec references.",
++    "Validate both complete ordered registries and common inputs.",
++    "Finish all39 collection/source/job/terminal/input and FREEZE/checkpoint/logit/history byte custody; parse no outcome-bearing FREEZE or histories.",
++    "Deserialize all39 retained FREEZE JSON objects and cross-check every checkpoint/logit/source history reference plus actual CONFIG runtime where observed; audit no history scores yet.",
++    "Audit all39 original selector histories, then import Torch and load all39 retained logits for unchanged D2 statistics."
++  ],
+   "current_availability": "GPU77 access withdrawn; its six companion fits remain unreleased/unobserved. Neither saved source manifests nor this proposal authorize access, launch, collection or D2 execution.",
+   "execution_unlock": "Requires reviewed companion collector/descriptor contract, independent custody review, a separately sealed enabled source revision, and enabled root D2 release. JSON alone cannot unlock this source.",
+   "original30": {
+@@ -136,7 +143,42 @@
+       "227,500"
+     ]
+   },
+-  "schema": "D2_existing30_plus_separately_authenticated9_interface_proposal_v1",
++  "retrospective_VALID_history_inventory": {
++    "authority": "Retrospective custody observation. It is neither pre-fit freeze nor independent historical authority. The source FREEZE.history reference is compared later after complete global byte custody.",
++    "candidate_schema": "retrospective_full39_VALID_history_inventory_v1",
++    "circularity_avoided": "No history score, selected cycle, quality value or FREEZE JSON parsing is needed to create the inventory. Do not extract expected history hashes from early FREEZE deserialization as a prerequisite for the global gate.",
++    "creation_order": "Only after actual metadata/source/terminal/completeness authentication for all39. Use registry freeze_relative parent plus source-fixed VALID_HISTORY.jsonl, hash bytes without parsing history or FREEZE JSON.",
++    "implemented_collector": null,
++    "record_bindings": "freeze_binding copies original registry path/SHA exactly; history_binding records the newly observed exact source-fixed history file path/SHA.",
++    "record_fields": [
++      "cell_id",
++      "freeze_binding",
++      "history_binding"
++    ],
++    "record_order": "All original30 execution_order followed by exact9 execution_order, with no duplicates/selections.",
++    "registry_bindings": "Exact original30 and companion9 references from the separate release; unchanged original registry.",
++    "required_fields": [
++      "schema",
++      "complete",
++      "physical_fits",
++      "created_after_all39_terminal_and_completeness_checks",
++      "history_or_FREEZE_JSON_parsed",
++      "scores_read",
++      "pre_fit_authority",
++      "registries",
++      "records"
++    ],
++    "required_scope": {
++      "complete": true,
++      "created_after_all39_terminal_and_completeness_checks": true,
++      "history_or_FREEZE_JSON_parsed": false,
++      "physical_fits": 39,
++      "pre_fit_authority": false,
++      "scores_read": false
++    },
++    "source_fixed_path": "Path(row.freeze_relative).parent / VALID_HISTORY.jsonl"
++  },
++  "schema": "D2_existing30_plus_separately_authenticated9_interface_proposal_v2",
+   "status": "UNRESOLVED_EXECUTION_DISABLED",
+   "universal_collector39_exists": false
+ }
