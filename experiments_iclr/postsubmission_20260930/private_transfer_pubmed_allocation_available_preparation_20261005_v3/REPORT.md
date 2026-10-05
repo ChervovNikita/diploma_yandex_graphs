@@ -1,0 +1,5 @@
+# Pubmed CPU input v3: include scalar receipt production in the soft bound
+
+5 October 2026. Preserved-v1/v2 source successor, still disabled. It retains the v2 early exact runtime check and soft checks before/after full semantic values. An additional check after scalar receipt production raises if that stage crossed600 seconds. Such a retained geometry receipt is unadmitted: the child exits nonzero and the owned supervisor cannot accept it. The separately preserved supervision v3 also rejects a final stage elapsed above600 seconds, including terminal production. Root must use successful actual owned terminals, not geometry flags alone.
+
+No model/metrics/TEST access, numerical/source execution, tests/fixtures, or server/network contact occurred. Original data/pool/feature semantic helpers are unchanged. All recipes remain disabled. The v3 output identity is fresh; no allocation output has been staged by this preparation. Independent focused review and actual root release remain pending. Scientific gates are unchanged.

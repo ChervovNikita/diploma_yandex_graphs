@@ -1,0 +1,76 @@
+def physical(pid):
+ p=Path('/proc')/str(pid)
+ try:
+  raw=(p/'stat').read_text();v=raw[raw.rfind(')')+2:].split()
+  argv=[x.decode() for x in (p/'cmdline').read_bytes().split(bytes([0])) if x]
+  status=(p/'status').read_text().splitlines()
+  rss=next((int(x.split()[1])*1024 for x in status if x.startswith('VmRSS:')),0)
+  hwm=next((int(x.split()[1])*1024 for x in status if x.startswith('VmHWM:')),0)
+  return dict(PID=pid,PPID=int(v[1]),start_ticks=int(v[19]),state=v[0],argv=argv,cwd=str((p/'cwd').resolve()) if v[0]!='Z' else None,RSS_bytes=rss,peak_RSS_bytes=hwm)
+ except FileNotFoundError:return None
+def output_bytes():
+ total=0
+ for f in root.rglob('*'):
+  assert not f.is_symlink()
+  if f.is_file():total+=f.stat().st_size
+ return total
+def run(stage,script,output_flag,output,hard):
+ command=[str(interpreter),'-B',str(root/'source'/script),'--recipe',str(root/'ROOT_RELEASE.json'),output_flag,str(output)]
+ start=time.monotonic();peak=0;failure=None;signals=[];usage=None;code=None
+ with (root/(stage+'.stdout.log')).open('xb') as out,(root/(stage+'.stderr.log')).open('xb') as err:
+  child=subprocess.Popen(command,cwd=repo,env=env,stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True)
+  # Popen creates this direct child and no poll()/wait() reaps it. Its PID
+  # cannot be reused until wait4 returns the authoritative terminal status.
+  owner=physical(child.pid)
+  def reap(block=False):
+   nonlocal code,peak,usage
+   if code is not None:return True
+   pid,status,rusage=os.wait4(child.pid,0 if block else os.WNOHANG)
+   if not pid:return False
+   code=os.waitstatus_to_exitcode(status);child.returncode=code
+   peak=max(peak,int(rusage.ru_maxrss)*1024)
+   usage=dict(peak_RSS_bytes=int(rusage.ru_maxrss)*1024,user_seconds=rusage.ru_utime,system_seconds=rusage.ru_stime)
+   return True
+  ended=reap()
+  ownership_admitted=True  # kernel-created, direct, unreaped Popen child
+  scope_admitted=ended or (owner is not None and owner['argv']==command and owner['cwd']==str(repo))
+  write(root/(stage+'.START.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),identity=owner,command=command,ownership_admitted=ownership_admitted,command_scope_admitted=scope_admitted,ownership_basis='direct unreaped Popen child plus parent/start identity; terminal via wait4',hard_seconds=hard,one_attempt=True))
+  if not ended and (owner is None or owner['PPID']!=os.getpid()):failure='physical_ownership_observation'
+  if not scope_admitted:failure='command_scope_admission'
+  while code is None:
+   if reap():break
+   now=physical(child.pid)
+   if now is None:
+    if reap():break
+    failure='physical_ownership_observation'
+   elif owner is None or now['PPID']!=os.getpid() or now['start_ticks']!=owner['start_ticks']:failure='physical_identity_changed'
+   elif now['state']!='Z' and (now['argv']!=command or now['cwd']!=str(repo)):failure='command_scope_changed'
+   if now is not None:peak=max(peak,now['RSS_bytes'],now['peak_RSS_bytes'])
+   size=output_bytes()
+   write_value=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=now,elapsed_seconds=time.monotonic()-start,peak_observed_RSS_bytes=peak,own_output_bytes=size,quality_access=False)
+   (root/'CURRENT_METADATA.json').write_text(json.dumps(write_value,indent=2)+'\n')
+   if peak>caps['peak_RSS_bytes']:failure='owned_RSS_cap'
+   if size>caps['output_bytes']:failure='owned_output_cap'
+   if time.monotonic()-start>hard:failure='owned_hard_time_cap'
+   if failure:
+    fresh=physical(child.pid)
+    if not reap():
+     # This remains the same unreaped direct child even if /proc observation
+     # failed. No unrelated/reused PID can occupy its kernel wait handle.
+     child.terminate();signals.append('SIGTERM')
+     deadline=time.monotonic()+5
+     while not reap() and time.monotonic()<deadline:time.sleep(.05)
+     if code is None:
+      child.kill();signals.append('SIGKILL');reap(block=True)
+    break
+   time.sleep(1)
+  if code is None:reap(block=True)
+ elapsed=time.monotonic()-start;size=output_bytes()
+ if peak>caps['peak_RSS_bytes']:failure='terminal_RSS_cap'
+ if size>caps['output_bytes']:failure='terminal_output_cap'
+ if elapsed>hard:failure='terminal_hard_time_cap'
+ receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=owner,exit_code=code,elapsed_seconds=elapsed,peak_observed_RSS_bytes=peak,authoritative_wait4_usage=usage,own_output_bytes=size,signals_sent=signals,failure=failure,one_attempt=True,fits=0,TEST_access=False,model_access=False,VALID_feature_data_inspection=True)
+ write(root/(stage+'.TERMINAL.json'),receipt)
+ print(json.dumps({'stage':stage,'terminal':receipt}),flush=True)
+ if code or failure or signals:raise RuntimeError('Owned CPU stage failed; artifacts retained and no retry')
+ return receipt

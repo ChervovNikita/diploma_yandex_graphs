@@ -1,0 +1,9 @@
+# Allocation Pubmed available-input result
+
+The fresh one-attempt CPU workflow completed on the authorized one-GPU allocation. Both direct children exited0, without signals, failures or changed staged source. Extraction took12.105 seconds with authoritative peak RSS28,016,640 bytes; complete inspection took11.084 seconds with peak RSS604,127,232 bytes. Both stayed within the admitted monitored resource/time bounds.
+
+The exact four original inputs were authenticated:37,676 TRAIN positives,2,216 VALID positives,19,717 nodes and500 finite FP32 features. The fixed VALID pool has500 candidates per query. Complete anchor/range/self-loop/current-positive/TRAIN-positive checks passed. There were no within-row duplicate candidates and2,299 candidates that are positives for other VALID queries. The latter are disclosed native pool behavior and were preserved; candidates were not regenerated or filtered. Geometry checks do not establish unknown-nonlink semantics or the complete historical generator authority.
+
+The freshly authenticated feature file is byte-identical to the supplied feature in the saved bit-exact raw Planetoid proof. Root binds its previously verified value/node-order equivalence to this actual receipt; the public raw comparison was not rerun and18.77 was not contacted. Literal historical exporter identity remains unknown. Receipt fields are preserved; this separate root binding qualifies only the disclosed feature values.
+
+All57,596,173 raw input bytes remain inside the allocation repository. Only compact acquisition, inspection and supervision evidence returned to the Mac. TEST link contents, models, fits and ranking scores were not accessed. This is an input result, not a model/evaluator/derivative/RNG/cost qualification or predictive success. The disabled Pubmed port still requires its independent numerical prerequisites and the complete original30 quality lead before any fitting. Original scores and study gates are unchanged.

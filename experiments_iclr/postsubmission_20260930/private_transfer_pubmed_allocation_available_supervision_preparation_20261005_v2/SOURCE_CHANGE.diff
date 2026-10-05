@@ -1,0 +1,157 @@
+--- preserved_v1/owned_supervisor.py.txt
++++ disabled_v2/owned_supervisor.py.txt
+@@ -1,10 +1,10 @@
+ from pathlib import Path
+ from datetime import datetime, timezone
+-import base64,hashlib,json,os,socket,subprocess,sys,time
++import base64,hashlib,json,os,signal,socket,subprocess,sys,time
+ payload=json.load(sys.stdin)
+ repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+ phase=repo/'experiments_iclr/postsubmission_20260930'
+-root=phase/'private_transfer_pubmed_allocation_available_execution_root_20261005_v1'
++root=phase/'private_transfer_pubmed_allocation_available_execution_root_20261005_v2'
+ assert Path.cwd().resolve()==repo and socket.gethostname()=='anogena-2-0'
+ assert subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True,timeout=20).split()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+ assert not root.exists() and root.resolve().is_relative_to(phase)
+@@ -16,19 +16,26 @@
+ def write(path,value):
+  with path.open('x') as f:json.dump(value,f,indent=2);f.write('\n')
+ prepared=[]
++source_names={'available_custody.py','extract_available.py','inspect_available.py','SOURCE_MANIFEST.json'}
++root_names={'EXTRACT_RELEASE.json','INSPECT_RELEASE.json','ROOT_REVIEW.md','INDEPENDENT_SOURCE_REVIEW.md','SUPERVISION_SOURCE_REVIEW.md','OWNED_SUPERVISION_ADMISSION.json','owned_supervisor.py.txt'}
++seen=set()
+ for row in payload['files']:
+  rel=Path(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+- assert rel.parts[0]=='source' or rel.name in ('EXTRACT_RELEASE.json','INSPECT_RELEASE.json','ROOT_REVIEW.md','INDEPENDENT_SOURCE_REVIEW.md','SUPERVISION_SOURCE_REVIEW.md','OWNED_SUPERVISION_ADMISSION.json','owned_supervisor.py.txt')
++ assert row['path'] not in seen;seen.add(row['path'])
++ assert (len(rel.parts)==2 and rel.parts[0]=='source' and rel.name in source_names) or (len(rel.parts)==1 and rel.name in root_names)
+  raw=base64.b64decode(row['base64'],validate=True)
+  assert len(raw)==row['bytes'] and hashlib.sha256(raw).hexdigest()==row['sha256']
+  prepared.append((rel,raw))
++assert seen=={'source/'+name for name in source_names}|root_names
+ root.mkdir()
+ for rel,raw in prepared:
+  target=root/rel;target.parent.mkdir(parents=True,exist_ok=True)
+  with target.open('xb') as out:out.write(raw)
+ assert sha(root/'owned_supervisor.py.txt')==payload['remote_source_sha256']
+ assert sha(root/'source/SOURCE_MANIFEST.json')==payload['source_manifest_sha256']
+-for row in json.loads((root/'source/SOURCE_MANIFEST.json').read_text())['files']:
++source_manifest=json.loads((root/'source/SOURCE_MANIFEST.json').read_text())
++assert [row['path'] for row in source_manifest['files']]==['available_custody.py','extract_available.py','inspect_available.py']
++for row in source_manifest['files']:
+  path=root/'source'/row['path'];assert not path.is_symlink() and path.resolve().is_relative_to(root/'source')
+  assert path.stat().st_size==row['bytes'] and sha(path)==row['sha256']
+ extract=json.loads((root/'EXTRACT_RELEASE.json').read_text());inspect=json.loads((root/'INSPECT_RELEASE.json').read_text())
+@@ -71,12 +78,11 @@
+  return total
+ def run(stage,script,output_flag,output,hard):
+  command=[str(interpreter),'-B',str(root/'source'/script),'--recipe',str(root/('EXTRACT_RELEASE.json' if stage=='extraction' else 'INSPECT_RELEASE.json')),output_flag,str(output)]
+- start=time.monotonic();peak=0;failure=None;signals=[];usage=None;code=None
++ start=time.monotonic();peak=0;failure=None;signals=[];usage=None;code=None;pending_error=None;owner=None
+  with (root/(stage+'.stdout.log')).open('xb') as out,(root/(stage+'.stderr.log')).open('xb') as err:
+   child=subprocess.Popen(command,cwd=repo,env=env,stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True)
+-  # Popen creates this direct child and no poll()/wait() reaps it. Its PID
+-  # cannot be reused until wait4 returns the authoritative terminal status.
+-  owner=physical(child.pid)
++  # No Popen poll/wait/terminate/kill is used. The direct kernel child handle
++  # remains unreaped until this single wait4 path, reserving its PID.
+   def reap(block=False):
+    nonlocal code,peak,usage
+    if code is not None:return True
+@@ -86,40 +92,54 @@
+    peak=max(peak,int(rusage.ru_maxrss)*1024)
+    usage=dict(peak_RSS_bytes=int(rusage.ru_maxrss)*1024,user_seconds=rusage.ru_utime,system_seconds=rusage.ru_stime)
+    return True
+-  ended=reap()
+-  ownership_admitted=True  # kernel-created, direct, unreaped Popen child
+-  scope_admitted=ended or (owner is not None and owner['argv']==command and owner['cwd']==str(repo))
+-  write(root/(stage+'.START.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),identity=owner,command=command,ownership_admitted=ownership_admitted,command_scope_admitted=scope_admitted,ownership_basis='direct unreaped Popen child plus parent/start identity; terminal via wait4',hard_seconds=hard,one_attempt=True))
+-  if not ended and (owner is None or owner['PPID']!=os.getpid()):failure='physical_ownership_observation'
+-  if not scope_admitted:failure='command_scope_admission'
+-  while code is None:
+-   if reap():break
+-   now=physical(child.pid)
+-   if now is None:
++  def signal_direct(number,name):
++   if reap():return
++   # A just-exited child is still our reserved unreaped wait handle; raw kill
++   # cannot internally poll/reap it or race wait4 by consuming its usage.
++   try:os.kill(child.pid,number);signals.append(name)
++   except ProcessLookupError:pass
++  try:
++   owner=physical(child.pid)
++   ended=reap()
++   scope_admitted=ended or (owner is not None and owner['argv']==command and owner['cwd']==str(repo))
++   write(root/(stage+'.START.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),identity=owner,command=command,ownership_admitted=True,command_scope_admitted=scope_admitted,ownership_basis='direct unreaped Popen child; only wait4 consumes its terminal status/usage',hard_seconds=hard,one_attempt=True))
++   if not ended and (owner is None or owner['PPID']!=os.getpid()):failure='physical_ownership_observation'
++   if not scope_admitted:failure='command_scope_admission'
++   while code is None:
+     if reap():break
+-    failure='physical_ownership_observation'
+-   elif owner is None or now['PPID']!=os.getpid() or now['start_ticks']!=owner['start_ticks']:failure='physical_identity_changed'
+-   elif now['state']!='Z' and (now['argv']!=command or now['cwd']!=str(repo)):failure='command_scope_changed'
+-   if now is not None:peak=max(peak,now['RSS_bytes'],now['peak_RSS_bytes'])
+-   size=output_bytes()
+-   write_value=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=now,elapsed_seconds=time.monotonic()-start,peak_observed_RSS_bytes=peak,own_output_bytes=size,quality_access=False)
+-   (root/'CURRENT_METADATA.json').write_text(json.dumps(write_value,indent=2)+'\n')
+-   if peak>caps['peak_RSS_bytes']:failure='owned_RSS_cap'
+-   if size>caps['output_bytes']:failure='owned_output_cap'
+-   if time.monotonic()-start>hard:failure='owned_hard_time_cap'
+-   if failure:
+-    fresh=physical(child.pid)
+-    if not reap():
+-     # This remains the same unreaped direct child even if /proc observation
+-     # failed. No unrelated/reused PID can occupy its kernel wait handle.
+-     child.terminate();signals.append('SIGTERM')
++    now=physical(child.pid)
++    if now is None:
++     if reap():break
++     failure='physical_ownership_observation'
++    elif owner is None or now['PPID']!=os.getpid() or now['start_ticks']!=owner['start_ticks']:failure='physical_identity_changed'
++    elif now['state']!='Z' and (now['argv']!=command or now['cwd']!=str(repo)):failure='command_scope_changed'
++    if now is not None:peak=max(peak,now['RSS_bytes'],now['peak_RSS_bytes'])
++    size=output_bytes()
++    write_value=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=now,elapsed_seconds=time.monotonic()-start,peak_observed_RSS_bytes=peak,own_output_bytes=size,quality_access=False)
++    (root/'CURRENT_METADATA.json').write_text(json.dumps(write_value,indent=2)+'\n')
++    if peak>caps['peak_RSS_bytes']:failure='owned_RSS_cap'
++    if size>caps['output_bytes']:failure='owned_output_cap'
++    if time.monotonic()-start>hard:failure='owned_hard_time_cap'
++    if failure:break
++    time.sleep(1)
++  except BaseException as error:
++   pending_error=error
++   failure='owned_supervisor_exception:'+type(error).__name__+': '+str(error)
++  finally:
++   # Cleanup covers every operation after Popen, including metadata I/O and
++   # a first KeyboardInterrupt. Even interruption during graceful cleanup
++   # enters the inner finally, which kills/reaps a still-live direct child.
++   if code is None:
++    try:
++     signal_direct(signal.SIGTERM,'SIGTERM')
+      deadline=time.monotonic()+5
+-     while not reap() and time.monotonic()<deadline:time.sleep(.05)
++     while code is None and time.monotonic()<deadline:
++      if reap():break
++      time.sleep(.05)
++    finally:
+      if code is None:
+-      child.kill();signals.append('SIGKILL');reap(block=True)
+-    break
+-   time.sleep(1)
+-  if code is None:reap(block=True)
++      signal_direct(signal.SIGKILL,'SIGKILL')
++      if code is None:reap(block=True)
+  elapsed=time.monotonic()-start;size=output_bytes()
+  if peak>caps['peak_RSS_bytes']:failure='terminal_RSS_cap'
+  if size>caps['output_bytes']:failure='terminal_output_cap'
+@@ -127,8 +147,10 @@
+  receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=owner,exit_code=code,elapsed_seconds=elapsed,peak_observed_RSS_bytes=peak,authoritative_wait4_usage=usage,own_output_bytes=size,signals_sent=signals,failure=failure,one_attempt=True,fits=0,TEST_access=False,model_access=False,VALID_feature_data_inspection=True)
+  write(root/(stage+'.TERMINAL.json'),receipt)
+  print(json.dumps({'stage':stage,'terminal':receipt}),flush=True)
++ if pending_error is not None:raise pending_error
+  if code or failure or signals:raise RuntimeError('Owned CPU stage failed; artifacts retained and no retry')
+  return receipt
++
+ stages=[]
+ try:
+  stages.append(run('extraction','extract_available.py','--output',root/'available',900))

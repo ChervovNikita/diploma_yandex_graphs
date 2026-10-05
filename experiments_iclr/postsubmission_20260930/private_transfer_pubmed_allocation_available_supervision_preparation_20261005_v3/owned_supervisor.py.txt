@@ -1,0 +1,186 @@
+from pathlib import Path
+from datetime import datetime, timezone
+import base64,hashlib,json,os,signal,socket,subprocess,sys,time
+payload=json.load(sys.stdin)
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+phase=repo/'experiments_iclr/postsubmission_20260930'
+root=phase/'private_transfer_pubmed_allocation_available_execution_root_20261005_v3'
+assert Path.cwd().resolve()==repo and socket.gethostname()=='anogena-2-0'
+assert subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True,timeout=20).split()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+assert not root.exists() and root.resolve().is_relative_to(phase)
+def sha(path):
+ d=hashlib.sha256()
+ with path.open('rb') as f:
+  for b in iter(lambda:f.read(1048576),b''):d.update(b)
+ return d.hexdigest()
+def write(path,value):
+ with path.open('x') as f:json.dump(value,f,indent=2);f.write('\n')
+prepared=[]
+source_names={'available_custody.py','extract_available.py','inspect_available.py','SOURCE_MANIFEST.json'}
+root_names={'EXTRACT_RELEASE.json','INSPECT_RELEASE.json','ROOT_REVIEW.md','INDEPENDENT_SOURCE_REVIEW.md','SUPERVISION_SOURCE_REVIEW.md','OWNED_SUPERVISION_ADMISSION.json','owned_supervisor.py.txt'}
+seen=set()
+for row in payload['files']:
+ rel=Path(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+ assert row['path'] not in seen;seen.add(row['path'])
+ assert (len(rel.parts)==2 and rel.parts[0]=='source' and rel.name in source_names) or (len(rel.parts)==1 and rel.name in root_names)
+ raw=base64.b64decode(row['base64'],validate=True)
+ assert len(raw)==row['bytes'] and hashlib.sha256(raw).hexdigest()==row['sha256']
+ prepared.append((rel,raw))
+assert seen=={'source/'+name for name in source_names}|root_names
+root.mkdir()
+for rel,raw in prepared:
+ target=root/rel;target.parent.mkdir(parents=True,exist_ok=True)
+ with target.open('xb') as out:out.write(raw)
+assert sha(root/'owned_supervisor.py.txt')==payload['remote_source_sha256']
+assert sha(root/'source/SOURCE_MANIFEST.json')==payload['source_manifest_sha256']
+source_manifest=json.loads((root/'source/SOURCE_MANIFEST.json').read_text())
+assert [row['path'] for row in source_manifest['files']]==['available_custody.py','extract_available.py','inspect_available.py']
+for row in source_manifest['files']:
+ path=root/'source'/row['path'];assert not path.is_symlink() and path.resolve().is_relative_to(root/'source')
+ assert path.stat().st_size==row['bytes'] and sha(path)==row['sha256']
+extract=json.loads((root/'EXTRACT_RELEASE.json').read_text());inspect=json.loads((root/'INSPECT_RELEASE.json').read_text())
+for job,name in ((extract,'EXTRACT_RELEASE.json'),(inspect,'INSPECT_RELEASE.json')):
+ assert sha(root/name)==payload['release_sha256'][name]
+ assert job['source_manifest_sha256']==payload['source_manifest_sha256']
+ assert all(job[k] is True for k in ('source_review_approved','available_inspection_authorized','external_owned_bounds_confirmed'))
+ assert all(job[k] is False for k in ('TEST_access','model_access','fit_admission','network_access','retry'))
+ assert job['bounds']=={'soft_seconds':600,'hard_seconds':900,'RSS_bytes':2147483648,'output_bytes':134217728}
+assert extract['purpose']=='extract_available' and inspect['purpose']=='inspect_available'
+assert extract['execution_directory']==str(root)==inspect['execution_directory']
+assert inspect['inspection_receipt']==str(root/'AVAILABLE_INSPECTION.json')
+assert sha(root/'ROOT_REVIEW.md')==payload['root_review_sha256']
+assert sha(root/'INDEPENDENT_SOURCE_REVIEW.md')==payload['independent_source_review_sha256']
+assert sha(root/'SUPERVISION_SOURCE_REVIEW.md')==payload['supervision_review_sha256']
+admission=json.loads((root/'OWNED_SUPERVISION_ADMISSION.json').read_text())
+assert admission['root_approved'] is True and admission['remote_source_sha256']==payload['remote_source_sha256']
+assert admission['supervision_review_sha256']==payload['supervision_review_sha256']
+caps={'peak_RSS_bytes':2147483648,'output_bytes':134217728}
+interpreter=phase/'native_ncn_runtime_20261005_v1/.venv/bin/python';assert interpreter.is_file()
+env=dict(os.environ)
+env.update(CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2',PYTHONPATH=str(phase/'native_ncn_dependency_overlay_20261005_v1')+':'+str(repo/'.venv/lib/python3.11/site-packages'))
+env.pop('PYTHONHOME',None)
+write(root/'STAGING_RECEIPT.json',dict(UTC=datetime.now(timezone.utc).isoformat(),host=socket.gethostname(),source_manifest_sha256=payload['source_manifest_sha256'],remote_source_sha256=payload['remote_source_sha256'],files=[{k:r[k] for k in ('path','bytes','sha256')} for r in payload['files']],fits=0,TEST_access=False))
+def physical(pid):
+ p=Path('/proc')/str(pid)
+ try:
+  raw=(p/'stat').read_text();v=raw[raw.rfind(')')+2:].split()
+  argv=[x.decode() for x in (p/'cmdline').read_bytes().split(bytes([0])) if x]
+  status=(p/'status').read_text().splitlines()
+  rss=next((int(x.split()[1])*1024 for x in status if x.startswith('VmRSS:')),0)
+  hwm=next((int(x.split()[1])*1024 for x in status if x.startswith('VmHWM:')),0)
+  return dict(PID=pid,PPID=int(v[1]),start_ticks=int(v[19]),state=v[0],argv=argv,cwd=str((p/'cwd').resolve()) if v[0]!='Z' else None,RSS_bytes=rss,peak_RSS_bytes=hwm)
+ except FileNotFoundError:return None
+def output_bytes():
+ total=0
+ for f in root.rglob('*'):
+  assert not f.is_symlink()
+  if f.is_file():total+=f.stat().st_size
+ return total
+def run(stage,script,output_flag,output,hard):
+ command=[str(interpreter),'-B',str(root/'source'/script),'--recipe',str(root/('EXTRACT_RELEASE.json' if stage=='extraction' else 'INSPECT_RELEASE.json')),output_flag,str(output)]
+ start=time.monotonic();peak=0;failure=None;signals=[];usage=None;code=None;pending_error=None;owner=None
+ with (root/(stage+'.stdout.log')).open('xb') as out,(root/(stage+'.stderr.log')).open('xb') as err:
+  child=subprocess.Popen(command,cwd=repo,env=env,stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True)
+  # No Popen poll/wait/terminate/kill is used. The direct kernel child handle
+  # remains unreaped until this single wait4 path, reserving its PID.
+  def reap(block=False):
+   nonlocal code,peak,usage
+   if code is not None:return True
+   pid,status,rusage=os.wait4(child.pid,0 if block else os.WNOHANG)
+   if not pid:return False
+   code=os.waitstatus_to_exitcode(status);child.returncode=code
+   peak=max(peak,int(rusage.ru_maxrss)*1024)
+   usage=dict(peak_RSS_bytes=int(rusage.ru_maxrss)*1024,user_seconds=rusage.ru_utime,system_seconds=rusage.ru_stime)
+   return True
+  def signal_direct(number,name):
+   if reap():return
+   # A just-exited child is still our reserved unreaped wait handle; raw kill
+   # cannot internally poll/reap it or race wait4 by consuming its usage.
+   try:os.kill(child.pid,number);signals.append(name)
+   except ProcessLookupError:pass
+  try:
+   owner=physical(child.pid)
+   ended=reap()
+   scope_admitted=ended or (owner is not None and owner['argv']==command and owner['cwd']==str(repo))
+   write(root/(stage+'.START.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),identity=owner,command=command,ownership_admitted=True,command_scope_admitted=scope_admitted,ownership_basis='direct unreaped Popen child; only wait4 consumes its terminal status/usage',hard_seconds=hard,one_attempt=True))
+   if not ended and (owner is None or owner['PPID']!=os.getpid()):failure='physical_ownership_observation'
+   if not scope_admitted:failure='command_scope_admission'
+   while code is None:
+    if reap():break
+    now=physical(child.pid)
+    if now is None:
+     if reap():break
+     failure='physical_ownership_observation'
+    elif owner is None or now['PPID']!=os.getpid() or now['start_ticks']!=owner['start_ticks']:failure='physical_identity_changed'
+    elif now['state']!='Z' and (now['argv']!=command or now['cwd']!=str(repo)):failure='command_scope_changed'
+    if now is not None:peak=max(peak,now['RSS_bytes'],now['peak_RSS_bytes'])
+    size=output_bytes()
+    write_value=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=now,elapsed_seconds=time.monotonic()-start,peak_observed_RSS_bytes=peak,own_output_bytes=size,quality_access=False)
+    (root/'CURRENT_METADATA.json').write_text(json.dumps(write_value,indent=2)+'\n')
+    if peak>caps['peak_RSS_bytes']:failure='owned_RSS_cap'
+    if size>caps['output_bytes']:failure='owned_output_cap'
+    if time.monotonic()-start>hard:failure='owned_hard_time_cap'
+    if failure:break
+    time.sleep(1)
+  except BaseException as error:
+   pending_error=error
+   failure='owned_supervisor_exception:'+type(error).__name__+': '+str(error)
+  finally:
+   # Cleanup covers every operation after Popen, including metadata I/O and
+   # a first KeyboardInterrupt. Even interruption during graceful cleanup
+   # enters the inner finally, which kills/reaps a still-live direct child.
+   if code is None:
+    try:
+     signal_direct(signal.SIGTERM,'SIGTERM')
+     deadline=time.monotonic()+5
+     while code is None and time.monotonic()<deadline:
+      if reap():break
+      time.sleep(.05)
+    finally:
+     if code is None:
+      signal_direct(signal.SIGKILL,'SIGKILL')
+      if code is None:reap(block=True)
+ elapsed=time.monotonic()-start;size=output_bytes()
+ if peak>caps['peak_RSS_bytes']:failure='terminal_RSS_cap'
+ if size>caps['output_bytes']:failure='terminal_output_cap'
+ if elapsed>hard:failure='terminal_hard_time_cap'
+ if elapsed>600:failure='terminal_soft_time_cap'
+ receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),stage=stage,identity=owner,exit_code=code,elapsed_seconds=elapsed,peak_observed_RSS_bytes=peak,authoritative_wait4_usage=usage,own_output_bytes=size,signals_sent=signals,failure=failure,one_attempt=True,fits=0,TEST_access=False,model_access=False,VALID_feature_data_inspection=True)
+ write(root/(stage+'.TERMINAL.json'),receipt)
+ print(json.dumps({'stage':stage,'terminal':receipt}),flush=True)
+ post_terminal_elapsed=time.monotonic()-start
+ if post_terminal_elapsed>600:
+  failure='terminal_production_soft_time_cap'
+  write(root/(stage+'.POST_TERMINAL_BOUND_FAILURE.json'),dict(UTC=datetime.now(timezone.utc).isoformat(),elapsed_seconds=post_terminal_elapsed,soft_seconds=600,stage_terminal_unadmitted=True))
+ if pending_error is not None:raise pending_error
+ if code or failure or signals:raise RuntimeError('Owned CPU stage failed; artifacts retained and no retry')
+ return receipt
+
+stages=[]
+try:
+ stages.append(run('extraction','extract_available.py','--output',root/'available',900))
+ acquired=json.loads((root/'ACQUISITION_MANIFEST.json').read_text())
+ assert set(acquired['files'])=={'train_pos.txt','valid_pos.txt','heart_valid_samples.npy','gnn_feature'}
+ assert acquired['TEST_available_to_loader'] is False and acquired['fit_admission'] is False
+ assert acquired['source_manifest_sha256']==payload['source_manifest_sha256'] and acquired['recipe_sha256']==sha(root/'EXTRACT_RELEASE.json')
+ for name,row in acquired['files'].items():
+  path=root/row['relative_path'];assert path.resolve().is_relative_to(root/'available/pubmed')
+  assert path.stat().st_size==row['bytes'] and sha(path)==row['sha256']
+ stages.append(run('inspection','inspect_available.py','--receipt',root/'AVAILABLE_INSPECTION.json',900))
+ result=json.loads((root/'AVAILABLE_INSPECTION.json').read_text())
+ assert result['available_geometry_checks_pass'] is True and result['training_admission'] is False
+ assert result['source_manifest_sha256']==payload['source_manifest_sha256'] and result['recipe_sha256']==sha(root/'INSPECT_RELEASE.json')
+ assert result['runtime_versions']==inspect['expected_runtime_versions']
+ assert result['TRAIN_rows']==37676 and result['VALID_rows']==2216 and result['node_population']==19717
+ assert result['feature']['shape']==[19717,500] and result['feature']['finite'] is True
+ assert result['VALID_pool']['shape']==[2216,500,2] and result['VALID_pool']['all_rows_checked'] is True
+ for name,row in result['files'].items():
+  assert row['bytes']==acquired['files'][name]['bytes'] and row['sha256']==acquired['files'][name]['sha256']
+ receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),complete=True,stages=stages,source_bytes_unchanged=all(sha(root/r['path'])==r['sha256'] for r in payload['files']),acquisition_manifest_sha256=sha(root/'ACQUISITION_MANIFEST.json'),inspection_sha256=sha(root/'AVAILABLE_INSPECTION.json'),TEST_access=False,model_access=False,fits=0,training_admitted=False)
+ assert receipt['source_bytes_unchanged'] and output_bytes()<=caps['output_bytes']
+ write(root/'EXECUTION_RECEIPT.json',receipt)
+ assert output_bytes()<=caps['output_bytes']
+ print(json.dumps(dict(completed=True,acquisition_manifest=acquired,available_inspection=result,execution_receipt=receipt)),flush=True)
+except BaseException as error:
+ write(root/'EXECUTION_FAILURE.json',dict(UTC=datetime.now(timezone.utc).isoformat(),error=type(error).__name__+': '+str(error),completed_stages=stages,partial_files_preserved=True,no_retry=True,fits=0,TEST_access=False))
+ raise

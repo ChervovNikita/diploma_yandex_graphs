@@ -1,0 +1,7 @@
+# Pubmed CPU input source v2: runtime and soft-bound repair
+
+5 October 2026. Preserved-v1 successor. The independent complete workflow review identified four P2 defects; this data-source successor fixes its unused600-second soft bound. The inspector measures elapsed time from entry and checks the bound before numerical input values and after the complete input inspection, refusing to write a successful result outside the declared budget. This is a phase-boundary soft check; the separate supervisor enforces the900-second hard bound. It also checks the exact six runtime versions before input values, whereas v1 compared them afterward. CPU Torch threads are explicitly2/inter-op1.
+
+The original four semantic inspector helpers remain AST-identical. All exact original member hashes, pool collision/duplicate policy, safe weights_only feature load and complete original candidate order remain unchanged. The fresh allocation execution identity is v2. No source has executed, and no actual data payload or server was accessed. Both recipes remain disabled.
+
+The other three P2 repairs are in the separately preserved client/supervision v2 packets: exact source staging closure; exception-safe owned-child cleanup; raw signal delivery leaving wait4 as sole reaper. Those repairs and this packet require focused independent re-review as a complete workflow. Root releases, actual owned bounds, actual data/feature/pool adoption and all scientific gates remain absent. No fit or model/numerical qualification is admitted.

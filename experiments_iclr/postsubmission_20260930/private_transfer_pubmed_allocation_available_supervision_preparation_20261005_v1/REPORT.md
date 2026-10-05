@@ -1,0 +1,7 @@
+# Disabled owned CPU supervision for fresh Pubmed input checks
+
+5 October 2026. Source-only preparation. No remote contact or execution. The direct unreaped Popen child, exact command/cwd/parent/start identity, monotonic900-second stage limit,2 GiB authoritative wait4 RSS and128 MiB total owned output limits are adapted from the already preserved allocation geometry supervisor. Only task staging, separate input-stage recipes and truthful VALID/features scope metadata change. The helper supports distinct --output/--receipt flags.
+
+Exactly two CPU stages are proposed: authenticate/extract four original available inputs, then run the ported complete semantic inspector. TEST, models and fitting remain excluded. All raw inputs stay on the allocation; the transport would return only compact inspection/acquisition/terminal receipts. Root release and independent reviews are absent. This packet supplies no admitted supervisor or execution result. Future root must stage a separately inspected client, bind exact reviews/releases/source/caps, enforce CPU-only normal execution, and preserve uncertain transport without relaunching.
+
+The original helper source is authenticated in INPUT_BINDINGS.json. AST parsing verifies syntax only, with no source imports, numerical tests, payloads or contact. An independent review must cover both the new input packet and this complete remote supervision source before any release.

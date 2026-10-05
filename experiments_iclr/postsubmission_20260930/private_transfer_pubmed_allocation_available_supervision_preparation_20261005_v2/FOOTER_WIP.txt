@@ -1,0 +1,28 @@
+stages=[]
+try:
+ stages.append(run('extraction','extract_available.py','--output',root/'available',900))
+ acquired=json.loads((root/'ACQUISITION_MANIFEST.json').read_text())
+ assert set(acquired['files'])=={'train_pos.txt','valid_pos.txt','heart_valid_samples.npy','gnn_feature'}
+ assert acquired['TEST_available_to_loader'] is False and acquired['fit_admission'] is False
+ assert acquired['source_manifest_sha256']==payload['source_manifest_sha256'] and acquired['recipe_sha256']==sha(root/'EXTRACT_RELEASE.json')
+ for name,row in acquired['files'].items():
+  path=root/row['relative_path'];assert path.resolve().is_relative_to(root/'available/pubmed')
+  assert path.stat().st_size==row['bytes'] and sha(path)==row['sha256']
+ stages.append(run('inspection','inspect_available.py','--receipt',root/'AVAILABLE_INSPECTION.json',900))
+ result=json.loads((root/'AVAILABLE_INSPECTION.json').read_text())
+ assert result['available_geometry_checks_pass'] is True and result['training_admission'] is False
+ assert result['source_manifest_sha256']==payload['source_manifest_sha256'] and result['recipe_sha256']==sha(root/'INSPECT_RELEASE.json')
+ assert result['runtime_versions']==inspect['expected_runtime_versions']
+ assert result['TRAIN_rows']==37676 and result['VALID_rows']==2216 and result['node_population']==19717
+ assert result['feature']['shape']==[19717,500] and result['feature']['finite'] is True
+ assert result['VALID_pool']['shape']==[2216,500,2] and result['VALID_pool']['all_rows_checked'] is True
+ for name,row in result['files'].items():
+  assert row['bytes']==acquired['files'][name]['bytes'] and row['sha256']==acquired['files'][name]['sha256']
+ receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),complete=True,stages=stages,source_bytes_unchanged=all(sha(root/r['path'])==r['sha256'] for r in payload['files']),acquisition_manifest_sha256=sha(root/'ACQUISITION_MANIFEST.json'),inspection_sha256=sha(root/'AVAILABLE_INSPECTION.json'),TEST_access=False,model_access=False,fits=0,training_admitted=False)
+ assert receipt['source_bytes_unchanged'] and output_bytes()<=caps['output_bytes']
+ write(root/'EXECUTION_RECEIPT.json',receipt)
+ assert output_bytes()<=caps['output_bytes']
+ print(json.dumps(dict(completed=True,acquisition_manifest=acquired,available_inspection=result,execution_receipt=receipt)),flush=True)
+except BaseException as error:
+ write(root/'EXECUTION_FAILURE.json',dict(UTC=datetime.now(timezone.utc).isoformat(),error=type(error).__name__+': '+str(error),completed_stages=stages,partial_files_preserved=True,no_retry=True,fits=0,TEST_access=False))
+ raise
