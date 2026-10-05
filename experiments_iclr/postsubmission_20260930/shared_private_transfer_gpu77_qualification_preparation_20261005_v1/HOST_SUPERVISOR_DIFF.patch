@@ -1,0 +1,70 @@
+--- original singleton REMOTE
++++ peptide REMOTE
+@@ -3,15 +3,19 @@
+ from pathlib import Path
+ from datetime import datetime,timezone
+ payload=json.load(sys.stdin)
+-repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
++assert payload.get('qualification_execution_enabled') is True
++assert payload.get('fits_authorized') is False and payload.get('retry') is False
++repo=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git')
+ phase=repo/'experiments_iclr/postsubmission_20260930'
+-assert Path.cwd().resolve()==repo and socket.gethostname()=='anogena-2-0'
++assert Path.cwd().resolve()==repo and socket.gethostname()=='peptide'
+ gpu=subprocess.check_output(['nvidia-smi','--query-gpu=uuid,memory.free','--format=csv,noheader,nounits'],text=True,timeout=20).strip().splitlines()
+-assert len(gpu)==1 and gpu[0].split(',')[0].strip()=='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+-assert int(gpu[0].split(',')[1].strip())*1024**2>=12*1024**3
+-root=phase/'shared_backbone_private_transfer_fp32_execution_root_20261005_v1'
++inventory=['GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998','GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced']
++assert [row.split(',')[0].strip() for row in gpu]==inventory
++selected=payload['physical_gpu_uuid'];assert selected in inventory
++assert int(gpu[inventory.index(selected)].split(',')[1].strip())*1024**2>=12*1024**3
++root=phase/'shared_private_transfer_gpu77_fp32_execution_root_20261005_v1'
+ assert not root.exists() and str(root)==payload['remote_execution_root']
+-allowed={payload['training_source_name'],'endpoint_episode_geometry_preparation_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v2','shared_backbone_private_transfer_source_independent_review_20261005_v3',root.name}
++allowed={payload['training_source_name'],'endpoint_episode_geometry_preparation_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v2','shared_backbone_private_transfer_source_independent_review_20261005_v3','shared_private_transfer_gpu77_qualification_preparation_20261005_v1','shared_private_transfer_gpu77_environment_execution_20261005_v1',root.name}
+ decoded=[]
+ def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+ for row in payload['files']:
+@@ -29,6 +33,8 @@
+ source=phase/payload['training_source_name']
+ job=json.loads((root/'JOB.json').read_text())
+ assert job['source_review_approved'] is True and job['purpose']=='fp32_discarded_training_step_qualification'
++assert job['physical_gpu_uuid']==selected and job['expected_hostname']=='peptide'
++assert payload['training_source_name']=='shared_backbone_private_transfer_training_source_gpu77_20261005_v1'
+ assert job['fits_authorized'] is False and job['VALID_values_access'] is False and job['TEST_access'] is False
+ assert job['external_hard_bound_confirmed'] is True and job['soft_seconds']==600
+ assert job['source_manifest_sha256']==sha(source/'SOURCE_MANIFEST.json') and job['program_sha256']==sha(source/'qualify_training_step.py')
+@@ -36,9 +42,9 @@
+ for r in json.loads((source/'SOURCE_MANIFEST.json').read_text())['files']:assert sha(source/r['path'])==r['sha256']
+ stage=dict(UTC=datetime.now(timezone.utc).isoformat(),host=socket.gethostname(),GPU_metadata=gpu,job_sha256=sha(root/'JOB.json'),source_manifest_sha256=sha(source/'SOURCE_MANIFEST.json'),files=[{k:r[k] for k in ('path','bytes','sha256')} for r in payload['files']],fits=0,VALID_TEST_values_access=False)
+ (root/'STAGING_RECEIPT.json').write_text(json.dumps(stage,indent=2)+'\n')
+-interpreter=phase/'native_ncn_runtime_20261005_v1/.venv/bin/python'
++interpreter=repo/'.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/bin/python'
+ env=dict(os.environ)
+-env.update(CUDA_VISIBLE_DEVICES='0',PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2',PYTHONPATH=str(phase/'native_ncn_dependency_overlay_20261005_v1')+':'+str(repo/'.venv/lib/python3.11/site-packages'))
++env.update(CUDA_VISIBLE_DEVICES=selected,PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2',PYTHONPATH='')
+ env.pop('PYTHONHOME',None)
+ argv=[str(interpreter),str(source/'qualify_training_step.py'),'--job',str(root/'JOB.json'),'--output',str(root/'result')]
+ started=time.monotonic();reason=None;signals=[];max_rss=0;max_cuda=0
+@@ -77,13 +83,19 @@
+    process.wait();break
+   time.sleep(1)
+  process.wait()
++terminal_owner=identity(process.pid)
++assert terminal_owner is None
++terminal_gpu=subprocess.run(['nvidia-smi','--query-compute-apps=gpu_uuid,pid,used_memory','--format=csv,noheader,nounits'],text=True,capture_output=True,timeout=20)
++assert terminal_gpu.returncode==0
++assert not any(len(parts)>=2 and parts[1].strip()==str(process.pid) for parts in (row.split(',') for row in terminal_gpu.stdout.splitlines()))
++(root/'PHYSICAL_TERMINAL.json').write_text(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),owned_PID_absent=True,owned_PID_no_CUDA_rows=True,physical_gpu_uuid=selected,terminal_wait_observed=True,exit_code_authority='subprocess.Popen.wait/poll',child_PID=process.pid,child_start_ticks=owner['start_ticks'],compute_rows=terminal_gpu.stdout),indent=2)+'\n')
+ diagnostics={}
+ for name in ('START.json','RESULT.json','FAILURE.json','PARTIAL_RESULT.json'):
+  p=root/'result'/name
+  if p.exists():
+   assert p.stat().st_size<2*1024**2
+   diagnostics[name]=dict(utf8=p.read_text(),sha256=sha(p),bytes=p.stat().st_size)
+-receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),exit_code=process.returncode,reason=reason,signals_sent=signals,inclusive_seconds=time.monotonic()-started,max_owned_RSS_bytes=max_rss,max_owned_CUDA_bytes=max_cuda,attempts=1,numerical_launches=1,fits=0,VALID_TEST_values_access=False,source_bytes_unchanged=all(sha(p)==hashlib.sha256(c).hexdigest() for p,c in decoded),source_manifest_sha256=sha(source/'SOURCE_MANIFEST.json'),job_sha256=sha(root/'JOB.json'),child_identity=owner)
++receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),terminal_wait_observed=True,exit_code_authority='subprocess.Popen.wait/poll',physical_gpu_uuid=selected,exit_code=process.returncode,reason=reason,signals_sent=signals,inclusive_seconds=time.monotonic()-started,max_owned_RSS_bytes=max_rss,max_owned_CUDA_bytes=max_cuda,attempts=1,numerical_launches=1,fits=0,VALID_TEST_values_access=False,source_bytes_unchanged=all(sha(p)==hashlib.sha256(c).hexdigest() for p,c in decoded),source_manifest_sha256=sha(source/'SOURCE_MANIFEST.json'),job_sha256=sha(root/'JOB.json'),child_identity=owner)
+ (root/'EXECUTION_RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+ extra={name:dict(utf8=(root/name).read_text(),sha256=sha(root/name)) for name in ('child.stdout.log','child.stderr.log')}
+ print(json.dumps(dict(staging=stage,execution=receipt,diagnostics=diagnostics,logs=extra)))

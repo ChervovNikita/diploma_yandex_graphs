@@ -1,0 +1,9 @@
+# Unchanged FP32 gate and host supervisor preparation
+
+The retained v1 TRAIN sampling candidate is disabled and superseded for execution by shared_private_transfer_sampling_preparation_20261005_v2, which binds the exact declared singleton overlays and all60 prospective cycles after root release. The v1 code bytes remain preserved.
+
+The ported FP32 supervisor is prepared for exactly one root-released GPU0 qualification after full TRAIN sampling component equality. It requires a JSON staging payload on stdin with `qualification_execution_enabled=true`, `fits_authorized=false`, `retry=false`, selected physical GPU UUID, exact source folder and fresh remote execution root. The payload carries a reviewed JOB.json and its bound admission evidence. Root must bind the job to the new port source manifest and environment/sampling/source review evidence; old singleton FP32 evidence supplies lineage only.
+
+Supervisor paths/inventory/interpreter/environment were ported; all original scientific program bytes remain identical. Soft600/hard720 seconds, owned64GiB RSS/10GiB CUDA/8MiB log caps, one attempt and owned PID/start-ticks signal authority are retained. Extra authoritative Popen exit and physical PID/CUDA closure receipts are recorded. Exact host/control diff is in HOST_SUPERVISOR_DIFF.patch. No source scientific recipe, model, tolerance, selected episode, history, stale-control or optimizer change.
+
+`physical_qualifier_supervisor.py` is system-stdlib code executed with `/usr/bin/python3 -I -S -B`, stdin from the root-admitted staging payload. It starts the fresh prefix interpreter against the unchanged qualifier and root job, with CUDA_VISIBLE_DEVICES exactly the predetermined GPU0 UUID and inherited PYTHONPATH cleared. Numerical models are not launched by preparation or staging.

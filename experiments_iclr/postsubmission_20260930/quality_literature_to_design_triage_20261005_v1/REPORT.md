@@ -1,0 +1,36 @@
+# Literature now used to choose a quality mechanism
+
+The target is an ensemble with shared graph weights that predicts better than a capable single model and ordinary independently trained ensembles. The literature has removed several broad novelty claims and changed the controls. It has not yet yielded a method that meets that target. The strongest current experiment asks whether training the backbone through its private members’ learning improves the ordinary predictor, and whether endpoint-conditioned supervision is essential to that effect.
+
+A stronger single model with the same structural bias may match a shared ensemble. This is a necessary comparator, not a secondary caveat. Generic variance reduction, four routes, parameter savings, larger embedding distances and a correct meta-gradient do not establish an ensemble-specific contribution.
+
+## Decisions from eight mechanism families
+
+The table summarizes previously saved method scopes rather than rereading papers. Exact source links, scope boundaries and bindings are retained in DECISIONS.json and INPUT_BINDINGS.json. “Unresolved” means untested or incomplete; it does not mean disproved by an engineering failure.
+
+| Mechanism | Prior boundary | Evidence and decision | Decisive comparison |
+| --- | --- | --- | --- |
+| Shared weights/private factors | BatchEnsemble, TabM and Kim already establish the ingredients. | Existing F4 is a useful base. Citeseer development is encouraging, with all primary intervals spanning zero. | New rule versus unchanged F4, capable same-rule single and true independent four; then fresh tasks. |
+| Error/functional diversity | GNCL/SEA, DICE and FoRDE already train for competence/diversity. | Derivative checks are not quality gains. The common-reference allocation cancels exactly; reject that redundant rule. | Served quality and member competence versus ordinary training and attributed diversity baselines, at equal selection budget. |
+| Persistent graph views | AM-GCN shares graph weights across views; CAMERO/DIVE supply perturbation/view ancestry. | Tying may improve reuse or remove valid heterophilous evidence. No pending scores are opened here. | Tied/untied, semantic/random and persistent/shuffled controls; private-head common encoder if the core screen succeeds. |
+| Relation/structural routing | PreGS, HGEN/LHGEL and OMoE already supply expert transfer/fusion/routing. | Generic MoE is insufficient. Keep only a specific unresolved relation-conflict hypothesis. | Strong relation-aware single, independent ensemble and prior fusion versus a matched shared/private intervention. |
+| Shared-update conflict | PCGrad/OGD protect task gradients or responses; block loss routing is prior. | Negative gradient dots do not establish damage under Adam. Local invariance is not predictive utility. | Ordinary update, attributed gradient surgery and response protection versus a simple private-block control. |
+| Completion/joint structure | NCNC, CORE and probabilistic topology methods supply direct completion ancestry. | Collab private completion trails independent four; private-versus-pooled improvement is inconclusive. Preserve failure. | Finish frozen conditional-pattern families. Any successor needs marginal/interaction controls and fresh confirmation beyond consumed TEST. |
+| Private initialization | Centered curvature-aware shallow-ensemble initialization and graph/VJP ingredients are prior. | Exact warm-state custody and predictive continuation remain unresolved; keep as a lower-priority hypothesis. | Same-state selected, random, permuted-graph, raw-gradient and curvature directions; compare later native quality. |
+| Private learning credit | ANIL/BMAML, MLDG/MetaReg, SELAR, Episodic DG and graph meta methods limit novelty. | Current first priority. Implementation passed; the 30-fit accuracy study has no new candidate result at the bound observation. | Endpoint/random × live/detached, same-rule capable single/untied four, ordinary joint four, F4 and true independent four. |
+
+## Why the current rule is worth testing
+
+Ordinary training of a shared ensemble gives the shared weights the sum of members’ immediate losses. The current rule instead asks whether a member’s private TRAIN update makes it useful on another endpoint query, then lets that change affect the shared update. This targets features that remain useful after private learning. The intuition is transfer of reliable structure, not forcing members to disagree. ANIL/BMAML, MLDG/MetaReg, SELAR and the retained graph episodic methods already supply the learning principle; the remaining scientific question is whether this particular graph supervision condition supplies an additional benefit.
+
+The fixed outer objective is also not a diversity loss. BCE is convex in the raw logit, so mean member BCE is at least BCE of the mean logit. The half aggregate/half member objective equals aggregate BCE plus half of this nonnegative Jensen gap. It anchors member competence and can penalize logit dispersion; it does not force complementary errors. This is a mathematical interpretation, not evidence of observed collapse.
+
+The measurable failure mechanism is narrower than “members collapse”: a private update learns endpoint-local evidence that improves its own labels but fails to help the outer query, or the common update suppresses a useful private correction. Endpoint exclusion can help only if there is enough transferable structure and enough eligible data. It can also remove useful supervision. Historical information and incident graph context remain shared, so the episodes are correlated and are not unbiased cross-fitting.
+
+The existing endpoint × live-credit contrast is informative without adding a new fit. If live differentiation helps equally under random and endpoint eligibility, generic meta-regularization is a sufficient explanation. If endpoint eligibility helps equally with live and detached credit, sampling regularization is sufficient. Only a larger live benefit under endpoint eligibility supports the narrower proposed mechanism; even then, the same-rule single and untied ensemble must be competitive and fresh tasks must confirm utility. The interaction is descriptive and does not replace the frozen promotion gates. Same-rule controls test the intervention; previously completed native independent/F4 anchors retain their original disclosed support and budget differences and are not a matched causal intervention.
+
+## The theory we can defend now
+
+[FINITE_SAMPLE_CONDITIONS.md](FINITE_SAMPLE_CONDITIONS.md) gives a classical shrinkage example and the exact ensemble error decomposition. It shows when a common estimate plus private updates can improve finite-sample error, and why sharing can fail when task differences or graph dependence are too large. It supplies no new theorem, no guarantee for native Adam, no link-ranking guarantee and no claim that the implemented GNNM realizes the toy model.
+
+The current completed Citeseer development evidence is exploratory: 36 fits, three seed blocks on one graph, all primary intervals spanning zero. Original benchmark scores remain unchanged. The earlier private-frame and Collab-completion failures remain visible. This triage changes no pilot source, schedule, checkpoint selector or outcome access, and requests no reviewer verdict.

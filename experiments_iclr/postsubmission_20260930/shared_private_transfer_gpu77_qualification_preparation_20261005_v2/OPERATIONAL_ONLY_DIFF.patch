@@ -1,0 +1,157 @@
+--- sealed77 qualifier supervisor v1
++++ reviewed_helpers77 qualifier supervisor v2
+@@ -3,7 +3,7 @@
+ Takes root-reviewed STAGING_PAYLOAD JSON on stdin; disabled payloads fail.
+ No fit or metric work; source and numerical recipe remain unchanged.
+ """
+-import base64,hashlib,json,os,signal,socket,subprocess,sys,time
++import base64,hashlib,importlib.util,json,os,signal,socket,subprocess,sys,time
+ from pathlib import Path
+ from datetime import datetime,timezone
+ payload=json.load(sys.stdin)
+@@ -17,11 +17,16 @@
+ assert [row.split(',')[0].strip() for row in gpu]==inventory
+ selected=payload['physical_gpu_uuid'];assert selected in inventory
+ assert int(gpu[inventory.index(selected)].split(',')[1].strip())*1024**2>=12*1024**3
+-root=phase/'shared_private_transfer_gpu77_fp32_execution_root_20261005_v1'
++root=phase/'shared_private_transfer_gpu77_fp32_execution_root_20261005_v2'
+ assert not root.exists() and str(root)==payload['remote_execution_root']
+-allowed={payload['training_source_name'],'endpoint_episode_geometry_preparation_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v2','shared_backbone_private_transfer_source_independent_review_20261005_v3','shared_private_transfer_gpu77_qualification_preparation_20261005_v1','shared_private_transfer_gpu77_environment_execution_20261005_v1',root.name}
++allowed={payload['training_source_name'],'endpoint_episode_geometry_preparation_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v1','shared_backbone_private_transfer_source_independent_review_20261005_v2','shared_backbone_private_transfer_source_independent_review_20261005_v3','shared_private_transfer_gpu77_qualification_preparation_20261005_v2','shared_private_transfer_gpu77_environment_execution_20261005_v1',root.name}
+ decoded=[]
+ def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
++prep=Path(__file__).resolve().parent
++assert sha(prep/'MANIFEST.json')==payload['wrapper_manifest_sha256']
++assert sha(__file__)==payload['supervisor_program_sha256']
++for row in json.loads((prep/'MANIFEST.json').read_text())['files']:
++ assert sha(prep/row['path'])==row['sha256'] and (prep/row['path']).stat().st_size==row['bytes']
+ for row in payload['files']:
+  rel=Path(row['path']); assert not rel.is_absolute() and '..' not in rel.parts and rel.parts[0] in allowed
+  path=phase/rel; assert path.resolve().is_relative_to(phase.resolve())
+@@ -51,55 +56,82 @@
+ env.update(CUDA_VISIBLE_DEVICES=selected,PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2',PYTHONPATH='')
+ env.pop('PYTHONHOME',None)
+ argv=[str(interpreter),str(source/'qualify_training_step.py'),'--job',str(root/'JOB.json'),'--output',str(root/'result')]
+-started=time.monotonic();reason=None;signals=[];max_rss=0;max_cuda=0
+-def identity(pid):
+- p=Path('/proc')/str(pid)
+- try:
+-  raw=(p/'stat').read_text();f=raw[raw.rfind(')')+2:].split()
+-  return dict(PID=pid,start_ticks=int(f[19]),state=f[0],argv=[s.decode() for s in (p/'cmdline').read_bytes().split(bytes([0])) if s],pgid=int(f[2]),sid=int(f[3]))
+- except FileNotFoundError:return None
++limits={'external_hard_seconds_per_cell':720,'owned_tree_RSS_cap_bytes':64*1024**3,
++        'owned_tree_GPU_memory_cap_bytes':10*1024**3,'combined_child_log_cap_bytes':8*1024**2,
++        'telemetry_timeout_seconds':20,'poll_interval_seconds':1}
++helper_path=Path(__file__).resolve().parent/'ownership_helpers.py'
++spec=importlib.util.spec_from_file_location('qualified_v3_ownership_helpers',helper_path)
++h=importlib.util.module_from_spec(spec);spec.loader.exec_module(h);h.GPU=selected
++started=time.monotonic();reason=None;signals=[];max_rss=0;max_cuda=0;max_logs=0
++owner=None;raw_owner=None;observed_cwd=None;signal_refusal=None;terminal_wait_observed=False
++incomplete_exit_samples=0;last_incomplete_exit=None
+ with (root/'child.stdout.log').open('xb') as stdout,(root/'child.stderr.log').open('xb') as stderr:
+  process=subprocess.Popen(argv,stdin=subprocess.DEVNULL,stdout=stdout,stderr=stderr,cwd=repo,env=env,start_new_session=True)
+- owner=identity(process.pid);assert owner is not None and owner['argv']==argv and owner['pgid']==owner['sid']==process.pid
+- (root/'CHILD_STARTED.json').write_text(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),identity=owner,argv=argv,hard_seconds=720,RSS_cap_bytes=64*1024**3,own_CUDA_cap_bytes=10*1024**3),indent=2)+'\n')
+- while process.poll() is None:
+-  live=identity(process.pid)
+-  if live is not None:assert live['start_ticks']==owner['start_ticks'] and live['argv']==argv
+-  status=Path('/proc')/str(process.pid)/'status'
++ try:
++  raw_owner=h.identity(process.pid)
++  observed_cwd=(Path('/proc')/str(process.pid)/'cwd').resolve(strict=True)
++  if raw_owner is None or raw_owner['argv']!=argv or raw_owner['pgid']!=process.pid or raw_owner['sid']!=process.pid or observed_cwd!=repo:
++   reason='Initial fresh owned child/session/argv/cwd could not be verified; no signal authorized'
++  else:owner=raw_owner
++ except Exception as error:
++  reason='Initial identity observation: '+type(error).__name__+': '+str(error)
++ (root/'CHILD_STARTED.json').write_text(json.dumps(dict(UTC=h.now(),identity=owner,raw_identity_observation=raw_owner,identity_admitted_for_signals=owner is not None,observed_cwd=str(observed_cwd) if observed_cwd is not None else None,argv=argv,hard_seconds=720,RSS_cap_bytes=64*1024**3,own_CUDA_cap_bytes=10*1024**3),indent=2)+'\n')
++ try:
++  while process.poll() is None:
++   if reason is not None:break
++   remaining=720-(time.monotonic()-started)
++   if remaining<=0:reason='hard_wall_bound'
++   else:
++    rows=h.owned_tree(owner)
++    incomplete=[row for row in rows if not row.get('observation_complete',True)]
++    if incomplete:
++     incomplete_exit_samples+=1;last_incomplete_exit=dict(UTC=h.now(),rows=incomplete)
++     if process.poll() is not None:break
++    rss,cuda=h.resources(rows,limits,remaining)
++    max_rss=max(max_rss,rss);max_cuda=max(max_cuda,cuda)
++    max_logs=max(max_logs,sum((root/name).stat().st_size for name in ('child.stdout.log','child.stderr.log')))
++    if max_rss>64*1024**3:reason='own_RSS_cap'
++    elif max_cuda>10*1024**3:reason='own_CUDA_cap'
++    elif max_logs>8*1024**2:reason='own_log_cap'
++    elif time.monotonic()-started>=720:reason='hard_wall_bound'
++   if reason:
++    try:
++     sent=h.kill_owned(process,owner,reason)
++     if sent:signals.append(sent)
++    except h.IncompleteExitObservation as error:signal_refusal=type(error).__name__+': '+str(error)
++    break
++   time.sleep(min(1,max(.01,remaining)))
++ except (Exception,KeyboardInterrupt) as error:
++  reason='required_bounds_telemetry_failure: '+type(error).__name__+': '+str(error)
+   try:
+-   for line in status.read_text().splitlines():
+-    if line.startswith('VmRSS:'):max_rss=max(max_rss,int(line.split()[1])*1024)
+-  except FileNotFoundError:pass
+-  q=subprocess.run(['nvidia-smi','--query-compute-apps=pid,used_memory','--format=csv,noheader,nounits'],text=True,capture_output=True,timeout=20)
+-  assert q.returncode==0
+-  for line in q.stdout.splitlines():
+-   parts=[s.strip() for s in line.split(',')]
+-   if len(parts)==2 and parts[0]==str(process.pid) and parts[1].isdigit():max_cuda=max(max_cuda,int(parts[1])*1024**2)
+-  if time.monotonic()-started>720:reason='hard_wall_bound'
+-  elif max_rss>64*1024**3:reason='own_RSS_cap'
+-  elif max_cuda>10*1024**3:reason='own_CUDA_cap'
+-  elif sum((root/name).stat().st_size for name in ('child.stdout.log','child.stderr.log'))>8*1024**2:reason='own_log_cap'
+-  if reason:
+-   live=identity(process.pid)
+-   if live is not None and live['state']!='Z':
+-    assert live['start_ticks']==owner['start_ticks'] and live['argv']==argv and live['pgid']==live['sid']==process.pid
+-    os.killpg(process.pid,signal.SIGKILL);signals.append(dict(PID=process.pid,signal='SIGKILL',reason=reason))
+-   process.wait();break
+-  time.sleep(1)
+- process.wait()
+-terminal_owner=identity(process.pid)
+-assert terminal_owner is None
+-terminal_gpu=subprocess.run(['nvidia-smi','--query-compute-apps=gpu_uuid,pid,used_memory','--format=csv,noheader,nounits'],text=True,capture_output=True,timeout=20)
+-assert terminal_gpu.returncode==0
+-assert not any(len(parts)>=2 and parts[1].strip()==str(process.pid) for parts in (row.split(',') for row in terminal_gpu.stdout.splitlines()))
+-(root/'PHYSICAL_TERMINAL.json').write_text(json.dumps(dict(UTC=datetime.now(timezone.utc).isoformat(),owned_PID_absent=True,owned_PID_no_CUDA_rows=True,physical_gpu_uuid=selected,terminal_wait_observed=True,exit_code_authority='subprocess.Popen.wait/poll',child_PID=process.pid,child_start_ticks=owner['start_ticks'],compute_rows=terminal_gpu.stdout),indent=2)+'\n')
++   sent=h.kill_owned(process,owner,reason) if owner is not None else None
++   if sent:signals.append(sent)
++  except Exception as error:signal_refusal=type(error).__name__+': '+str(error)
++ finally:
++  reason,signal_refusal,terminal_wait_observed=h.observe_terminal(process,owner,started,limits,signals,reason,signal_refusal)
++max_logs=max(max_logs,sum((root/name).stat().st_size for name in ('child.stdout.log','child.stderr.log')))
++if reason is None and max_logs>8*1024**2:reason='own_log_cap_at_exit'
++terminal_owner=None;identity_closure_observed=False
++terminal_gpu_rows=None;closure_error=None;owned_no_cuda=None
++try:
++ terminal_owner=h.identity(process.pid);identity_closure_observed=True
++ terminal_gpu_rows=h.query(['--query-compute-apps=gpu_uuid,pid,used_memory','--format=csv,noheader,nounits'],20)
++ owned_no_cuda=not any(len(parts)>=2 and parts[1].strip()==str(process.pid) for parts in (row.split(',') for row in terminal_gpu_rows))
++except Exception as error:
++ closure_error=type(error).__name__+': '+str(error)
++if reason is None and (not terminal_wait_observed or not identity_closure_observed or terminal_owner is not None or owned_no_cuda is not True):
++ reason='physical_terminal_closure_unconfirmed'
++physical=dict(UTC=h.now(),owned_PID_absent=identity_closure_observed and terminal_owner is None,owned_PID_no_CUDA_rows=owned_no_cuda,physical_gpu_uuid=selected,terminal_wait_observed=terminal_wait_observed,exit_code_authority='subprocess.Popen.wait/poll' if terminal_wait_observed else None,child_PID=process.pid,child_start_ticks=raw_owner['start_ticks'] if raw_owner is not None else None,compute_rows=terminal_gpu_rows,closure_error=closure_error)
++(root/'PHYSICAL_TERMINAL.json').write_text(json.dumps(physical,indent=2)+'\n')
++receipt=dict(UTC=h.now(),terminal_wait_observed=terminal_wait_observed,exit_code_authority='subprocess.Popen.wait/poll' if terminal_wait_observed else None,physical_gpu_uuid=selected,exit_code=process.returncode if terminal_wait_observed else None,reason=reason,signals_sent=signals,signal_refusal=signal_refusal,incomplete_exit_observation_samples=incomplete_exit_samples,last_incomplete_exit_observation=last_incomplete_exit,inclusive_seconds=time.monotonic()-started,max_owned_RSS_bytes=max_rss,max_owned_CUDA_bytes=max_cuda,max_owned_log_bytes=max_logs,attempts=1,numerical_launches=1,fits=0,VALID_TEST_values_access=False,source_bytes_unchanged=all(sha(p)==hashlib.sha256(c).hexdigest() for p,c in decoded),source_manifest_sha256=sha(source/'SOURCE_MANIFEST.json'),job_sha256=sha(root/'JOB.json'),child_identity=owner,raw_identity_observation=raw_owner,identity_admitted_for_signals=owner is not None,observed_cwd=str(observed_cwd) if observed_cwd is not None else None,owned_helper_sha256=sha(helper_path),physical_terminal_sha256=sha(root/'PHYSICAL_TERMINAL.json'))
++(root/'EXECUTION_RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+ diagnostics={}
+ for name in ('START.json','RESULT.json','FAILURE.json','PARTIAL_RESULT.json'):
+  p=root/'result'/name
+  if p.exists():
+-  assert p.stat().st_size<2*1024**2
+-  diagnostics[name]=dict(utf8=p.read_text(),sha256=sha(p),bytes=p.stat().st_size)
+-receipt=dict(UTC=datetime.now(timezone.utc).isoformat(),terminal_wait_observed=True,exit_code_authority='subprocess.Popen.wait/poll',physical_gpu_uuid=selected,exit_code=process.returncode,reason=reason,signals_sent=signals,inclusive_seconds=time.monotonic()-started,max_owned_RSS_bytes=max_rss,max_owned_CUDA_bytes=max_cuda,attempts=1,numerical_launches=1,fits=0,VALID_TEST_values_access=False,source_bytes_unchanged=all(sha(p)==hashlib.sha256(c).hexdigest() for p,c in decoded),source_manifest_sha256=sha(source/'SOURCE_MANIFEST.json'),job_sha256=sha(root/'JOB.json'),child_identity=owner)
+-(root/'EXECUTION_RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
++  row=dict(sha256=sha(p),bytes=p.stat().st_size,path=str(p))
++  if p.stat().st_size<2*1024**2:row['utf8']=p.read_text()
++  else:row['retained_on_disk_not_inlined']=True
++  diagnostics[name]=row
+ extra={name:dict(utf8=(root/name).read_text(),sha256=sha(root/name)) for name in ('child.stdout.log','child.stderr.log')}
+-print(json.dumps(dict(staging=stage,execution=receipt,diagnostics=diagnostics,logs=extra)))
++print(json.dumps(dict(staging=stage,execution=receipt,physical_terminal=physical,diagnostics=diagnostics,logs=extra)))

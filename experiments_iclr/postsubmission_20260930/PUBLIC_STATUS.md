@@ -1,6 +1,26 @@
 # Current GNNM research status
 
-Updated: 2026-10-05 06:04 UTC; latest pilot physical observation 05:55:09 UTC. The goal remains incomplete. No novel method has established superiority over competent singles and independent ensembles. Original manuscript scores are unchanged; no new acceptance verdict exists.
+Updated: 2026-10-05 06:31 UTC; latest pilot physical observation 06:24:24 UTC. The goal remains incomplete. No novel method has established superiority over competent singles and independent ensembles. Original manuscript scores are unchanged; no new acceptance verdict exists.
+
+The frozen pilot has completed its first ordinary-single control operationally.
+Its next jointly trained four-model control is physically live; no new-rule
+accuracy fit has completed and no comparative outcome has been opened. Full
+TRAIN sampling transcripts on the singleton and 18.77 match all 240 draws and
+1,680 component hashes, with successful exits and physical closures. The 18.77
+numerical qualification subsequently passed all three architectures with one
+numerical child, exit 0, no signals, and 35.13 seconds inclusive runtime. Its
+child and supervisor closures were confirmed at 06:29:36 UTC. A pre-model
+wrapper path-type error is preserved; its one-line operational successor
+changes no numerical source or recipe. This is engineering admission, not
+predictive evidence. Accuracy blocks b1/b2 remain unreleased pending review
+of the host-only launchers.
+
+The compact [eight-family design synthesis](quality_literature_to_design_triage_20261005_v1/REPORT.md)
+records which inspected priors changed the method and controls. Its classical
+finite-sample analysis explicitly shows that a single model with the same
+structural bias can match a shared ensemble. The fixed member-competence loss
+adds a Jensen-gap penalty; it does not enforce useful error diversity. No new
+paper-reading credit, fit or novelty theorem is claimed by that synthesis.
 
 ## Method development
 
@@ -18,13 +38,21 @@ The five-seed Collab TEST result remains: private completion 67.2909% Hits@50, o
 
 ## Running work
 
-- 18.77 private-transfer setup completed with installer/provider exit 0 and `pip check` PASS in a fresh repository-local environment. Exact Torch 2.1.2+cu118, NumPy 1.26.4 and PyG 2.7.0 core versions are retained; base/RAPIDS packages were not modified. Exactly 38 source/evidence payloads plus four data roles and their original manifest (43 files) were staged. No model or quality fit ran in this setup. Separate full-horizon CPU sampling transcripts launched once at 05:54:26 UTC on the singleton and 05:54:28 UTC on 18.77; outcomes remain unopened in this status update. Sampling and finite FP32 qualification are separate gates. [Completed setup and limits](shared_private_transfer_gpu77_environment_execution_20261005_v1/REPORT.md).
+- 18.77 private-transfer setup completed with installer/provider exit 0 and `pip check` PASS in a fresh repository-local environment. Exact Torch 2.1.2+cu118, NumPy 1.26.4 and PyG 2.7.0 core versions are retained; base/RAPIDS packages were not modified. Exactly 38 source/evidence payloads plus four data roles and their original manifest (43 files) were staged. No model or quality fit ran in this setup. Both full-horizon CPU sampling transcripts subsequently completed successfully and matched exactly. Sampling and finite FP32 qualification are separate gates. [Sampling comparison](shared_private_transfer_sampling_execution_20261005_v1/REPORT.md). [Completed setup and limits](shared_private_transfer_gpu77_environment_execution_20261005_v1/REPORT.md).
 - PENCIL launched once at 03:30:52 UTC: three seeds, 300 complete TRAIN epochs and 150 complete VALID passes per seed. The first ordinary Adam update passed, with finite parameters/moments and zero extra updates. At 05:32:42 UTC seed 0 metadata reports epoch index 117 and 472 updates, with no completed cohort fit or failure. Its known supervisor/child were physically verified at 05:20:08 UTC; the newer metadata-only receipt is not another physical identity check. [Metadata receipt](pencil_citeseer_native300_launch_receipts_20261005_v1/metadata_20261005T053242Z/COMPACT_METADATA.json). [Physical observation](pencil_citeseer_native300_launch_receipts_20261005_v1/physical_20261005T052008Z/OBSERVATION.json). Outcomes remain closed. The measured co-resident arithmetic is 5.378 hours per fit and 16.135 hours for the cohort, excluding updates/saves/variation. Early feature fusion is a declared author-supported adaptation, not exact official SOTA reproduction. [Launch receipt](pencil_citeseer_native300_launch_receipts_20261005_v1/LAUNCH_AND_FIRST_ADAM_METADATA.json).
-- Amazon/Polynormer at 05:33:04 UTC: 11 of 15 fits complete; current independent member 0 at update 421 of 2700; owned queue, worker and fit physically live with no failures. [Observation 66](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_launch_execution_receipts_20261003_v2/MONITOR_0066_RESULT.json).
+- Amazon/Polynormer at 06:21:17 UTC: 11 of 15 fits complete; current independent member 0 at update 1437 of 2700; owned queue, worker and fit physically live with no failures. [Observation 67](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_launch_execution_receipts_20261003_v2/MONITOR_0067_RESULT.json).
 - 18.77 at04:57:18UTC:conditional Collab7 of9 fits complete, joint seed2 epoch43; DDI6 of12, joint seed1 at8375elapsed seconds. Both queues and current workers physically live. No outcomes, TEST, restarts or other-job signals. [Observation v10](compact_owned_queue_monitor_20261005_v10/OBSERVATION.json).
 
 ## Literature and custody
 
 Canonical index v63 retains 238 scoped conclusions across 186 paper groups and two software groups. These are not full-paper reading totals. Separately saved PNA/FSW method scopes show that projected-neighborhood quantiles are prior; the secondary signature proposal remains a utility hypothesis without novelty clearance. [Scoped synthesis](private_neighborhood_quantile_quality_hypothesis_20261005_v1/REPORT.md).
 
-Latest verified GitHub head is 0788c2ba88f4d68823e0767dc7c3f21c6851ae33. The reviewed private-transfer implementation, FP32/native-Adam gate, cost source/failure/recovery, remaining-control launch and new closest-prior decisions are published. This push acknowledgement awaits the next publication. History is retained, checkpoints stay on servers, and deliberate operations stay inside authorized repositories.
+Latest verified GitHub head is dba6cbf915dfe78ab3fe4979365dd604a10fa1d1. The reviewed 155-file publication includes the frozen paired pilot, independent execution audits, actual launch and complete 18.77 setup records. The exact remote ref was verified at 06:18:24 UTC. Newer sampling, wrapper-repair and scoped novelty records await the next compact publication. History is retained, checkpoints stay on servers, and deliberate operations stay inside authorized repositories.
+
+The separate novelty stress test inspected three additional primary method
+scopes, with zero full-paper reads. H-GRAM establishes one-graph meta-learning,
+Meta-iKG establishes related graph update persistence, and Episodic DG supplies
+persistent private training partners with fixed deployment. No exact complete
+match was found in those scopes; this does not clear novelty. The strongest
+remaining objection is graph meta-regularization with an endpoint-conditioned
+sampler. [Scoped assessment](endpoint_private_transfer_novelty_stress_test_20261005_v1/REPORT.md).

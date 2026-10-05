@@ -1,3 +1,50 @@
+# Latest update: 77 implementation admitted; literature-to-design triage sealed
+
+At 2026-10-05 06:31 UTC, the 18.77 unchanged FP32/native-Adam qualifier passed
+capable_single/shared_f4/untied4, one numerical child, exit0 and no signals.
+Raw RESULT SHA256 `b7eae293ec549de0746bb951733f8df6e350808669bcfb53a938c28d0768e476`,
+2,051,915 bytes. Child/supervisor closure observed at06:29:36UTC; final closure
+SHA256 `d195228bb74211caa4659d3813c2fcc08c746195b98ea44ac66e73ad0e65f400`.
+Numerical admission is not quality evidence. b1/b2 accuracy launchers remain
+unreleased pending host-only review. The frozen 30-fit cohort is unchanged.
+
+Eight prior mechanism families and decisive comparisons are recorded in
+`quality_literature_to_design_triage_20261005_v1/REPORT.md`; manifest SHA256
+`28fa5dd1f0dd06433d7b037f35b11641fe0e5154bcf66152aee108dcd32efbdf`.
+The finite-sample shrinkage illustration is classical and exactly reproducible
+by a same-bias single predictor. The BCE competence term adds half a Jensen
+gap to aggregate loss; it does not enforce error diversity. No predictive
+superiority, methodological novelty or acceptance recommendation is achieved.
+
+## Preserved preceding state
+
+# Latest update: prospective quality test underway; exact GitHub push verified
+
+At 2026-10-05 06:24:24 UTC, the frozen b0 pilot has one operationally completed
+ordinary-single control and a physically live jointly trained four-model
+control. No new-rule accuracy result or comparative score access. All 30 fits
+remain required before comparative analysis. Original paper scores unchanged.
+
+Full model-free singleton/77 sampling equality passed: 240 draws and 1,680
+component hashes, both exits 0 and physical closures. Comparison SHA256
+`c2fc024b0550011c2b7d5b34eec4ea6333e2bcbcc063ba3dd02cbdb224c227e7`.
+The pre-model 77 qualification-wrapper failure is preserved; the reviewed
+one-line Path normalization changes no numerical source. Qualification and
+b1/b2 host-launcher admission remain separate. The root successor release is
+`shared_private_transfer_gpu77_qualification_root_release_20261005_v2/ROOT_REVIEW.md`.
+
+The three new bounded primary novelty scopes are retained in
+`endpoint_private_transfer_novelty_stress_test_20261005_v1/REPORT.md`. They do not
+clear methodological novelty; one-graph meta-learning and private-branch
+persistence are established prior. A quality contribution still needs an
+ensemble-specific gain over strong singles and independent ensembles.
+
+The reviewed 155-file inventory was committed and pushed. GitHub advertised
+`dba6cbf915dfe78ab3fe4979365dd604a10fa1d1` at 06:18:24 UTC; the exact-ref receipt
+is `publication/reviewed_paired_pilot_and_77_setup_20261005_v1/PUSH_RECEIPT.json`.
+
+## Preserved preceding state
+
 # Latest update: pilot launch and cost-gate scope clarified; baseline progress refreshed
 
 # Current GNNM research status
