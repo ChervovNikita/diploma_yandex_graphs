@@ -1,0 +1,7 @@
+# Retrospective Pubmed numerical qualification
+
+The retained discarded TRAIN/features-only numerical result is adopted separately after successful read-only closure at 14:13:13 UTC. All three architectures passed the unchanged native-Adam, derivative, state/RNG and recomputed-commit checks. The exact result/source/input/control/acquisition identities were authenticated, and the complete 66-entry root inventory contained 4,709,294 bytes under the original 64 MiB cap. No numerical run or fit was repeated. Raw RESULT and inputs remain on the allocation.
+
+The original supervisor workflow remains failed with transport exit 1 and physical_ownership_observation; its exact proc fault is unresolved. The first collector failed because its inventory allowlist omitted ten existing workflow metadata sidecars. Original collector failure and the line-only/metadata-only diagnostics remain preserved. A focused metadata-only repair preserves every numerical/resource/custody assertion; it is root assessed against the independently reviewed v3 basis, not claimed as independent self-review. A local-only preflight schema error is also preserved.
+
+This adopts discarded-step correctness/custody evidence only. It supplies no predictive score, novelty, generalization or acceptance result. Full native cohort cost/evaluator/resource admissions and a surviving complete original30 quality lead are still required before Pubmed fits; original39 custody remains required for mechanism analysis.

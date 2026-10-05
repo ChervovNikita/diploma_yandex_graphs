@@ -2,25 +2,19 @@
 
 ## Current research — 5 October 2026
 
-The objective is improved predictive quality from a learnable graph ensemble with a shared backbone. The goal remains unmet: no new method has yet established both meaningful methodological novelty and better prediction than competent singles and genuinely independent ensembles. Original five-dataset manuscript scores remain unchanged.
+The objective is predictive quality from a learnable graph ensemble with a shared backbone. No new method yet establishes both methodological novelty and better prediction than competent singles and independent ensembles. Original five-dataset manuscript scores remain unchanged.
 
-Research currently uses only the authorized one-GPU allocation. Access to18.77 and MacLink is temporarily withdrawn; its detached jobs remain untouched and unobserved until the human restores access.
+Only the authorized one-GPU allocation is currently accessed. Access to18.77/MacLink is withdrawn; its jobs remain untouched and unobserved. The private-learning rule and matched controls continue: at14:05 UTC, the allocation original block was4/10 complete and its single companion2/3. The original30/full39 gates remain unchanged. Amazon/Polynormer was14/15 complete; PENCIL had2/3 frozen full native300 fits, with its final seed running. Outcomes stay closed until full-family custody.
 
-The active rule trains shared graph features through private members' learning on links involving other endpoints, then recomputes the committed private updates at the new shared weights. Prediction needs no new adaptation. Meta-learning provides substantial ancestry; the precise coupling and its empirical value remain under test. At 12:49:47 UTC the allocation original block was 4/10 complete and the matched-single block 2/3 complete. Both queues/current children matched their physical launch identities, without recorded failure or TEST access. The frozen original30/full39 requirements remain unchanged; missing provider blocks will not be replaced by favorable subsets.
+The retained Pubmed discarded TRAIN-step checks now have a separate retrospective adoption after complete read-only source/control/input/result/inventory closure. All three numerical architectures passed; the original supervisor workflow and first collector remain failed and preserved. There was no numerical rerun, fit, predictive score or TEST access. Full native cost/evaluator/resource qualification and a surviving complete original30 quality lead still precede Pubmed fits.
 
-Pubmed preparation now has actual allocation evidence: all589 seed0/cycle0 geometry pairs were feasible with mean5.1334% support deletion; a fresh CPU input workflow authenticated the four original files and checked19,717×500 features,37,676 TRAIN links,2,216 VALID links and the fixed500-candidate pools. Both owned input children exited0 within bounds, without signals or changed source. Root bound the newly authenticated feature bytes to the saved bit-exact raw Planetoid proof without contacting77 or rerunning it. Disclosed native other-VALID-positive candidates remain unchanged. Raw inputs stay on the allocation. This is input/geometry evidence, with zero fits or accuracy scores; model/evaluator/derivative/RNG/cost qualification and a complete quality lead still precede predictive release.
+Literature index69 preserves249 scoped records/197 paper groups/two software groups, and adds one bounded MGL author-source event with zero new paper-reading credit. Elementary information/kernel analysis clarifies where a route must preserve upstream graph information, without establishing generalization, ensemble necessity or novelty. Two existing composition families are being reassessed using PNA/FSW and LPFormer ingredients. Latest human steering permits building on third-party methods and prioritizes prediction/hidden-state fusion; separate primary-literature and aggregation analysis tasks are active. No late-fusion experiment is yet admitted.
 
-The sole Pubmed numerical child exited0 and its unchanged checks report pass across all three architectures, but the supervisor failed an exit-time process observation. Original failure/transport1 remain preserved and this is not an admitted successful workflow. Read-only retrospective custody is under independent assessment; no model rerun, fit or VALID/TEST score access occurred. This supplies no predictive result.
-
-The disabled Pubmed portv2 and exact9/full39 collectorv2 passed independent source re-review after concrete repairs. Actual full-family custody remains missing. D2 v3 now incorporates the all39 closure and passed independent source review/root adoption; numerical analysis remains disabled pending actual custody. The conditional interpretation memo keeps six original quality contrasts, five attribution flags and descriptive F1 companions separate; it introduces no new gate or observed mechanism.
-
-Amazon/Polynormer had 14/15 complete at 13:06:24 UTC, final independent member 124/2700 updates. PENCIL seed 0 is complete and seed 1 reached epoch index 243/972 updates at 12:50:37 UTC, with physically matched registered handles. Their outcomes remain closed until complete-family authentication. Literature memory v68 preserves 247 prior records and adds two saved bounded method scopes on carried optimizer state and COLA, reaching 249 scoped conclusions across 197 paper groups and two software groups. These are not full-paper reading totals; integration and root verification add zero primary reads. No ready successor, global novelty clearance or new predictive result follows from this literature work.
-
-- [Current measured status and preserved comparisons](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
-- [Actual Pubmed input result and limits](experiments_iclr/postsubmission_20260930/private_transfer_pubmed_allocation_available_execution_root_20261005_v3/ROOT_ADOPTION_REPORT.md)
-- [Conditional scientific interpretation](experiments_iclr/postsubmission_20260930/shared_private_learning_result_interpretation_plan_20261005_v1/REPORT.md)
-- [Scoped literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v68/LITERATURE_INDEX.json)
-- [Preserved decisions, failures and costs](experiments_iclr/postsubmission_20260930/research_ledger.json)
+- [Measured state and preserved results](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
+- [Retrospective Pubmed qualification scope](experiments_iclr/postsubmission_20260930/private_transfer_pubmed_fp32_retrospective_collection_execution_root_20261005_v2/ROOT_ADOPTION_REPORT.md)
+- [Literature memory](experiments_iclr/postsubmission_20260930/literature_memory/index_v69/LITERATURE_INDEX.json)
+- [Broader attributed directions](experiments_iclr/postsubmission_20260930/shared_backbone_broader_quality_synthesis_20261005_v1/REPORT.md)
+- [Preserved research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json)
 
 ## Original method
 
