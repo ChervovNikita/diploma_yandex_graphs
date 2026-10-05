@@ -1,0 +1,15 @@
+# Five complete TRAIN-cycle costs, awaiting root review
+
+This immutable preparation admits no execution by itself. It contains a stdlib-only sequential supervisor and five exact v2 `run.py` cost jobs, with the passed FP32 gate and existing authorities bound by hashes. No method source was modified, server contacted, numerical module imported, model/gradient executed, fit made, VALID/TEST value opened or score computed during preparation.
+
+The fixed queue is: shared F4/live transfer; capable nonlinear single/live transfer; untied4/live transfer; independently initialized ordinary native4/ordinary joint; shared F4/ordinary joint. Every cell uses endpoint geometry, seed/factor seed20261005, outer64/inner256 and one complete TRAIN cycle. Both inner computations and the full outer tail are paid by the sealed method runner. These are compute measurements, not representative quality evidence or training-budget equality.
+
+Each cell has source soft600s and external hard720s, sampled owned-tree RSS cap64GiB, sampled owned-tree GPU memory cap10GiB, combined child log cap8MiB and a fresh physical singleton GPU check requiring12GiB free. The supervisor polls once per second; GPU telemetry is bounded by10s and remaining hard time. Resource maxima are sampled; `COST_RESULT.json` retains method-reported exact CUDA peaks and inclusive complete-cycle costs. No sudo, mounts, namespaces or host settings are changed. Standard inherited runtime behavior is preserved.
+
+Children get new sessions. Before any group signal, the leader's PID, start ticks, argv, PGID and SID must still match the recorded spawned identity. Only that fresh owned scientific group may receive SIGKILL on a declared limit or loss of required bound telemetry. An identity mismatch never authorizes a signal. The queue stops on any failed cell, cap, preflight or required metadata failure. One attempt per cell; no retry. Receipts, complete costs and partial failure outputs remain in their fresh server directories.
+
+Root must review these exact bytes and supply a separate enabled release by filling `ROOT_RELEASE_TEMPLATE.json`, binding this packet manifest, `queue.py`, the plan and root review evidence. The sealed template remains disabled. Stage only this packet and the new release in the authorized repository phase. The existing method, gate and data/runtime/source authorities are already server-side and must retain their bound bytes.
+
+Expected output is `experiments_iclr/postsubmission_20260930/shared_backbone_private_transfer_complete_cost_execution_root_20261005_v1/queue`, initially absent. Keep the new release in its parent execution folder. Launch normally from the authorized repo using `python3 <phase>/<this-packet>/queue.py --release <phase>/<execution-root>/ROOT_RELEASE.json`; root is responsible for verified detached launch and preserving transport identity. No seven-GPU science or alternative host is admitted.
+
+The preparation source was parsed and hashed using standard library only. The scientific source and finite qualification remain distinct evidence. Representative fitting requires root's later cost-based cohort freeze before outcomes.

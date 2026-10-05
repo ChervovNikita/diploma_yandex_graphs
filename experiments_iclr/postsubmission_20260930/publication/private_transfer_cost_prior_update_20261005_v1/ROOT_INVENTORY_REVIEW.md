@@ -1,0 +1,7 @@
+# Root review of compact publication
+
+Reviewed cost-source revisions and exact sealed v3 diff/limits/jobs, root launch and physical metadata, preserved v1 failure/recovered complete candidate cost, scoped primary prior conclusions and the baseline-class correction. Every selected byte/hash is independently checked and all Python is AST parsed. Root adopts files, not the packaging agent's optional custody claims: some data/runtime authority artifacts stay server-side, and the raw FP32 gate above2MB is reproducibly represented in Git by RESULT_COMPACT.json plus RESULT_CUSTODY.json. A dependency hash does not imply that its raw pathname is tracked in Git. The packaging inventory metadata is therefore not published as a statement that every dependency path is Git-tracked.
+
+The original supervisor remains failed and the candidate physical exit remains unknown. Complete-cycle candidate cost is admitted for budgeting only. Remaining controls are running under v3, with first capable-single completion known. Latest other-queue metadata is not a predictive outcome. The jointly trained four control is distinguished from independently trained ordinary ensembles; frozen original scores remain unchanged.
+
+Publication excludes credential contents, all STAGING_PAYLOAD/base64 transport duplicates and large tensor/checkpoint/data archives. No raw accuracy results are recalculated and no claimed methodological novelty or acceptance is added. Exact parent is09ee08f4cb17ed9b30487f23ce84261c2f6a0fca; commit/push uses the authorized singleton repository only.

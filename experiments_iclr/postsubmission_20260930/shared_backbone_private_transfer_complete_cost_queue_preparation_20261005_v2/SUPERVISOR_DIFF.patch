@@ -1,0 +1,168 @@
+--- v1/queue.py
++++ v2/queue.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Five serialized discarded TRAIN cost cycles; stdlib supervisor only.
++"""Four remaining discarded TRAIN control cost cycles; stdlib supervisor only.
+ 
+ Requires a separate root release. No fit, VALID or TEST execution is admitted.
+ Only the freshly spawned and identity-verified scientific child group can be
+@@ -22,8 +22,7 @@
+ PHASE = REPO / 'experiments_iclr/postsubmission_20260930'
+ HOST = 'anogena-2-0'
+ GPU = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+-CELLS = [('shared_f4', 'live_transfer'), ('capable_single', 'live_transfer'),
+-         ('untied4', 'live_transfer'), ('ordinary_native4', 'ordinary_joint'),
++CELLS = [('capable_single', 'live_transfer'), ('untied4', 'live_transfer'), ('ordinary_native4', 'ordinary_joint'),
+          ('shared_f4', 'ordinary_joint')]
+ 
+ 
+@@ -46,15 +45,27 @@
+ 
+ def identity(pid):
+     directory = Path('/proc') / str(pid)
+-    try:
++    def stat():
+         raw = (directory / 'stat').read_text()
+         fields = raw[raw.rfind(')') + 2:].split()
+         return {'PID': pid, 'start_ticks': int(fields[19]), 'state': fields[0],
+                 'ppid': int(fields[1]), 'pgid': int(fields[2]),
+-                'sid': int(fields[3]),
+-                'argv': [s.decode() for s in (directory / 'cmdline').read_bytes().split(b'\0') if s]}
+-    except FileNotFoundError:
+-        return None
++                'sid': int(fields[3])}
++    # cmdline becomes empty during exit. A second stat observation identifies
++    # confirmed zombies, while start/group changes remain identity failures.
++    for attempt in range(3):
++        try:
++            before = stat()
++            argv = [s.decode() for s in (directory / 'cmdline').read_bytes().split(b'\0') if s]
++            after = stat()
++        except FileNotFoundError:
++            return None
++        if any(before[key] != after[key] for key in ('start_ticks', 'pgid', 'sid')):
++            raise RuntimeError('Process identity changed during observation; no signal authorized')
++        after['argv'] = argv
++        if after['state'] == 'Z' or argv or attempt == 2:
++            return after
++        time.sleep(.01)
+ 
+ 
+ def owned_tree(owner):
+@@ -157,7 +168,7 @@
+     plan = json.loads((HERE / 'PLAN.json').read_text())
+     limits = json.loads((HERE / 'LIMITS.json').read_text())
+     verify_packet()
+-    if release.get('approved') is not True or release.get('scope') != 'five_discarded_complete_TRAIN_cost_cycles':
++    if release.get('approved') is not True or release.get('scope') != 'four_remaining_discarded_complete_TRAIN_cost_cycles':
+         raise RuntimeError('Separate root approval required; template is disabled')
+     for field, actual in [('queue_source_manifest_sha256', sha(HERE / 'SOURCE_MANIFEST.json')),
+                           ('queue_program_sha256', sha(__file__)), ('plan_sha256', sha(HERE / 'PLAN.json'))]:
+@@ -180,16 +191,26 @@
+     if sha(source / 'SOURCE_MANIFEST.json') != plan['source_manifest_sha256'] or sha(source / 'run.py') != plan['run_sha256']:
+         raise RuntimeError('Qualified method source differs')
+     if [(row['arm'], row['rule']) for row in plan['cells']] != CELLS:
+-        raise RuntimeError('Five prospectively requested cost cells differ')
++        raise RuntimeError('Four remaining prospectively requested control cells differ')
++    precursor_path = HERE / plan['precursor_binding_file']
++    if sha(precursor_path) != plan['precursor_binding_sha256']:
++        raise RuntimeError('Completed candidate precursor binding changed')
++    precursor = json.loads(precursor_path.read_text())
++    for key in ('completed_candidate', 'candidate_child_started', 'v1_queue_failure'):
++        evidence = precursor[key]
++        path = (PHASE / evidence['remote_phase_relative_path']).resolve(strict=True)
++        if not path.is_relative_to(PHASE.resolve(strict=True)) or sha(path) != evidence['sha256']:
++            raise RuntimeError('Completed candidate or preserved v1 failure changed')
+     gate = PHASE / plan['training_step_gate']['path']
+     if sha(gate) != plan['training_step_gate']['sha256'] or json.loads(gate.read_text()).get('passed') is not True:
+         raise RuntimeError('Exact passed FP32 gate changed')
+     physical_preflight(limits)
+     output.mkdir()
+-    summary = {'UTC_started': now(), 'scope': 'five_discarded_TRAIN_cost_cycles',
++    summary = {'UTC_started': now(), 'scope': 'four_remaining_discarded_TRAIN_control_cost_cycles',
+                'source_manifest_sha256': plan['source_manifest_sha256'],
+                'queue_source_manifest_sha256': sha(HERE / 'SOURCE_MANIFEST.json'),
+                'root_release_sha256': sha(release_path), 'supervisor_identity': identity(os.getpid()),
++               'precursor_binding_sha256': plan['precursor_binding_sha256'],
+                'fits': 0, 'VALID_TEST_values_access': False, 'retry': False, 'cells': [], 'passed': False}
+     save(output / 'QUEUE_STARTED.json', summary)
+     try:
+@@ -218,17 +239,22 @@
+                     '--job', str(job_path), '--output', job['output_directory']]
+             started = time.monotonic()
+             reason, signals, max_rss, max_gpu = None, [], 0, 0
++            signal_refusal, terminal_wait_observed = None, False
+             owner = None
+             with (cell_root / 'child.stdout.log').open('xb') as stdout, (cell_root / 'child.stderr.log').open('xb') as stderr:
+                 process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
+                                            cwd=REPO, env=env, start_new_session=True)
+-                owner = identity(process.pid)
++                try:
++                    owner = identity(process.pid)
++                except Exception as error:
++                    reason = 'Initial child observation failed: ' + type(error).__name__ + ': ' + str(error)
+                 if owner is None or owner['argv'] != argv or owner['pgid'] != process.pid or owner['sid'] != process.pid:
+-                    process.wait(timeout=limits['external_hard_seconds_per_cell'])
+-                    raise RuntimeError('Initial owned child identity could not be verified; no signal sent')
++                    reason = 'Initial owned child identity could not be verified; no signal sent'
+                 save(cell_root / 'CHILD_STARTED.json', {'UTC': now(), 'identity': owner, 'argv': argv, 'limits': limits})
+                 try:
+                     while process.poll() is None:
++                        if reason is not None:
++                            break
+                         remaining = limits['external_hard_seconds_per_cell'] - (time.monotonic() - started)
+                         if remaining <= 0:
+                             reason = 'external_hard_wall_bound'
+@@ -248,11 +274,38 @@
+                         time.sleep(min(limits['poll_interval_seconds'], max(.01, remaining)))
+                 except (Exception, KeyboardInterrupt) as error:
+                     reason = 'required_bounds_telemetry_failure: ' + type(error).__name__ + ': ' + str(error)
+-                    sent = kill_owned(process, owner, reason)
+-                    if sent: signals.append(sent)
+-                process.wait()
++                    try:
++                        sent = kill_owned(process, owner, reason) if owner is not None else None
++                        if sent: signals.append(sent)
++                    except Exception as refusal:
++                        signal_refusal = type(refusal).__name__ + ': ' + str(refusal)
++                finally:
++                    # This Popen object is the authority for the spawned child's
++                    # exit code. /proc disappearance or COST_RESULT cannot supply it.
++                    remaining = max(.01, limits['external_hard_seconds_per_cell'] - (time.monotonic() - started))
++                    try:
++                        process.wait(timeout=remaining)
++                        terminal_wait_observed = True
++                    except subprocess.TimeoutExpired:
++                        reason = 'external_hard_wall_bound'
++                        try:
++                            sent = kill_owned(process, owner, reason) if owner is not None else None
++                            if sent: signals.append(sent)
++                        except Exception as refusal:
++                            signal_refusal = type(refusal).__name__ + ': ' + str(refusal)
++                        if process.poll() is not None:
++                            terminal_wait_observed = True
++                        elif signals:
++                            try:
++                                process.wait(timeout=5)
++                                terminal_wait_observed = True
++                            except subprocess.TimeoutExpired:
++                                pass
+             receipt = {'UTC': now(), 'cell_id': cell['cell_id'], 'job_sha256': cell['job_sha256'],
+-                       'exit_code': process.returncode, 'reason': reason, 'child_identity': owner,
++                       'exit_code': process.returncode if terminal_wait_observed else None,
++                       'exit_code_authority': 'subprocess.Popen.wait/poll' if terminal_wait_observed else None,
++                       'terminal_wait_observed': terminal_wait_observed, 'signal_refusal': signal_refusal,
++                       'reason': reason, 'child_identity': owner,
+                        'signals_sent': signals, 'inclusive_seconds': time.monotonic() - started,
+                        'max_sampled_owned_tree_RSS_bytes': max_rss, 'max_sampled_owned_tree_GPU_memory_bytes': max_gpu,
+                        'attempts': 1, 'fits': 0, 'VALID_TEST_values_access': False, 'retry': False,
+@@ -263,7 +316,7 @@
+                 result = json.loads(result_path.read_text())
+                 receipt['cost_result_sha256'] = sha(result_path)
+                 receipt['complete_cycle_costs'] = result['cycle_costs']
+-                receipt['passed'] = (process.returncode == 0 and reason is None and
++                receipt['passed'] = (terminal_wait_observed and process.returncode == 0 and reason is None and
+                     result.get('scope') == 'discarded_TRAIN_complete_cycle_cost' and result.get('states_discarded') is True and
+                     result.get('complete_VALID_scoring') is False and result.get('TEST_access') is False and result.get('last_cycle') == 1 and
+                     result.get('source_manifest_sha256') == plan['source_manifest_sha256'] and result.get('job_sha256') == cell['job_sha256'])

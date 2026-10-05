@@ -1,0 +1,226 @@
+[
+  {
+    "index": 41,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "3 Episodic Meta-Learning for Graph Foundation Models"
+  },
+  {
+    "index": 42,
+    "tag": "p",
+    "id": "S3.p1.1",
+    "class": "ltx_p",
+    "text": "Section 2 showed that prototype inference fails because it is too rigid: it fixes class weights to centroids, anchors decision boundaries at the origin, and converts dot products into confidence scores with no mechanism for task-specific adaptation. Replacing prototypes with a stronger linear readout at inference time helps, but only partially [16]. Ridge or logistic regression can learn weights and biases from the support set, yet they still operate on frozen embeddings produced by an objective that is mismatched to few-shot classification or just operates over the assumption that downstream tasks align with the pre-training objectives [41, 26] (e.g. link prediction, contrastive learning, etc)."
+  },
+  {
+    "index": 43,
+    "tag": "p",
+    "id": "S3.p2.1",
+    "class": "ltx_p",
+    "text": "We therefore shift the adaptation target from the readout alone to the entire training procedure. We propose Mochi, a Graph Foundation Model trained via episodic meta-learning [8, 1, 16] across node classification, link prediction, and graph classification tasks (Figure 2). In each episode, Mochi fits a closed-form ridge classifier on a small support set and updates the encoder through query loss. This preserves the minimal-data appeal of prototype-style inference while aligning training with the evaluation protocol. It also yields an efficient training pipeline: the episode head is solved in closed form, avoiding the iterative inner-loop optimization required by more expensive test-time adaptation schemes. As we show in Section 4, this alignment makes Mochi both competitive with strong GFM baselines and substantially more training-efficient."
+  },
+  {
+    "index": 44,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "3.1 Architecture"
+  },
+  {
+    "index": 45,
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "Mochi consists of a graph encoder [TeX: f_{\\theta}] and a differentiable ridge readout. The encoder follows a common feature-alignment pattern in graph GFMs [38, 28, 43]: for each training graph we precompute a frozen initial representation [TeX: X_{0}\\in\\mathbb{R}^{|V|\\times d_{z}}] via SVD over node features and the symmetrically normalized adjacency (full construction in Appendix H.1), propagate it along [TeX: \\ell=3] hops of the adjacency, and concatenate the propagations into a per-node input stack [TeX: [X_{0}A^{k}]_{k=0}^{\\ell}] . A trainable GAMLP [44] applies node-adaptive hop attention over this stack to produce node embeddings [TeX: z_{v}=f_{\\theta}(A,X)_{v}\\in\\mathbb{R}^{d_{z}}] . Only GAMLP is meta-trained; the SVD and hop propagations are deterministic and do not receive gradients (Figure 2)."
+  },
+  {
+    "index": 46,
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "Given a support set with embeddings [TeX: Z_{s}\\in\\mathbb{R}^{n_{s}\\times d_{z}}] (one row per episode example, constructed per task type as described in §3.2) and one-hot labels [TeX: Y_{s}\\in\\{0,1\\}^{n_{s}\\times C}] , the readout solves the [TeX: \\ell_{2}] -regularized least-squares problem in dual form:"
+  },
+  {
+    "index": 47,
+    "tag": "table",
+    "id": "S3.E1",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[TeX: \\begin{bmatrix}W^{*}\\\\ b^{*\\top}\\end{bmatrix}=\\tilde{Z}_{s}^{\\top}(\\tilde{Z}_{s}\\tilde{Z}_{s}^{\\top}+\\lambda I)^{-1}Y_{s},] (1)"
+  },
+  {
+    "index": 48,
+    "tag": "p",
+    "id": "S3.SS1.p2.2",
+    "class": "ltx_p",
+    "text": "where [TeX: \\tilde{Z}_{s}=[Z_{s}\\mid\\mathbf{1}]\\in\\mathbb{R}^{n_{s}\\times(d_{z}+1)}] augments the support embeddings with an all-ones bias column, [TeX: W^{*}\\in\\mathbb{R}^{d_{z}\\times C}] is the weight matrix, and [TeX: b^{*}\\in\\mathbb{R}^{C}] is the bias vector. Query logits are then"
+  },
+  {
+    "index": 49,
+    "tag": "table",
+    "id": "S3.E2",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[TeX: \\hat{Y}_{q}=\\tilde{Z}_{q}\\begin{bmatrix}W^{*}\\\\ b^{*\\top}\\end{bmatrix}.] (2)"
+  },
+  {
+    "index": 50,
+    "tag": "h4",
+    "id": null,
+    "class": "ltx_title ltx_title_paragraph",
+    "text": "Why a ridge readout."
+  },
+  {
+    "index": 51,
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "Ridge regression is the minimal linear readout addressing the origin-anchored failure of prototypes: the bias term decouples the decision boundary from the origin (§2.1). A post-hoc ridge on frozen embeddings cannot resolve convex-hull inclusion, which requires reshaping the embedding geometry. We therefore use ridge as the inner meta-training objective: its closed-form, differentiable solution (Eq. 1) lets query error backpropagate through the solve and update the encoder, making linear separability a property of the learned representation rather than one the readout must recover post-hoc. Logistic regression offers the same bias but requires an iterative inner loop."
+  },
+  {
+    "index": 52,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "3.2 Task-Unified Episodes"
+  },
+  {
+    "index": 53,
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "A central design principle of Mochi is that task unification happens at the readout interface. Every episode is converted into the same input format for the ridge head: a matrix of embeddings together with class labels. The only task-specific component is how those embeddings are constructed from the encoder output."
+  },
+  {
+    "index": 54,
+    "tag": "p",
+    "id": "S3.I1.ix1.p1.1",
+    "class": "ltx_p",
+    "text": "Each example is a node embedding [TeX: z_{v}\\in\\mathbb{R}^{d_{z}}] with label [TeX: y_{v}\\in[C]] ."
+  },
+  {
+    "index": 55,
+    "tag": "p",
+    "id": "S3.I1.ix2.p1.1",
+    "class": "ltx_p",
+    "text": "Each example is an edge embedding [TeX: z_{u}\\odot z_{v}\\in\\mathbb{R}^{d_{z}}] (Hadamard product of endpoint embeddings), with a binary edge-vs-non-edge label encoded as a one-hot vector in [TeX: \\{0,1\\}^{n_{s}\\times 2}] . This puts LP on the same [TeX: (Z_{s},Y_{s})] interface as NC and GC; sampling details are deferred to Appendix H.1."
+  },
+  {
+    "index": 56,
+    "tag": "p",
+    "id": "S3.I1.ix3.p1.1",
+    "class": "ltx_p",
+    "text": "Each example is an embedding [TeX: \\bar{z}_{G}=\\frac{1}{|V_{G}|}\\sum_{v\\in V_{G}}z_{v}] with a graph-level label."
+  },
+  {
+    "index": 57,
+    "tag": "p",
+    "id": "S3.SS2.p3.1",
+    "class": "ltx_p",
+    "text": "The readout is otherwise identical across tasks: it receives support embeddings, fits Eq. (1), and predicts query labels. This gives Mochi a single training objective across node-, edge-, and graph-level problems, without requiring a task-specific decoder architecture."
+  },
+  {
+    "index": 58,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "3.3 Episodic Meta-Training"
+  },
+  {
+    "index": 59,
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "class": "ltx_p",
+    "text": "Rather than pre-training on self-supervised or contrastive-based approaches under the assumption of downstream task alignment transfer, Mochi is trained on the same few-shot prediction problem it will face at test time. Each training step proceeds as follows:"
+  },
+  {
+    "index": 60,
+    "tag": "p",
+    "id": "S3.I2.i1.p1.1",
+    "class": "ltx_p",
+    "text": "Sample an episode. Select a task type (node classification, link prediction, or graph classification) and a source graph. Construct a support set with [TeX: K] labeled examples per class and a disjoint query set with [TeX: Q] examples per class."
+  },
+  {
+    "index": 61,
+    "tag": "p",
+    "id": "S3.I2.i2.p1.1",
+    "class": "ltx_p",
+    "text": "Encode the episode. Compute node embeddings with [TeX: f_{\\theta}] and build task-specific example embeddings as described in Section 3.2."
+  },
+  {
+    "index": 62,
+    "tag": "p",
+    "id": "S3.I2.i3.p1.1",
+    "class": "ltx_p",
+    "text": "Fit the readout. Solve the ridge problem (Eq. 1) on the support set."
+  },
+  {
+    "index": 63,
+    "tag": "p",
+    "id": "S3.I2.i4.p1.1",
+    "class": "ltx_p",
+    "text": "Meta-update the encoder. Evaluate the ridge head on the query set, compute the cross-entropy loss, and backpropagate through the closed-form solve to update [TeX: \\theta] ."
+  },
+  {
+    "index": 64,
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "class": "ltx_p",
+    "text": "The only training signal is the episodic query loss. As a result, the encoder is optimized directly for what matters at evaluation time: producing embeddings from which a small support set can induce an accurate linear decision rule. This training–evaluation alignment is the key difference from post-hoc readouts on frozen GFM embeddings."
+  },
+  {
+    "index": 65,
+    "tag": "h4",
+    "id": null,
+    "class": "ltx_title ltx_title_paragraph",
+    "text": "Pre-training costs in Graph Foundation Models."
+  },
+  {
+    "index": 66,
+    "tag": "p",
+    "id": "S3.SS3.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "Link-prediction pre-training [38, 18, 13, 20] samples [TeX: N_{\\text{neg}}] negative edges per positive, for per-epoch cost [TeX: \\mathcal{O}(|E|\\cdot N_{\\text{neg}}\\cdot d_{z})] ; contrastive pre-training [42] scales similarly with in-batch negatives. Each Mochi step instead processes a single episode with [TeX: n_{s}=K\\cdot C] support examples and [TeX: Q\\cdot C] query examples, fits the readout in closed form at [TeX: \\mathcal{O}(n_{s}^{3}+n_{s}^{2}d_{z})] , and uses negative samples only for link-prediction episodes. Since [TeX: n_{s}\\ll|E|] , and node- and graph-classification episodes require no negatives, the per-step cost is dominated by a single encoder pass over [TeX: \\mathcal{O}((K+Q)C)] examples. Combined with the absence of an iterative MAML-style inner loop [8], this yields the 8 [TeX: \\sim] 27 [TeX: \\times] wall-clock speedup reported in Section 4."
+  },
+  {
+    "index": 195,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix H Additional Details on Real-World Datasets Experiments"
+  },
+  {
+    "index": 196,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "H.1 Experiment Setup"
+  },
+  {
+    "index": 197,
+    "tag": "p",
+    "id": "A8.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "Our set of baselines is diverse and consists of a vanilla GNN encoder (GIN), a contrastive pre-training method (GraphCL), three graph foundation models (AnyGraph, GFT, GPF), and a prompt-based approach (GraphPrompt) that is treated like a foundation model by fine-tuning a single prompt on all training datasets. All methods are assessed in a k-shot ( [TeX: k\\in\\{4,8,16,64,512\\}] ) transfer setting across three task types: node classification (NC), link prediction (LP), and graph classification (GC). We consider 25 diverse evaluation datasets: 5 NC benchmarks (Cora, CS, Photo, Arxiv, Fitness), 10 LP benchmarks (Photo, Goodreads, Fitness, Gowalla, Arxiv, Cora, CS, Collab, web-Stanford, roadNet-PA), and 5 GC benchmarks (MUTAG, PROTEINS, NCI1, IMDB-Binary, COLLAB). For each task, we vary the number of labeled support examples from 4 to 512 (NC/GC) or use an 80/20 train/test split (LP) and report performance averaged over 3 random seeds. All experiments are conducted on a single NVIDIA RTX A6000 (48 GB). Training costs differ substantially across methods: Mochi trains for 10,000 episodic steps in approximately 0.4 GPU-hours; Mochi++, which samples one episode per task type at each step, completes in 1.28 hours. To ensure fair comparison, all methods share the same downstream evaluation protocol: embeddings are frozen and fed to identical readout heads used during training (prototypes for all methods, except Mochi, which uses a ridge regression.).Evaluation datasets are held out from training for all methods. Mochi trains on a disjoint multi-task pool comprising 4 NC datasets (CiteSeer, PubMed, Physics, Computers), 18 LP datasets spanning academic and e-commerce domains, and 5 GC datasets (DD, ENZYMES, REDDIT-Multi-5K, ogbg-ppa), sampling episodes uniformly across tasks with weight ratio 1:1:1. All baselines are trained using the 15 LP datasets considered, optimizing for their respective training objectives. We implement the GIN baseline using the standard GIN architecture [39] in PyTorch Geometric [7], trained as a Graph Auto-Encoder [15]. GraphCL is implemented through PyGCL [47] library. We adopt the original implementation of all remaining baselines, found in their official source code repositories."
+  },
+  {
+    "index": 198,
+    "tag": "p",
+    "id": "A8.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "All methods share the same pre-processing: we compute node embeddings via a truncated SVD of the symmetrically normalized adjacency matrix ( [TeX: \\tilde{A}=D^{-1/2}AD^{-1/2}] , projected to [TeX: d{=}512] dimensions with 2 power iterations) concatenated with an SVD of node features when available. On top of the frozen SVD representation we precompute [TeX: \\ell{=}3] hop adjacency propagations and concatenate them as input to a trainable GAMLP [44] encoder. GAMLP applies a per-hop linear projection ( [TeX: 512\\to 512] ), node-adaptive attention over the [TeX: \\ell{+}1] hops using hop-0 as the attention query, a weighted sum, and a residual 3-layer output MLP with ReLU and dropout. The resulting [TeX: z_{v}\\in\\mathbb{R}^{512}] is paired with a differentiable ridge readout head [1]. This readout solves the bias-augmented ridge problem in Eq. 1 in dual (Woodbury) form [22], enabling end-to-end gradient flow without inner-loop optimization steps. Episodes are constructed with variable support ( [TeX: k\\in[8,32]] ) and query ( [TeX: q\\in[16,64]] ) sizes per class, up to 64 classes, with ridge regularization [TeX: \\lambda{=}10] and label smoothing of [TeX: 0.1] . Training proceeds for 10,000 episodic steps using AdamW (lr [TeX: =3{\\times}10^{-4}] , weight decay [TeX: =10^{-4}] ) with cosine annealing and gradient clipping at norm 1.0. Mochi++ uses the same architecture but samples three episodes per step (one per task type), following [40]. For link prediction episodes, positive examples are true edges and negatives are sampled uniformly at random from a fixed pool of non-edges within the same graph, at a 1:1 ratio in both support and query sets; edge embeddings are formed via the Hadamard product of endpoint node embeddings. For graph classification, per-graph embeddings are obtained by mean-pooling node representations. All experiments are conducted on a single NVIDIA RTX A6000 (48GB). Mochi completes training in approximately 0.4 GPU-hours, Mochi++ in 1.28 hours, while baselines range from 11 hours (AnyGraph) to over 41 hours for GraphCL. For fair comparison, all methods are evaluated with identical frozen-embedding readout protocols: prototypes and logistic regression for NC/GC, and dot-product scoring for LP."
+  },
+  {
+    "index": 199,
+    "tag": "h4",
+    "id": null,
+    "class": "ltx_title ltx_title_paragraph",
+    "text": "Few-shot evaluation protocol."
+  },
+  {
+    "index": 200,
+    "tag": "p",
+    "id": "A8.SS1.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "For NC and GC, we construct [TeX: k] -shot episodes by sampling [TeX: k] support examples per class; when a class has fewer than [TeX: k] labeled examples (notably at [TeX: k=512] on datasets with small per-class label counts), support examples are drawn with replacement. A fixed number of query examples per class is used across all [TeX: k] values, since query predictions are independent and the query count does not affect the trained model’s decision rule. For LP, we report Hits@1000 by sampling 1000 negative non-edges for each test positive edge, ranking the positive against the 1000 negatives, and reporting the fraction of test positives whose rank lands in the top 1000. On GC benchmarks based on TUDatasets (e.g., MUTAG with 188 graphs), reported numbers average across 3 random seeds, each using a fresh random train/test split."
+  }
+]

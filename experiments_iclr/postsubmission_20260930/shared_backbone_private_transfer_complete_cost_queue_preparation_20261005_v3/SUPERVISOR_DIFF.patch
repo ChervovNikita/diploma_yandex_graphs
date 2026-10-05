@@ -1,0 +1,150 @@
+--- v2/queue.py
++++ v3/queue.py
+@@ -24,6 +24,10 @@
+ GPU = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+ CELLS = [('capable_single', 'live_transfer'), ('untied4', 'live_transfer'), ('ordinary_native4', 'ordinary_joint'),
+          ('shared_f4', 'ordinary_joint')]
++
++
++class IncompleteExitObservation(RuntimeError):
++    """Same recorded process/group, but empty cmdline cannot authorize signals."""
+ 
+ 
+ def sha(path):
+@@ -63,6 +67,7 @@
+         if any(before[key] != after[key] for key in ('start_ticks', 'pgid', 'sid')):
+             raise RuntimeError('Process identity changed during observation; no signal authorized')
+         after['argv'] = argv
++        after['observation_complete'] = bool(argv or after['state'] == 'Z')
+         if after['state'] == 'Z' or argv or attempt == 2:
+             return after
+         time.sleep(.01)
+@@ -72,8 +77,12 @@
+     leader = identity(owner['PID'])
+     if leader is None or leader['state'] == 'Z':
+         return []
+-    if any(leader[key] != owner[key] for key in ('start_ticks', 'pgid', 'sid', 'argv')):
++    if any(leader[key] != owner[key] for key in ('start_ticks', 'pgid', 'sid')):
+         raise RuntimeError('Owned child identity changed; no signal authorized')
++    if not leader['observation_complete']:
++        return [leader]  # Explicit incomplete exit observation, never signal identity.
++    if leader['argv'] != owner['argv']:
++        raise RuntimeError('Owned child argv changed; no signal authorized')
+     rows, pending = [], [leader]
+     while pending:
+         row = pending.pop()
+@@ -97,13 +106,42 @@
+     live = identity(owner['PID'])
+     if live is None or live['state'] == 'Z' or process.poll() is not None:
+         return None
+-    if any(live[key] != owner[key] for key in ('start_ticks', 'pgid', 'sid', 'argv')):
++    if any(live[key] != owner[key] for key in ('start_ticks', 'pgid', 'sid')):
+         raise RuntimeError('Identity changed; refusing group termination')
++    if not live['observation_complete'] or not live['argv']:
++        raise IncompleteExitObservation('Empty cmdline exit observation; no signal authorized')
++    if live['argv'] != owner['argv']:
++        raise RuntimeError('Argv changed; refusing group termination')
+     if live['pgid'] != live['sid'] or live['pgid'] != process.pid:
+         raise RuntimeError('Fresh scientific child session no longer matches')
+     os.killpg(process.pid, signal.SIGKILL)
+     return {'UTC': now(), 'PID': process.pid, 'start_ticks': owner['start_ticks'],
+             'signal': 'SIGKILL', 'reason': reason, 'owned_group_only': True}
++
++
++def observe_terminal(process, owner, started, limits, signals, reason, signal_refusal):
++    """Only the direct Popen wait/poll can provide this child's exit status."""
++    observed = False
++    remaining = max(.01, limits['external_hard_seconds_per_cell'] - (time.monotonic() - started))
++    try:
++        process.wait(timeout=remaining)
++        observed = True
++    except subprocess.TimeoutExpired:
++        reason = 'external_hard_wall_bound'
++        try:
++            sent = kill_owned(process, owner, reason) if owner is not None else None
++            if sent: signals.append(sent)
++        except Exception as refusal:
++            signal_refusal = type(refusal).__name__ + ': ' + str(refusal)
++        if process.poll() is not None:
++            observed = True
++        elif signals:
++            try:
++                process.wait(timeout=5)
++                observed = True
++            except subprocess.TimeoutExpired:
++                pass
++    return reason, signal_refusal, observed
+ 
+ 
+ def query(arguments, timeout):
+@@ -240,6 +278,7 @@
+             started = time.monotonic()
+             reason, signals, max_rss, max_gpu = None, [], 0, 0
+             signal_refusal, terminal_wait_observed = None, False
++            incomplete_exit_samples, last_incomplete_exit = 0, None
+             owner = None
+             with (cell_root / 'child.stdout.log').open('xb') as stdout, (cell_root / 'child.stderr.log').open('xb') as stderr:
+                 process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
+@@ -260,6 +299,12 @@
+                             reason = 'external_hard_wall_bound'
+                         else:
+                             rows = owned_tree(owner)
++                            incomplete = [row for row in rows if not row.get('observation_complete', True)]
++                            if incomplete:
++                                incomplete_exit_samples += 1
++                                last_incomplete_exit = {'UTC': now(), 'rows': incomplete}
++                                if process.poll() is not None:
++                                    break  # Authoritative termination, never inferred from /proc.
+                             rss, gpu = resources(rows, limits, remaining)
+                             max_rss, max_gpu = max(max_rss, rss), max(max_gpu, gpu)
+                             log_bytes = sum((cell_root / name).stat().st_size for name in ('child.stdout.log', 'child.stderr.log'))
+@@ -268,8 +313,11 @@
+                             elif log_bytes > limits['combined_child_log_cap_bytes']: reason = 'combined_child_log_cap'
+                             elif time.monotonic() - started >= limits['external_hard_seconds_per_cell']: reason = 'external_hard_wall_bound'
+                         if reason:
+-                            sent = kill_owned(process, owner, reason)
+-                            if sent: signals.append(sent)
++                            try:
++                                sent = kill_owned(process, owner, reason)
++                                if sent: signals.append(sent)
++                            except IncompleteExitObservation as refusal:
++                                signal_refusal = type(refusal).__name__ + ': ' + str(refusal)
+                             break
+                         time.sleep(min(limits['poll_interval_seconds'], max(.01, remaining)))
+                 except (Exception, KeyboardInterrupt) as error:
+@@ -280,31 +328,14 @@
+                     except Exception as refusal:
+                         signal_refusal = type(refusal).__name__ + ': ' + str(refusal)
+                 finally:
+-                    # This Popen object is the authority for the spawned child's
+-                    # exit code. /proc disappearance or COST_RESULT cannot supply it.
+-                    remaining = max(.01, limits['external_hard_seconds_per_cell'] - (time.monotonic() - started))
+-                    try:
+-                        process.wait(timeout=remaining)
+-                        terminal_wait_observed = True
+-                    except subprocess.TimeoutExpired:
+-                        reason = 'external_hard_wall_bound'
+-                        try:
+-                            sent = kill_owned(process, owner, reason) if owner is not None else None
+-                            if sent: signals.append(sent)
+-                        except Exception as refusal:
+-                            signal_refusal = type(refusal).__name__ + ': ' + str(refusal)
+-                        if process.poll() is not None:
+-                            terminal_wait_observed = True
+-                        elif signals:
+-                            try:
+-                                process.wait(timeout=5)
+-                                terminal_wait_observed = True
+-                            except subprocess.TimeoutExpired:
+-                                pass
++                    reason, signal_refusal, terminal_wait_observed = observe_terminal(
++                        process, owner, started, limits, signals, reason, signal_refusal)
+             receipt = {'UTC': now(), 'cell_id': cell['cell_id'], 'job_sha256': cell['job_sha256'],
+                        'exit_code': process.returncode if terminal_wait_observed else None,
+                        'exit_code_authority': 'subprocess.Popen.wait/poll' if terminal_wait_observed else None,
+                        'terminal_wait_observed': terminal_wait_observed, 'signal_refusal': signal_refusal,
++                       'incomplete_exit_observation_samples': incomplete_exit_samples,
++                       'last_incomplete_exit_observation': last_incomplete_exit,
+                        'reason': reason, 'child_identity': owner,
+                        'signals_sent': signals, 'inclusive_seconds': time.monotonic() - started,
+                        'max_sampled_owned_tree_RSS_bytes': max_rss, 'max_sampled_owned_tree_GPU_memory_bytes': max_gpu,
