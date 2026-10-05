@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated: 2026-10-05T01:16:47.635160+00:00. Goal active and incomplete. Original paper scores remain unchanged.
+Updated: 2026-10-05T02:06:54.550632+00:00. Goal active and incomplete. Original paper scores remain unchanged.
 
 ## Accuracy evidence
 
@@ -28,11 +28,23 @@ The source-native NCN runner is implemented and sealed. It must use Citeseer's p
 
 The complete native single finished230epochs/690updates in118.042seconds, peak0.92GB allocated. Its selected quality remains unopened. All eight exact adapter/control constructions then passed full TRAIN backward and complete VALID forward checks with zero optimizer updates; initial parity and nonzero frame gradients were verified. Maximum allocated memory was1.37GB. [Actual arm qualification](citeseer_frame_native_runtime_qualification_20261005_v1/RESULT.json).
 
-The prospectively frozen three-block36-fit development screen is now admitted and running sequentially alongside Amazon. At01:37UTC,1/36 was complete and unframed F4 seed0 was at epoch81/243updates; supervisor404702 and child404704 were physically verified. No comparative score or TEST input has been opened. All required single/ordinary/same-operation controls, complete native schedules, fixed seeds and member0 reuse remain the original frozen plan. [Plan](citeseer_endpoint_frame_paired_development_20261005_v1/PLAN.json), [admission](citeseer_endpoint_frame_paired_development_20261005_v1/DISPATCH_ADMISSION.json), [actual owned progress](citeseer_endpoint_frame_paired_development_20261005_v1/QUEUE_MONITOR_001.json). Next queue-monitor2 only when useful. Three seeds on one graph support development triage, not graph generality or acceptance. [Exact recipe](small_representative_link_benchmark_scout_20261005_v1/REPORT.md).
+The prospectively frozen three-block36-fit development screen is now admitted and running sequentially alongside Amazon. At01:57UTC,8/36 physical fits were complete; supervisor404702 was physically verified, between sequential fits. No comparative score or TEST input has been opened. All required single/ordinary/same-operation controls, complete native schedules, fixed seeds and member0 reuse remain the original frozen plan. [Plan](citeseer_endpoint_frame_paired_development_20261005_v1/PLAN.json), [admission](citeseer_endpoint_frame_paired_development_20261005_v1/DISPATCH_ADMISSION.json), [actual owned progress](citeseer_endpoint_frame_paired_development_20261005_v1/QUEUE_MONITOR_004.json). Next queue-monitor5 only when useful. Three seeds on one graph support development triage, not graph generality or acceptance. [Exact recipe](small_representative_link_benchmark_scout_20261005_v1/REPORT.md).
+
+## Interpretation and next method work
+
+The targeted prior audit establishes that LowFER projects inputs before Hadamard fusion, and NTN already learns multiple nonlinear bilinear compatibility channels. The exact current difference is compact private frames feeding separately supervised native NCN endpoint/context routes on a shared encoder. Broad claims of a new interaction primitive are contradicted. A symmetric bilinear/tensor single is a stronger future interface control, without changing this frozen screen. [Prior overlap](endpoint_frame_prior_overlap_assessment_20261005_v1/REPORT.md).
+
+The native sampling concern is resolved from exact retained author source: its loader replaces Planetoid edge_index with undirected TRAIN positives before negative sampling, as does this runner. This is static source fidelity, not cross-version RNG identity. [Source check](citeseer_native_sampling_fidelity_root_20261005_v1/REPORT.md).
+
+Complete analysis v2 is now reviewed: it checks the first native stopping event, strict raw36-fit registry and pre-authorization failure custody before outcome access. Six focused scalar-history regression cases passed; these are audit tests, not research results. V1 and both review histories are preserved. [Analysis](citeseer_frame_complete_analysis_20261005_v2/README.md), [independent static audit](citeseer_frame_complete_analysis_source_audit_20261005_v2/REPORT.md).
+
+Before scores, secondary descriptions and a continuation rule were frozen. All seven families will be described in fixed TRAIN common-neighbor/endpoint-degree strata, with selected-frame movement measured separately. Subgroups cannot rescue failed aggregate comparisons. Confirmation is considered only if the candidate has a positive complete VALID mean and at least2of3higher paired blocks against each of the four primary controls; private versus common-frame comparisons must also support privacy. This admits no TEST evaluator or fits. [Protocol and decision](citeseer_frame_mechanism_protocol_20261005_v1/README.md).
+
+A separate agent is synthesizing a graph-block transfer learning rule that trains the shared core for served ensemble performance after private learners adapt. It remains a prior-overlap and method-design task, with no executable candidate or predictive evidence adopted.
 
 ## Existing frozen cohorts
 
-Amazon observation56 at **2026-10-05 01:09 UTC** verifies 10/15 complete, current `split2_gnnm_boundary_4_seed43` update1189/2700, worker403194 live, no failures. [Receipt](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0056_RESULT.json). Next sequence57 only when useful.
+Amazon observation58 at **2026-10-05 01:57 UTC** verifies 10/15 complete, current `split2_gnnm_boundary_4_seed43` update1508/2700, worker403194 live, no failures. [Receipt](amazon_polynormer_paired_family_execution_root_20261003_v3/v6_queue_owned_monitoring_20261003_v1/MONITOR_0058_RESULT.json). Next sequence59 only when useful.
 
 18.77 remains unobservable after SSH connection timeouts. Its last successful compactv3 observation at00:01 UTC has conditional Collab5/9 and DDI3/12 complete. A lost route does not establish job failure; no jobs were signalled or restarted. [Last successful metadata](compact_owned_queue_monitor_20261005_v3/OBSERVATION.json). Comparative outcomes remain unopened until complete frozen cohorts.
 
@@ -40,6 +52,6 @@ The earlier graph-curvature selector is closed for absent intended intervention 
 
 ## Publication and boundaries
 
-Latest verified GitHub ref is **2866e5c228fd97ff4a0c0270d94369cb31cce9cc**, branch `codex/postsubmission-research-20260930`. That ref publishes91 reviewed files: controls, prior/synthesis, v60, qualified inputs, runner and baseline launch. Exact-arm qualification and remaining queue dispatch await the next reviewed publication. [Verified push](publication/citeseer_method_synthesis_and_inputs_20261005_v1/PUSH_RECEIPT.json). No18.77 Git synchronization is claimed.
+Latest verified GitHub ref is **71a644d5612c7d1931e255a5e1002defc5d4fb01**, branch `codex/postsubmission-research-20260930`. The prior91-file publication and the current19-file successor preserve controls, prior/synthesis, v60, qualified inputs, runner, actual baseline, exact-arm qualification and queue dispatch. [Latest verified push](publication/citeseer_comparative_queue_20261005_v1/PUSH_RECEIPT.json). This local acknowledgement and newer owned observations await the next publication. No18.77 Git synchronization is claimed.
 
 Fresh manuscript reviews use the supplied skill, immutable evidence and no requested verdict. Deliberate operations stay in the authorized repositories; seven-GPU access is forwarding only. No sudo, PDF compilation, GENLINK, Desktop writes, host changes or unrelated-data access.
