@@ -2,23 +2,23 @@
 
 ## Current research — 6 October 2026
 
-Our target is better predictions from a shared graph ensemble. Original five-dataset scores remain unchanged. No new method has established predictive superiority and novelty; manuscript acceptance remains unmet.
+Our target is better predictions from a shared graph ensemble. Original five-dataset scores remain unchanged. No new method has established predictive superiority or novelty; manuscript acceptance remains unmet.
 
-Saved Amazon development predictions show weaker members, limited pooling benefit and confident common mistakes. The fixed corrective experiment uses private learning response to assign extra class-competitor supervision while retaining ordinary supervision for every member. Evaluation will count repaired errors and newly introduced errors, member accuracy and probability losses. Changes in disagreement alone cannot establish better predictions.
+Saved Amazon development predictions show weaker members, limited pooling benefit and confident common mistakes. The fixed corrective experiment asks whether a member's response to a private learning step can assign useful extra class-competitor supervision. Every member retains ordinary supervision, and serving averages all member probabilities. Evaluation will count repaired errors and newly introduced errors, member accuracy and probability losses.
 
-The scientific run completed its 400-update common training stage and nine LIVE correction episodes by 00:37 UTC. Six 16-episode arms are fixed; assessment, validation and test scoring remain closed. The exact common checkpoint and origin metadata are bound for two competent ordinary shared-bank references: member cross-entropy and a fixed mixture of member and served-pool losses. Both will complete the original native training horizon. Native implementation/resource qualification precedes fitting on 18.77.
+The allocation run has completed its 400-update common training stage and the LIVE correction arm; the fixed comparison arms continue. Assessment, validation and test scoring remain closed. On 18.77, seven eligible inputs and 93 required source files are verified, including the exact common checkpoint. The normal strict runtime and both A100 80 GB GPUs are verified. Sources are bound to published Git object `943109f`; checkout HEAD `9c7ed8a` and distinct server receipts are preserved because a full fast-forward would overwrite local history.
 
-Strict all-six native episodes and original-state recommits passed at the original tolerances. First-order utility passed synthetic algebraic parity; its native qualifier and external supervisor passed source review, with execution pending. The adapter's input/output factors have a function-preserving scale symmetry, so Euclidean private response depends on parameterization and optimizer. This analysis is a limitation to test, not a novelty claim. All numerical, compatibility and memory failures remain preserved.
+The two ordinary shared-bank controls use member cross-entropy and a fixed mixture of member and served-pool losses. Each must finish the original native training horizon. Their numerical qualifier and separate two-GPU scheduling sources passed independent source review; actual native execution is next. A matched first-order utility comparison is also prepared. Fresh native Polynormer single and independent-four references are being prepared for the same permitted training roles; older full-TRAIN states contain assessment labels and are ineligible. Source checks do not establish predictive competence.
 
-Private-transfer has 30/39 fixed fits complete. Complete cohort custody precedes scoring. 18.77 is authenticated as the expected two A100 80 GB server and project repository. Both GPUs were busy at 00:19 UTC with 42,583 MiB free each; no new fit has been launched there. Seven-GPU access remains forwarding only and wrong-allocation evidence stays excluded.
+Scoped reading of MetaFun, WarpGrad and ProMP adds concrete antecedents for functional correction, shared learned update geometry and adaptation with soft KL control. The factor scale symmetry also makes Euclidean private response optimizer-dependent. These conclusions constrain the contribution; they supply no new accuracy or novelty claim. Every failure, cost and frozen decision remains recorded.
 
 - [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
 - [Frozen error outcomes](experiments_iclr/postsubmission_20260930/amazon_error_analysis_corrective_method_decision_note_20261006_v1/REPORT.md)
-- [Reviewed paired error analysis](experiments_iclr/postsubmission_20260930/corrective_error_flow_v2_independent_source_review_20261006_v1/REPORT.md)
-- [Ordinary shared-bank comparisons](experiments_iclr/postsubmission_20260930/amazon_ordinary_shared_bank_own_pool_reference_preparation_20261006_v4/REPORT.md)
-- [Parameterization analysis](experiments_iclr/postsubmission_20260930/native_private_learnability_parameterization_analysis_20261006_v1/REPORT.md)
-- [Authenticated 18.77 route](experiments_iclr/postsubmission_20260930/gpu77_connection_restoration_authenticated_20261006_v1/REPORT.md)
-- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v5.json)
+- [Exact 18.77 source and input staging](experiments_iclr/postsubmission_20260930/gpu77_ordinary_native_readiness_and_exact_staging_20261006_v1/REPORT.json)
+- [Reviewed numerical qualifier](experiments_iclr/postsubmission_20260930/amazon_ordinary_shared_bank_first_order_qualifier_root_independent_source_review_20261006_v1/REPORT.md)
+- [Reviewed two-GPU scheduling](experiments_iclr/postsubmission_20260930/amazon_ordinary_shared_bank_two_gpu_scheduler_root_independent_source_review_20261006_v1/REPORT.md)
+- [Saved primary method scopes](experiments_iclr/postsubmission_20260930/output_movement_private_response_new_primary_scout_20261006_v1/REPORT.md)
+- [Active literature memory](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v6.json)
 
 ## Original method
 
