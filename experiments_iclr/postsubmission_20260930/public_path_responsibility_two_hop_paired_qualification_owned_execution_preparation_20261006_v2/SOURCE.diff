@@ -1,0 +1,67 @@
+--- public_path_responsibility_two_hop_paired_qualification_owned_execution_preparation_20261006_v1/control.py
++++ public_path_responsibility_two_hop_paired_qualification_owned_execution_preparation_20261006_v2/control.py
+@@ -59,6 +59,14 @@
+     return path
+ 
+ 
++class ObservationTransition(RuntimeError):
++    def __init__(self, row, pgid, sid):
++        self.observation = {'pid': row['pid'], 'starttime_ticks': row['starttime_ticks'],
++                            'pgid_before': row['pgid'], 'pgid_after': pgid,
++                            'sid_before': row['sid'], 'sid_after': sid}
++        super().__init__(json.dumps(self.observation, sort_keys=True))
++
++
+ def identity(pid):
+     proc = Path('/proc') / str(pid)
+     try:
+@@ -69,8 +77,9 @@
+         if row['state'] != 'Z':
+             row.update(cwd=str((proc / 'cwd').resolve(strict=True)), exe=str((proc / 'exe').resolve(strict=True)))
+         again = (proc / 'stat').read_text().rsplit(')', 1)[1].split()
+-        require(int(again[19]) == row['starttime_ticks'] and int(again[2]) == row['pgid']
+-                and int(again[3]) == row['sid'], 'Process identity changed during observation')
++        require(int(again[19]) == row['starttime_ticks'], 'Process start-time changed during observation')
++        if int(again[2]) != row['pgid'] or int(again[3]) != row['sid']:
++            raise ObservationTransition(row, int(again[2]), int(again[3]))
+         return row
+     except FileNotFoundError:
+         return None
+@@ -78,16 +87,33 @@
+ 
+ def physical(pid, argv, parent=None, start=None):
+     deadline = time.monotonic() + 3
++    transitions = []
+     while True:
+-        row = identity(pid)
+-        require(row is not None and row['state'] != 'Z', 'No live complete process identity; no signal authorized')
++        try: row = identity(pid)
++        except ObservationTransition as error:
++            transitions.append(error.observation)
++            require((start is None or error.observation['starttime_ticks'] == start)
++                    and error.observation['starttime_ticks'] == transitions[0]['starttime_ticks'],
++                    'Owned process start-time differs; observation retry refused: ' + json.dumps(transitions, sort_keys=True))
++            require(time.monotonic() < deadline,
++                    'Process group/session observation did not stabilize within 3s: ' + json.dumps(transitions, sort_keys=True))
++            time.sleep(0.02)
++            continue
++        except RuntimeError as error:
++            if transitions: raise RuntimeError(str(error) + ': ' + json.dumps(transitions, sort_keys=True)) from error
++            raise
++        observation_suffix = ': ' + json.dumps(transitions, sort_keys=True) if transitions else ''
++        require(row is not None and row['state'] != 'Z', 'No live complete process identity; no signal authorized' + observation_suffix)
++        require(not transitions or row['starttime_ticks'] == transitions[0]['starttime_ticks'],
++                'Process start-time changed after observation transition; no signal authorized' + observation_suffix)
+         if row['argv'] == argv:
+             require(row['cwd'] == str(REPO) and row['exe'] == str(Path(argv[0]).resolve())
+                     and row['pgid'] == row['sid'] == pid
+                     and (parent is None or row['parent_pid'] == parent)
+-                    and (start is None or row['starttime_ticks'] == start), 'Owned process argv/cwd/exe/start/group differs')
++                    and (start is None or row['starttime_ticks'] == start), 'Owned process argv/cwd/exe/start/group differs' + observation_suffix)
++            if transitions: row['stabilized_observation_transitions'] = transitions
+             return row
+-        require(time.monotonic() < deadline, 'Incomplete/different argv; no signal authorized')
++        require(time.monotonic() < deadline, 'Incomplete/different argv; no signal authorized' + observation_suffix)
+         time.sleep(0.02)
+ 
+ 

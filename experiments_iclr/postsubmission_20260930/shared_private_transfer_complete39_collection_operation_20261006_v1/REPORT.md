@@ -1,0 +1,13 @@
+# Actual complete39 collection: once-only success
+
+Root's exact approved59954-byte release SHA b9375929fcc458d21a3309757b4ff515d26eaf37d6edc3ff32a70159a03b065e was staged as one immutable file with the approved bounded SSH/compiled stdin transport. Hostname anogena-2-0, GPU UUID GPU-44039938-fd82-41d2-fefd-de71514e2fac, repository, release/source/candidate/inventory hashes and fresh output absence were verified by the exact root-reviewed staging and invocation source. All source, donor and numerical-selector bytes remained unchanged.
+
+The exact operativeV2 collector was invoked once. Foreground SSH PID 44191 exited0 with a terminal wait after 4.995983 seconds. No external timeout, signal, retry or resumption occurred. Staging elapsed 0.693765 seconds; metadata freeze/gather elapsed 0.843642 seconds. No GPU job was launched or stopped.
+
+The actual complete39 registry is `shared_private_transfer_complete39_collection_execution_root_20261006_v1/COLLECTION_FREEZE.json`,294161 bytes, SHA256 `b3b318ed1a64bf73a5e453c4665183e3540fc7f8ef114fa41345922cf4860d25`. It reports complete=true,39 selected logical and physical fits,new26,and full39 terminal/source/artifact custody passed. All39 provider-custody descriptor hashes join the registry. The42 emitted JSON metadata files (release,attempt ledger,39 descriptors,collection freeze) were hash-checked before/after chmod0444 and gathered. Only these declared metadata files were frozen; no scientific artifact or directory was chmodded. Total gathered metadata bytes: 1,083,909.
+
+The original frozen UNKNOWN-at-registration ledger and emitted copy both remain SHA e3c70e8b22f71075078f376a82ec2534cb89d07cd508c4e2a2361dc2c0484970. Old20 GPU77 remains excluded; fixed original13 plus new26 donors remain on the authorized allocation host. Current cost addendum remains separate from the historical unknown/45 snapshot. All failed-builder staging evidence and the successful source-copy inventory remain preserved and unchanged.
+
+The collector performed scientific artifact BYTE custody hashes and authority/attempt metadata reads only. No scientific artifact copies, raw VALID history byte reads, tensor deserialization, FREEZE/CONFIG or history/score semantics, held/TEST label access,D2,model execution,fit or GPU job actions occurred. The actual registry explicitly records those scientific/quality-access flags false.
+
+The operation stopped after actual COLLECTION_FREEZE/exit and metadata custody. This actual registry hash can now replace the pending `complete39_registry.sha256` in the separately disabled history inventory release. Root owns a separate authorization of `inventory_histories_after39.py`; no history inventory or D2 release is enabled by this packet.

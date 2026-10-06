@@ -1,0 +1,160 @@
+--- V1/qualify_bridge.py
++++ V2/qualify_bridge.py
+@@ -98,6 +98,37 @@
+ def require(value, message):
+     if not value:
+         raise AssertionError(message)
++
++
++def terminal_resources(receipt):
++    """Retain terminal whole-child resources and every independent cap breach."""
++    previous = receipt.get("whole_child_resources", {})
++    row = {"elapsed_seconds": time.monotonic() - STARTED,
++           "process_peak_rss_bytes": None,
++           "cuda_peak_allocated_bytes": previous.get("cuda_peak_allocated_bytes", 0),
++           "cuda_peak_reserved_bytes": previous.get("cuda_peak_reserved_bytes", 0)}
++    errors = receipt.setdefault("terminal_resource_errors", [])
++    def sample(label, call):
++        try: return call()
++        except BaseException as error:
++            errors.append({"resource": label, "error_type": type(error).__name__,
++                           "error": str(error), "traceback": traceback.format_exc()})
++    row["process_peak_rss_bytes"] = sample("process_peak_rss_bytes",
++        lambda: resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024)
++    torch = sys.modules.get("torch")
++    if torch is not None and sample("CUDA_initialized", lambda: torch.cuda.is_initialized()):
++        for key, call in (("cuda_peak_allocated_bytes", lambda: torch.cuda.max_memory_allocated(DEVICE)),
++                          ("cuda_peak_reserved_bytes", lambda: torch.cuda.max_memory_reserved(DEVICE))):
++            value = sample(key, call)
++            if value is not None: row[key] = max(row[key], value)
++    receipt["whole_child_resources"] = row
++    receipt["terminal_resource_cap_breaches"] = [
++        {"resource": key, "observed": row[key], "cap": LIMITS[cap], "cap_name": cap}
++        for key, cap in (("elapsed_seconds", "max_elapsed_seconds"),
++                         ("process_peak_rss_bytes", "max_process_rss_bytes"),
++                         ("cuda_peak_allocated_bytes", "max_cuda_allocated_bytes"),
++                         ("cuda_peak_reserved_bytes", "max_cuda_reserved_bytes"))
++        if row[key] is not None and row[key] > LIMITS[cap]]
+ 
+ 
+ def bootstrap(path, digest):
+@@ -331,7 +362,8 @@
+                         "recomputed_main_private_partials", "q_cotangents", "raw_cost_cotangents"):
+                 errors[key] = compare(a[key], b[key], gradient=True)
+             compare(a["response"].probe_private_gradients, b["response"].probe_private_gradients, gradient=True)
+-            for key in ("virtual_query_loss", "query_logits", "query_logit_cotangents", "adapted"):
++            errors["query_logit_cotangents"] = compare(a["query_logit_cotangents"], b["query_logit_cotangents"], gradient=True)
++            for key in ("virtual_query_loss", "query_logits", "adapted"):
+                 compare(a[key], b[key])
+             compare(a["response"].raw_costs, b["response"].raw_costs)
+             compare(a["response"].q_blocks, b["response"].q_blocks)
+@@ -470,6 +502,7 @@
+                     "self_cuda_time_total_us": e.self_cuda_time_total} for e in profile.key_averages()
+                     if any(k in e.key.lower() for k in ("index_add", "scatter", "indexselectbackward", "indexbackward", "mm", "autograd"))]}
+             receipt.setdefault("measured_phases", []).append(row); save(); limits()
++    body_error = None
+     try:
+         os.environ["CUBLAS_WORKSPACE_CONFIG"] = WORKSPACE
+         site = repo / ".venv/lib/python3.11/site-packages"
+@@ -517,12 +550,19 @@
+         native_checks(modules, data, image, receipt, save, measured)
+         require(process.backend_snapshot() == certificate["strict_backend_snapshot"], "Backend changed during qualification")
+         limits()
++    except BaseException as error:
++        body_error = error
++        receipt["qualification_body_error"] = {"error_type": type(error).__name__,
++            "error": str(error), "traceback": traceback.format_exc()}
++        raise
+     finally:
+-        signal.setitimer(signal.ITIMER_REAL, 0)
+         errors = []
+         def restore(label, call):
+             try: call(); receipt.setdefault("process_restored", []).append(label)
+-            except BaseException: errors.append({"restoration": label, "traceback": traceback.format_exc()})
++            except BaseException as error:
++                errors.append({"restoration": label, "error_type": type(error).__name__,
++                               "error": str(error), "traceback": traceback.format_exc()})
++        restore("cancel_qualification_alarm", lambda: signal.setitimer(signal.ITIMER_REAL, 0))
+         if numeric_rng is not None:
+             def restore_numeric():
+                 numpy.random.set_state(numeric_rng[0]); torch.set_rng_state(numeric_rng[1]); torch.cuda.set_rng_state_all(numeric_rng[2])
+@@ -539,24 +579,50 @@
+                 require(torch.get_num_threads() == threads, "Intra-op restoration failed")
+             restore("intra_op_threads", restore_threads)
+         receipt["interop_restore"] = "One-time fresh-child initialization; not restored and ends with child termination."
+-        random.setstate(old_python_rng); sys.path[:] = old_path
+-        if old_env[0]: os.environ["CUBLAS_WORKSPACE_CONFIG"] = old_env[1]
+-        else: os.environ.pop("CUBLAS_WORKSPACE_CONFIG", None)
+-        require(random.getstate() == old_python_rng and sys.path == old_path
+-                and ("CUBLAS_WORKSPACE_CONFIG" in os.environ, os.environ.get("CUBLAS_WORKSPACE_CONFIG")) == old_env,
+-                "Python/path/environment restoration failed")
+-        signal.signal(signal.SIGALRM, old_signal); signal.setitimer(signal.ITIMER_REAL, *old_timer)
+-        require(signal.getsignal(signal.SIGALRM) == old_signal and signal.getitimer(signal.ITIMER_REAL) == old_timer, "Signal restoration failed")
++        def restore_python_rng():
++            random.setstate(old_python_rng)
++            require(random.getstate() == old_python_rng, "Python RNG restoration failed")
++        restore("Python_RNG", restore_python_rng)
++        def restore_path():
++            sys.path[:] = old_path
++            require(sys.path == old_path, "Path restoration failed")
++        restore("sys_path", restore_path)
++        def restore_environment():
++            if old_env[0]: os.environ["CUBLAS_WORKSPACE_CONFIG"] = old_env[1]
++            else: os.environ.pop("CUBLAS_WORKSPACE_CONFIG", None)
++            require(("CUBLAS_WORKSPACE_CONFIG" in os.environ, os.environ.get("CUBLAS_WORKSPACE_CONFIG")) == old_env,
++                    "Environment restoration failed")
++        restore("CUBLAS_WORKSPACE_CONFIG", restore_environment)
++        def restore_signal():
++            signal.signal(signal.SIGALRM, old_signal); signal.setitimer(signal.ITIMER_REAL, *old_timer)
++            require(signal.getsignal(signal.SIGALRM) == old_signal
++                    and signal.getitimer(signal.ITIMER_REAL) == old_timer, "Signal restoration failed")
++        restore("signal_and_timer", restore_signal)
+         for key, module in modules.items():
+-            require(hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest() == PINS[key]["sha256"], "Loaded source bytes changed")
+-        require(SOURCE_RELEASED is False and modules["adapter"].ADAPTER_RELEASED is False
+-                and modules["port"].PORT_RELEASED is False and modules["accessor"].SOURCE_RELEASED is True
+-                and all(modules[k].SOURCE_RELEASED is False for k in ("operator", "sequential", "helpers", "ordinary", "process", "full")),
+-                "Loaded original/disabled process gates changed")
+-        for name in loaded: sys.modules.pop(name, None)
+-        receipt["restoration_errors"] = errors; resources(); save()
+-        require(not errors, "Process restoration failure")
+-    limits()
++            restore("source_bytes_" + key, lambda key=key, module=module:
++                require(hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest() == PINS[key]["sha256"], "Loaded source bytes changed"))
++        def check_gates():
++            require(SOURCE_RELEASED is False and modules["adapter"].ADAPTER_RELEASED is False
++                    and modules["port"].PORT_RELEASED is False and modules["accessor"].SOURCE_RELEASED is True
++                    and all(modules[k].SOURCE_RELEASED is False for k in ("operator", "sequential", "helpers", "ordinary", "process", "full")),
++                    "Loaded original/disabled process gates changed")
++        restore("original_disabled_source_gates", check_gates)
++        for name in loaded: restore("unload_" + name, lambda name=name: sys.modules.pop(name, None))
++        receipt["restoration_errors"] = errors
++        try: receipt["whole_child_resources"] = resources()
++        except BaseException as error:
++            receipt.setdefault("terminal_resource_errors", []).append({"resource": "whole_child_peak_snapshot",
++                "error_type": type(error).__name__, "error": str(error), "traceback": traceback.format_exc()})
++        terminal_resources(receipt)
++        try: save()
++        except BaseException as error:
++            receipt.setdefault("cleanup_receipt_errors", []).append({"error_type": type(error).__name__,
++                "error": str(error), "traceback": traceback.format_exc()})
++        if body_error is None:
++            require(not errors, "Process restoration failure")
++            require(not receipt.get("terminal_resource_errors"), "Terminal whole-child resource accounting failure")
++            require(not receipt["terminal_resource_cap_breaches"], "Whole-child terminal resource cap exceeded")
++            require(not receipt.get("cleanup_receipt_errors"), "Cleanup receipt preservation failed")
+ 
+ 
+ def main():
+@@ -594,6 +660,11 @@
+     except BaseException as error:
+         receipt.update(status="FAIL_PAIRED_BRIDGE_ENGINEERING", error_type=type(error).__name__, error=str(error), traceback=traceback.format_exc())
+     finally:
++        terminal_resources(receipt)
++        if receipt.get("terminal_resource_errors") or receipt["terminal_resource_cap_breaches"]:
++            receipt["status"] = "FAIL_PAIRED_BRIDGE_ENGINEERING"; code = 1
++            if "error" not in receipt:
++                receipt.update(error_type="AssertionError", error="Terminal whole-child resource accounting or cap failure")
+         save(); (output / "RESULT.json").chmod(0o444)
+     print(json.dumps({"status": receipt["status"], "error": receipt.get("error"), "model_fits": 0, "persistent_updates": 0}))
+     raise SystemExit(code)

@@ -1,0 +1,37 @@
+--- V2/qualify_bridge.py
++++ V3/qualify_bridge.py
+@@ -331,6 +331,7 @@
+             compare(committed["response"].probe_private_gradients, value["response"].probe_private_gradients, gradient=True)
+         base.zero_unused({k: (theta[k] - nt[k]) / op.Config().eta_core for k in theta}, phis, np_)
+         del value
++    native_body_error = None
+     try:
+         def baseline():
+             value = episode("direct_only_baseline", originals, False)
+@@ -410,9 +411,24 @@
+                 and actual_native == 284 and receipt["anchored_private_gradient_attempts"] == 8,
+                 "Complete paired/oracle invocation matrix differs")
+         receipt["actual_complete_native_callback_total"] = actual_native
++    except BaseException as error:
++        native_body_error = error
++        receipt["native_body_error"] = {"error_type": type(error).__name__,
++            "error": str(error), "traceback": traceback.format_exc()}
++        raise
+     finally:
+-        receipt["attempted_native_work"] = calls
+-        receipt["native_and_caller_restoration"] = unchanged(); save()
++        errors = receipt.setdefault("native_cleanup_errors", [])
++        def finalize(label, call):
++            try: call()
++            except BaseException as error:
++                errors.append({"native_finalization": label, "error_type": type(error).__name__,
++                               "error": str(error), "traceback": traceback.format_exc()})
++        finalize("attempted_native_work", lambda: receipt.__setitem__("attempted_native_work", calls))
++        finalize("native_and_caller_restoration", lambda:
++            receipt.__setitem__("native_and_caller_restoration", unchanged()))
++        finalize("native_receipt_save", save)
++        if native_body_error is None:
++            require(not errors, "Native restoration or finalization failure")
+ 
+ 
+ def run(args, receipt, save):
