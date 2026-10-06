@@ -1,0 +1,15 @@
+# Connection retry and method review
+
+6 October 2026. The user's requested MacLink retry succeeded. At 07:09:37 UTC the existing 18.77 controls had 827 and 829 of 2,300 updates. The exact supervisor and child identities, arguments and repository working directories matched. Both authorized GPUs were active. The interruption did not cause a relaunch.
+
+The allocation observation at 07:15:10 UTC showed native-reference updates of 2,300 / 2,300 / 851 / 0. The private-transfer observation at 07:15:09 UTC showed the final live fit at 3,083 / 3,660 episodes, with its detached companion pending. These are progress observations, not completed comparisons. The native observation's nominal identifier ends in `0723`; its actual receipt timestamp, **07:15:10**, is authoritative. This observation was closer to its predecessor than the intended 10–15 minute spacing; later observations should resume that spacing.
+
+## New source review
+
+Root read the disabled two-hop adapter against the pinned direct sparse port and assignment solver. Its bridge action uses terminal–interior incidences and full public interior degrees. Each interior with k terminal neighbours contributes `(k Q_i - sum_j Q_j) / degree_u`; the self term cancels. Bridge degrees are accumulated from nonnegative `(k-1) / degree_u` terms. The control leaves direct edges fixed and permutes only bridge coupling. Both arms retain the same normalization, graph coefficient and finite-step denominator. No algebra or permutation-convention defect was found in this source reading; numerical qualification remains pending.
+
+The prospective execution plan required a correction. The monolithic full-native episode previously failed with CUDA OOM. The future check must use the reviewed exact **sequential VJP** implementation with the native callback and the same assignment solver, rather than repeat the monolithic episode. Both returned virtual states must be discarded; native derivative, recommit, coverage, control nonidentity and resource checks remain required. The source author was asked to make this correction before sealing. No experiment was admitted or launched by this review.
+
+Root also read the saved-utility target-sign diagnostic specification. The finite-response sign identity is correct. Its fixed shared finite-response scale, complete 16×10 population, two declared centering readouts and original interleaved S-row join are appropriate. The projection that removes member-column offsets is necessary to avoid interpreting allocation-irrelevant offsets as a sign effect. This diagnostic can describe cost-proxy geometry only; saved fields do not identify canonical-logit changes or their susceptibility. A minimal disabled reader extension was delegated for separate review.
+
+Current original scores and held-score gates are unchanged. No predictive superiority, causal gain or novelty clearance follows from this work. Source and scalar notes will be published; data and model payloads remain on authorized servers.
