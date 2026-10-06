@@ -1,12 +1,13 @@
 # Current state
 
-Updated 2026-10-06T14:56:26.033171+00:00. Goal active and unmet; original paper scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
+Updated 2026-10-06T16:47:45.091929+00:00. Goal active and unmet; original paper scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
 
-1. The complete 39-fit Citeseer comparison closed. The live endpoint-credit model loses capable-single, untied and random controls in all three blocks; that quality explanation stops. The ordinary joint model remains a baseline.
-2. Amazon predictive comparison remains pending. Four native references completed. Final controls on 18.77 are unverified because MacLink still reports the paired Mac disconnected after the user's reconnection request. No jobs were restarted.
-3. The complete evaluator is source-reviewed; final 18.77 endpoint bindings and actual execution remain pending. A small extension will include the frozen CMCL endpoint before any assessment-label read.
-4. CMCL completed all 16 updates once, with successful saved-endpoint replay, resource closure and no held scoring. It is a published baseline, with short SGD continuation distinct from the long Adam references.
-5. The two-hop qualifier failed its original FP32 derivative oracle. CPU diagnostics support a rounding explanation for their probes. An isolated precision-aware oracle correction is being prepared; the GPU qualifier remains failed and no bridge fit is admitted.
-6. No new methodological novelty or paper acceptance has been established. The next scientific priority is competent-reference comparison and a distinct intervention supported by error analysis and prior work.
+1. Complete39 Citeseer comparison closed with a stop decision for endpoint live credit. Ordinary joint remains a baseline.
+2. Amazon frozen twelve-model assessment completed: live accuracy41.9763% vs independent46.3046%, single45.3655% and initial45.2021%. Original gate failed; this configuration stops. No original VALID/TEST access. Both pre-inference setup failures are preserved.
+3. MacLink/SSH18.77 restored. Both ordinary controls completed2300updates; checkpoint transfers directly to allocation are hash-verified, with no Mac payloads.
+4. CMCL baseline completed16updates and scores41.5680% on reserved TRAIN-A. No novel component or predictive gain established.
+5. Original bridge FP32 gate failed. V5 alias bug preserved. V6 alias-only repair passed actual-public CPU oracle; no native GPU qualification or bridge fit.
+6. New known scaled-BPR control: independent source review found no blocker; exact b0 packet staging underway. The detached owner launched; both assigned first-episode qualifiers failed committed-parameter parity and closed cleanly. No full TRAIN cost cycle or S/J4/E fit started. Original gates/tolerances preserved; source arithmetic/gradient diagnostic needed. No novelty claimed.
+7. Saved common-negative diagnostic prepared, unexecuted. TRAIN audit complete: references fit recorded likelihood objectives strongly, with no checked admitted-configuration mismatch. TRAIN accuracy absent; no causal generalization diagnosis. Deeper TabM reread established no novel gap.
 
-Latest verified published commit: b5cd86e8f2dd61d4b5b06a0f2adb09a2afe112a8. Later results and reviewed source await publication.
+Latest verified published commit c3c47fbbd7e667fb56916f3fc6b34df822741a10. Later source, result and execution evidence await publication.

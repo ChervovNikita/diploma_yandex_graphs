@@ -1,0 +1,34 @@
+--- postsubmission_research_20260930/citeseer_known_ranking_objective_control_preparation_20261006_v1/run.py
++++ postsubmission_research_20260930/citeseer_known_ranking_control_gpu77_b0_preparation_20261006_v1/run.py
+@@ -76,8 +76,8 @@
+     for key in ("arm", "rule", "geometry", "seed", "factor_seed", "paired_seed_block", "outer_size", "inner_size"):
+         if job.get(key) != cell.get(key): raise ValueError("Cohort cell identity differs: "+key)
+     schedule = cell["schedule"]
+-    if type(schedule.get("max_cycles")) is not int or schedule["max_cycles"] < 5 or schedule.get("eval_every_cycles") != 5 or schedule.get("validation_miss_limit") != 11:
+-        raise ValueError("Require root-fixed horizon with complete VALID each five cycles and eleven misses")
++    if schedule != {"max_cycles": 60, "eval_every_cycles": 5, "validation_miss_limit": None, "result_based_early_stop": False}:
++        raise ValueError("Require exactly sixty complete cycles and complete VALID each five cycles; result-based early stop disabled")
+     if plan.get("selection") != "first_maximum_complete_VALID_MRR_rounded4":
+         raise ValueError("Prospective complete validation selection differs")
+     if plan.get("selection_budget_fairness_approved") is not True or not plan.get("paid_budget_description"):
+@@ -237,7 +237,7 @@
+                 if score > best: best, misses = score, 0
+                 else:
+                     misses += 1
+-                    if misses >= schedule["validation_miss_limit"]: break
++                    # Explicit prospective schedule change: all sixty cycles are paid.
+         torch.cuda.synchronize()
+         final = {"scope": "TRAIN_VALID_freeze" if is_fit else "discarded_TRAIN_complete_cycle_cost",
+             "arm": job["arm"], "rule": job["rule"], "geometry": job["geometry"], "seed": job["seed"],
+@@ -250,9 +250,10 @@
+             "history": {name: custody.sha(output/name) for name in ("CYCLE_DRAWS.jsonl.gz", "EPISODE_HISTORY.jsonl", "CYCLE_HISTORY.jsonl", "VALID_HISTORY.jsonl")}}
+         if is_fit:
+             if selected is None: raise ValueError("No complete native-cadence VALID selection occurred")
++            if len(cycle_costs) != 60: raise ValueError("Full sixty-cycle fit did not complete")
+             final.update(checkpoint_sha256=custody.sha(output/"selected_checkpoint.pt"),
+                          VALID_logits_sha256=custody.sha(output/"selected_VALID_logits.pt"), cohort_plan_sha256=job["cohort_plan_sha256"],
+-                         paired_seed_block=job["paired_seed_block"], stop_rule="root_fixed_complete_cycles_or_eleven_native_cadence_VALID_misses")
++                         paired_seed_block=job["paired_seed_block"], stop_rule="fixed_60_complete_cycles_no_result_based_early_stop")
+         custody.write_json(output/("FREEZE.json" if is_fit else "COST_RESULT.json"), final)
+         print(json.dumps({"status": "complete_VALID_selected_TEST_closed" if is_fit else "complete_discarded_paid_cycle_cost", "output": str(output)}), flush=True)
+     except (Exception, KeyboardInterrupt) as error:
