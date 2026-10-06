@@ -1,14 +1,14 @@
 # Current state: correct common prediction errors
 
-Updated 2026-10-06T00:41:30.786203+00:00. Goal active and unmet. Original scores unchanged. [Details](PUBLIC_STATUS.md).
+Updated 2026-10-06T02:04:17+00:00. Goal active and unmet. Original scores unchanged. [Details](PUBLIC_STATUS.md).
 
-1. Error analysis motivates private learning response plus ordinary member supervision; no causal sharing claim.
-2. Actual common400 acquisition is complete; all16 LIVE and six UNIFORM episodes finished; UNIFORM7 started at00:52:56UTC. Six H16 arms are fixed and held scoring is closed.
-3. Strict all-six native qualification passed. Original numerical/memory/compatibility failures remain preserved.
-4. Paired error-flow V2 source and repaired synthetic accounting passed review; no scientific evaluation or release.
-5. Matched first-order utility synthetic parity passed; native V3 source review passed, supervisor independently source-reviewed; runtime/resources/execution pending.
-6. Two native-horizon ordinary shared-bank references are disabled source; final source audit and first-order qualifier source review passed; actual normal qualification precedes fitting. Exact common400 checkpoint and origin metadata bound without Mac checkpoint copying. Both complete2300 trajectories required.
-7. Exact R/S gauge means Euclidean response is learner-conditioned. No current-state sensitivity or new-method novelty result.
-8. Private-transfer30/39 fits complete at00:37:57UTC; full custody precedes scoring.
-9. 18.77 authenticated at00:19:06UTC, two A10080GB GPUs both busy with42583MiB free each. Normal project runtime import passed; Git/input staging in progress. No new77 fit; seven-GPU route forwarding only.
-10. Literature base index72 unchanged; active supplementV6 adds three bounded primary methods, no full-paper count. Verified GitHub head943109f80caa30e4b5744d1e12714cd4b8c6678a; current reviewed preparations and connection/common400 records published. No manuscript acceptance.
+1. Error diagnosis motivates private learning response plus member supervision; accuracy benefit and novelty remain unestablished.
+2. Common400 and five of six H16 arms completed by 02:02:21 UTC; final STOP-Q episode 2 started. Held scoring stays closed.
+3. Ordinary shared-bank qualification passed on both 18.77 GPUs, including gradients, Adam/RNG replay and whole-child resource closure. A once-only own/own_pool 2300-update pair is being admitted.
+4. Native first-order utility failed with OOM; failure is preserved. Exact branch replay repair passed synthetic parity. Independent review of native V4 qualifier/supervisor precedes allocation execution after the six-arm terminal.
+5. Fresh native SINGLE/ENS4 source V2 and its separate qualifier/supervisor passed independent review; the actual native16 discarded-update check and external closure passed. The missing-parent prelude failure is preserved. These use independent W400 seeds followed by SR2300, with no held labels.
+6. Error-flow V2 remains disabled and reviewed; no scientific evaluation or new score release.
+7. Private-transfer 32/39 fits complete; full custody precedes histories/scoring and fixed F1 successors follow actual predecessors.
+8. 18.77 retry authenticated at 02:02:47 UTC; exact repo and both GPUs verified, each with 42583MiB free. Seven-GPU route forwarding only.
+9. Literature base index72/active supplementV6 unchanged; no inflated reading counts or novelty clearance.
+10. Verified GitHub head 0c2c28559cdcf60c71aadaf54d3c4ba5b129cc68. New engineering results/repair are pending publication. No manuscript acceptance.

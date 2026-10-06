@@ -1,0 +1,1 @@
+Explicit reviewed source, engineering results, preserved OOM/prelude failures, scopes, fixed ordinary pair release/registry and decisions only. No dataset/checkpoint/logit payloads or private transport material. Source audits and numerical support are distinguished from predictive results. Canonical states retain goal unmet and unchanged original scores.

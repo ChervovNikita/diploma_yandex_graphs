@@ -1,0 +1,19 @@
+# Fresh native SINGLE and independent4 S/R references
+
+This packet implements the root-approved fixed design as one disabled worker plus minimal native training/ownership/serving helpers. No training, numerical/source execution, payload read, source release or server action occurred.
+
+Four full unwrapped native Polynormers use seeds17/1026/2035/3044, effective width512,10local/1global layers and exact V6 dropout/Adam defaults. Each seed independently initializes and resets its entire propagation/readout model and creates an empty native Adam. The source checks distinct Parameters, storage, optimizer objects, entries and all moment/step tensors across the four live models. Native constructor and Adam calls are AST-identical to inspected V6 source; no reduced model, frozen embedding or boundary-factor wrapper is substituted.
+
+All members acquire their own W-only400updates:200local then200global, mean own CE and no selector/rewind. Each uses its own post-constructor/reset/Adam RNG stream. All four full own W400 model/Adam/RNG images freeze before the source decodes S/R labels. Continuation checks each live model and Adam exactly against its own W400 snapshot, restores its own W400 RNG, and trains sorted S2449 union R2450 for2300global updates. The fit source has no torch.load or load_state_dict call; no shared core/history or old trained checkpoint is copied. Exact per-parameter native Adam clocks are checked at400 and2700.
+
+Both reference outputs retain all four last-horizon endpoints. SINGLE is the preregistered seed17/member0 endpoint alias of ENS4. It is not chosen after an outcome and adds no fifth fit or checkpoint. ENS4 serves the uniform arithmetic mean of the four native class-softmax probabilities. The pure serving reduction reuses member0 probabilities for SINGLE and contains no labels, selector or tuning. A separately admitted evaluator would need four unique final native forwards; it is not implemented or scored here.
+
+The cohort incurs1600new W forwards and9200S/R forwards,10800native backwards and10800own Adam updates. Each member completes200local+2500global, with no shortened horizon. Four W400 and four final full-state checkpoints are retained. The worker records checkpoint attempts/completions, partial/complete bytes, write/hash time, traces and whole-process wall/RSS/CUDA peaks, including construction, snapshots and restoration. These new independent W histories are fully charged. SINGLE member0 attribution is already included in ENS4's four physical fits. No efficiency or equal-compute result is claimed.
+
+The source requires independent source review, a new normal-native local/global first-order/Adam/RNG/constructor/ownership qualification with four resident models/histories, and actual measured whole-cohort root resource admission plus external owned-child watchdog/wait4 closure. The existing shared-bank qualifier is not silently reused. Templates default unauthorized and resource/runtime values remain root-filled. Fit time caps must cover800measured local and10000measured global update durations plus a frozen setup/IO/restoration margin.
+
+A/VALID/TEST labels/scoring and old FULLTRAIN/FIT/VALID selectors remain excluded from this fresh fit source. Existing custody/historical exposure is preserved in the inherited projection provenance; no untouched-A claim is made. Original paper scores, the six-arm pilot, its5740bill and all sealed predecessors/failures remain unchanged.
+
+## V2 fixed label-manifest identity repair
+
+V1 is preserved after independent review identified a missing explicit fixed-manifest assertion. V2 requires the exact original INPUT_IDENTITY manifest digest before W access, and matches both loaded W and B provenance digests. All other function/class bodies are AST-identical to V1. No learner, seed, native defaults, exposure phase, horizon, optimizer history, serving, cost or score change is introduced. V1 was never launched.
