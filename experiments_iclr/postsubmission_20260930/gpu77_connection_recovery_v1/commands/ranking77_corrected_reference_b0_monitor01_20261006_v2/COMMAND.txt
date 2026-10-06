@@ -1,0 +1,35 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B - <<'MONPY'
+from pathlib import Path
+import json,hashlib,importlib.util,socket
+repo=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git');phase=repo/'experiments_iclr/postsubmission_20260930'
+assert Path.cwd()==repo and socket.gethostname()=='peptide'
+fit=phase/'citeseer_known_ranking_control_gpu77_b0_execution_root_20261006_v2';qual=phase/'citeseer_known_ranking_control_gpu77_b0_qualification_root_20261006_v2'
+helper=phase/'shared_private_transfer_gpu77_qualification_preparation_20261005_v3/ownership_helpers.py';assert hashlib.sha256(helper.read_bytes()).hexdigest()=='e71503c87865546319cddbbf7a4f9f15d13cdf9e4875e406d65de21e64e047fd'
+spec=importlib.util.spec_from_file_location('owned_monitor',helper);h=importlib.util.module_from_spec(spec);spec.loader.exec_module(h)
+launch=json.loads((fit/'DETACHED_LAUNCH.json').read_text());recorded=launch['owner_identity'];current=h.identity(recorded['PID'])
+if current:assert current['start_ticks']==recorded['start_ticks'] and current['argv']==recorded['argv']
+report={'UTC':h.now(),'owner_current':current,'owner_failure':None,'qualification':{},'fits':{}}
+p=fit/'owner/OWNER_FAILURE.json'
+if p.exists():report['owner_failure']=json.loads(p.read_text())
+for label in ('a998','8ced'):
+ root=qual/label/'result';row={};p=root/'STAGES.jsonl'
+ if p.exists():row['stages_tail']=[json.loads(x) for x in p.read_text().splitlines()[-2:]]
+ p=root/'RESULT.json'
+ if p.exists():
+  d=json.loads(p.read_text());row['passed']=d['passed'];row['source_manifest_sha256']=d['source_manifest_sha256'];row['reference_program_sha256']=d['reference_program_sha256'];row['inclusive_seconds']=d['inclusive_seconds'];row['costs']={a:r['complete_cycle_cost']['inclusive_seconds'] for a,r in d['architectures'].items()}
+ p=root/'FAILURE.json'
+ if p.exists():row['failure']=json.loads(p.read_text()).get('error')
+ report['qualification'][label]=row
+for cell in ('b0_S_end_joint_scaled_BPR_CONTROL','b0_J4_end_joint_scaled_BPR_CONTROL','b0_E_end_joint_scaled_BPR_CONTROL'):
+ root=fit/'runs'/cell;p=fit/'owner/logs'/(cell+'.CHILD_STARTED.json')
+ if p.exists():
+  started=json.loads(p.read_text());ident=started['identity'];cur=h.identity(ident['PID']) if ident else None
+  if cur:assert cur['start_ticks']==ident['start_ticks'] and cur['argv']==ident['argv']
+  row={'child_started':started['UTC'],'identity':ident,'current':cur};cp=fit/'owner/logs'/(cell+'.CURRENT_RESOURCES.json')
+  if cp.exists():row['resources']=json.loads(cp.read_text())
+  cp=fit/'owner/logs'/(cell+'.stdout.log')
+  if cp.exists():row['progress_tail']=cp.read_text().splitlines()[-2:]
+  report['fits'][cell]=row
+print(json.dumps(report))
+
+MONPY

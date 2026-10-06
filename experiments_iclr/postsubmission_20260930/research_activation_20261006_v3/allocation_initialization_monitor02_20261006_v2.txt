@@ -1,0 +1,49 @@
+cd /home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs && /usr/bin/python3 -I -S -B - <<'MONITORPY'
+REPO='/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs'
+HOST='anogena-2-0'
+GPUS=['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+ROOT='citeseer_gnnm_initialization_pilot_execution_root_20261006_v2'
+PID=491048
+TICKS=6012817974
+FILES=['b0_fit_owner/QUEUE_PROGRESS.json', 'b0_fit_owner/QUEUE_FAILURE.json', 'b0_fit_owner/BLOCK_FREEZE.json', 'block_owner.stderr.log']
+CELLS=['b0_random_signs_all', 'b0_tabm_first_normal', 'b0_warm_identity', 'b0_graph_covariance', 'b0_feature_covariance', 'b0_single', 'b0_independent_warm4']
+LOGS='b0_fit_owner/logs'
+from pathlib import Path
+import json,socket,subprocess,hashlib
+from datetime import datetime,timezone
+repo=Path(REPO);phase=repo/'experiments_iclr/postsubmission_20260930'
+assert Path.cwd()==repo and socket.gethostname()==HOST
+inventory=subprocess.check_output(['nvidia-smi','--query-gpu=uuid,memory.free,utilization.gpu','--format=csv,noheader,nounits'],text=True,timeout=10)
+assert tuple(row.split(',')[0].strip() for row in inventory.splitlines())==tuple(GPUS)
+root=phase/ROOT
+result={'UTC':datetime.now(timezone.utc).isoformat(),'host':socket.gethostname(),'gpu':inventory,'owner':{},'files':{},'cells':{}}
+def read(p): return json.loads(p.read_text())
+def ident(pid):
+ p=Path('/proc')/str(pid)
+ try:
+  raw=(p/'stat').read_text();f=raw[raw.rfind(')')+2:].split()
+  return {'PID':pid,'start_ticks':int(f[19]),'state':f[0],'ppid':int(f[1]),'argv':[x.decode() for x in (p/'cmdline').read_bytes().split(b'\0') if x]}
+ except FileNotFoundError:return None
+result['owner']=ident(PID)
+if result['owner'] is not None: assert result['owner']['start_ticks']==TICKS
+for name in FILES:
+ q=root/name
+ if q.is_file():
+  if q.suffix=='.json': result['files'][name]={'sha256':hashlib.sha256(q.read_bytes()).hexdigest(),'value':read(q)}
+  else:result['files'][name]=q.read_text()[-2500:]
+for name in CELLS:
+ cell={'files':{}};out=root/'runs'/name
+ for role in ('PROGRESS.json','FAILURE.json'):
+  q=out/role
+  if q.exists():cell['files'][role]=read(q)
+ start=root/LOGS/(name+'.CHILD_STARTED.json')
+ if start.exists():
+  old=read(start)['identity'];cur=ident(old['PID']);cell['current']=cur;cell['started']={'PID':old['PID'],'start_ticks':old['start_ticks']}
+  if cur:assert cur['start_ticks']==old['start_ticks'] and cur['argv']==old['argv']
+ terminal=root/LOGS/(name+'.EXIT.json')
+ if terminal.exists():cell['terminal']=read(terminal)
+ cell['freeze_exists']=(out/'FREEZE.json').is_file()
+ result['cells'][name]=cell
+print(json.dumps(result))
+
+MONITORPY

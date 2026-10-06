@@ -1,0 +1,99 @@
+--- sealed_initializer_run_b319.py
++++ supplement/run.py
+@@ -1,4 +1,4 @@
+-"""Fixed real HeaRT Citeseer GNNM initialization pilot; root adoption required."""
++"""Supplemental shared-encoder/four-full-native-head control; root adoption required."""
+ import gc
+ import gzip
+ import argparse
+@@ -94,12 +94,15 @@
+     sys.path.insert(0, str(source)); import custody
+     if Path(custody.__file__).resolve() != (source/'custody.py').resolve(): raise ValueError('Provider custody shadowed')
+     phase = proposed.get('phase')
+-    purpose = 'GNNM_init_TRAIN_only_common_warm' if phase == 'warm' else 'GNNM_init_TRAIN_VALID_fit' if phase == 'fit' else None
+-    if purpose is None: raise ValueError('Explicit warm/fit phase required')
++    if phase != 'fit' or proposed.get('condition') != 'shared_full_heads':
++        raise ValueError('Only the supplemental shared_full_heads fit is admitted; reuse existing warm')
++    purpose = 'GNNM_shared_full_heads_TRAIN_VALID_fit'
+     job, output = custody.authorize(__file__, args, purpose)
+     plan_path = custody.phase_file(job['plan_relative'])
+     if custody.sha(plan_path) != job['plan_sha256']: raise ValueError('Fixed initialization plan changed')
+     plan = json.loads(plan_path.read_text())
++    if plan.get('conditions') != ['shared_full_heads']:
++        raise ValueError('Only one supplemental full-head condition is admitted')
+     if plan.get('root_adopted') is not True or plan.get('TEST_closed') is not True or (plan['warm_cycles'], plan['post_cycles'], plan['eval_every']) != (20,60,5):
+         raise ValueError('Root must adopt the exact fixed20/60 plan before science')
+     matches = [row for row in plan['blocks'] if row['seed'] == job['seed'] and row['factor_seed'] == job['factor_seed']]
+@@ -109,7 +112,16 @@
+     if job['fits_authorized'] is not is_fit or job['VALID_values_access'] is not is_fit: raise ValueError('Warm never opens VALID')
+     helper = Path(__file__).resolve().parent/'initialize.py'
+     if custody.sha(helper) != job['initialization_sha256']: raise ValueError('Reviewed initialization bytes changed')
+-    initialization = custody.load_module('citeseer_gnnm_initializer', helper)
++    manifest_path = Path(__file__).resolve().parent/'MANIFEST.json'
++    if custody.sha(manifest_path) != job.get('supplement_manifest_sha256'):
++        raise ValueError('Reviewed supplemental packet manifest changed')
++    for row in json.loads(manifest_path.read_text())['files']:
++        file = (manifest_path.parent/row['path']).resolve(strict=True)
++        if not file.is_relative_to(manifest_path.parent) or custody.sha(file) != row['sha256'] or file.stat().st_size != row['bytes']:
++            raise ValueError('Reviewed supplemental packet bytes changed')
++    if job.get('native_pointer_gradient_check_authorized') is not True:
++        raise ValueError('Root must authorize the one-episode native pointer/gradient gate')
++    initialization = custody.load_module('citeseer_shared_full_native_heads', helper)
+     if is_fit and job['condition'] not in initialization.CONDITIONS: raise ValueError('Fixed condition required')
+     output.mkdir(); custody.write_json(output/'START.json', {'phase':phase,'job_sha256':custody.sha(args.job),'TEST_access':False})
+     try:
+@@ -131,22 +143,22 @@
+             if state['seed'] != job['seed'] or any(state['inputs'][k] != identities[k] for k in ('train_pos.txt','gnn_feature')):
+                 raise ValueError('Warm TRAIN/features custody differs')
+             warm.load_state_dict(state['model'], strict=True)
+-            variations, covariances = initialization.variation(torch, warm, x, full_support, train, job['factor_seed'])
++            variations, covariances = {}, {}
+             model, partition = initialization.make(torch, native, heads, models, warm, job['condition'], job['seed'], job['factor_seed'], device, variations)
+             custody.write_json(output/'PARAMETER_PARTITION.json', partition)
+-            negative, _, _ = custody.make_pair(torch,geometry,cycle,train,len(x),job['seed'],0,64,256,
++            negative, _, qualification_episodes = custody.make_pair(torch,geometry,cycle,train,len(x),job['seed'],0,64,256,
+                 geometry.route_streams(job['seed'],4),geometry.route_streams(job['seed'],4,control=True))
+             audit = train_audit(torch, steps, model, warm, x, full_support, train, negative)
+             custody.write_json(output/'INITIAL_TRAIN_AUDIT.json', {'condition':job['condition'],'audit':audit,'covariances':covariances,
+                 'warm_checkpoint_sha256':frozen['checkpoint_sha256'],'perturbation_RMS':initialization.RMS,
+-                'realized_first_R_RMS_around_one': float((model.predictor.xlin.ops[0].r.detach().double()-1).square().mean().sqrt()) if job['condition'] not in ('single','independent_warm4') else None,
+-                'realized_first_R_maximum_member_mean_perturbation': float((model.predictor.xlin.ops[0].r.detach().double()-1).mean(0).abs().max()) if job['condition'] not in ('single','independent_warm4') else None})
+-            if job['condition'] in ('warm_identity','single','independent_warm4') and (audit['maximum_positive_donor_difference'] != 0 or audit['maximum_negative_donor_difference'] != 0):
++                'realized_first_R_RMS_around_one': None,
++                'realized_first_R_maximum_member_mean_perturbation': None})
++            if audit['maximum_positive_donor_difference'] != 0 or audit['maximum_negative_donor_difference'] != 0:
+                 raise ValueError('Neutral warm lift must preserve full TRAIN deterministic native logits exactly')
+-        else: model = warm
+-        independent = is_fit and job['condition'] == 'independent_warm4'
+-        routes = list(model.routes) if independent else [model]
+-        route_seeds = [job['seed']+5*i for i in range(4)] if independent else [job['seed']]
++        else: raise ValueError('Supplement never creates another warm fit')
++        del warm, state
++        routes = [model]
++        route_seeds = [job['seed']]
+         optimizers = [adam(torch, route) for route in routes]
+         streams = [steps.DropoutStreams(torch, device, seed+200000 if is_fit else seed) for seed in route_seeds]
+         endpoint_streams = [geometry.route_streams(seed,4) for seed in route_seeds]
+@@ -156,6 +168,12 @@
+         torch.save(checkpoint_state(torch,model,optimizers,streams,endpoint_streams,random_streams,job),output/'INITIAL_STATE.pt')
+         torch.cuda.reset_peak_memory_stats()
+         with custody.native_adjoint(torch,native,adjoint.make_constant_adjacency_spmm), (output/'HISTORY.jsonl').open('x') as history, gzip.open(output/'CYCLE_DRAWS.jsonl.gz','wt',encoding='utf-8',compresslevel=6) as draws:
++            qualification_endpoint, _, qualification_kept, _ = qualification_episodes[0]
++            qualification_support = custody.support_tensor(torch,train,qualification_kept,len(x),device)
++            qualification_inner, qualification_outer = custody.queries(torch,train,negative,qualification_endpoint,device)
++            qualification = initialization.gradient_check(torch,steps,model,x,qualification_support,qualification_inner,qualification_outer,streams[0])
++            custody.write_json(output/'NATIVE_POINTER_GRADIENT_QUALIFICATION.json', {'ownership':partition['ownership'],'gradient':qualification})
++            del qualification_support, qualification_inner, qualification_outer, qualification_episodes
+             for cycle_index in range(cycles):
+                 cycle_started = time.monotonic()
+                 for member,(route,seed) in enumerate(zip(routes,route_seeds)):
+@@ -196,7 +214,8 @@
+             'checkpoint_sha256':custody.sha(output/('selected_checkpoint.pt' if is_fit else 'warm_checkpoint.pt')),
+             'inclusive_seconds':time.monotonic()-started,'peak_CUDA_allocated_bytes':torch.cuda.max_memory_allocated(),
+             'peak_CUDA_reserved_bytes':torch.cuda.max_memory_reserved(),'native_alias_restored':True,'retry':False}
+-        freeze['provenance_sha256'] = {name:custody.sha(output/name) for name in ('CYCLE_DRAWS.jsonl.gz','INITIAL_STATE.pt','FINAL_STATE.pt','HISTORY.jsonl')}
++        freeze['provenance_sha256'] = {name:custody.sha(output/name) for name in ('CYCLE_DRAWS.jsonl.gz','INITIAL_STATE.pt','FINAL_STATE.pt','HISTORY.jsonl','NATIVE_POINTER_GRADIENT_QUALIFICATION.json')}
++        freeze['supplement_manifest_sha256'] = job['supplement_manifest_sha256']
+         if is_fit and selected is None: raise ValueError('No complete native-cadence selector')
+         custody.write_json(output/'FREEZE.json',freeze)
+     except BaseException as error:

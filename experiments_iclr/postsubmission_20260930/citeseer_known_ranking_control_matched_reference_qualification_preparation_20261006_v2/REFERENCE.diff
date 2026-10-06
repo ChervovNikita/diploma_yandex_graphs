@@ -1,0 +1,92 @@
+--- preserved_failed_reference/qualify_training_step.py
++++ standalone/qualify_matched_reference.py
+@@ -2,7 +2,7 @@
+ """Discarded ordinary Adam qualification for the known ranking control.
+ 
+ TRAIN/features only. One first-episode ordinary history per architecture,
+-explicit direct-module logit VJP reference, all states discarded. No live
++independent detached-loss direct-module logit VJP reference, all states discarded. No live
+ credit, private functional Adam, VALID/TEST values, fit or checkpoint.
+ """
+ import gc
+@@ -11,7 +11,11 @@
+ import os
+ import resource
+ import time
+-
++from pathlib import Path
++import sys
++
++SOURCE = Path("/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930/citeseer_known_ranking_control_gpu77_b0_preparation_20261006_v1")
++sys.path.insert(0, str(SOURCE))
+ import custody
+ 
+ PARAM_RTOL, PARAM_ATOL = 2e-6, 2e-7
+@@ -107,36 +111,44 @@
+ 
+ 
+ def reference_episode(torch, model, optimizer, x, support, inner, outer, streams):
+-    """Independent analytical logit VJP and three native torch.optim.Adam commits.
+-
+-    d[2 softplus((n-p)/2)]/dn = sigmoid((n-p)/2). The pooled and
+-    member terms use their separate original means. This path calls neither
+-    own_loss, outer_loss nor ordinary_episode_step.
++    """Independent detached-logit loss VJP and three native Adam commits.
++
++    The real derivative of 2 softplus((n-p)/2) is sigmoid((n-p)/2).
++    The original analytical reference used a different FP32 primitive/scale
++    association. This reference independently spells the same loss arithmetic
++    on detached direct-module logits, then applies its cotangents through the
++    unchanged direct native graph. It calls no training loss/step function.
+     """
+     calls = [(0, (torch.cat([r[0] for r in inner], 1),
+                   torch.cat([r[1] for r in inner], 1)))] if model.member_count == 1 else list(enumerate(inner))
+     for pass_index in range(3):
+         optimizer.zero_grad(set_to_none=True)
+-        outputs, cotangents = [], []
++        outputs, detached, losses = [], [], []
+         if pass_index == 1:
+             positive, negative = direct_forward(torch, model, x, support, outer, streams, training=False)
+             if positive.shape != negative.shape or positive.numel() == 0:
+                 raise ValueError("Reference outer positional pair geometry differs")
+-            with torch.no_grad():
+-                gradient = (.5*torch.sigmoid((negative-positive)/2)/positive.numel()
+-                    + .5*torch.sigmoid((negative.mean(1)-positive.mean(1))/2)[:, None]/positive.numel())
+-                if hasattr(model, "routes"): gradient = gradient*model.member_count
+-            outputs += [positive, negative]; cotangents += [-gradient, gradient]
++            p = positive.detach().clone().requires_grad_(True)
++            n = negative.detach().clone().requires_grad_(True)
++            pooled = 2*torch.nn.functional.softplus((n.mean(1)-p.mean(1))/2).mean()
++            member = 2*torch.nn.functional.softplus((n-p)/2).mean()
++            objective = .5*pooled+.5*member
++            if hasattr(model, "routes"): objective = objective*model.member_count
++            outputs += [positive, negative]; detached += [p, n]
+         else:
+-            normalization = 1 if hasattr(model, "routes") else len(calls)
+             for member, queries in calls:
+                 positive, negative = direct_forward(torch, model, x, support, queries, streams,
+                     training=True, route=member, advance=pass_index == 2)
+                 if positive.shape != negative.shape or positive.numel() == 0:
+                     raise ValueError("Reference inner positional pair geometry differs")
+-                with torch.no_grad():
+-                    gradient = torch.sigmoid((negative-positive)/2)/(positive.numel()*normalization)
+-                outputs += [positive, negative]; cotangents += [-gradient, gradient]
++                p = positive.detach().clone().requires_grad_(True)
++                n = negative.detach().clone().requires_grad_(True)
++                losses.append(2*torch.nn.functional.softplus((n-p)/2).mean())
++                outputs += [positive, negative]; detached += [p, n]
++            objective = torch.stack(losses).sum() if hasattr(model, "routes") else torch.stack(losses).mean()
++        if not bool(torch.isfinite(objective)):
++            raise FloatingPointError("Nonfinite independently spelled reference objective")
++        cotangents = torch.autograd.grad(objective, detached)
+         torch.autograd.backward(outputs, cotangents)
+         for name, parameter in model.named_parameters():
+             if parameter.grad is None or not bool(torch.isfinite(parameter.grad).all()):
+@@ -207,6 +219,7 @@
+     output.mkdir()
+     receipt = {"scope": "discarded_FP32_training_step_qualification", "job_sha256": custody.sha(args.job),
+         "source_manifest_sha256": custody.sha(custody.ROOT/"SOURCE_MANIFEST.json"), "physical_gpu_uuid": job["physical_gpu_uuid"],
++        "reference_program_sha256": custody.sha(__file__),
+         "fits": 0, "VALID_TEST_values_access": False, "states_discarded": True, "tolerances": tolerances,
+         "architectures": {}, "passed": False, "PID": os.getpid(), "retry": False}
+     custody.write_json(output/"START.json", receipt)
