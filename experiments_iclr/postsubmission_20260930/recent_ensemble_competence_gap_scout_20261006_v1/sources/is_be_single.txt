@@ -1,0 +1,724 @@
+Is BatchEnsemble a Single Model? On Calibration and Diversity of Efficient Ensembles
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Background and Related Work
+Deep Ensemble.
+BatchEnsemble.
+Ensemble Diversity and EU.
+This work.
+3 Multiplicative Rank-1 Perturbations Have Measure Zero
+4 BatchEnsemble Underperforms Deep Ensemble
+5 BatchEnsemble Is Not Diverse
+6 Conclusion
+7 Limitations & Future Work
+References
+A BatchEnsemble Vectorization
+B Proofs For Limited Expressivity Of BatchEnsemble
+C Metrics
+Predictive performance.
+Calibration.
+Uncertainty proxies.
+OOD detection.
+D Experimental Setup
+General procedure.
+Implementation details.
+D.1 CIFAR-10
+D.2 MNIST
+E Computational Cost and Training Time
+F Channel Rescaling vs. Rank-1 Kernel Perturbation
+License: CC BY 4.0
+arXiv:2601.16936v1 [cs.LG] 23 Jan 2026
+Is BatchEnsemble a Single Model?
+On Calibration and Diversity of Efficient
+Ensembles
+Anton Zamyatin
+Affiliation: TU Wien
+Email: anton.zamyatin@tuwien.ac.at
+Patrick Indri
+Affiliation: TU Wien
+Email: patrick.indri@tuwien.ac.at
+Sagar Malhotra
+Affiliation: TU Wien
+Email: sagar.malhotra@tuwien.ac.at
+Thomas Gärtner
+Affiliation: TU Wien
+Email: thomas.gaertner@tuwien.ac.at
+August 24, 2026
+Abstract
+In resource-constrained and low-latency settings, uncertainty estimates must be efficiently obtained.
+Deep Ensembles provide robust epistemic uncertainty (EU) but require training multiple full-size models.
+BatchEnsemble aims to deliver ensemble-like EU at far lower parameter and memory cost by applying learned rank-1 perturbations to a shared base network.
+We show that BatchEnsemble not only underperforms Deep Ensembles but closely tracks a single model baseline in terms of accuracy, calibration and out-of-distribution (OOD) detection on CIFAR-10/10C/SVHN.
+A controlled study on MNIST finds members are near-identical in function and parameter space, indicating limited capacity to realize distinct predictive modes.
+Thus, BatchEnsemble behaves more like a single model than a true ensemble.
+1 Introduction
+Modern neural networks are increasingly used in safety-critical settings, where reliable uncertainty estimates are essential.
+Ensembles can be used to improve both accuracy and calibration [13].
+Ensemble methods train multiple models independently and aggregate their predictions to capture epistemic uncertainty (EU), that is, the uncertainty in the model parameters that arises from training.
+Techniques such as Deep Ensembles [13] can be used to evaluate EU but require to train a neural network many times, which is often prohibitively expensive.
+BatchEnsemble [19] address this by (i) applying rank-1 perturbations to a single shared weight matrix to form distinct members and (ii) vectorizing inference so all members run in a single forward pass.
+Despite their popularity, there is no systematic comparison of BatchEnsemble with standard Deep Ensembles; this paper fills that gap and investigates the shortcomings of BatchEnsemble.
+We compare BatchEnsemble to Deep Ensembles as well as MC Dropout [6], and structure the rest of the paper as follows.
+In Section 2, we provide some preliminary background on Deep Ensembles, BatchEnsembles, notions of ensemble diversity and EU in ensemble methods.
+In Section 3, we theoretically highlight that BatchEnsemble can only explore a significantly restricted portion of the parameter space, compared to Deep Ensemble.
+In Section 4 we empirically show that BatchEnsemble underperform both Deep Ensemble and MC Dropout in terms of predictive performance across various metrics.
+In Section 5 we show that BatchEnsembles learned on MNIST [16] data are essentially equivalent to a single model, further confirming that the theoretical observations of restricted parameter space also transfers to restricted solution space in real-world settings.
+2 Background and Related Work
+Deep Ensemble.
+Deep Ensembles [13] approximate the posterior distribution p⁡(y∣x,D)p(y\mid x,D) of observing label yy for an unseen input xx given the training data DD by uniformly averaging the outputs of kk independently trained models:
+p^​(y∣x,D)=1k​∑i=1kp⁡(y∣x,θi),\hat{p}(y\mid x,D)=\frac{1}{k}\sum^{k}_{i=1}p(y\mid x,\theta_{i}),
+(1)
+where θi\theta_{i} are parameters obtained from different random initialization and training trajectories.
+Deep Ensembles provide robust epistemic uncertainty (EU) under distribution shift and outperform scalable Bayesian approximations such as stochastic variational inference (SVI) [18].
+However, the computational and memory cost of Deep Ensembles scales linearly with kk, which makes them impractical for low-latency or resource constrained settings such as high-throughput screening, real-time systems, or large-scale models.
+BatchEnsemble.
+To mitigate the linear scaling in computational/memory cost of Deep Ensembles,
+Wen et al. [19] introduced BatchEnsemble.
+BatchEnsemble promises to deliver ensemble-level EU at (nearly) single model cost.
+To this end, BatchEnsemble embeds an ensemble within one network by applying learned low-rank, per-member perturbations to a shared weight matrix.
+Let W∈ℝm×nW\in\mathbb{R}^{m\times n} denote a layer’s shared weight and ri∈ℝmr_{i}\!\in\!\mathbb{R}^{m}, si∈ℝns_{i}\!\in\!\mathbb{R}^{n} be member-specific learned vectors.
+Then, BatchEnsemble parametrizes the weight matrix WiW_{i} of each member i=1,⋯,ki=1,\cdots,k as
+Wi=W∘ri​si⊤,W_{i}=W\circ r_{i}s_{i}^{\top},
+(2)
+where ∘\circ denotes the Hadamard product and each ri​si⊤r_{i}s_{i}^{\top} is a rank-1 matrix.
+BatchEnsemble thus reduces the per-layer parameters from O⁡(k​m​n)O(kmn) for independent members obtained using Deep Ensembles, to O⁡(m​n+k⁡(m+n))O(mn+k(m+n)).
+This leads to a substantial parameter reduction, especially for large matrices where k≪min⁡(m,n)k\!\ll\!\min(m,n).
+The forward pass for a single input x∈ℝnx\in\mathbb{R}^{n} can be written as
+Wi​x=(W∘ri​si⊤)=W⁡(si∘x)∘ri,W_{i}x=(W\circ r_{i}s_{i}^{\top})=W(s_{i}\circ x)\circ r_{i},
+(3)
+with member-specific biases omitted for brevity.
+This formulation admits a vectorized implementation (Appendix A) that computes the prediction of all kk members in a single batched forward pass—hence “BatchEnsemble”—enabling within-device parallelism and high-throughput inference.
+By contrast the popular ensemble alternative MC Dropout [6] requires multiple stochastic forward passes to obtain an ensemble of predictions.
+Ensemble Diversity and EU.
+A leading explanation for the success of Deep Ensembles is that independently trained members explore distinct solutions not only in parameter space but also in function space [5].
+In contrast, scalable Bayesian methods such as mean-field VI [7], Bayes by Backprop [2], or MC Dropout [6] approximate uncertainty by placing a simple distribution (e.g., diagonal Gaussian or dropout mask) centered around a single optimum.
+Consequently, efficient ensembling methods should be designed such that they are able to replicate this effect by capturing distinct predictive modes, not just local perturbations around a single optimum.
+This work.
+We compare BatchEnsemble to Deep Ensembles and MC Dropout on CIFAR-10 across in-distribution, distribution shift, and out-of-distribution (OOD) settings (Section 4; protocols and metrics in Appendix D.1 and C).
+BatchEnsemble does not deliver ensemble-level gains, yielding low epistemic uncertainty and closely matching the single-model baseline in terms of predictive performance, calibration, and OOD detection.
+A diagnostic MNIST study further reveals BatchEnsemble members are nearly identical in parameter space and function space, implying that limited capacity to realize multiple predictive modes may underlie BatchEnsemble’s limited EU.
+3 Multiplicative Rank-1 Perturbations Have Measure Zero
+We begin by making some simple but pertinent theoretical observations that show that the parameter space expressible by BatchEnsembles is vanishingly small compared to Deep Ensembles.
+Observation 1.
+Consider ensembles with kk members.
+For BatchEnsemble, consider the members as parameterized by ri∈ℝmr_{i}\in\mathbb{R}^{m}, si∈ℝns_{i}\in\mathbb{R}^{n}, and the shared weight matrix WW.
+Let 𝒲BE={(W∘r1s1⊤,…,W∘rksk⊤)∣ri∈ℝm,si∈ℝn,i∈[k],W∈ℝm×n}\mathcal{W}_{\text{BE}}=\{\left(W\circ r_{1}s_{1}^{\top},\dots,W\circ r_{k}s_{k}^{\top}\right)\mid r_{i}\in\mathbb{R}^{m},s_{i}\in\mathbb{R}^{n},i\in[k],W\in\mathbb{R}^{m\times n}\} be the set of weights achievable with BatchEnsemble.
+Let 𝒲DE={(W1,…,Wk)∣Wi∈ℝm×n,i∈[k]}\mathcal{W}_{\text{DE}}=\{\left(W_{1},\dots,W_{k}\right)\mid W_{i}\in\mathbb{R}^{m\times n},i\in[k]\} be the set of weights achievable with Deep Ensembles, where each ensemble member has an independent weight matrix layer WiW_{i} of size ℝm×n\mathbb{R}^{m\times n}.
+Then, 𝒲BE⊊𝒲DE\mathcal{W}_{\text{BE}}\subsetneq\mathcal{W}_{\text{DE}}. Moreover, 𝒲BE\mathcal{W}_{\text{BE}} has measure zero in 𝒲DE\mathcal{W}_{\text{DE}}.
+A proof of Observation 1 and examples of weight matrices unrepresented weight matrices are provided in Appendix B.
+This result shows that the weights reachable by BatchEnsemble’s rank-1 multiplicative perturbations constitute a strict, measure-zero subset of those reachable by independently trained members, i.e., Deep Ensembles.
+This limited expressivity suggests that BatchEnsemble cannot capture the same degree of diversity as a Deep Ensemble.
+In the next sections, we test this hypothesis empirically on real data.
+4 BatchEnsemble Underperforms Deep Ensemble
+We compare a single model, MC Dropout, Deep Ensembles, and BatchEnsemble on image classification, using the same architecture (ResNet-18 [8]) trained for 75 epochs on CIFAR-10 [12].
+Following the protocol of Ovadia et al. [18], we evaluate the models on three benchmarks:
+•
+CIFAR-10 test set to measure in-distribution performance,
+•
+CIFAR-10C [9] at corruption severity 5 to assess robustness to distributional shift,
+•
+SVHN [17] to test OOD detection.
+For the in-distribution and distribution shift benchmarks, we report accuracy (Acc), negative log-likelihood (NLL), and expected calibration error (ECE).
+We treat OOD detection as a binary classification task and report the area under the precision–recall curve (AUPR), the area under the ROC curve (AUROC), and the false positive rate at 95% TPR (FPR95).
+For each metric, we indicate whether lower (↓) or higher (↑) is better.
+To further characterize uncertainty we compute two diagnostic metrics:
+the predictive entropy (H) for total uncertainty and the Jensen–Shannon divergence (JSD) as a proxy for EU.
+We report the mean and 95% confidence intervals over five random seeds, computed using the standard error of the mean and the tt-distribution with 4 degrees of freedom.
+The results are summarized in Tables 1–3.
+Details on the metrics used are given in Appendix C.
+A description of the training procedure and experimental considerations can be found in Appendix D.1.
+Table 1: In-Distribution Benchmark (CIFAR-10)
+Method
+Acc↑
+NLL↓
+ECE↓
+H
+JSD
+Single
+0.941 ±0.004
+0.237 ±0.003
+0.034 ±0.003
+0.073 ±0.005
+N/A
+MC Dropout
+0.936 ±0.001
+0.210 ±0.007
+0.021 ±0.002
+0.120 ±0.005
+0.022 ±0.001
+Deep Ensemble
+0.952 ±0.001
+0.152 ±0.003
+0.007 ±0.002
+0.136 ±0.001
+0.037 ±0.001
+BatchEnsemble
+0.938 ±0.001
+0.230 ±0.006
+0.032 ±0.001
+0.088 ±0.003
+0.002 ±0.000
+Table 2: Distribution Shift Benchmark (CIFAR-10C, shift intensity 5)
+Method
+Acc↑
+NLL↓
+ECE↓
+H
+JSD
+Single
+0.558 ±0.008
+2.545 ±0.142
+0.323 ±0.014
+0.327 ±0.026
+N/A
+MC Dropout
+0.578 ±0.002
+2.054 ±0.084
+0.251 ±0.009
+0.449 ±0.031
+0.088 ±0.005
+Deep Ensemble
+0.575 ±0.006
+1.682 ±0.045
+0.206 ±0.009
+0.593 ±0.018
+0.176 ±0.005
+BatchEnsemble
+0.547 ±0.015
+2.357 ±0.164
+0.308 ±0.012
+0.400 ±0.011
+0.008 ±0.002
+Table 3: OOD Benchmark (SVHN)
+Method
+AUPR↑
+AUROC↑
+FPR95↓
+H
+JSD
+Single
+0.938 ±0.017
+0.893 ±0.024
+0.318 ±0.071
+0.480 ±0.096
+N/A
+MC Dropout
+0.932 ±0.008
+0.884 ±0.009
+0.324 ±0.019
+0.608 ±0.056
+0.122 ±0.016
+Deep Ensemble
+0.953 ±0.006
+0.924 ±0.011
+0.199 ±0.024
+0.829 ±0.067
+0.277 ±0.032
+BatchEnsemble
+0.932 ±0.015
+0.888 ±0.020
+0.297 ±0.061
+0.495 ±0.100
+0.010 ±0.006
+Across all benchmarks, Deep Ensembles achieve the strongest accuracy, calibration, and ID/OOD separation.
+MC Dropout, while cheaper, still exhibits ensemble-like gains over a single model.
+In contrast, BatchEnsemble yields only marginal improvements in calibration and its EU, measured by JSD, remains near-zero across all settings.
+These observations suggest that the EU offered by BatchEnsemble is categorically different, as it is closer to a single model than to a true ensemble of different models.
+In the next section, we therefore investigate whether limited diversity underlies this behavior in a controlled setting next.
+5 BatchEnsemble Is Not Diverse
+The results provided in the previous section suggest that BatchEnsemble behaves more like a single model than an ensemble.
+If this stems from insufficient member diversity, we should observe it in a controlled setting with minimal confounds.
+We therefore analyze diversity in a simple 3-layer perceptron on MNIST with k=4k{=}4 members (Appendix D.2), where perturbations apply to linear layers only.
+This choice removes channel–rescaling effects in CNNs (Appendix F).
+The architecture can therefore neither mask diversity in BatchEnsemble, nor induce it in Deep Ensembles, allowing for a fair comparison of ensemble diversity.
+We assess diversity in both function and parameter space.
+Let fθ:𝒳→𝒴f_{\theta}:\mathcal{X}\!\to\!\mathcal{Y} denote a neural network predictor with weights θ\theta.
+In function space, we use pairwise prediction disagreement on {xi}i=1N\{x_{i}\}_{i=1}^{N}:
+Disagreement(fθ1,fθ2)=1N∑i=1N[fθ1(xi)≠fθ2(xi)],\mathrm{Disagreement}(f_{\theta_{1}},f_{\theta_{2}})=\tfrac{1}{N}\sum_{i=1}^{N}\mathbbm{1}\!\left[f_{\theta_{1}}(x_{i})\neq f_{\theta_{2}}(x_{i})\right],
+In parameter space, we compare the (vectorized) weights via cosine similarity:
+cos⁡(θ1,θ2)=⟨θ1,θ2⟩‖θ1‖​‖θ2‖.\cos(\theta_{1},\theta_{2})=\frac{\langle\theta_{1},\theta_{2}\rangle}{\|\theta_{1}\|\,\|\theta_{2}\|}.
+Since BatchEnsemble defines members implicitly through input/output scalings per layer (Eq. 3), we form explicit weight tensors using Eq. 2 before computing cosine similarity.
+We present the results of our experiments in Figure 1.
+(a) Disagreement across in-distribution, distribution shifted and OOD test sets.
+(b) Cosine similarity
+Figure 1:
+BatchEnsemble lacks functional and parametric diversity (MNIST MLP).
+(a) Pairwise prediction disagreement across ID, distribution-shifted, and OOD test sets (higher is more diverse).
+(b) Cosine similarity of members’ weights (higher is more similar).
+Deep Ensembles are diverse in both spaces; BatchEnsemble members cluster tightly.
+BatchEnsemble exhibits minimal functional diversity: pairwise prediction disagreement is near-zero across ID, shift, and OOD settings (Figure 1(a)).
+It also fails to diversify in parameter space, with members showing cosine similarity ≈1\approx 1 (Figure 1(b)).
+In contrast, Deep Ensembles display substantial predictive disagreement and low weight-space similarity, indicating distinct solutions.
+A slight deviation of the shared base path (index 0) under shift/OOD does not translate into meaningful member diversity since the perturbed members 1–3 remain tightly coupled in both spaces.
+Together, these results indicate limited capacity of BatchEnsemble to realize multiple predictive modes, consistent with its near-zero epistemic uncertainty in Section 4.
+6 Conclusion
+BatchEnsemble is designed to provide ensemble-like uncertainty at near single-model cost, yet in our setting it failed to reproduce the behaviour of Deep Ensembles.
+Across CIFAR-10/10C/SVHN, its predictive performance and calibration closely tracked a single model, and its epistemic uncertainty remained low.
+A controlled MNIST study further revealed near-zero functional disagreement and near-unity weight-space similarity, indicating limited ability to realize distinct predictive modes.
+To support a fuller assessment of efficient ensemble-like UQ methods, we recommend reporting uncertainty measures such as predictive entropy (H) and Jensen–Shannon divergence (JSD) alongside standard accuracy, calibration, and OOD metrics.
+Simple diagnostics of functional and weight-space diversity, as used here, can additionally help determine whether a method expresses genuinely distinct predictive modes or merely produces correlated variants of a single model.
+7 Limitations & Future Work
+Our findings differ from the stronger BatchEnsemble results reported by Wen et al. [19].
+This discrepancy is largely attributable to scale 11
+1
+Wen et al. [19] used wider and deeper networks trained for substantially longer (e.g., ResNet-32×4, 250–375 epochs), whereas our evaluation followed the lighter protocol of Ovadia et al. [18] with ResNet-18 trained for 75 epochs.
+The improved single-model performance reported in Wen et al. [19] relative to the Ovadia benchmark suggests that much of the reported gain is driven by increased capacity rather than ensembling-specific effects.
+Unfortunately, their benchmark does not report uncertainty measures such as H or JSD and does not analyse functional or weight-space diversity.
+.
+Although larger models can narrow the performance gap, scaling and ensembling offer fundamentally different advantages under equal parameter budgets [15].
+Thus, a natural next step is to measure BatchEnsemble’s diversity and epistemic uncertainty under increased width, depth, and training time, extending this analysis to the exact settings used by Wen et al. [19].
+It would also be valuable to assess these behaviors across different architectures and tasks,
+including Transformers and regression settings, to test the generality of our observations.
+Finally, a theoretical account connecting empirical diversity limitations to the constraints imposed by BatchEnsemble’s rank-1 multiplicative parameterization may help clarify the fundamental constraints of the method.
+References
+[1]
+D. Amodei, C. Olah, J. Steinhardt, P. Christiano, J. Schulman, and D. Mané (2016)
+Concrete problems in AI safety.
+arXiv preprint arXiv:1606.06565.
+External Links: 1606.06565
+Cited by: Appendix C.
+[2]
+C. Blundell, J. Cornebise, K. Kavukcuoglu, and D. Wierstra (2015)
+Weight uncertainty in neural network.
+In International Conference on Machine Learning,
+pp. 1613–1622.
+Cited by: §2.
+[3]
+J. Davis and M. Goadrich (2006)
+The relationship between Precision-Recall and ROC curves.
+In Proceedings of the 23rd International Conference on Machine Learning,
+pp. 233–240.
+Cited by: Appendix C.
+[4]
+L. Deng (2012)
+The MNIST database of handwritten digit images for machine learning research [best of the web].
+IEEE Signal Processing Magazine 29 (6), pp. 141–142.
+External Links: Document
+Cited by: 3rd item.
+[5]
+S. Fort, H. Hu, and B. Lakshminarayanan (2019)
+Deep ensembles: A loss landscape perspective.
+arXiv preprint arXiv:1912.02757.
+External Links: 1912.02757
+Cited by: §2.
+[6]
+Y. Gal and Z. Ghahramani (2016)
+Dropout as a Bayesian Approximation: Representing Model Uncertainty in Deep Learning.
+In Proceedings of The 33rd International Conference on Machine Learning, M. F. Balcan and K. Q. Weinberger (Eds.),
+Proceedings of Machine Learning Research, Vol. 48, New York, New York, USA, pp. 1050–1059.
+Cited by: §1,
+§2,
+§2.
+[7]
+A. Graves (2011)
+Practical variational inference for neural networks.
+Advances in neural information processing systems 24.
+Cited by: §2.
+[8]
+K. He, X. Zhang, S. Ren, and J. Sun (2016)
+Deep residual learning for image recognition.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition,
+pp. 770–778.
+Cited by: 2nd item,
+§4.
+[9]
+D. Hendrycks and T. Dietterich (2019)
+Benchmarking neural network robustness to common corruptions and perturbations.
+arXiv preprint arXiv:1903.12261.
+External Links: 1903.12261
+Cited by: item 2,
+2nd item.
+[10]
+D. Hendrycks and K. Gimpel (2016)
+A baseline for detecting misclassified and out-of-distribution examples in neural networks.
+arXiv preprint arXiv:1610.02136.
+External Links: 1610.02136
+Cited by: Appendix C.
+[11]
+D. P. Kingma (2014)
+Adam: A method for stochastic optimization.
+arXiv preprint arXiv:1412.6980.
+External Links: 1412.6980
+Cited by: 4th item.
+[12]
+A. Krizhevsky G. Hinton et al. (2009)
+Learning multiple layers of features from tiny images.
+Cited by: 3rd item,
+§4.
+[13]
+B. Lakshminarayanan, A. Pritzel, and C. Blundell (2017)
+Simple and scalable predictive uncertainty estimation using deep ensembles.
+Advances in neural information processing systems 30.
+Cited by: §1,
+§2.
+[14]
+O. Laurent, A. Lafage, E. Tartaglione, G. Daniel, J. Martinez, A. Bursuc, and G. Franchi (2022)
+Packed-ensembles for efficient uncertainty estimation.
+arXiv preprint arXiv:2210.09184.
+External Links: 2210.09184
+Cited by: Appendix D.
+[15]
+E. Lobacheva, N. Chirkova, M. Kodryan, and D. P. Vetrov (2020)
+On power laws in deep ensembles.
+Advances In Neural Information Processing Systems 33, pp. 2375–2385.
+Cited by: §7.
+[16]
+N. Mu and J. Gilmer (2019)
+MNIST-C: A robustness benchmark for computer vision.
+arXiv preprint arXiv:1906.02337.
+External Links: 1906.02337
+Cited by: item 2,
+§1.
+[17]
+Y. Netzer, T. Wang, A. Coates, A. Bissacco, B. Wu, A. Y. Ng, et al. (2011)
+Reading digits in natural images with unsupervised feature learning.
+In NIPS Workshop on Deep Learning and Unsupervised Feature Learning,
+Vol. 2011, pp. 4.
+Cited by: item 3,
+3rd item.
+[18]
+Y. Ovadia, E. Fertig, J. Ren, Z. Nado, D. Sculley, S. Nowozin, J. Dillon, B. Lakshminarayanan, and J. Snoek (2019)
+Can you trust your model’s uncertainty? evaluating predictive uncertainty under dataset shift.
+Advances in neural information processing systems 32.
+Cited by: §D.1,
+§D.1,
+§2,
+§4,
+footnote 1.
+[19]
+Y. Wen, D. Tran, and J. Ba (2020)
+Batchensemble: an alternative approach to efficient ensemble and lifelong learning.
+arXiv preprint arXiv:2002.06715.
+External Links: 2002.06715
+Cited by: Appendix A,
+§1,
+§2,
+§7,
+footnote 1.
+[20]
+H. Xiao, K. Rasul, and R. Vollgraf (2017)
+Fashion-mnist: a novel image dataset for benchmarking machine learning algorithms.
+arXiv preprint arXiv:1708.07747.
+External Links: 1708.07747
+Cited by: item 3.
+Appendix A BatchEnsemble Vectorization
+To enable a vectorized forward pass across all kk ensemble members, Wen et al. [19] constrain the mini-batch size bb to be divisible by kk such that each ensemble member processes a disjoint subset of b/kb/k samples.
+The input matrix X∈ℝb×nX\in\mathbb{R}^{b\times n} is split accordingly, and the corresponding kk rank-1 scaling vectors ri∈ℝmr_{i}\in\mathbb{R}^{m} and si∈ℝns_{i}\in\mathbb{R}^{n} are tiled b/kb/k times to form the matrices R∈ℝb×mR\in\mathbb{R}^{b\times m} and S∈ℝb×nS\in\mathbb{R}^{b\times n}, which contain the row and column scaling factors, respectively.
+This allows the forward pass for the full mini-batch to be written as:
+((S∘X)​W⊤)∘R,\bigl((S\circ X)W^{\top}\bigr)\circ R,
+(4)
+where W∈ℝm×nW\in\mathbb{R}^{m\times n} is the shared weight matrix, and Hadamard products are applied row-wise.
+While this formulation is computationally efficient, each ensemble member only sees a fraction 1/k1/k of the data in a given iteration.
+Alternatively, the mini-batch can be expanded such that each input sample is repeated kk times, once for each ensemble member.
+This results in an input matrix X∈ℝb​k×nX\in\mathbb{R}^{bk\times n}, where each original sample appears kk times.
+The scaling matrices R∈ℝb​k×mR\in\mathbb{R}^{bk\times m} and S∈ℝb​k×nS\in\mathbb{R}^{bk\times n} are constructed by repeating each ensemble member’s vectors rir_{i} and sis_{i} over the entire batch.
+This ensures that each ensemble member processes all data in every training iteration, at the cost of increased training time due to input duplication (see Appendix E).
+Appendix B Proofs For Limited Expressivity Of BatchEnsemble
+See 1
+Proof.
+The inclusion trivially holds as any weight reached by BatchEnsemble is in ℝm×n\mathbb{R}^{m\times n}, and thus reachable by Deep Ensembles.
+Strictness can be shown as follows.
+Let ⊘\oslash be the element-wise division.
+Consider two weight matrices A,B∈ℝm×nA,B\in\mathbb{R}^{m\times n} with non-zero entries and such that Q:=A⊘BQ:=A\oslash B has rank strictly larger than 1.
+If AA and BB were to be representable by BatchEsnemble, then there would exist WW, rr, and ss such that A=W∘r​s⊤A=W\circ rs^{\top} and B=WB=W.
+Then, Q=r​s⊤Q=rs^{\top} has rank 1, a contradiction.
+Finally, note that 𝒲BE\mathcal{W}_{\text{BE}} depends on a total of m​n+k⁡(m+n)mn+k(m+n) parameters.
+Instead, 𝒲DE\mathcal{W}_{\text{DE}} has k​m​nkmn parameters.
+For k,m,n>3k,m,n>3, 𝒲BE\mathcal{W}_{\text{BE}} is a lower-dimensional subset of 𝒲DE\mathcal{W}_{\text{DE}} and has therefore measure zero in 𝒲DE\mathcal{W}_{\text{DE}}.
+∎
+Appendix C Metrics
+Predictive performance.
+We report accuracy (higher is better) and negative log-likelihood (NLL; lower is better):
+NLL⁡(x,y)=−log⁡pθ​(y∣x).\mathrm{NLL}(x,y)=-\log p_{\theta}(y\mid x).
+NLL rewards high probability for correct outcomes and penalizes uncertainty.
+However, it punishes overconfident wrong predictions more severely than the Brier score due to its logarithmic form.
+Calibration.
+Expected Calibration Error (ECE; lower is better) partitions predictions into BB confidence bins and measures the weighted average gap between empirical accuracy and mean confidence:
+ECE=∑b=1B|ℬb|N​|acc⁡(ℬb)−conf⁡(ℬb)|.\mathrm{ECE}=\sum_{b=1}^{B}\frac{|\mathcal{B}_{b}|}{N}\,\bigl|\mathrm{acc}(\mathcal{B}_{b})-\mathrm{conf}(\mathcal{B}_{b})\bigr|.
+We use B=15B{=}15 equal-width bins.
+Uncertainty proxies.
+Let p¯​(y∣x)=1k​∑i=1kpi​(y∣x)\bar{p}(y\mid x)=\tfrac{1}{k}\sum_{i=1}^{k}p_{i}(y\mid x) be the ensemble mean predictive distribution.
+Predictive entropy (higher indicates more total uncertainty):
+H(x)=−∑cp¯(y=c∣x)logp¯(y=c∣x).H(x)=-\sum_{c}\bar{p}(y{=}c\mid x)\,\log\bar{p}(y{=}c\mid x).
+Jensen–Shannon divergence (JSD; higher indicates more epistemic disagreement):
+JSD⁡(x)=H⁡(x)−1k​∑i=1kHi​(x),\mathrm{JSD}(x)=H(x)-\frac{1}{k}\sum_{i=1}^{k}H_{i}(x),
+where HiH_{i} denotes the predictive entropy of the ii-th ensemble member.
+OOD detection.
+Beyond moderate shifts in input quality, neural networks are often deployed in settings where the input domain may deviate substantially from anything seen during training such that the entire notion of prediction becomes ill-posed.
+In such cases, even well-calibrated models may fail catastrophically if they do not recognize that the input lies outside their domain of competence.
+To address this, models must be equipped with mechanisms to identify OOD inputs and abstain from confident predictions [1].
+One simple and widely used approach for OOD detection is to use the maximum softmax probability (MSP) of a classifier as a confidence score [10].
+If this score falls below a certain threshold, the input is flagged as OOD.
+This transforms the task into a binary classification problem:
+determining whether a given input is from the training distribution (ID) or not (OOD).
+To evaluate OOD detection performance, we define the confidence function s⁡(x)∈ℝs(x)\in\mathbb{R} as the MSP.
+An input xx is rejected (i.e., classified as OOD) if s⁡(x)<τs(x)<\tau for a threshold τ\tau:
+Reject​(x)=𝕀​(s​(x)<τ).\text{Reject}(x)=\mathbb{I}(s(x)<\tau).
+This setup allows us to apply standard binary classification metrics, which we describe below.
+AUROC (area under ROC; higher is better) is a threshold-free ranking metric defined by the ROC curve (TPR⁡(τ),FPR⁡(τ))(\mathrm{TPR}(\tau),\mathrm{FPR}(\tau)) as the decision threshold τ\tau varies:
+AUROC=∫01TPR⁡(FPR)​𝑑FPR.\mathrm{AUROC}=\int_{0}^{1}\mathrm{TPR}(\mathrm{FPR})\,d\,\mathrm{FPR}.
+An equivalent interpretation is the probability that a randomly chosen ID input x+x^{+} receives a higher confidence score than a randomly chosen OOD input x−x^{-}:
+AUROC=ℙ⁡(s⁡(x+)>s⁡(x−)).\text{AUROC}=\mathbb{P}(s(x^{+})>s(x^{-})).
+AUPR (area under precision–recall; higher is better) summarizes the PR curve as recall varies:
+Precision=TPTP+FP,Recall=TPTP+FN,AUPR=∫01P⁡(R)​𝑑R.\mathrm{Precision}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FP}},\quad\mathrm{Recall}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FN}},\quad\mathrm{AUPR}=\int_{0}^{1}P(R)\,dR.
+It quantifies how many of the samples predicted as OOD are actually OOD across all thresholds RR.
+Since AUPR is more sensitive than AUROC when positives are rare [3] it is useful for OOD scenarios where OOD samples are rare.
+FPR95 (lower is better) is the false-positive rate at TPR=0.95\mathrm{TPR}=0.95.
+It measures the proportion of OOD samples misclassified as ID when the true positive rate (TPR) for ID samples is set to 95:
+FPR95=FPR​at​TPR=0.95.\mathrm{FPR95}=\mathrm{FPR}\ \text{at}\ \mathrm{TPR}=0.95.
+As such it captures worst-case performance under high recall.
+Appendix D Experimental Setup
+General procedure.
+Unless specified otherwise, all models are trained using the standard cross-entropy loss applied to individual member predictions (not to the ensemble average).
+For MC Dropout, we follow the common practice of training the model as a deterministic network with dropout enabled only at test time.
+Deep Ensemble and BatchEnsemble predictors are treated as independent models: each member’s loss is computed and backpropagated separately.
+For BatchEnsemble, we use the formulation described in Appendix A, repeating each training sample kk times per batch and replicating the scaling vectors ℬ\mathcal{B} times so that every predictor observes the entire dataset in each epoch.
+All experiments are run with random seeds {42,69,123,456,789}\{42,69,123,456,789\}, and confidence intervals are computed using bootstrapping with the Student-tt distribution (4 d.o.f.).
+All code and configuration files are publicly available at this repository.
+Implementation details.
+Unless stated otherwise, we adopt the default hyperparameter configurations from torch-uncertainty, as used by Laurent et al. [14].
+Dropout layers are applied after each linear layer and before the activation in MLPs, and within ResNet blocks after the first convolution and before the activation, matching the default implementations in torch-uncertainty.
+All convolutional and linear layers use He (Kaiming) initialization (PyTorch defaults for ReLU networks).
+BatchEnsemble scaling vectors rir_{i} and sis_{i} are initialized from 𝒩⁡(0, 0.5)\mathcal{N}(0,\,0.5), following the original implementation.
+D.1 CIFAR-10
+We follow the evaluation protocol of Ovadia et al. [18].
+•
+Models: Single model, MC Dropout (rate 0.1, four forward passes), Deep Ensemble (k=4k{=}4), and BatchEnsemble (k=4k{=}4).
+•
+Architecture: All models use ResNet-18 [8].
+•
+Datasets: Training on CIFAR-10 [12]; evaluation on:
+1.
+CIFAR-10 test set (in-distribution),
+2.
+CIFAR-10C [9], corruption severity 5 (distribution shift),
+3.
+SVHN [17] (OOD).
+•
+Training: 75 epochs with SGD, Nesterov momentum 0.9, weight decay 5×10−45\times 10^{-4}, batch size 128, and an initial learning rate of 0.05 decayed by 0.1 at epochs 25 and 50.
+•
+Reporting: Mean and 95% CIs (Student-tt, 4 d.o.f.); AUROC/AUPR micro-averaged across OOD samples.
+•
+Hardware: Single NVIDIA RTX A5000 GPU.
+To ensure comparability between methods, we use four ensemble members for all methods and interpret MC Dropout as an ensemble of four stochastic forward passes.
+Due to computational constraints, we used smaller ensembles than those in Ovadia et al. [18], but they report diminishing returns beyond five members and beyond four MC samples.
+Although Ovadia et al. [18] used slightly larger models and longer training (ResNet-20, 200 epochs), our single-model, Deep Ensemble, and MC Dropout results closely reproduce their ID and shifted results.
+D.2 MNIST
+•
+Models: Single model, MC Dropout (rate 0.05, four forward passes), Deep Ensemble (k=4k{=}4), and BatchEnsemble (k=4k{=}4).
+•
+Architecture: 3-layer MLP with hidden dimensions (64, 32, 16) and ReLU activation.
+•
+Datasets: MNIST [4] for training and evaluation on:
+1.
+MNIST test set (in-distribution),
+2.
+MNIST-C [16] (distribution shift),
+3.
+FashionMNIST [20] (OOD).
+•
+Training: Up to 75 epochs with early stopping (patience = 10, threshold = 0.001 val-acc), Adam optimizer [11] with β1=0.9\beta_{1}{=}0.9, β2=0.999\beta_{2}{=}0.999, ϵ=10−8\epsilon{=}10^{-8}, weight decay 10−410^{-4}, batch size 128, learning rate 0.05 decayed by 0.1 at epochs 25 and 50.
+•
+Hardware: Single NVIDIA A40 GPU.
+Appendix E Computational Cost and Training Time
+We report the number of trainable parameters and average training time (including evaluation on validation and test sets) for each method on ResNet-18 trained on CIFAR-10, using the experimental setup described in Appendix D.1.
+Training BatchEnsemble as described such that each ensemble member sees all training data (see Appendix A) leads to an increase in training duration approaching the training time of Deep Ensemble.
+Table 4: Comparison of Computational Efficiency
+Method
+Single
+MC Dropout
+Deep Ensemble
+BatchEnsemble
+#Params
+11.17 Mio.
+11.17 Mio.
+44.71 Mio.
+11.22 Mio.
+Training Time
+15min
+18min
+1h15min
+1h1min
+Appendix F Channel Rescaling vs. Rank-1 Kernel Perturbation
+In the original BatchEnsemble implementation used in this work, convolution layers are perturbed by rescaling the input and output channels using two learned vectors r∈ℝCinr\in\mathbb{R}^{C_{\text{in}}} and s∈ℝCouts\in\mathbb{R}^{C_{\text{out}}}, respectively.
+These scaling factors are applied multiplicatively to the input and output of a shared convolution kernel and are broadcast across the spatial dimensions.
+This approach modifies the activations rather than the convolution weights themselves which may be less expressive than applying rank-1 perturbations kernel-wise, as done in linear layers
+In this appendix, we explore an alternative formulation where perturbations are applied directly to the convolution kernels using the same rank-1 factorization as for linear layers.
+Following Equation (2)) each ensemble member’s convolution kernel Wi∈ℝCout×Cin×K×KW_{i}\in\mathbb{R}^{C_{\text{out}}\times C_{\text{in}}\times K\times K} is constructed via element-wise multiplication of the shared kernel WW with the outer product of learned ri∈ℝCout×Cin×Kr_{i}\in\mathbb{R}^{C_{\text{out}}\times C_{\text{in}}\times K} and si∈ℝCout×Cin×Ks_{i}\in\mathbb{R}^{C_{\text{out}}\times C_{\text{in}}\times K} taken over the last dimensions of size KK.
+We compare channel-wise (BatchEnsemble (C)) and kernel-wise (BatchEnsemble (K)) perturbations on CIFAR-10, CIFAR-10C (severity 5), and SVHN.
+While the kernel-wise variant improves calibration and OOD detection slightly, it performs worse in terms of accuracy even compared to the already underperforming channel-wise variant.
+This is likely driven by inflated entropy in the individual members’ predictions: the ensemble’s predictive entropy (H) increases, yet JSD stays low, suggesting a rise in aleatoric rather than epistemic uncertainty.
+Despite the added parameters and computational cost22
+2
+For 3×33\times 3 convolutions and rank-1 perturbations, kernel-wise perturbations introduce 6 parameters per filter, leading to 6⋅Cin​Cout6\cdot C_{\text{in}}C_{\text{out}} parameters per layer, compared to just Cin+CoutC_{\text{in}}+C_{\text{out}} for channel-wise scaling.
+, kernel-wise perturbations still fall short of approximating the diversity and performance of Deep Ensembles or MC Dropout.
+Table 5:
+In-Distribution Benchmark (CIFAR-10)
+Method
+Acc↑
+NLL↓
+ECE↓
+H
+JSD
+Standard
+0.941 ±0.004
+0.237 ±0.003
+0.034 ±0.003
+0.073 ±0.005
+N/A
+MC Dropout
+0.936 ±0.001
+0.210 ±0.007
+0.021 ±0.002
+0.120 ±0.005
+0.022 ±0.001
+Deep Ensemble
+0.952 ±0.001
+0.152 ±0.003
+0.007 ±0.002
+0.136 ±0.001
+0.037 ±0.001
+BatchEnsemble (C)
+0.938 ±0.001
+0.230 ±0.006
+0.032 ±0.001
+0.088 ±0.003
+0.002 ±0.000
+BatchEnsemble (K)
+0.931 ±0.002
+0.231 ±0.010
+0.025 ±0.002
+0.124 ±0.003
+0.010 ±0.001
+Table 6:
+Distribution Shift Benchmark (CIFAR-10C, shift intensity 5)
+Name
+Acc↑
+NLL↓
+ECE↓
+H
+JSD
+Standard
+0.558 ±0.008
+2.545 ±0.142
+0.323 ±0.014
+0.327 ±0.026
+N/A
+MC Dropout
+0.578 ±0.002
+2.054 ±0.084
+0.251 ±0.009
+0.449 ±0.031
+0.088 ±0.005
+Deep Ensemble
+0.575 ±0.006
+1.682 ±0.045
+0.206 ±0.009
+0.593 ±0.018
+0.176 ±0.005
+BatchEnsemble (C)
+0.547 ±0.015
+2.357 ±0.164
+0.308 ±0.012
+0.400 ±0.011
+0.008 ±0.002
+BatchEnsemble (K)
+0.521 ±0.008
+2.266 ±0.110
+0.275 ±0.012
+0.544 ±0.023
+0.039 ±0.004
+Table 7:
+OOD Benchmark (SVHN)
+Name
+AUPR↑
+AUROC↑
+FPR95↓
+H
+JSD
+Standard
+0.938 ±0.017
+0.893 ±0.024
+0.318 ±0.071
+0.480 ±0.096
+N/A
+MC Dropout
+0.932 ±0.008
+0.884 ±0.009
+0.324 ±0.019
+0.608 ±0.056
+0.122 ±0.016
+Deep Ensemble
+0.953 ±0.006
+0.924 ±0.011
+0.199 ±0.024
+0.829 ±0.067
+0.277 ±0.032
+BatchEnsemble (C)
+0.932 ±0.015
+0.888 ±0.020
+0.297 ±0.061
+0.495 ±0.100
+0.010 ±0.006
+BatchEnsemble (K)
+0.944 ±0.008
+0.911 ±0.013
+0.231 ±0.025
+0.692 ±0.064
+0.043 ±0.008
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

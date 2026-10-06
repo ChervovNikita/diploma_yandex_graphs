@@ -1,0 +1,1826 @@
+Optimal Transport Dropout for Structured Predictive Uncertainty
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related work
+Bayesian and stochastic uncertainty quantification.
+Generative modelling and transport.
+Uncertainty in functional surrogates.
+Scoring-rule training.
+Interpretation of predictive uncertainty.
+3 Methods
+3.1 Optimal Transport Dropout: from independent to transported masks
+Predictor and stochastic modulation.
+Learnable mask transport.
+Induced predictive distribution.
+3.2 Learning objective
+Learning the transport.
+Energy Score.
+Dynamic formulation and kinetic regularisation.
+Training objective.
+3.3 Predictive dispersion under model misspecification
+Misspecified predictive models.
+Deterministic targets.
+4 Results
+4.1 Controlled experiments
+Bimodal aleatoric experiment
+Reduced-Order Model misspecification experiment
+From under- to over-parametrisation experiment
+4.2 Functional uncertainty quantification
+Ginzburg–Landau equilibrium fields experiment.
+Accuracy, marginal calibration, and sharpness.
+Ensemble dispersion versus data availability.
+Spatial discrepancy–dispersion association: beyond mean and variance.
+Disentangling the contributions of the Energy Score and transport flow.
+4.3 Regression benchmarks on real-world data
+5 Discussion and limitations
+References
+A Diagnostic metrics
+Root Mean Squared Error (RMSE).
+Mean Absolute Error (MAE).
+Energy Score (SESS_{\text{ES}}).
+Predictive Interval Coverage Probability (PICP).
+Sharpness.
+Mean Absolute Coverage Error (MACE).
+B Energy-Score Optimisation
+Restricted energy-distance projection.
+Proposition.
+Proposition.
+Scaling with the residual.
+Symmetric two-point predictive family.
+A mean constraint alone is insufficient.
+Implications for transported predictive models.
+C OTD Implementation Details
+Relaxed mask sampling.
+Logit-space transport.
+Euler and Heun integration.
+Monte Carlo Energy Score.
+Kinetic–action approximation.
+Empirical training objective.
+D Experimental Details
+D.1 Bimodal Dataset
+D.2 Reduced-Order Model misspecification Dataset
+D.3 Latent collapse experiment
+D.4 Ginzburg–Landau experiment
+Data generation.
+Dataset and hyperparameters.
+Results.
+Disentangling the contributions of the Energy Score and transport flow.
+Sensitivity to the integration depth and Concrete temperature.
+D.5 UCI/OpenML Protocol
+E The role of the kinetic regularisation
+F Sensitivity analysis: timing sweep
+G A generalisation of OTD
+Conditional formulation.
+Low–latent formulation.
+Experimental results
+License: CC BY 4.0
+arXiv:2609.33377v1 [cs.LG] 27 Sep 2026
+Optimal Transport Dropout for Structured Predictive Uncertainty
+Giacomo Lorenzon
+††thanks: giacomo.lorenzon@polimi.it
+Affiliation: MOX–Department of Mathematics, Politecnico di Milano, Italy
+Francesco Regazzoni
+Affiliation: MOX–Department of Mathematics, Politecnico di Milano, Italy
+Abstract
+Deterministic neural networks and neural operators provide point predictions with no intrinsic measure of reliability. Yet, predictive uncertainty may stem from irreducible outcome variability, finite data, or limitations of the chosen model class. Monte Carlo dropout offers a computationally convenient way to construct a predictive distribution through stochastic feature masking, without training multiple independent networks or explicitly inferring a posterior over model parameters. However, its perturbation law is largely prescribed a priori and typically factorised across latent coordinates. We introduce Optimal Transport Dropout (OTD), which instead learns the predictive mapping and the law of its latent perturbations jointly. Starting from a simple independent reference distribution, OTD transports latent perturbations through a learnable flow and propagates them through the predictive neural network, thereby inducing a structured predictive law. Training uses the strictly proper Energy Score, while a kinetic-action term geometrically regularises the transport. Synthetic benchmarks show that OTD captures multimodal predictive distributions, generates meaningful dispersion when the model is misspecified, and exhibits contracting dispersion as more training data or greater model capacity are provided. For a field-valued partial differential equation surrogate, predictive dispersion strongly aligns with the spatial pattern of prediction errors. On this task, compared with Monte Carlo dropout, OTD yields more accurate predictions and better-calibrated, substantially narrower intervals. On real-world regression benchmarks, it further shows competitive accuracy and better probabilistic predictions compared to several established baselines. OTD therefore offers a way to learn structured predictive uncertainty without explicit posterior inference or ensembles of independently trained predictors.
+1. Introduction
+Machine-learning models can provide accurate predictions across a wide range of applications, but standard deterministic architectures provide no intrinsic measure of predictive reliability [13, 27]. Uncertainty may arise from intrinsic variability or from limitations of the learned model. Within the latter, we distinguish uncertainty due to finite observations from that associated with model-class misspecification [13, 23]. We refer to these sources as aleatoric, finite-data epistemic, and model-class uncertainty, respectively. Aleatoric uncertainty is irreducible and reflects variability in the conditional target distribution; finite-data epistemic uncertainty arises because the available observations only partially constrain the input–output relation; model-class uncertainty arises when the chosen model family cannot represent the target relation exactly. In practice, these sources may coexist [13] and are not always separately identifiable. In this work, we focus on learning their combined effect through a predictive distribution rather than explicitly decomposing them.
+Scientific surrogate modelling is a particularly relevant setting for this problem. In this context, neural surrogates are machine-learning models trained to approximate the input-output map of computationally expensive high-fidelity simulations, providing substantially cheaper evaluations [27]. Since the surrogate is deployed in place of the underlying solver, inaccurate predictions may occur without an explicit indication of failure [23]. Reliable uncertainty estimates are therefore needed to identify predictions that should not be trusted, while preserving the computational advantage that motivates the use of the surrogate itself.
+Bayesian learning provides a principled framework for epistemic uncertainty by placing a distribution over model parameters and inducing a posterior predictive distribution [23, 15, 3, 6]. Full Bayesian inference, however, is typically computationally demanding [31, 20, 22]. Monte Carlo (MC) dropout provides a lightweight alternative based on a single network and stochastic forward passes, while admitting an approximate Bayesian interpretation [9, 8]. Despite its efficiency, this approach retains a perturbation law whose structure is largely prescribed a priori, typically through factorised masks.
+This restriction motivates a connection with generative modelling, where flexible probability laws are learned from simple reference distributions [11]. A closely related limitation arises in variational inference, where restrictive approximate posterior families may fail to represent strongly non-Gaussian or correlated distributions [31, 20, 28]. Normalising flows address this limitation by transporting a simple reference law through learnable transformations [37, 21, 16, 28]. This suggests a complementary approach to uncertainty quantification: rather than prescribing the stochastic perturbation law, one may learn how a simple reference distribution should be transformed before being propagated through the predictive network.
+We introduce Optimal Transport Dropout (OTD), in which a latent masking variable is transported through a learnable flow, and subsequently propagated through the predictive network. The transported law can encode dependence, anisotropy, and multimodality across mask coordinates, extending the perturbation family beyond factorised masks. The induced predictive distribution is trained directly using the Energy Score [30], while a kinetic action geometrically regularises the transport [26, 1, 33]. OTD therefore retains the lightweight stochastic structure of MC dropout while replacing its prescribed perturbation law with a learnable structured distribution. OTD targets structured predictive uncertainty rather than a single source of uncertainty. For deterministic targets, its predictive dispersion is investigated as a signal of finite-data and model-class uncertainty; for stochastic targets, the predictive law additionally represents aleatoric variability. When these effects coexist, OTD learns their combined predictive distribution without requiring an explicit decomposition. We call the resulting uncertainty structured because the transported perturbation law can encode dependencies across mask coordinates that are absent from standard factorised dropout. We assess the properties of OTD through controlled experiments isolating distributional expressiveness, model misspecification, model capacity, and data availability, before considering field-valued scientific surrogates and real-world regression problems.
+2. Related work
+Bayesian and stochastic uncertainty quantification.
+Bayesian neural networks model parameter uncertainty through approximate posterior inference [23, 3]. MC dropout interprets stochastic masking as approximate Bayesian inference [8], while Concrete Dropout learns dropout probabilities [9]. GFlowOut goes beyond independent masks by learning a potentially multimodal and correlated posterior distribution over dropout masks using generative flow networks [19]. Deep ensembles use independently trained predictors [13], whereas Epinets augment a predictor with an auxiliary stochastic network [24]. Stochastic flow matching has also been combined with approximate Bayesian inference and antithetic sampling for uncertainty estimation in scientific imaging [35]. OTD addresses a different optimisation problem: it transports a reference law into a continuous latent perturbation law and trains the induced predictive distribution directly with the Energy Score, subject to kinetic-action regularisation. Its objective therefore does not require a likelihood, a variational posterior over masks, or a trajectory-balance loss.
+Generative modelling and transport.
+Normalising flows enrich simple reference laws through learnable invertible maps [28]; related work develops structured and flow-based posterior approximations [21, 20, 16]. Conditional generative models similarly learn predictive push-forward distributions [7]. OTD applies this principle in perturbation space, transporting a relaxed dropout law through a kinetically regularised flow. This differs from post-hoc aggregation of uncertainty scores through Monge–Kantorovich ranks [17], which operates on scores rather than the law inducing predictions.
+Uncertainty in functional surrogates.
+Probabilistic Fourier neural operators learn distributions over solution fields using scoring rules [4], while structure-aware methods examine how perturbation placement and form affect uncertainty estimates [29]. REEF-GP fits a Gaussian process to residuals of a frozen neural operator using its internal representations [32]. GenUQ generates a subset of operator parameters with a hyper-network trained using the Energy Score [36]. OTD instead learns correlated feature perturbations, rather than fitting a post-hoc residual model or generating operator parameters, and is not tied to a particular neural-operator architecture.
+Scoring-rule training.
+Proper scoring rules provide principled objectives for learning predictive distributions [10]. The Energy Score admits sample-based estimation without requiring a tractable predictive density [30], thus enabling training of implicit generative models [25]. OTD uses this formulation to train its induced output law and can be viewed as structured engression, with noise entering through transported masks. Engression error analyses distinguish approximation, statistical, and Monte Carlo contributions [5]; OTD additionally involves transport discretisation and kinetic regularisation. Work on scale-sensitive scoring motivates complementary spatial diagnostics for field-valued predictions [18].
+Interpretation of predictive uncertainty.
+Predictive dispersion need not capture model bias or the joint effects of dataset and procedural variability [14], and differs from predictive performance and decision-relevant uncertainty [2]. In generative models, sample variability may additionally mix intrinsic and epistemic components, motivating methods that estimate epistemic uncertainty separately from generative dispersion [12]. Risk-based formulations further combine posterior variability with predictive bias [34]. Accordingly, we interpret OTD dispersion as a learned predictive quantity whose epistemic content must be established through reducibility, error-alignment, and misspecification diagnostics, rather than identifying it a priori with epistemic uncertainty.
+3. Methods
+3.1 Optimal Transport Dropout: from independent to transported masks
+Predictor and stochastic modulation.
+Let 𝒟={(xi,yi)}i=1n\mathcal{D}=\{(x_{i},y_{i})\}_{i=1}^{n} be observations from an unknown conditional law Y|X=x∼Px∗Y\mid X=x\sim P_{x}^{\ast}. Consider now a neural network acting from 𝒳\mathcal{X} to 𝒴\mathcal{Y}. For notational simplicity, consider a single hidden layer network with hidden representation hθ​(x)∈ℝdzh_{\theta}(x)\in\mathbb{R}^{d_{z}}. Given a random mask Z∈[0,1]dzZ\in[0,1]^{d_{z}}, stochastic modulation replaces hθ​(x)h_{\theta}(x) with Z⊙hθ​(x)Z\odot h_{\theta}(x). We denote the resulting prediction by Y^=Gθ​(x,Z)\hat{Y}=G_{\theta}(x,Z). The extension to multiple modulated layers is described in Appendix C.
+Learnable mask transport.
+Monte Carlo dropout samples independent Bernoulli mask coordinates [8]. OTD starts from a factorised reference law, Z0∼ρ0Z_{0}\sim\rho_{0}, ρ0=⊗ℓ=1dzρ0,ℓ,\rho_{0}=\otimes_{\ell=1}^{d_{z}}\rho_{0,\ell}, where each ρ0,ℓ\rho_{0,\ell} is chosen as a continuous relaxation of a Bernoulli law. It then learns a transport map Tψ:[0,1]dz→[0,1]dzT_{\psi}:[0,1]^{d_{z}}\to[0,1]^{d_{z}}, parametrised through a neural flow, such that Z1=Tψ​(Z0)Z_{1}=T_{\psi}(Z_{0}). Its implementation is detailed in Appendix C. The transported mask is thus applied to the hidden representation, yielding Y^=Gθ​(x,Z1)\hat{Y}=G_{\theta}(x,Z_{1}).
+Induced predictive distribution.
+In other words, the transport transforms the reference law into ρ1ψ=(Tψ)#​ρ0,\rho_{1}^{\psi}=(T_{\psi})_{\#}\rho_{0}, which induces the predictive distribution
+Pθ,ψ(⋅∣x)=(Gθ(x,⋅))#ρ1ψ.P^{\theta,\psi}(\cdot\mid x)=\bigl(G_{\theta}(x,\cdot)\bigr)_{\#}\rho_{1}^{\psi}.
+Although ρ1ψ\rho_{1}^{\psi} is shared across inputs, propagating it through the input-dependent map Gθ​(x,⋅)G_{\theta}(x,\cdot) yields a predictive distribution specific to each x∈𝒳x\in\mathcal{X}. The transport can introduce dependence across mask coordinates, extending the perturbation family beyond the factorised reference law.
+3.2 Learning objective
+Learning the transport.
+The terminal mask distribution is not specified in advance. Instead, the transport network parameters ψ\psi and the predictive network parameters θ\theta are learned jointly from data. The predictive law induced by the transported masks is optimised through the Energy Score [30], while the latent flow is regularised through its kinetic action [1]. Consequently, the data-fitting term constrains the perturbation distribution only through its effect on the resulting predictions, while the kinetic action regularises the transport directly.
+Energy Score.
+OTD is trained at the level of predictive distribution rather than through a pointwise regression loss. Let PP and QQ be probability distributions on the output space 𝒴\mathcal{Y}, namely P,Q∈𝒫1​(𝒴)P,Q\in\mathcal{P}_{1}(\mathcal{Y}). Their Energy Distance [30] is defined as
+ℰd​(P,Q)=2​𝔼Y∼P,V∼Q​d𝒴​(Y,V)−𝔼Y,Y′​∼iid​P​d𝒴​(Y,Y′)−𝔼V,V′​∼iid​Q​d𝒴​(V,V′),\mathcal{E}_{d}(P,Q)=2\,\mathbb{E}_{Y\sim P,\;V\sim Q}d_{\mathcal{Y}}(Y,V)-\mathbb{E}_{Y,Y^{\prime}\overset{\mathrm{iid}}{\sim}P}d_{\mathcal{Y}}(Y,Y^{\prime})-\mathbb{E}_{V,V^{\prime}\overset{\mathrm{iid}}{\sim}Q}d_{\mathcal{Y}}(V,V^{\prime}),
+(1)
+where d𝒴d_{\mathcal{Y}} is a metric of strong negative type ([30], Definition 10.4). Under this condition, ℰd​(P,Q)≥0\mathcal{E}_{d}(P,Q)\geq 0, with equality if and only if P=QP=Q [4, 30].
+In supervised learning, however, the target distribution Q=Px∗Q=P_{x}^{\ast}, for fixed x∈𝒳x\in\mathcal{X}, is not directly available: for each input xx, we observe only a realisation y∼Qy\sim Q. Since the last term in Equation 1 does not depend on the predictive distribution PP, minimising the expected Energy Distance with respect to PP is equivalent to minimising the Energy Score
+SES​(P,y)=𝔼Y∼P​d𝒴​(Y,y)−12​𝔼Y,Y′​∼iid​P​d𝒴​(Y,Y′).S_{\mathrm{ES}}(P,y)=\mathbb{E}_{Y\sim P}d_{\mathcal{Y}}(Y,y)-\frac{1}{2}\mathbb{E}_{Y,Y^{\prime}\overset{\mathrm{iid}}{\sim}P}d_{\mathcal{Y}}(Y,Y^{\prime}).
+More precisely, if V∼QV\sim Q,
+𝔼V∼Q​[SES​(P,V)]−𝔼V∼Q​[SES​(Q,V)]=12​ℰd​(P,Q).\mathbb{E}_{V\sim Q}\left[S_{\mathrm{ES}}(P,V)\right]-\mathbb{E}_{V\sim Q}\left[S_{\mathrm{ES}}(Q,V)\right]=\frac{1}{2}\,\mathcal{E}_{d}(P,Q).
+Hence, the Energy Score is also strictly proper whenever d𝒴d_{\mathcal{Y}} is of strong negative type. For the deterministic setting, Q=δy⁡(x)Q=\delta_{y(x)}, and therefore SES​(P,y⁡(x))=12​ℰd​(P,δy⁡(x)).S_{\mathrm{ES}}(P,y(x))=\frac{1}{2}\,\mathcal{E}_{d}(P,\delta_{y(x)}). Appendix B collects some results regarding optimisation under the Energy Score.
+Dynamic formulation and kinetic regularisation.
+The transport is generated by a time-dependent velocity field vψ:[0,1]×𝒵→ℝdzv_{\psi}:[0,1]\times\mathcal{Z}\to\mathbb{R}^{d_{z}}. In the chosen transport coordinates, trajectories satisfy
+d​ztd​t=vψ​(t,zt),t∈[0,1].\frac{\mathrm{d}z_{t}}{\mathrm{d}t}=v_{\psi}(t,z_{t}),\qquad t\in[0,1].
+Under standard well-posedness assumptions, their marginal laws μt\mu_{t} satisfy the continuity equation
+∂tμt+∇⋅(μt​vψ)=0\partial_{t}\mu_{t}+\nabla\cdot(\mu_{t}v_{\psi})=0
+in the weak sense. The parametrisation relating these trajectories to the bounded masks is detailed in Appendix C. Different transport paths may induce similar predictive distributions. We therefore regularise the learned flow through its kinetic action,
+𝒜⁡(ψ)=12​∫01𝔼z∼μt​‖vψ​(t,z)‖22​𝑑t.\mathcal{A}(\psi)=\frac{1}{2}\int_{0}^{1}\mathbb{E}_{z\sim\mu_{t}}\|v_{\psi}(t,z)\|_{2}^{2}\,\mathrm{d}t.
+This is the action underlying the dynamic formulation of quadratic optimal transport [26, 1, 33]. For prescribed endpoint laws with finite second moments, its infimum over all admissible paths equals half their squared Wasserstein distance. Consequently, any admissible parametrised path satisfies
+12​W22​(μ0,μ1)≤𝒜⁡(ψ).\frac{1}{2}W_{2}^{2}(\mu_{0},\mu_{1})\leq\mathcal{A}(\psi).
+OTD does not explicitly solve an optimal transport problem between prescribed endpoints, but it penalises the action of its learned path while selecting the terminal mask law through the predictive objective. The specific role of the penalisation term is investigated in Appendix E.
+Training objective.
+Given training observations 𝒟={(xi,yi)}i=1n\mathcal{D}=\{(x_{i},y_{i})\}_{i=1}^{n}, OTD minimises
+ℒn(θ,ψ)=1n∑i=1nSES(Pθ,ψ(⋅∣xi),yi)+λ𝒜(ψ),\mathcal{L}_{n}(\theta,\psi)=\frac{1}{n}\sum_{i=1}^{n}S_{\text{ES}}\left(P^{\theta,\psi}(\cdot\mid x_{i}),y_{i}\right)+\lambda\mathcal{A}(\psi),
+where λ>0\lambda>0 controls the strength of the regularisation.
+This distinction separates OTD from approaches that first train a deterministic predictor and subsequently attach an uncertainty estimator. Here, stochasticity enters the predictive model itself and is optimised according to the quality of the induced conditional distribution.
+3.3 Predictive dispersion under model misspecification
+Misspecified predictive models.
+Let Px∗P_{x}^{\ast} denote the unknown conditional data-gene-rating law and define the family of distributions representable by OTD as
+ℳ={Pθ,ψ(⋅∣x):(θ,ψ)∈Θ×Ψ}.\mathcal{M}=\left\{P^{\theta,\psi}(\cdot\mid x):(\theta,\psi)\in\Theta\times\Psi\right\}.
+In general, there is no reason to assume that P∗∈ℳP^{\ast}\in\mathcal{M}. The model may therefore be misspecified, in which case energy-score minimisation targets a best-in-class predictive law, rather than recovering P∗P^{\ast} exactly. To characterise the target induced by the scoring rule, consider the unregularised population risk
+ℛ(θ,ψ)=𝔼X𝔼Y∼PX∗SES(Pθ,ψ(⋅∣X),Y),(θ†,ψ†)∈argminθ,ψℛ(θ,ψ).\mathcal{R}(\theta,\psi)=\mathbb{E}_{X}\mathbb{E}_{Y\sim P_{X}^{*}}S_{\text{ES}}\left(P^{\theta,\psi}(\cdot\mid X),Y\right),\quad(\theta^{\dagger},\psi^{\dagger})\in\arg\min_{\theta,\psi}\mathcal{R}(\theta,\psi).
+When P∗∉ℳP^{\ast}\notin\mathcal{M}, a population-risk minimiser (θ†,ψ†)(\theta^{\dagger},\psi^{\dagger}) defines a best-in-class predictive model within the OTD class. From this perspective, transporting the perturbation law enlarges the family of predictive distributions accessible to the predictive model relative to a fixed masking distribution. To assess the quality of the predictive model distribution, we employ both calibration and accuracy metrics, detailed in Appendix A.
+Deterministic targets.
+The interpretation is particularly relevant for deterministic scientific models. If the high-fidelity map is y=f⁡(x)y=f(x), then the conditional data-generating law is Px∗=δf⁡(x)P_{x}^{\ast}=\delta_{f(x)}. There is therefore no irreducible output variability to recover. Predictive dispersion should instead be interpreted as reflecting uncertainty associated with finite data and model-class limitations when learning f:𝒳→𝒴f:\mathcal{X}\to\mathcal{Y}. In the idealised limit of complete information and correct specification, strict propriety of the Energy Score implies that the optimal predictive distribution collapses to the deterministic target. Consequently, in this case, the stochasticity introduced by OTD does not presuppose that the underlying physical system is stochastic. OTD uses a learnable distribution of model perturbations to induce predictive variability associated with finite data and model-class limitations. We therefore interpret the resulting dispersion as a candidate signal of epistemic uncertainty, and evaluate this interpretation explicitly through controlled experiments on data availability, model misspecification, and error–dispersion alignment.
+4. Results
+We first consider controlled settings in which specific factors affecting predictive uncertainty can be examined systematically. These experiments are designed to investigate three distinct properties of OTD: (i) whether transported masks enable capturing structured aleatoric uncertainty, (ii) whether predictive dispersion responds to structural model misspecification, and (iii) how this dispersion changes as model capacity increases. We then consider a functional regression problem, in which we assess the spatial alignment between predictive dispersion and prediction error, and whether dispersion decreases as data availability increases. These diagnostics provide empirical evidence for assessing its interpretation as a signal of reducible uncertainty.
+4.1 Controlled experiments
+Bimodal aleatoric experiment
+Figure 1: Bimodal aleatoric experiment. Left: kernel density estimation of the predictive conditional distribution. Right: principal component analysis of the first two components of the sampled and the transported masks.
+We first consider a controlled regression problem with a bimodal conditional target law whose two deterministic branches coincide over part of the input domain and bifurcate elsewhere (Figure 1, left). The experiment tests whether OTD collapses to a Dirac measure where the two branches coincide and recovers bimodality where the two separate. For the details, see subsection D.1. Starting from an independent reference mask law, OTD learns a transported distribution whose push-forward through the predictive model reproduces this input-dependent transition. This isolates the expressiveness gained by transport: a single global latent law can induce qualitatively different predictive distributions through z↦Gθ​(x,z)z\mapsto G_{\theta}(x,z), and the bimodality is reflected also in the latent space (Figure 1, right).
+Reduced-Order Model misspecification experiment
+We next consider a deterministic target map f:𝒳→𝒴f:\mathcal{X}\to\mathcal{Y} approximated within a restricted model class ℳR\mathcal{M}_{R}. When f∉ℳRf\notin\mathcal{M}_{R}, a non-zero approximation error remains even after optimisation, providing a controlled setting for model misspecification. We refer to this as a reduced-order-model (ROM) misspecification experiment because it mimics a common ROM setting, where a restricted approximation space captures the solution’s dominant components while leaving finer-scale features unresolved. For details, see subsection D.2. The experiment tests whether OTD preserves predictive dispersion in the presence of this unresolved structural error. In this setting, OTD achieves lower L1L^{1}, L2L^{2}, Energy Score, and Mean Absolute Calibration Error (MACE) than MC Dropout (Figure 2 and Table 1). For all the metric definitions, see Appendix A.
+Figure 2:
+Reduced-Order Model misspecification experiment. Model predictions, in blue, against data, dotted in black.
+Table 1: Reduced-Order Model misspecification experiment. Comparison between OTD and MC Dropout on aggregate predictive metrics.
+Metric
+OTD
+MC Dropout
+L2L^{2}
+0.072±0.001\mathbf{0.072\pm 0.001}
+0.092±0.0010.092\pm 0.001
+L1L^{1}
+0.065±0.001\mathbf{0.065\pm 0.001}
+0.074±0.0010.074\pm 0.001
+SESS_{\mathrm{ES}}
+0.042±0.001\mathbf{0.042\pm 0.001}
+0.055±0.0010.055\pm 0.001
+MACE
+0.077±0.025\mathbf{0.077\pm 0.025}
+0.183±0.0100.183\pm 0.010
+From under- to over-parametrisation experiment
+We next investigate how predictive dispersion changes with the predictive network expressivity at fixed sample size. We use a one-hidden-layer network, so that its representational capacity is controlled directly by the hidden width. We vary this width while keeping the dataset and optimisation protocol fixed. As the hidden width increases, we observe a contraction of predictive dispersion once the predictive model becomes sufficiently expressive (Figure 3). The experiment therefore provides a controlled transition from under- to over-parametrisation: stochasticity persists when the network lacks sufficient representational capacity and decreases once the target map can be represented more accurately. For the details, see subsection D.3.
+Figure 3: From under- to over-parametrisation experiment. The four images show the predictions of the trained models in blue with increasing hidden widths MM. Above them, in grey, the histograms represent the distribution of the transported mask values across hidden units.
+Taken together, these experiments show that the transported mask distribution is not merely a source of generic output noise. Its geometry adapts to the predictive problem: it can represent multimodal predictive laws, remain dispersed under structural misspecification, and contract as the predictive model’s capacity increases.
+4.2 Functional uncertainty quantification
+Ginzburg–Landau equilibrium fields experiment.
+We consider functional regression of deterministic Ginzburg–Landau equilibrium fields, a canonical phase-field model describing the spatial and temporal evolution of a system undergoing a phase transition. For each parameter μ∈[0,1]\mu\in[0,1], OTD generates an ensemble of spatial predictions (μ,x,y)↦uμ​(x,y)(\mu,x,y)\mapsto u_{\mu}(x,y) in the unit square. Here, uu is a spatial order parameter describing the local state of a phase-transition system, while μ\mu controls the local reaction dynamics and the spatial forcing. Predictive variability is evaluated as a candidate signal of epistemic uncertainty associated with finite training data and surrogate approximation. We evaluate predictive accuracy, marginal coverage, ensemble concentration, and spatial discrepancy–dispersion association. For details, see subsection D.4.
+Accuracy, marginal calibration, and sharpness.
+OTD achieves better accuracy and probabilistic performance, with nearly nominal 90% coverage and substantially sharper intervals, than Dropout (Table 2).
+Table 2: Ginzburg–Landau equilibrium fields experiment. Predictive performance and marginal calibration. Interval entries report PICP in per cent, with relative width in parentheses.
+Predictive performance
+PICP % (Width)
+Method
+RMSE
+MAE
+SESS_{\text{ES}}
+MACE
+50%
+75%
+80%
+90%
+95%
+Deterministic
+0.163
+0.070
+0.070
+–
+–
+–
+–
+–
+–
+Dropout
+0.172
+0.102
+0.071
+0.016
+50.5 (0.068)
+74.0 (0.115)
+78.4 (0.128)
+87.5 (0.164)
+92.7 (0.193)
+OTD
+0.128
+0.044
+0.031
+0.009
+50.9 (0.025)
+76.7 (0.044)
+81.5 (0.050)
+90.5 (0.066)
+94.9 (0.081)
+Ensemble dispersion versus data availability.
+As the training-set size increases, the ensemble dispersion 𝒰⁡(P^𝒟n)\mathcal{U}(\hat{P}_{\mathcal{D}_{n}}) monotonically decreases while predictive accuracy improves, where
+𝒰d𝒴​(P)=12​∫𝒳𝔼U,U′∼Px​d𝒴​(U,U′)​ν​(𝑑x).\mathcal{U}_{d_{\mathcal{Y}}}(P)=\frac{1}{2}\int_{\mathcal{X}}\mathbb{E}_{U,U^{\prime}\sim P_{x}}d_{\mathcal{Y}}(U,U^{\prime})\,\nu(\mathrm{d}x).
+This contraction indicates that OTD responds to the information available in the data, as expected of a measure of finite-data epistemic uncertainty.
+Training set size %
+0.25
+0.50
+0.75
+1.00
+𝒰⁡(P^𝒟n)\mathcal{U}(\hat{P}_{\mathcal{D}_{n}})
+0.16060
+0.08232
+0.05089
+0.04967
+Spatial discrepancy–dispersion association: beyond mean and variance.
+We further assess whether predictive dispersion identifies where the surrogate is inaccurate, rather than merely matching aggregate error statistics. The strong rank association between spatial discrepancy and dispersion shows that OTD assigns greater uncertainty to regions with larger prediction errors, capturing spatially structured uncertainty beyond global mean and variance. See, for example, Figure 4. For quantitative details, refer instead to subsection D.4
+Figure 4: Ginzburg–Landau equilibrium fields experiment. OTD ensemble mean, local predictive discrepancy, and pairwise dispersion for two selected test fields. These maps illustrate the spatial alignment between predictive discrepancy ϵF\epsilon_{F} and predictive dispersion ϵD\epsilon_{D}.
+Disentangling the contributions of the Energy Score and transport flow.
+We compare five controlled variants to separate the contributions of the Energy Score, transport flow, and kinetic regularisation. All OTD variants are trained with the Energy Score; OTD-0 denotes the zero-step model, which applies no transport and samples independent masks directly from the reference Concrete distribution. As shown in Table 3, training MC Dropout with the Energy Score moderately improves RMSE, MAE, and SESS_{\mathrm{ES}}, but worsens calibration. OTD-0 provides no further benefit, suggesting that the scoring rule and reference mask distribution alone do not explain the performance of OTD. Activating the flow substantially improves all metrics, reducing the RMSE and the SESS_{\mathrm{ES}}. Kinetic regularisation has a smaller effect: the unregularised model achieves the lowest RMSE, whereas complete OTD provides the best MAE, Energy Score, and MACE. Notably, complete OTD reduces RMSE by approximately 25%25\% relative to MC Dropout, despite not directly optimising it. Overall, the results identify the transport flow as the principal source of improvement. Further details, including sensitivity analyses for τ\tau and the number of integration steps, are provided in subsection D.4.
+Table 3: Ginzburg–Landau equilibrium fields: controlled comparison of the Energy Score, transport flow, and kinetic regularisation. Results are mean ±\pm standard deviation over three seeds.
+Model
+RMSE
+MAE
+SESS_{\mathrm{ES}}
+MACE
+MC Dropout
+0.1992±0.01580.1992\pm 0.0158
+0.1228±0.00880.1228\pm 0.0088
+0.0885±0.00750.0885\pm 0.0075
+0.0381±0.00450.0381\pm 0.0045
+MC Dropout + ES
+0.1902±0.01330.1902\pm 0.0133
+0.1083±0.00670.1083\pm 0.0067
+0.0812±0.00560.0812\pm 0.0056
+0.1657±0.01060.1657\pm 0.0106
+OTD-0
+0.2070±0.00770.2070\pm 0.0077
+0.1215±0.00190.1215\pm 0.0019
+0.0896±0.00120.0896\pm 0.0012
+0.1665±0.00180.1665\pm 0.0018
+OTD, λkin=0\lambda_{\mathrm{kin}}=0
+0.1442±0.0141\mathbf{0.1442\pm 0.0141}
+0.0668±0.00370.0668\pm 0.0037
+0.0460±0.00280.0460\pm 0.0028
+0.0536±0.02730.0536\pm 0.0273
+OTD
+0.1497±0.01520.1497\pm 0.0152
+0.0661±0.0084\mathbf{0.0661\pm 0.0084}
+0.0455±0.0053\mathbf{0.0455\pm 0.0053}
+0.0328±0.0225\mathbf{0.0328\pm 0.0225}
+4.3 Regression benchmarks on real-world data
+We finally evaluate OTD on a collection of standard tabular regression datasets from OpenML, adapted from Table 4 in [7]. These experiments test whether the behaviour observed in the controlled and functional settings transfers to heterogeneous regression problems without relying on problem-specific structure, where aleatoric uncertainty also comes into play. All methods use the same deterministic backbone and data splits and, where applicable, follow the experimental protocols established in the literature [7]. This allows differences in performance to be attributed primarily to the uncertainty mechanism. Dataset statistics, optimisation settings, and the complete evaluation protocol are reported in subsection D.5.
+Across the considered datasets, OTD remains competitive while improving the quality of the returned information, not only a point prediction, but a complete predictive distribution. The aggregate results in Figure 5 indicate that learning the perturbation distribution can improve predictive quality without requiring an ensemble of independently trained networks. Subsection D.5 reports the complete numerical values and further investigations.
+Figure 5: Experimental dataset. Negative log-likelihood comparison of OTD (blue) against other models (grey).
+5. Discussion and limitations
+OTD replaces the fixed, factorised perturbation law of standard Monte Carlo dropout with one learned through latent transport, enabling a single network to generate correlated, anisotropic, and potentially multimodal predictions. Controlled experiments show that OTD captures multimodal targets, responds to model misspecification, and contracts as data availability or model capacity increases. Functional regression results further show improved calibration and Energy Score without explicit Bayesian inference or independently trained ensembles.
+Predictive dispersion must nevertheless be interpreted carefully. Although its persistence under stochastic targets, response to misspecification, contraction with data or capacity, and alignment with error support its interpretation as uncertainty, OTD does not explicitly separate aleatoric, model-class, and finite-data contributions. Nor does it define a Bayesian posterior: uncertainty arises from internal perturbations jointly learned with the predictor. Its validity has thus been assessed through controlled experimental settings.
+OTD also adds computational cost through predictive sampling and integration of the latent flow, while the direct Monte Carlo Energy Score scales quadratically with the sample count. Nevertheless, our analysis in Appendix F shows stable performance with few samples and integration steps, and competitive results with low-dimensional transports in Appendix G. Validation on larger architectures, such as Fourier neural operators, and larger output spaces remains necessary and is currently under investigation.
+Overall, OTD offers a simple way to enrich stochastic predictors beyond independent perturbations. Its combination of latent transport, proper scoring rules, and kinetic regularisation also suggests a variational connection with stochastic control and optimal transport, whose rigorous analysis is the subject of ongoing work.
+Acknowledgments
+The present research has received support from the project FIS, MUR, Italy 2025-2028, Project code: FIS-2023-02228, CUP: D53C24005440001, “SYNERGIZE: Synergizing Numerical Methods and Machine Learning for a new generation of computational models”.
+The authors of this work are members of GNCS, “Gruppo Nazionale per il Calcolo Scientifico” (National Group for Scientific Computing) of INdAM (Istituto Nazionale di Alta Matematica).
+AI use statement
+We used LLMs as assistive tools in two limited capacities: (i) retrieval and discovery, namely, to help identify potentially relevant related work, all of which was subsequently read and verified by the authors; and (ii) minor language editing to improve grammar and readability. All research ideas, theoretical results and proofs, and experiments were conceived, carried out, and verified independently by the authors. LLMs were not used to generate research ideas, derive results, conduct the experiments, or analyse data. The authors take full responsibility for the entire content of this paper.
+References
+[1]
+L. Ambrosio and N. Gigli (2013)
+A user’s guide to optimal transport.
+In Modelling and Optimisation of Flows on Networks, B. Piccoli and M. Rascle (Eds.),
+Lecture Notes in Mathematics, Vol. 2062, pp. 1–155.
+External Links: ISBN 978-3-642-32159-7,
+Document,
+Link
+Cited by: §1,
+§3.2,
+§3.2.
+[2]
+F. Bickford Smith, J. Kossen, E. Trollope, M. Van Der Wilk, A. Foster, and T. Rainforth (2025)
+Rethinking aleatoric and epistemic uncertainty.
+In Proceedings of the 42nd International Conference on Machine Learning, A. Singh, M. Fazel, D. Hsu, S. Lacoste-Julien, F. Berkenkamp, T. Maharaj, K. Wagstaff, and J. Zhu (Eds.),
+Proceedings of Machine Learning Research, Vol. 267, pp. 4345–4359.
+External Links: Link
+Cited by: §2.
+[3]
+C. Blundell, J. Cornebise, K. Kavukcuoglu, and D. Wierstra (2015)
+Weight uncertainty in neural network.
+In Proceedings of the 32nd International Conference on Machine Learning, F. Bach and D. Blei (Eds.),
+Proceedings of Machine Learning Research, Vol. 37, Lille, France, pp. 1613–1622.
+External Links: Link
+Cited by: §1,
+§2.
+[4]
+C. Bülte, P. Scholl, and G. Kutyniok (2024)
+Probabilistic predictions with Fourier neural operators.
+In NeurIPS 2024 Workshop on Bayesian Decision-making and Uncertainty,
+External Links: Link
+Cited by: §2,
+§3.2.
+[5]
+J. Chen, Z. Guo, and X. Shen (2026)
+Error analysis of neural-network-based engression.
+Note: arXiv preprint arXiv:2607.27723
+External Links: 2607.27723,
+Document,
+Link
+Cited by: §2.
+[6]
+A. Der Kiureghian and O. Ditlevsen (2009)
+Aleatory or epistemic? does it matter?.
+Structural Safety 31 (2), pp. 105–112.
+External Links: Document,
+Link
+Cited by: §1.
+[7]
+N. R. Franco and L. Tedesco (2025)
+Nonparametric estimation of conditional probability distributions using a generative approach based on conditional push-forward neural networks.
+Note: arXiv preprint arXiv:2511.14455
+External Links: 2511.14455,
+Document,
+Link
+Cited by: §2,
+§4.3.
+[8]
+Y. Gal and Z. Ghahramani (2016)
+Dropout as a Bayesian approximation: representing model uncertainty in deep learning.
+In Proceedings of the 33rd International Conference on Machine Learning, M. F. Balcan and K. Q. Weinberger (Eds.),
+Proceedings of Machine Learning Research, Vol. 48, New York, New York, USA, pp. 1050–1059.
+External Links: Link
+Cited by: §1,
+§2,
+§3.1.
+[9]
+Y. Gal, J. Hron, and A. Kendall (2017)
+Concrete dropout.
+In Advances in Neural Information Processing Systems,
+Vol. 30, pp. 3584–3593.
+External Links: Link
+Cited by: §1,
+§2.
+[10]
+T. Gneiting and A. E. Raftery (2007)
+Strictly proper scoring rules, prediction, and estimation.
+Journal of the American Statistical Association 102 (477), pp. 359–378.
+External Links: Document,
+Link
+Cited by: §2.
+[11]
+I. Goodfellow, Y. Bengio, and A. Courville (2016)
+Deep learning.
+MIT Press.
+External Links: ISBN 978-0-262-03561-3,
+Link
+Cited by: §1.
+[12]
+A. Gupta, R. A. Meyer, Y. Yaniv, E. Chen, and N. B. Erichson (2026)
+Quantifying epistemic uncertainty in diffusion models.
+In Proceedings of the 29th International Conference
+on Artificial Intelligence and Statistics,
+Proceedings of Machine Learning Research, Vol. 300, pp. 3655–3663.
+External Links: Link
+Cited by: §2.
+[13]
+W. He, Z. Jiang, T. Xiao, Z. Xu, and Y. Li (2026)
+A survey on uncertainty quantification methods for deep learning.
+ACM Computing Surveys 58 (7), pp. 179:1–179:35.
+External Links: ISSN 0360-0300,
+Document,
+Link
+Cited by: §1,
+§2.
+[14]
+S. Jiménez, M. Jürgens, and W. Waegeman (2026)
+Position: epistemic uncertainty estimation methods are fundamentally incomplete.
+In ICML 2026 Position Paper Track,
+External Links: Link
+Cited by: §2.
+[15]
+A. Kendall and Y. Gal (2017)
+What uncertainties do we need in Bayesian deep learning for computer vision?.
+In Advances in Neural Information Processing Systems,
+Vol. 30, pp. 5580–5590.
+External Links: Link
+Cited by: §1.
+[16]
+D. P. Kingma, T. Salimans, R. Jozefowicz, X. Chen, I. Sutskever, and M. Welling (2016)
+Improved variational inference with inverse autoregressive flow.
+In Advances in Neural Information Processing Systems,
+Vol. 29, pp. 4743–4751.
+External Links: Link
+Cited by: §1,
+§2.
+[17]
+N. Kotelevskii, M. Goloburda, V. Kondratyev, A. Fishkov, M. Guizani, E. Moulines, and M. Panov (2025)
+Multidimensional uncertainty quantification via optimal transport.
+Note: arXiv preprint arXiv:2509.22380
+External Links: 2509.22380,
+Document,
+Link
+Cited by: §2.
+[18]
+S. Lang, M. Leutbecher, and S. Hatfield (2026)
+On the sensitivity of machine-learned probabilistic weather forecast models to scale-aware scoring rules.
+Note: arXiv preprint arXiv:2607.19161
+External Links: 2607.19161,
+Document,
+Link
+Cited by: §2.
+[19]
+D. Liu, M. Jain, B. F. P. Dossou, Q. Shen, S. Lahlou, A. Goyal, N. Malkin, C. C. Emezue, D. Zhang, N. Hassen, X. Ji, K. Kawaguchi, and Y. Bengio (2023)
+GFlowOut: dropout with generative flow networks.
+In Proceedings of the 40th International Conference on Machine Learning,
+Proceedings of Machine Learning Research, Vol. 202, pp. 21715–21729.
+External Links: Link
+Cited by: §2.
+[20]
+C. Louizos and M. Welling (2016)
+Structured and efficient variational deep learning with matrix Gaussian posteriors.
+In Proceedings of the 33rd International Conference on Machine Learning, M. F. Balcan and K. Q. Weinberger (Eds.),
+Proceedings of Machine Learning Research, Vol. 48, New York, New York, USA, pp. 1708–1716.
+External Links: Link
+Cited by: §1,
+§1,
+§2.
+[21]
+C. Louizos and M. Welling (2017)
+Multiplicative normalizing flows for variational Bayesian neural networks.
+In Proceedings of the 34th International Conference on Machine Learning, D. Precup and Y. W. Teh (Eds.),
+Proceedings of Machine Learning Research, Vol. 70, pp. 2218–2227.
+External Links: Link
+Cited by: §1,
+§2.
+[22]
+D. J. C. MacKay (1992)
+A practical Bayesian framework for backpropagation networks.
+Neural Computation 4 (3), pp. 448–472.
+External Links: Document,
+Link
+Cited by: §1.
+[23]
+K. P. Murphy (2022)
+Probabilistic machine learning: an introduction.
+MIT Press.
+External Links: ISBN 978-0-262-04682-4,
+Link
+Cited by: §1,
+§1,
+§1,
+§2.
+[24]
+I. Osband, Z. Wen, S. M. Asghari, V. Dwaracherla, M. Ibrahimi, X. Lu, and B. Van Roy (2023)
+Epistemic neural networks.
+In Advances in Neural Information Processing Systems,
+Vol. 36, pp. 2795–2823.
+External Links: Document,
+Link
+Cited by: §2.
+[25]
+L. Pacchiardi, R. A. Adewoyin, P. Dueben, and R. Dutta (2024)
+Probabilistic forecasting with generative networks via scoring rule minimization.
+Journal of Machine Learning Research 25 (45), pp. 1–64.
+External Links: Link
+Cited by: §2.
+[26]
+G. Peyré and M. Cuturi (2019)
+Computational optimal transport with applications to data sciences.
+Foundations and Trends in Machine Learning 11 (5–6), pp. 355–607.
+External Links: Document,
+Link
+Cited by: §1,
+§3.2.
+[27]
+A. Quarteroni, P. Gervasio, and F. Regazzoni (2025)
+Combining physics-based and data-driven models: advancing the frontiers of research with scientific machine learning.
+Mathematical Models and Methods in Applied Sciences 35 (4), pp. 905–1071.
+External Links: ISSN 0218-2025,
+Document,
+Link
+Cited by: §1,
+§1.
+[28]
+D. Rezende and S. Mohamed (2015)
+Variational inference with normalizing flows.
+In Proceedings of the 32nd International Conference on Machine Learning, F. Bach and D. Blei (Eds.),
+Proceedings of Machine Learning Research, Vol. 37, Lille, France, pp. 1530–1538.
+External Links: Link
+Cited by: §1,
+§2.
+[29]
+H. Song, Z. Li, M. Deng, X. Li, D. Pan, Z. Lai, and W. Wang (2026)
+Structure-aware epistemic uncertainty quantification for neural operator PDE surrogates.
+Note: arXiv preprint arXiv:2603.11052
+External Links: 2603.11052,
+Document,
+Link
+Cited by: §2.
+[30]
+G. J. Székely and M. L. Rizzo (2023)
+The energy of data and distance correlation.
+1 edition, Chapman and Hall/CRC.
+External Links: ISBN 978-1-4822-4274-4,
+Link
+Cited by: §1,
+§2,
+§3.2,
+§3.2,
+§3.2.
+[31]
+M. B. Tomczak, S. Swaroop, and R. E. Turner (2020)
+Efficient low rank Gaussian variational inference for neural networks.
+In Advances in Neural Information Processing Systems,
+Vol. 33, pp. 4610–4622.
+External Links: Link
+Cited by: §1,
+§1.
+[32]
+O. Vendrell-Gallart, N. Negarandeh, and R. Bostanabad (2026)
+Geometry-aware post-hoc uncertainty quantification in operator learning.
+Note: arXiv preprint arXiv:2606.17513
+External Links: 2606.17513,
+Link
+Cited by: §2.
+[33]
+C. Villani (2009)
+Optimal transport: old and new.
+Grundlehren der mathematischen Wissenschaften, Vol. 338, Springer, Berlin, Heidelberg.
+External Links: ISBN 978-3-540-71049-3,
+Document,
+Link
+Cited by: §1,
+§3.2.
+[34]
+F. Wizgall, G. Tirpitz, M. Seiler, K. Ritter, and B. Mucsányi (2026)
+A unified risk view of uncertainty: posterior risk for disentanglement and evaluation beyond proxies.
+Note: arXiv preprint arXiv:2608.05995
+External Links: 2608.05995,
+Document,
+Link
+Cited by: §2.
+[35]
+D. Wu, Y. Zhang, S. Yeung-Levy, E. Lundberg, and E. B. Fox (2026)
+Uncertainty-aware distribution-to-distribution flow matching for scientific imaging.
+Note: arXiv preprint arXiv:2603.21717
+External Links: 2603.21717,
+Document,
+Link
+Cited by: §2.
+[36]
+T. Y. Yen, R. E. Jones, and R. G. Patel (2025)
+GenUQ: predictive uncertainty estimates via generative hyper-networks.
+In NeurIPS 2025 Workshop on Structured Probabilistic Inference and Generative Modeling,
+External Links: Link
+Cited by: §2.
+[37]
+Z. M. Ziegler and A. M. Rush (2019)
+Latent normalizing flows for discrete sequences.
+In Proceedings of the 36th International Conference on Machine Learning, K. Chaudhuri and R. Salakhutdinov (Eds.),
+Proceedings of Machine Learning Research, Vol. 97, pp. 7673–7682.
+External Links: Link
+Cited by: §1.
+Appendix A Diagnostic metrics
+Throughout this work, we extensively use a set of diagnostic metrics to assess both the accuracy and the calibration of the predictive distribution. Let 𝒟n={(xi,yi)}i=1n\mathcal{D}_{n}=\{(x_{i},y_{i})\}_{i=1}^{n} denote the test set. For each input xi∈𝒳⊆ℝdxx_{i}\in\mathcal{X}\subseteq\mathbb{R}^{d_{x}}, let y^i(1),…,y^i(K)​𝒴⊆ℝdy\hat{y}_{i}^{(1)},\dots,\hat{y}_{i}^{(K)}\mathcal{Y}\subseteq\mathbb{R}^{d_{y}} be the samples from the predictive distribution P^xi\hat{P}_{x_{i}}. For any i=1,…,ni=1,\dots,n, define the corresponding predictive mean
+y¯i=1K​∑k=1Ky^i(k).\bar{y}_{i}=\frac{1}{K}\sum_{k=1}^{K}\hat{y}_{i}^{(k)}.
+The following metrics will be used.
+Root Mean Squared Error (RMSE).
+We assess the accuracy of the predictive mean through
+RMSE=1n​∑i=1n|yi−y¯i|2.\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_{i=1}^{n}|y_{i}-\bar{y}_{i}|^{2}}.
+It measures the typical discrepancy between predictive means and observed targets, in the same units as the target. A small RMSE does not imply correctly calibrated predictive dispersion, and the squaring of errors makes this metric particularly sensitive to large discrepancies.
+Mean Absolute Error (MAE).
+Another accuracy metric for the predictive mean is
+MAE=1n​∑i=1n|yi−y¯i|.\mathrm{MAE}=\frac{1}{n}\sum_{i=1}^{n}|y_{i}-\bar{y}_{i}|.
+It measures the average absolute discrepancy between the predictive means and the observed targets. Unlike the MSE, the MAE penalises errors linearly and is therefore less sensitive to large errors and outliers. Nevertheless, it only assesses the accuracy of the predictive mean: a small MAE does not imply that the predictive dispersion, calibration, or distributional shape is correctly represented.
+Energy Score (SESS_{\text{ES}}).
+For each test point, the empirical Energy Score is defined as
+SESi=1K​∑k=1K‖y^i(k)−yi‖2−12​K​(K−1)​∑k,r=1k≠rK‖y^i(k)−y^i(r)‖2.S_{\mathrm{ES}_{i}}=\frac{1}{K}\sum_{k=1}^{K}\|\hat{y}_{i}^{(k)}-y_{i}\|_{2}-\frac{1}{2K(K-1)}\sum_{\begin{subarray}{c}k,r=1\\
+k\neq r\end{subarray}}^{K}\|\hat{y}_{i}^{(k)}-\hat{y}_{i}^{(r)}\|_{2}.
+The first term measures the discrepancy between predictive samples and
+the observation, whereas the second accounts for the internal dispersion
+of the predictive distribution. Lower values indicate better predictive
+performance. The reported aggregated scores are obtained by averaging over the test set:
+SES=1n​∑i=1nSESi.S_{\mathrm{ES}}=\frac{1}{n}\sum_{i=1}^{n}S_{\mathrm{ES}_{i}}.
+Predictive Interval Coverage Probability (PICP).
+For a nominal coverage level α∈(0,1)\alpha\in(0,1), let
+Ii(α)=[qi​(1−α2),qi​(1+α2)]I_{i}^{(\alpha)}=\left[q_{i}\!\left(\frac{1-\alpha}{2}\right),q_{i}\!\left(\frac{1+\alpha}{2}\right)\right]
+denote the central empirical predictive interval, where qi​(τ)q_{i}(\tau) is the empirical τ\tau-quantile of the predictive samples {y^i(k)}k=1K\{\hat{y}_{i}^{(k)}\}_{k=1}^{K}
+qi(τ)=inf{z∈ℝ:F^i(z)≥τ},F^i(z)=1K∑k=1K𝟏{y^i(k)≤z}.q_{i}(\tau)=\inf\left\{z\in\mathbb{R}:\hat{F}_{i}(z)\geq\tau\right\},\qquad\hat{F}_{i}(z)=\frac{1}{K}\sum_{k=1}^{K}\mathbf{1}_{\{\hat{y}_{i}^{(k)}\leq z\}}.
+The Predictive Interval Coverage Probability is defined as
+PICP(α)=1n∑i=1n{yi∈Ii(α)}.\mathrm{PICP}(\alpha)=\frac{1}{n}\sum_{i=1}^{n}\mathbf{1}\!\left\{y_{i}\in I_{i}^{(\alpha)}\right\}.
+A calibrated predictive distribution should satisfy PICP⁡(α)≈α\mathrm{PICP}(\alpha)\approx\alpha. Coverage alone, however, does not assess interval sharpness and should therefore be reported together with a measure of predictive interval width.
+Sharpness.
+We quantify interval sharpness by the mean width of the central predictive intervals,
+Sharpness⁡(α)=1n​∑i=1n[qi​(1+α2)−qi​(1−α2)].\mathrm{Sharpness}(\alpha)=\frac{1}{n}\sum_{i=1}^{n}\left[q_{i}\!\left(\frac{1+\alpha}{2}\right)-q_{i}\!\left(\frac{1-\alpha}{2}\right)\right].
+Smaller values indicate narrower intervals, but are desirable only when accompanied by adequate coverage.
+Mean Absolute Coverage Error (MACE).
+Let 𝒜={α1,…,αL}⊂(0,1)\mathcal{A}=\{\alpha_{1},\dots,\alpha_{L}\}\subset(0,1) be a finite set of nominal coverage levels. The Mean Absolute Coverage Error is defined as
+MACE=1L​∑ℓ=1L|PICP⁡(αℓ)−αℓ|.\mathrm{MACE}=\frac{1}{L}\sum_{\ell=1}^{L}\left|\mathrm{PICP}(\alpha_{\ell})-\alpha_{\ell}\right|.
+It measures the average absolute discrepancy between empirical and nominal coverage across the considered levels. A perfectly calibrated predictive distribution would attain MACE=0\mathrm{MACE}=0, while lower values indicate better marginal calibration.
+Taken together, these metrics highlight different facets of how well the predictive distribution performs, and they should be interpreted jointly.
+Appendix B Energy-Score Optimisation
+Restricted energy-distance projection.
+Consider the case in which the target is deterministic, namely, it is not affected by aleatoric uncertainty. Let P∈𝒫1​(ℝ)P\in\mathcal{P}_{1}(\mathbb{R}) and y∈ℝy\in\mathbb{R}. The Energy Score associated with d𝒴​(u,v)=|u−v|d_{\mathcal{Y}}(u,v)=|u-v| is
+SES​(P,y)=𝔼​|Y−y|−12​𝔼​|Y−Y′|,Y,Y′​∼i.i.d.​P.S_{\mathrm{ES}}(P,y)=\mathbb{E}|Y-y|-\frac{1}{2}\mathbb{E}|Y-Y^{\prime}|,\qquad Y,Y^{\prime}\overset{\mathrm{i.i.d.}}{\sim}P.
+Since ℰ|⋅|(P,δy)=2𝔼|Y−y|−𝔼|Y−Y′|\mathcal{E}_{|\cdot|}(P,\delta_{y})=2\mathbb{E}|Y-y|-\mathbb{E}|Y-Y^{\prime}|, we have
+SES(P,y)=12ℰ|⋅|(P,δy).S_{\mathrm{ES}}(P,y)=\frac{1}{2}\mathcal{E}_{|\cdot|}(P,\delta_{y}).
+Consequently, over 𝒫1​(ℝ)\mathcal{P}_{1}(\mathbb{R}), the unique minimiser is the deterministic law δy\delta_{y}. Under the unregularised Energy Score, positive predictive dispersion can therefore be optimal only when the admissible predictive family does not contain δy\delta_{y}.
+Gaussian Scale Family.
+Proposition.
+Consider Ys∼𝒩⁡(μ,s2),s≥0Y_{s}\sim\mathcal{N}(\mu,s^{2}),\ s\geq 0. If μ=y\mu=y, then SES​(𝒩⁡(μ,s2),y)S_{\text{ES}}(\mathcal{N}(\mu,s^{2}),y) is uniquely minimised at s=0s=0. If μ≠y\mu\neq y, it admits the unique minimiser at
+s∗=|μ−y|log⁡2≃1.2011​|μ−y|.s_{\ast}=\frac{|\mu-y|}{\sqrt{\log 2}}\simeq 1.2011\,|\mu-y|.
+Thus, even for a deterministic target, minimising the Energy Score can favour non-zero predictive dispersion when the predictive mean is inaccurate. In OTD, this means that dispersion may reflect systematic surrogate error as well as uncertainty arising from limited data; it should not, by itself, be interpreted as a separate estimate of either source.
+Proof. Set r=|μ−y|r=|\mu-y|. Since Ys−Ys′∼𝒩⁡(0,2​s2),Y_{s}-Y_{s}^{\prime}\sim\mathcal{N}(0,2s^{2}), we have
+12​𝔼​|Ys−Ys′|=sπ.\frac{1}{2}\mathbb{E}|Y_{s}-Y_{s}^{\prime}|=\frac{s}{\sqrt{\pi}}.
+Moreover, for s>0s>0, the folded-normal identity gives
+𝔼​|Ys−y|=s⁡[2​φ​(rs)+rs​(2​Φ​(rs)−1)],\mathbb{E}|Y_{s}-y|=s\left[2\varphi\left(\frac{r}{s}\right)+\frac{r}{s}\left(2\Phi\left(\frac{r}{s}\right)-1\right)\right],
+where φ\varphi and Φ\Phi denote the standard Gaussian density and distribution function. Therefore,
+SES​(𝒩⁡(μ,s2),y)=s⁡[2​φ​(rs)+rs​(2​Φ​(rs)−1)−1π].S_{\text{ES}}(\mathcal{N}(\mu,s^{2}),y)=s\left[2\varphi\left(\frac{r}{s}\right)+\frac{r}{s}\left(2\Phi\left(\frac{r}{s}\right)-1\right)-\frac{1}{\sqrt{\pi}}\right].
+If r=0r=0, then
+SES​(𝒩⁡(μ,s2),y)=s⁡(2π−1π),S_{\text{ES}}(\mathcal{N}(\mu,s^{2}),y)=s\left(\sqrt{\frac{2}{\pi}}-\frac{1}{\sqrt{\pi}}\right),
+which is strictly increasing and hence uniquely minimised at s=0s=0.
+Assume r>0r>0 and set a=r/sa=r/s. Since
+SES​(𝒩⁡(μ,s2),y)=r​F​(a),F⁡(a)=2​φ​(a)+a⁡(2​Φ​(a)−1)−1/πa,S_{\text{ES}}(\mathcal{N}(\mu,s^{2}),y)=rF(a),\qquad F(a)=\frac{2\varphi(a)+a\bigl(2\Phi(a)-1\bigr)-1/\sqrt{\pi}}{a},
+minimising over s>0s>0 is equivalent to minimising FF over a>0a>0. Differentiation yields
+F′​(a)=1/π−2​φ​(a)a2.F^{\prime}(a)=\frac{1/\sqrt{\pi}-2\varphi(a)}{a^{2}}.
+Thus F′​(a)=0F^{\prime}(a)=0 if and only if
+2​φ​(a)=1π,2\varphi(a)=\frac{1}{\sqrt{\pi}},
+or equivalently a2=log⁡2a^{2}=\log 2. Since φ\varphi is strictly decreasing on (0,∞)(0,\infty), F′F^{\prime} changes sign exactly once, from negative to positive. Hence the minimiser is unique and
+s∗=ra∗=|μ−y|log⁡2.s_{\ast}=\frac{r}{a_{\ast}}=\frac{|\mu-y|}{\sqrt{\log 2}}.
+□\square
+General Centred Location–Scale Families.
+The preceding mechanism is not specific to Gaussian distributions. Let XX be a non-degenerate real-valued random variable satisfying 𝔼​X=0,𝔼​|X|<∞\mathbb{E}X=0,\ \mathbb{E}|X|<\infty, and consider
+Ys=μ+s​X,Ps=ℒ⁡(Ys),s≥0.Y_{s}=\mu+sX,\qquad P_{s}=\mathcal{L}(Y_{s}),\qquad s\geq 0.
+Writing e=μ−ye=\mu-y and letting X′X^{\prime} be an independent copy of XX, the Energy Score becomes
+SES​(Ps,y)=𝔼​|e+s​X​|−s2​𝔼|​X−X′|.S_{\mathrm{ES}}(P_{s},y)=\mathbb{E}|e+sX|-\frac{s}{2}\mathbb{E}|X-X^{\prime}|.
+Proposition.
+The function s↦SES​(Ps,y)s\mapsto S_{\mathrm{ES}}(P_{s},y) is convex and continuous on [0,∞)[0,\infty). If e=0e=0, its unique minimiser is s=0s=0. If e≠0e\neq 0, it admits at least one global minimiser, and every global minimiser satisfies s∗>0s_{\ast}>0.
+Proof. Convexity follows because s↦|e+s​X|s\mapsto|e+sX| is convex for every realisation of XX, whereas the second term is linear in ss. Continuity follows from
+||e+s​X|−|e+t​X||≤|s−t|​|X|.\bigl||e+sX|-|e+tX|\bigr|\leq|s-t|\,|X|.
+If e=0e=0, then
+SES​(Ps,y)=s⁡(𝔼​|X|−12​𝔼​|X−X′|).S_{\mathrm{ES}}(P_{s},y)=s\left(\mathbb{E}|X|-\frac{1}{2}\mathbb{E}|X-X^{\prime}|\right).
+The coefficient is strictly positive because 2​𝔼|X|−𝔼​|X−X′|=ℰ⁡(ℒ⁡(X),δ0)>02\mathbb{E}|X|-\mathbb{E}|X-X^{\prime}|=\mathcal{E}(\mathcal{L}(X),\delta_{0})>0 for every non-degenerate XX. Hence SES​(Ps,y)>SES​(P0,y)S_{\mathrm{ES}}(P_{s},y)>S_{\mathrm{ES}}(P_{0},y) for every s>0s>0. Suppose now that e≠0e\neq 0. The bound
+||e+s​X|−|e|s|≤|X|\left|\frac{|e+sX|-|e|}{s}\right|\leq|X|
+allows differentiation at s=0+s=0^{+} by dominated convergence, giving
+dd​s​𝔼​|e+s​X||s=0+=sign⁡(e)​𝔼​[X]=0.\left.\frac{\mathrm{d}}{\mathrm{d}s}\mathbb{E}|e+sX|\right|_{s=0^{+}}=\operatorname{sign}(e)\mathbb{E}[X]=0.
+It follows that
+dd​s​SES​(Ps,y)|s=0+=−12​𝔼​|X−X′|<0.\left.\frac{\mathrm{d}}{\mathrm{d}s}S_{\mathrm{ES}}(P_{s},y)\right|_{s=0^{+}}=-\frac{1}{2}\mathbb{E}|X-X^{\prime}|<0.
+Therefore s=0s=0 is not a local minimiser. Finally,
+SES​(Ps,y)s=𝔼​|X+es|−12​𝔼​|X−X′|\frac{S_{\mathrm{ES}}(P_{s},y)}{s}=\mathbb{E}\left|X+\frac{e}{s}\right|-\frac{1}{2}\mathbb{E}|X-X^{\prime}|
+converges as s→∞s\to\infty to
+𝔼​|X|−12​𝔼​|X−X′|>0.\mathbb{E}|X|-\frac{1}{2}\mathbb{E}|X-X^{\prime}|>0.
+Thus SES​(Ps,y)→+∞S_{\mathrm{ES}}(P_{s},y)\to+\infty as s→∞s\to\infty. Continuity and coercivity guarantee the existence of a global minimiser, while the negative right derivative at the origin implies that every such minimiser is strictly positive.
+□\square
+Other preliminary results
+Scaling with the residual.
+For e≠0e\neq 0, writing s=|e|​ts=|e|t gives
+SES​(P|e|​t,y)=|e|​[𝔼​|sign⁡(e)+t​X|−t2​𝔼​|X−X′|].S_{\mathrm{ES}}(P_{|e|t},y)=|e|\left[\mathbb{E}\left|\operatorname{sign}(e)+tX\right|-\frac{t}{2}\mathbb{E}|X-X^{\prime}|\right].
+Hence the optimal scale is proportional to the magnitude of the residual:
+s∗​(e)=|e|​t∗sign⁡(e).s_{\ast}(e)=|e|\,t_{\ast}^{\operatorname{sign}(e)}.
+If X​=𝑑−XX\overset{d}{=}-X, the coefficient is independent of the sign of ee, and therefore s∗​(e)=cX​|e|.s_{\ast}(e)=c_{X}|e|. The Gaussian result corresponds to
+cX=1log⁡2.c_{X}=\frac{1}{\sqrt{\log 2}}.
+Whenever ℙ⁡(e+s∗​X=0)=0\mathbb{P}(e+s_{\ast}X=0)=0, an interior minimiser satisfies the first-order condition
+𝔼⁡[X​sign⁡(e+s∗​X)]=12​𝔼​|X−X′|.\mathbb{E}\left[X\operatorname{sign}(e+s_{\ast}X)\right]=\frac{1}{2}\mathbb{E}|X-X^{\prime}|.
+Symmetric two-point predictive family.
+Positive dispersion may also be optimal in a predictive family that is not described by a continuous scale distribution. Consider
+Pa=12​δμ−a+12​δμ+a,a≥0,P_{a}=\frac{1}{2}\delta_{\mu-a}+\frac{1}{2}\delta_{\mu+a},\qquad a\geq 0,
+and let y=μ+ey=\mu+e. Direct calculation gives
+SES​(Pa,y)=12​(|e−a|+|e+a|)−a2=max⁡{|e|,a}−a2.S_{\mathrm{ES}}(P_{a},y)=\frac{1}{2}\left(|e-a|+|e+a|\right)-\frac{a}{2}=\max\{|e|,a\}-\frac{a}{2}.
+For 0≤a≤|e|0\leq a\leq|e|, this expression equals |e|−a/2|e|-a/2 and is strictly decreasing, whereas for a≥|e|a\geq|e| it equals a/2a/2 and is strictly increasing. Its unique minimiser is therefore a∗=|e|,a_{\ast}=|e|, with
+SES​(Pa∗,y)=|e|2.S_{\mathrm{ES}}(P_{a_{\ast}},y)=\frac{|e|}{2}.
+By comparison, the deterministic law P0=δμP_{0}=\delta_{\mu} gives SES​(P0,y)=|e|S_{\mathrm{ES}}(P_{0},y)=|e|. Thus, within this constrained symmetric family, the Energy Score prefers a bimodal predictive law to the misspecified deterministic prediction.
+A mean constraint alone is insufficient.
+The previous conclusion depends essentially on the chosen predictive family. A fixed predictive mean alone does not yield a well-posed optimisation problem. Without loss of generality, let y=0y=0 and require the predictive mean to equal e≠0e\neq 0. For p∈(0,1)p\in(0,1), define Pp=(1−p)​δ0+p​δe/p.P_{p}=(1-p)\delta_{0}+p\delta_{e/p}. Then 𝔼Pp​[Y]=e,\mathbb{E}_{P_{p}}[Y]=e, while 𝔼Pp​|Y|=|e|\mathbb{E}_{P_{p}}|Y|=|e| and
+12​𝔼Pp​|Y−Y′|=(1−p)​|e|.\frac{1}{2}\mathbb{E}_{P_{p}}|Y-Y^{\prime}|=(1-p)|e|.
+Consequently,
+SES​(Pp,0)=p​|e|→0as ​p↓0.S_{\mathrm{ES}}(P_{p},0)=p|e|\to 0\qquad\text{as }p\downarrow 0.
+It follows that
+infP∈𝒫1​(ℝ)𝔼P​[Y]=eSES​(P,0)=0,\inf_{\begin{subarray}{c}P\in\mathcal{P}_{1}(\mathbb{R})\\
+\mathbb{E}_{P}[Y]=e\end{subarray}}S_{\mathrm{ES}}(P,0)=0,
+although the infimum is not attained when e≠0e\neq 0. The predictive law can place almost all its mass at the observation while sending a vanishing amount of mass arbitrarily far away to preserve the constrained mean. Additional restrictions on the predictive family, its moments, its support, or its transport cost are therefore necessary.
+Implications for transported predictive models.
+These results do not imply that the Energy Score intrinsically favours dispersion or multimodality: over an unrestricted class, its unique optimum for a deterministic observation is the Dirac measure concentrated at that observation. Positive dispersion arises when optimisation is restricted to a predictive family that cannot attain this optimum. Within such a family, dispersion can reduce the Energy Distance from the predictive law to the observation and thereby absorb part of the residual error. Predictive spread may therefore reflect model-class constraints in addition to aleatoric uncertainty. In OTD, the transported mask family determines the admissible predictive laws, while the kinetic regularisation discourages excessively distorted latent distributions. Since the transport and predictive network are jointly optimised, this regularisation does not by itself impose direct control in output space, but it provides a principled mechanism for balancing predictive fit against unnecessary deformation of the reference perturbation law.
+Appendix C OTD Implementation Details
+In this section, the details of the OTD method are thoroughly explained.
+Relaxed mask sampling.
+OTD starts from sampling a continuous relaxation of an independent Bernoulli mask. For each Monte Carlo realisation k∈{1,2,…,K}k\in\{1,2,\dots,K\}, we sample U(k)∼𝒰​(0,1)dzU^{(k)}\sim\mathcal{U}(0,1)^{d_{z}}, and define the initial logit mask vector
+m0(k)=logit⁡(p)+logit⁡(U(k))τ,m_{0}^{(k)}=\frac{\operatorname{logit}(p)+\operatorname{logit}(U^{(k)})}{\tau},
+where logit⁡(x)=log⁡x−log⁡(1−x)\operatorname{logit}(x)=\log x-\log(1-x), τ>0\tau>0 is the relaxation temperature, and p∈(0,1)p\in(0,1) is the probability of retaining each feature. The sum should be interpreted component-wise. The corresponding relaxed mask is
+z0(k)=σ⁡(m0(k))∈(0,1)dz,z_{0}^{(k)}=\sigma\left(m_{0}^{(k)}\right)\in(0,1)^{d_{z}},
+where σ⁡(⋅)\sigma(\cdot) is the sigmoidal function. Small values of τ\tau approach binary Bernoulli masks, whereas larger values yield smoother perturbations. In particular, for p=1/2p=1/2 and τ=1\tau=1, the relaxed mask is uniform on (0,1)(0,1).
+Logit-space transport.
+The transport is performed in unconstrained logit space. For every Monte Carlo sample k∈{0,1,…,K}k\in\{0,1,\dots,K\},
+d​mt(k)d​t=v~ψ​(t,σ⁡(mt(k))),mt=0(k)=m0(k),\frac{\mathrm{d}m_{t}^{(k)}}{\mathrm{d}t}=\tilde{v}_{\psi}\left(t,\sigma(m_{t}^{(k)})\right),\qquad m_{t=0}^{(k)}=m_{0}^{(k)},
+where v~ψ:[0,1]×𝒵→ℝdz\tilde{v}_{\psi}:[0,1]\times\mathcal{Z}\to\mathbb{R}^{d_{z}} is the velocity field acting on the unconstrained masks, parametrised by a fully connected neural network. After integration, the transported masks are obtained as
+z1(k)=σ⁡(m1(k)).z_{1}^{(k)}=\sigma\left(m_{1}^{(k)}\right).
+The dynamics therefore evolve on ℝdz\mathbb{R}^{d_{z}}, since there is no guarantee that the dynamics remain constrained in the unit cube, whereas the predictive network receives bounded masks in (0,1)dz(0,1)^{d_{z}}.
+Then, for instance, when OTD is applied to a fully connected architecture, the transported masks are partitioned according to the hidden layers H∈ℕH\in\mathbb{N}, each with width did_{i},
+z1(k)=(z1(k,1),…,z1(k,H)),z1(k,i)∈(0,1)di,∀i=1,2,…,H,z_{1}^{(k)}=\left(z_{1}^{(k,1)},\ldots,z_{1}^{(k,H)}\right),\qquad z_{1}^{(k,i)}\in(0,1)^{d_{i}},\ \forall i=1,2,\dots,H,
+and multiplicatively modulate the corresponding hidden representations
+h0(k)=x,hi(k)=ϕ⁡(Wi​hi−1(k)+bi)⊙z1(k,i),h_{0}^{(k)}=x,\qquad h_{i}^{(k)}=\phi\left(W_{i}h_{i-1}^{(k)}+b_{i}\right)\odot z_{1}^{(k,i)},
+where ϕ\phi is the scalar non-linear activation function acting on each vector element pointwisely, W∈ℝdi×di−1W\in\penalty\ \mathbb{R}^{d_{i}\times d_{i-1}} the weight matrices, and bi∈ℝdib_{i}\in\mathbb{R}^{d_{i}} the bias vectors for all i=1,2,…,Hi=1,2,\dots,H.
+We denote the combined actions of all the hidden layers as Gθ:𝒳×𝒵→𝒴G_{\theta}:\mathcal{X}\times\mathcal{Z}\to\mathcal{Y}, where θ\theta denotes the parameters of the chosen neural architecture. The final predictions are thus
+y^(k)=Gθ​(x,z1(k)).\hat{y}^{(k)}=G_{\theta}\left(x,z_{1}^{(k)}\right).
+A single mask realisation is shared across the inputs associated with the same Monte Carlo draw. The output law nevertheless remains input-dependent because the transported mask acts on hidden representations that depend on xx.
+Euler and Heun integration.
+The interval [0,1][0,1] is discretised on a uniform grid
+0=t0<t1<⋯<tL=1,Δ​t=1L.0=t_{0}<t_{1}<\cdots<t_{L}=1,\qquad\Delta t=\frac{1}{L}.
+∙\bullet
+For Euler integration,
+mℓ+1(k)=mℓ(k)+Δ​t​v~ψ​(tℓ,σ⁡(mℓ(k))).m_{\ell+1}^{(k)}=m_{\ell}^{(k)}+\Delta t\,\tilde{v}_{\psi}\left(t_{\ell},\sigma(m_{\ell}^{(k)})\right).
+∙\bullet
+For Heun integration, the predictor is
+m~ℓ+1(k)=mℓ(k)+Δ​t​v~ψ​(tℓ,σ⁡(mℓ(k))),\widetilde{m}_{\ell+1}^{(k)}=m_{\ell}^{(k)}+\Delta t\,\tilde{v}_{\psi}\left(t_{\ell},\sigma(m_{\ell}^{(k)})\right),
+and the corrected update is
+mℓ+1(k)=mℓ(k)+Δ​t2​[v~ψ​(tℓ,σ⁡(mℓ(k)))+v~ψ​(tℓ+1,σ⁡(m~ℓ+1(k)))].m_{\ell+1}^{(k)}=m_{\ell}^{(k)}+\frac{\Delta t}{2}\left[\tilde{v}_{\psi}\left(t_{\ell},\sigma(m_{\ell}^{(k)})\right)+\tilde{v}_{\psi}\left(t_{\ell+1},\sigma(\widetilde{m}_{\ell+1}^{(k)})\right)\right].
+Monte Carlo Energy Score.
+Given K∈ℕK\in\mathbb{N} independent transported masks, the empirical predictive distribution is
+Pθ,ψK(⋅∣x)=1K∑k=1KδGθ​(x,z1(k)).P_{\theta,\psi}^{K}(\cdot\mid x)=\frac{1}{K}\sum_{k=1}^{K}\delta_{G_{\theta}\left(x,z_{1}^{(k)}\right)}.
+For a single observation (x,y)(x,y), the Energy Score is approximated by
+S^ESK=1K​∑k=1Kd𝒴​(y^(k),y)−12​K​(K−1)​∑k≠jd𝒴​(y^(k),y^(j)).\hat{S}_{\mathrm{ES}}^{K}=\frac{1}{K}\sum_{k=1}^{K}d_{\mathcal{Y}}\left(\hat{y}^{(k)},y\right)-\frac{1}{2K(K-1)}\sum_{k\neq j}d_{\mathcal{Y}}\left(\hat{y}^{(k)},\hat{y}^{(j)}\right).
+The first term measures agreement between predictive realisations and the observation, whereas the second measures internal predictive dispersion. At inference time, the same sampling procedure yields empirical means, variances, quantiles, and prediction intervals.
+Kinetic–action approximation.
+Since zt=σ⁡(mt)z_{t}=\sigma(m_{t}), the induced velocity in mask space is
+d​ztd​t=zt⊙(1−zt)⊙v~ψ​(t,zt),\frac{\mathrm{d}z_{t}}{\mathrm{d}t}=z_{t}\odot(1-z_{t})\odot\tilde{v}_{\psi}(t,z_{t}),
+preventing the dynamics from exiting the unit cube. The kinetic action is therefore evaluated in the bounded mask space as
+𝒜⁡(ψ)=12​∫01∫𝒵‖zt⊙(1−zt)⊙v~ψ​(t,zt)‖22​𝑑z​𝑑t.\mathcal{A}(\psi)=\frac{1}{2}\int_{0}^{1}\int_{\mathcal{Z}}\left\|z_{t}\odot(1-z_{t})\odot\tilde{v}_{\psi}(t,z_{t})\right\|_{2}^{2}\,\mathrm{d}z\,\mathrm{d}t.
+For Euler integration, for K∈ℕK\in\mathbb{N}, its Monte Carlo approximation is
+𝒜^K​(ψ)=1K​∑k=1K12​∑ℓ=0L−1Δ​t​‖zℓ(k)⊙(1−zℓ(k))⊙v~ψ​(tℓ,zℓ(k))‖22.\hat{\mathcal{A}}_{K}(\psi)=\frac{1}{K}\sum_{k=1}^{K}\frac{1}{2}\sum_{\ell=0}^{L-1}\Delta t\left\|z_{\ell}^{(k)}\odot\left(1-z_{\ell}^{(k)}\right)\odot\tilde{v}_{\psi}\left(t_{\ell},z_{\ell}^{(k)}\right)\right\|_{2}^{2}.
+Empirical training objective.
+Given KES,Kkin∈ℕK_{\text{ES}},K_{\text{kin}}\in\mathbb{N}, and λkin>0\lambda_{\text{kin}}>0, the complete empirical training objective reads
+ℒ(θ,ψ)=1n∑i=1nS^ESKES(Pθ,ψ(⋅∣xi),yi)+λkin𝒜^Kkin(ψ).\mathcal{L}(\theta,\psi)=\frac{1}{n}\sum_{i=1}^{n}\hat{S}_{\mathrm{ES}}^{K_{\text{ES}}}\left(P_{\theta,\psi}(\cdot\mid x_{i}),y_{i}\right)+\lambda_{\mathrm{kin}}\hat{\mathcal{A}}_{K_{\text{kin}}}(\psi).
+The Energy Score and kinetic action are estimated using independent Monte Carlo samples.
+Appendix D Experimental Details
+D.1 Bimodal Dataset
+The bimodal experiment is designed as a controlled test of distributional expressiveness. The target observations admit two distinct predictive behaviours in a neighbourhood of x=0x=0, while an almost deterministic function expression holds elsewhere (Figure 1). The experiment tests whether OTD can transform an initially unstructured reference mask law into a latent distribution whose push-forward through the predictive network becomes locally bimodal in output space.
+The predictive distribution is analysed through three complementary diagnostics: the stochastic predictions themselves, a kernel-density estimate of the induced output distribution, and the correlation structure of the transported masks. A principal-component projection of the masks further shows that local bimodality in output space is associated with non-trivial global geometry in latent space. The dependence on the input is introduced by the predictive network Gθ​(x,z)G_{\theta}(x,z), although the transported mask distribution itself is shared across inputs.
+Table 4collects the hyperparameters required to replicate the experiment with the bimodal dataset. The target function is the following:
+y±​(x)=tanh⁡(x3±a​e−w​x2),x∈[−1,1],y_{\pm}(x)=\tanh\left(x^{3}\pm ae^{-wx^{2}}\right),\qquad x\in[-1,1],
+from which 32 points are drawn equally spaced for training from each branch of y±y_{\pm}, with split amplitude a=0.15a=0.15 and split width w=12w=12. The conditional law thus reads
+Px∗=12​δy+​(x)+12​δy−​(x),x∈[−1,1].P_{x}^{*}=\frac{1}{2}\delta_{y_{+}(x)}+\frac{1}{2}\delta_{y_{-}(x)},\qquad x\in[-1,1].
+The two branches are well separated around x=0x=0 and become nearly indistinguishable away from this region.
+It is worth noticing that the mask produced by the latent flow presents a non-trivial correlation pattern (see Figure 6).
+Figure 6: Bimodal aleatoric experiment. Empirical correlation of the latent variables transported by the flow in the bimodal dataset experiment.
+Table 4: Bimodal aleatoric experiment. List of hyperparameters.
+Hyperparameter
+Value
+Latent mask
+Concrete parameter pp
+0.50.5
+Concrete temperature τ\tau
+1.01.0
+Latent flow
+Velocity hidden widths
+(4,4)(4,4)
+Activation
+GeLU
+Kernel initialisation
+He normal
+Bias initialisation
+Zero
+Integration method
+Heun
+Integration steps
+8080
+Predictive Network
+Widths
+(1,8,8,1)(1,8,8,1)
+Activation
+GeLU
+Kernel initialisation
+He normal
+Bias initialisation
+Zero
+Hyperparameter
+Value
+Optimisation
+Optimiser
+AdamW
+Learning rate
+10−310^{-3}
+Weight decay
+10−510^{-5}
+Training
+Number of epochs
+50 00050\,000
+Loss
+Energy-score MC samples
+3232
+Kinetic-action MC samples
+11
+Kinetic regularisation
+10−410^{-4}
+D.2 Reduced-Order Model misspecification Dataset
+The reduced-order experiment mimics a setting in which the high-fidelity response contains structures that cannot be represented exactly by a restricted predictive model. The deterministic target is generated from a sinusoidal function containing two oscillatory frequencies, while the predictive network is deliberately kept small.
+The low-frequency component can be represented by the predictive model’s mean, whereas the higher-frequency component induces a systematic approximation defect. The experiment therefore provides a controlled test of model-class misspecification: predictive dispersion can be compared with the unresolved component of the target rather than with observational noise.
+Performance is assessed through point-prediction errors, Energy Score, and calibration error, and compared with standard dropout.
+We consider the deterministic function (see Figure 1)
+y⁡(x)=sin⁡(ω​x)+110​sin⁡(10​ω​x),x∈[−1,1].y(x)=\sin(\omega x)+\frac{1}{10}\sin(10\omega x),\qquad x\in[-1,1].
+The training set contains 128128 uniformly spaced input-output pairs, while evaluation uses 512512 uniformly spaced points, with frequency parameter ω=3\omega=3. Predictive uncertainty is estimated from 256256 stochastic model realisations. Table 5 summarises the hyperparameters used for the experiment.
+Table 5: Reduced-Order Model misspecification experiment. List of hyperparameters.
+Hyperparameter
+Value
+Latent mask
+Concrete parameter pp
+0.50.5
+Concrete temperature τ\tau
+1.01.0
+Latent flow
+Velocity hidden widths
+(2,2)(2,2)
+Activation
+GeLU
+Kernel initialisation
+He normal
+Bias initialisation
+Zero
+Integration method
+Euler
+Integration steps
+8080
+Predictive Network
+Widths
+(1,8,8,1)(1,8,8,1)
+Activation
+GeLU
+Kernel initialisation
+He normal
+Bias initialisation
+Zero
+Hyperparameter
+Value
+Optimisation
+OTD optimiser
+AdamW
+Dropout optimiser
+Adam
+Learning rate
+10−410^{-4}
+Weight decay
+10−510^{-5}
+Training
+Number of epochs
+50 00050\,000
+Checkpoint interval
+5 0005\,000
+Loss
+Energy-score MC samples
+6464
+Kinetic-action MC samples
+11
+Kinetic regularisation
+10−510^{-5}
+Dropout parameter regularisation
+10−310^{-3}
+Dropout baseline
+Widths
+(1,8,8,1)(1,8,8,1)
+Activation
+GeLU
+Dropout rate
+0.050.05
+D.3 Latent collapse experiment
+To investigate the transition from under- to over-parametrisation, we consider a shallow predictive network with varying hidden width M∈{4,8,16,32}M\in\{4,8,16,32\}. The deterministic teacher is a piecewise-linear, parabolic-like function with M∗=16M^{\ast}=16 linear segments.
+For M<M∗M<M^{\ast}, the predictive network is structurally unable to reproduce the target exactly and stochastic predictive variability may compensate for the unresolved component. Around M=M∗M=M^{\ast}, a deterministic representation becomes possible in principle. In the over-parametrised regime, the predictive network can reduce its sensitivity to the transported mask, for example by relying on only a subset of the available hidden units. The experiment therefore examines how both output dispersion and the transported mask distribution change as representational capacity increases.
+We consider the noiseless regression problem using N=17N=17 uniformly spaced training points,
+yi=xi2,xi=−1+2​i16,i=0,…,16.y_{i}=x_{i}^{2},\qquad x_{i}=-1+\frac{2i}{16},\qquad i=0,\ldots,16.
+The predictor is an OT-dropout MLP with one hidden ReLU layer of width ranging in M∈[4,8,16,32]M\in[4,8,16,32]. Since a finite ReLU network represents a piecewise-linear function, it cannot reproduce the quadratic target exactly over the entire continuous domain, thereby introducing structural model misspecification (Figure 3). The model is trained in full-batch mode by minimising the Energy Score with kinetic regularisation. Predictive uncertainty is subsequently evaluated from 256256 stochastic realisations both at the training points and on a uniform grid of 10251025 points over [−1,1][-1,1]. Refer to Table 6 for the experiment’s hyperparameters.
+Table 6: From under- to over-parametrisation experiment. List of hyperparameters.
+Hyperparameter
+Value
+Latent mask
+Mask dimension
+4,8,16,324,8,16,32
+Concrete parameter pp
+0.50.5
+Concrete temperature τ\tau
+1.01.0
+Latent flow
+Velocity hidden widths
+(4)(4)
+Velocity activation
+ReLU
+Velocity kernel initialisation
+He uniform
+Integration method
+Heun
+Integration steps
+6060
+Predictive Network
+Widths
+(1,32,1)(1,32,1)
+Activation
+ReLU
+Kernel initialisation
+He uniform
+Hyperparameter
+Value
+Optimisation
+Optimiser
+AdamW
+Learning rate
+10−210^{-2}
+Weight decay
+10−510^{-5}
+Training
+Training scheme
+Full batch
+Number of epochs
+20 00020\,000
+Loss
+Energy-score MC samples
+1616
+Kinetic-action MC samples
+88
+Kinetic regularisation
+10−810^{-8}
+D.4 Ginzburg–Landau experiment
+Data generation.
+The Ginzburg–Landau (GL) experiment is formulated as a parametric neural-field surrogate problem on the spatial domain Ω=[0,1]2\Omega=[0,1]^{2}, where the objective is to learn the mapping (μ,x,y)↦uμ​(x,y)(\mu,x,y)\mapsto u_{\mu}(x,y) from a scalar parameter μ∈[0,1]\mu\in[0,1] and spatial coordinates (x,y)∈Ω(x,y)\in\Omega to the corresponding equilibrium field. Reference solutions are generated from the forced time-dependent GL equation
+∂tu=ε2​Δ​u+μ​u−u3+fμ​(x,y),(x,y)∈Ω,\partial_{t}u=\varepsilon^{2}\Delta u+\mu u-u^{3}+f_{\mu}(x,y),\qquad(x,y)\in\Omega,
+with homogeneous Neumann boundary conditions
+∇u⋅n=0on ∂Ω,\nabla u\cdot n=0\qquad\text{on }\partial\Omega,
+so that the equilibrium solution uμ∗u_{\mu}^{\ast} satisfies
+ε2​Δ​uμ∗+μ​uμ∗−(uμ∗)3+fμ=0.\varepsilon^{2}\Delta u_{\mu}^{\ast}+\mu u_{\mu}^{\ast}-(u_{\mu}^{\ast})^{3}+f_{\mu}=0.
+The parameter-dependent forcing is constructed by continuously combining low-, intermediate- and high-frequency components,
+fμ=wL​(μ)​fL+wM​(μ)​fM+wH​(μ)​fH+0.12​cos⁡[(2+3​μ)​π​x+2​π​μ]​cos⁡[(5−2​μ)​π​y−2​π​μ],f_{\mu}=w_{\mathrm{L}}(\mu)f_{\mathrm{L}}+w_{\mathrm{M}}(\mu)f_{\mathrm{M}}+w_{\mathrm{H}}(\mu)f_{\mathrm{H}}+0.12\cos\!\left[(2+3\mu)\pi x+2\pi\mu\right]\cos\!\left[(5-2\mu)\pi y-2\pi\mu\right],
+where wL=(1−2​μ)+w_{\mathrm{L}}=(1-2\mu)_{+}, wH=(2​μ−1)+w_{\mathrm{H}}=(2\mu-1)_{+}, wM=1−wL−wHw_{\mathrm{M}}=1-w_{\mathrm{L}}-w_{\mathrm{H}}, and
+fL\displaystyle f_{\mathrm{L}}
+=0.40​cos⁡(π​x)+0.30​cos⁡(2​π​y)+0.20​cos⁡(π​x)​cos⁡(π​y),\displaystyle=0.40\cos(\pi x)+0.30\cos(2\pi y)+0.20\cos(\pi x)\cos(\pi y),
+fM\displaystyle f_{\mathrm{M}}
+=0.35​cos⁡(2​π​x+1.4​π​μ)​cos⁡(3​π​y−0.8​π​μ)+0.25​cos⁡(3​π​x−2​π​μ),\displaystyle=0.35\cos(2\pi x+1.4\pi\mu)\cos(3\pi y-0.8\pi\mu)+0.25\cos(3\pi x-2\pi\mu),
+fH\displaystyle f_{\mathrm{H}}
+=0.28​cos⁡(4​π​x+2​π​μ)​cos⁡(2​π​y−π​μ)−0.22​cos⁡(5​π​y+1.6​π​μ).\displaystyle=0.28\cos(4\pi x+2\pi\mu)\cos(2\pi y-\pi\mu)-0.22\cos(5\pi y+1.6\pi\mu).
+The equation is discretised on a 64×6464\times 64 Cartesian grid with ε=0.04\varepsilon=0.04 and integrated using a semi-implicit scheme with Δ​t=0.2\Delta t=0.2,
+(I−Δ​t​ε2​Δh)​un+1=un+Δ​t​(μ​un−(un)3+fμ).\left(I-\Delta t\,\varepsilon^{2}\Delta_{h}\right)u^{n+1}=u^{n}+\Delta t\left(\mu u^{n}-(u^{n})^{3}+f_{\mu}\right).
+The initial state is u0=0.05​fμ+0.15​μu^{0}=0.05f_{\mu}+0.15\sqrt{\mu}, and iteration continues for at most 12 00012\,000 steps until
+∥un+1−un∥∞<10−6,\lVert u^{n+1}-u^{n}\rVert_{\infty}<10^{-6},
+with convergence checked every 25 steps; the final equilibrium is additionally assessed through
+req=‖ε2​Δh​u∗+μ​u∗−(u∗)3+fμ‖∞.r_{\mathrm{eq}}=\left\|\varepsilon^{2}\Delta_{h}u^{\ast}+\mu u^{\ast}-(u^{\ast})^{3}+f_{\mu}\right\|_{\infty}.
+Dataset and hyperparameters.
+The dataset contains 256 uniformly spaced values of μ\mu, split reproducibly into 204 training and 52 test fields. Each grid point is treated as an individual neural-field observation ((μ,x,y),uμ∗​(x,y))((\mu,x,y),u_{\mu}^{\ast}(x,y)). The deterministic baseline is a five-layer GeLU multilayer perceptron of width 128; vanilla dropout uses five layers of width ⌊128/(1−0.1)⌋=142\lfloor 128/(1-0.1)\rfloor=142 with dropout probability 0.10.1; and transported dropout uses width 128/0.5=256128/0.5=256, a Concrete mask distribution with p=0.5p=0.5 and temperature τ=0.1\tau=0.1, and a two-layer velocity network of width 64 integrated using five Euler steps. Hidden widths are adjusted to match the expected number of active units under the reference masking distribution: approximately 128 units per layer for all three architectures. All models are trained for 2000 epochs with AdamW, learning rate 10−310^{-3}, weight decay 10−510^{-5}, and batch size 65 53665\,536, while predictive distributions are approximated using 32 stochastic forward passes. The setting is summarised in Table 7. The dataset is broadly represented by the fields in Figure 7.
+Table 7: Ginzburg–Landau equilibrium fields experiment. Experimental settings.
+Hyperparameter
+Value
+Hidden-layer depth
+55
+Reference hidden width
+128128
+Deterministic hidden widths
+[128]×5[128]\times 5
+Vanilla-dropout hidden widths
+[142]×5[142]\times 5
+OT-dropout hidden widths
+[256]×5[256]\times 5
+Activation
+GeLU
+Kernel initialization
+He normal
+Bias initialization
+Zero
+Concrete probability pp
+0.50.5
+Concrete temperature τ\tau
+1.01.0
+Velocity hidden layers
+[64,64][64,64]
+Velocity activation
+GeLU
+Velocity initialization
+He normal
+ODE solver
+Euler
+Integration steps
+55
+Energy Score samples KESK_{\mathrm{ES}}
+44
+Kinetic-action samples KkinK_{\mathrm{kin}}
+22
+Kinetic weight λkin\lambda_{\mathrm{kin}}
+10−510^{-5}
+Dropout rate
+0.10.1
+Deterministic/dropout loss
+Mean squared error
+OT-dropout loss
+Energy Score ++ kinetic action
+Optimizer
+AdamW
+Learning rate
+10−310^{-3}
+Weight decay
+10−510^{-5}
+Training epochs
+2 0002\,000
+Other experimental settings
+Value
+Spatial domain
+Ω=[0,1]2\Omega=[0,1]^{2}
+Spatial resolution
+64×6464\times 64
+Input
+(μ,x,y)∈ℝ3(\mu,x,y)\in\mathbb{R}^{3}
+Output
+uμ​(x,y)∈ℝu_{\mu}(x,y)\in\mathbb{R}
+Training cases
+204204
+Test cases
+5252
+Training fractions
+{0.25,0.50,0.75,1.00}\{0.25,0.50,0.75,1.00\}
+Coverage levels
+{0.50,0.75,0.80,0.90,0.95}\{0.50,0.75,0.80,0.90,0.95\}
+Evaluation metrics
+L2L^{2}, L1L^{1}, SESS_{\text{ES}}, MACE, PICP, Sharpness
+Results.
+Table 8 shows substantial heterogeneity across the test cases. Let ϵF\epsilon_{F} be the first term of the energy score, and ϵD\epsilon_{D} the second one, so that SES=ϵF−12​ϵDS_{\text{ES}}=\epsilon_{F}-\frac{1}{2}\epsilon_{D}. Samples with small field error ϵF\epsilon_{F} generally exhibit small Energy Score and predictive dispersion, whereas more difficult cases produce larger values of all three quantities. In particular, ϵD\epsilon_{D} and the predictive standard deviation broadly track ϵF\epsilon_{F} and the mean error, respectively, suggesting that predictive dispersion is informative about the spatial prediction error. The principal exception is sample 0025500255, for which ϵF\epsilon_{F} and the mean error increase markedly while ϵD\epsilon_{D} and the standard deviation remain comparatively small. Thus, although uncertainty is generally aligned with error, the model appears under-dispersed on this particularly difficult case.
+Figure 7: Ginzburg–Landau equilibrium fields experiment. Equilibrium field examples for 16 values of the input parameter μ\mu. As can be seen, the map μ↦uμ\mu\mapsto u_{\mu} is highly non-linear, albeit continuous.
+Table 8: Per-sample results for the Ginzburg–Landau experiment.
+Sample
+ϵF\epsilon_{F}
+ϵD\epsilon_{D}
+SESS_{\text{ES}}
+Mean error
+Std. dev.
+00000
+0.0242
+0.0253
+0.0116
+0.0167
+0.0268
+00011
+0.0196
+0.0232
+0.0080
+0.0114
+0.0243
+00036
+0.0192
+0.0229
+0.0077
+0.0106
+0.0228
+00050
+0.0257
+0.0277
+0.0118
+0.0167
+0.0274
+00058
+0.0208
+0.0253
+0.0082
+0.0109
+0.0265
+00077
+0.0257
+0.0288
+0.0113
+0.0171
+0.0286
+00098
+0.0597
+0.0561
+0.0317
+0.0490
+0.0550
+00116
+0.0295
+0.0351
+0.0120
+0.0164
+0.0339
+00137
+0.0289
+0.0329
+0.0124
+0.0179
+0.0311
+00160
+0.0464
+0.0431
+0.0249
+0.0360
+0.0398
+00169
+0.0339
+0.0362
+0.0158
+0.0238
+0.0335
+00187
+0.0564
+0.0622
+0.0253
+0.0403
+0.0664
+00205
+0.1094
+0.1005
+0.0591
+0.0874
+0.0927
+00229
+0.1368
+0.1160
+0.0788
+0.1163
+0.1093
+00244
+0.1207
+0.0962
+0.0727
+0.0955
+0.0895
+00255
+0.1876
+0.0925
+0.1414
+0.1647
+0.0874
+Interestingly, sample-level rank correlations provide information that is not captured by marginal calibration alone. As shown in Table 9 and Table 8, the field error ϵF\epsilon_{F} is strongly correlated with the corresponding dispersion measure ϵD\epsilon_{D}. Hence, samples on which the surrogate incurs larger errors also tend to receive greater predictive dispersion. This indicates that the learned uncertainty is not merely calibrated in aggregate, but is also informative about the relative difficulty of individual test cases. Likewise, the strong association between the mean pointwise error and the predictive standard deviation suggests that this error–dispersion alignment persists at the local level. Nevertheless, such rank correlations measure the ordering of cases rather than the quantitative agreement between error and uncertainty; they should therefore be interpreted as complementary to, rather than implied by, calibration.
+Some sample predictions are shown in Figure 8–Figure 11.
+Figure 8: Ginzburg–Landau equilibrium fields experiment, sample 3. From top to bottom: ground truth, deterministic predictor, MC Dropout, OTD.
+Figure 9: Ginzburg–Landau equilibrium fields experiment, sample 6. From top to bottom: ground truth, deterministic predictor, MC Dropout, OTD.
+Figure 10: Ginzburg–Landau equilibrium fields experiment, sample 9. From top to bottom: ground truth, deterministic predictor, MC Dropout, OTD.
+Figure 11: Ginzburg–Landau equilibrium fields experiment, sample 12. From top to bottom: ground truth, deterministic predictor, MC Dropout, OTD.
+Figure 12shows the spatial alignment between the first and the second term of the Energy Score.
+Figure 12: Ginzburg–Landau equilibrium fields experiment. Spatial alignment between the first (ϵF\epsilon_{F}) and the second term (ϵD\epsilon_{D}) of the Energy score.
+Table 9: Ginzburg–Landau equilibrium fields experiment. Pairwise Spearman rank correlations.
+εF\varepsilon_{F}
+εD\varepsilon_{D}
+Mean error
+Std. dev.
+εF\varepsilon_{F}
+1
+0.9765
+–
+0.9735
+εD\varepsilon_{D}
+0.9765
+1
+0.9441
+–
+Mean error
+–
+0.9441
+1
+0.9294
+Std. dev.
+0.9735
+–
+0.9294
+1
+This relationship becomes clearer at the pointwise level, when ϵF​(x,y)\epsilon_{F}(x,y) and ϵD​(x,y)\epsilon_{D}(x,y) are treated as fields over the unit square rather than aggregated over the domain. In particular, Table 10 and Table 11 show that, when the model is well calibrated, ϵF\epsilon_{F} is strongly correlated with ϵD\epsilon_{D}. This association is consistent with the Energy Score objective, which jointly rewards agreement with the observation and appropriate ensemble dispersion. Indeed, if the optimal conditional law coincides with the target one, the two terms coincide. Consequently, if each realisation y(k)y^{(k)} is assigned a physical interpretation, the mean realisation-wise error εF\varepsilon_{F} is more representative than the error of the ensemble mean ee, as the latter may conceal compensating errors across realisations. For the same reason, the pairwise dispersion ϵD\epsilon_{D} provides a more informative proxy for the reliability of εF\varepsilon_{F} than the pointwise standard deviation σ\sigma.
+Table 10: Ginzburg–Landau equilibrium fields experiment. Per-case pixel-wise Spearman rank correlations.
+The largest correlation in each row is shown in bold.
+Sample
+ρ⁡(εF,εD)\rho(\varepsilon_{F},\varepsilon_{D})
+ρ⁡(e,σ)\rho(e,\sigma)
+ρ⁡(εF,σ)\rho(\varepsilon_{F},\sigma)
+ρ⁡(e,εD)\rho(e,\varepsilon_{D})
+00000
+0.6290
+0.1138
+0.5881
+0.1264
+00011
+0.6909
+-0.0576
+0.6559
+-0.0404
+00036
+0.7722
+0.1702
+0.7455
+0.1886
+00050
+0.8393
+0.3215
+0.8049
+0.3426
+00058
+0.8659
+0.3631
+0.8326
+0.3810
+00077
+0.9168
+0.4516
+0.8773
+0.4826
+00098
+0.9439
+0.7192
+0.9284
+0.7335
+00116
+0.9083
+0.4198
+0.8886
+0.4286
+00137
+0.9050
+0.4510
+0.8962
+0.4659
+00160
+0.9314
+0.6722
+0.9289
+0.6747
+00169
+0.8957
+0.5480
+0.8888
+0.5558
+00187
+0.9229
+0.6190
+0.8966
+0.6525
+00205
+0.9686
+0.8180
+0.9675
+0.8180
+00229
+0.9688
+0.8185
+0.9631
+0.8225
+00244
+0.9622
+0.7183
+0.9562
+0.7255
+00255
+0.5934
+0.2675
+0.5639
+0.2925
+Table 11: Pairwise Spearman rank correlations across samples.
+εF\varepsilon_{F}
+εD\varepsilon_{D}
+Mean error
+Std. dev.
+εF\varepsilon_{F}
+1
+0.9263
+–
+0.9095
+εD\varepsilon_{D}
+0.9263
+1
+0.6085
+–
+Mean error
+–
+0.6085
+1
+0.5926
+Std. dev.
+0.9095
+–
+0.5926
+1
+Disentangling the contributions of the Energy Score and transport flow.
+The comparison is conducted using 50%50\% of the available training set, corresponding to 102 equilibrium fields, and a fixed 50%50\% subset of the test set, corresponding to 26 fields. The same test subset is used throughout, while the training subset, model initialisation, data ordering, and stochastic keys are paired across variants within each random seed. We considered five configurations: MC Dropout trained with mean squared error; MC Dropout trained with the Energy Score; zero-step OTD trained with the Energy Score; OTD with an active flow but λkin=0\lambda_{\mathrm{kin}}=0; and complete OTD with kinetic regularisation. All predictive networks have four GeLU hidden layers and are scaled to retain approximately 128 active units per layer on average: MC Dropout uses width ⌊128/(1−0.1)⌋=142\lfloor 128/(1-0.1)\rfloor=142 with dropout probability 0.10.1, whereas the OTD variants use width 128/0.5=256128/0.5=256, a Concrete reference distribution with p=0.5p=0.5, and temperature τ=1.0\tau=1.0. The zero-step variant applies no transport, while the flow-based variants use a two-layer velocity network of width 64 and two Euler integration steps. The complete model uses kinetic weight λkin=10−7\lambda_{\mathrm{kin}}=10^{-7}, with KES=4K_{\mathrm{ES}}=4 predictive samples and Kkin=2K_{\mathrm{kin}}=2 kinetic-action samples during training. We train every configuration for 800 epochs with AdamW, learning rate 10−310^{-3}, weight decay 10−510^{-5}, and batches of 16 fields, corresponding to 65 53665\,536 spatial observations. Evaluation uses 128 stochastic forward passes and reports RMSE and MAE errors, Energy Score, and MACE. Results are aggregated over three random seeds.
+Sensitivity to the integration depth and Concrete temperature.
+We examine the sensitivity of OTD to the number of flow-integration steps LL and the temperature of the reference Concrete distribution τ\tau. As shown in Table 12, the largest improvement occurs between zero and one step: MAE decreases from 0.09490.0949 to 0.05550.0555, while MACE decreases from 0.17360.1736 to 0.03670.0367. Increasing the integration depth produces smaller but consistent gains, with four steps achieving the best result across all predictive metrics.
+Table 12: Sensitivity to the number of integration steps at τ=1\tau=1. Results are mean ±\pm standard deviation over three seeds.
+LL
+RMSE
+MAE
+SESS_{\mathrm{ES}}
+MACE
+00
+0.1704±0.01380.1704\pm 0.0138
+0.0949±0.00740.0949\pm 0.0074
+0.0698±0.00270.0698\pm 0.0027
+0.1736±0.01320.1736\pm 0.0132
+11
+0.1417±0.01880.1417\pm 0.0188
+0.0555±0.00860.0555\pm 0.0086
+0.0399±0.00710.0399\pm 0.0071
+0.0367±0.03090.0367\pm 0.0309
+22
+0.1392±0.01990.1392\pm 0.0199
+0.0542±0.00650.0542\pm 0.0065
+0.0386±0.00530.0386\pm 0.0053
+0.0255±0.00950.0255\pm 0.0095
+44
+0.1368±0.0098\mathbf{0.1368\pm 0.0098}
+0.0533±0.0043\mathbf{0.0533\pm 0.0043}
+0.0377±0.0028\mathbf{0.0377\pm 0.0028}
+0.0105±0.0072\mathbf{0.0105\pm 0.0072}
+The temperature results in Table 13 show that references closer to the Bernoulli limit produce larger calibration errors and activate more units on average. Increasing the temperature improves the probabilistic metrics: τ=1\tau=1 achieves the lowest MAE, Energy Score, and MACE, while τ=0.5\tau=0.5 achieves the lowest RMSE, albeit with greater variability across seeds. Overall, the results favour a smoother reference distribution and show that OTD is relatively stable for τ∈{0.5,1}\tau\in\{0.5,1\}.
+Table 13: Sensitivity to the Concrete temperature using two integration steps. Results are mean ±\pm standard deviation over three seeds.
+τ\tau
+RMSE
+MAE
+SESS_{\mathrm{ES}}
+MACE
+0.050.05
+0.1412±0.01330.1412\pm 0.0133
+0.0588±0.00440.0588\pm 0.0044
+0.0422±0.00290.0422\pm 0.0029
+0.0458±0.01960.0458\pm 0.0196
+0.100.10
+0.1400±0.00480.1400\pm 0.0048
+0.0601±0.00130.0601\pm 0.0013
+0.0422±0.00140.0422\pm 0.0014
+0.0453±0.04470.0453\pm 0.0447
+0.500.50
+0.1372±0.0245\mathbf{0.1372\pm 0.0245}
+0.0546±0.00840.0546\pm 0.0084
+0.0387±0.00680.0387\pm 0.0068
+0.0344±0.01460.0344\pm 0.0146
+1.001.00
+0.1392±0.01990.1392\pm 0.0199
+0.0542±0.0065\mathbf{0.0542\pm 0.0065}
+0.0386±0.0053\mathbf{0.0386\pm 0.0053}
+0.0255±0.0095\mathbf{0.0255\pm 0.0095}
+D.5 UCI/OpenML Protocol
+We evaluate the method on a collection of UCI/OpenML11
+1
+Datasets were retrieved from OpenML: Energy Efficiency (ID 43918), Synchronous Machine (44968), CT Slice Localisation (42973), QSAR Fish Toxicity (44028), Concrete Compressive Strength (4353), Concrete Slump (41490), Forest Fires (46587), Naval Propulsion (44969), Infrared Thermography (46613), SUPPORT2 (46860), and Superconductivity (43174). Source: OpenML; Vanschoren et al., “OpenML: Networked Science in Machine Learning”, SIGKDD Explorations, 2013. tabular regression datasets, including Energy, Concrete, Slump, Forest Fires, Naval Propulsion, Toxicity, Synchronous Machine, Localisation, Thermography, and Superconductivity. These datasets are based on real experimental or observational measurements, and therefore include measurement noise, finite-sample effects, and possible heteroscedasticity. This makes them a useful test bed for predictive uncertainty, since a good model should not only fit the conditional mean but also provide calibrated predictive distributions.
+For each dataset, we use a five-fold cross-validation protocol. Within each training fold, 10%10\% of the data is held out as a validation set for early stopping and for selecting the density-estimation hyperparameters; test labels are not used for tuning. Inputs and targets are standardised fold-wise, with a log transform applied to forestfires and supercond datasets. The Optimal Transport Dropout model produces K=1000K=1000 predictive samples per test point, from which we estimate likelihood-based metrics, RMSE, SESS_{\text{ES}}, prediction interval coverage, sharpness, and calibration errors. Overall, the results are favourable: the method provides competitive point prediction accuracy while producing meaningful predictive distributions, and several cases show good calibration across noisy real-world regression tasks.
+This is a relevant experiment since it shows the capability of the model beyond high-fidelity data. In particular, it shows that it is also able to model noisy data, capturing aleatoric uncertainty stemming from experimental measurement noise and unobserved covariates. Because OTD defines an implicit predictive distribution rather than an analytic density, we estimate its NLL from predictive samples using a Gaussian kernel density estimator. We therefore regard NLL as a complementary, density-estimator-dependent metric and report sample-based proper scores and calibration diagnostics alongside it (see Table 15).
+Table 14: Experimental dataset. Results reported as mean NLL. The better, the darker.
+Dataset
+CADET
+CART-h
+CART-k
+CKDE
+LSCDE
+NKDE
+CDE-HT
+LinCDE
+MDN
+NF
+CPFN
+OTD
+energy
+3.55
+3.09
+3.06
+2.47
+3.38
+3.00
+2.93
+2.93
+2.78
+2.86
+2.73
+1.08
+synchronous
+-2.93
+-1.63
+-1.86
+-3.59
+-1.25
+-1.57
+-2.11
+-1.85
+-2.94
+-2.64
+-4.48
+-5.02
+localization
+-0.23
+-0.55
+-0.01
+-0.26
+-0.61
+-0.28
+-0.66
+-0.95
+-0.68
+-0.43
+4.19
+1.03
+toxicity
+1.80
+1.50
+1.38
+1.32
+1.34
+1.55
+1.53
+1.29
+1.24
+1.23
+2.13
+1.40
+concrete
+4.17
+3.75
+3.93
+3.32
+3.66
+3.91
+3.72
+3.47
+2.97
+3.18
+3.40
+3.07
+slump
+3.42
+3.55
+3.43
+2.35
+2.91
+3.08
+3.34
+2.98
+2.23
+2.39
+4.48
+2.40
+forestfire
+133.95
+3.96
+4.39
+4.85
+4.68
+5.55
+3.43
+4.35
+3.26
+3.23
+2.53
+3.50
+navalpropulsion
+-3.53
+-3.30
+-3.66
+-2.8
+-2.88
+-3.19
+-3.60
+-3.36
+-4.12
+-3.75
+-5.61
+-5.38
+thermograpy
+2.21
+0.66
+0.72
+0.66
+0.94
+0.94
+0.64
+0.59
+0.56
+0.52
+0.91
+0.18
+support2
+97.3
+0.51
+0.32
+2.09
+2.46
+2.13
+0.29
+1.48
+1.53
+1.24
+1.57
+-0.19
+superconductor
+9.6
+3.84
+4.36
+4.55
+4.17
+4.19
+3.48
+3.87
+3.33
+3.50
+3.51
+3.45
+Table 15: Experimental dataset. Summary of the OTD results across datasets. MACE is computed against nominal coverage levels α∈{0.50,0.80,0.90,0.95}\alpha\in\{0.50,0.80,0.90,0.95\}.
+Dataset
+RMSE
+SESS_{\text{ES}}
+Sharpness
+MACE
+energy
+0.857
+0.464
+1.231
+0.323
+synchronous
+0.001
+0.001
+0.006
+0.064
+localization
+0.829
+0.395
+1.866
+0.142
+toxicity
+1.028
+0.569
+1.605
+0.278
+concrete
+5.172
+2.965
+6.830
+0.355
+slump
+2.345
+1.613
+0.721
+0.690
+forestfires
+1.924
+1.397
+0.416
+0.717
+navalpropulsion
+0.002
+0.001
+0.006
+0.066
+thermography
+1.242
+0.262
+0.153
+0.640
+support2
+0.296
+0.121
+0.489
+0.046
+supercond
+0.426
+0.206
+1.165
+0.067
+Appendix E The role of the kinetic regularisation
+The kinetic regularisation weight λkin\lambda_{\mathrm{kin}} directly controls the transport magnitude of the latent trajectories. As λkin\lambda_{\mathrm{kin}} increases, the learned velocity field is encouraged to minimise its kinetic action, yielding progressively smoother paths in latent space. However, excessively strong regularisation also penalises the transport itself, limiting the deformation of the reference measure and thus reducing the expressiveness of the resulting push-forward distribution. Consequently, the model may struggle to represent complex target distributions, leading to underfitting. Therefore, λkin\lambda_{\mathrm{kin}} must be chosen as a compromise between latent trajectory regularity and transport flexibility. Figure 13 illustrates this trade-off on the bimodal experiment: increasing λkin\lambda_{\mathrm{kin}} produces progressively smoother trajectories, whereas overly large values inhibit the transport and reduce the quality of the learned distribution. In practice, we choose λkin\lambda_{\mathrm{kin}} so that the λkin​𝒜​(ψ)\lambda_{\mathrm{kin}}\mathcal{A}(\psi) remains small relative to the Energy Score during training, and check that increasing it does not materially worsen the validation Energy Score. This limits the cost of transport without unduly compromising predictive fit.
+Figure 13: Role of the kinetic regularisation. Grey dots denote the reference masks, while blue dots denote the transported masks. Larger values of λkin\lambda_{\mathrm{kin}} produce smoother transport trajectories but increasingly restrict the deformation of the reference measure.
+Appendix F Sensitivity analysis: timing sweep
+We performed an OTD-only timing ablation on the Ginzburg–Landau experiment to identify which transported-dropout components contribute most to wall-clock training time. All runs used the same training subset, namely half of the available GL training cases, batch size 81928192, and 10001000 measured optimisation epochs. The reference configuration used KES=4K_{\mathrm{ES}}=4 Monte Carlo samples for the energy score, Kkin=2K_{\mathrm{kin}}=2 samples for the kinetic regularizer, 22 Euler integration steps in the transport flow, and the full 64×6464\times 64 spatial grid. We then varied one factor at a time: KES∈{1,2,4,8}K_{\mathrm{ES}}\in\{1,2,4,8\}, Kkin∈{0,1,2,4}K_{\mathrm{kin}}\in\{0,1,2,4\}, the number of integration steps in {0,1,2,4}\{0,1,2,4\}, and the grid resolution in {64,32,16}\{64,32,16\}. The case KES=1K_{\mathrm{ES}}=1 is included as a limiting computational baseline: with a single predictive sample, the pairwise-dispersion term of the empirical energy score vanishes, leaving only the sample-to-observation discrepancy. Timings exclude the first 55 warmup epochs for each model, to avoid measuring JAX/XLA compilation overhead, and are averaged over three initialisation seeds.
+Table 16: OTD timing-sweep configurations for the Ginzburg–Landau
+experiment. All variants were trained using 50%50\% of the training cases
+and two cases per batch. Timings are reported as mean ±\pm standard
+deviation over three seeds. Each run used 55 warmup epochs, excluded
+from timing, followed by 10001000 measured training epochs. Speedups are
+computed relative to the reference configuration.
+Configuration
+KESK_{\mathrm{ES}}
+KkinK_{\mathrm{kin}}
+Integration steps
+Grid
+Time (s)
+Speedup
+Reference
+4
+2
+2
+64264^{2}
+145.76±2.36145.76\pm 2.36
+1.00×1.00\times
+KES=1K_{\mathrm{ES}}=1
+1
+2
+2
+64264^{2}
+149.22±1.53149.22\pm 1.53
+0.98×0.98\times
+KES=2K_{\mathrm{ES}}=2
+2
+2
+2
+64264^{2}
+149.22±4.52149.22\pm 4.52
+0.98×0.98\times
+KES=8K_{\mathrm{ES}}=8
+8
+2
+2
+64264^{2}
+150.35±0.82150.35\pm 0.82
+0.97×0.97\times
+No kinetic term
+4
+0
+2
+64264^{2}
+140.87±5.01140.87\pm 5.01
+1.03×1.03\times
+Kkin=1K_{\mathrm{kin}}=1
+4
+1
+2
+64264^{2}
+146.21±7.13146.21\pm 7.13
+1.00×1.00\times
+Kkin=4K_{\mathrm{kin}}=4
+4
+4
+2
+64264^{2}
+150.59±2.79150.59\pm 2.79
+0.97×0.97\times
+Zero integration steps
+4
+2
+0
+64264^{2}
+137.87±6.51137.87\pm 6.51
+1.06×1.06\times
+One integration step
+4
+2
+1
+64264^{2}
+138.78±1.42138.78\pm 1.42
+1.05×1.05\times
+Four integration steps
+4
+2
+4
+64264^{2}
+145.05±5.46145.05\pm 5.46
+1.00×1.00\times
+Grid 32×3232\times 32
+4
+2
+2
+32232^{2}
+148.82±3.28148.82\pm 3.28
+0.98×0.98\times
+Grid 16×1616\times 16
+4
+2
+2
+16216^{2}
+144.81±1.14144.81\pm 1.14
+1.01×1.01\times
+The observed timings indicate that, at full grid resolution, runtime is only weakly sensitive to the Monte Carlo counts: reducing KESK_{\mathrm{ES}} from 44 to 11 did not reduce wall-clock time, while increasing it to 88 produced a comparable time. Predictive samples and spatial points are processed in batches and can be evaluated in parallel when sufficient hardware resources are available. Removing the kinetic term yielded a modest 1.03×1.03\times speedup. Flow evaluations, however, are sequential across integration steps; using zero or one step yielded speedups of 1.06×1.06\times and 1.05×1.05\times, respectively, while four steps gave a time comparable to the reference. Thus, the measured contribution of flow integration to total runtime is modest in this configuration.
+Reducing the spatial grid likewise produced no substantial speedup in the reported measurements: the 32×3232\times 32 and 16×1616\times 16 configurations took 148.82148.82 and 144.81144.81 seconds, respectively, compared with 145.76145.76 seconds for the 64×6464\times 64 reference. This is consistent with parallel evaluation of batched grid points on the NVIDIA GeForce RTX 5090 used for all timing runs, although the timings alone do not establish which operation dominates computational cost. The small measured overhead of the flow permits the use of a few integration steps; kinetic regularisation discourages large latent velocities, but does not guarantee that the resulting time discretisation is accurate. Its adequacy should be assessed by comparing the learned predictions with those obtained using a finer integration grid. The results are reported in Table 16 and Figure 14.
+Figure 14: OTD timing-sweep configurations for the Ginzburg–Landau experiment. All variants were trained using 50%50\% of the training cases and batch size 81928192. Timings are reported as mean ±\pm standard deviation over three seeds. Each run used 55 warmup epochs, excluded from timing, followed by 10001000 measured training epochs.
+Appendix G A generalisation of OTD
+In this section we discuss a generalisation of OTD in which the transported random variable is no longer tied to the width of the stochastic feature mask. In the original OTD construction, randomness enters through a transported dropout mask. If the predictive network has hidden widths
+(h1,…,hL)(h_{1},\ldots,h_{L}), the transported state has dimension
+dz=∑ℓ=1Lhℓ.d_{z}=\sum_{\ell=1}^{L}h_{\ell}.
+Thus the latent dimension is determined by the architecture of the downstream network. This coupling is natural for mask modulation, but it also makes the transport problem more expensive as the predictive model is widened or deepened.
+Conditional formulation.
+The conditional formulation decouples these two objects. We sample a latent variable z0∼ρ0z_{0}\sim\rho_{0} transport it through a learned flow z1=Tθ​(z0),z_{1}=T_{\theta}(z_{0}), and concatenate the transported latent code to the input of the neural field. Here dzd_{z} is a free modelling choice. It is no longer required to coincide with the total number of hidden features in the network. This makes the construction strictly more general: the stochastic component can be made large enough to represent epistemic uncertainty, but small enough to keep the transport problem
+tractable.
+Low–latent formulation.
+Instead, the low–latent formulation prescribes the latent dimension dzd_{z} a priori. This keeps the latent flow minimal in the latent space of dimension dzd_{z}. To match the predictive network’s dimensionality, we then pass the flow output to a neural network that lifts the latent mask to a higher-dimensional space, matching the predictive network’s actual dimension, ∑ℓ=1Lhℓ\sum_{\ell=1}^{L}h_{\ell}.
+Experimental results
+In the GL experiment, the original OTD mask dimension is dz=6⋅256=1536d_{z}=6\cdot 256=1536. We therefore compare the matched latent dimension against lower-dimensional conditional models with dz∈{512,128,32}d_{z}\in\{512,128,32\}. The model is trained with a single latent code per field realisation, broadcast over all spatial points of that case.
+Table 17: Ginzburg–Landau results comparing the original OTD experiment with
+the low-dimensional OTD variants and Conditional OT variants.
+RMSE, MAE, SESS_{\text{ES}}, MACE, sharpness, and PICP0.90\mathrm{PICP}_{0.90} are evaluated
+at the pixel level on a 64×6464\times 64 grid. MACE is averaged over
+α∈{0.50,0.75,0.80,0.90,0.95}\alpha\in\{0.50,0.75,0.80,0.90,0.95\}.
+Method
+dzd_{z}
+RMSE
+MAE
+SESS_{\text{ES}}
+MACE
+Sharpness
+PICP0.90\mathrm{PICP}_{0.90}
+OTD
+1536
+0.134±0.003\mathbf{0.134\pm 0.003}
+0.043±0.000\mathbf{0.043\pm 0.000}
+0.031±0.000\mathbf{0.031\pm 0.000}
+0.038±0.020\mathbf{0.038\pm 0.020}
+0.046±0.0050.046\pm 0.005
+0.911±0.024\mathbf{0.911\pm 0.024}
+Low-latent OTD
+512
+0.140±0.0030.140\pm 0.003
+0.045±0.0010.045\pm 0.001
+0.033±0.0010.033\pm 0.001
+0.086±0.0380.086\pm 0.038
+0.039±0.0040.039\pm 0.004
+0.811±0.0310.811\pm 0.031
+Low-latent OTD
+128
+0.141±0.0210.141\pm 0.021
+0.045±0.0060.045\pm 0.006
+0.033±0.0050.033\pm 0.005
+0.067±0.0500.067\pm 0.050
+0.040±0.0080.040\pm 0.008
+0.829±0.0470.829\pm 0.047
+Low-latent OTD
+32
+0.143±0.0080.143\pm 0.008
+0.045±0.0020.045\pm 0.002
+0.034±0.0010.034\pm 0.001
+0.087±0.0660.087\pm 0.066
+0.037±0.000\mathbf{0.037\pm 0.000}
+0.809±0.0670.809\pm 0.067
+Conditional OT
+1536
+0.169±0.0070.169\pm 0.007
+0.078±0.0050.078\pm 0.005
+0.050±0.0020.050\pm 0.002
+0.130±0.0310.130\pm 0.031
+0.142±0.0030.142\pm 0.003
+0.968±0.0140.968\pm 0.014
+Conditional OT
+512
+0.156±0.0130.156\pm 0.013
+0.059±0.0110.059\pm 0.011
+0.041±0.0060.041\pm 0.006
+0.076±0.0130.076\pm 0.013
+0.089±0.0210.089\pm 0.021
+0.937±0.0020.937\pm 0.002
+Conditional OT
+128
+0.159±0.0070.159\pm 0.007
+0.058±0.0040.058\pm 0.004
+0.040±0.0010.040\pm 0.001
+0.058±0.0050.058\pm 0.005
+0.078±0.0150.078\pm 0.015
+0.876±0.0570.876\pm 0.057
+Conditional OT
+32
+0.146±0.0130.146\pm 0.013
+0.048±0.0050.048\pm 0.005
+0.036±0.0050.036\pm 0.005
+0.069±0.0830.069\pm 0.083
+0.043±0.0030.043\pm 0.003
+0.829±0.0810.829\pm 0.081
+The results show two different effects of reducing the transported latent
+dimension. For the OTD architecture, matching the original mask dimension remains best in terms of pointwise predictive accuracy: dz=1536d_{z}=1536 gives the lowest RMSE, MAE, and energy score. However, the reduced latent models remain close despite using substantially smaller transport spaces. In particular, dz=512d_{z}=512 obtains RMSE 0.1397±0.00250.1397\pm 0.0025 and SESS_{\text{ES}} 0.0330±0.00130.0330\pm 0.0013, compared with 0.1341±0.00260.1341\pm 0.0026 and 0.0310±0.00030.0310\pm 0.0003 for dz=1536d_{z}=1536. The smallest model, dz=32d_{z}=32, gives the sharpest intervals, but at the cost of worse calibration error.
+The conditional formulation behaves differently. There, reducing dzd_{z} improves the predictive metrics relative to the matched dz=1536d_{z}=1536 model, with dz=32d_{z}=32 giving the best RMSE, MAE, and SESS_{\text{ES}} among the conditional models. This suggests that the concatenated-latent conditional field does not benefit from a large transported code in the same way as the mask-based OTD architecture. The computational effect is also much stronger in the conditional model: the matched conditional model requires approximately 0.9520.952 seconds per epoch, whereas dz=512d_{z}=512, dz=128d_{z}=128, and dz=32d_{z}=32 require approximately 0.3330.333, 0.1730.173, and 0.1530.153 seconds per epoch, respectively. In contrast, the low-latent OTD runs all take about 0.1850.185–0.1890.189 seconds per epoch, so reducing dzd_{z} mainly reduces the transport dimension rather than the full wall-clock cost.
+Calibration coverage reflects this trade-off. Overall, the mask-based low-latent OTD model is the stronger predictive architecture in this experiment. The matched dz=1536d_{z}=1536 version is best overall, but dz=512d_{z}=512 and dz=128d_{z}=128 provide competitive lower-dimensional alternatives. The conditional model is more sensitive to the choice of dzd_{z}: large latent codes are costly and over-dispersed, while smaller codes improve pointwise metrics and sharpness but lose coverage.
+The relevant structural observation remains that, in the original OTD model, the transport dimension is tied to the predictive architecture. With the new low-latent OTD parameterisation, dzd_{z} becomes a free hyperparameter while preserving the original mask-based inductive bias.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

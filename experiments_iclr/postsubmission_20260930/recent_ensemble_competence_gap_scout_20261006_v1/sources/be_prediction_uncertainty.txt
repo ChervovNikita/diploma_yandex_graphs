@@ -1,0 +1,857 @@
+1Introduction
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 BatchEnsemble For Scalable Predictive Uncertainty Estimation
+2.1 Problem setup
+2.2 BatchEnsemble
+2.3 Feed-forward Neural Network with BatchEnsemble
+3 Recurrent Neural Network with BatchEnsemble
+3.1 GRU with BatchEnsemble (GRUBE)
+4 Experiments
+4.1 Experimental Setup
+4.2 Experimental Results
+4.2.1 Tabular Regression
+4.2.2 Tabular Classification
+4.2.3 Time-Series Regression
+4.3 Ablation studies
+4.3.1 Orthogonal Initialization
+4.3.2 BatchEnsemble Adapters
+4.3.3 GRU Gates
+4.3.4 Layers
+5 Discussion and conclusion
+References
+A Dataset Details
+A.1 Construction of Distribution-Shifted Evaluation Sets
+B Implementation Setup
+C Does Orthogonal Initialization Improve Performance?
+D Do We Need All BatchEnsemble Adapters?
+E Do We Need BatchEnsemble in All GRU Gates?
+F Do We Need BatchEnsemble in All Layers?
+G Uncertainty Decomposition
+H Selective Prediction Evaluation with Distribution Shift
+I Nominal vs. Empirical Coverage Results
+License: CC BY 4.0
+arXiv:2601.21581v1 [cs.LG] 29 Jan 2026
+Evaluating Prediction Uncertainty Estimates from BatchEnsemble
+Morten Blørstad 1
+Herman Jangsett Mostein 2
+Nello Blaser 1
+Pekka Parviainen 1
+††footnotetext: 1Department of Informatics, University of Bergen, Bergen, Norway. 2IBM, Copenhagen, Denmark.
+Abstract
+Deep learning models struggle with uncertainty estimation. Many approaches are either computationally infeasible or underestimate uncertainty.
+We investigate BatchEnsemble as a general and scalable method for uncertainty estimation across both tabular and time series tasks. To extend BatchEnsemble to sequential modeling, we introduce GRUBE, a novel BatchEnsemble GRU cell. We compare the BatchEnsemble to Monte Carlo dropout and deep ensemble models.
+Our results show that BatchEnsemble matches the uncertainty estimation performance of deep ensembles, and clearly outperforms Monte Carlo dropout. GRUBE achieves similar or better performance in both prediction and uncertainty estimation.
+These findings show that BatchEnsemble and GRUBE achieve similar performance with fewer parameters and reduced training and inference time compared to traditional ensembles.
+1 Introduction
+Deep learning models are used across various industries and domains, such as weather, finance, energy, and healthcare. Most models provide only point predictions and lack well calibrated uncertainty estimates. For many applications, representing predictive uncertainty is essential and remains a long-standing practical challenge.
+Predictive uncertainty is typically decomposed into aleatoric uncertainty, capturing inherent data noise, and epistemic uncertainty, reflecting model uncertainty. Epistemic uncertainty can be used to identify out-of-distribution data and distribution shifts to enable reliable decision-making in safety-critical settings. Methods that fail to capture epistemic uncertainty may appear well-calibrated while remaining overconfident on unfamiliar inputs.
+Neural networks often fail to quantify predictive uncertainty and tend to produce overconfident predictions (Lakshminarayanan et al., 2017). Bayesian methods (Graves, 2011; Welling and Teh, 2011; Blundell et al., 2015; Izmailov et al., 2021; Mirikitani and Nikolaev, 2010; Chien and Ku, 2016; Fortunato et al., 2019) overcome overconfidence, but are typically hard to train and computationally expensive. This motivates alternative uncertainty estimation methods that only require minor changes to standard training pipelines.
+Monte Carlo (MC) dropout Gal and Ghahramani (2016) is such a method, but can be overconfident (Lakshminarayanan et al., 2017; Izmailov et al., 2021). Deep ensembles have been proposed as another alternative, and have been shown to generate well-calibrated uncertainty estimates (Lakshminarayanan et al., 2017). Later studies found that deep ensembles usually outperform MC dropout on out-of-distribution (OOD) uncertainty benchmarks (Ovadia et al., 2019; Gustafsson et al., 2020). In practice deep ensembles are limited by their high computational and memory costs.
+BatchEnsemble (Wen et al., 2020) mitigates these costs by sharing weights across ensemble members, providing a parameter-efficient alternative to deep ensembles. BatchEnsemble yields strong predictive performance in image classification and machine translation and competitive accuracy and uncertainties as deep ensembles on out-of-distribution data in image classification (Wen et al., 2020). TabM (Gorishniy et al., 2025) applied similar ideas to tabular data, focusing on efficiency and predictive performance without considering uncertainty estimates.
+Zamyatin et al. (2026) have analyzed the calibration and diversity of BatchEnsemble for image classification tasks and found BatchEnsemble to underperform deep ensembles, contradicting results from Wen et al. (2020).
+Except for the work on machine translation (Wen et al., 2020), to the best of our knowledge there is no work on BatchEnsemble for uncertainty quantification on tabular and time series data, or on BatchEnsemble using a recurrent neural network.
+We evaluate the performance of BatchEnsemble in prediction and uncertainty estimation on tabular regression and classification and on time series forecasting.
+Our contribution.
+We empirically investigate if BatchEnsemble provides accurate and reliable uncertainty estimates as a efficient alternative to deep ensembles across different tasks.
+Our main contributions are:
+•
+We demonstrate that BatchEnsemble strikes a balance between MC dropout and deep ensembles, achieving better uncertainty estimates than MC dropout while matching deep ensembles with significantly fewer parameters across multiple tasks and data modalities.
+•
+We introduce GRUBE, a BatchEnsemble-based GRU variant, extending BatchEnsemble to time series tasks by integrating it directly into the GRU cells. We show that GRUBE achieves similar or better predictive and uncertainty estimation performance with substantially fewer parameters.
+BatchEnsemble closely matches or surpasses deep ensembles in uncertainty estimation and predictive performance while being far more parameter-efficient. GRUBE extends these benefits to time-series tasks with minimal cost.
+2 BatchEnsemble For Scalable Predictive Uncertainty Estimation
+2.1 Problem setup
+We study supervised learning on tabular and time-series data under a unified notation. For tabular tasks, we observe a dataset 𝒟={(𝒙i,yi)}i=1N\mathcal{D}=\{({\bm{x}}_{i},y_{i})\}_{i=1}^{N} with inputs 𝒙i∈ℝd{\bm{x}}_{i}\in\mathbb{R}^{d} and targets yiy_{i}. For regression yi∈ℝy_{i}\in\mathbb{R} and for classification yi∈{1,…,C}y_{i}\in\{1,\ldots,C\}. The goal is to learn a predictive distribution p⁡(y∣𝒙,θ)p(y\mid{\bm{x}},\theta) with model parameters θ\theta.
+Time-series observations arrive as an ordered sequence {(𝒙t,yt)}t=1T\{({\bm{x}}_{t},y_{t})\}_{t=1}^{T}. Forecasting conditions on a context window of length LL and predicts the next HH steps through p(yt+1:t+H∣𝒙t−L+1:t,θ)p\!\big(y_{t+1:t+H}\mid{\bm{x}}_{t-L+1:t},\theta\big).
+Similar to MC dropout (Gal and Ghahramani, 2016) and deep ensemble (Lakshminarayanan et al., 2017), we treat BatchEnsemble as a practical Bayesian approximation with minimal modifications to standard training. The predictive distribution
+p⁡(y∣𝒙)=∫p⁡(y∣𝒙,θ)​p​(θ∣𝒟)​𝑑θp(y\mid{\bm{x}})=\int p(y\mid{\bm{x}},\theta)\,p(\theta\mid\mathcal{D})\,d\theta
+is approximated by an ensemble size of KK members
+p⁡(y∣x)≈1K​∑k=1Kp⁡(y∣𝒙,θk),p(y\mid x)\approx\frac{1}{K}\sum_{k=1}^{K}p(y\mid{\bm{x}},\theta_{k}),
+where each θk\theta_{k} corresponds to the parameters of the kk-th BatchEnsemble member, obtained by combining shared weights with member-specific adapters (see Section 2.2).
+2.2 BatchEnsemble
+Standard deep ensembles are accurate but costly in memory and computation because each member has its own full set of weights. BatchEnsemble (Wen et al., 2020) shares one weight matrix 𝑾∈ℝp×q\bm{W}\!\in\!\mathbb{R}^{p\times q} per layer ℓ\ell, where pp and qq are the input and output size. Each member kk is given only three small vectors: input adapter 𝒓k∈ℝp{\bm{r}}_{k}\!\in\!\mathbb{R}^{p}, output adapter 𝒔k∈ℝq{\bm{s}}_{k}\!\in\!\mathbb{R}^{q}, and optional bias 𝒃k∈ℝq{\bm{b}}_{k}\!\in\!\mathbb{R}^{q}. These adapters modulate the shared weights through element-wise scaling of the input and output activations, adding only p+qp{+}q parameters per member (plus qq if a bias is used), instead of p​qpq like full ensemble members would.
+For a single input 𝒛ℓ(k)∈ℝp{\bm{z}}_{\ell}^{(k)}\in\!\mathbb{R}^{p} and nonlinearity ϕ\phi, member kk computes
+𝒛ℓ+1(k)=ϕ⁡((𝑾⊤​(𝒛ℓ(k)⊙𝒓k))⊙𝒔k+𝒃k).{\bm{z}}_{\ell+1}^{(k)}=\phi\!\Big(\big(\bm{W}^{\top}({\bm{z}}_{\ell}^{(k)}\odot{\bm{r}}_{k})\big)\odot{\bm{s}}_{k}+{\bm{b}}_{k}\Big).
+To vectorize computations, we repeat inputs for the first layer KK times to get 𝒁0∈ℝK×p\bm{Z}_{0}\!\in\!\mathbb{R}^{K\times p}. Per-member vectors 𝒓k{\bm{r}}_{k}, 𝒔k{\bm{s}}_{k} and 𝒃k{\bm{b}}_{k} are stacked into matrices 𝑹∈ℝK×p\bm{R}\!\in\!\mathbb{R}^{K\times p}, 𝑺∈ℝK×q\bm{S}\!\in\!\mathbb{R}^{K\times q} and 𝑩∈ℝK×q\bm{B}\!\in\!\mathbb{R}^{K\times q}. The vectorized forward pass becomes
+𝒁ℓ+1=ϕ⁡(((𝒁ℓ⊙𝑹)​𝑾)⊙𝑺+𝑩)∈ℝK×q.\bm{Z}_{\ell+1}=\phi\!\Big(\big((\bm{Z}_{\ell}\odot\bm{R})\,\bm{W}\big)\odot\bm{S}+\bm{B}\Big)\in\mathbb{R}^{K\times q}.
+2.3 Feed-forward Neural Network with BatchEnsemble
+For feed-forward networks, each linear layer is replaced by its BatchEnsemble counterpart as described above.
+This substitution allows multiple ensemble members to be trained and evaluated in parallel using shared weights, while maintaining the same overall architecture and training pipeline.
+Training.
+We optimize the ensemble by minimizing the average per-member negative log-likelihood. Training is fully vectorized; a single forward/backward pass computes all members’ losses simultaneously. Shared parameters receive aggregated gradients across members, whereas member-specific parameters are updated from their member’s loss.
+For classification, we use the categorical distribution
+ℒNLL=−∑c=1C𝟙[y=c]logp(y=c∣𝒙,θ)\mathcal{L}_{\text{NLL}}=-\sum_{c=1}^{C}\mathbb{1}[y=c]\log p(y=c\mid{\bm{x}},\theta)
+and for regression, we use the Gaussian distribution ℒNLL=12​log⁡σθ2​(x)+(y−μθ​(x))22​σθ2​(x).\mathcal{L}_{\text{NLL}}=\frac{1}{2}\log\sigma_{\theta}^{2}(x)+\frac{(y-\mu_{\theta}(x))^{2}}{2\sigma_{\theta}^{2}(x)}.
+For regression tasks we include a heteroscedastic head, so the model outputs (μθ​(x),log⁡σθ2​(x))(\mu_{\theta}(x),\log\sigma_{\theta}^{2}(x)).
+Inference.
+For classification, the predictive distribution corresponds to averaging the predicted class probabilities over the ensemble members. For regression, the predictive distribution results in a mixture of Gaussian distributions. Following Lakshminarayanan et al. (2017), we approximate this mixture with a single Gaussian whose mean and variance are given by
+μ∗​(x)\displaystyle\mu^{*}(x)
+=1K​∑k=1Kμθk​(x),\displaystyle=\frac{1}{K}\sum_{k=1}^{K}\mu_{\theta_{k}}(x),
+σ2∗(x)\displaystyle\sigma^{2*}(x)
+=1K​∑k=1K[σθk2​(x)+μθk2​(x)]−μ∗​(x)2.\displaystyle=\frac{1}{K}\sum_{k=1}^{K}\big[\sigma_{\theta_{k}}^{2}(x)+\mu_{\theta_{k}}^{2}(x)\big]-\mu^{*}(x)^{2}.
+3 Recurrent Neural Network with BatchEnsemble
+Recurrent architectures can be extended with BatchEnsemble, enabling parameter-efficient ensemble for sequential data such as time series.
+A standard recurrent neural network (RNN) updates its hidden state as 𝒉t=tanh⁡(𝑾⁡[𝒙t,𝒉t−1]+𝒃){\bm{h}}_{t}=\tanh\!\left(\bm{W}[{\bm{x}}_{t},{\bm{h}}_{t-1}]+{\bm{b}}\right), where 𝒙t{\bm{x}}_{t} is the input and 𝒉t−1{\bm{h}}_{t-1} the previous hidden state.
+In the BatchEnsemble variant, the output of recurrent layer is the hidden states for all KK members 𝑯t∈ℝK×q\bm{H}_{t}\in\mathbb{R}^{K\times q}. To construct the ensemble input at time tt, the current input 𝒙t{\bm{x}}_{t} is repeated KK times to form 𝑿t∈ℝK×p\bm{X}_{t}\in\mathbb{R}^{K\times p} and concatenated with the previous ensemble hidden state 𝑯t−1\bm{H}_{t-1}. The shared weights are modulated by member-specific adapters, yielding
+𝑯t=tanh⁡((([𝑿t,𝑯t−1]⊙𝑹)​𝑾)⊙𝑺+𝑩),\bm{H}_{t}=\tanh\!\left(\left(\left([\bm{X}_{t},\bm{H}_{t-1}]\odot\bm{R}\right)\bm{W}\right)\odot\bm{S}+\bm{B}\right),
+where 𝑾∈ℝ(p+q)×q\bm{W}\in\mathbb{R}^{(p+q)\times q} is the shared weights and 𝑹∈ℝK×(p+q)\bm{R}\!\in\!\mathbb{R}^{K\times(p+q)}, 𝑺,𝑩∈ℝK×q\bm{S},\bm{B}\!\in\!\mathbb{R}^{K\times q} contain stacked per-member adapters that are broadcast across the batch dimension.
+This allows all ensemble members to be computed in parallel within a single forward pass, keeping efficiency similar to a single model while capturing diverse function realizations.
+3.1 GRU with BatchEnsemble (GRUBE)
+We introduce GRUBE (Figure 1), a GRU Cho et al. (2014) variant that employs BatchEnsemble to quantify uncertainty in time-series forecasting tasks. GRUBE accounts for both aleatoric and epistemic uncertainty by replacing all linear transformations from GRU with shared-weight ensembles,
+𝑭t\displaystyle\bm{F}_{t}
+=σ⁡((([𝑿t,𝑯t−1]⊙𝑹f)​𝑾f)⊙𝑺f+𝑩f),\displaystyle=\sigma\!\left(\big(\big([\bm{X}_{t},\bm{H}_{t-1}]\odot\bm{R}_{f}\big)\bm{W}_{f}\big)\odot\bm{S}_{f}+\bm{B}_{f}\right),
+𝒁t\displaystyle\bm{Z}_{t}
+=σ⁡((([𝑿t,𝑯t−1]⊙𝑹z)​𝑾z)⊙𝑺z+𝑩z),\displaystyle=\sigma\!\left(\big(\big([\bm{X}_{t},\bm{H}_{t-1}]\odot\bm{R}_{z}\big)\bm{W}_{z}\big)\odot\bm{S}_{z}+\bm{B}_{z}\right),
+𝑯~t\displaystyle\tilde{\bm{H}}_{t}
+=tanh⁡((([𝑿t,𝑭t⊙𝑯t−1]⊙𝑹h)​𝑾h)⊙𝑺h+𝑩h),\displaystyle=\tanh\!\left(\big(\big([\bm{X}_{t},\bm{F}_{t}\odot\bm{H}_{t-1}]\odot\bm{R}_{h}\big)\bm{W}_{h}\big)\odot\bm{S}_{h}+\bm{B}_{h}\right),
+𝑯t\displaystyle\bm{H}_{t}
+=(𝟏−𝒁t)⊙𝑯t−1+𝒁t⊙𝑯~t.\displaystyle=\big({\bm{1}}-\bm{Z}_{t}\big)\odot\bm{H}_{t-1}+\bm{Z}_{t}\odot\tilde{\bm{H}}_{t}.
+This formulation creates an efficient ensemble of recurrent models that share most parameters, significantly reducing memory and compute costs while maintaining predictive diversity for uncertainty estimation.
+Figure 1: GRU with BatchEnsemble (GRUBE). The architecture combines the standard GRU architecture with the BatchEnsemble formalism applied to the weights Wz,WfW_{z},W_{f}, and WhW_{h}.
+Inference.
+For time-series forecasting, uncertainty compounds as predictions are rolled forward. Each prediction depends on previous uncertain outputs, causing both aleatoric and epistemic uncertainty to accumulate. To account for this, we use ancestral sampling. For each ensemble member kk and sample path ss, we draw predictions recursively as
+y^k,s(t+h)=μ^k(t+h)(y^k,s(t:h−1))+σ^k(t+h)(y^k,s(t:h−1))ϵk,s(t+h),\hat{y}^{(t+h)}_{k,s}=\hat{\mu}^{(t+h)}_{k}\!\big(\hat{y}^{(t:h-1)}_{k,s}\big)+\hat{\sigma}^{(t+h)}_{k}\!\big(\hat{y}^{(t:h-1)}_{k,s}\big)\,\epsilon^{(t+h)}_{k,s},\\
+where ϵk,s(t+h)∼𝒩⁡(0,1)\epsilon^{(t+h)}_{k,s}\sim\mathcal{N}(0,1).
+We then aggregate over all KK members and SS sample paths per member to get
+μ^(t+h)\displaystyle\hat{\mu}^{(t+h)}
+=1K​S​∑k,sy^k,s(t+h),\displaystyle=\frac{1}{KS}\sum_{k,s}\hat{y}^{(t+h)}_{k,s},
+σ^2​(Y(t+h))\displaystyle\hat{\sigma}^{2}\!\big(Y^{(t+h)}\big)
+=1K​S​∑k,s(y^k,s(t+h)−μ^(t+h))2.\displaystyle=\frac{1}{KS}\sum_{k,s}\big(\hat{y}^{(t+h)}_{k,s}-\hat{\mu}^{(t+h)}\big)^{2}.
+4 Experiments
+The goal of our experiments is to compare BatchEnsemble, deep ensemble, and MC dropout in terms of predictive performance and uncertainty estimation performance, in-distribution and under distribution shift. We assess uncertainty estimates from complementary perspectives, including quality of the full predictive distribution, calibration, sensitivity to distribution shift, and if uncertainty estimates are informative for ranking prediction difficulty.
+We further analyze uncertainty behavior through aleatoric–epistemic decomposition. We consider uncertainty estimates reliable if models perform well across all evaluated criteria.
+4.1 Experimental Setup
+Datasets.
+We evaluate BatchEnsemble on various datasets to get an comprehensive assessment of the uncertainty calibration across modalities and tasks (Table 2).
+To evaluate robustness under distribution shift, we construct shifted variants of the tabular datasets by excluding samples in the lower or upper q-quantile of two selected numerical features from training and assigning them to the test set. The numerical features are selected based on feature importance using a generalized linear model and we use q=0.025q=0.025. See Appendix A.1 for more details. The time-series datasets already exhibits distributional shifts due to its temporal structure and is evaluated without additional modifications.
+Setup.
+For all tasks, we split data into train and test using a 80/20 split. Table 3 shows the number of parameters for each model and dataset. Results over five runs with different seeds are reported as mean ±\pm standard error.
+For tabular data, we shuffle the data before splitting, whereas for times series we split chronologically. Data is scaled to [0,1][0,1]. We train the models by minimizing the negative log likelihood (NLL) with a fixed set of hyperparameters (see Appendix B).
+For time-series tasks, we use a context window of L=12L=12 and a prediction horizon of H=5H=5. Training is fully autoregressive (no teacher forcing), and the objective is a multi-step NLL, averaged over all forecast steps. At test time, multi-step forecasts are generated through ancestral sampling with 2000 samples, where each ensemble member produces trajectories for the next HH steps.
+Uncertainty estimation metrics.
+Uncertainty estimation performance is divided into proper scoring rules, which assess the full predictive distribution, and calibration metrics, which measure agreement between predicted probabilities or intervals and empirical frequencies. We use NLL and the Brier score as proper scoring rules, where
+Brier=1N∑i=1N∑c=1C(p(yi=c∣𝒙i,θ)−𝟙[yi=c])2.\mathrm{Brier}=\frac{1}{N}\sum_{i=1}^{N}\sum_{c=1}^{C}\big(p(y_{i}=c\mid{\bm{x}}_{i},\theta)-\mathbb{1}[y_{i}=c]\big)^{2}.
+For regression, calibration is evaluated using central prediction intervals at nominal coverages 𝒢={γj}j=1J\mathcal{G}=\{\gamma_{j}\}_{j=1}^{J}, evenly spaced in [0.025,0.975][0.025,0.975], where γj\gamma_{j} denotes the target coverage probability of the predictive interval. Let γ^j\hat{\gamma}_{j} denote the empirical coverage at level γj\gamma_{j}. We compute RMSCE=1J​∑j=1J(γ^j−γj)2\text{RMSCE}=\sqrt{\frac{1}{J}\sum_{j=1}^{J}(\hat{\gamma}_{j}-\gamma_{j})^{2}}, and miscalibration area ∫01|γ^​(γ)−γ|​𝑑γ\int_{0}^{1}\lvert\hat{\gamma}(\gamma)-\gamma\rvert\,d\gamma, approximated numerically using the trapezoidal rule over 𝒢\mathcal{G}.
+For classification, calibration is evaluated using the expected calibration error (ECE),
+ECE=∑m=1M|Bm|N​|acc⁡(Bm)−conf⁡(Bm)|.\mathrm{ECE}=\sum_{m=1}^{M}\frac{|B_{m}|}{N}\,\big|\mathrm{acc}(B_{m})-\mathrm{conf}(B_{m})\big|.
+Predictions are partitioned into M=15M=15 uniform confidence bins on [0,1][0,1], where BmB_{m} denotes the set of samples whose predicted confidence p^i=maxc⁡p⁡(y=c∣𝒙i,θ)\hat{p}_{i}=\max_{c}p(y=c\mid{\bm{x}}_{i},\theta) falls into bin mm. The quantities acc⁡(Bm)\mathrm{acc}(B_{m}) and conf⁡(Bm)\mathrm{conf}(B_{m}) denote empirical accuracy and average predicted confidence of samples in bin mm, respectively.
+Uncertainty decomposition.
+We decompose predictive uncertainty into aleatoric and epistemic components (Depeweg et al., 2018).
+For regression, the predictive variance σ2∗(𝒙)\sigma^{2*}({\bm{x}}) is decomposed as
+σ2∗(𝒙)=1K​∑k=1Kσθk2​(𝒙)⏟aleatoric+1K​∑k=1K(μθk​(𝒙)−μ∗​(𝒙))2⏟epistemic.\sigma^{2*}({\bm{x}})=\underbrace{\frac{1}{K}\sum_{k=1}^{K}\sigma^{2}_{\theta_{k}}({\bm{x}})}_{\text{aleatoric}}+\underbrace{\frac{1}{K}\sum_{k=1}^{K}\big(\mu_{\theta_{k}}({\bm{x}})-\mu^{*}({\bm{x}})\big)^{2}}_{\text{epistemic}}.
+For classification, predictive uncertainty is decomposed using the ensemble class probabilities
+p¯​(y=c∣𝒙)=1K​∑k=1Kp⁡(y=c∣𝒙,θk)\bar{p}(y=c\mid{\bm{x}})=\frac{1}{K}\sum_{k=1}^{K}p(y=c\mid{\bm{x}},\theta_{k}).
+Total uncertainty is measured by the predictive entropy
+H(p¯)=−∑c=1Cp¯(y=c∣𝒙)logp¯(y=c∣𝒙).H(\bar{p})=-\sum_{c=1}^{C}\bar{p}(y=c\mid{\bm{x}})\log\bar{p}(y=c\mid{\bm{x}}).
+We define the average member entropy as
+H¯=1K​∑k=1KH⁡(p⁡(y∣𝒙,θk)),\overline{H}=\frac{1}{K}\sum_{k=1}^{K}H\!\big(p(y\mid{\bm{x}},\theta_{k})\big),
+where H(p)=−∑c=1Cp(y=c)logp(y=c)H(p)=-\sum_{c=1}^{C}p(y=c)\log p(y=c).
+Aleatoric uncertainty is given by H¯​(p)\overline{H}(p), and epistemic uncertainty by
+H⁡(p¯)−H¯.H(\bar{p})-\overline{H}.
+Selective Prediction Evaluation.
+In addition to prediction and uncertainty estimation performance, we evaluate whether the uncertainty estimates are informative for ranking prediction difficulty using selective prediction (Herbei and Wegkamp, 2006; Geifman and El-Yaniv, 2017; Lakshminarayanan et al., 2017).
+The model outputs predictions and the corresponding uncertainty scores, u⁡(𝒙)u({\bm{x}}) for all samples. For classification, uncertainty is measured using the predictive entropy of the class probability vector. For regression, uncertainty is given by standard deviation of the predictive distribution. For time-series forecasting, uncertainty is computed as the average predictive standard deviation over the forecasting horizon.
+For a nominal coverage level γ∈(0,1]\gamma\in(0,1], we select a subset
+𝒮γ={i:u⁡(𝒙)≤τγ},\mathcal{S}_{\gamma}=\{i:u({\bm{x}})\leq\tau_{\gamma}\},
+where τγ\tau_{\gamma} is chosen such that |𝒮γ|=⌈γ​N⌉\lvert\mathcal{S}_{\gamma}\rvert=\lceil\gamma N\rceil. Performance is evaluated on 𝒮γ\mathcal{S}_{\gamma}. This results in a coverage–performance curve that shows how predictive performance changes as increasingly uncertain samples are included.
+4.2 Experimental Results
+4.2.1 Tabular Regression
+In-distribution.
+Figure 2 shows that on tabular regression tasks, BatchEnsemble is tied for best RMSE on both datasets under the mean±SE\mathrm{mean}\pm\mathrm{SE} overlap rule, matching deep ensembles on California and all methods on Diabetes. For uncertainty estimation, deep ensemble achieves the best NLL on California, closely followed by BatchEnsemble. On Diabetes there is a tie between BatchEnsemble, deep ensemble and MC dropout. Single model has the best calibration scores on California, whereas BatchEnsemble and deep ensemble achieve the best calibration scores on Diabetes. A closer inspection reveals that all models consistently overestimates uncertainty on California across all coverage levels (Figure 19, Appendix I). Table 1 shows all models have similar aleatoric uncertainty, but BatchEnsemble, deep ensemble and MC dropout additionally capture epistemic uncertainty, which leads to higher calibration errors.
+Figure 2: Regression results across tabular datasets. For each metric it shows the mean ±\pm standard error. The dotted line shows the lower limit of BatchEnsemble.
+Distribution shift.
+Figure 3 shows how the models performs under distribution shift. On California, BatchEnsemble and deep ensemble remain robust in RMSE (≈0.097→0.18\approx 0.097\to 0.18), while MC dropout and the single model degrade substantially (≈0.1→0.54\approx 0.1\to 0.54). For Diabetes the predictive performance is still a tie and similar RMSE values. For uncertainty estimation, deep ensemble still achieves the best NLL, closely followed by BatchEnsemble, and single model still achieves the best calibration metrics on the California dataset. On the Diabetes dataset BatchEnsemble achieves the best NLL, closely followed by deep ensemble and MC dropout. There is a tie between BatchEnsemble, deep ensemble and MC dropout on the calibration metrics.
+Figure 3: Regression results across tabular datasets with distribution shift. For each metric it shows the mean ±\pm standard error. The dotted line shows the lower limit of BatchEnsemble.
+Uncertainty decomposition.
+Table 1 shows the uncertainty decomposition on the in-distribution and distribution shift and the change. On in-distribution data, all models exhibit similar levels of aleatoric uncertainty on both datasets. For California, BatchEnsemble and deep ensemble have nearly identical and very small epistemic uncertainty, while MC dropout exhibits substantially higher epistemic uncertainty.
+Dataset: California
+ID
+Shift
+Δ\Delta (Shift −- ID)
+Model
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+BatchEnsemble
+0.013
+0.012
+0.001
+0.111
+0.038
+0.073
++0.098
++0.026
++0.072
+MC dropout
+0.024
+0.011
+0.013
+0.226
+0.050
+0.176
++0.202
++0.039
++0.163
+Deep ensemble
+0.011
+0.010
+0.001
+0.417
+0.031
+0.386
++0.406
++0.021
++0.385
+Single
+0.011
+0.011
+0.000
+0.044
+0.044
+0.000
++0.033
++0.033
++0.000
+Dataset: Diabetes
+ID
+Shift
+Δ\Delta (Shift −- ID)
+Model
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+BatchEnsemble
+0.029
+0.028
+0.001
+0.026
+0.025
+0.001
+-0.003
+-0.003
++0.000
+MC dropout
+0.053
+0.026
+0.027
+0.055
+0.027
+0.029
++0.002
++0.001
++0.002
+Deep ensemble
+0.026
+0.026
+0.000
+0.027
+0.026
+0.001
++0.001
++0.000
++0.001
+Single
+0.025
+0.025
+0.000
+0.025
+0.025
+0.000
++0.000
++0.000
++0.000
+Table 1: Uncertainty decomposition for tabular regression under in-distribution (ID) and shifted data. Δ\Delta denotes Shift −- ID.
+Under distribution shift, the model behavior differs. On California, epistemic uncertainty increases sharply for the ensemble-based methods and MC dropout, accounting for most of increase in total uncertainty. Deep ensemble has the largest epistemic increase, followed be MC dropout and BatchEnsemble. On Diabetes, there is almost no change in the uncertainty decomposition, with negligible changes in epistemic and total uncertainty.
+Selective prediction evaluation.
+Figure 4 shows predictive performance as a function of uncertainty, where coverage denotes the fraction of most certain samples. BatchEnsemble is competitive with deep ensemble across datasets, with RMSE increasing monotonically with coverage, indicating that more uncertain samples are harder to predict. Both methods consistently provide better rankings than MC dropout and the single model.
+On California, deep ensemble performs better than BatchEnsemble at low coverage (top 30–65% most certain samples). On Diabetes, BatchEnsemble performs best at very low coverage (top 30–35%), while deep ensemble performs better at intermediate coverage (top 45–80%). Similar trends holds under distributions shift (Figure 17, Appendix H).
+Figure 4: Selective prediction evaluation on tabular regression datasets.
+4.2.2 Tabular Classification
+In-distribution.
+In-distribution, BatchEnsemble achieves the highest accuracy on Adult. On Breast Cancer, accuracy is tied between BatchEnsemble, MC dropout, and the single model, with deep ensemble slightly worse. On Phoneme, all four methods achieve similar accuracy (Figure 5). In terms of NLL, BatchEnsemble achieves the best performance on Adult, while BatchEnsemble, MC dropout, and deep ensemble are tied best on Breast Cancer. On Phoneme, all methods are tied. For the Brier score, BatchEnsemble achieves the best performance on Adult, while all methods tied on Breast Cancer and Phoneme. ECE on Adult is tied between BatchEnsemble and deep ensemble, and all methods achieve similar ECE on Breast Cancer and Phoneme.
+Figure 5: Classification results across tabular datasets. The dotted line shows the lower limit (upper for accuracy) of BatchEnsemble.
+Distribution shift.
+Under the tail-based distribution shift, predictive performance remains unchanged with BatchEnsemble being the best on Adult and a tie between all models on Breast cancer and Phoneme.
+Differences between methods in uncertainty estimation increase compared to the in-distribution setting. On Adult, BatchEnsemble is best across all uncertainty metrics, followed by deep ensemble and MC dropout. On Breast Cancer, BatchEnsemble gets better NLL than the other methods, while all models remain tied in ECE. Brier score changes from a four-way tie in-distribution to a tie between BatchEnsemble and deep ensembles under distribution shift. On Phoneme, differences between the ensemble-based methods and MC dropout increase, with BatchEnsemble and deep ensemble best on both ECE and Brier (Figure 6).
+Figure 6: Classification results across tabular datasets with distribution shift. The dotted line shows the lower limit (upper for accuracy) of BatchEnsemble.
+Uncertainty decomposition.
+Appendix Table 4 shows uncertainty decomposition for tabular classification under in-distribution and shifted data. On Adult and Breast Cancer, shifts induce no or small changes in epistemic uncertainty, while Phoneme exhibits substantially larger increases across all models. On Adult under distribution shift, deep ensemble exhibits the highest epistemic uncertainty in absolute values, followed by MC dropout, with BatchEnsemble substantially lower. In contrast, on Breast Cancer, BatchEnsemble exhibits highest epistemic uncertainty, followed by deep ensemble and MC dropout. On shifted Phoneme, BatchEnsemble shows the largest increase in epistemic uncertainty, while MC dropout attains the highest epistemic uncertainty, followed by BatchEnsemble, and deep ensemble.
+Selective prediction evaluation.
+Figure 7 shows the selective prediction evaluation for in-distribution classification datasets. On the Adult dataset, we find that BatchEnsemble has the strongest predictive accuracy across all coverage, followed by deep ensemble. MC dropout is better than the Single model on the lower levels of coverage, but they are more or less tied as the coverage grows. On the Breast Cancer and Phoneme datasets, all models performs similar.
+Figure 7: Selective prediction evaluation on classification datasets.
+Under distribution shift (Figure 18, Appendix H), similar trends hold on Adult and Phoneme, with clearer separation at lower coverages between models that capture epistemic uncertainty and the single model. On Diabetes dataset, BatchEnsemble are better than deep ensemble on coverage levels 70-85%. For the other coverages, BatchEnsemble and deep ensemble performs similar.
+4.2.3 Time-Series Regression
+On time-series forecasting tasks, BatchEnsemble achieves the best predictive performance on both datasets, closely followed by deep ensemble. MC dropout and Single model are tied for worst predictive performance on both datasets. Detailed results are shown in Figure 8.
+In terms of uncertainty estimation, BatchEnsemble achieves the lowest NLL on both Electric and Temperature. MC dropout has worst NLL on Electric, but is better than Single model on Temperature. Calibration results show that BatchEnsemble achieves the best miscalibration area on Electric and is tied with the single model in RMSCE, while deep ensemble achieves the best calibration on Temperature, with BatchEnsemble as a close second. MC dropout performs similar to deep ensemble in calibration on Electric and similar to Single model on Temperature.
+Figure 8: Regression results across times-series datasets. For each metric it shows the mean ±\pm standard error. The dotted line shows the lower limit of BatchEnsemble.
+Selective prediction evaluation.
+Selective evaluation for time-series forecasting is shown in Figure 9. For BatchEnsemble, MC dropout, and deep ensembles, RMSE generally increases with coverage on both datasets, i.e., performance decreases as less-certain samples are included. This also holds for the single model on Electric. But on Temperature it shows the opposite trend, indicating a mismatch between uncertainty ranking and forecasting difficulty.
+Figure 9: Selective prediction evaluation on the time-series datasets.
+On Electric, BatchEnsemble performs best at higher coverage (top 60–100% most certain samples) and at lower coverage (top 30–60%) BatchEnsemble is tied best with deep ensemble. MC dropout is consistently worse across coverage levels. On Temperature, BatchEnsemble achieves the lowest RMSE across the entire coverage range. Deep ensembles are consistently second-best, while MC dropout and the single model have higher RMSE throughout.
+4.3 Ablation studies
+4.3.1 Orthogonal Initialization
+We explored orthogonal initialization and orthogonal regularization of the BatchEnsemble adapter parameters to encourage decorrelation among ensemble members and improve diversity (Figures 12 and 13, Appendix C). We found that this approach did not provide benefits over the simpler random sign initialization of Wen et al. (2020).
+4.3.2 BatchEnsemble Adapters
+BatchEnsemble induces ensemble diversity through three per-member adapters: input (𝑹\bm{R}), output (𝑺\bm{S}), and bias (𝑩\bm{B}). The relative importance of these components is not well understood. In particular, it is unclear if all three are required to obtain the benefits of BatchEnsemble. We perform an adapter-wise ablation in which we evaluate all possible combinations of 𝑹,𝑺,𝑩{\bm{R},\bm{S},\bm{B}}.
+All variants share the same base architecture, initialization, and training procedure.
+Figure 10: Adapter-wise ablation on classification datasets.
+Figure 10 below and Figure 14 in Appendix D show that while some variants exhibit stronger performance than others, none consistently match or outperform the full BatchEnsemble (BE) model with all adapters included. This means that all adapters are needed.
+4.3.3 GRU Gates
+We study whether BatchEnsemble must be applied to all GRU gates via a gate-wise ablation, selectively enabling it on the update (Z), reset (F), and candidate (C) gates, testing all possible configurations, including the full model (C​Z​FCZF). All variants share the same architecture and training setup. This isolates the contribution of each gate to performance and uncertainty estimation. We found that none of the reduced variants consistently matches or outperforms the full version (Figure 15, Appendix E). Applying BatchEnsemble to all gates provides the most reliable results.
+4.3.4 Layers
+We study if BatchEnsemble needs to be applied to all layers of a deep neural network or only in the last layers. We perform a layer-wise ablation on a 10-layer MLP, applying BatchEnsemble to the last ll layers. We evaluating on a synthetic regression and classification task of the Ackley function, which provides a highly non-linear benchmark that requires a deeper model to achieve good performance. Figure 11 below and Figure 16 in Appendix F show that models with BatchEnsemble in all layers achieve the best predictive performance and NLL, while configurations with fewer than eight BatchEnsemble layers perform significantly worse. Additional details are provided in Appendix F.
+Figure 11: Layer-wise BE ablation on the Ackley regression.
+5 Discussion and conclusion
+The overall picture is consistent across all datasets and modalities: BatchEnsemble achieves uncertainty estimates that are comparable to deep ensembles, while being significantly more efficient in terms of parameters and computation. MC dropout struggles to compete with them.
+This is in contrast to recent results for image data Zamyatin et al. (2026), who find that BatchEnsemble clearly underperforms deep ensembles in accuracy and uncertainty estimation. Our hypothesis is that parameter-sharing in CNNs makes it difficult for BatchEnsemble to learn diverse ensembles, which is not the case for tabular and time series data. This hypothesis is supported by our ablation studies that show that more BatchEnsemble layers and more BatchEnsemble adapters and GRU gates lead to better performance. However, it does not explain all the results from Zamyatin et al. (2026), who also find underperformance of a feedforward neural network on MNIST data.
+An important observation is that BatchEnsemble performs well across all evaluation criteria, including calibration metrics, NLL, and selective evaluation. In particular, the selective results show that BatchEnsemble produces uncertainty estimates that meaningfully rank samples by prediction difficulty. This indicates that the uncertainty is not only well scaled, but also informative for downstream decision-making, a key requirement for practical deployment.
+Under distribution shift BatchEnsemble behaves like deep ensemble. Predictive performance degrades gracefully, and uncertainty increases.
+However, uncertainty decomposition shows that BatchEnsemble and deep ensemble differ in how epistemic uncertainty is expressed across datasets. Deep ensemble exhibits the strongest epistemic increase on shifted California dataset, but BatchEnsemble shows higher epistemic uncertainty on some classification datasets. In particular, BatchEnsemble has the largest epistemic component on Breast Cancer (in-distribution and shifted) and a larger epistemic increase than deep ensembles on Phoneme. Despite these differences, the two methods produce similar predictive distributions and achieve comparable performance on all uncertainty metrics.
+On time-series forecasting tasks, GRUBE performs comparable to or better than deep ensembles in predictive accuracy and uncertainty estimation. As recurrent models are sensitive to model capacity and training stability, perturbations applied at each time step may allow ensemble members to represent different temporal patterns, while shared parameters act as a regularizer and improve training stability.
+Conclusion.
+BatchEnsemble is a scalable and general alternative to deep ensemble that provides reliable uncertainty estimates for tabular and time-series models.
+Acknowledgements
+We thank Anton Zamyatin and Yusuf Sale for insightful discussions.
+References
+Becker and Kohavi (1996)
+B. Becker and R. Kohavi
+Adult.
+Note: UCI Machine Learning RepositoryDOI: https://doi.org/10.24432/C5XW20
+Cited by: Table 2.
+Blundell et al. (2015)
+C. Blundell, J. Cornebise, K. Kavukcuoglu, and D. Wierstra
+Weight uncertainty in neural network.
+In Proceedings of the 32nd International Conference on Machine Learning, F. Bach and D. Blei (Eds.),
+Proceedings of Machine Learning Research, Vol. 37, Lille, France, pp. 1613–1622.
+External Links: Link
+Cited by: §1.
+Board of Governors of the Federal Reserve System (US) (2025)
+Board of Governors of the Federal Reserve System (US)
+Industrial production: utilities: electric and gas utilities (naics = 2211,2) [IPG2211A2N].
+Federal Reserve Bank of St. Louis.
+Note: https://fred.stlouisfed.org/series/IPG2211A2NRetrieved from FRED, October 14, 2025
+Cited by: Table 2.
+Breiman (2001)
+L. Breiman
+Random forests.
+Machine Learning 45 (1), pp. 5–32.
+External Links: ISSN 1573-0565,
+Link,
+Document
+Cited by: Appendix C.
+Chien and Ku (2016)
+J. Chien and Y. Ku
+Bayesian recurrent neural network for language modeling.
+IEEE Transactions on Neural Networks and Learning Systems 27 (2), pp. 361–374.
+External Links: Document
+Cited by: §1.
+Cho et al. (2014)
+K. Cho, B. van Merriënboer, C. Gulcehre, D. Bahdanau, F. Bougares, H. Schwenk, and Y. Bengio
+Learning phrase representations using RNN encoder–decoder for statistical machine translation.
+In Proceedings of EMNLP,
+Doha, Qatar, pp. 1724–1734.
+Cited by: §3.1.
+Depeweg et al. (2018)
+S. Depeweg, J. Hernandez-Lobato, F. Doshi-Velez, and S. Udluft
+Decomposition of uncertainty in Bayesian deep learning for efficient and risk-sensitive learning.
+In Proceedings of the 35th International Conference on Machine Learning, J. Dy and A. Krause (Eds.),
+Proceedings of Machine Learning Research, Vol. 80, pp. 1184–1193.
+External Links: Link
+Cited by: §4.1.
+Efron et al. (2004)
+B. Efron, T. Hastie, I. Johnstone, and R. Tibshirani
+Least angle regression.
+The Annals of Statistics 32 (2), pp. 407–499.
+External Links: Document
+Cited by: Table 2.
+Fort et al. (2020)
+S. Fort, H. Hu, and B. Lakshminarayanan
+Deep ensembles: a loss landscape perspective.
+External Links: 1912.02757,
+Link
+Cited by: Appendix C.
+Fortunato et al. (2019)
+M. Fortunato, C. Blundell, and O. Vinyals
+Bayesian recurrent neural networks.
+External Links: 1704.02798,
+Link
+Cited by: §1.
+Gal and Ghahramani (2016)
+Y. Gal and Z. Ghahramani
+Dropout as a Bayesian approximation: representing model uncertainty in deep learning.
+In Proceedings of The 33rd International Conference on Machine Learning, M. F. Balcan and K. Q. Weinberger (Eds.),
+Proceedings of Machine Learning Research, Vol. 48, New York, New York, USA, pp. 1050–1059.
+External Links: Link
+Cited by: §1,
+§2.1.
+Geifman and El-Yaniv (2017)
+Y. Geifman and R. El-Yaniv
+Selective classification for deep neural networks.
+In Advances in Neural Information Processing Systems, I. Guyon, U. V. Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett (Eds.),
+Vol. 30, pp. .
+External Links: Link
+Cited by: §4.1.
+Gorishniy et al. (2025)
+Y. Gorishniy, A. Kotelnikov, and A. Babenko
+TabM: advancing tabular deep learning with parameter-efficient ensembling.
+In International Conference on Representation Learning, Y. Yue, A. Garg, N. Peng, F. Sha, and R. Yu (Eds.),
+Vol. 2025, pp. 77899–77935.
+External Links: Link
+Cited by: §1.
+Graves (2011)
+A. Graves
+Practical variational inference for neural networks.
+In Advances in Neural Information Processing Systems, J. Shawe-Taylor, R. Zemel, P. Bartlett, F. Pereira, and K.Q. Weinberger (Eds.),
+Vol. 24, pp. .
+External Links: Link
+Cited by: §1.
+Gustafsson et al. (2020)
+F. K. Gustafsson, M. Danelljan, and T. B. Schön
+Evaluating scalable Bayesian deep learning methods for robust computer vision.
+External Links: 1906.01620,
+Link
+Cited by: §1.
+Herbei and Wegkamp (2006)
+R. Herbei and M. H. Wegkamp
+Classification with reject option.
+The Canadian Journal of Statistics / La Revue Canadienne de Statistique 34 (4), pp. 709–721.
+External Links: ISSN 03195724,
+Link
+Cited by: §4.1.
+Hu et al. (2020)
+W. Hu, L. Xiao, and J. Pennington
+Provable benefit of orthogonal initialization in optimizing deep linear networks.
+External Links: 2001.05992,
+Link
+Cited by: Appendix C.
+Izmailov et al. (2021)
+P. Izmailov, S. Vikram, M. D. Hoffman, and A. G. G. Wilson
+What are Bayesian neural network posteriors really like?.
+In Proceedings of the 38th International Conference on Machine Learning, M. Meila and T. Zhang (Eds.),
+Proceedings of Machine Learning Research, Vol. 139, pp. 4629–4640.
+External Links: Link
+Cited by: §1,
+§1.
+Kelley Pace and Barry (1997)
+R. Kelley Pace and R. Barry
+Sparse spatial autoregressions.
+Statistics & Probability Letters 33 (3), pp. 291–297.
+External Links: ISSN 0167-7152,
+Document,
+Link
+Cited by: Table 2.
+Lakshminarayanan et al. (2017)
+B. Lakshminarayanan, A. Pritzel, and C. Blundell
+Simple and scalable predictive uncertainty estimation using deep ensembles.
+In Advances in Neural Information Processing Systems, I. Guyon, U. V. Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett (Eds.),
+Vol. 30, pp. .
+External Links: Link
+Cited by: Appendix C,
+§1,
+§1,
+§2.1,
+§2.3,
+§4.1.
+Mirikitani and Nikolaev (2010)
+D. T. Mirikitani and N. Nikolaev
+Recursive Bayesian recurrent neural networks for time-series modeling.
+IEEE Transactions on Neural Networks 21 (2), pp. 262–274.
+External Links: Document
+Cited by: §1.
+Ovadia et al. (2019)
+Y. Ovadia, E. Fertig, J. Ren, Z. Nado, D. Sculley, S. Nowozin, J. Dillon, B. Lakshminarayanan, and J. Snoek
+Can you trust your model's uncertainty? Evaluating predictive uncertainty under dataset shift.
+In Advances in Neural Information Processing Systems, H. Wallach, H. Larochelle, A. Beygelzimer, F. d'Alché-Buc, E. Fox, and R. Garnett (Eds.),
+Vol. 32, pp. .
+External Links: Link
+Cited by: §1.
+Welling and Teh (2011)
+M. Welling and Y. W. Teh
+Bayesian learning via stochastic gradient Langevin dynamics.
+In Proceedings of the 28th International Conference on International Conference on Machine Learning,
+ICML’11, Madison, WI, USA, pp. 681–688.
+External Links: ISBN 9781450306195
+Cited by: §1.
+Wen et al. (2020)
+Y. Wen, D. Tran, and J. Ba
+BatchEnsemble: an alternative approach to efficient ensemble and lifelong learning.
+In 8th International Conference on Learning Representations, ICLR 2020,
+Addis Ababa, Ethiopia, April 26-30, 2020,
+External Links: Link
+Cited by: Appendix C,
+§1,
+§1,
+§2.2,
+§4.3.1.
+Wolberg et al. (1993)
+W. Wolberg, O. Mangasarian, N. Street, and W. Street
+Breast Cancer Wisconsin (Diagnostic).
+Note: UCI Machine Learning RepositoryDOI: https://doi.org/10.24432/C5DW2B
+Cited by: Table 2.
+Zamyatin et al. (2026)
+A. Zamyatin, P. Indri, S. Malhotra, and T. Gärtner
+Is BatchEnsemble a single model? On calibration and diversity of efficient ensembles.
+External Links: 2601.16936,
+Link
+Cited by: §1,
+§5.
+Appendix A Dataset Details
+Dataset
+Type
+𝐧×𝐝\mathbf{n\times d}
+Task
+Description
+Adult
+tabular
+48,842×1448,842\times 14
+classification
+Predict whether annual income of an person exceeds $50K/yr based on census data.
+Breast_cancer
+tabular
+569×30569\times 30
+classification
+Predict whether a person has breast cancer.
+Phoneme
+tabular
+5404×65404\times 6
+classification
+Predict whether a nasal or oral vowels.
+Diabetes
+tabular
+442×10442\times 10
+regression
+Predict diabetes progression one year later.
+California
+tabular
+20,640×820,640\times 8
+regression
+Aggregated housing data in the California district using one row per census block group.
+Electric
+time series
+397×1397\times 1
+regression
+Monthly electricity production in the U.S from Jan. 1985 to Jan. 2018.
+Temperature
+time series
+3650×13650\times 1
+regression
+The daily minimum temperature in Melbourne for the years 1981–1990.
+Table 2: Datasets used in our experiments. Sources: UCI Machine Learning Repository [1, 25] (Adult, Breast_cancer); Least Angle Regression [8] (Diabetes); Sparse Spatial Autoregressions [19] (California); FRED [3] (Electronic); Australian Bureau of Meteorology (Temperature). Dimensions n×dn\times d are samples×\timesfeatures before preprocessing (one-hot encoding and missing-value handling).
+A.1 Construction of Distribution-Shifted Evaluation Sets
+To create the distribution shifted data sets we create an initial base split of the data, which we fit a generalized linear model. Based on this model, we select the two most influential numerical features.
+For each selected feature, tail regions are defined as observations in the lower or upper 2.5% quantile , computed from the training portion of the base split. A sample is considered out-of-distribution if it contains at least one tail value in any of the selected features. Assuming independence, the probability of a sample lying in a tail region is
+ptail=1−(1−2​q)dselected,p_{\text{tail}}=1-(1-2q)^{d_{\text{selected}}},
+with q=0.025q=0.025 and dselected=2d_{\text{selected}}=2. The base split size is adjusted accordingly to ensure that the expected size of the final test set is approximately 20%,
+base split=(0.2−ptail)/(1−ptail).\text{base split}=(0.2-p_{\text{tail}})/(1-p_{\text{tail}}).
+This results in training set containing only in-distribution samples and a test set that includes both in-distribution and out-of-distribution samples.
+Appendix B Implementation Setup
+For all tabular classification and regression experiments, we use a multilayer perceptron with two hidden layers of size 32. Models are trained for 500 epochs using Adam optimizer with learning rate 0.005, batch size 64, dropout rate 0.1, and no weight decay.
+For time-series forecasting, we use a recurrent model with one recurrent layer followed by a two-layer MLP with hidden size 32. Training settings are kept identical to the tabular experiments.
+For both deep ensemble and BatchEnsemble, we use an ensemble size of 10.
+Task / Dataset
+BatchEnsemble
+MC dropout
+Deep ensemble
+Classification
+Adult
+7,584
+4,610
+46,100
+Breast_cancer
+4,308
+2,114
+21,140
+Phoneme
+3,258
+1,314
+13,140
+Regression
+California
+3,704
+1,410
+14,100
+Diabetes
+3,788
+1,474
+14,740
+Time Series
+Electric
+10,790
+5,538
+55,380
+Temperature
+10,790
+5,538
+55,380
+Table 3: Parameter counts across model types, grouped by task.
+Appendix C Does Orthogonal Initialization Improve Performance?
+Having uncorrelated members is important in ensemble methods. Effective ensembles balance two factors: strong members and low correlation among their errors. Breiman’s analysis shows that generalization improves when members are accurate and decorrelated. In tree ensembles, this is typically achieved through bagging and feature randomness [4].
+For deep ensembles, however, bagging can reduce performance because each model trains on fewer unique examples, while random initialization and data shuffling already induce useful diversity [20, 9]. For BatchEnsemble, we propose a different method of creating ensemble variation by using orthogonal initialization per member adapter rkr_{k}, sks_{k}, and bkb_{k}. This de-correlates the ensemble members and reduces initial prediction correlation.
+Much work has been done on orthogonal initialization in deep learning, showing how training speeds up and stabilizes [17]. However, not much work has been done on orthogonal weights in ensemble methods. We hypothesize that orthogonal initialization, possibly combined with orthogonal regularization, leads to less correlated ensemble members and thus improves ensemble diversity.
+To test whether this improves the ensemble, we compare BatchEnsemble with orthogonal initialization to the random sign initialization from Wen et al. [24]. We also evaluate with different strength of orthogonal regularization.
+Figure 12: Initialization and regularization ablation on regression datasets. BE uses random sign initialization. BE (λ\lambda) applies orthogonal regularization with strength λ\lambda. BE (O) uses orthogonal initialization, and BE (O,λ\lambda) combines orthogonal initialization and regularization.
+Figure 13: Initialization and regularization ablation on classification datasets. BE uses random sign initialization. BE (λ\lambda) applies orthogonal regularization with strength λ\lambda. BE (O) uses orthogonal initialization, and BE (O,λ\lambda) combines orthogonal initialization and regularization.
+Appendix D Do We Need All BatchEnsemble Adapters?
+The results of the adapter-wise ablation on classification datasets is shown in the main paper. Here, we show the results for the regression datasets. Again, none of the reduced models consistently match the full BatchEnsemble model.
+Figure 14: Adapter-wise ablation on regression datasets.
+Appendix E Do We Need BatchEnsemble in All GRU Gates?
+In GRUBE, BatchEnsemble is applied to the linear transformations of the update gate (ZZ), reset gate (FF), and candidate state (CC). While applying BatchEnsemble to all gates maximizes per-member flexibility, it is unclear whether ensemble diversity is required uniformly across all recurrent components, or whether uncertainty can be captured by modulating only a subset of gates.
+To study this, we perform a gate-wise ablation in which BatchEnsemble layers are selectively applied to different combinations of gates. We evaluate the configurations C,Z,F,CZ,CF,ZF,CZF{\text{C},\text{Z},\text{F},\text{CZ},\text{CF},\text{ZF},\text{CZF}}, where CZF corresponds to BatchEnsemble applied to all gates. All variants share the same recurrent architecture and training setup, differing only in which gates use BatchEnsemble parameterization. This experiment isolates the contribution of each gate to predictive performance and uncertainty estimation, and assesses whether BatchEnsemble is necessary throughout the GRU cell or only in specific components.
+Figure 15: Adapter-wise ablation in GRU gates.
+Appendix F Do We Need BatchEnsemble in All Layers?
+BatchEnsemble is commonly applied to all layers, but it is unclear whether it is required to obtain strong predictive performance and uncertainty estimates. It may be sufficient to apply BatchEnsemble only in the later layers.
+To investigate this, we conduct a layer-wise ablation on a 10-layer MLP, where BatchEnsemble is applied to only the last k∈{1,…,10}k\in\{1,\dots,10\} layers while the remaining layers are standard. All other architectural and training settings are kept fixed. This experiment evaluates whether BatchEnsemble is needed across all layers or only in the later part of the network.
+These experiments were performed on regression and classification versions of the Ackley-function
+f⁡(𝐱)=\displaystyle f(\mathbf{x})={}
+−a​exp⁡(−b​1d​∑i=1dxi2)−exp⁡(1d​∑i=1dcos⁡(c​xi))+a,\displaystyle-a\exp\!\left(-b\sqrt{\tfrac{1}{d}\sum_{i=1}^{d}x_{i}^{2}}\right)-\exp\!\left(\tfrac{1}{d}\sum_{i=1}^{d}\cos(cx_{i})\right)+a,
+where a=20a=20, b=0.2b=0.2, c=2​πc=2\pi, and d=10d=10 denotes the input dimension. To model aleatoric uncertainty, we add heteroscedastic noise σ⁡(𝐱)\sigma(\mathbf{x}) that increases with the normalized input radius ‖𝐱‖\|\mathbf{x}\|.
+For regression, the targets are generated as
+y=f⁡(𝐱)+σ⁡(𝐱)​ϵ,ϵ∼𝒩⁡(0,1),y=f(\mathbf{x})+\sigma(\mathbf{x})\,\epsilon,\quad\epsilon\sim\mathcal{N}(0,1),
+yielding a standard heteroscedastic regression problem.
+We construct the binary classification version of the Ackley function by We first computing a deterministic score
+s⁡(x)=f⁡(x)−median⁡(f⁡(x)),s(x)=f(x)-\mathrm{median}(f(x)),
+where the median is taken over the sampled dataset. We then add heteroscedastic noise to the score and threshold at zero
+s~(𝐱)=s(𝐱)+σ(𝐱)ϵ,y=𝕀{s~(𝐱)>0}.\tilde{s}(\mathbf{x})=s(\mathbf{x})+\sigma(\mathbf{x})\,\epsilon,\qquad y=\mathbb{I}\{\tilde{s}(\mathbf{x})>0\}.
+Points above the 0 are assigned to one class, and points below to the other. The heteroscedastic noise results in labels near the center of the domain are relatively stable, while labels farther from the origin become increasingly uncertain, giving a soft decision boundary with radially increasing ambiguity.
+Figure 16: Layer-wise BE ablation on Ackley classification.
+Appendix G Uncertainty Decomposition
+Here we show the full uncertainty decomposition results for tabular classification. Table 1 shows the same for the regression datasets.
+Dataset: Adult
+ID
+Shift
+Δ\Delta (Shift −- ID)
+Model
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+BatchEnsemble
+0.293
+0.286
+0.007
+0.277
+0.268
+0.009
+-0.016
+-0.018
++0.002
+MC dropout
+0.280
+0.258
+0.022
+0.245
+0.223
+0.022
+-0.035
+-0.035
++0.000
+Deep ensemble
+0.291
+0.264
+0.027
+0.253
+0.222
+0.031
+-0.038
+-0.042
++0.004
+Single
+0.266
+0.266
+0.000
+0.231
+0.231
+0.000
+-0.035
+-0.035
++0.000
+Dataset: Breast_cancer
+ID
+Shift
+Δ\Delta (Shift −- ID)
+Model
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+BatchEnsemble
+0.043
+0.027
+0.016
+0.034
+0.019
+0.015
+-0.009
+-0.008
+-0.001
+MC dropout
+0.032
+0.028
+0.004
+0.024
+0.017
+0.007
+-0.008
+-0.011
++0.003
+Deep ensemble
+0.033
+0.026
+0.007
+0.023
+0.014
+0.009
+-0.010
+-0.012
++0.002
+Single
+0.027
+0.027
+0.000
+0.018
+0.018
+0.000
+-0.009
+-0.009
++0.000
+Dataset: Phoneme
+ID
+Shift
+Δ\Delta (Shift −- ID)
+Model
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+total
+aleatoric
+epistemic
+BatchEnsemble
+0.337
+0.328
+0.009
+0.378
+0.352
+0.026
++0.041
++0.024
++0.017
+MC dropout
+0.334
+0.312
+0.022
+0.362
+0.328
+0.034
++0.028
++0.016
++0.012
+Deep ensemble
+0.323
+0.316
+0.007
+0.351
+0.334
+0.017
++0.028
++0.018
++0.010
+Single
+0.310
+0.310
+0.000
+0.330
+0.330
+0.000
++0.020
++0.020
++0.000
+Table 4: Uncertainty decomposition for tabular classification under in-distribution (ID) and shifted data. Δ\Delta denotes Shift −- ID.
+Appendix H Selective Prediction Evaluation with Distribution Shift
+Here we also compare selective evaluation results under distribution shift for the tabular datasets. Results are comparable to in-distribution selective evaluation.
+Figure 17: Selective evaluation for tabular regression tail datasets.
+Figure 18: Selective evaluation for tabular classification tail datasets.
+Appendix I Nominal vs. Empirical Coverage Results
+Here we show that all models are reasonably well-calibrated on the regression data. All models consistently overestimate uncertainty on the California dataset and underestimate uncertainty on the diabetes dataset.
+Figure 19: Nominal versus empirical coverage for the tabular regression datasets. The dashed line denotes ideal calibration.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

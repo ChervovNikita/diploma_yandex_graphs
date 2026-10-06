@@ -1,0 +1,137 @@
+PDF p3 regular-layer paragraph
+making it much cheaper to store, compute and invert1. Speciﬁcally for a layerl that receives inputh
+of sizedin and computes linear pre-activationsa =W⊤h of sizedout (biases omitted for simplicity)
+followed by some non-linear activation function, let the backpropagated gradient ona beδ = ∂ℓ
+∂a .
+The gradients on parameters θ(l) = W will be ∇W = ∂ℓ
+∂W = vec(hδ⊤). The Kronecker factored
+approximation of correspondingG(l) = E
+[
+∇W ∇⊤
+W
+]
+will useA = E
+[
+hh⊤]
+andB = E
+[
+δδ⊤]
+i.e.
+matrices of sizedin ×din anddout ×dout, whereas the fullG(l) would be of sizedindout ×dindout.
+Using this Kronecker approximation (known as KFAC) corresponds to approximating entries ofG(l)
+as follows:G(l)
+ij,i′j′ = E
+[
+∇Wij ∇⊤
+Wi′j′
+]
+= E [(hiδj)(hi′δj′)] ≈ E [hihi′] E [δjδj′].
+A similar principle can be applied to obtain a Kronecker-factored expression for the covariance of the
+gradients of the parameters of a convolutional layer (Grosse & Martens, 2016). To obtain matrices
+A andB one then needs to also sum over spatial locations and corresponding receptive ﬁelds, as
+illustrated in Figure 1.
+PDF p3 §3
+3 Proposed method
+3.1 Motivation: reﬂexion on diagonal rescaling in different coordinate bases
+It is instructive to contrast the type of “exact” natural gradient preconditioning of the gradient that
+uses the full Fisher Information Matrix would yield, to what we do when approximating this by using
+a diagonal matrix only. Using the full matrixG = E[∇θ∇⊤
+θ ] yields the natural gradient update: θ ←
+θ−ηG−1∇θ. When resorting to a diagonal approximation we instead useGdiag = diag(σ2
+1,...,σ 2
+nθ )
+whereσ2
+i =Gi,i = E[(∇θ)2
+i ]. So that update θ ←θ −ηG−1
+diag∇θ amounts to preconditioning the
+gradient vector ∇θ by dividing each of its coordinates by an estimated second moment σ2
+i . This
+diagonal rescaling happens in the initial basis of parametersθ. By contrast, a full natural gradient
+update can be seen to do a similar diagonal rescaling, not along the initial parameter basis axes, but
+along the axes of the eigenbasis of the matrix G. Let G = USU⊤ be the eigendecomposition of
+G. The operations that yield the full natural gradient update G−1∇θ = US−1U⊤∇θ correspond
+to the sequence of a) multiplying gradient vector ∇θ byU⊤ which corresponds to switching to the
+eigenbasis:U⊤∇θ yields the coordinates of the gradient vector expressed in that basis b) multiplying
+by a diagonal matrixS−1, which rescales each coordinatei (in that eigenbasis) byS−1
+ii c) multiplying
+byU, which switches the rescaled vector back to the initial basis of parameters. It is easy to show
+thatSii = E[(U⊤∇θ)2
+i ] (proof is given in Appendix A.2). So similarly to what we do when using a
+diagonal approximation, we are rescaling by the second moment of gradient vector components, but
+rather than doing this in the initial parameter basis, we do this in the eigenbasis ofG. Note that the
+variance measured along the leading eigenvector can be much larger than the variance along the axes
+of the initial parameter basis, so the effects of the rescaling by using either the fullG or its diagonal
+approximation can be very different.
+Now what happens when we use the less crude KFAC approximation instead? We approximate 2
+G ≈ A ⊗B yielding the update θ ← θ −η(A ⊗B)−1∇θ. Let us similarly look at it through its
+eigendecomposition. The eigendecomposition of the Kronecker productA ⊗B of two real symmetric
+1Since (A⊗ B)−1 = A−1⊗ B−1.
+2This approximation is done separately for each block G(l), we dropped the superscript to simplify notations.
+3
+PDF p4
+positive semi-deﬁnite matrices can be expressed using their own eigendecompositionA =UASAU⊤
+A
+andB =UBSBU⊤
+B , yieldingA ⊗B = (UASAU⊤
+A ) ⊗ (UBSBU⊤
+B ) = (UA ⊗UB)(SA ⊗SB)(UA ⊗
+UB)⊤.UA ⊗UB gives the orthogonal eigenbasis of the Kronecker product, we call it the Kronecker-
+Factored Eigenbasis (KFE).SA ⊗SB is the diagonal matrix containing the associated eigenvalues.
+Note that each such eigenvalue will be a product of an eigenvalue ofA stored inSA and an eigenvalue
+ofB stored inSB. We can view the action of the resulting Kronecker-factored preconditioning in the
+same way as we viewed the preconditioning by the full matrix: it consists in a) expressing gradient
+vector ∇θ in a different basisUA ⊗UB which can be thought of as approximating the directions of
+U, b) doing a diagonal rescaling bySA ⊗SB in that basis, c) switching back to the initial parameter
+space. Here however the rescaling factor (SA ⊗SB)ii is not guaranteed to match the second moment
+along the associated eigenvector E[((UA ⊗UB)⊤∇θ)2
+i ].
+In summary (see Figure 2):
+• Full matrix G preconditioning will scale by variances estimated along the eigenbasis ofG.
+• Diagonal preconditioning will scale by variances properly estimated, but along the initial
+parameter basis, which can be very far from the eigenbasis ofG.
+• KFAC preconditioning will scale the gradient along the KFE basis that will likely be closer
+to the eigenbasis ofG, but doesn’t use properly estimated variances along these axes for this
+scaling (the scales being themselves constrained to being a Kronecker productSA ⊗SB).
+- Fisher 
+- Diagonal 
+- K-FAC 
+- EKFAC
+Eigenspectrum of 
+approximations
+Rescaling of the gradient is done along a speciﬁc basis; length of vectors
+indicate (square root of) amount of downscaling. Exact Fisher Information
+Matrix rescales according to eigenvectors/values of exact covariance struc-
+ture (green ellipse). Diagonal approximation uses parameter coordinate
+basis, scaling by actual variance measured along these axes (indicated by
+horizontal and vertical orange arrows touching exactly the ellipse), KFAC
+uses directions that approximate Fisher Information Matrix eigenvectors,
+but uses approximate scaling (blue arrows not touching the ellipse). EK-
+FAC corrects this.
+Figure 2: Cartoon illustration of rescaling achieved by different preconditioning strategies
+3.2 Eigenvalue-corrected Kronecker Factorization (EKFAC)
+To correct for the potentially inexact rescaling of KFAC, and obtain a better but still computationally
+efﬁcient approximation, instead ofGKF AC=A⊗B = (UA⊗UB)(SA⊗SB)(UA⊗UB)⊤ we propose
+to use an Eigenvalue-corrected Kronecker Factorization: GEKFAC = (UA ⊗UB)S∗(UA ⊗UB)⊤
+whereS∗ is the diagonal matrix deﬁned by S∗
+ii = s∗
+i = E[((UA ⊗UB)⊤∇θ)2
+i ]. Vector s∗ is the
+vector of second moments of the gradient vector coordinates expressed in the Kronecker-factored
+Eigenbasis (KFE)UA ⊗UB and can be efﬁciently estimated and stored.
+In Appendix A.1 we prove that thisS∗ is the optimal diagonal rescaling in that basis, in the sense that
+S∗ = arg minS ∥G − (UA ⊗UB)S(UA ⊗UB)⊤∥F s.t.S is diagonal: it minimizes the approximation
+error to G as measured by Frobenius norm (denoted ∥ · ∥F ), which KFAC’s correspondingS =
+SA ⊗SB cannot generally achieve. A corollary of this is that we will always have∥G−GEKF AC∥F ≤
+∥G −GKF AC∥F i.e. EKFAC yields a better approximation ofG than KFAC (Theorem 2 proven in
+Appendix). Figure 2 illustrates the different rescaling strategies, including EKFAC.
+Potential beneﬁts: Since EKFAC is a better approximation ofG than KFAC (in the limited sense
+of Frobenius norm of the residual) it may yield a better preconditioning of the gradient for optimizing
+neural networks3. Another beneﬁt is linked to computational efﬁciency: even if KFAC yields a
+reasonably good approximation in practice, it is costly to re-estimate and invert matricesA andB, so
+this has to be amortized over many updates: re-estimation of the preconditioning is thus typically
+done at a much lower frequency than the parameter updates, and may lag behind, no longer accurately
+reﬂecting the local 2nd order information. Re-estimating the Kronecker-factored Eigenbasis (KFE)
+3Although there is no guarantee. In particular GEKF ACbeing a better approximation of G does not guarantee
+that G−1
+EKF AC∇θ will be closer to the natural gradient update direction G−1∇θ .
+4

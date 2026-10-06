@@ -1,0 +1,2903 @@
+Plex: Towards Reliability UsingPretrained Large Model Extensions
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Reliability as a Goal for Artificial Intelligence
+1.1 Desiderata for Reliability
+1.2 Approaches to Reliability
+1.3 Contributions
+2 Evaluating Reliability
+2.1 Tasks for Benchmarking Reliability
+2.1.1 Uncertainty
+2.1.2 Robust Generalization
+2.1.3 Adaptation
+2.2 Datasets
+2.2.1 Images
+2.2.2 Text
+3 Plex: Pretrained Large model Extensions
+4 Summary of Results and Scaling Trends
+4.1 Relationship Between Reliability Tasks
+4.2 The Effect of Pretraining vs Finetuning
+4.3 Ensemble Scaling
+5 Reliability Task Results
+5.1 Uncertainty
+5.1.1 Calibration
+Expected Calibration Error
+Calibration AUROC.
+5.1.2 Selective Prediction
+Selective Prediction by Model Uncertainty using Human–Model Collaboration.
+Selective Prediction by Model Uncertainty using Rejection Rates.
+5.1.3 Open-set recognition (OSR)
+5.1.4 Label Uncertainty
+Metric
+Results
+5.2 Robust Generalization
+5.2.1 In-Distribution Generalization
+Vision Tasks
+Language Tasks
+5.2.2 Covariate shift
+RETINA under Country Shift
+ImageNet Covariate Shift
+Stability
+Language Style and Topical Drift
+5.2.3 Subpopulation shift
+Semantic Partitioning.
+Spurious Correlations.
+5.3 Adaptation
+5.3.1 Active Learning
+5.3.2 Few-shot Learning
+Model choice and size
+Full-model training
+5.3.3 Few-shot Uncertainty
+Few-shot uncertainty tasks
+Zero-shot open set recognition
+6 Conclusion
+References
+A Author Contributions
+B Details behind Key Figures
+C Additional Details on Tasks & Datasets
+D Details of Plex ingredients
+BatchEnsemble (BE)
+Spectral-normalized Neural Gaussian Process (SNGP)
+Heteroscedastic last layer (Het)
+E Additional Results for Open Set Recognition
+Comparing OOD detection methods across all the tasks and model types.
+F Additional Results for Selective Prediction
+G Extensions to Sparse Mixtures of Experts
+G.1 Background
+G.2 Results
+H Analysis of Heteroscedastic Last Layer
+H.1 Heteroscedastic improves pretraining performance on JFT.
+H.2 Impact of heteroscedastic last layer downstream
+On all downstream datasets None→\toHet performs similarly or better than Het→\toHet.
+Plex: heteroscedastic last layer helps downstream.
+I Summarization of Language Results
+License: CC BY 4.0
+arXiv:2207.07411v1 [cs.LG] 15 Jul 2022
+Plex: Towards Reliability Using
+Pretrained Large Model Extensions
+Dustin Tran
+Jeremiah Liu
+Affiliation: Google
+Michael W. Dusenberry
+Affiliation: Google
+Du Phan
+Affiliation: Google
+Mark Collier
+Affiliation: Google
+Jie Ren
+Affiliation: Google
+Kehang Han
+Affiliation: Google
+Zi Wang
+Affiliation: Google
+Zelda Mariet
+Affiliation: Google
+Huiyi Hu
+Affiliation: Google
+Neil Band
+Affiliation: University of Oxford
+Tim G. J. Rudner
+Affiliation: University of Oxford
+Karan Singhal
+Affiliation: Google
+Zachary Nado
+Affiliation: Google
+Joost van Amersfoort
+Affiliation: University of Oxford
+Andreas Kirsch
+Affiliation: University of Oxford
+Rodolphe Jenatton
+Affiliation: Google
+Nithum Thain
+Affiliation: Google
+Honglin Yuan
+Kelly Buchanan
+Kevin Murphy
+Affiliation: Google
+D. Sculley
+Affiliation: Google
+Yarin Gal
+Affiliation: University of Oxford
+Zoubin Ghahramani
+Affiliation: Google
+Jasper Snoek
+Affiliation: Google
+Balaji Lakshminarayanan
+Affiliation: Google
+Abstract
+A recent trend in artificial intelligence is the use of pretrained models for language and vision tasks, which have achieved extraordinary performance but also puzzling failures. Probing these models’ abilities in diverse ways is therefore critical to the field. In this paper, we explore the reliability of models, where we define a reliable model as one that not only achieves strong predictive performance but also performs well consistently over many decision-making tasks involving uncertainty (e.g., selective prediction, open set recognition), robust generalization (e.g., accuracy and proper scoring rules such as log-likelihood on in- and out-of-distribution datasets), and adaptation (e.g., active learning, few-shot uncertainty). We devise 10 types of tasks over 40 datasets in order to evaluate different aspects of reliability on both vision and language domains. To improve reliability, we developed ViT-Plex and T5-Plex, pretrained large model extensions (plex) for vision and language modalities, respectively. Plex greatly improves the state-of-the-art across reliability tasks, and simplifies the traditional protocol as it improves the out-of-the-box performance and does not require designing scores or tuning the model for each task. We demonstrate scaling effects over model sizes up to 1B parameters and pretraining dataset sizes up to 4B examples. We also demonstrate Plex’s capabilities on challenging tasks including zero-shot open set recognition, active learning, and uncertainty in conversational language understanding.00footnotetext: ∗ Corresponding author. Email: trandustin@google.com. † Work done at Google.
+11
+1
+Code for training and evaluation is at https://goo.gle/plex-code as part of Uncertainty Baselines (Nado et al., 2021). We also release model checkpoints for ViT-Plex and T5-Plex trained on public data.
+Layer implementations use Edward2 (Tran et al., 2018). Author contributions are detailed in Appendix A.
+††heading: X 2022 XX-XX 05/22 XX/XX XX††shortheadings: Plex: Towards Reliability using Pretrained Large Model Extensions / ††firstpage: 1
+keywords
+reliability, large models, uncertainty, robustness, adaptation
+1 Reliability as a Goal for Artificial Intelligence
+Over the past few years, the deep learning approach to artificial intelligence (AI) has made significant progress on benchmark tasks across domains such as computer vision (Dosovitskiy et al., 2021) and natural language processing (Raffel et al., 2020; Brown et al., 2020). With this progress, there is unfettered excitement about the potential of AI to have a transformative impact
+on applications ranging from medical diagnoses with a human-in-the loop, to using AI to detect online misinformation and toxicity, and to perhaps a pathway for artificial general intelligence.
+While hypothesizing about this potential is important, we highlight that the typical tasks where deep learning has been most successful have been carefully devised to fit within narrow boundaries—for example, a focus on predictive performance with test inputs close to the data on which the model was trained.
+Figure 1: Desiderata for a Reliable model. We propose to simultaneously stress-test the “out-of-the-box” model performance (i.e. the predictive probability distribution p⁡(y|x)p(y|x)) across a suite of uncertainty, robust generalization, and adaptation benchmarks, without any customization for individual tasks.
+To go beyond these limitations, we argue that the ability of models to make reliable decisions is critical to the deeper integration of AI in the real world. Here, we define reliability as the ability for a model to work consistently across real-world settings. We borrow the term from reliability engineering (Barlow and Proschan, 1975; O’Connor and Kleyner, 2012), a discipline of engineering involving risk assessment, testability, and fault tolerance. Related nomenclature include robustness (Russell et al., 2015), safety (Amodei et al., 2016; Everitt et al., 2018; Hendrycks et al., 2021b),
+calibration (Dawid, 1982), credibility (D’Amour et al., 2020), and trustworthiness (Avin et al., 2021), each with their own broad and intersecting scopes.
+1.1 Desiderata for Reliability
+It is common practice in machine learning research to focus on measures of performance based on the accuracy on a test set drawn from the same distribution as the training set, the so-called independent and identically distributed (i.i.d.) assumption. However, this does not capture the real-world deployment of AI systems, where often the testing environment is very different from the training environment, and where the tasks only indirectly involve accuracy measures. The emphasis in our paper is on how reliable an AI system is in broad array of scenarios. We posit three general categories of desiderata for reliable AI systems: they should represent their own uncertainty, they should generalize robustly to new scenarios, and they should be able to efficiently adapt to new data.
+Importantly, the aim for a reliable model is to do well in all of these areas simultaneously out-of-the-box without requiring any customization for individual tasks (Figure 1):
+1.
+Uncertainty involves imperfect or unknown information where it is impossible to exactly describe an existing state (Ghahramani, 2015).
+Predictive uncertainty quantification enables practitioners to know when to trust the model’s predictions, thereby enabling graceful failures when the model is likely to be wrong.
+A variety of measurements can be used to quantify the quality of uncertainty such as expected calibration error (Naeini et al., 2015; Nixon et al., 2019), which measures how well the model’s confidence
+aligns with its accuracy.
+Providing a quantification of uncertainty also enables better decision making (Parmigiani and Inoue, 2009); one popular setting is selective prediction where a model may defer its prediction to human experts when it is not confident.
+Another popular task is open set recognition22
+2
+Earlier work
+sometimes referred to this setting as out-of-distribution detection. However, in recent work, the term “out-of-distribution” is used as a unifying term for “non I.I.D” test data which includes any type of shift, e.g., covariate or subpopulation shift. We use the term open set recognition to denote detection for shifts where test inputs belong to semantic classes not encountered in the training data.
+, where the model encounters inputs from new classes at test time that were not seen during training, and the goal is to reliably detect that such inputs do not belong to any of the training classes.
+2.
+Robust Generalization involves an estimate or forecast about an unseen event (Abraham and Ledolter, 1983; Tran et al., 2020). Prediction quality is typically measured using accuracy (e.g., top-1 error for classification problems and mean squared error for regression problems) and proper scoring rules such as log likelihood and Brier score (Gneiting and Raftery, 2007). In the real world, we care not only about metrics on new data obtained from the same distribution the model was trained on (i.i.d.), but also about robustness, as measured by metrics on data under out-of-distribution shifts such as covariate or subpopulation shift.
+3.
+Adaptation involves probing the model’s abilities over the course of its learning process. Benchmarks typically evaluate on static datasets with pre-defined train-test splits. However, in many applications, we are interested in models that can quickly adapt to new data and efficiently learn with as few labeled examples as possible. Examples include few-shot learning (Li et al., 2006), where the model learns from a small set of examples; active learning (Settles, 2009), where the model not only learns but also participates in acquiring the data to learn from; and lifelong learning (Thrun, 1998), where the model learns over a sequence of tasks and must not forget about relevant information for previous tasks.
+Figure 2: Top row: Examples of Plex’s capabilities in vision:
+(left) Label uncertainty in ImageNet ReaL-H, demonstrating the ability to capture the inherent ambiguity of image labels assigned by humans.
+(middle) Active learning on ImageNet1K, displaying
+that Plex achieves significantly higher accuracy
+compared to a non-pretrained baseline and with fewer labels.
+(right) Zero-shot open set recognition on ImageNet1K vs Places365, showing that Plex can distinguish visually similar images without finetuning.
+Bottom row: Examples of Plex’s capabilities in language:
+(left) Plex enables human+AI collaboration with selective prediction, where the model is able to defer a fraction of test examples to humans. Plex is able to better identify cases where it is likely to be wrong than the baseline, and thus achieves higher Collaborative AUC.
+(middle) Plex is robust while a baseline latches onto spurious features such as “destination” and “around the world”.
+(right) Plex enables structured open set recognition. This provides nuanced clarifications, where Plex can distinguish cases where only part of a request is not supported.
+While there has been initial progress on specific tasks within reliability, there remain critical limitations. First, prior work has typically focused on narrow settings. For example, much focus has been on accuracy and calibration error on ImageNet and its corrupted versions as a benchmark task
+(Hendrycks and Dietterich, 2019; Ovadia et al., 2019).
+Similarly, the literature on open set recognition has led to the development of methods that focus solely on improving open set recognition, often at the expense of other downstream tasks.
+This has led to a fragmentation of research techniques, and it remains unknown how well advances on these individual tasks connect to a broader set of tasks and datasets.
+The goal of this work is to move towards a notion of general reliability by seeking models that work well across many decision-making tasks.
+rather than needing to design, train, and tune a model for each individual task.
+The approach is philosophically inspired by the trend in natural language processing where evaluating on multiple tasks (cf. GLUE (Wang et al., 2018a)) has encouraged the community to focus on developing general-purpose techniques.
+Figure 3: ViT-Plex (left) and T5-Plex (right) evaluated on a highlighted set of reliability tasks. We also display the state-of-the-art for each task. ViT-Plex and T5-Plex significantly improve state-of-the-art across multiple tasks. Importantly, Plex unifies reliability performance under one general model for vision and language respectively as opposed to specific techniques for each downstream task.
+References are listed in Appendix B.
+1.2 Approaches to Reliability
+Prior work has investigated a variety of approaches to improve narrower definitions of reliability. From the literature, several overarching dimensions arise (Tran et al., 2020)—such as the importance of model size; model inductive biases (e.g., architecture);
+and the combination of multiple models (e.g., ensembles and Bayesian neural networks).
+There is not yet an understanding of how these dimensions interact (and within current literature, it can be a surprise that combining certain methods is detrimental, e.g., Wen et al. (2020a)).
+We investigate how to combine these dimensions to form an overall model for reliability.
+Modern AI is trending towards training a single large model on a large and diverse data set, known as pretraining, and then applying the model to a wide variety of related downstream tasks (Brown et al., 2020; Kolesnikov et al., 2020; Radford et al., 2021; Thoppilan et al., 2022). This often improves over task-specific state-of-the-art in predictive performance, with many considering such large scale models to represent a “paradigm shift” in ML (Bommasani et al., 2021). Large-scale pretrained models have also significantly improved state-of-the-art on narrower tasks such as accuracy and calibration under covariate shift (Minderer et al., 2021)
+and open set recognition (Fort et al., 2021; Ren et al., 2021). Given these initial promising results, we use large pretrained models as a building block for reliability.
+However, large models are compute-intensive and often operate at a different scale than has been studied in many uncertainty and robustness papers. This warrants revisiting existing recipes in this new context, where we focus on methods that scale efficiently to large models.
+1.3 Contributions
+First, we define and evaluate reliability in a comprehensive fashion. We use 10 types of tasks in order to capture the three reliability areas—uncertainty, robust generalization, and adaptation—and so that the tasks measure a diverse set of desirable properties in each area. Together the tasks comprise 40 downstream datasets across vision and natural language modalities: 14 datasets for finetuning (including few-shot and active learning-based adaptation) and 26 datasets for out-of-distribution evaluation. As part of the tasks, we build two new datasets in order to assess areas that we found missing in the literature: ImageNet Real-H for large-scale label uncertainty evaluation; and NaLUE for uncertainty in conversational language understanding.
+To improve reliability, we develop ViT-Plex and T5-Plex, building on large pretrained models for vision (ViT; Dosovitskiy et al. (2021)) and language (T5; Raffel et al. (2020)), respectively.
+We train Plex over model sizes up to 1 billion parameters and pretraining dataset sizes of up to 4 billion examples.
+Figure 3 illustrates Plex’s performance on selected tasks comparing to existing state-of-the-art, which typically is a model specialized for that task.
+Plex achieves new state-of-the-art on many of the 40 datasets. Importantly, Plex achieves strong performance across all tasks using the out-of-the-box model output without requiring any custom designing or tuning for each task.
+2 Evaluating Reliability
+Figure 4: The model and task pipeline. We experiment with approaches for pretraining; given the pretrained model’s checkpoint, we experiment with finetuning and adaptation; finally, given the finetuned model’s checkpoint, we evaluate downstream metrics.
+To experiment with a variety of models and tasks, we set up a pipeline for training and evaluation; see Figure 4. It involves three steps: pretrain on a large diverse dataset, finetune on a given dataset’s training split, and evaluate over both in-distribution and out-of-distribution datasets using the appropriate task metrics.
+We experiment with a variety of methods to improve reliability during both pretraining and finetuning.
+2.1 Tasks for Benchmarking Reliability
+We evaluate a model’s reliability using 10 types of tasks, which we categorize as follows. More detailed descriptions of metrics in each task and datasets are provided in Appendix C.
+Figure 5: Types of distribution shift
+using an illustration of ImageNet dogs. pind​(⋅)p_{\textrm{{ind}}}(\cdot) refers to in-distribution during training and pood​(⋅)p_{\textrm{{ood}}}(\cdot) is out-of-distribution during testing.
+2.1.1 Uncertainty
+•
+Calibration assesses the quality of a model’s predicted confidence over a population (Dawid, 1982). It quantifies how well model confidence (the predictive probability of correctness) aligns with model accuracy (the observed probability of correctness). We compute expected calibration error (Naeini et al., 2015) and calibration AUROC (Kivlichan et al., 2021)
+on 14 image and 10 text datasets.
+•
+Selective prediction jointly assesses a model’s predictive performance and quality of uncertainty estimates, by abstaining from making predictions when the model is uncertain (El-Yaniv and Wiener, 2010).
+There is no popular metric that’s the de facto standard in the literature, so we experiment with two:
+Oracle Collaborative Accuracy measures accuracy where any deferred predictions are sent to an oracle as a proxy for human++AI collaboration (Kivlichan et al., 2021); and
+selective prediction by rejection rate traces a curve of predictive accuracies over the percentage of examples that can be rejected (Band et al., 2021).
+We examine selective prediction on 4 image and 10 text datasets.
+•
+Open set recognition assesses how well a model can detect examples belonging to none of the training classes (Geng et al., 2020).
+This happens in the case of semantic (class) shift, where the test input and label distributions both change, particularly in a structured manner where
+the output classes change from train to test.
+For an overview of distribution shifts, see Figure 5, where we train on a distribution pind​(𝐱,y)p_{\textsc{ind}}(\mathbf{x},y) and we evaluate on another distribution.
+For example, the training set may consist only of dog images and the new input is a coyote image.
+We compute AUROC and use maximum softmax probability as a simple and general detection score.
+•
+Label uncertainty is a type of uncertainty inherent in the data labels. This is a form of data uncertainty—irreducible output noise—which is distinct from uncertainty arising from the choice of model (Dusenberry et al., 2020b). Label uncertainty can arise when, for example, human raters disagree about the label for an ambiguous input. If human disagreement is encoded as a label distribution, we can directly compare our model’s predictive distribution to it. We analyze label uncertainty on two image datasets.33
+3
+We focus on label uncertainty in an OOD evaluation-only context, as collecting label distributions can be expensive and therefore the datasets are small relative to single-label training sets. It is not exclusive to the distribution shift setting as training sets may also carry a label distribution per input.
+2.1.2 Robust Generalization
+•
+In-distribution generalization assesses how well a model can make predictions after finetuning on a downstream dataset. In particular, we examine accuracy, negative log-likelihood, and Brier score on the in-distribution test splits of 5 image and 3 text datasets. For binary classification tasks, we also look at AUROC and AUPRC.
+•
+Covariate shift refers to scenarios where the distribution of inputs changes while the conditional distribution of outputs is unchanged (Sugiyama and Kawanabe, 2012).
+For example, the training set may include natural dog images and the new input is a drawing of a dog.
+We use the same metrics as those used for assessing in-distribution generalization.
+•
+Subpopulation shift refers to scenarios where the distribution of interest is only part of the full distribution seen during training. A common assumption is that data is sampled from individual subpopulation distributions, which are themselves sampled from a meta population distribution (Santurkar et al., 2020; Yuan et al., 2022). For example, the training set may include natural dog images and the test set only includes terriers.
+In this setting, we aim to improve predictive performance on unseen or long-tail subpopulations.
+2.1.3 Adaptation
+•
+Active learning assesses a model’s ability to not only learn over a fixed set of data points, but also participate in knowing which data points to learn from in the first place.
+This procedure assesses a model’s label efficiency, where label annotations may be scarce, and so we would like to maximize performance while minimizing the number of labeled data points used
+(Settles, 2009). We assess accuracy over the total number of acquired examples and apply margin sampling for multi-class uncertainty sampling.
+•
+Few-shot learning assesses how well a model can make predictions downstream with only a few training examples (Li et al., 2006).
+We use 9 datasets and evaluate the settings of 1-shot, 5-shot, 10-shot, and 25-shot (xx-shot means xx examples per class).
+•
+With few-shot uncertainty, we examine calibration
+and open set recognition in the few-shot regime.
+We use all 9 datasets for few-shot learning in order to evaluate calibration,
+and we use those with OOD datasets
+for open set recognition. We also
+perform zero-shot open set recognition by using Mahalanobis distance scoring to detect whether an input is out-of-distribution based on the model’s representation layer (Lee et al., 2018).
+2.2 Datasets
+We selected a broad suite of 40 downstream datasets under the tasks, each ranging from several thousand to a million examples.
+We outline the datasets for each modality.
+2.2.1 Images
+We’re motivated to capture datasets spanning natural web images, specialized domains that are likely rare or unseen in large pretrained models, and with both small and large sizes.
+To do so, we use 11 datasets
+which we describe below.
+•
+CIFAR-10 is a dataset of web images with a training set of 50,000 examples and a test set of 10,000 examples (Krizhevsky et al., 2009). Following Dosovitskiy et al. (2021), we use 99% of the training set for training and 1% for validation.
+•
+CIFAR-100 is a dataset of web images with a training set of 50,000 examples and a test set of 10,000 examples. Following Dosovitskiy et al. (2021), we use 99% of the training set for training and 1% for validation.
+•
+ImageNet1K is an image dataset organized according to the WordNet hierarchy, with a training set of roughly 1.2 million examples and a test set of 50,000 examples (Deng et al., 2009). Following Dosovitskiy et al. (2021), we use 98% of the training set for training and 2% for validation.
+•
+RETINA is a set of benchmarking datasets containing retina scans exhibiting varying degrees of diabetic retinopathy, a medical condition that can result in a loss of eyesight (Band et al., 2021).
+We chose RETINA as an example of difficult transfer, since retina images are quite different from natural web images used for pretraining.
+RETINA includes two types of splits: a “Country Shift” split with an in-distribution test set and a test set exhibiting covariate shift;
+and a “Severity Shift” split with an in-distribution test set and a test set containing labels not included in the training data, representing more severe types of diabetic retinopathy.
+•
+We use 7 datasets with a range from 1,880 to 8,144 training examples: Describable Textures Dataset (Cimpoi et al., 2014), UC Merced (Yang and Newsam, 2010), Caltech 101 (Fei-Fei et al., 2004), Oxford-IIIT Pets (Parkhi et al., 2012), Colorectal Histology (Kather et al., 2016), Caltech-UCSD Birds 200 (Welinder et al., 2010), and Cars196 (Krause et al., 2013).
+Distribution shift is a common challenge for image problems, and so we cover multiple types for a total of 19 datasets. Table 1 provides an outline. Most notable, there is little work for evaluating label uncertainty, so we propose a large-scale dataset which we call ImageNet ReaL-H. ImageNet ReaL recollects human ratings for the original ImageNet test set (Beyer et al., 2020), and we use its raw data of individual ratings to construct a label distribution representing rater uncertainty for each image. For ImageNet1K, we use 7 datasets for different covariate shifts: ImageNet-A, ImageNet-C, ImageNet-R, ImageNetV2, ImageNet-Vid-Robust, ObjectNet, and YTBB Robust.
+Covariate shift
+Semantic shift
+Label uncertainty
+Subpopl. shift
+CIFAR-10
+CIFAR-10-C
+CIFAR-100, SVHN
+CIFAR-10H
+SP-CIFAR-10
+CIFAR-100
+CIFAR-100-C
+CIFAR-10, SVHN
+—
+SP-CIFAR-100
+ImageNet1K
+7 datasets
+Places365
+ImageNet ReaL-H
+—
+RETINA
+Country Shift
+Severity Shift
+—
+—
+Table 1: Vision datasets for evaluation on distribution shift.
+2.2.2 Text
+For text, we consider real-world decision making tasks that are known to deploy machine learning models: natural language inference, toxic comments detection, and conversational language understanding.
+Natural language inference and toxic comments are binary classification tasks that map a (pair of) natural language sentences to a binary category: entailment or no entailment, and toxic or non-toxic, respectively. Conversational language understanding is a task common in chatbot design, where the model maps a natural language query to a multi-token prediction of user intents: for example, “I want to order dinner using Uber Eats” →\to 3-token prediction of (FoodDelivery, Uber, Order).
+•
+For natural language inference, we use the Multi-Genre Natural Language Inference (MNLI) corpus which consists of 433k sentence pairs from a diverse collection of genres (fiction, government report, news magazine articles, etc.) (Williams et al., 2017).
+•
+For toxic comments detection, we use the WikipediaTalk corpus (Wulczyn et al., 2017) which is composed of roughly 200k English Wikipedia talk page comments between Wikipedia editors across the world.
+•
+For conversational language understanding, a large-scale corpus for evaluating uncertainty quantification is lacking. We propose a new dataset Natural Language understanding Uncertainty Evaluation (NaLUE) that is a relabelled and aggregated version of three large NLU corpuses: CLINC150 (Larson et al., 2019), Banks77 (Zhang et al., 2021) and HWU64 (Liu et al., 2021). NaLUE contains 50k+ utterances spanning 18 verticals, 77 domains, and roughly 260 intents. For this task, the model needs to map each utterance to a 3-token sequence of (vertical name, domain name, intent name).
+In terms of data distribution, MNLI has a balanced distribution both across the genre and across the label class. NaLUE exhibits a slight skewness toward some popular domains for chatbot development (e.g, banking customer service requests). On the other hand, the toxic comments datasets often exhibit extreme label imbalance. For example, ∼\sim10% of the examples in Wikipedia Talk Corpus examples have positive labels, since most online content is not toxic (Kivlichan et al., 2021).
+Covariate shift
+Subpopulation shift
+Semantic (class) shift
+MNLI
+MNLI-mismatched
+HANS
+—
+WikipediaTalk
+CivilComments
+CivilCommentsIdentity
+—
+NaLUE
+—
+NaLUE-tail
+Standard-OOS, Near-OOS
+Table 2: Language datasets for evaluation on distribution shift.
+Natural language is diverse, fast evolving, and rich in long-tail linguistic phenomena. Therefore out-of-distribution examples, particularly long-tail subpopulations, are pervasive in the real-world deployment environment.
+In Table 2, we outline a total of 7 out-of-distribution challenge sets.
+Most notably, we construct three new out-of-distribution shifts for NaLUE. NaLUE-tail contains utterances from 28 low-frequency intents categories in NaLUE. NaLUE Standard-OOS and NaLUE Near-OOS contain utterances that describe out of the scope services, differing in their closeness in distribution to NaLUE.
+3 Plex: Pretrained Large model Extensions
+Plex is the result of an extensive study of the reliability of large pretrained models and their complementarity with existing reliability methods. ViT-Plex and T5-Plex use several key ingredients:
+•
+Base Transformer architecture. We adopt the Transformer standard of an alternating sequence of attention and feedforward layers. We build on T5 1.1 (Raffel et al., 2020) for text as a Transformer in an encoder-decoder setup where the raw text is tokenized with SentencePiece, and on Vision Transformer (Dosovitskiy et al., 2021) for images in an encoder-only setup where the raw images are effectively tokenized into patches.
+•
+Model size. We investigate 3 scales of the model size in ViT-Plex: Small (ViT-Plex S; ∼\sim22 million parameters) has patch size 32, 384 embedding size, 1536 feedforward size, 12 residual blocks, and 6-headed attention; Base (ViT-Plex B; ∼\sim87 million parameters) has patch size 32, 768 embedding size, 3072 feedforward size, 12 residual blocks, and 12-headed attention; and Large (ViT-Plex L; ∼\sim325 million parameters) has patch size 32, 1024 embedding size, 4096 feedforward size, 24 residual blocks, and 16-headed attention.
+For T5-Plex, we consider three model sizes: Small (T5-Plex S; ∼\sim77 million parameters) has 512 embedding size, 8 encoder / decoder blocks, and 6-headed attention; Base (T5-Plex B; ∼\sim250 million parameters) has 768 embedding size, 12 encoder / decoder blocks, and 12-headed attention; and Large (T5-Plex L; ∼\sim880 million parameters) has 1024 embedding size, 24 encoder / decoder blocks, and 16-headed attention.
+•
+Pretraining dataset size. For vision, we scale pretraining from ImageNet-21K to the JFT web dataset on up to 4B images.
+This mirrors recent work on scaling vision models (Zhai et al., 2021; Pham et al., 2021). For language, we use the C4 dataset which consists of hundreds of gigabytes of English text scraped from the web (Raffel et al., 2020).
+•
+Efficient ensembling. Ensembles and Bayesian neural nets have shown to be very effective for uncertainty and robustness (Ovadia et al., 2019; Dusenberry et al., 2020a; Band et al., 2021). To apply ensembling scalably, we use BatchEnsemble (BE) (Wen et al., 2020b) and experiment with its use on both the attention and feedforward layers or on only the feedforward layer. For faster training, we only apply BatchEnsemble at a select number of later layers, similar to mixture of experts models (Riquelme et al., 2021). In both ViT-Plex and T5-Plex, we apply no dropout.
+•
+Last layer changes.
+We experiment with two approaches that modify the model’s final layer to improve reliability, given a
+fixed representation (a.k.a. deterministic uncertainty quantification setting (Van Amersfoort et al., 2020)).
+First, we use a Gaussian process (GP) last-layer, which improves distance-awareness of the decision surface by increasing uncertainty far away from the training representations. We use the GP layer implementation proposed by Liu et al. (2020).
+In addition, to model input-dependent label noise in datasets with many output classes we apply the Heteroscedastic (Het) method of Collier et al. (2021).
+For detailed background, see Appendix D.
+•
+What to apply in pretraining versus finetuning.
+We apply efficient ensembling during both pretraining and finetuning.
+For last-layer methods, we find pretraining benefits can be obtained primarily from only applying the method during finetuning, so we restrict them to that setting (detailed in Section 4.2).
+In addition, due to compute constraints, we exclusively focus on the finetuning-only setting for T5-Plex. That is, T5-Plex models are initialized from the official pretrained T5 checkpoints, and we apply efficient ensembling and last layer changes during finetuning.
+•
+Few-shot protocol. As an alternative to logistic regression on the final layer of frozen representations, we experiment with gradient descent over all parameters; on 5-shot and higher, training the full model
+with gradient descent
+can lead to significant gains (for example, 2-3% accuracy boost on ImageNet).
+We also experiment with a GP or Heteroscedastic last layer as an alternative to a linear last layer.
+4 Summary of Results and Scaling Trends
+Figure 3 displays the largest variants of Plex’s performance compared to existing specialized state-of-the-art on a diverse collection of reliability tasks. Plex not only sets new state-of-the-art on many tasks
+but Plex also unifies reliability performance under one general model for vision and language respectively. Here, we validate several takeaways as we ablate to understand Plex’s ingredients.
+Figure 6: Plex’s performance aggregated across (top) 139 vision task metrics and (middle) 54 language task metrics.
+Subplots (bottom) display average performance for individual reliability areas for vision (first 3) and language (last 2).
+Compute is the total # of training days for a single TPUv3 core.
+Dots represent size (Small, Base, Large), pretrained on JFT for images and C4 for text; I21K denotes pretraining on ImageNet-21K.
+Scaling model size improves reliability.
+Figure 6 displays ViT-Plex and T5-Plex over varying model sizes.
+We compute a reliability score which is a normalized average over all task metrics: 139 for vision and 54 for language (see Appendix B for details).
+We also display reliability scores for individual reliability areas, which are the averages separately over the uncertainty, robust generalization, and adaptation tasks.
+Classical machine learning theory would suggest that a larger model translates to more overfitting and might therefore be less reliable as it may be overconfident and less robust. However, we find that scale improves overall performance across tasks.
+Scaling pretraining dataset size improves reliability.
+ViT-Plex L with JFT performs better than ViT-Plex L with ImageNet-21K
+(Figure 6).
+In Table 3, we also perform an ablation by comparing pretraining on JFT with 300M examples to JFT with 4B examples.
+We pretrain on up to 8M steps with batch size 4096, which is up to 8X more steps than we typically use for pretraining; each result is a separate run using a tuned learning rate schedule.
+ImageNet 10-shot accuracy is always better on JFT 4B under the same number of training steps. The models also converge faster with the smaller JFT 300M, reaching a performance limit, whereas JFT 4B keeps improving.
+Pretraining Dataset
+1M steps
+2M steps
+4M steps
+8M steps
+JFT 300M
+72.1%
+72.9%
+73.0%
+73.0%
+JFT 4B
+72.7%
+74.4%
+74.6%
+—
+Table 3: ImageNet 10-shot accuracy consistently improves with a larger pretraining dataset.
+Figure 7: (left) Ranking of method ablations over 139 metrics on vision tasks and (right) 54 metrics on language tasks. Each model has a box plot of rankings (lower is better).
+Plex’s combination of efficient ensembling and last-layer changes ranks best on average.
+BatchEnsemble improves pretraining.
+For vision, we run ablations at the fixed setting of L pretrained with JFT, and we use both B and L sizes for text, which are highly competitive settings. Figure 7 displays the ranking across tasks for each model. Methods are applied either during both pretraining and finetuning, or only during finetuning given a pretrained model checkpoint (“None→\toHet” denotes pretraining with no changes and finetuning
+with Het on top).
+All the methods displayed improve over a baseline without ensembling or last layer changes (“None”). BatchEnsemble is consistently the best for pretraining.
+Last-layer methods improve finetuning.
+The best ranked models for the vision and language tasks use all of Plex’s ingredients: Het on top of a pretrained BE for vision and GP on top of a BE for language.
+In particular, for T5-Plex ablations,
+BE++GP and BE tend to have the strongest performance.
+From more detailed per-dataset analysis in Appendix I, BE++GP and BE perform well on MNLI and NaLUE with BE++GP performing slightly better; notably, they outperform even an expensive deep ensemble baseline which also performs well on MNLI and NaLUE. BE++GP outperforms None on Toxic Comments while a Monte Carlo Dropout baseline performs best on that task. T5-Plex L also outperforms T5-Plex B, which indicates the benefit of scale not only in Figure 6’s normalized average score but in their average ranking.
+Downstream dataset size has no obvious pattern with reliability. Figure 8 decomposes the performance of ViT-Plex L by analyzing it as a function of the downstream dataset’s size of training set. That is, we aggregate reliability performance for each training dataset separately, ranging from a size of 1,880 examples with Describable Textures Dataset (dtd) to 1.2 million examples with ImageNet. There is no clear pattern with respect to size. On the other hand, the datasets with lower reliability tend to be more different from the distribution of natural images in JFT: UC Merced is a remote sensing dataset of map areas, and Colectoral Histology is a histology dataset of human colorectal cancer. Pet images are not uncommon in JFT, but most breeds in Oxford IIT Pets aren’t in JFT.
+This suggests reliability performance is possibly more connected to the distribution shift between pretraining and downstream dataset than the downstream dataset’s size.
+Figure 8: Reliability performance of ViT-Plex L, aggregated by each downstream dataset.
+4.1 Relationship Between Reliability Tasks
+Given that there are many tasks that make up reliability, here we analyze relationships between the individual tasks. We’re motivated by the following question: Is there an inherent underlying evaluation metric that is indicative of reliability? Specifically, can reliability be predicted from pretraining performance, without any downstream finetuning or adaptation?
+Figure 9: Correlation of pretraining validation loss with each task (evaluation metric), averaging over all datasets for that task. Most of the tasks correlate highly, meaning upstream performance is a key signal for downstream performance.
+In Figure 9, we analyze the correlation of validation loss on the pretraining dataset with each downstream metric. Most of the tasks correlate highly, meaning that the pretraining performance is an important predictor of downstream performance. The one exception are two uncertainty metrics—calibration error and calibration AUROC—which may make sense intuitively given that calibration as a property about models is not tied to predictive performance.
+Interestingly, AUROC, which refers to the metric for open set detection (an uncertainty task), is strongly coupled with predictive performance (Pearson correlation of 0.99!), more than, say, selective prediction performance (OC-AUC); this suggests that for open set recognition, prediction may be more important than uncertainty.
+Few-shot accuracy also correlates strongly with pretraining performance, and more examples leads to higher correlation (25>10≈5>125>10\approx 5>1-shot).
+Accuracy and NLL correlate less strongly than few-shot: this is likely because they are measured on both in- and out-of-distribution datasets whereas few-shot is only evaluated on in-distribution test splits.
+Surprisingly, we can find an even stronger answer to the question: training loss on pretraining data is predictive of reliability. Table 4 shows Pearson correlation of upwards of 0.97 for the reliability score, prediction, and adaptation areas. Uncertainty is the least correlated but still quite strong at 0.76. This suggests that to perform well for reliability, simply fitting the data—that is, having high model capacity and the ability to efficiently train to utilize that capacity—is one of the most essential ingredients.
+Score
+Score robustness
+Score uncertainty
+Score adaptation
+JFT
+-0.977
+-0.973
+-0.762
+-0.982
+CIFAR-10
+-0.494
+-0.909
+0.173
+-0.376
+CIFAR-100
+-0.517
+-0.965
+-0.271
+-0.360
+ImageNet
+-0.566
+-0.957
+0.038
+0.440
+Table 4: Correlation matrix between the training loss on each dataset and the reliability over all vision tasks as well as separately in the three categories. A value of -1.0 means a lower training loss has a perfect linear relationship with a higher score. Training loss on the JFT pretraining dataset has a surprisingly high correlation with reliability. Performance on downstream datasets is predictive of overall robustness but otherwise has less correlation.
+4.2 The Effect of Pretraining vs Finetuning
+How do the effects we find above differ as model ingredients are applied during the pretraining phase vs finetuning phase?
+Here, we analyze the performance of models depending on choices made separately during the two phases.
+For example, can the benefits of BatchEnsemble be obtained when only applied during finetuning given a model pretrained without any changes?
+To broadcast the weights of a pretrained model UU into those of a downstream model DD, we follow the initialization scheme for DD and replace any weights common to UU and DD by those in UU.
+For example, a BatchEnsemble obtained by broadcasting a pretrained vanilla model will inherit its slow weights from the model, but fast weights will be initialized randomly.
+Consistent with all finetuning experiments, the head layer is also reinitialized rather than inherited from the pretrained model.
+Figure 10: Upstream and downstream versus downstream-only use of specific architectures on Imagenet. We compare the extent to which a single pretrained deterministic model can be cast into alternative architectures during finetuning.
+Figure 10 displays results on ImageNet. BatchEnsemble when applied during both pretraining and finetuning strictly outperforms the finetuning-only variant across the 3 metrics. We also ran a naive deep ensemble baseline and find that this is similarly the case. On the other hand, for both GP and Heteroscedastic, applying the method only during finetuning roughly matches the performance of the method when applied during both pretraining and finetuning. Therefore we apply BatchEnsemble for both pretraining and finetuning, and we restrict using last-layer methods for finetuning. See Appendix H for more analysis of the heteroscedastic last layer for vision tasks.
+4.3 Ensemble Scaling
+Ensembles of neural networks (Hansen and Salamon, 1990; Lakshminarayanan et al., 2017), which aggregate the predictions of several instances of the same model class, provide a remarkably simple, yet effective, way to improve the performance of the base model. This holds true not only for predictive performance
+but also, crucially, for robustness and uncertainty quantification (Ovadia et al., 2019; Gustafsson et al., 2020; Wen et al., 2020b). However, ensembles require an increasing amount of compute as one increases the size of the ensemble. We’re motivated to understand this axis of model scaling, ensemble size, as it compares to an alternative, popular axis of model scaling: increasing width and depth.
+(a) Aggregated reliability score
+(b) ImageNet test accuracy
+Figure 11: Trading off model size with deep ensemble size. Overall, scaling the single model from Small to Large has a greater influence on the overall performance.
+Figure 11 shows that naive ensembling consistently provides better performance as the number of ensemble members increases. However, this comes at significant computational cost. Scaling up the model size from S to B or from B to L leads to an ∼\sim4x increase in compute, and larger single models tend to outperform the ensembles of 4 smaller models. This motivates the importance of efficient ensembles in Plex: BatchEnsemble adds minimal extra compute and outperforms the baseline without ensembles consistently in the ranking across tasks (Figure 7).
+5 Reliability Task Results
+In this section, we examine performance on individual tasks across the areas of uncertainty, robust generalization, and adaptation.
+5.1 Uncertainty
+To make an accurate assessment of the quality of a model’s predictive uncertainty, we consider a set of tasks, each highlighting a different property of models’ predictive uncertainty estimates.
+5.1.1 Calibration
+Figure 12: Expected calibration error averaged over three in-distribution vision evaluation datasets (top) and six out-of-distribution vision evaluation datasets (bottom).
+Model types are shown on the xx-axis.
+Figure 13: Expected calibration error averaged over two in-distribution language evaluation datasets (top) and three out-of-distribution language evaluation datasets (bottom).
+Model types are shown on the xx-axis.
+TL;DR
+Plex improves calibration over a baseline without any changes, especially on out-of-distribution. Scaling model size and pretraining dataset size can improve calibration.
+Intuitively, calibration is about the “accuracy” of a model’s uncertainty estimates.
+It reflects how well the model’s confidence, which quantifies the predictive probability of correctness, aligns with the model’s accuracy, which is the observed probability of correctness (Dawid, 1982). We investigate two different measures of calibration.
+Expected Calibration Error
+Expected calibration error (ECE) (Naeini et al., 2015) is a binning metric that computes the average difference in confidence and accuracy within different confidence bins.
+We evaluate ECE of vision models on 3 in-distribution datasets---CIFAR-10, CIFAR-100, ImageNet---and 6 out-of-distribution---CIFAR-10H, ImageNet ReaL-H, ImageNet-A, ImageNet-C, ImageNet-R, and ImageNet-V2. We also evaluate ECE on T5-Plex over 2 in-distribution datasets---MNLI-matched and NaLUE---and 3 out-of-distribution datasets---MNLI-mismatched, HANS, and NaLUE-tail44
+4
+We excluded toxicity detection datasets which exhibits severe label imbalance. For these datasets, ECE as a population-average metric is not a suitable measure. For example, a naive model that always predict the majority label will trivially achieve high accuracy and low ECE..
+Figure 12 displays the average calibration error of vision models on both in- and out-of-distribution evaluation datasets.
+Calibration errors on in-distribution are relatively low in general (less than 2.5% ECE).
+Plex improves calibration error over using no changes (None) by roughly a reduction in half on average; on out-of-distribution, it is roughly a 3% improvement whether the models
+both use JFT or both use ImageNet21K.
+Regarding model size, we find calibration error improves over S, B, and L. Another significant difference is in pretraining dataset size from ImageNet-21K to JFT, where we find JFT models consistently outperform ImageNet-21K pretrained models.
+A similar trend can be observed in the language domain.
+As shown in Figure 13, compared to the baseline without changes (None), Plex improves the model’s calibration performance by roughly 3% on in- and out-of-distribution.
+On the other hand, a model’s uncertainty performance is impacted more by the type of uncertainty methods than the model size. For example, the Plex B model is on average stronger than the None L model.
+Models
+C10
+C100
+ImageNet
+Plex S
+93.6%
+90.9%
+86.7%
+Plex B
+93.6%
+92.4%
+87.4%
+Plex L
+89.2%
+93.7%
+87.7%
+Models
+MNLI
+NaLUE
+Toxic Comments
+Plex S
+76.4%
+92.9%
+90.5%
+Plex B
+82.7%
+93.4%
+90.4%
+Plex L
+86.0%
+88.9%
+91.3%
+Table 5: Calibration AUROC, measured on the in-distribution test split of each vision dataset (left) and text dataset (right).
+Calibration AUROC.
+Calibration AUROC considers the binary classification problem of predicting from a model’s uncertainty on a given input whether its prediction for the same input (i.e., the class associated with the highest class probability) is correct.
+It is the area under the ROC curve for this binary classification task, and it
+aggregates the model’s predictive performance over all possible confidence thresholds.
+Comparing to ECE, Calibration AUROC only evaluates the uncertainty score’s ranking performance, that is, whether a model consistently assigns higher uncertainty to incorrect predictions rather than correct predictions, and such an uncertainty score can be used as a signal for prediction correctness with good precision-recall and ROC performance (Krishnan and Tickoo, 2020; Kivlichan et al., 2021). Table 5 presents Calibration AUROC on vision and text datasets. We see a similar pattern as ECE where larger models generally perform better, but the pattern is slightly weaker. For example, Plex L performs best on only 4/6 datasets.
+5.1.2 Selective Prediction
+TL;DR
+The model extensions in Plex provide a significant improvement for selective prediction, enabling the ability to predict at much lower error rates when deferring just a small fraction of predictions.
+Deep learning models are typically evaluated under the lens of average predictive accuracy. However, this doesn’t account for the real-world cost of mistakes in deployed models today. Often the risk associated with a mistake can outweigh the benefit of being correct and thus, in expectation, it can be better to not predict at all under some confidence level or defer to a more expensive procedure (e.g., a human expert).
+This motivates selective prediction, which includes predictive performance as part of a larger decision-making scenario in which the model may abstain from making certain predictions (El-Yaniv and Wiener, 2010).
+Selective prediction performance can be evaluated using several approaches, and there has not been much standardization in the literature. We investigate two that use model uncertainty, through joint human-model collaboration and through rejection rates.
+Table 6: Oracle Collaborative AUROC with a review fraction of 0.5% of all predictions.
+Default pretraining dataset is JFT and I21K signifies ImageNet21K.
+Models
+C10
+C100
+ImageNet
+Plex S
+0.986
+0.960
+0.940
+Plex B
+0.991
+0.960
+0.960
+Plex L
+0.999
+0.980
+0.980
+Plex L I21K
+0.997
+0.970
+0.960
+Selective Prediction by Model Uncertainty using Human–Model Collaboration.
+Many real world use cases of AI allow for a model to defer a subset of predictions to a human expert.
+Oracle Collaborative Accuracy and AUROC measure the performance of an oracle–model collaboration system, where the oracle acts a proxy for human experts in order to automate evaluation.
+The model sends predictions with high predictive uncertainty to an oracle subject to a fixed referral budget (e.g., only 1% of all queries can be referred to the oracle).
+We compute Oracle Collaborative Accuracy and AUROC over a range of budgets and evaluate on both vision and language modalities.
+For vision, Table 6 displays Oracle Collaborative AUROC with a review budget of 0.5% on three vision datasets over different variants of Plex.
+Surprisingly, the AUCs are quite high: on ImageNet for example, Plex L attains 0.98, and the models all achieve greater than 0.9 across the datasets.
+This implies that the ability to defer can enable lower error, which can be useful for higher-risk applications. Plex consistently performs best, even when taking into account different model and dataset sizes. We also examined the metric over review budgets of 1%, 2%, and 5%, and found the results to be unchanged. This suggests that the results on 0.5% are the model’s limiting performance with an oracle in the loop.
+(a) In-domain, by method
+(b) OOD, by method
+(c) Subpopulation, by method
+(d) In-domain, by size
+(e) OOD, by size
+(f) Subpopulation, by size
+Figure 15: Ranking performance in selective prediction (lower is better) across different methods (15(a)-15(c)) and model sizes (15(d)-15(f)). Each model’s box plot is its ranking over multiple datasets: ranking is done by AUROC on MNLI and Toxic Comments, and by Accuracy on NaLUE (AUROC is not well-defined for multi-class classification).
+For language, Figure 15 reports results across three different model sizes (S, B, L) and for eight methods: a baseline without changes (None), MC Dropout (MCD), Deep Ensemble (DE), Gaussian process (GP), Batch Ensemble (BE), Heterostochastic (Het) and two method combinations Gaussian process ensemble (DE+GP) and BE-GP (Plex) (see Tables 19 and 20 in the Appendix for detailed results). We show the rankings of these methods under different types of test data distribution (i.e. in-domain, OOD and tail-population). We first see that across different methods, DE++GP, BE++GP (Plex), BE, and MCD tend to have the strongest performance. In particular, DE++GP almost always dominates the other methods on MNLI and NaLUE, and remains competitive in the case of label imbalance (i.e., Toxic Comments). However, DE++GP is an expensive method that costs 10x more in memory and compute and therefore is not competitive in scale (a more thorough analysis is in Section 4.3). On the other hand, among the more efficient, single-model methods (i.e., Plex, BE and MCD), BE and Plex perform well on MNLI and NaLUE (notably, outperform the most expensive DE), while MCD stands out in the Toxic Comments. The above observations suggest that, when the training examples are drawn from a relatively simple distribution, quantifying output-layer uncertainty alone is sufficient to attain strong performance. However, when there are pathologies in the data distribution (e.g., extreme label imbalance and high label noise), quantifying the uncertainty within the model’s intermediate representations (e.g., via some form of perturbation like BE) becomes important.
+Next we investigate how a model’s performance is impacted by the model size.
+For model size scaling, we evaluate BE++GP (Plex), MCD, and None.
+We evaluate the performance of each method under progressively larger architectures, S, B, and L, and observe how the behavior changes across the method and with respect to the architecture size.
+Figure 15(d)-15(f)
+summarizes the rankings of uncertainty methods organized by the sizes of the architecture.
+As shown, comparing across architecture sizes, we see a larger architecture almost always leads to stronger performance in collaboration. This trend remains largely consistent even under distributional shifts and in tail groups. On the other hand, a model’s uncertainty performance is impacted more by the type of uncertainty methods. That is, the MCD and BE++GP models are on average stronger than None models, regardless of architecture size.
+Finally, within larger architectures (i.e., T5 B and T5 L), BE++GP generally outperforms MCD, and MCD outperforms None. This trend is broken in two situations, (1) in Toxic Comments, MCD strongly outperforms all other architectures, (2) in small architecture, BE-GP is often the poorer performing model, and None achieves the best performance in multi-token prediction problems (NaLUE).
+Finally, between the larger architectures (i.e., T5 B v.s. T5 L), Plex (BE++GP) generally outperforms MCD, and MCD outperforms None. This trend is broken in two situations, (1) in Toxic Comments, MCD strongly outperforms all other architectures, (2) among the small architectures, the None baseline achieves the best performance in multi-token prediction problems (i.e., NaLUE).
+Figure 16: Selective Prediction Pipeline. Given an input, a model returns a prediction and uncertainty estimate.
+If the uncertainty estimate exceeds a threshold γ\gamma (indicating a level of uncertainty corresponding to a rejection rate τ\tau that reflects the capacity for expert reviews), the diagnosis is referred to a human expert; otherwise, it is processed with no further review.
+The schematic is based on Figure 2 in Band et al. (2021).
+Selective Prediction by Model Uncertainty using Rejection Rates.
+Rejection AUC measures a model’s performance in the scenario where it is permitted to not predict on some fraction of the data for which the model is most uncertain, e.g., up to 10% of all queries. Unlike the collaboration metric, it does not assume the query is passed to an oracle as rejected inputs may be subject to further review for broader decision making such as to improve data collection.
+Rejection AUC is computed from predictive uncertainty (e.g., predictive entropy, predictive variance, confidence) and a chosen predictive performance evaluation metric (e.g., accuracy, AUROC, AUPRC) at different rejection rates.
+For a rejection rate of τ∈[0,1]\tau\in[0,1], the τ×100\tau\times 100% of data points in the evaluation set for which the model is most uncertain are identified.
+Those inputs are then rejected, and we assess the predictions on the remaining (1−τ)×100(1-\tau)\times 100% of data points.
+Accuracy–Rejection AUC is given by computing the area under the Accuracy–Rejection Rate curve.
+Additional results for AUROC and AUPRC—Rejection AUCs can be found in Appendix F.
+(a) Country Shift: Out-of-Distribution
+(b) Severity Shift: Out-of-Distribution
+Figure 17: Selective Prediction on RETINA (Out-of-Distribution).
+(left)
+The Country Shift task is concerned with diagnosing diabetic retinopathy from retina scans
+obtained using different medical equipment and a different patient population.
+(right)
+The Severity Shift task is concerned with detecting levels of severity of diabetic retinopathy more severe than those included in the training data.
+Accuracy is used as the evaluation metric and model predictive entropy is used as the per-example uncertainty estimate.
+Plex L
+None L
+Het L
+GP L
+(I21K)
+(I21K)
+(I21K)
+(I21K)
+Country Shift
+In-Distribution
+96.3%
+96.2%
+96.3%
+95.1%
+Out-of-Distribution
+90.4%
+89.5%
+91.2%
+89.4%
+Severity Shift
+In-Distribution
+95.4%
+96.3%
+96.0%
+96.0%
+Out-of-Distribution
+96.9%
+94.4%
+96.9%
+93.6%
+Table 7: Accuracy–Rejection AUC on RETINA Country and Severity Shift datasets.
+Table 7 displays overall performance for a selection of finetuned models that were pretrained on ImageNet-21K, and Figure 17 displays the full accuracy–rejection curves for the Country and Severity Shift out-of-distribution tasks.
+We find that that Plex generally improves performance over using no changes on both datasets on three out of four evaluation tasks and that Het L performs as well or better than Plex L on all four tasks.
+Examining the quality of different models’ predictive uncertainty estimates for out-of-distribution evaluation more carefully, we find that on the Country Shift out-of-distribution (covariate shift) task, all models exhibit non-monotonically increasing accuracy–rejection rate curves.
+Since the rejected examples are selected based on the models’ predictive uncertainty estimates, this behavior indicates that beyond certain rejection-rate thresholds, the models tend to be underconfident about correct predictions and overconfident about mistakes.
+We do not observe this pattern on the Severity Shift out-of-distribution (semantic shift) task or on the Country and Severity Shift in-distribution tasks (see Appendix F).
+5.1.3 Open-set recognition (OSR)
+TL;DR
+A simple scoring technique (maximum softmax probability) works well across open set recognition problems. Over image and text datasets, Plex provides a consistent improvement for new state-of-the-art, and without custom changes per dataset.
+Open-set recognition, also called out-of-distribution detection or anomaly detection, aims to detect samples from new classes that are not included in training. In contrast to OOD generalization where the test example belongs to the same in-distribution training classes (x,y)(x,y), y∈Yindy\in Y_{\textsc{ind}}, OSR aims to detect test example (x,y)(x,y), where y∈Yoody\in Y_{\textsc{ood}}.
+To evaluate OSR performance, we design an uncertainty score Uθ​(x)U_{\theta}(x) that indicates the likelihood of an input xx being OOD, and θ\theta denotes the classification model’s parameters.
+As a default for all OSR problems, we apply the most commonly used uncertainty score: 1−MSP1-\text{MSP}, where MSP is the maximum over predicted softmax probabilities (Hendrycks and Gimpel, 2017).
+A mixture of in-distribution examples and OOD examples are used as the test set. For each test example, the model generates an uncertainty score.
+Comparing the uncertainty score with its ground truth OOD label (0 indicates the example is from in-distribution data, and 1 indicates the example is from OOD data), we use AUROC to measure how well the uncertainty score separates the two groups. Note that the model is not finetuned using any OOD examples; test OOD examples are only used for evaluation.
+We discuss results on alternative uncertainty scores in Appendix E.
+In-Distribution
+Out-of-Distribution
+Far-OOD
+Vision
+CIFAR-10
+SVHN
+CIFAR-100
+SVHN
+Language
+NaLUE Standard Out-of-Scope
+Near-OOD
+Vision
+CIFAR-10
+CIFAR-100
+CIFAR-100
+CIFAR-10
+ImageNet2012
+Places365
+Language
+NaLUE Near Out-of-Scope
+Table 8: The open set recognition tasks studied in this section.
+Comparing models’ OSR performance across tasks.
+We evaluate the performance of Plex and multiple baseline models.
+Based on the similarity between the in- and out-of-distribution data, we can classify OSR tasks under two categories (Table 8): (a) far-OOD detection and (b) near-OOD detection.
+In Table 9, we observe that first, larger models have better performance.
+Second, among all the models, Plex performs the best for most takes.
+Third, for ImageNet2012 vs Places365, models pretrained with ImageNet-21K (I21K) outperform the same models but pretrained on JFT.
+MSP
+Far OOD
+Near-OOD
+C-10 vs SVHN
+C-100 vs SVHN
+C-10 vs C-100
+C-100 vs C-10
+I2012 vs Places
+None
+0.996
+0.932
+0.986
+0.929
+0.828
+None (I21K)
+0.996
+0.913
+0.981
+0.924
+0.838
+None→\toGP
+0.997
+0.931
+0.986
+0.927
+0.824
+None→\toHet
+0.996
+0.925
+0.984
+0.948
+0.827
+None→\toDE
+0.996
+0.923
+0.986
+0.940
+0.831
+None→\toBE
+0.996
+0.934
+0.982
+0.924
+0.822
+GP
+0.995
+0.938
+0.981
+0.927
+0.828
+Het
+0.996
+0.943
+0.979
+0.948
+0.828
+DE L
+0.996
+0.937
+0.987
+0.946
+0.834
+BE L
+0.996
+0.927
+0.987
+0.940
+0.827
+Plex L (I21K)
+0.996
+0.932
+0.983
+0.934
+0.842
+Plex L
+0.997
+0.938
+0.988
+0.954
+0.831
+Plex B
+0.995
+0.925
+0.975
+0.906
+0.801
+Plex S
+0.990
+0.882
+0.957
+0.864
+0.773
+Table 9: The MSP based OOD AUROC of all types of models across the five tasks.
+Open-set intent detection based on large language pretrained models.
+To study OSR performance of different models in the language domain, we design an intent detection task for detecting natural utterances that are out of the scope (OOS) services. For the in-distribution dataset NaLUE, the model needs to map each utterance input xx to a 3-token sequence of y=(y1,y2,y3)=(vertical name,domain name,intent name)y=(y_{1},y_{2},y_{3})=(\text{vertical name},\text{domain name},\text{intent name}). To study both far-OOD performance and near-OOD performance, we construct two out-of-the-scope datasets for NaLUE:
+•
+NaLUE Standard-OOS: completely out-of-domain queries, based on CLINC150-OOS. The standard-OOS queries do not share any of the (vertical name, domain name, intent name) with the in-domain query.
+•
+NaLUE Near-OOS: in-domain, out-of-scope queries. It is created by sampling 20% intent from each known domain as OOD data. The near-OOS examples can share the same vertical name / domain name (but definitely different intent name) with the in-domain query.
+The model outputs a sequence, and we compute the uncertainty score based on the conditional softmax probability p⁡(yl|y<l,x,θ)p(y_{l}|y_{<l},x,\theta), using the conditional entropy. The conditional entropy is a standard uncertainty score for sequences (Malinin and Gales, 2021),
+uncertainty(y|x,θ)=−1L∑l=1Lℍ(yl|y<l,x,θ),\displaystyle\operatorname{uncertainty}(y|x,\theta)=-\frac{1}{L}\sum_{l=1}^{L}\mathbb{H}(y_{l}|y_{<l},x,\theta),
+(1)
+where
+ℍ(yl|y<l,x,θ)=−∑k=1Kp(yl=k|y<l,x,θ)log(p(yl=l|y<l,x,θ))\mathbb{H}(y_{l}|y_{<l},x,\theta)=-\sum_{k=1}^{K}p(y_{l}=k|y_{<l},x,\theta)\log\left(p(y_{l}=l|y_{<l},x,\theta)\right) is the conditional entropy based on the conditional distribution p⁡(yl=k|y<l,x,θ)p(y_{l}=k|y_{<l},x,\theta), and k=1​…​Kk=1\ldots K is the total number of intent names.
+The uncertainty score is compared with the ground truth OOD label. An input (x,y1,y2,y3)(x,y_{1},y_{2},y_{3}) is labeled as OOD if any of yly_{l} belongs to the OOD labels.
+In Table 10, models including None, GP, Het, MCD, BE, BE-GP, Deep Ensemble (DE), DE-GP are evaluated for their detection performance on Standard-OOS and Near-OOS. BE and DE-GP outperform the other models, followed by MCD.
+Standard-OOS
+Near-OOS
+Model
+AUROC
+AUPRC
+AUROC
+AUPRC
+None
+0.987
+0.941
+0.877
+0.535
+Het
+0.981
+0.932
+0.854
+0.491
+GP
+0.997
+0.987
+0.884
+0.554
+MCD
+0.998
+0.989
+0.917
+0.616
+BE
+0.999
+0.997
+0.909
+0.627
+Plex
+0.997
+0.986
+0.890
+0.543
+DE
+0.991
+0.955
+0.884
+0.558
+DE-GP
+0.999
+0.997
+0.916
+0.625
+Table 10:
+OOS intent detection performance with AUROC and AUPRC for different models.
+5.1.4 Label Uncertainty
+TL;DR
+We propose label uncertainty as an important challenge, with a new large-scale dataset and propose an evaluation metric. The heteroscedastic last-layer particularly helps for label uncertainty.
+It is typical to encounter label noise in non-academic datasets. However, benchmark datasets are often carefully curated to reduce label noise due to unreliable or disagreeing annotators.
+We use the existing CIFAR-10H dataset, which is a relabelled version of the CIFAR-10 test set with on average >>50 crowd-sourced noisy labels per input (Peterson et al., 2019).
+There is a notable lack of label uncertainty datasets in the literature, and we found limiting performance on CIFAR-10 as our models achieve >>99% accuracy on the original CIFAR-10 test set.
+Therefore we build a larger dataset called ImageNet ReaL-H, which leverages the raw annotations of ImageNet ReaL (Beyer et al., 2020). When raw labels were available for an image we followed the same averaging procedure as for CIFAR-10H to produce a soft label. There are some cases where no raw annotations were available. These cases correspond to an image where a set of ML models all agreed with the original ImageNet label for the image and thus the image was not sent to human annotators for re-labelling. In these cases we took the one-hot ImageNet label as the soft label (equivalent to all human annotators agreeing the original ImageNet label was correct).
+Metric
+To evaluate a model’s ability to capture label uncertainty, consider a divergence measure 𝒟\mathcal{D} between probability distributions,
+𝔼x∼pdata​(𝐱)[𝒟(pdata(y∣𝐱)∥pmodel(y∣𝐱))]≈1N∑n=1N𝒟(pdata(y∣𝐱n)∥pmodel(y∣𝐱n)),\displaystyle\mathbb{E}_{x\sim p_{\textsc{data}}(\mathbf{x})}\Big[\mathcal{D}\Big(p_{\textsc{data}}(y\mid\mathbf{x})~\|~p_{\textsc{model}}(y\mid\mathbf{x})\Big)\Big]\approx\frac{1}{N}\sum_{n=1}^{N}\mathcal{D}\Big(p_{\textsc{data}}(y\mid\mathbf{x}_{n})~\|~p_{\textsc{model}}(y\mid\mathbf{x}_{n})\Big),
+(2)
+where pdata​(⋅)p_{\textsc{data}}(\cdot) is the true label distribution for the data point and pmodel​(⋅)p_{\textsc{model}}(\cdot) is the model’s distribution. This evaluation metric only reaches 0 when the model captures the true label distribution for every example. We use KL divergence and approximate the label distribution using an empirical distribution over the multiple label samples per input.
+Figure 18:
+KL divergence on ImageNet ReaL-H (left) and CIFAR-10H (right) for None, None upstream→\toheteroscedastic downstream, BatchEnsemble upstream→\toBatchEnsemble L + heteroscedastic downstream, and Deep Ensemble models.
+Results
+We observe in Figure 18 that the heteroscedastic models (Het in finetuning-only and Plex) outperform the None model.
+Plex does best on ImageNet ReaL-H excluding DE which uses more compute, but Plex performs worse on CIFAR-10H.
+5.2 Robust Generalization
+An important aspect of model reliability is it’s ability to make accurate predictions when the test data distribution changes. In this section, we examine model robustness to different forms of data distribution shift. We look at performance both in-distribution and under two out-of-distribution shifts: covariate shift and subpopulation shift.55
+5
+There are 2 distribution shift types which we do not cover here: semantic (class) shift and label uncertainty. Semantic (class) shift is not possible to measure predictive performance under without an open vocabulary model such as recent image-text models (Radford et al., 2021). Therefore we restrict studies of class shift to the open set recognition task (Section 5.1.3). Label uncertainty is covered in Section 5.1.4.
+5.2.1 In-Distribution Generalization
+TL;DR
+Ablation experiments show that pretraining does not help for diabetic retinopathy diagnosis on images, but the Plex model extensions do give a benefit. Across language tasks, pretraining, model scale, and the Plex extensions all contribute to better in-domain generalization.
+Figure 19: Predictive performance on downstream datasets, with (top) accuracy and (bottom) negative log-likelihood over CIFAR-10, CIFAR-100, and ImageNet respectively as a function of the model scale (number of model parameters). The blue dotted line is the Pareto frontier. Note, while number of parameters is a useful comparison of model scale (e.g. memory footprint) it doesn’t capture all aspects of scale such as computational overhead, training time, etc.
+We look at accuracy and NLL across the in-distribution test splits of each dataset after finetuning on their respective training splits.
+Vision Tasks
+For RETINA in Table 11, we compare Plex to the best-performing ResNet-50 baseline results based on a wide array of uncertainty quantification methods (Gal and Ghahramani, 2016; Blundell et al., 2015; Rudner et al., 2021; Rudner et al., 2022; Dusenberry et al., 2020a; Farquhar et al., 2020) reported in Band et al. (2021) and find that pretraining on neither I21K or JFT results in an improvement in predictive performance across all evaluation metrics compared to the state-of-the-art ResNet-50 trained from scratch.
+This failure may be due to the fact that the retina scans used for the diagnosis tasks differ significantly in appearance from the images in the pretraining datasets and as such may be too dissimilar to convey meaningful inductive biases into the finetuned neural network. Nevertheless, the Plex extensions do still provide a benefit over the pretrained model.
+See Figure 19 for CIFAR and ImageNet.
+SoTA
+SoTA
+Plex L
+Plex L
+None L
+None L
+(Ensemble)
+(Single Model)
+(JFT)
+(I21K)
+(JFT)
+(I21K)
+Accuracy
+91.6%
+90.9%
+90.0%
+89.8%
+88.7%
+89.8%
+NLL
+0.25
+0.29
+0.28
+0.28
+0.30
+0.32
+AUROC
+92.5%
+91.4%
+–
+88.9%
+–
+89.8%
+AUPRC
+84.4%
+82.6%
+–
+78.1%
+–
+79.8%
+Table 11: Results on the RETINA Country Shift task (for in-distribution evaluation).
+The SoTA (Ensemble) outperforms Plex L pretrained on both ImageNet-21K or JFT on all evaluation metrics but ECE, where Plex L pretrained on ImageNet-21K performs best.
+Language Tasks
+In the Appendix, Table 19 summarizes the performance of different uncertainty methods, and Table 20 evaluates the models’ performance across three different scales (i.e., T5small{}_{\texttt{small}}, T5base{}_{\texttt{base}}, T5large{}_{\texttt{large}}). Finally, Figures 35 and 36 in the Appendix visually summarize the relative performance ranking across methods and scales. Comparing across methods, uncertainty methods (specifically, BE, DE, GP, and their combinations) provides improved generalization performance when compared to the None baseline.
+Specifically, DE+GP provides the strongest performance across almost all tasks. Among the more efficient methods, Plex (BE+GP) consistently ranked among the top performing methods, while the performance of GP, MCD and BE varies across the datasets (Table 19). Comparing across model scale, the methods’ generalization performance generally improves as the model scale increases, with Plex (BE+GP) the method benefiting the most strongly from scaling, delivering on average the strongest performance at T5large{}_{\texttt{large}}.
+5.2.2 Covariate shift
+TL;DR
+In general, Plex significantly improves performance across metrics under covariate shift, even when it doesn’t outperform on in-distribution test data. Model size (larger models perform better under covariate shift) and pretraining data are consistently major factors.
+In order to be robust under covariate shift, a model should be able to reliably make correct predictions on noisy, corrupted, and otherwise distribution-shifted inputs. In this section, we evaluate robustness using a variety of datasets that exhibit different types of covariate shift.
+SoTA
+SoTA
+Plex L
+Plex L
+None L
+None L
+(Ensemble)
+(Single Model)
+(JFT)
+(I21K)
+(JFT)
+(I21K)
+Accuracy
+87.6%
+86.8%
+88.8%
+88.4%
+85.5%
+87.2%
+NLL
+0.92
+1.07
+0.45
+0.44
+0.49
+0.59
+AUROC
+94.1%
+94.0%
+–
+95.2%
+–
+94.7%
+AUPRC
+88.3%
+88.8%
+–
+90.8%
+–
+88.9%
+Table 12: Predictive performance on the RETINA Country Shift task (for out-of-distribution evaluation).
+Plex L pretrained on either ImageNet-21K or JFT outperforms the SoTA Ensemble on all evaluation metrics.
+RETINA under Country Shift
+RETINA’s Country Shift task is concerned with diagnosing diabetic retinopathy from retina scans obtained using different medical equipment and a different patient population.
+In Table 12, we compare Plex to the best-performing ResNet-50 baseline results based on a wide array of methods to improve uncertainty quantification (Gal and Ghahramani, 2016; Blundell et al., 2015; Rudner et al., 2021; Rudner et al., 2022; Dusenberry et al., 2020a; Farquhar et al., 2020) reported in Band et al. (2021) and find that pretraining on either I21K or JFT results in an improvement in predictive performance across all evaluation metrics compared to the state-of-the-art ResNet-50 trained from scratch.
+This result is in contrast with corresponding results on the Country Shift in-distribution task, for which the best-performing models trained from scratch outperform all pretrained models. In this case, pretraining does improve generalization under covariate shift even when training from scratch yields better predictive performance on in-distribution evaluation tasks. The Plex entensions also yield a significant improvement both in accuracy and log-likelihood.
+Figure 20: Predictive performance with, starting from top row, (1) accuracy,
+(2) NLL, and (3) Brier score
+across 4 out-of-distribution datasets (columns): ImageNet-C, ImageNet-A, ImageNet-R, and ImageNet-V2 respectively as a function of model scale (number of parameters).
+Plex L trained on JFT consistently outperforms other methods and pretraining datasets, and increasing model scale consistently leads to improved metric performance under corrupted shifts.
+ImageNet Covariate Shift
+Figure 20 displays performance over multiple types of covariate shift as a function of model scale (number of parameters):
+image corruptions (ImageNet-C (Hendrycks and Dietterich, 2019)),
+natural adversarial examples (ImageNet-A (Hendrycks et al., 2021c)),
+artistic renditions (ImageNet-R (Hendrycks et al., 2021a)),
+and “natural” shift obtained by following ImageNet’s data collection procedure to obtain a new test set (ImageNet-V2 (Recht et al., 2019; Taori et al., 2020)).
+We find that BE ViT L outperforms None methods, that pretraining on JFT outperforms models trained on other pretraining datasets, and that increasing model scale consistently leads to improved performance under shifts across metrics. Unlike in some sections, for performance under shifts, we consistently find that pretraining on JFT outperforms that on ImageNet-21K.
+Figure 21: Stability measured with Anchor Accuracy and Accuracy PMK on ImageNet-Vid-Robust and YTBB-Robust. We find that on the main pm-k accuracy, None, Plex L and BE L models perform similarly, although BE L outperforms slightly. On anchor accuracy, None and BE perform similarly. We also see that performance improves with model size.
+Stability
+ImageNet-Vid-Robust and YTBB-Robust (Shankar et al., 2021) are benchmark datasets for measuring robustness to natural perturbations in images by using subsequent frames from video sources with human curation. On the robust accuracy (pm-k accuracy) metric, in Figure 21, None and BE L models perform equally well, and performance improves with model size. Models pretrained on JFT outperform those pretrained on I21K, with BE B JFT even outperforming None L I21K and BE L I21K.
+(a) Generalization, by method.
+(b) Sel. Predict., by method.
+(c) Calibration, by method.
+(d) Generalization, by size.
+(e) Sel. Predict., by size.
+(f) Calibration, by size.
+Figure 22: T5-Plex model’s ranking performance in generalization under domain shift compared to different methods (22(a)-22(c)) and across architecture sizes (22(d)-22(f)).
+Language Style and Topical Drift
+In natural language applications, it is common for a trained NLP model to be deployed to an environment that exhibits significant style and topical drift when compared to training data. For example, a NLI model trained on written literature is used to analyze in-person dialogues, or a toxic comment detection model trained on U.S. web forums is deployed to non-U.S. news websites (Williams et al., 2017; Kivlichan et al., 2021). To understand the robustness of large uncertainty models with respect to these common language drifts, we evaluate the models’ prediction performance on out-of-distribution splits of the NLI and Toxic Comment tasks (MNLI-mismatched and Civil Comments, respectively). Specifically, MNLI-mismatched represents a low-degree shift scenario where models trained on written and spoken genres (e.g., government report, fiction, phone conversations) are tested on different subtypes of similar genre (e.g., fundraising letters, in-person conversation, 9/11 calls). On the other hand, Civil Comments represents a high-degree shift scenario where models trained on web forum conversations before 2015 were tested on news websites comments from a different period (2015-2017). Figure 22 compares the performance of nine models based on T5base{}_{\texttt{base}}, and also that of three representative efficient methods (None, MCD and Plex) across model scales (i.e., T5small{}_{\texttt{small}}, T5base{}_{\texttt{base}}, T5large{}_{\texttt{large}}) (see Appendix Table 35-36 for detailed results). As shown, the models’ performance in out-of-distribution generalization correlates well with their in-domain performance, with DE-GP being the most competitive ensemble model, and BE / Plex the most competitive efficient method for MNLI, and MCD the most efficient method for Toxic Comments. Comparing between model scales, larger models in general lead to stronger out-of-distribution performance, with Plex being the most competitive method for moderate-to-large size models (T5base{}_{\texttt{base}}, T5large{}_{\texttt{large}}).
+5.2.3 Subpopulation shift
+TL;DR
+Plex improves generalization under subpopulation shift relative to models omitting pretraining, efficient ensembling, or last layer changes, for both language and vision datasets.
+We next study performance on shifts where data is composed of subpopulations which may be rare or unseen during training. A common assumption is that subpopulation shift data is drawn from a distribution of distributions: subpopulations are drawn from a population distribution, and each subpopulation has its own data-generating distribution (Santurkar et al., 2020; Yuan et al., 2022). Since data in practice is often generated by individuals or groups who may have different data distributions, and models ideally generalize to unseen individuals and groups, this setting can be used to measure a natural notion of reliability. We study Plex under multiple ways of partitioning data into subpopulations.
+Figure 23: Accuracy over subpopulations for CIFAR-10 and CIFAR-100. For each setting, we display the 5th, 25th, 50th, 75th, and 95th percentile accuracy for ViT-Plex L among the subpopulations. See Figure 3 for comparison with no pretraining, which performs much worse.
+Semantic Partitioning.
+One method for producing data with subpopulation shift is partitioning a standard dataset into subpopulations such that each subpopulation contains semantically similar examples. We leverage the Semantically Partitioned CIFAR10 and CIFAR100 datasets from Yuan et al. (2022) to study how Plex performs on new subpopulations. In particular, we measure classification accuracy with 30 and 100 subpopulations unseen during training, studying how accuracy varies among subpopulations.
+From Figure 3, Plex greatly outperforms the baseline presented in Yuan et al. (2022) for tail subpopulation shift accuracy (we report 25th percentile among subpopulations). The baseline does not leverage large-scale pretraining or other changes Plex introduces. To better understand how Plex’s ingredients lead to improvements in accuracy under subpopulation shift, we perform a series of ablations shown in Figure 23.
+Comparing Plex to training with BatchEnsemble for both pretraining and finetuning (‘BE→BE’), the latter produces a slight degradation in performance for both median and tail subpopulations, especially for CIFAR100, where performance is less saturated. This indicates that last layer changes offer some improvement but do not fully explain Plex’s improvement over baseline in this setting. Looking at ‘None→BE’, standard pretraining slightly degrades performance relative to BatchEnsemble pretraining, but using BatchEnsemble for finetuning still offers a significant boost over completely standard training (‘None’); ensembling appears to be more important in this setting than last layer changes. Comparing Plex and ‘None’, we see a significant difference in performance, but the difference between Plex’s performance and that of the baseline presented in Figure 3 remains much larger. This indicates that the difference in pretraining is an important driver of Plex’s improvements on unseen and long-tail subpopulations, since the baseline does not pretrain on large-scale data.
+(a) Generalization, by method.
+(b) Sel. Predict., by method.
+(c) Calibration, by method.
+(d) Generalization, by size.
+(e) Sel. Predict., by size.
+(f) Calibration, by size.
+Figure 24: T5-Plex model’s ranking performance in subpopulations with spurious patterns compared to different methods (24(a)-24(c)) and across architecture sizes (24(d)-24(f)).
+Spurious Correlations.
+A well-observed issue in machine learning models is their tendency to learn decision rules that rely on spurious, non-causal patterns that exhibit strong statistical correlation with the outcome in the training data, i.e., shortcut learning (Geirhos et al., 2020). In particular, previous theoretical studies show that a model’s tendency to learn spurious patterns is rooted in the overparameterized model’s tendency to flexibly adapt to the (biased) empirical distribution of the data, and cannot be fully addressed by increasing model size (Bommasani et al., 2021). However, recent empirical studies also show that, when the data distribution exhibits suitable diversity such that it contains a small amount of counterexamples where the spurious pattern doesn’t hold, large pretrained models can still lead to improved robustness (Tu et al., 2020). Therefore, we investigate if the large pretrained models’ robustness indeed improves with model scale, and if the uncertainty methods bring additional gain on top of the None baselines.
+For the language modality, we evaluate the performance of T5 models on two spurious-correlation subpopulations: HANS for natural language inference, and CivilComments-Identities for toxic comment detection (McCoy et al., 2019; Borkan et al., 2019). Specifically, HANS evaluates the NLI model’s robustness against non-causal heuristic patterns that are empirically associated with sentence entailment (e.g., lexical overlap) (McCoy et al., 2019). On the other hand, CivilComments-Identities contains comments that mention certain gender, sexual orientation, ethnic or religious identities, which empirically exhibits differential distribution of toxicity label with respect to their surface-level textual features. A toxic detection model that relies on these surface-level identity mentions can lead to unintended consequences, unjustly reinforcing existing social stereotypes to disadvantaged identity groups (Borkan et al., 2019).
+Figure 24 summarizes the performance of different uncertainty methods, and across three different scales (i.e., T5small{}_{\texttt{small}}, T5base{}_{\texttt{base}}, T5large{}_{\texttt{large}}) (See Appendix Figures 36 and 35 for detailed results). Compared to the None baseline, the uncertainty methods (BE, DE, GP and their combinations) provide significant improvements across all aspects of model performance (i.e., generalization, selective prediction, and uncertainty calibration). For generalization and selective prediction performance, the ensemble of SNGP models (DE-GP) and Plex (BE-GP) perform the best among ensemble and non-ensemble methods, respectively. Furthermore, within each method class, the subpopulation generalization improves as the model scale increases, with Plex (BE+GP) being the most competitive method for moderate- and large-size models. Finally, the trend in uncertainty calibration is less consistent, we see that among all methods, GP and BE are on average the most calibrated ensemble and non-ensemble method, while the model scale does not seem to have a consistent impact to calibration performance.
+5.3 Adaptation
+In this section, we examine the models’ ability to adapt to new data. We focus on data-efficient learning (small data generalization), where the goal is to attain high reliability performance with only a small set of examples.
+Our study focuses on ViT vision models, since adaptation has not yet been studied for T5 text models (Raffel et al., 2020).
+5.3.1 Active Learning
+TL;DR
+Large pretrained models are good active learners. Plex not only provides a significant boost in initial performance, but it also finds examples in order to adapt and improve at a faster rate than active learning models without pretraining.
+The goal in active learning (AL) (Cohn et al., 1996; Settles, 2009) is to maximize label efficiency for machine learning models where label annotations are scarce. The success of AL has been demonstrated on a range of real-world problems where labels are expensive to acquire, e.g. computer vision (Gal et al., 2017; Citovsky et al., 2021),
+natural language (Thompson et al., 1999; Siddhant and Lipton, 2018),
+speech (Hakkani-Tür et al., 2002; Riccardi and Hakkani-Tur, 2005)
+and robotics (Martinez-Cantin et al., 2007; Wang et al., 2018b).
+Here, we investigate Plex for AL on the image domain and focus on four datasets: CIFAR-10 and CIFAR-100 which are standard in active learning research (Tran et al., 2019; Hu et al., 2019; Song et al., 2019);
+and we scale active learning to a larger dataset, ImageNet, which is less commonly evaluated (Emam et al., 2021; Beluch et al., 2018).
+Finally, we evaluate active learning on Places365 (roughly 1.8 million examples in the training pool) which is also less explored.
+We adopt a standard setup of AL for multi-class single-label image datasets (Section 2.2), where we assume an initial model, a training pool of unlabeled images, and a budget of total number of labels to acquire. AL operates in a loop where in each round, labels are acquired for examples with the highest acquisition score from the training pool, the model is subsequently finetuned on the image-label pairs observed so far, and the training pool is updated to remove the newly labeled images. Once we exhaust the budget on label acquisition, the cycle of AL stops and the final model is obtained.
+For the label acquisition strategy, we use margin sampling (Margin) as a representative AL approach (Scheffer et al., 2001; Roth and Small, 2006), and it has been found competitive on AL tasks with deep learning models (Citovsky et al., 2021). Margin uses the difference between the highest and second highest predicted probabilities (Scheffer et al., 2001) to score informativeness: the smaller the difference, the more uncertain the model is about an example and the more informative it is expected to be.
+As a baseline, we compare to uniformly randomly sampling from the training pool (Uniform).
+To better simulate realistic label acquisition settings with parallel annotators, we adopt the batch active learning setup (Settles, 2009) for both Margin and Uniform. For Margin, the examples with the top-KK margin scores are chosen for each acquisition round. For Uniform, we randomly select KK examples without replacement.
+(a) CIFAR-10
+(b) CIFAR-100
+(c) ImageNet
+(d) Places-365
+Figure 25:
+Active learning on (a) CIFAR-10, (b) CIFAR-100, (c) ImageNet2012 and (d) Places365.
+Plex’s large scale pretraining and uncertainty estimates enables active learning on large datasets as well as fast adaptation over the number of labeled images. With Plex models pretrained on JFT, Margin requires roughly 30% less labeled data than Uniform in order to reach the best accuracy of Uniform; and with Plex models pretrained on I21K, Margin is roughly 20% more label efficient than Uniform.
+Figure 25 displays the AL results on CIFAR-10, CIFAR-100, ImageNet and Places365. We compare Margin and Uniform with Plex models pretrained on ImageNet21K or JFT, or without any pretraining, i.e. randomly initialized Plex models. We set initial data size to be 2×2\times number of classes, max training set size to be 20×20\times number of classes, and acquisition batch size to be 0.5×0.5\times number of classes.
+Figure 25 shows that AL with pretrained models significantly outperform models without pretraining across all tasks. We observed two notable effects. First, pretraining has a significant initial boost in performance, where for example Plex starts at 20% for CIFAR-10 without pretraining and 50-60% with pretraining. Second, pretraining results in faster adaptation in terms of the accuracy gain for each labelled example: for example, it takes roughly 200 examples on CIFAR-10 to go from 20-30% whereas it takes roughly 10 examples for pretrained Plex to go from 50-60%.
+Pretrained models also enables better performance from better AL acquisition methods. Without pretraining, we observe no gain in performance using Margin comparing to Uniform. However, with pretrained models, Margin almost always outperforms Uniform. Notably, for Plex models pretrained on JFT, Margin requires 37.5%, 31.6%, 35.9% and 10.3% less labeled data than Uniform respectively on CIFAR-10, CIFAR-100, ImageNet and Places365 in order to achieve the best accuracy obtained by Uniform.
+For CIFAR-100 and ImageNet2012, AL with models pretrained on I21K outperforms that on JFT. We hypothesize that CIFAR-100 and ImageNet are more “in-distribution” in I21K than JFT (Section 5.3.2 also shows this pattern). However, Places365 is an OOD dataset for both I21K and JFT, where JFT is much larger than I21K. Likely due to better representations pretrained on a larger and more diverse dataset, AL with Plex models pretrained on JFT performs better than I21K. On a related note, Evci et al. (2022) observed how domain shift can impact finetuning and hypothesized that the ability to leverage pretrained representations contributes to the effectiveness of finetuning; and Tamkin et al. (2022) observed related findings for pretrained models focused on task ambiguity.
+5.3.2 Few-shot Learning
+TL;DR
+Plex’s BatchEnsemble representation improves few-shot and over increasing model and pretraining dataset scales.
+Full-model training can work better than linear evaluation if the goal is to maximize performance from limited examples.
+In few-shot learning, we examine how well representations learned during pretraining enable fast downstream adaptation. We use a linear evaluation protocol where we extract features from the models’ pre-logits layer and train a multinomial logistic regression model using L-BFGS. Unlike linear regression which is also popular
+(e.g., Dosovitskiy et al. (2021)), logistic regression produces a categorical distribution, enabling one to measure the quality of the few-shot model’s uncertainty estimates; we take advantage of this in Section 5.3.3.
+Figure 26: Few-shot performance averaged over 9 image datasets. (top) Comparison of pretrained model choices. (bottom) Comparison of pretrained model and dataset scale, where the default dataset is JFT and I21K signifies ImageNet21K.
+BatchEnsemble’s representation slightly outperforms others.
+Model and pretraining dataset size have the most significant effect, with larger doing better and ImageNet21K doing better than JFT.
+Model choice and size
+Figure 26 displays test set accuracy and negative log likelihood (NLL) averaged over 9 datasets: birds, caltech, cars, cifar100, col hist, dtd, imagenet, pets, and uc merced.
+The choice of model translates to a consistent 1-2% improvement in accuracy depending on the few-shot setting. The BatchEnsemble representation is among the top performing that gives high predictive performance.
+The size of the model and pretraining dataset also has a noticeable effect on few-shot performance.
+While ImageNet-21K is 10 times smaller than JFT, models pretrained on ImageNet-21K consistently outperform those pretrained on JFT across prediction and uncertainty tasks, with the exception of calibration. We hypothesize this is because ImageNet-21K is closer in distribution to the datasets we evaluate on average. It is also surprising that when finetuning over the full ImageNet dataset (Section 5.2), the conclusion is reversed with JFT models outperforming ImageNet-21K. This suggests a transition point when the pretrained models are trained on a sufficiently high number of examples.
+Figure 27: Linear evaluation versus full-model training on ImageNet. Full-model training consistently outperforms linear evaluation at 5-shot and higher.
+Full-model training
+Intuitively, linear evaluation is about “representation learning”, assessing how well a pretrained model’s fixed representation layer generalizes to many different scenarios. This setup may not be optimal for real-world transfer if the goal is simply to maximize performance from limited examples, without constraints on the approach to doing so.
+In Figure 27, we adopt the usual finetuning protocol and experiment with training the model’s full set of parameters given the pretrained checkpoint.
+We set up a few-shot version of ImageNet1k for this study.66
+6
+https://www.tensorflow.org/datasets/catalog/imagenet2012_fewshot
+On 1-shot, linear evaluation outperforms full-model training which may not be surprising given the high possibility of overfitting.
+Starting from 5-shot (and which is likely to hold for even lower shot settings), full-model training surpasses linear evaluation
+with a consistent 2-3% improvement in accuracy.
+5.3.3 Few-shot Uncertainty
+TL;DR
+Plex performs well on both few-shot and zero-shot open set recognition, particularly using larger model sizes and on ImageNet21K.
+Few-shot calibration remains a challenging problem.
+Figure 28: Few-shot uncertainty performance averaged over 9 image datasets for calibration and selective prediction, and 2 datasets for open set recognition.
+(top) Comparison of pretrained model choices. (bottom) Comparison of pretrained model and dataset scale, where the default dataset is JFT and I21K signifies ImageNet21K.
+Plex’s BatchEnsemble representation works best on few-shot open set recognition, and with ImageNet21K as the pretraining dataset.
+Calibration and selective prediction performance are similar across model and scaling choices; they remain challenging problems.
+Few-shot learning is an important and practical setting, for which the literature almost exclusively considers accuracy to measure performance. Few-shot uncertainty quantification is also a key problem:
+compared to finetuning, few-shot models are more sensitive to the examples they’ve seen and by extension, much less accurate. Thus few-shot models should be more likely to be uncertain, and the quality of their uncertainty estimates must be good in order to know when to refrain from making a prediction.
+Few-shot uncertainty tasks
+In Figure 28, we measure uncertainty performance
+on three metrics: ECE and Calibration AUROC for calibration, averaged over all 9 datasets used for few-shot learning, and OOD AUROC for open set recognition.
+Open set recognition requires an OOD dataset in addition to a test split, so we only evaluate it for two datasets: CIFAR-100 with an OOD dataset of CIFAR-10; and ImageNet1K with an OOD dataset of Places365.
+Calibration performance is roughly comparable across methods. BatchEnsemble has a noticeable improvement on open set recognition.
+The scale of the pretraining dataset has no significant effect on calibration, where the trend is weaker than what’s seen on calibration of finetuned models (Section 5.1.1). The choice of pretraining dataset does have a noticeable effect on open set recognition, where like in Section 5.3.2, Plex on ImageNet21K surprisingly does better than JFT models.
+Far-OOD
+Near-OOD
+C-10 vs SVHN
+C-100 vs SVHN
+C-10 vs C-100
+C-100 vs C-10
+Mahalanobis
+Plex S
+0.596
+0.449
+0.670
+0.592
+Plex B
+0.797
+0.643
+0.733
+0.679
+Plex L
+0.717
+0.586
+0.716
+0.690
+Plex L I21K
+0.895
+0.956
+0.864
+0.902
+Relative Mahalanobis
+Plex S
+0.843
+0.814
+0.805
+0.678
+Plex B
+0.938
+0.848
+0.863
+0.769
+Plex L
+0.967
+0.875
+0.890
+0.821
+Plex L I21K
+0.957
+0.932
+0.919
+0.915
+Table 13: Zero-shot open set recognition with Plex, varying scale and detection method.
+Zero-shot open set recognition
+Given that the pretrained model itself provides rich and robust representations, we can use that as a feature extractor and conduct zero-shot open set recognition without any training examples.
+To do so, we can take advantage of Mahalanobis distance (Maha) (Lee et al., 2018) as a detection score: Maha measures the distance between the test input and the fitted training distribution in the embedding space. It operates on a fixed representation layer and does not require operating on softmax outputs with a newly trained last layer.
+The training distribution is fitted using a class conditional Gaussian 𝒩⁡(𝝁k,𝚺),k=1,2,…,K\mathcal{N}(\mathbf{{\bm{\mu}}}_{k},{\bm{\Sigma}}),k=1,2,\dots,K to each of the KK in-distribution classes based on the embedding 𝒛{\bm{z}}. We estimate the mean vectors and covariance matrix as:
+𝝁k=1Nk∑i:yi=k𝒛i\mathbf{{\bm{\mu}}}_{k}=\frac{1}{N_{k}}\sum_{i:y_{i}=k}{\bm{z}}_{i}, for k=1,…,K,k=1,\dots,K,
+and 𝚺=1N∑k=1K∑i:yi=k(𝒛i−𝝁k)(𝒛i−𝝁k)T{\bm{\Sigma}}=\frac{1}{N}\sum_{k=1}^{K}\sum_{i:y_{i}=k}\left({\bm{z}}_{i}-\mathbf{{\bm{\mu}}}_{k}\right)({\bm{z}}_{i}-\mathbf{{\bm{\mu}}}_{k})^{T}.
+Note that class-conditional means 𝝁k\mathbf{{\bm{\mu}}}_{k} are independent for each classes, while the covariance matrix Σ\Sigma is shared by all classes to avoid under-fitting errors.
+For a test input, Mahalanobis distances from a test input to each of the fitted KK in-distribution Gaussian distributions 𝒩⁡(𝝁k,𝚺)\mathcal{N}(\mathbf{{\bm{\mu}}}_{k},{\bm{\Sigma}}) is computed, and the minimum of the distances over all classes is used as the uncertainty score,
+MD​(𝒛)=mink⁡{(𝒛−𝝁k)T​𝚺−1​(𝒛−𝝁k)}.\text{MD}({\bm{z}})=\min_{k}\{\left({\bm{z}}-\mathbf{{\bm{\mu}}}_{k}\right)^{T}{\bm{\Sigma}}^{-1}\left({\bm{z}}-\mathbf{{\bm{\mu}}}_{k}\right)\}.
+We also experiment with a Relative Mahalanobis distance variant (RMaha) (Ren et al., 2021), a modified version of Mahalanobis distance which corrects for the background confounding effect using another Gaussian distribution fitted using entire training data ignoring class labels.
+The uncertainty score is defined as RMDk​(𝒛)=MD​(𝒛)−MD0​(𝒛)\text{RMD}_{k}({\bm{z}})=\text{MD}({\bm{z}})-\text{MD}_{0}({\bm{z}}), where MD0​(𝒛)\text{MD}_{0}({\bm{z}}) indicates the Mahalanobis distance to a distribution fitted to the entire training data not considering the class labels: 𝒩⁡(𝝁0,𝚺0)\mathcal{N}(\mathbf{{\bm{\mu}}}_{0},{\bm{\Sigma}}_{0}), where 𝝁0=1N​∑i=1N𝒛i{\bm{\mu}}_{0}=\frac{1}{N}\sum_{i=1}^{N}{\bm{z}}_{i} and 𝚺0=1N​∑i=1N(𝒛i−𝝁0)​(𝒛i−𝝁0)T{\bm{\Sigma}}_{0}=\frac{1}{N}\sum_{i=1}^{N}\left({\bm{z}}_{i}-{\bm{\mu}}_{0}\right)({\bm{z}}_{i}-{\bm{\mu}}_{0})^{T}.
+This is a good proxy for the background distribution.
+Zero-shot results are displayed in Table 13.
+Interestingly, the zero-shot setting achieves performance close to that of the finetuned setting. For example, in the challenging near-OOD task CIFAR-100 vs CIFAR-10, the best zero-shot AUROC achieved by Plex L (I21K) is 0.915, while its performance with finetuning is 0.934, and the best model which uses JFT and finetuning achieves 0.954 (Table 9).
+For the far-OOD task CIFAR-100 vs SVHN, the best AUROC achieved by zero-shot is 0.933, and the best model which uses JFT and finetuning achievs 0.938.
+The Relative Mahalanobis distance also significantly outperforms the raw Mahalanobis distance, suggesting that there are background features that confound the raw Mahalanobis distance. In fact, the raw Mahalanobis distance does not work well for most of the pretrained models, mostly having AUROC lower than 0.9 and varies depending on the model types.
+6 Conclusion
+We presented a framework for thinking about reliable deep learning, and provided a number of tasks and datasets for stress-testing the reliability of models through multiple tasks such as the ability to quantify its confidence in predictions, be robust to distribution shifts, and adapt quickly to new distributions. To improve reliability, we also developed Plex, pretrained large model extensions for vision (ViT-Plex) and language (T5-Plex) that significantly improve the reliability in deep learning. Our techniques are broadly applicable for other large models (cf. LaMDA (Thoppilan et al., 2022), PaLM (Chowdhery et al., 2022)) and wider suite of tasks, cf. BIG-bench (Srivastava et al., 2022).
+Acknowledgements
+We thank
+Ben Adlam,
+Dilip Krishnan,
+Ed Chi,
+Neil Houlsby,
+Rif A. Saurous,
+and
+Sharat Chikkerur
+for helpful discussions and feedback on earlier drafts of the paper.
+We also thank Tom Small and Ajay Nainani for assisting with visualizations.
+References
+Abraham and Ledolter (1983)
+Bovas Abraham and Johannes Ledolter.
+Statistical methods for forecasting, volume 179.
+Wiley Online Library, 1983.
+Allingham et al. (2021)
+James Urquhart Allingham, Florian Wenzel, Zelda E Mariet, Basil Mustafa, Joan
+Puigcerver, Neil Houlsby, Ghassen Jerfel, Vincent Fortuin, Balaji
+Lakshminarayanan, Jasper Snoek, Dustin Tran, Carlos Riquelme Ruiz, and
+Rodolphe Jenatton.
+Sparse MoEs meet efficient ensembles.
+arXiv preprint arXiv:2110.03360, 2021.
+Amodei et al. (2016)
+Dario Amodei, Chris Olah, Jacob Steinhardt, Paul Christiano, John Schulman, and
+Dan Mané.
+Concrete problems in AI safety.
+arXiv preprint arXiv:1606.06565, 2016.
+Avin et al. (2021)
+Shahar Avin, Haydn Belfield, Miles Brundage, Gretchen Krueger, Jasmine Wang,
+Adrian Weller, Markus Anderljung, Igor Krawczuk, David Krueger, Jonathan
+Lebensold, et al.
+Filling gaps in trustworthy development of ai.
+Science, 374(6573):1327–1329, 2021.
+Band et al. (2021)
+Neil Band, Tim G. J. Rudner, Qixuan Feng, Angelos Filos, Zachary Nado,
+Michael W Dusenberry, Ghassen Jerfel, Dustin Tran, and Yarin Gal.
+Benchmarking Bayesian deep learning on diabetic retinopathy
+detection tasks.
+In Advances in Neural Information Processing Systems, Datasets
+and Benchmarks Track, 2021.
+Barbu et al. (2019)
+Andrei Barbu, David Mayo, Julian Alverio, William Luo, Christopher Wang, Dan
+Gutfreund, Josh Tenenbaum, and Boris Katz.
+Objectnet: A large-scale bias-controlled dataset for pushing the
+limits of object recognition models.
+In Advances in Neural Information Processing Systems,
+volume 32, 2019.
+Barlow and Proschan (1975)
+Richard E Barlow and Frank Proschan.
+Statistical theory of reliability and life testing: probability
+models.
+Technical report, Florida State Univ Tallahassee, 1975.
+Beluch et al. (2018)
+William H Beluch, Tim Genewein, Andreas Nürnberger, and Jan M Köhler.
+The power of ensembles for active learning in image classification.
+In Computer Vision and Pattern Recognition, 2018.
+Bengio et al. (2015)
+Emmanuel Bengio, Pierre-Luc Bacon, Joelle Pineau, and Doina Precup.
+Conditional computation in neural networks for faster models.
+arxiv preprint arxiv:1511.06297, 2015.
+Bengio et al. (2013)
+Yoshua Bengio, Nicholas Léonard, and Aaron Courville.
+Estimating or propagating gradients through stochastic neurons for
+conditional computation.
+arxiv preprint arxiv:1308.3432, 2013.
+Beyer et al. (2020)
+Lucas Beyer, Olivier J Hénaff, Alexander Kolesnikov, Xiaohua Zhai, and
+Aäron van den Oord.
+Are we done with ImageNet?
+arXiv preprint arXiv:2006.07159, 2020.
+Blundell et al. (2015)
+Charles Blundell, Julien Cornebise, Koray Kavukcuoglu, and Daan Wierstra.
+Weight Uncertainty in Neural Networks.
+In International Conference on Machine Learning, 2015.
+Bommasani et al. (2021)
+Rishi Bommasani, Drew A Hudson, Ehsan Adeli, Russ Altman, Simran Arora, Sydney
+von Arx, Michael S Bernstein, Jeannette Bohg, Antoine Bosselut, Emma
+Brunskill, et al.
+On the opportunities and risks of foundation models.
+arXiv preprint arXiv:2108.07258, 2021.
+Borkan et al. (2019)
+Daniel Borkan, Lucas Dixon, Jeffrey Sorensen, Nithum Thain, and Lucy Vasserman.
+Nuanced metrics for measuring unintended bias with real data for text
+classification.
+In Companion proceedings of the 2019 world wide web
+conference, pages 491–500, 2019.
+Brown et al. (2020)
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla
+Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell,
+et al.
+Language models are few-shot learners.
+In Advances in Neural Information Processing Systems, 2020.
+Chowdhery et al. (2022)
+Aakanksha Chowdhery, Sharan Narang, Jacob Devlin, Maarten Bosma, Gaurav Mishra,
+Adam Roberts, Paul Barham, Hyung Won Chung, Charles Sutton, Sebastian
+Gehrmann, et al.
+Palm: Scaling language modeling with pathways.
+arXiv preprint arXiv:2204.02311, 2022.
+Cimpoi et al. (2014)
+M. Cimpoi, S. Maji, I. Kokkinos, S. Mohamed, and A. Vedaldi.
+Describing textures in the wild.
+In Computer Vision and Pattern Recognition, 2014.
+Citovsky et al. (2021)
+Gui Citovsky, Giulia DeSalvo, Claudio Gentile, Lazaros Karydas, Anand
+Rajagopalan, Afshin Rostamizadeh, and Sanjiv Kumar.
+Batch active learning at scale, 2021.
+Cohn et al. (1996)
+David A Cohn, Zoubin Ghahramani, and Michael I Jordan.
+Active learning with statistical models.
+Journal of Artificial Intelligence Research, 4:129–145, 1996.
+Collier et al. (2020)
+Mark Collier, Basil Mustafa, Efi Kokiopoulou, Rodolphe Jenatton, and Jesse
+Berent.
+A simple probabilistic method for deep classification under
+input-dependent label noise.
+arXiv preprint arXiv:2003.06778, 2020.
+Collier et al. (2021)
+Mark Collier, Basil Mustafa, Efi Kokiopoulou, Rodolphe Jenatton, and Jesse
+Berent.
+Correlated input-dependent label noise in large-scale image
+classification.
+In Computer Vision and Pattern Recognition, 2021.
+D’Amour et al. (2020)
+Alexander D’Amour, Katherine Heller, Dan Moldovan, Ben Adlam, Babak Alipanahi,
+Alex Beutel, Christina Chen, Jonathan Deaton, Jacob Eisenstein, Matthew D
+Hoffman, et al.
+Underspecification presents challenges for credibility in modern
+machine learning.
+arXiv preprint arXiv:2011.03395, 2020.
+Dawid (1982)
+A Philip Dawid.
+The well-calibrated Bayesian.
+Journal of the American Statistical Association, 1982.
+Deng et al. (2009)
+Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei.
+Imagenet: A large-scale hierarchical image database.
+In Computer Vision and Pattern Recognition, pages 248–255.
+Ieee, 2009.
+Dosovitskiy et al. (2021)
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn,
+Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg
+Heigold, Sylvain Gelly, et al.
+An image is worth 16x16 words: Transformers for image recognition at
+scale.
+In International Conference on Learning Representations, 2021.
+Dusenberry et al. (2020a)
+Michael Dusenberry, Ghassen Jerfel, Yeming Wen, Yian Ma, Jasper Snoek,
+Katherine Heller, Balaji Lakshminarayanan, and Dustin Tran.
+Efficient and scalable Bayesian neural nets with rank-1 factors.
+In International Conference on Machine Learning,
+2020a.
+Dusenberry et al. (2020b)
+Michael W Dusenberry, Dustin Tran, Edward Choi, Jonas Kemp, Jeremy Nixon,
+Ghassen Jerfel, Katherine Heller, and Andrew M Dai.
+Analyzing the role of model uncertainty for electronic health
+records.
+In ACM Conference on Health, Inference, and Learning,
+2020b.
+El-Yaniv and Wiener (2010)
+Ran El-Yaniv and Yair Wiener.
+On the foundations of noise-free selective classification.
+Journal of Machine Learning Research, 11(5), 2010.
+Emam et al. (2021)
+Zeyad Ali Sami Emam, Hong-Min Chu, Ping-Yeh Chiang, Wojciech Czaja, Richard
+Leapman, Micah Goldblum, and Tom Goldstein.
+Active learning at the imagenet scale.
+arXiv preprint arXiv:2111.12880, 2021.
+Evci et al. (2022)
+Utku Evci, Vincent Dumoulin, Hugo Larochelle, and Michael C Mozer.
+Head2toe: Utilizing intermediate representations for better transfer
+learning.
+arXiv preprint arXiv:2201.03529, 2022.
+Everitt et al. (2018)
+Tom Everitt, Gary Lea, and Marcus Hutter.
+AGI safety literature review.
+arXiv preprint arXiv:1805.01109, 2018.
+Farquhar et al. (2020)
+Sebastian Farquhar, Michael A. Osborne, and Yarin Gal.
+Radial Bayesian Neural Networks: Beyond Discrete Support In
+Large-Scale Bayesian Deep Learning.
+In International Conference on Artificial Intelligence and
+Statistics, 2020.
+Fedus et al. (2022)
+William Fedus, Barret Zoph, and Noam Shazeer.
+Switch transformers: Scaling to trillion parameter models with simple
+and efficient sparsity.
+Journal of Machine Learning Research, 23(120), 2022.
+Fei-Fei et al. (2004)
+Li Fei-Fei, Rob Fergus, and Pietro Perona.
+Learning generative visual models from few training examples: An
+incremental Bayesian approach tested on 101 object categories.
+Computer Vision and Pattern Recognition Workshop, 2004.
+Fort et al. (2021)
+Stanislav Fort, Jie Ren, and Balaji Lakshminarayanan.
+Exploring the limits of out-of-distribution detection.
+In Advances in Neural Information Processing Systems, 2021.
+Gal and Ghahramani (2016)
+Yarin Gal and Zoubin Ghahramani.
+Dropout As a Bayesian Approximation: Representing Model Uncertainty
+in Deep Learning.
+In International Conference on Machine Learning, 2016.
+Gal et al. (2017)
+Yarin Gal, Riashat Islam, and Zoubin Ghahramani.
+Deep Bayesian active learning with image data.
+In International Conference on Machine Learning, 2017.
+Geirhos et al. (2020)
+Robert Geirhos, Jörn-Henrik Jacobsen, Claudio Michaelis, Richard Zemel,
+Wieland Brendel, Matthias Bethge, and Felix A Wichmann.
+Shortcut learning in deep neural networks.
+Nature Machine Intelligence, 2(11):665–673, 2020.
+Geng et al. (2020)
+Chuanxing Geng, Sheng-jun Huang, and Songcan Chen.
+Recent advances in open set recognition: A survey.
+IEEE transactions on pattern analysis and machine
+intelligence, 43(10):3614–3631, 2020.
+Ghahramani (2015)
+Zoubin Ghahramani.
+Probabilistic machine learning and artificial intelligence.
+Nature, 521(7553):452–459, 2015.
+Gneiting and Raftery (2007)
+Tilmann Gneiting and Adrian E Raftery.
+Strictly Proper Scoring Rules, Prediction, and Estimation.
+Journal of the American Statistical Association, 102(477):359–378, March 2007.
+Gustafsson et al. (2020)
+Fredrik K Gustafsson, Martin Danelljan, and Thomas B Schön.
+Evaluating scalable Bayesian deep learning methods for robust
+computer vision.
+In Computer Vision and Pattern Recognition Workshops, 2020.
+Hakkani-Tür et al. (2002)
+Dilek Hakkani-Tür, Giuseppe Riccardi, and Allen Gorin.
+Active learning for automatic speech recognition.
+In IEEE international Conference on Acoustics, Speech, and
+Signal Processing, 2002.
+Hansen and Salamon (1990)
+L.K. Hansen and P. Salamon.
+Neural network ensembles.
+IEEE Transactions on Pattern Analysis and Machine
+Intelligence, 1990.
+Hendrycks and Dietterich (2019)
+Dan Hendrycks and Thomas Dietterich.
+Benchmarking Neural Network Robustness to Common
+Corruptions and Perturbations.
+In International Conference on Learning Representations,
+2019.
+Hendrycks and Gimpel (2017)
+Dan Hendrycks and Kevin Gimpel.
+A Baseline for Detecting Misclassified and
+Out-of-Distribution Examples in Neural Networks.
+In International Conference on Learning Representations,
+2017.
+Hendrycks et al. (2019)
+Dan Hendrycks, Steven Basart, Mantas Mazeika, Mohammadreza Mostajabi, Jacob
+Steinhardt, and Dawn Song.
+Scaling out-of-distribution detection for real-world settings.
+arXiv preprint arXiv:1911.11132, 2019.
+Hendrycks et al. (2021a)
+Dan Hendrycks, Steven Basart, Norman Mu, Saurav Kadavath, Frank Wang, Evan
+Dorundo, Rahul Desai, Tyler Zhu, Samyak Parajuli, Mike Guo, et al.
+The many faces of robustness: A critical analysis of
+out-of-distribution generalization.
+In ICCV, 2021a.
+Hendrycks et al. (2021b)
+Dan Hendrycks, Nicholas Carlini, John Schulman, and Jacob Steinhardt.
+Unsolved problems in ML safety.
+arXiv preprint arXiv:2109.13916, 2021b.
+Hendrycks et al. (2021c)
+Dan Hendrycks, Kevin Zhao, Steven Basart, Jacob Steinhardt, and Dawn Song.
+Natural adversarial examples.
+In Computer Vision and Pattern Recognition,
+2021c.
+Hu et al. (2019)
+Peiyun Hu, Zachary C Lipton, Anima Anandkumar, and Deva Ramanan.
+Active learning with partial feedback.
+In International Conference on Learning Representations, 2019.
+Kather et al. (2016)
+Jakob Nikolas Kather, Cleo-Aron Weis, Francesco Bianconi, Susanne M Melchers,
+Lothar R Schad, Timo Gaiser, Alexander Marx, and Frank Gerrit Z”ollner.
+Multi-class texture analysis in colorectal cancer histology.
+Scientific reports, 6:27988, 2016.
+Kendall and Gal (2017)
+Alex Kendall and Yarin Gal.
+What uncertainties do we need in Bayesian deep learning for
+computer vision?
+Advances in neural information processing systems, 30, 2017.
+Kivlichan et al. (2021)
+Ian D Kivlichan, Zi Lin, Jeremiah Liu, and Lucy Vasserman.
+Measuring and improving model-moderator collaboration using
+uncertainty estimation.
+arXiv preprint arXiv:2107.04212, 2021.
+Kolesnikov et al. (2020)
+Alexander Kolesnikov, Lucas Beyer, Xiaohua Zhai, Joan Puigcerver, Jessica Yung,
+Sylvain Gelly, and Neil Houlsby.
+Big transfer (bit): General visual representation learning.
+In ECCV, 2020.
+Krause et al. (2013)
+Jonathan Krause, Michael Stark, Jia Deng, and Li Fei-Fei.
+3d object representations for fine-grained categorization.
+In IEEE Workshop on 3D Representation and Recognition, 2013.
+Krishnan and Tickoo (2020)
+Ranganath Krishnan and Omesh Tickoo.
+Improving model calibration with accuracy versus uncertainty
+optimization.
+In Advances in Neural Information Processing Systems,
+volume 33, 2020.
+Krizhevsky et al. (2009)
+Alex Krizhevsky, Geoffrey Hinton, et al.
+Learning multiple layers of features from tiny images.
+arXiv preprint, 2009.
+Lakshminarayanan et al. (2017)
+Balaji Lakshminarayanan, Alexander Pritzel, and Charles Blundell.
+Simple and scalable predictive uncertainty estimation using deep
+ensembles.
+In Advances in Neural Information Processing Systems, 2017.
+Larson et al. (2019)
+Stefan Larson, Anish Mahendran, Joseph J Peper, Christopher Clarke, Andrew Lee,
+Parker Hill, Jonathan K Kummerfeld, Kevin Leach, Michael A Laurenzano,
+Lingjia Tang, et al.
+An evaluation dataset for intent classification and out-of-scope
+prediction.
+arXiv preprint arXiv:1909.02027, 2019.
+Lee et al. (2018)
+Kimin Lee, Kibok Lee, Honglak Lee, and Jinwoo Shin.
+A simple unified framework for detecting out-of-distribution samples
+and adversarial attacks.
+In Advances in Neural Information Processing Systems, 2018.
+Lepikhin et al. (2021)
+Dmitry Lepikhin, HyoukJoong Lee, Yuanzhong Xu, Dehao Chen, Orhan Firat, Yanping
+Huang, Maxim Krikun, Noam Shazeer, and Zhifeng Chen.
+GShard: Scaling giant models with conditional computation and
+automatic sharding.
+In International Conference on Learning Representations, 2021.
+Li et al. (2006)
+Fei-Fei Li, Rob Fergus, and Pietro Perona.
+One-shot learning of object categories.
+IEEE transactions on pattern analysis and machine
+intelligence, 28(4):594–611, 2006.
+Liu et al. (2020)
+Jeremiah Liu, Zi Lin, Shreyas Padhy, Dustin Tran, Tania Bedrax Weiss, and
+Balaji Lakshminarayanan.
+Simple and principled uncertainty estimation with deterministic deep
+learning via distance awareness.
+In Advances in Neural Information Processing Systems, 2020.
+Liu et al. (2022)
+Jeremiah Zhe Liu, Shreyas Padhy, Jie Ren, Zi Lin, Yeming Wen, Ghassen Jerfel,
+Zack Nado, Jasper Snoek, Dustin Tran, and Balaji Lakshminarayanan.
+A simple approach to improve single-model deep uncertainty via
+distance-awareness.
+arXiv preprint arXiv:2205.00403, 2022.
+Liu et al. (2021)
+Xingkun Liu, Arash Eshghi, Pawel Swietojanski, and Verena Rieser.
+Benchmarking natural language understanding services for building
+conversational agents.
+In Increasing Naturalness and Flexibility in Spoken Dialogue
+Interaction, pages 165–183. Springer, 2021.
+Lou et al. (2021)
+Yuxuan Lou, Fuzhao Xue, Zangwei Zheng, and Yang You.
+Cross-token modeling with conditional computation, 2021.
+URL https://arxiv.org/abs/2109.02008.
+Malinin and Gales (2021)
+Andrey Malinin and Mark Gales.
+Uncertainty estimation in autoregressive structured prediction.
+In International Conference on Learning Representations, 2021.
+Martinez-Cantin et al. (2007)
+Ruben Martinez-Cantin, Nando de Freitas, Arnaud Doucet, and José A
+Castellanos.
+Active policy learning for robot planning and exploration under
+uncertainty.
+In Robotics: Science and Systems, volume 3, pages 321–328,
+2007.
+McCoy et al. (2019)
+Tom McCoy, Ellie Pavlick, and Tal Linzen.
+Right for the wrong reasons: Diagnosing syntactic heuristics in
+natural language inference.
+In Annual Meeting of the Association for Computational
+Linguistics, 2019.
+Minderer et al. (2021)
+Matthias Minderer, Josip Djolonga, Rob Romijnders, Frances Hubis, Xiaohua Zhai,
+Neil Houlsby, Dustin Tran, and Mario Lucic.
+Revisiting the calibration of modern neural networks.
+In Advances in Neural Information Processing Systems, 2021.
+Nado et al. (2021)
+Zachary Nado, Neil Band, Mark Collier, Josip Djolonga, Michael W Dusenberry,
+Sebastian Farquhar, Qixuan Feng, Angelos Filos, Marton Havasi, Rodolphe
+Jenatton, et al.
+Uncertainty baselines: Benchmarks for uncertainty & robustness in
+deep learning.
+arXiv preprint arXiv:2106.04015, 2021.
+Naeini et al. (2015)
+Mahdi Pakdaman Naeini, Gregory Cooper, and Milos Hauskrecht.
+Obtaining well calibrated probabilities using Bayesian binning.
+In AAAI, 2015.
+Nixon et al. (2019)
+Jeremy Nixon, Michael W Dusenberry, Linchuan Zhang, Ghassen Jerfel, and Dustin
+Tran.
+Measuring calibration in deep learning.
+In CVPR Workshops, 2019.
+O’Connor and Kleyner (2012)
+Patrick O’Connor and Andre Kleyner.
+Practical reliability engineering.
+John Wiley & Sons, 2012.
+Ovadia et al. (2019)
+Yaniv Ovadia, Emily Fertig, Jie Ren, Zachary Nado, D. Sculley, Sebastian
+Nowozin, Joshua Dillon, Balaji Lakshminarayanan, and Jasper Snoek.
+Can you trust your model’s uncertainty? Evaluating predictive
+uncertainty under dataset shift.
+In Advances in Neural Information Processing Systems, 2019.
+Parkhi et al. (2012)
+O. M. Parkhi, A. Vedaldi, A. Zisserman, and C. V. Jawahar.
+Cats and dogs.
+In Computer Vision and Pattern Recognition, 2012.
+Parmigiani and Inoue (2009)
+G. Parmigiani and Lurdes Inoue.
+Decision theory: principles and approaches.
+Wiley series in probability and statistics. John Wiley & Sons, 2009.
+Peterson et al. (2019)
+Joshua C Peterson, Ruairidh M Battleday, Thomas L Griffiths, and Olga
+Russakovsky.
+Human uncertainty makes classification more robust.
+In International Conference on Computer Vision, 2019.
+Pham et al. (2021)
+Hieu Pham, Zihang Dai, Golnaz Ghiasi, Hanxiao Liu, Adams Wei Yu, Minh-Thang
+Luong, Mingxing Tan, and Quoc V Le.
+Combined scaling for zero-shot transfer learning.
+arXiv preprint arXiv:2111.10050, 2021.
+Radford et al. (2021)
+Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh,
+Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark,
+Gretchen Krueger, and Ilya Sutskever.
+Learning transferable visual models from natural language
+supervision.
+In International Conference on Machine Learning, 2021.
+Raffel et al. (2020)
+Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael
+Matena, Yanqi Zhou, Wei Li, and Peter J Liu.
+Exploring the limits of transfer learning with a unified text-to-text
+transformer.
+Journal of Machine Learning Research, 2020.
+Recht et al. (2019)
+Benjamin Recht, Rebecca Roelofs, Ludwig Schmidt, and Vaishaal Shankar.
+Do ImageNet classifiers generalize to ImageNet?
+In International Conference on Machine Learning, 2019.
+Ren et al. (2021)
+Jie Ren, Stanislav Fort, Jeremiah Liu, Abhijit Guha Roy, Shreyas Padhy, and
+Balaji Lakshminarayanan.
+A simple fix to mahalanobis distance for improving near-ood
+detection.
+arXiv preprint arXiv:2106.09022, 2021.
+Riccardi and Hakkani-Tur (2005)
+Giuseppe Riccardi and Dilek Hakkani-Tur.
+Active learning: Theory and applications to automatic speech
+recognition.
+IEEE Transactions on Speech and Audio Processing, 13(4):504–511, 2005.
+Riquelme et al. (2021)
+Carlos Riquelme, Joan Puigcerver, Basil Mustafa, Maxim Neumann, Rodolphe
+Jenatton, André Susano Pinto, Daniel Keysers, and Neil Houlsby.
+Scaling vision with sparse mixture of experts.
+In Advances in Neural Information Processing Systems, 2021.
+Roth and Small (2006)
+Dan Roth and Kevin Small.
+Margin-based active learning for structured output spaces.
+In European Conference on Machine Learning, pages 413–424.
+Springer, 2006.
+Rudner et al. (2021)
+Tim G. J. Rudner, Zonghao Chen, Yee Whye Teh, and Yarin Gal.
+Tractable Function-Space Variational Inference in
+Bayesian Neural Networks.
+In ICML Workshop on Uncertainty & Robustness in Deep
+Learning, 2021.
+Rudner et al. (2022)
+Tim G. J. Rudner, Freddie Bickford Smith, Qixuan Feng, Yee Whye Teh, and Yarin
+Gal.
+Continual Learning via Sequential Function-Space
+Variational Inference.
+In International Conference on Machine Learning, 2022.
+Russell et al. (2015)
+Stuart Russell, Daniel Dewey, and Max Tegmark.
+Research priorities for robust and beneficial artificial
+intelligence.
+Ai Magazine, 36(4):105–114, 2015.
+Santurkar et al. (2020)
+Shibani Santurkar, Dimitris Tsipras, and Aleksander Madry.
+Breeds: Benchmarks for subpopulation shift.
+arXiv preprint arXiv:2008.04859, 2020.
+Scheffer et al. (2001)
+Tobias Scheffer, Christian Decomain, and Stefan Wrobel.
+Active hidden markov models for information extraction.
+In International Symposium on Intelligent Data Analysis, pages
+309–318. Springer, 2001.
+Settles (2009)
+Burr Settles.
+Active learning literature survey.
+preprint, 2009.
+Shankar et al. (2021)
+Vaishaal Shankar, Achal Dave, Rebecca Roelofs, Deva Ramanan, Benjamin Recht,
+and Ludwig Schmidt.
+Do image classifiers generalize across time?
+In International Conference on Computer Vision, 2021.
+Shazeer et al. (2017)
+Noam Shazeer, Azalia Mirhoseini, Krzysztof Maziarz, Andy Davis, Quoc Le,
+Geoffrey Hinton, and Jeff Dean.
+Outrageously large neural networks: The sparsely-gated
+mixture-of-experts layer.
+In International Conference on Learning Representations, 2017.
+Siddhant and Lipton (2018)
+Aditya Siddhant and Zachary C Lipton.
+Deep Bayesian active learning for natural language processing:
+Results of a large-scale empirical study.
+In EMNLP, 2018.
+Song et al. (2019)
+Shuang Song, David Berthelot, and Afshin Rostamizadeh.
+Combining mixmatch and active learning for better accuracy with fewer
+labels.
+arXiv preprint arXiv:1912.00594, 2019.
+Srivastava et al. (2022)
+Aarohi Srivastava, Abhinav Rastogi, Abhishek Rao, Abu Awal Md Shoeb, Abubakar
+Abid, Adam Fisch, Adam R Brown, Adam Santoro, Aditya Gupta, Adrià
+Garriga-Alonso, et al.
+Beyond the imitation game: Quantifying and extrapolating the
+capabilities of language models.
+arXiv preprint arXiv:2206.04615, 2022.
+Sugiyama and Kawanabe (2012)
+Masashi Sugiyama and Motoaki Kawanabe.
+Machine learning in non-stationary environments: Introduction
+to covariate shift adaptation.
+MIT press, 2012.
+Tamkin et al. (2022)
+Alex Tamkin, Dat Nguyen, Salil Deshpande, Jesse Mu, and Noah Goodman.
+Active learning helps pretrained models learn the intended task.
+arXiv preprint arXiv:2204.08491, 2022.
+Taori et al. (2020)
+Rohan Taori, Achal Dave, Vaishaal Shankar, Nicholas Carlini, Benjamin Recht,
+and Ludwig Schmidt.
+Measuring robustness to natural distribution shifts in image
+classification.
+Advances in Neural Information Processing Systems, 2020.
+Thompson et al. (1999)
+Cynthia A Thompson, Mary Elaine Califf, and Raymond J Mooney.
+Active learning for natural language parsing and information
+extraction.
+In International Conference on Machine Learning, 1999.
+Thoppilan et al. (2022)
+Romal Thoppilan, Daniel De Freitas, Jamie Hall, Noam Shazeer, Apoorv
+Kulshreshtha, Heng-Tze Cheng, Alicia Jin, Taylor Bos, Leslie Baker, Yu Du,
+et al.
+Lamda: Language models for dialog applications.
+arXiv preprint arXiv:2201.08239, 2022.
+Thrun (1998)
+Sebastian Thrun.
+Lifelong learning algorithms.
+In Learning to learn, pages 181–209. Springer, 1998.
+Tran et al. (2018)
+Dustin Tran, Matthew W Hoffman, Dave Moore, Christopher Suter, Srinivas
+Vasudevan, and Alexey Radul.
+Simple, distributed, and accelerated probabilistic programming.
+Advances in Neural Information Processing Systems, 2018.
+Tran et al. (2020)
+Dustin Tran, Jasper Snoek, and Balaji Lakshminarayanan.
+Practical uncertainty estimation and out-of-distribution robustness
+in deep learning.
+Advances in Neural Information Processing Systems tutorial,
+2020.
+Tran et al. (2019)
+Toan Tran, Thanh-Toan Do, Ian Reid, and Gustavo Carneiro.
+Bayesian generative active deep learning.
+In International Conference on Machine Learning, pages
+6295–6304. PMLR, 2019.
+Tu et al. (2020)
+Lifu Tu, Garima Lalwani, Spandana Gella, and He He.
+An empirical study on robustness to spurious correlations using
+pre-trained language models.
+Transactions of the Association for Computational Linguistics,
+8:621–633, 2020.
+Van Amersfoort et al. (2020)
+Joost Van Amersfoort, Lewis Smith, Yee Whye Teh, and Yarin Gal.
+Uncertainty estimation using a single deep deterministic neural
+network.
+In International Conference on Machine Learning, 2020.
+Wang et al. (2018a)
+Alex Wang, Amanpreet Singh, Julian Michael, Felix Hill, Omer Levy, and Samuel R
+Bowman.
+Glue: A multi-task benchmark and analysis platform for natural
+language understanding.
+arXiv preprint arXiv:1804.07461, 2018a.
+Wang et al. (2018b)
+Zi Wang, Caelan Reed Garrett, Leslie Pack Kaelbling, and Tomás
+Lozano-Pérez.
+Active model learning and diverse action sampling for task and motion
+planning.
+In 2018 IEEE/RSJ International Conference on Intelligent Robots
+and Systems (IROS), pages 4107–4114. IEEE, 2018b.
+Welinder et al. (2010)
+Peter Welinder, Steve Branson, Takeshi Mita, Catherine Wah, Florian Schroff,
+Serge Belongie, and Pietro Perona.
+Caltech-ucsd birds 200.
+preprint, 2010.
+Wen et al. (2020a)
+Yeming Wen, Ghassen Jerfel, Rafael Muller, Michael W Dusenberry, Jasper Snoek,
+Balaji Lakshminarayanan, and Dustin Tran.
+Combining ensembles and data augmentation can harm your calibration.
+arXiv preprint arXiv:2010.09875, 2020a.
+Wen et al. (2020b)
+Yeming Wen, Dustin Tran, and Jimmy Ba.
+BatchEnsemble: an Alternative Approach to Efficient
+Ensemble and Lifelong Learning.
+In International Conference on Learning Representations,
+2020b.
+Williams et al. (2017)
+Adina Williams, Nikita Nangia, and Samuel R Bowman.
+A broad-coverage challenge corpus for sentence understanding through
+inference.
+arXiv preprint arXiv:1704.05426, 2017.
+Wulczyn et al. (2017)
+Ellery Wulczyn, Nithum Thain, and Lucas Dixon.
+Ex machina: Personal attacks seen at scale.
+In WWW, 2017.
+Yang and Newsam (2010)
+Yi Yang and Shawn Newsam.
+Bag-of-visual-words and spatial extensions for land-use
+classification.
+In International Conference on Advances in Geographic
+Information Systems, 2010.
+Yi et al. (2022)
+John Seon Keun Yi, Minseok Seo, Jongchan Park, and Dong-Geol Choi.
+Using self-supervised pretext tasks for active learning, 2022.
+URL https://arxiv.org/abs/2201.07459.
+Yuan et al. (2022)
+Honglin Yuan, Warren Morningstar, Lin Ning, and Karan Singhal.
+What do we mean by generalization in federated learning?
+International Conference on Learning Representations, 2022.
+Zhai et al. (2021)
+X Zhai, A Kolesnikov, N Houlsby, and L Beyer.
+Scaling vision transformers.
+arXiv preprint arXiv:2106.04560, 2021.
+Zhang et al. (2021)
+Jian-Guo Zhang, Kazuma Hashimoto, Yao Wan, Ye Liu, Caiming Xiong, and Philip S
+Yu.
+Are pretrained transformers robust in intent classification? a
+missing ingredient in evaluation of out-of-scope intent detection.
+arXiv preprint arXiv:2106.04564, 2021.
+Appendix A Author Contributions
+•
+Andreas Kirsch: Active Learning only – joint with Joost van Amersfoort. Implemented Active Learning loop, various acquisition functions and datasets, and ran experiments on CIFAR-10/CIFAR-100. Advised on experimental setup for larger datasets, and wrote active learning section.
+•
+Balaji Lakshminarayanan: Helped with direction, narrative, getting resources, advising folks on experiment setup (open set recognition, few-shot adaptation, last layer), helped with writing (abstract, intro, contributions) and revising other sections.
+•
+Clara Huiyi Hu: Implemented BE + GP in language domain, executed associated experiments and helped building post-analysis colabs. On the vision side, contributed to sweeping and debugging BE/GP variants.
+•
+Dustin Tran: Came up with work’s vision, lead overall writing and experiment design, coordinated individual leads and contributors. Designed and tuned Plex, various figures and plotting code, and core infra setup.
+•
+Du Phan: Lead and designed the infrastructure to evaluate uncertainty methods on the language domain. Implemented methods None, DE, MCD, GP, DE-GP, Het for language and performed most corresponding experiments across MNLI, ToxicComments, NaLUE tasks.
+•
+D. Sculley: Advisor on project, including its direction and the paper narrative.
+•
+Honglin Yuan: Initial experimental setup for CIFAR subpopulation shift experiments, including pipeline for converting data into format to be consumed by uncertainty baselines codebase.
+•
+Jasper Snoek: Helped with direction, narrative, getting resources, helped with writing, editing, aggregating results, various plots.
+•
+Jeremiah Liu: Lead for language domain efforts. Developed all tasks, datasets, evaluation metrics for language.
+Implemented initial t5x infra and baseline (None) experiments. Work with eng co-lead Du and teammates Clara and Jie in finishing executing experiments and generating visualizations. Wrote the sections on language. On the vision side, implemented the ViT-GP model, conducted initial pretraining experiments. Assisted editing the section on SNGP method.
+•
+Jie Ren: Lead work on open set recognition (vision and text), GPs, and assisted with few-shot. Helped with engineering work including building vision finetuning models, running vision and text experiments. Made the demo figures for vision and text. Helped with Mahalanobis distance-based active learning method.
+•
+Joost van Amersfoort: See Andreas Kirsch (joint contribution). Co-wrote compute workflow tutorial for collaborators.
+•
+Karan Singhal: Vision subpopulation shift setup and experiments: integrated code for CIFAR-10/100 subpopulation evaluation into codebase, set up, ran, and tuned experiments with different ingredients (Det, BE, BE+HET, BE+GP). Ran ablations: omitting last-layer changes, omitting ensembling during pretraining, ImageNet-only pretraining, no pretraining. Created ablations figure and added discussion. Made detailed edits to paper.
+•
+Kehang Han: Responsible for finetuning experiments involving GP and few-shot experiments. Created Imagenet2012Fewshot TFDS (https://www.tensorflow.org/datasets/catalog/imagenet2012_fewshot). Primary author of Sections 5.3.2 and 5.3.3. Helped with GP model ablations.
+•
+Kelly Buchanan: Contributed to early formation of project and codebase, particularly around tasks involving structured output evaluation and uncertainty.
+•
+Kevin Murphy: Advisor on project, including its direction and the paper narrative.
+•
+Mark Collier: Responsible for most experimental results involving heteroscedastic model e.g. Het upstream, Het→\toHet, None→\to Het, BE→\toBE++Het. Primary author of section Appendix H. Implemented CIFAR-10H and ImageNet ReaL-H label uncertainty tasks. Primary author of Section 5.1.4.
+Ran sensitivity analysis (together with Mike) to the number of JFT pretraining epochs and volume of pretraining data (JFT4B).
+•
+Mike Dusenberry: Engineering lead. Designed, built, and owned infrastructure for Plex, including reproducible training scripts, utilities, experiment scaling components, and open-sourcing efforts. Trained and tuned None ViT baselines (e.g., L) to match existing results. Scaled up experiments to JFT-4B. Ablated JFT dataset size and number of epochs with Mark Collier. Ran experiments and wrote Section 5.2.2 for generalization to covariate distribution shifts. Advised and worked on infra and experiments for the active learning section.
+Co-wrote a compute workflow tutorial for collaborators. Created a demo notebook for ViT-Plex. Open-sourced code and model checkpoints.
+•
+Neil Band: Co-led design of experiments and narrative for integration of RETINA experiments, including selective prediction and distribution generalization. Led RETINA implementation and experiments. Co-wrote section on selective prediction and compute workflow tutorial for collaborators. Led open-sourcing of RETINA distribution shift tasks, baseline model checkpoints, evaluation, and plotting utilities.
+•
+Nithum Thain: Contributed to experiments analyzing Deep Ensembles and their tradeoff with compute.
+•
+Rodolphe Jenatton: Developed the code to evaluate deep ensembles in https://github.com/google/uncertainty-baselines and ran associated experiments (together with Nithum Thain). Developed the code to evaluate models and ensembles in https://github.com/google-research/robustness_metrics. Developed the code to wrap the pjit-based https://github.com/google-research/vmoe in https://github.com/google/uncertainty-baselines, enabling the evaluation of sparse MoE models, namely E3, V-MoE and ensembles thereof—ran corresponding experiments. Contributed to the shaping of the narrative of the ensembling section (together with Zelda Mariet). Helped with the computation of the FLOPs. Improved finetuning numbers by suggesting use of longer finetuning schedule.
+•
+Tim G. J. Rudner: Co-led design of experiments and narrative for integration of RETINA experiments, including selective prediction and distribution generalization. Contributed to all RETINA experiments.
+Led writing of section on selective prediction and contributed to writing of section on calibration AUROC.
+•
+Yarin Gal: Advisor on project, including its direction and the paper narrative.
+•
+Zachary Nado: Designed and contributed to core infrastructure that was the major platform to iterate on our models, tasks, and other results.
+•
+Zelda Mariet: Ran BatchEnsemble experiments, ran ensemble diversity analysis, drew up vision for the ensembling analysis Section 4.3, proposed and ran the upstream vs downstream comparison (Section 4.2). Wrote the code for experimental analysis, hyperparameter tuning, visualization and summarization. Code refactoring for the overall project.
+•
+Zi Wang: Led the
+active learning effort including initial exploration as an engagement with internal teams as a close collaboration between Google Reliable Deep Learning and the Oxford OATML group (with Mike, Andreas, Joost, and Dustin). Contributed to refactoring BE and None to facilitate better integration with AL. Contributed to active learning code (debugging, adding new features etc). Extensively experimented with AL on RDL models, conducted analyses and obtained/wrote final results. Added discussions on the relations between prior learning and pretraining.
+•
+Zoubin Ghahramani: Advisor on project, including its direction and the paper narrative.
+Appendix B Details behind Key Figures
+For the task radar plots of Figure 3, we list references used for task-specific state-of-the-art in Table 14.
+Task
+Task-specific SOTA
+Text
+MNLI
+T5 11B (Raffel et al., 2020)
+MNLI Mismatched (Subpop Shift)
+T5 11B (Raffel et al., 2020)
+MNLI Hans All (OOD)
+RoBERTa base (Tu et al., 2020)
+WikipediaTalk
+Deep Ensembles (Kivlichan et al., 2021)
+Vision
+OOD Places 365
+(Hendrycks et al., 2019)
+AL Accuracy CIFAR10
+(Yi et al., 2022)
+AL Accuracy CIFAR100
+(Citovsky et al., 2021)
+AL Accuracy ImageNet
+(Emam et al., 2021)
+Accuracy RETINA
+(Band et al., 2021)
+Selective Prediction RETINA
+(Band et al., 2021)
+Table 14: References for the task-specific state-of-the-art used in Figure 3.
+For the model scaling plot of Figure 6, we aggregate all task metrics under a single scalar between 0 and 100. In order to do this, we normalize all metrics to be between 0 and 100; we then compute an unweighted average. Most metrics are already bounded between 0 and 100: for example, accuracy, expected calibration error (we do 100−ECE100-\text{ECE} so higher is better), Calibration AUROC, and OOD AUROC. The one exception are scoring rules such as log-loss and Brier score. Because the output distributions are discrete, log-loss has a lower bound of 0 and an upper bound given by the highest entropy distribution (uniform). Therefore we rescale scoring rule values based on their lower and upper bounds so that they’re now between 0 and 100 and so that higher is better.
+Appendix C Additional Details on Tasks & Datasets
+Task
+Metric
+Calibration
+↓\downarrow
+Expected Calibration Error (ECE)
+↑\uparrow
+Calibration AUROC
+Selective Prediction
+↑\uparrow
+Referral Rate Curve
+↑\uparrow
+Oracle Collaborative Accuracy
+Open Set Recognition
+↑\uparrow
+AUROC
+Label Uncertainty
+↓\downarrow
+KL Divergence
+In-Dist. Generalization
+↑\uparrow
+Accuracy
+↓\downarrow
+Negative Log-Likelihood (NLL)
+↓\downarrow
+Brier Score
+↑\uparrow
+(Binary Classification) AUROC
+↑\uparrow
+(Binary Classification) AUPRC
+Covariate Shift
+↑\uparrow
+Accuracy
+↓\downarrow
+Negative Log-Likelihood
+↓\downarrow
+Brier Score
+↑\uparrow
+(Binary Classification) AUROC
+↑\uparrow
+(Binary Classification) AUPRC
+Subpopulation Shift
+↑\uparrow
+Accuracy
+↓\downarrow
+Negative Log-Likelihood (NLL)
+↓\downarrow
+Brier Score
+↑\uparrow
+(Binary Classification) AUROC
+↑\uparrow
+(Binary Classification) AUPRC
+Few-Shot Learning
+↑\uparrow
+Accuracy
+↓\downarrow
+Negative Log-Likelihood (NLL)
+Few-Shot Uncertainty
+↓\downarrow
+Expected Calibration Error
+↑\uparrow
+Calibration AUROC
+↑\uparrow
+(Zero-Shot and Few-Shot) AUROC
+Active Learning
+↑\uparrow
+Accuracy vs # Labels Curve
+Table 15: Metrics used for each task. ↑\uparrow / ↓\downarrow mean higher / lower is better.
+We summarize the list of metrics in Table 15.
+For out-of-distribution evaluation in vision, we use the following datasets.
+1.
+Covariate shift.
+•
+CIFAR-10: CIFAR-10-C (Hendrycks and Dietterich, 2019).
+•
+CIFAR-100: CIFAR-100-C (Hendrycks and Dietterich, 2019).
+•
+ImageNet1K: ImageNet-A (Hendrycks et al., 2021c), ImageNet-C (Hendrycks and Dietterich, 2019), ImageNetV2 (Recht et al., 2019), ImageNet-Vid-Robust, YTBB Robust (Shankar et al., 2021), ObjectNet (Barbu et al., 2019), and ImageNet-R (Hendrycks et al., 2021a).
+•
+RETINA: RETINA’s Country Shift dataset (Band et al., 2021).
+We train models on images of retinas obtained from patients in the United States (EyePACS) and evaluate trained models on images of retinas obtained from patients in India using different collection equipment (APTOS).
+2.
+Semantic (class) shift.
+•
+CIFAR-10: CIFAR-100, SVHN.
+•
+CIFAR-100: CIFAR-10, SVHN.
+•
+ImageNet1K: Places365.
+•
+RETINA: RETINA’s Severity Shift dataset (Band et al., 2021).
+We train models on images of retinas exhibiting no worse than mild diabetic retinopathy, and consider a shifted evaluation dataset with images of moderate diabetic retinopathy or worse.
+The evaluation data contains features not contained in the training images, such as vitreous hemorrhages.
+The motivation for this shift is that images of retinas with more severe retinopathy are relatively scarce and that it is likely for a model to be trained only on more widely-available images of retinas exhibiting mild cases of diabetic retinopathy.
+3.
+Label uncertainty.
+We use CIFAR-10H (Peterson et al., 2019) which captures human uncertainty over labels for CIFAR-10 dataset.
+We also construct a larger-scale variant, which we call ImageNet ReaL-H. Individual human ratings were recollected for the original ImageNet test set, available as raw data from ImageNet ReaL (Beyer et al., 2020), and we use them to newly construct soft label targets.
+4.
+Subpopulation shift.
+We use Semantically Partitioned CIFAR-10/100 (Yuan et al., 2022) for vision subpopulation shift. CIFAR-10/100 test data is partitioned into semantically similar subpopulations, where each subpopulation has its own data-generating distribution sampled from a meta subpopulation distribution. We aim to improve predictive performance on tail subpopulations.
+For covariate and semantic shift in language, we use:
+•
+the MNLI-mismatched (Williams et al., 2017) data as the OOD set for NLI, which contains sentence pairs from 5 genres that are distinct from those in MNLI training data.
+•
+the CivilComments corpus (Borkan et al., 2019) as the OOD set for toxic comment prediction, which consists of one million public comments appearing on approximately 50 English-language news sites across the world.
+We also analyze language subpopulation shift where long-tail groups from the in-distribution set are a desired area for generalization.
+•
+HANS (McCoy et al., 2019) eval datasets for NLI, which contains template-generated examples attacking the surface-level heuristics that the neural models are found to rely on when predicting entailment relationships.
+•
+CivilCommentsIdentity (Borkan et al., 2019) for toxic comments, which is a subset of CivilComments that has explicit mention of social identities (e.g., muslim, LGBTQ, etc) that the model are often found to generate mispredictions.
+•
+NaLUE-tail dataset for CLU, which is a subset of NaLUE corresponding to utterances from 28 low-frequency intents categories.
+Appendix D Details of Plex ingredients
+BatchEnsemble (BE)
+BatchEnsembles (Wen et al., 2020b) approximate deep ensembles (Lakshminarayanan et al., 2017), but reduce their computational and memory costs by sharing weights across the ensemble members. The weight matrix 𝑾i{\bm{W}}_{i} of any given ensemble member ii is written as the Hadamard product of a shared weight matrix 𝑾0{\bm{W}}_{0} and a local rank-1 matrix ri​si⊤r_{i}s_{i}^{\top}:
+𝑾i=𝑾0∘ri​si⊤.\displaystyle{\bm{W}}_{i}={\bm{W}}_{0}\circ r_{i}s_{i}^{\top}.
+(3)
+The vectors r and s are commonly referred to as fast weights.
+Unless otherwise stated, Plex applies BE to all layers in the last 2 residual blocks of the network. This idea follows work for mixture of experts (Riquelme et al., 2021).
+Spectral-normalized Neural Gaussian Process (SNGP)
+Unlike ensemble approaches, SNGP proposed by Liu et al. (2020) focuses on improving the uncertainty quality of a neural network given a fixed representation (a.k.a. deterministic uncertainty quantification setting (Van Amersfoort et al., 2020). When applied to a DNN without pretraining, SNGP enhances the DNN uncertainty property by applying spectral normalization to the hidden weights, and replaces the output layer from a dense layer to a random-feature Gaussian process (GP) layer. That is, given hidden representations h⁡(𝒙)h({\bm{x}}), the GP layer enables scalable computation of a GP posterior by applying a random feature approximation ϕ\phi to the predictive function and then a Laplace approximation to the predictive variance:
+g⁡(𝒙)\displaystyle g({\bm{x}})
+∼N⁡(logit⁡(𝒙),var⁡(𝒙))\displaystyle\sim N(\mathrm{logit}({\bm{x}}),\mathrm{var}({\bm{x}}))
+logit⁡(𝒙)\displaystyle\mathrm{logit}({\bm{x}})
+=ϕ​(x)⊤​β,where\displaystyle=\phi(x)^{\top}{\beta},\quad\textrm{where}
+ϕ⁡(𝒙)\displaystyle\phi({\bm{x}})
+=cos⁡(𝑾​h​(𝒙)+𝒃)\displaystyle=\cos({\bm{W}}h({\bm{x}})+{\bm{b}})
+var⁡(x)\displaystyle\mathrm{var}(x)
+=ϕ​(𝒙)⊤​(I+ΦT​Φ)−1​ϕ​(𝒙),\displaystyle=\phi({\bm{x}})^{\top}(I+\Phi^{T}\Phi)^{-1}\phi({\bm{x}}),
+where (𝑾,𝒃)({\bm{W}},{\bm{b}}) are frozen random weights of the random feature embedding ϕ⁡(𝒙)=cos⁡(𝑾​h​(𝒙)+𝒃)\phi({\bm{x}})=\cos({\bm{W}}h({\bm{x}})+{\bm{b}}), and Φ⊤​Φ=∑iϕ⁡(𝒙i)​ϕ​(𝒙i)⊤\Phi^{\top}\Phi=\sum_{i}\phi({\bm{x}}_{i})\phi({\bm{x}}_{i})^{\top} is the covariance of the random feature embedding estimated using the training data.
+Liu et al. (2020); Liu et al. (2022) show that this combined technique improves the model’s awareness of the semantic distance between the test and train examples on the data manifold, leading to improved performance in calibration and out-of-domain detection. When applied to a large pretrained DNN, we find it sufficient to only use the last-layer Gaussian process (i.e., omit the spectral normalization regularization), as the pretrained embedding has already provided a semantic-distance-aware representation of the data.
+Heteroscedastic last layer (Het)
+Heteroscedastic last layers are designed to model input-dependent label noise/label uncertainty (a.k.a. aleatoric uncertainty (Kendall and Gal, 2017)) that is present in the data. We use the Heteroscedastic (Het) last layer introduced by Collier et al. (2020); Collier et al. (2021) who place a multivariate Gaussian distribution over the logits in a standard DNN classifier. A low-rank approximation to the K×KK\times K covariance matrix (KK = number of classes/outputs) is made when KK is large and (Collier et al., 2021) further develop a parameter efficient version of the method with parameterization inspired by BE to enable scaling to tens of thousands of classes.
+Among the above methods, None, Het, GP, and BE are both memory and compute efficient, since they only require a single forward pass from a single model to compute the output distribution. We also experiment with deep ensembles (Section 4.3), which is the most expensive in both memory and compute, since they require forward passes from multiple trained models, as well as Monte Carlo Dropout (Gal and Ghahramani, 2016).
+Appendix E Additional Results for Open Set Recognition
+Comparing OOD detection methods across all the tasks and model types.
+While we use MSP as the basic uncertainty score in the main text, we also would like to discuss other alternative uncertainty scores, and how is their performance improved by the Plex models. We study the following 4 more uncertainty scores,
+•
+Mahalanobis distance (Maha) (Lee et al., 2018) which measures the distance between the test input and the fitted training distribution in the embedding space. The training distribution is fitted using a class conditional Gaussian. The uncertainty score is the distance.
+•
+Relative Mahalanobis distance (Ren et al., 2021) is a modified version of Mahalanobis distance which corrects for the background confounding effect using another Gaussian distribution fitted using entire training data ignoring class labels.
+•
+Entropy of the softmax probability. High entropy suggests high uncertainty. So the uncertainty score is entropy.
+•
+Maximum over the logits (MaxLogit) (Hendrycks et al., 2019) which uses the maximum of the un-normalized logits as the confidence score. Then the uncertainty score is then the negative of the MaxLogit.
+We study the performance of five different OOD detection methods, MSP, Maha, RMaha, Entropy and MaxLogit, across the various tasks and model types. As shown in Table 16, Mahalanobis distance outperforms all other scores, and Relative Mahalanobis distance performs the second best.
+Despite the good performance, one drawback of Mahalanobis distance based method is that its computational time is linear to the number of classes. For the ImageNet2012 vs Places365 task, the in-distribution data ImageNet2012 has 1,000 classes where by definition of Mahalanobis distance method, we need to fit 1K Gaussians for each of the classes and compute the distance between the test input to each of the fitted Gaussian. It becomes very time consuming and not scalable. Therefore in that task, we study the lightweight OOD scores, including MSP, Entropy, and MaxLogit. Interestingly, we noticed that MaxLogit is the best among the three methods for single models (None, GP, None→\toGP) except for Het and None→\toHet, while Entropy is the best for ensemble models (BE, DE based models).
+Overall we suggest using Mahalanobis distance based methods to achieve the best performance, but in case there is a computation budget, MaxLogit is a good choice for single models and Entropy is a good choice for ensemble models.
+C-100 vs C-10
+ImageNet vs Places
+MSP
+Entropy
+MaxLogits
+Maha
+RMaha
+MSP
+Entropy
+MaxLogits
+None
+0.929
+0.944
+0.953
+0.982
+0.965
+0.828
+0.855
+0.880
+None I21K
+0.924
+0.934
+0.940
+0.964
+0.943
+0.838
+0.861
+0.887
+None→\toGP
+0.927
+0.940
+0.948
+0.975
+0.956
+0.824
+0.851
+0.877
+None→\toHet
+0.948
+0.962
+0.948
+0.985
+0.970
+0.827
+0.854
+0.827
+None→\toDE L
+0.940
+0.953
+0.940
+0.982
+0.965
+0.831
+0.860
+0.831
+None→\toBE
+0.924
+0.939
+0.924
+0.980
+0.962
+0.822
+0.850
+0.822
+GP
+0.927
+0.936
+0.945
+0.971
+0.945
+0.828
+0.854
+0.873
+Het
+0.948
+0.964
+0.948
+0.981
+0.979
+0.828
+0.856
+0.828
+DE L
+0.946
+0.961
+0.946
+0.987
+0.976
+0.834
+0.863
+0.834
+BE L
+0.940
+0.954
+0.940
+0.985
+0.971
+0.827
+0.855
+0.827
+BE L (I21K)
+0.934
+0.943
+0.934
+0.975
+0.959
+0.842
+0.864
+0.842
+BE→\toBE++Het
+0.954
+0.969
+0.954
+0.984
+0.980
+0.831
+0.857
+0.831
+BE B
+0.906
+0.927
+0.906
+0.966
+0.959
+0.801
+0.831
+0.801
+BE S
+0.864
+0.889
+0.864
+0.923
+0.916
+0.773
+0.803
+0.773
+Table 16: The AUROC based on the five OOD measures on the most challenging near-OOD tasks CIFAR-100 vs CIFAR-10 and ImageNet2012 vs Places365.
+Appendix F Additional Results for Selective Prediction
+We performed model selection on pretrained models finetuned with different hyperparameters using the area under the in-distribution selective-prediction accuracy curve.
+We evaluated the predictive performance of the finetuned models on in-distribution and distributionally shifted data.
+In particular, we computed models’ predictive accuracy, negative log-likelihood, expected calibration error, and the area under the selective prediction curve obtained by computing the area under the ROC curve for selective prediction referral rates from 0% to 99% using different evaluation metrics (accuracy and, where applicable, AUROC and AUPRC).
+SoTA
+SoTA
+Plex L
+Plex L
+None L
+None L
+(Ensemble)
+(Single Model)
+(JFT)
+(I21K)
+(JFT)
+(I21K)
+In-Distribution
+95.0%
+94.4%
+92.7%
+92.3%
+94.3%
+94.1%
+Out-of-Distribution
+77.9%
+78.3%
+84.8%
+78.9%
+79.5%
+78.3%
+Table 17: Selective prediction performance, using AUROC as the evaluation metric, on the RETINA Country Shift task (for in and out-of-distribution evaluation).
+For in-distribution, the SoTA (Ensemble) outperforms Plex L pretrained on both ImageNet-21K or JFT.
+For out-of-distribution, Plex L pretrained on either ImageNet-21K or JFT outperforms state-of-the-art.
+(a)
+Country Shift: In-Distribution
+(b)
+Severity Shift: In-Distribution
+Figure 29: Selective Prediction on RETINA (In-Distribution).
+(left)
+The in-distribution Country Shift task is concerned with diagnosing diabetic retinopathy.
+(right)
+The in-distribution Severity Shift task is concerned with diagnosing diabetic retinopathy
+amongst images containing at worst moderate cases of diabetic retinopathy.
+Accuracy is used as the evaluation metric and predictive entropy is used as the per-example uncertainty estimate.
+Appendix G Extensions to Sparse Mixtures of Experts
+In this section, we discuss extensions of some approaches of this paper in the light of recent advances in sparse mixtures of experts models (sparse MoEs).
+G.1 Background
+Sparse MoEs constitute a family of models that rely on conditional computation (Bengio et al., 2013; Bengio et al., 2015) to combine multiple submodels—referred to as experts—in an input-dependent fashion.
+Sparse MoEs have successfully been applied both in NLP (Shazeer et al., 2017; Lepikhin et al., 2021; Fedus et al., 2022) and more recently in computer vision (Riquelme et al., 2021; Lou et al., 2021). The goal of conditional computation is to grow the number of parameters of the model while maintaining its training and inference costs constant, by only activating a particular subset of experts given an input. This is in contrast with classical neural networks that use all their parameters for each input.
+In the context of this paper, we focus on Allingham et al. (2021) that studied the robustness and uncertainty estimates of several extensions of ViT endowed with conditional computation, namely:
+•
+V-MoE: The authors of Riquelme et al. (2021) extended ViT to sparse MoEs by placing experts at the level of the MLPs of the transformer architecture. Since ViT operates on image patches, the conditional computation of V-MoEs also operates on image patches. More specifically, the image patches are sparsely routed to KK out of EE available experts (in practice, E=32E=32). The experts are selected by computing some gating weights in combination with a top-KK strategy, allowing for an end-to-end training procedure.
+When only a single expert is selected (K=1K=1), the training and inference costs of V-MoEs almost match those of a standard ViT model (Riquelme et al., 2021), while leading to improved predictive performance at both pretraining and finetuning time.
+In the next section, we will use the acronym MoE to refer to V-MoE.
+•
+Deep ensembles of V-MoEs: Allingham et al. (2021) explored the combination of the static ensembling of deep ensembles and the conditional computation of V-MoEs. They found that both effects are complementary. In particular, over tasks where either V-MoEs or deep ensembles are known to perform well (e.g., respectively, few-shot classification and OOD detection), the combined approach inherits from the best of both worlds, while matching the cost of standard deep ensembles.
+In what follows, we will use the acronym [MoE]4[\textsc{MoE}]_{4} to refer to a deep ensemble formed by four MoEs where both the upstream and downstream models were varied. In the situation where only the downstream models were varied for a single fixed pretrained model, we use the notation MoE→[MoE]4\textsc{MoE}\rightarrow[\textsc{MoE}]_{4}. We will use the same convention for the model without any changes, None. While the rest of the paper uses ensembles of size 3, we consider in this section ensembles of size 4 to be faithful to the setting of Allingham et al. (2021).
+•
+E3: The authors of Allingham et al. (2021) further designed an efficient ensemble approach, referred to as E3, to overcome the computational burden of the naive ensembling of V-MoEs described above. In a nutshell, E3 jointly learns an ensemble of smaller sparse MoEs where all layers not equipped with experts (e.g., attention layers) are shared across the ensemble members. Interestingly, E3 features some of the extensions of Plex due to some of its conceptual similarities with BE. Allingham et al. (2021) observed that E3 tends to lie either on, or close to, the Pareto frontiers of several metrics—e.g., NLL, Brier score and few-shot classification error—versus the computational cost of the models, as measured by FLOPs.
+G.2 Results
+We present the results in Table 18. They extend the evaluation from Allingham et al. (2021) to the additional metrics of this paper related to the computer vision tasks. We summarize the results with the prediction, uncertainty and adaptation scores.
+In agreement with the conclusions reported in Allingham et al. (2021), we can see that [MoE]4[\textsc{MoE}]_{4} outperforms77
+7
+A closer inspection at the results shows that the prediction score of [MoE]4[\textsc{MoE}]_{4} is slightly worse than that of [None]4[\textsc{None}]_{4} because of isolated, slightly worse performance on CIFAR-10. the standard deep ensemble [None]4[\textsc{None}]_{4} while having the same computational cost. This confirms the complementary of static ensembling with the adaptivity of sparse MoEs within the broader evaluation of this paper. More generally, combining ensembling and sparse MoEs seems to be a promising direction to improve the reliability of models.
+As observed in Riquelme et al. (2021), MoE has strong performance in fewshot learning tasks, which is highlighted here by the adaptation scores of MoE and [MoE]4[\textsc{MoE}]_{4}.
+Moreover, Allingham et al. (2021) further observed that MoE did not perform well in terms of calibration, as illustrated by its lower uncertainty score compared with None.
+The efficient ensemble E3 has performance comparable to deep ensembles formed from a single pretrained model (i.e., None→[None]4\textsc{None}\rightarrow[\textsc{None}]_{4} and MoE→[MoE]4\textsc{MoE}\rightarrow[\textsc{MoE}]_{4}), while being substantially cheaper. This conclusion echoes the take-home messages from Allingham et al. (2021).
+Score
+Score prediction
+Score uncertainty
+Score adaptation
+None
+85.99
+91.13
+92.71
+84.65
+MoE
+86.76
+90.52
+91.97
+85.75
+E3
+−-
+91.44
+92.77
+−-
+None→[None]4\textsc{None}\rightarrow[\textsc{None}]_{4}
+−-
+91.41
+92.83
+−-
+MoE→[MoE]4\textsc{MoE}\rightarrow[\textsc{MoE}]_{4}
+−-
+91.07
+92.82
+−-
+[None]4[\textsc{None}]_{4}
+88.54
+91.99
+93.44
+87.59
+[MoE]4[\textsc{MoE}]_{4}
+88.66
+91.53
+93.51
+87.77
+Table 18: Results of sparse MoE variants developed in Allingham et al. (2021). E3, None→[None]4\textsc{None}\rightarrow[\textsc{None}]_{4} and MoE→[MoE]4\textsc{MoE}\rightarrow[\textsc{MoE}]_{4} do not have adaptation scores since those approaches are applied only at finetuning time.
+Appendix H Analysis of Heteroscedastic Last Layer
+We add a heteroscedastic output layer to the base deterministic model and the BE base model. We assess whether enabling the network to model input-dependent (heteroscedastic) label noise results in better performance on datasets known to have noisy labels.
+H.1 Heteroscedastic improves pretraining performance on JFT.
+(a) Accuracy
+(b) NLL
+Figure 30:
+Performance on JFT for deterministic and heteroscedastic models.
+(a) Accuracy
+(b) NLL
+Figure 31:
+Performance on ImageNet21K for deterministic and heteroscedastic models.
+In Figure 30 and Figure 31 the heteroscedastic model, when applied on top of the base deterministic model, provides performance gains on the JFT dataset while performance is neutral on ImageNet-21K.
+(a) Accuracy
+(b) NLL
+(c) ECE
+Figure 32:
+Performance on ImageNet1K for deterministic, heteroscedastic (upstream and downstream), deterministic upstream→\toheteroscedastic downstream, BatchEnsemble L (upstream and downstream) and BatchEnsemble L upstream→\toBatchEnsemble L + heteroscedastic downstream models.
+(a) Accuracy
+(b) NLL
+(c) ECE
+Figure 33:
+Performance on CIFAR-10 for deterministic, heteroscedastic (upstream and downstream), deterministic upstream→\toheteroscedastic downstream, BatchEnsemble L (upstream and downstream) and BatchEnsemble L upstream→\toBatchEnsemble L + heteroscedastic downstream models.
+(a) Accuracy
+(b) NLL
+(c) ECE
+Figure 34:
+Performance on CIFAR-100 for deterministic, heteroscedastic (upstream and downstream), deterministic upstream→\toheteroscedastic downstream, BatchEnsemble L (upstream and downstream) and BatchEnsemble L upstream→\toBatchEnsemble L + heteroscedastic downstream models.
+H.2 Impact of heteroscedastic last layer downstream
+In Figure 32, Figure 33 and Figure 34 we look at the core in-distribution performance metrics for downstream vision datasets. Het→\toHet refers to a model trained with a heteroscedastic output layer upstream on JFT and finetuned on the target dataset with a heteroscedastic head. None→\toHet is similar but where the cheaper and simpler baseline deterministic model without a heteroscedastic head is used upstream. BE→\toBE + Het refers to pretraining using a Batch Ensemble model upstream on JFT and finetuning with a BE model with a heteroscedastic head downstream.
+On all downstream datasets None→\toHet performs similarly or better than Het→\toHet.
+The outperformance of a deterministically pre-trained model finetuned with a heteroscedastic last layer, indicates that the gains from a heteroscedastic model downstream can be realized without heteroscedastic upstream pretraining. This is a surprising result given that the heteroscedastic model improves JFT performance upstream. However this result suggests that when the representations are transferred from this upstream model the Deterministic model is sufficient. Given that heteroscedastic model is more expensive than the deterministic model and requires tuning the temperature and the rank for the low-rank approximation hyperparameters this is an encouraging result.
+Plex: heteroscedastic last layer helps downstream.
+None→\toHet outperforms None on all metrics for ImageNet and CIFAR-100. Performance on CIFAR-10 is saturated and similar. This demonstrates that applying the heteroscedastic head on the downstream model improves downstream performance. Further, see Figure 7 which shows that on a wide variety of reliability metrics beyond in-distribution accuracy, NLL and ECE None→\toHet outperforms None. We will also see later that the heteroscedastic method models label uncertainty better than baseline models.
+Heteroscedastic can be combined with BE upstream pretraining for excellent results. The results in the above table and the more comprehensive summary results in Figure 7 show that the heteroscedastic head can be combined with a BE model to give the best performance single model on vision tasks (this is Plex). BE→\toBE++Het (Plex) combines the epistemic uncertainty model capability of Batch Ensembles with the label uncertainty modeling of the heteroscedastic method. Plex approaches Deep Ensembles in terms of overall reliability, despite being substantially cheaper. Therefore we can recommend this model as our best single model for use by practitioners.
+Appendix I Summarization of Language Results
+We first compare the performance across types of uncertainty methods, fixing the architecture size to T5-base.
+We compare performances in prediction, uncertainty calibration, and human-model collaboration, across all datasets (MNLI, NaLUE and Toxic Comments) and all splits (In-domain, OOD, and tail-population).
+Table 20 reports the full results, and Figure 35 summarizes the rankings of uncertainty methods under each type of population shift (in-domain v.s. OOD v.s. tail-population).
+Among all methods, DE++GP, Plex (i.e., BE++GP), BE, and MC Dropout tend to have the strongest performance. In particular, DE++GP almost always dominates the other methods on MNLI and NaLUE, and remains competitive in the case of label imbalance (i.e., Toxic Comments). However, DE++GP is an expensive method that costs x10 more in memory and compute and therefore is not competitive in scale (a more thorough analysis is in Section 4.3). On the other hand, among the more efficient, single-model methods, BE and Plex perform well on MNLI and NaLUE (notably, outperform the most expensive DE), while MCD stands out in the Toxic Comments. The above observations suggest that, when the training example has a simple distribution, quantifying output-layer uncertainty alone is sufficient to attain strong performance. However, when there are pathologies in the data distribution (e.g., extreme label imbalance), quantifying the uncertainty within the model’s intermediate representations (e.g., via some form of perturbation like BE) becomes important.
+We then investigate how a model’s uncertainty performance is impacted by the architecture size.
+For model size scaling, we evaluate Plex, None, and MC Dropout, the three best-performing and efficient methods in the previous study. We evaluate the performance of each method under three progressively larger architectures: T5 S, T5 B, and T5 L, and observe how the behavior changes across the method and with respect to the architecture size.
+Table 20 reports the full results, and Figure 36 summarizes the rankings of uncertainty methods organized by the sizes of the architecture.
+As shown, comparing across architecture sizes, we see a larger architecture almost always leads to stronger performance in collaborative performance. This trend remains largely consistent even when out-of-distribution.
+None B
+Het B
+GP B
+BE B
+Plex B
+MCD B
+DE B
+DE-GP B
+Task
+Split
+Score
+MNLI
+In-domain
+calibration
+0.381
+0.384
+0.372
+0.401
+0.388
+0.416
+0.383
+0.4
+generalization
+0.938
+0.949
+0.944
+0.949
+0.948
+0.946
+0.938
+0.95
+select. pred.
+0.961
+0.971
+0.968
+0.973
+0.973
+0.973
+0.961
+0.975
+OOD
+calibration
+0.391
+0.401
+0.393
+0.413
+0.394
+0.41
+0.388
+0.416
+generalization
+0.937
+0.948
+0.941
+0.949
+0.948
+0.946
+0.938
+0.95
+select. pred.
+0.959
+0.971
+0.966
+0.973
+0.973
+0.972
+0.96
+0.975
+Subpopulation
+calibration
+0.451
+0.434
+0.454
+0.443
+0.401
+0.474
+0.443
+0.418
+generalization
+0.749
+0.766
+0.762
+0.791
+0.788
+0.739
+0.764
+0.798
+select. pred.
+0.811
+0.824
+0.842
+0.87
+0.871
+0.831
+0.826
+0.885
+NaLUE
+In-domain
+calibration
+0.498
+0.484
+0.512
+0.464
+0.486
+0.471
+0.487
+0.494
+generalization
+0.939
+0.932
+0.94
+0.935
+0.94
+0.938
+0.942
+0.944
+select. pred.
+0.936
+0.935
+0.932
+0.938
+0.938
+0.932
+0.937
+0.938
+OOS, Near
+detection
+0.706
+0.673
+0.719
+0.768
+0.716
+0.766
+0.721
+0.771
+OOS, Standard
+detection
+0.964
+0.957
+0.992
+0.998
+0.991
+0.994
+0.973
+0.998
+Subpopulation
+calibration
+0.518
+0.511
+0.553
+0.514
+0.519
+0.466
+0.513
+0.514
+generalization
+0.866
+0.846
+0.869
+0.87
+0.873
+0.858
+0.871
+0.882
+select. pred.
+0.862
+0.82
+0.828
+0.845
+0.856
+0.829
+0.861
+0.851
+Toxic
+Comments
+In-domain
+calibration
+0.459
+0.462
+0.46
+0.461
+0.471
+0.442
+0.459
+0.465
+generalization
+0.888
+0.89
+0.899
+0.889
+0.895
+0.904
+0.885
+0.892
+select. pred.
+0.936
+0.938
+0.94
+0.938
+0.94
+0.941
+0.936
+0.939
+OOD
+calibration
+0.425
+0.427
+0.438
+0.423
+0.447
+0.413
+0.426
+0.421
+generalization
+0.82
+0.817
+0.818
+0.81
+0.816
+0.831
+0.817
+0.818
+select. pred.
+0.86
+0.857
+0.855
+0.85
+0.855
+0.862
+0.86
+0.852
+Subpopulation
+calibration
+0.415
+0.405
+0.421
+0.412
+0.428
+0.405
+0.416
+0.4
+generalization
+0.806
+0.803
+0.804
+0.795
+0.801
+0.814
+0.801
+0.803
+select. pred.
+0.831
+0.828
+0.828
+0.821
+0.826
+0.835
+0.83
+0.823
+Table 19: Comparison of method performance between uncertainty methods. Black: Best. Dark Grey: Second. Light Grey: Third.
+None S
+MCD S
+Plex S
+None B
+MCD B
+Plex B
+None L
+MCD L
+Plex L
+Task
+Split
+Score
+MNLI
+In-domain
+calibration
+0.399
+0.406
+0.364
+0.381
+0.416
+0.388
+0.39
+0.404
+0.394
+generalization
+0.924
+0.927
+0.913
+0.938
+0.946
+0.948
+0.963
+0.964
+0.965
+select. pred.
+0.953
+0.959
+0.942
+0.961
+0.973
+0.973
+0.982
+0.985
+0.985
+OOD
+calibration
+0.398
+0.396
+0.367
+0.391
+0.41
+0.394
+0.418
+0.411
+0.406
+generalization
+0.924
+0.93
+0.911
+0.937
+0.946
+0.948
+0.963
+0.965
+0.967
+select. pred.
+0.953
+0.96
+0.94
+0.959
+0.972
+0.973
+0.983
+0.986
+0.987
+Subpopulation
+calibration
+0.555
+0.56
+0.514
+0.451
+0.474
+0.401
+0.417
+0.45
+0.447
+generalization
+0.648
+0.619
+0.59
+0.749
+0.739
+0.788
+0.817
+0.807
+0.803
+select. pred.
+0.747
+0.717
+0.677
+0.811
+0.831
+0.871
+0.875
+0.896
+0.876
+NaLUE
+In-domain
+calibration
+0.507
+0.48
+0.498
+0.498
+0.471
+0.486
+0.486
+0.453
+0.496
+generalization
+0.942
+0.932
+0.937
+0.939
+0.938
+0.94
+0.931
+0.928
+0.944
+select. pred.
+0.937
+0.926
+0.929
+0.936
+0.932
+0.938
+0.93
+0.922
+0.935
+OOS, Near
+detection
+0.71
+0.756
+0.689
+0.706
+0.766
+0.716
+0.692
+0.733
+0.781
+OOS, Standard
+detection
+0.968
+0.992
+0.999
+0.964
+0.994
+0.991
+0.956
+0.991
+0.991
+Subpopulation
+calibration
+0.528
+0.462
+0.499
+0.518
+0.466
+0.519
+0.518
+0.466
+0.492
+generalization
+0.878
+0.854
+0.851
+0.866
+0.858
+0.873
+0.843
+0.83
+0.871
+select. pred.
+0.864
+0.836
+0.84
+0.862
+0.829
+0.856
+0.835
+0.801
+0.835
+Toxic
+Comments
+In-domain
+calibration
+0.455
+0.445
+0.478
+0.459
+0.442
+0.471
+0.448
+0.451
+0.436
+generalization
+0.879
+0.898
+0.863
+0.888
+0.904
+0.895
+0.886
+0.906
+0.89
+select. pred.
+0.932
+0.938
+0.919
+0.936
+0.941
+0.94
+0.936
+0.944
+0.942
+OOD
+calibration
+0.423
+0.412
+0.425
+0.425
+0.413
+0.447
+0.432
+0.417
+0.459
+generalization
+0.81
+0.823
+0.807
+0.82
+0.831
+0.816
+0.823
+0.837
+0.816
+select. pred.
+0.85
+0.851
+0.838
+0.86
+0.862
+0.855
+0.865
+0.869
+0.863
+Subpopulation
+calibration
+0.409
+0.404
+0.412
+0.415
+0.405
+0.428
+0.426
+0.403
+0.46
+generalization
+0.795
+0.806
+0.786
+0.806
+0.814
+0.801
+0.809
+0.822
+0.805
+select. pred.
+0.82
+0.824
+0.803
+0.831
+0.835
+0.826
+0.837
+0.842
+0.838
+Table 20: Comparison of method performance between architecture sizes. Black: Best. Dark Grey: Second. Light Grey: Third.
+(a) Generalization, IND.
+(b) Generalization., OOD.
+(c) Generalization, SUB.
+(d) Generalization, ALL.
+(e) Calibration, IND.
+(f) Calibration, OOD.
+(g) Calibration, SUB.
+(h) Calibration, ALL.
+(i) Selective Pred., IND.
+(j) Selective Pred., OOD.
+(k) Selective Pred., SUB.
+(l) Selective Pred., ALL.
+Figure 35: T5-Plex model’s ranking comparison between different uncertainty methods and across different evaluation datasets. IND: in-domain. OOD: out-of-domain. SUB: subpopulation shift. ALL: aggregated performance across all datasets.
+(a) Generalization, IND.
+(b) Generalization., OOD.
+(c) Generalization, SUB.
+(d) Generalization, ALL.
+(e) Calibration, IND.
+(f) Calibration, OOD.
+(g) Calibration, SUB.
+(h) Calibration, ALL.
+(i) Selective Pred., IND.
+(j) Selective Pred., OOD.
+(k) Selective Pred., SUB.
+(l) Selective Pred., ALL.
+Figure 36: T5-Plex model’s ranking comparison between architecture sizes and across different evaluation datasets. IND: in-domain. OOD: out-of-domain. SUB: subpopulation shift. ALL: aggregated performance across all datasets.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

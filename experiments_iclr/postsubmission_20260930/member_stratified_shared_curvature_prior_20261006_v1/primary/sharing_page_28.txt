@@ -1,0 +1,59 @@
+1 # Check if there even is a weight-sharing dimension; if not, the Kronecker
+2 # factors can directly be calculated.
+3 if in_data.ndim == 3:
+4 # Mini-batch size M , weight-sharing dimension R, feature dimension Pℓ,in/out.
+5 M, R, P_in = in_data.shape
+6 P_out = out_grads.shape[2]
+7 if approximation == 'expand':
+8 # Flatten the weight-sharing dimension into the mini-batch dimension.
+9 in_data = in_data.view(M*R, P_in) / math.sqrt(R)
+10 out_grads = out_grads.view(M*R, P_out)
+11 elif approximation == 'reduce':
+12 # Reduce the weight-sharing dimension with mean and sum.
+13 in_data = in_data.mean(dim=1)
+14 out_grads = out_grads.sum(dim=1)
+15 # Calculate Kronecker factors Aℓ/ ˆAℓ and Bℓ/ ˆBℓ.
+16 A = torch.matmul(in_data.T, in_data) / M
+17 B = torch.matmul(out_grads.T, out_grads)
+Listing 1: Illustration of K-FAC-expand and K-FAC-reduce with code. This piece of code
+calculates the approximations on one mini-batch and for one layer. We receive the inputs to the layer,
+in_data, from a forward hook and the gradients of the loss w.r.t. the outputs of the layer,out_grads,
+from a backward hook. Here we assume that only one additional weight-sharing dimension exists and
+that the first dimension is always the mini-batch dimension. Note that the dimensions of in_data
+and out_grads are the same, independently of the setting we are in (c.f. Section 3.1). This illustrates
+why we can choose to use either approximation, K-FAC-expand or K-FAC-reduce, in each setting.
+The actual implementation in ASDL is very similar for torch.nn.Linear modules, the logic is just
+separated into multiple functions and allows for multiple weight-sharing dimensions. However, the
+adjustments for the GraphNetwork are more involved.
+(Botev & Martens, 2022) for Jax and BackPACK (Dangel et al., 2020), ASDL (Osawa et al., 2023),
+and KFAC-PyTorch (Pauloski et al., 2021) for PyTorch. We focus on the implementation of K-
+FAC-expand and K-FAC-reduce withinASDL, which we also use for the experiments in Section 4.
+K-FAC is implemented using forward and backward hooks, which allow us to get the inputs to a
+specific layer and the gradients of the loss w.r.t. the layer outputs – which are the ingredients we
+need for all K-FAC approximations. Notably, this requires that linear layers are implemented with
+torch.nn.Linear instances, since otherwise, the implementation with hooks does not work. The
+default implementation of multi-head attention in PyTorch does indeed not use the required linear
+modules, so the implementation has to be adjusted to work with common K-FAC implementations
+like ASDL. In contrast, other methods like Shampoo (Gupta et al., 2018) and Tensor Normal Training
+(Ren & Goldfarb, 2021) are agnostic to the architecture. Assuming the implementation of the model is
+appropriate, K-FAC-expand and K-FAC-reduce in their simplest form only require a minor adjustment
+in the code base for regular K-FAC, which is presented in Listing 1.
+However, if we wanted to use K-FAC-expand in the expand and K-FAC-reduce in the reduce setting,
+we would need to find a way of automatically determining the setting we are in. For all models
+considered here, i.e. the (vision) transformer and GNN, only one of the two settings applies to all
+linear layers with weight-sharing. Hence, using a single additional forward pass, we could check if
+any linear weight-sharing layers are used and what the shape of the model output is. From this, we
+can deduce if the expand or the reduce case applies. As we mentioned before, this might not even be
+desirable, as it is unclear if we should always use the approximation theoretically motivated by the
+setting. Alternatively, a single flag set by the user can determine if K-FAC-expand or K-FAC-reduce
+is applied to all linear weight-sharing layers.
+This implementation obviously assumes that we even have an explicit weight-sharing dimension. In
+the case of K-FAC-reduce for the GraphNetwork introduced in Appendix A, we have to adopt our
+implementation due to the batching technique that is employed for graph inputs in practice. Since
+each graph in a mini-batch M of size M might have a different weight-sharing dimension Rm,
+i.e. the number of nodes and the number of edges of each graph, we cannot batch them trivially.
+As a solution, the inputs for each graph as stated in Equation (53) and Equation (54) are simply
+concatenated in the first dimension, which results in a dimension of size RM :=PM
+m=1 Rm. To
+apply K-FAC-expand here, we do not have to modify anything, besides scaling the approximation for
+28

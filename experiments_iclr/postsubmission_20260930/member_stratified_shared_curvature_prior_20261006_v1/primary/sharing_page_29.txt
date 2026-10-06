@@ -1,0 +1,53 @@
+each mini-batch by 1/RM instead of 1/M.8 To apply K-FAC-reduce, we can use a scatter mean,
+which aggregates tensor elements according to indices, to implement the mean (with the square
+root scaling from Equation (55)) operation without having an explicit weight-sharing dimension.
+Unfortunately, this creates two issues. First, we have to know that this adjustment to K-FAC is even
+required for a specific layer since we cannot deduce it from the shape of the layer inputs. Second, the
+scatter mean requires additional information, since we need to know to which graphs the nodes/edges
+in the input belong. One approach to resolve these issues is to define a custom layer type for this type
+of linear layer, which has an attribute containing the indices of all nodes/edges for each graph in the
+batch. However, this requires changes to the model architecture implementation, because additional
+attributes have to be set for the regular linear modules.
+Besides the changes necessary for K-FAC-expand and K-FAC-reduce, we can use the same additional
+algorithmic tools often used for optimisation with K-FAC. Typically,damping is used (Martens &
+Grosse, 2015), i.e. a scalar is added to the diagonal of the two Kronecker factors A and B or the
+diagonal of their product – the latter corresponds to adding the Hessian of an isotropic Gaussian
+prior over the weights. Also, since we usually operate in the stochastic setting and only compute
+the K-FAC approximation on mini-batches, sometimes an exponential moving average over the
+Kronecker factors is used. However, in our experiments, we do not use such a moving average and
+only compute K-FAC for a single mini-batch (besides for Figure 5, as mentioned in Appendix C.4)
+and still reduce the update frequency of the K-FAC statistics and the preconditioner.
+Computational considerations. Besides the implementation details, we also have to consider the
+computational cost when deploying K-FAC approximations in practice. Here, we have to respect the
+same constraints as with regular K-FAC. When we have a large output dimensionC, it is expensive
+or even unfeasible to propagate the C × C loss Hessian Hfθ ℓ(yn, fθ(xn)) for each of the N data
+points through the computation graph. Instead, we use the fact that we have
+Ey∼p(y|fθ (xn))[∇fθ log p(y|fθ(xn))∇fθ log p(y|fθ(xn))⊺] = Hfθ ℓ(yn, fθ(xn)) (56)
+and take S Monte Carlo (MC) samples from the model’s predictive distributionys ∼ p(y|fθ(xn).
+Taking a single sample results in a rank-1 MC approximation of the true loss Hessian and only
+requires the propagation of a single vector through the computation graph for each data point.
+C Additional experimental details and results
+C.1 MLCommons’ AlgoPerf benchmark for training algorithms
+The goal of the AlgoPerf benchmark for training algorithms (Dahl et al., 2023) is to measure “train-
+ing speedups due to algorithmic improvements” (MLCommons, 2022). Specifically, the benchmark
+defines multiple workloads, where one workload is defined by the combination of a dataset, a neural
+network model, a loss function, and a target performance defined by some evaluation metric. For
+example, training a ViT on ImageNet using the cross-entropy loss until a target validation accuracy of
+77.309% has been reached constitutes a workload. In the AlgoPerf benchmark, training algorithms
+are compared on fixed hardware in terms of the wall-clock time they require to reach the fixed
+validation target performance.
+For our experiments, we use two of the workloads of the AlgoPerf benchmark as realistic deep
+learning problems, to showcase the optimisation behaviour of our two K-FAC variations (Sections 4.2
+and 4.3). Similar to the benchmark, we measure both the number of steps and the wall-clock time
+necessary to reach the target validation metric. To put the training behaviour of K-FAC-expand
+and K-FAC-reduce into perspective, we compare them to the target-setting run of the AlgoPerf
+benchmark, denoted reference run in the experiments (Sections 4.2 and 4.3). To determine the
+fixed validation target for each workload, four standard algorithms (AdamW, NAdamW, SGD with
+Nesterov momentum (Nesterov), and SGD with heavy ball momentum) were each tuned with a
+budget of 200 trials for every workload. The combination of algorithm and hyperparameters that
+reached the highest validation performance within a fixed time was then run 20 times and the median
+of the best achieved validation metric was set as the validation target. As our reference run, we use the
+workload-specific, best-performing algorithm and hyperparameter combination. Note that this should
+8As explained below Equation (55), we could also choose a different way of scaling here. We choose this
+one as it enables a simple implementation in contrast to K-FAC-reduce.
+29

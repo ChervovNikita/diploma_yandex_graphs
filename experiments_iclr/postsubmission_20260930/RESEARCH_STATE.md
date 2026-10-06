@@ -1,10 +1,12 @@
 # Current state
 
-Updated 2026-10-06T12:53:47.515193+00:00. Goal active and unmet; original scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
+Updated 2026-10-06T14:56:26.033171+00:00. Goal active and unmet; original paper scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
 
-1. All39 selected Citeseer fits and actual collection/history byte inventory completed. Three paired seed blocks; full fixed comparison pending. Old20 remain excluded donors and retained costs.
-2. All four allocation native references terminal-closed. 18.77 own/own-pool last verified at1129/2300 and1132/2300,08:51:46 UTC. MacLink disconnected; no relaunch.
-3. Repaired CMCL native qualification passed with exit0,wait4 closure and no cleanup/restoration errors. The first startup failure remains preserved. No CMCL fit or quality result exists.
-4. Two-hop graph-responsibility qualification remains unexecuted. Target-sign training-response proxies remain descriptive; signs off.
-5. Literature base72 and supplementV13 preserve scoped conclusions and close-prior credit. No novelty, predictive gain or fresh paper acceptance has been established.
-6. Latest verified pushedHEAD1f0db1739de4c7b692872888416e6c1a4633425e; actual completed comparisons and reviewed source updates will be published.
+1. The complete 39-fit Citeseer comparison closed. The live endpoint-credit model loses capable-single, untied and random controls in all three blocks; that quality explanation stops. The ordinary joint model remains a baseline.
+2. Amazon predictive comparison remains pending. Four native references completed. Final controls on 18.77 are unverified because MacLink still reports the paired Mac disconnected after the user's reconnection request. No jobs were restarted.
+3. The complete evaluator is source-reviewed; final 18.77 endpoint bindings and actual execution remain pending. A small extension will include the frozen CMCL endpoint before any assessment-label read.
+4. CMCL completed all 16 updates once, with successful saved-endpoint replay, resource closure and no held scoring. It is a published baseline, with short SGD continuation distinct from the long Adam references.
+5. The two-hop qualifier failed its original FP32 derivative oracle. CPU diagnostics support a rounding explanation for their probes. An isolated precision-aware oracle correction is being prepared; the GPU qualifier remains failed and no bridge fit is admitted.
+6. No new methodological novelty or paper acceptance has been established. The next scientific priority is competent-reference comparison and a distinct intervention supported by error analysis and prior work.
+
+Latest verified published commit: b5cd86e8f2dd61d4b5b06a0f2adb09a2afe112a8. Later results and reviewed source await publication.

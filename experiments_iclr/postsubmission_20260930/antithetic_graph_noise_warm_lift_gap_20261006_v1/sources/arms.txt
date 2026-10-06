@@ -1,0 +1,1119 @@
+ARMS: Antithetic-REINFORCE-Multi-Sample Gradient for Binary Variables
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Background
+2.1 LOORF
+2.2 ARM
+2.3 DisARM
+2.4 Copulas
+3 ARMS
+3.1 Copula Sampling for Multivariate Bernoulli
+3.1.1 Dirichlet Copula
+3.1.2 Antithetic Gaussian Copula
+3.2 ARMS for the Multivariate Case
+3.3 ARMS for the Multi Sample Variational Bound
+4 Experimental Results
+4.1 ELBO Based Discrete VAE
+4.2 Multi Sample Bound Based Discrete VAE
+5 Conclusion
+References
+A Proofs
+B Theorem . Dirichlet Copula Derivation
+B.1 Univariate CDF
+B.2 Bivariate CDF
+C Dirichlet Copula Joint Density
+D Additional Results
+License: arXiv.org perpetual non-exclusive license
+arXiv:2105.14141v1 [cs.LG] 28 May 2021
+ARMS: Antithetic-REINFORCE-Multi-Sample Gradient for Binary Variables
+Alek Dimitriev
+Affiliation: McCombs School of Business, University of Texas at Austin, Austin, Texas, USA
+Correspondence to: alekdimi@utexas.edu
+Mingyuan Zhou
+Affiliation: McCombs School of Business, University of Texas at Austin, Austin, Texas, USA
+Abstract
+Estimating the gradients for binary variables is a task that arises frequently in various domains, such as training discrete latent variable models. What has been commonly used is a REINFORCE based Monte Carlo estimation method that uses either independent samples or pairs of negatively correlated samples. To better utilize more than two samples, we propose ARMS, an Antithetic REINFORCE-based Multi-Sample gradient estimator. ARMS uses a copula to generate any number of mutually antithetic samples. It is unbiased, has low variance, and generalizes both DisARM, which we show to be ARMS with two samples, and the leave-one-out REINFORCE (LOORF) estimator, which is ARMS with uncorrelated samples. We evaluate ARMS on several datasets for training generative models, and our experimental results show that it outperforms competing methods. We also develop a version of ARMS for optimizing the multi-sample variational bound, and show that it outperforms both VIMCO and DisARM. The code is publicly available11
+1
+https://github.com/alekdimi/arms.
+Keywords: reinforce, score function, antithetic, gradient, estimator, binary, latent, variables, variational, autoencoder, disarm
+1 Introduction
+At the heart of many optimization problems is optimizing an expectation of a function with respect to the parameters of the distribution, such as ℰ⁡(ϕ)=𝔼𝒃​[f⁡(𝒃)]\mathcal{E}(\bm{\phi})=\mathbb{E}_{\bm{b}}[f(\bm{b})], where 𝒃∼pϕ​(𝒃)\bm{b}\sim p_{\bm{\phi}}(\bm{b}). There are several approaches to estimate the gradient ∇ϕ𝔼𝒃​[f⁡(𝒃)]\nabla_{\bm{\phi}}\mathbb{E}_{\bm{b}}[f(\bm{b})]. Most commonly used is the reparameterization gradient (Kingma & Welling, 2014; Rezende et al., 2014). If ff is differentiable, and bb can be expressed as a differentiable deterministic transformation b=𝒯ϕ​(ϵ)b=\mathcal{T}_{\bm{\phi}}(\bm{\epsilon}) of a variable ϵ∼p⁡(ϵ)\bm{\epsilon}\sim p(\bm{\epsilon}) not dependent on ϕ\bm{\phi}, then:
+∇ϕℰ​(ϕ)=∇ϕ𝔼ϵ​[f⁡(𝒯ϕ​(ϵ))]=𝔼ϵ​[∇ϕf​(𝒯ϕ​(ϵ))].\displaystyle\nabla_{\bm{\phi}}\mathcal{E}(\bm{\phi})=\nabla_{\bm{\phi}}\mathbb{E}_{\bm{\epsilon}}\Big[f\big(\mathcal{T}_{\bm{\phi}}(\bm{\epsilon})\big)\Big]=\mathbb{E}_{\bm{\epsilon}}\Big[\nabla_{\bm{\phi}}f\big(\mathcal{T}_{\bm{\phi}}(\bm{\epsilon})\big)\Big].
+If 𝒃\bm{b} is discrete, however, 𝒯ϕ\mathcal{T}_{\bm{\phi}} is not differentiable, and ff is not always differentiable, e.g.e.g., if it corresponds to the reward function in reinforcement learning. This has inspired work into replacing 𝒯ϕ\mathcal{T}_{\bm{\phi}} (and ff) with a continuous relaxation for the discrete case, using the Gumbel-Softmax trick (Maddison et al., 2017; Jang et al., 2017). Some are biased (Bengio et al., 2013; Lorberbom et al., 2019), and others, such as REBAR (Tucker et al., 2017), and RELAX (Grathwohl et al., 2018), contain a debiasing term. However, a relaxation could require much more computation, e.g.e.g., in best subset selection (Yin et al., 2020) where f⁡(𝒃)f(\bm{b}) is the loss function, and 𝒃\bm{b} is a (sparse) binary vector that selects a subset of features on which to train the model. Evaluating a relaxed version of ff for any input would train the model with all features at considerable computational cost if the number of features is large.
+A second, less well-known approach, is the measure valued gradient (Rosca et al., 2019; Mohamed et al., 2020). If possible, it expresses the dthd^{\text{th}} element of the gradient as a difference of two measures: ∇ϕdpϕ​(𝒃)=cd​(p+d​(𝒃)−p−d​(𝒃))\nabla_{\bm{\phi}^{d}}p_{\bm{\phi}}(\bm{b})=c^{d}(p^{d}_{+}(\bm{b})-p^{d}_{-}(\bm{b}))
+This allows us to estimate ∇ϕdℰ​(ϕ)\nabla_{\bm{\phi}^{d}}\mathcal{E}(\bm{\phi}) using as few as two ff evaluations per dimension:
+∇ϕdℰ​(ϕ)=cd​(𝔼𝒃∼p+d​[f⁡(𝒃)]−𝔼𝒃′∼p−d​[f⁡(𝒃)]),\nabla_{\bm{\phi}^{d}}\mathcal{E}(\bm{\phi})=c^{d}\Big(\mathbb{E}_{\bm{b}\sim p^{d}_{+}}\big[f(\bm{b})\big]-\mathbb{E}_{\bm{b}^{\prime}\sim p^{d}_{-}}\big[f(\bm{b})\big]\Big),
+but needs to be done for each dimension separately, which is not scalable for a large number of dimensions, requiring twice as many function evaluations.
+The most widely applicable approach is the score function estimator (Glynn, 1990; Fu, 2006), also known as REINFORCE (Williams, 1992). Using the log derivative trick ∇ϕp​(𝒃)=p⁡(𝒃)​∇ϕ​ln⁡p⁡(𝒃)\nabla_{\bm{\phi}}p(\bm{b})=p(\bm{b})\nabla_{\bm{\phi}}\ln p(\bm{b}), it expresses the gradient as an expectation with respect to the original distribution:
+∇ϕℰ​(ϕ)\displaystyle\nabla_{\bm{\phi}}\mathcal{E}(\bm{\phi})
+=∇ϕ𝔼𝒃​[f⁡(𝒃)]=𝔼𝒃​[f⁡(𝒃)​∇ϕ​ln⁡p⁡(𝒃)],\displaystyle=\nabla_{\bm{\phi}}\mathbb{E}_{\bm{b}}\big[f(\bm{b})\big]=\mathbb{E}_{\bm{b}}\big[f(\bm{b})\nabla_{\bm{\phi}}\ln p(\bm{b})\big],
+which results in a simple form, only requiring the ability to sample from the original distribution. Unlike the reparameterization trick, it is directly applicable to discrete variables, but usually suffers from high variance in the form presented above. Recent work has focused on various mechanisms for variance reduction, applied either to general variational inference tasks (Paisley et al., 2012; Ranganath et al., 2014; Ruiz et al., 2016; Kucukelbir et al., 2017) or focusing on discrete (Mnih & Gregor, 2014; Gu et al., 2016) cases. Leveraging the specific structure of the distribution pϕ​(𝒃)p_{\bm{\phi}}(\bm{b}), while preserving its unbiasedness, has also proven useful (Titsias & Lázaro-Gredilla, 2015).
+Antithetic variates (Owen, 2013), which are negatively correlated samples, have recently gained popularity as a variance reduction method (Wu et al., 2019; Ren et al., 2019). The first estimator to use them for binary variables is the augment-REINFORCE-merge (ARM) estimator of Yin & Zhou (2019), which reparameterizes any binary variable using a uniform distribution that has an antithetic pair. Coupling the estimates for both uniform variables results in much lower variance. Another approach is the unbiased uniform gradient (U2G) estimator of Yin et al. (2020), which is independently discovered by Dong et al. (2020) and referred to as DisARM. These two equivalent estimators, which are derived using different methods, improve upon ARM by marginalizing out the continuous reparameterization.
+Our main contribution is building upon the idea of using antithetic pairs and extending it to nn samples that are jointly antithetic, resulting in a novel unbiased, low variance gradient estimator for binary variables, which we denote as the Antithetic REINFORCE Multi Sample (ARMS) gradient estimator. We also develop a version of ARMS for optimizing a multi-sample bound (Burda et al., 2016), which outperforms both VIMCO (Mnih & Rezende, 2016) and DisARM.
+2 Background
+Let 𝒃=(b1,…,bm)\bm{b}=(b^{1},...,b^{m}) be a vector of mm independent Bernoulli variables with bd∼pϕd​(bd)=Bern​(σ⁡(ϕd))b^{d}\sim p_{\phi^{d}}(b^{d})=\text{Bern}(\sigma(\phi^{d})), where σ⁡(x)=1/(1+e−x)\sigma(x)=1/(1+e^{-x}) is the sigmoid function and ϕ=(ϕ1,…,ϕm)\bm{\phi}=(\phi^{1},...,\phi^{m}). This paper is focused on optimizing a factorized Bernoulli expectation with respect to the logits ϕ\bm{\phi}:
+ℰ⁡(ϕ)=𝔼𝒃​[f⁡(𝒃)],𝒃∼pϕ​(𝒃)=∏d=1mpϕd​(bd).\mathcal{E}(\bm{\phi})=\mathbb{E}_{\bm{b}}[f(\bm{b})],\quad\bm{b}\sim p_{\bm{\phi}}(\bm{b})=\prod_{d=1}^{m}p_{\bm{\phi}^{d}}(b^{d}).
+(1)
+Throughout the paper, we use superscripts to refer to dimensions of the Bernoulli vector and subscripts to refer to particular samples. This form arises, for example, in variational inference, where a mean-field approximation is commonly used for the latent space of a variational autoencoder. Note that ff could depend on ϕ\bm{\phi}, but there are no difficulties in estimating 𝔼𝒃​[∇ϕfϕ​(𝒃)]\mathbb{E}_{\bm{b}}[\nabla_{\bm{\phi}}f_{\bm{\phi}}(\bm{b})], so without loss of generality, we omit this gradient term for notational simplicity.
+2.1 LOORF
+The Leave One Out REINFORCE (LOORF) estimator (Salimans & Knowles, 2014; Kool et al., 2019) is a simple REINFORCE baseline that utilizes nn independent samples. If 𝒃i​∼i​i​d​pϕ​(𝒃)\bm{b}_{i}\overset{iid}{\sim}p_{\bm{\phi}}(\bm{b}), i=1,…,ni=1,...,n, then an unbiased estimate of the gradient of ∇ϕℰ​(ϕ)\nabla_{\phi}\mathcal{E}(\bm{\phi}) is:
+gLOORF​(𝒃)=1n​∑i=1n(f⁡(𝒃i)−1n−1​∑j≠if⁡(𝒃j))​∇ϕ​ln⁡pϕ​(𝒃i)\displaystyle g_{\text{LOORF}}(\bm{b})=\resizebox{16731465}{}{$\displaystyle\frac{1}{n}\sum_{i=1}^{n}\bigg(f(\bm{b}_{i})-\frac{1}{n-1}\sum_{j\neq i}f(\bm{b}_{j})\bigg)\nabla_{\bm{\phi}}\ln p_{\bm{\phi}}(\bm{b}_{i})$}
+=1n−1​∑i=1n(f⁡(𝒃i)−1n​∑i=1nf⁡(bj))​∇ϕ​ln⁡pϕ​(𝒃i).\displaystyle\;=\frac{1}{n-1}\sum_{i=1}^{n}\bigg(f(\bm{b}_{i})-\frac{1}{n}\sum_{i=1}^{n}f(b_{j})\bigg)\nabla_{\bm{\phi}}\ln p_{\phi}(\bm{b}_{i}).
+(2)
+The latter form is simpler to implement because we can precompute the average once and subtract it for each sample. The proofs of the unbiasedness and equivalence of the two forms are known (Kool et al., 2019), but provided for completeness in Appendix A, along with all subsequent proofs.
+2.2 ARM
+The first binary estimator to use antithetic samples is ARM (Yin & Zhou, 2019), which accomplishes this by reparameterizing the gradient with the antithetic pair (u,1−u)(u,1-u). We review the univariate case below. Using the observation that ∫0p(1−2​u)​𝑑u=p⁡(1−p)\int_{0}^{p}(1-2u)du=p(1-p), they rewrite the analytical univariate gradient into the following form, which they denote as the augment-REINFORCE (AR) estimator:
+∇ϕℰ​(ϕ)=(f⁡(1)−f⁡(0))​p​(1−p)\displaystyle\nabla_{\phi}\mathcal{E}(\phi)=\big(f(1)-f(0)\big)p(1-p)
+=𝔼u[f(𝟙u<p(1−2u)]=𝔼u[gAR(u)],u∼Unif(0,1),\displaystyle=\mathbb{E}_{u}[f\big(\mathbbm{1}_{u<p}(1-2u\big)]=\mathbb{E}_{u}[g_{\text{AR}}(u)],\;u\sim\text{Unif}(0,1),
+where 𝟙a\mathbbm{1}_{a} is the indicator function having the value 1 if aa is true and 0 otherwise. Since both u,1−u∼Unif​(0,1)u,1-u\sim\text{Unif}(0,1), they average gAR​(u)g_{\text{AR}}(u) and gAR​(1−u)g_{\text{AR}}(1-u), which is still unbiased, and arrive at the univariate ARM estimator:
+𝔼u​[gARM​(u)]=𝔼u​[gAR​(u)+gAR​(1−u)]=\displaystyle\mathbb{E}_{u}[g_{\text{ARM}}(u)]=\mathbb{E}_{u}[g_{\text{AR}}(u)+g_{\text{AR}}(1-u)]=
+=12​𝔼u​[f⁡(𝟙u<p)​(1−2​u)+f⁡(𝟙(1−u)<p)​(2​u−1)]\displaystyle=\frac{1}{2}\mathbb{E}_{u}\Big[f(\mathbbm{1}_{u<p})(1-2u)+f(\mathbbm{1}_{(1-u)<p})(2u-1)\Big]
+=𝔼u​[(f⁡(𝟙u<p)−f⁡(𝟙u>1−p))​(12−u)].\displaystyle=\mathbb{E}_{u}\left[\Big(f(\mathbbm{1}_{u<p})-f(\mathbbm{1}_{u>1-p})\Big)\left(\frac{1}{2}-u\right)\right].
+2.3 DisARM
+(Dong et al., 2020) observe that although ARM reduces variance by using an antithetic pair, it also increases the variance by using a continuous reparameterization. This leads them to condition on the discretized pair (b,b′)=(𝟙u<p,𝟙1−u<p)(b,b^{\prime})=(\mathbbm{1}_{u<p},\mathbbm{1}_{1-u<p}) and integrate out uu to obtain DisARM:
+gDisARM​(b,b′)\displaystyle g_{\text{DisARM}}(b,b^{\prime})
+=𝔼u∼p⁡(u|b,b′)​[gARM​(u)]\displaystyle=\mathbb{E}_{u\sim p(u|b,b^{\prime})}[g_{\text{ARM}}(u)]
+=12​(f⁡(b)−f⁡(b′))​(b−b′)​max⁡(p,1−p).\displaystyle=\tfrac{1}{2}(f(b)-f(b^{\prime}))(b-b^{\prime})\max(p,1-p).
+This is still unbiased due to the law of total expectation: Eu​[gARM​(u)]=𝔼b,b′​[𝔼u|b,b′​[gARM​(u)]]E_{u}[g_{\text{ARM}}(u)]=\mathbb{E}_{b,b^{\prime}}\big[\mathbb{E}_{u|b,b^{\prime}}[g_{\text{ARM}}(u)]\big], and also has lower or equal variance due to the law of total variance:
+Var(gARM(u))=𝔼[Varu|b,b′(gARM(u)]+Var(𝔼u|b,b′[gARM(u)])\displaystyle\text{Var}(g_{\text{ARM}}(u))=\mathbb{E}\big[\text{Var}_{u|b,b^{\prime}}(g_{\text{ARM}}(u)\big]+\text{Var}\big(\mathbb{E}_{u|b,b^{\prime}}[g_{\text{ARM}}(u)]\big)
+≥Var​(𝔼u|b,b′​[gARM​(u)])=Var​(gDisARM​(b,b′)).\displaystyle\geq\text{Var}\big(\mathbb{E}_{u|b,b^{\prime}}[g_{\text{ARM}}(u)]\big)=\text{Var}(g_{\text{DisARM}}(b,b^{\prime})).
+2.4 Copulas
+A multivariate distribution 𝒖=(u1,…,un)∼𝒞n\bm{u}=(u_{1},...,u_{n})\sim\mathcal{C}_{n}, with marginal distributions ui∼Unif​(0,1)​∀iu_{i}\sim\text{Unif}(0,1)~\forall i is called a copula. See (Trivedi & Zimmer, 2007) for a more detailed overview. We are interested in the case where there is strong negative dependence between each pair (ui,uj)(u_{i},u_{j}). The lower Fréchet–Hoeffding copula bound puts a limit on the negative dependence:
+C⁡(u1,…,un)≥max⁡{1−n+∑i=1nui,0}.C(u_{1},\dots,u_{n})\geq\max\Big\{1-n+\sum_{i=1}^{n}u_{i},0\Big\}.
+The lower bound is a CDF only when n=2n=2, and C⁡(u1,u2)=max⁡(u1+u2−1,0)C(u_{1},u_{2})=\max(u_{1}+u_{2}-1,0) corresponds to the pair (u,1−u),u∼Unif​(0,1)(u,1-u),u\sim\text{Unif}(0,1). However for larger nn this bound is not sharp (Trivedi & Zimmer, 2007), so there are no perfectly negatively dependent copulas in higher dimensions. To generate a copula sample, the probability integral transform is frequently used:
+P​(Fx​(X)CLOSE\displaystyle P(F_{x}(X)
+OPEN<u)=P⁡(Fx−1​(Fx​(X))<Fx−1​(u))\displaystyle<u)=P(F^{-1}_{x}(F_{x}(X))<F^{-1}_{x}(u))
+=P⁡(X<Fx−1​(u))=Fx​(Fx−1​(u))=u,\displaystyle=P(X<F^{-1}_{x}(u))=F_{x}(F^{-1}_{x}(u))=u,
+(3)
+where we assumed FxF_{x} is a bijection to simplify the proof. If we know each marginal CDF Fxi​(x)F_{x_{i}}(x) of a multivariate sample 𝒙=(x1,…,xn)\bm{x}=(x_{1},...,x_{n}), then a copula sample is (Fx1​(x1),…,Fxn​(xn))\big(F_{x_{1}}(x_{1}),...,F_{x_{n}}(x_{n})\big).
+3 ARMS
+In the univariate case with n=2n=2 samples, antithetic pair estimators like (Dis)ARM have lower variance than LOORF, but we observed that even on a toy example, they are outperformed by LOORF as the number of samples rises. This motivates us to find a way to generate nn jointly antithetic samples, and use them to construct an unbiased estimator. For clarity, we first derive the univariate case of our jointly antithetic estimator, which is obtained by starting with two independent samples, extending this to two arbitrarily correlated Bernoulli samples, and then generalizing to nn samples.
+For two samples, LOORF has the following equivalent simple form, which we denote as the Product of Differences (PoD) estimator:
+gPoD​(b,b′)=12​(f⁡(b)−f⁡(b′))​(∇ϕ​ln​pϕ​(b)−∇ϕ​ln​pϕ​(b′)).\displaystyle g_{\text{PoD}}(b,b^{\prime})=\frac{1}{2}\Big(f(b)-f(b^{\prime})\Big)\Big(\nabla_{\phi}\ln p_{\phi}(b)-\nabla_{\phi}\ln p_{\phi}(b^{\prime})\Big).
+(4)
+Unless bb and b′b^{\prime} are independent, this estimator will be biased. However, when bb and b′b^{\prime} are both Bernoulli variables, we can obtain an unbiased estimator for any bivariate distribution, by using a multiplicative debiasing term. Let (b,b′)∼ℬ2​(p)(b,b^{\prime})\sim\mathcal{B}_{2}(p) denote a sample from a bivariate Bernoulli distribution with marginals b,b′∼Bern​(p)b,b^{\prime}\sim\text{Bern}(p) and Corr​(b,b′)=ρ\text{Corr}(b,b^{\prime})=\rho. In this case, gPoD​(b,b′)=(f⁡(b)−f⁡(b′)​(b−b′)/2CLOSEg_{\text{PoD}}(b,b^{\prime})=(f(b)-f(b^{\prime})(b-b^{\prime})/2, whose expectation is expressed as:
+𝔼b,b′​[gPoD​(b,b′)]=(f⁡(1)−f⁡(0))​P​(b=1,b′=0),\mathbb{E}_{b,b^{\prime}}\big[g_{\text{PoD}}(b,b^{\prime})\big]=\big(f(1)-f(0)\big)P(b=1,b^{\prime}=0),
+with the analytical gradient being ∇ϕℰ​(ϕ)=(f⁡(1)−f⁡(0))​p​(1−p)\nabla_{\phi}\mathcal{E}(\phi)=(f(1)-f(0))p(1-p). Therefore, multiplying the above expression with p⁡(1−p)/P⁡(b=1,b′=0)p(1-p)/P(b=1,b^{\prime}=0) results in an unbiased estimator for any dependence structure:
+𝔼b,b′\displaystyle\mathbb{E}_{b,b^{\prime}}
+[p⁡(1−p)P⁡(b=1,b′=0)​gPoD​(b,b′)]\displaystyle\Bigg[\frac{p(1-p)}{P(b=1,b^{\prime}=0)}g_{\text{PoD}}(b,b^{\prime})\Bigg]
+=p⁡(1−p)P⁡(b=1,b′=0)​(f⁡(1)−f⁡(0))​P​(b=1,b′=0)\displaystyle\;=\frac{p(1-p)}{P(b=1,b^{\prime}=0)}\big(f(1)-f(0)\big)P(b=1,b^{\prime}=0)
+=(f⁡(1)−f⁡(0))​p​(1−p)=∇ϕℰ​(ϕ).\displaystyle\;=\big(f(1)-f(0)\big)p(1-p)=\nabla_{\phi}\mathcal{E}(\phi).
+Lastly, note that:
+P⁡(bCLOSE\displaystyle P(b
+=1,b′=0)=p−P(b=1,b′=1)\displaystyle=1,b^{\prime}=0)=p-P(b=1,b^{\prime}=1)
+=2​(p−p⁡(1−p)​ρ−p2)=p⁡(1−p)​(1−ρ),\displaystyle=2(p-p(1-p)\rho-p^{2})=p(1-p)(1-\rho),
+which simplifies the multiplicative term to 1/(1−ρ)1/(1-\rho). We summarize the derivation with the following theorem, denoting it the Antithetic-REINFORCE-Two-Sample (ARTS) gradient estimator.
+Theorem 1.
+Let (b,b′)∼ℬ2​(σ⁡(ϕ))(b,b^{\prime})\sim\mathcal{B}_{2}(\sigma(\phi)) be a sample from a bivariate Bernoulli distribution with marginal distributions b,b′∼Bern​(σ⁡(ϕ))b,b^{\prime}\sim\text{\emph{Bern}}(\sigma(\phi)) and correlation ρ=Corr​(b,b′)\rho=\text{\emph{Corr}}(b,b^{\prime}). An unbiased estimator of ∇ϕ𝔼b​[f⁡(b)]\nabla_{\phi}\mathbb{E}_{b}[f(b)] is:
+gARTS​(b,b′,ρ)=(f⁡(b)−f⁡(b′))​b−b′2​(1−ρ).g_{\text{\emph{ARTS}}}(b,b^{\prime},\rho)=\Big(f(b)-f(b^{\prime})\Big)\frac{b-b^{\prime}}{2(1-\rho)}.
+(5)
+Using Theorem 1, we can easily derive DisARM/U2G, since it is just ARTS with a specific correlation. The antithetic pair used is:
+(b,b′)=(𝟙u<p,𝟙(1−u)<p),u∼Unif​(0,1),(b,b^{\prime})=(\mathbbm{1}_{u<p},\mathbbm{1}_{(1-u)<p}),\;u\sim\text{Unif}(0,1),
+in which case:
+P⁡(b=1CLOSE,\displaystyle P(b=1,
+b′=0)=P(u<p,1−u>p)\displaystyle b^{\prime}=0)=P(u<p,1-u>p)
+=P⁡(u<min⁡(p,1−p))=min⁡(p,1−p).\displaystyle=P(u<\min(p,1-p))=\min(p,1-p).
+The multiplicative term is p⁡(1−p)/min⁡(p,1−p)=max⁡(p,1−p)p(1-p)/\min(p,1-p)=\max(p,1-p), which results in the DisARM/U2G estimator:
+gDisARM​(b,b′)=12​(f⁡(b)−f⁡(b′))​(b−b′)​max⁡(p,1−p).\displaystyle g_{\text{DisARM}}(b,b^{\prime})=\frac{1}{2}\big(f(b)-f(b^{\prime})\big)(b-b^{\prime})\max(p,1-p).
+The next theorem shows that in the two sample case, the bivariate distribution with the lowest gradient variance uses the same pair of antithetic variables. The proof is given in Appendix A.
+Theorem 2.
+Let b,b′​∼i​i​d​Bern​(p)b,b^{\prime}\overset{iid}{\sim}\text{Bern}(p), and (b~,b~′)∼ℬ⁡(p)(\tilde{b},\tilde{b}^{\prime})\sim\mathcal{B}(p). Then:
+ρ<0⟹Var​(gARTS​(b~,b~′,ρ))<Var​(gPoD​(b,b′)).\rho<0\implies\text{Var}(g_{\text{\emph{ARTS}}}(\tilde{b},\tilde{b}^{\prime},\rho))<\text{Var}(g_{\text{\emph{PoD}}}(b,b^{\prime})).
+Furthermore, Var​(gARTS​(b~,b~′,ρ))\text{Var}(g_{\text{\emph{ARTS}}}(\tilde{b},\tilde{b}^{\prime},\rho)) is a decreasing function of ρ\rho and achieves its minimum at:
+ρmin=−min⁡(p1−p,1−pp),\rho_{\text{min}}=-\min\bigg(\frac{p}{1-p},\frac{1-p}{p}\bigg),
+with a corresponding debiasing term 1/(1−ρmin)=max​(p,1−p)1/(1-\rho_{\text{min}})=\text{max}(p,1-p). If (b,b′)=(𝟙u<p,𝟙1−u<p)(b,b^{\prime})=(\mathbbm{1}_{u<p},\mathbbm{1}_{1-u<p}), where u∼Unif​(0,1)u\sim\text{\emph{Unif}}(0,1), then Corr​(b,b′)=ρmin\text{Corr}(b,b^{\prime})=\rho_{\text{min}}.
+We now extend ARTS to nn samples. Let 𝒃=(b1,…,bn)∼ℬn​(p)\bm{b}=(b_{1},...,b_{n})\sim\mathcal{B}_{n}(p) with marginals bi∼Bern​(p)b_{i}\sim\text{Bern}(p) and correlations ρi​j=Corr​(bi,bj)\rho_{ij}=\text{Corr}(b_{i},b_{j}). If we compute gARTS​(bi,bj,ρi​j)g_{\text{ARTS}}(b_{i},b_{j},\rho_{ij}) for all (n2)\binom{n}{2} pairs and take the average, we obtain an unbiased estimator because of the linearity of expectations:
+𝔼b1,…,bn​[1n⁡(n−1)​∑i≠jgARTS​(bi,bj,ρ)]\displaystyle\mathbb{E}_{b_{1},...,b_{n}}\Bigg[\frac{1}{n(n-1)}\sum_{i\neq j}g_{\text{ARTS}}(b_{i},b_{j},\rho)\Bigg]
+=1n⁡(n−1)​∑i≠j𝔼⁡[gARTS​(bi,bj,ρ)]\displaystyle\quad=\frac{1}{n(n-1)}\sum_{i\neq j}\mathbb{E}\big[g_{\text{ARTS}}(b_{i},b_{j},\rho)\big]
+=1n⁡(n−1)​∑i≠j∇ϕℰ​(ϕ)=∇ϕℰ​(ϕ).\displaystyle\quad=\frac{1}{n(n-1)}\sum_{i\neq j}\nabla_{\phi}\mathcal{E}(\phi)=\nabla_{\phi}\mathcal{E}(\phi).
+However the computational effort required is 𝒪⁡(n2)\mathcal{O}(n^{2}), as opposed to LOORF, which is 𝒪⁡(n)\mathcal{O}(n). But if we restrict ourselves to a symmetric correlation structure, i.e.i.e., ρi​j=ρ\rho_{ij}=\rho for i≠ji\neq j, we can compute the above average in 𝒪⁡(n)\mathcal{O}(n). To show this, we will make use of the following, proved in Appendix A:
+gLOORF​(𝒃)=1n​∑i=1n(f⁡(bi)−1n​∑j=1nf⁡(bj))​∇ϕ​ln⁡p⁡(bi)\displaystyle g_{\text{LOORF}}(\bm{b})=\frac{1}{n}\sum_{i=1}^{n}\Bigg(f(b_{i})-\frac{1}{n}\sum_{j=1}^{n}f(b_{j})\Bigg)\nabla_{\phi}\ln p(b_{i})
+=1n⁡(n−1)​∑i≠j12​(f⁡(bi)−f⁡(bj))​(∇ϕ​ln​p​(bi)−∇ϕ​ln​p​(bj))\displaystyle=\frac{1}{n(n-1)}\resizebox{17183415}{}{$\displaystyle\sum_{i\neq j}\frac{1}{2}\Big(f(b_{i})-f(b_{j})\Big)\Big(\nabla_{\phi}\ln p(b_{i})-\nabla_{\phi}\ln p(b_{j})\Big)$}
+=1n⁡(n−1)​∑i≠jgPoD​(bi,bj),\displaystyle=\frac{1}{n(n-1)}\sum_{i\neq j}g_{\text{PoD}}(b_{i},b_{j}),
+(6)
+as well as the fact that gARTS​(bi,bj,ρ)=gPoD​(bi,bj)/(1−ρ)g_{\text{ARTS}}(b_{i},b_{j},\rho)=g_{\text{PoD}}(b_{i},b_{j})/(1-\rho), to obtain the ARMS estimator:
+gARMS​(𝒃,ϕ,ρ)\displaystyle g_{\text{ARMS}}(\bm{b},\phi,\rho)
+=1n⁡(n−1)​∑i≠jgARTS​(bi,bj,ρ)\displaystyle=\frac{1}{n(n-1)}\sum_{i\neq j}g_{\text{ARTS}}(b_{i},b_{j},\rho)
+=1n⁡(n−1)​∑i≠jgPoD​(bi,bj)1−ρ=gLOORF​(𝒃)1−ρ\displaystyle=\frac{1}{n(n-1)}\sum_{i\neq j}\frac{g_{\text{PoD}}(b_{i},b_{j})}{1-\rho}=\frac{g_{\text{LOORF}}(\bm{b})}{1-\rho}
+where 𝒃=(b1,…,bn)\bm{b}=(b_{1},...,b_{n}). We summarize the derivation in Theorem 3. It is clear from Eq. 6 why LOORF outperforms (Dis)ARM when the number of samples increases. It is because computing LOORF for nn samples is equivalent to averaging n⁡(n−1)/2n(n-1)/2 independent pairs, whereas (Dis)ARM uses only n/2n/2 antithetic pairs, and the antithetic variance reduction does not make up for using n−1n-1 times fewer pairs.
+Theorem 3.
+Let 𝐛~=(b~1,…,b~n)∼ℬn​(σ⁡(ϕ))\tilde{\bm{b}}=(\tilde{b}_{1},...,\tilde{b}_{n})\sim\mathcal{B}_{n}(\sigma(\phi)) be a sample from an nn-variate Bernoulli distribution with marginal distributions b~1,…,b~n∼Bern​(σ⁡(ϕ))\tilde{b}_{1},...,\tilde{b}_{n}\sim\text{\emph{Bern}}(\sigma(\phi)) and pairwise correlation ρ=Corr​(b~i,b~j),i≠j\rho=\text{Corr}(\tilde{b}_{i},\tilde{b}_{j}),i\neq j. An unbiased estimator of ∇ϕ𝔼b∼Bern​(σ​(ϕ))​[f⁡(b)]\nabla_{\phi}\mathbb{E}_{b\sim\text{\emph{Bern}}(\sigma(\phi))}\left[f(b)\right] is:
+gARMS​(𝒃~,ϕ,ρ)\displaystyle g_{\text{\emph{ARMS}}}(\tilde{\bm{b}},\phi,\rho)
+=1n−1​∑i=1n(f⁡(b~i)−1n​∑j=1nf⁡(b~j))​b~i−σ⁡(ϕ)1−ρ.\displaystyle\quad=\frac{1}{n-1}\sum_{i=1}^{n}\left(f(\tilde{b}_{i})-\frac{1}{n}\sum_{j=1}^{n}f(\tilde{b}_{j})\right)\frac{\tilde{b}_{i}-\sigma(\phi)}{1-\rho}.
+(7)
+It is simple to show that ARMS generalizes both LOORF and DisARM. For nn independent samples ρ=0\rho=0, so the debiasing term becomes 1/(1−ρ)=11/(1-\rho)=1 and the estimator reduces to LOORF. For n=2n=2 samples, it reduces to DisARM/U2G if we use an antithetic uniform pair as shown in Theorem 2.
+Although Theorem 3 shows us how to form an unbiased estimator, it does so assuming we can sample nn correlated Bernoulli variables, and that we know their common correlation ρ\rho. Therefore, to use ARMS in practice, we must find a way to sample (b1,…,bn)∼ℬn​(p)(b_{1},...,b_{n})\sim\mathcal{B}_{n}(p), and also be able to calculate ρ=Corr​(bi,bj)\rho=\text{Corr}(b_{i},b_{j}). The next section outlines two copula based approaches that satisfy both conditions, although there are other ways, whose exploration we leave for future work.
+3.1 Copula Sampling for Multivariate Bernoulli
+A copula sample can be transformed into a multivariate Bernoulli using the reparameterization b∼Bern​(p)⇔b=𝟙u<pb\sim\text{Bern}(p)\iff b=\mathbbm{1}_{u<p}, u∼Unif​(0,1)u\sim\text{Unif}(0,1). Furthermore, symmetry in the bivariate copula CDFs:
+P⁡(ui<p,uj<p)\displaystyle P(u_{i}<p,u_{j}<p)
+=P⁡(uk<p,ul<p),\displaystyle=P(u_{k}<p,u_{l}<p),
+∀i≠j,k≠l,\displaystyle\forall i\neq j,k\neq l,
+implies symmetry for the Bernoulli correlations ρi​j=ρk​l\rho_{ij}=\rho_{kl}, because 𝔼⁡[bi​bj]=P⁡(bi=1,bj=1)=P⁡(ui<p,uj<p)\mathbb{E}[b_{i}b_{j}]=P(b_{i}=1,b_{j}=1)=P(u_{i}<p,u_{j}<p). As a consequence, if we use a copula for sampling, evaluating the bivariate CDF will be required to calculate ρ\rho and different copulas will produce different correlations for each p∈[0,1]p\in[0,1]. Ideally, we want this correlation to be as low as possible for all pp. For any distribution, the lower limit for a common correlation between nn identically distributed variables is ρ=−1/(n−1)\rho=-1/(n-1), which follows from rearranging the non-negativity of the variance equation: Var​(∑i=1nbi)=n​Var​(b1)+n⁡(n−1)​ρ​Var​(b1)≥0.\text{Var}(\sum_{i=1}^{n}b_{i})=n\text{Var}(b_{1})+n(n-1)\rho\text{Var}(b_{1})\geq 0. We propose two different copulas, both of which start with maximally negatively correlated variables, and preserve most of the correlation when transformed to uniform variables.
+Algorithm 1 Antithetic Dirichlet copula sampling
+Input: Copula dimension nn
+Sample vi∼Unif​(0,1)v_{i}\sim\text{Unif}(0,1), i=1​…​ni=1\dots n
+Set: di=ln⁡(vi)/∑j=1nln⁡(vj)d_{i}=\ln(v_{i})/\sum_{j=1}^{n}\ln(v_{j})
+Invert back to uniform: u~i=1−(1−di)n−1\tilde{u}_{i}=1-(1-d_{i})^{n-1}
+return: (u~1,…,u~n)(\tilde{u}_{1},...,\tilde{u}_{n}), (1−u~1,…,1−u~n)(1-\tilde{u}_{1},...,1-\tilde{u}_{n})
+3.1.1 Dirichlet Copula
+The first of two sampling approaches for ARMS is a Dirichlet copula, since a sample from the Dirichlet distribution exhibits perfect negative dependence, which means the correlation between any pair of elements in the vector is the lower bound 1/(n−1)1/(n-1). This makes it a suitable candidate, provided we can transform the marginal distributions to uniform, and can compute the bivariate CDF. Both conditions are possible if we restrict ourselves to the uniform Dirichlet density 𝒅∼Dir​(𝟏n)\bm{d}\sim\text{Dir}(\bm{1}_{n}). In this case, the marginal CDFs of 𝒅\bm{d} and 𝟏−𝒅\bm{1}-\bm{d} have closed form solutions Fdi​(x)=1−(1−x)n−1F_{d_{i}}(x)=1-(1-x)^{n-1} and F1−di​(x)=(1−x)n−1F_{1-d_{i}}(x)=(1-x)^{n-1}, respectively (Ng et al., 2011). Applying Eq. 3 results in two different copula samples:
+𝒖~\displaystyle\tilde{\bm{u}}
+=(u~1,…,u~n),u~i=1−(1−di)n−1\displaystyle=(\tilde{u}_{1},...,\tilde{u}_{n}),\quad\tilde{u}_{i}=1-(1-d_{i})^{n-1}
+𝒖~′\displaystyle\tilde{\bm{u}}^{\prime}
+=(u~1′,…,u~n′),u~i′=(1−di)n−1=1−u~i,\displaystyle=(\tilde{u}_{1}^{\prime},...,\tilde{u}_{n}^{\prime}),\quad\tilde{u}_{i}^{\prime}=(1-d_{i})^{n-1}=1-\tilde{u}_{i},
+with the full procedure summarized in Algorithm 1. This satisfies the sampling requirement, since given 𝒖~\tilde{\bm{u}}, a multivariate Bernoulli sample is 𝒃~=(b~1,…,b~n)\tilde{\bm{b}}=(\tilde{b}_{1},...,\tilde{b}_{n}), where b~i=𝟙u~i<p\tilde{b}_{i}=\mathbbm{1}_{\tilde{u}_{i}<p}. The bivariate CDF, necessary for calculating ρ=Corr​(b~i,b~j)\rho=\text{Corr}(\tilde{b}_{i},\tilde{b}_{j}), also has a closed form solution:
+P⁡(u~i<p,u~j<p)\displaystyle P(\tilde{u}_{i}<p,\tilde{u}_{j}<p)
+=P⁡(di<q,dj<q)\displaystyle=P(d_{i}<q,d_{j}<q)
+=2​p−1+\displaystyle=2p-1+
+max⁡(0,2​(1−p)1/(n−1)−1)n−1\displaystyle\max(0,2(1-p)^{1/(n-1)}-1)^{n-1}
+P⁡(u~i′<p,u~j′<p)\displaystyle P(\tilde{u}_{i}^{\prime}<p,\tilde{u}_{j}^{\prime}<p)
+=max⁡(0,2​p1/(n−1)−1)n−1,\displaystyle=\max(0,2p^{1/(n-1)}-1)^{n-1},
+(8)
+where q=1−(1−p)1/(n−1)q=1-(1-p)^{1/(n-1)}. We summarize the Dirichlet copula approach with the following theorem, with the full derivation given in Appendix B.
+Theorem 4.
+Let 𝐮~,𝐮~′\tilde{\bm{u}},\tilde{\bm{u}}^{\prime} be the samples produced by the Dirichlet copula in Algorithm 1. If:
+𝒃~\displaystyle\tilde{\bm{b}}
+=(b~1,…,b~n),b~i=𝟙u~i<p\displaystyle=(\tilde{b}_{1},...,\tilde{b}_{n}),\quad\tilde{b}_{i}=\mathbbm{1}_{\tilde{u}_{i}<p}
+𝒃~′\displaystyle\tilde{\bm{b}}^{\prime}
+=(b~1′,…,b~n′),b~i′=𝟙u~i′<p,\displaystyle=(\tilde{b}_{1}^{\prime},...,\tilde{b}_{n}^{\prime}),\quad\tilde{b}_{i}^{\prime}=\mathbbm{1}_{\tilde{u}^{\prime}_{i}<p},
+then 𝐛~,𝐛~′∼ℬn​(p)\tilde{\bm{b}},\tilde{\bm{b}}^{\prime}\sim\mathcal{B}_{n}(p) are samples from an nn-variate Bernoulli distribution with common pairwise correlations:
+ρ\displaystyle\rho
+=max⁡(0,2​(1−p)1n−1−1)n−1−(1−p)2p⁡(1−p)\displaystyle=\frac{\max(0,2(1-p)^{\frac{1}{n-1}}-1)^{n-1}-(1-p)^{2}}{p(1-p)}
+ρ′\displaystyle\rho^{\prime}
+=max⁡(0,2​p1/(n−1)−1)n−1−p2p⁡(1−p).\displaystyle=\frac{\max(0,2p^{1/(n-1)}-1)^{n-1}-p^{2}}{p(1-p)}.
+Lastly, although Corr​(u~i,u~j)=Corr​(u~i′,u~j′)\text{Corr}(\tilde{u}_{i},\tilde{u}_{j})=\text{Corr}(\tilde{u}^{\prime}_{i},\tilde{u}^{\prime}_{j}), their bivariate CDFs are different, and we observed that if p>0.5p>0.5, then Corr​(b~i,b~j)<Corr​(b~i′,b~j′)\text{Corr}(\tilde{b}_{i},\tilde{b}_{j})<\text{Corr}(\tilde{b}^{\prime}_{i},\tilde{b}^{\prime}_{j}) (and vice versa). Therefore, in our experiments we use 𝒖~\tilde{\bm{u}} when p>0.5p>0.5 and 𝒖~′\tilde{\bm{u}}^{\prime} when p<0.5p<0.5. We illustrate the different Bernoulli correlations of each copula as a function of pp in Fig. 1, along with a lower bound of the lower bound for symmetric Bernoulli variables (Hoernig, 2018).
+Figure 1: Correlations ρ=Corr​(bi,bj)\rho=\text{Corr}(b_{i},b_{j}) for p∈[0,1]p\in[0,1], when using different copulas to sample a five dimensional multivariate Bernoulli 𝒃∼ℬ5​(p)\bm{b}\sim\mathcal{B}_{5}(p), along with the bound in (Hoernig, 2018).
+3.1.2 Antithetic Gaussian Copula
+Algorithm 2 Antithetic Gaussian copula sampling
+Input: copula dimension nn
+For i,j=1,…,ni,j=1,...,n, set:
+(𝝆)i​j={−1/(n−1),i≠j1,otherwise(\bm{\rho})_{ij}=\begin{cases}-1/(n-1)&,i\neq j\\
+1&,\text{otherwise}\end{cases}
+Sample 𝒙∼𝒩⁡(0,𝝆)\bm{x}\sim\mathcal{N}(0,\bm{\rho})
+Invert back to uniform: u~i=Φ⁡(xi)i=1​…​n\tilde{u}_{i}=\Phi(x_{i})\quad i=1\dots n
+return: u~1,…,u~n\tilde{u}_{1},...,\tilde{u}_{n}
+An alternative sampling method for nn dependent uniform variables is the widely used Gaussian copula, Let 𝒙∼𝒩⁡(0,𝝆)\bm{x}\sim\mathcal{N}(0,\bm{\rho}) denote a sample from an nn-variate Gaussian, and denote Φ⁡(x)\Phi(x) to be the univariate Gaussian CDF. From Eq 3, by applying the CDF to each dimension of 𝒙\bm{x}, the result is a Gaussian copula sample: 𝒖=(Φ⁡(x1),…​Φ​(xn))\bm{u}=(\Phi(x_{1}),...\Phi(x_{n})). Since we are interested in mutually antithetic samples, we use the correlation matrix ρi​j=−1/(n−1),i≠j\rho_{ij}=-1/(n-1),i\neq j. We summarize the sampling procedure in Algorithm 2. The antithetic Gaussian copula can also be recovered from the Dirichlet copula, where ∀i,αi=α\forall i,\alpha_{i}=\alpha, and α→∞\alpha\to\infty, in which case the distribution becomes a multivariate Gaussian with the same common negative correlation. Although neither the univariate nor bivariate CDF have a closed form, all commonly used deep learning packages contain numerical approximations for both, which we make use of in our experiments.
+3.2 ARMS for the Multivariate Case
+Let 𝒃∼p⁡(𝒃|ϕ)=∏d=1mpϕd​(bd)\bm{b}\sim p(\bm{b}\,|\,\bm{\phi})=\prod_{d=1}^{m}p_{\phi^{d}}(b^{d}) denote a mm-dimensional factorized Bernoulli sample with probabilities σ⁡(ϕ)=(σ⁡(ϕ1),…,σ⁡(ϕm))\sigma(\bm{\phi})=(\sigma(\bm{\phi}_{1}),...,\sigma(\bm{\phi}_{m})), such that bd∼Bern​(σ⁡(ϕd))=pϕd​(b)b^{d}\sim\text{Bern}(\sigma(\bm{\phi}^{d}))=p_{\bm{\phi}^{d}}(b), and let 𝒃−d=(b1,…,bd−1,bd+1,…,bm)\bm{b}^{-d}=(b_{1},...,b_{d-1},b_{d+1},...,b_{m}). We sample nn correlated Bernoulli variables for each dimension:
+𝒃~d=(b~1d,…,b~nd)∼ℬn(σ(ϕd)),d=1,…,m,\tilde{\bm{b}}^{d}=(\tilde{b}_{1}^{d},...,\tilde{b}_{n}^{d})\sim\mathcal{B}_{n}(\sigma(\bm{\phi}^{d})),\quad d=1,...,m,
+with 𝝆d=Corr​(𝒃~id,𝒃~jd),i≠j\bm{\rho}^{d}=\text{Corr}(\tilde{\bm{b}}^{d}_{i},\tilde{\bm{b}}^{d}_{j}),i\neq j being the pairwise correlations. Focusing on the dthd^{\text{th}} dimension, we have:
+∇ϕd𝔼pϕ​(𝒃)​[f⁡(𝒃)]=𝔼𝒃−d​[∇ϕd𝔼bd​[f⁡(𝒃−d,bd)]]\displaystyle\nabla_{\bm{\phi}^{d}}\mathbb{E}_{p_{\bm{\phi}}(\bm{b})}\left[f(\bm{b})\right]=\mathbb{E}_{\bm{b}^{-d}}\left[\nabla_{\bm{\phi}^{d}}\mathbb{E}_{b^{d}}\left[f(\bm{b}^{-d},b^{d})\right]\right]
+=𝔼𝒃−d[𝔼𝒃~d[1n−1​∑i=1n(f⁡(𝒃−d,b~id)CLOSE−1n∑j=1nf(𝒃−d,b~jd))b~id−σ⁡(ϕd)1−𝝆d]].\displaystyle\begin{aligned} =\mathbb{E}_{\bm{b}^{-d}}\Bigg[\mathbb{E}_{\tilde{\bm{b}}^{d}}\Bigg[&\frac{1}{n-1}\sum_{i=1}^{n}\Bigg(f(\bm{b}^{-d},\tilde{b}_{i}^{d})\\
+&-\frac{1}{n}\sum_{j=1}^{n}f(\bm{b}^{-d},\tilde{b}_{j}^{d})\Bigg)\frac{\tilde{b}_{i}^{d}-\sigma(\bm{\phi}^{d})}{1-\bm{\rho}^{d}}\Bigg]\Bigg].\end{aligned}
+Replacing 𝒃−d\bm{b}^{-d} by the already sampled 𝒃~i−d\tilde{\bm{b}}_{i}^{-d}, we have:
+𝔼𝒃~1,…,𝒃~m[1n−1​∑i=1n(f⁡(𝒃~i−d,b~id)CLOSE−1n∑j=1nf(𝒃~−dj,b~jd))b~id−σ⁡(ϕd)1−𝝆d]\displaystyle\begin{aligned} \mathbb{E}_{\tilde{\bm{b}}^{1},...,\tilde{\bm{b}}^{m}}\Bigg[&\frac{1}{n-1}\sum_{i=1}^{n}\Bigg(f(\tilde{\bm{b}}^{-d}_{i},\tilde{b}_{i}^{d})\\
+&-\frac{1}{n}\sum_{j=1}^{n}f(\tilde{\bm{b}}^{-d}_{j},\tilde{b}_{j}^{d})\Bigg)\frac{\tilde{b}_{i}^{d}-\sigma(\bm{\phi}^{d})}{1-\bm{\rho}^{d}}\Bigg]\end{aligned}
+=𝔼𝒃~1,…,𝒃~m[1n−1​∑i=1n(f⁡(𝒃~i)CLOSE−1n∑j=1nf(𝒃~j))b~id−σ⁡(ϕd)1−𝝆d],\displaystyle\begin{aligned} =\mathbb{E}_{\tilde{\bm{b}}^{1},...,\tilde{\bm{b}}^{m}}\Bigg[&\frac{1}{n-1}\sum_{i=1}^{n}\Bigg(f(\tilde{\bm{b}}_{i})\\
+&-\frac{1}{n}\sum_{j=1}^{n}f(\tilde{\bm{b}}_{j})\Bigg)\frac{\tilde{b}_{i}^{d}-\sigma(\bm{\phi}^{d})}{1-\bm{\rho}^{d}}\Bigg],\end{aligned}
+where 𝒃~i=(𝒃~i1,…,𝒃~im)\tilde{\bm{b}}_{i}=(\tilde{\bm{b}}_{i}^{1},...,\tilde{\bm{b}}_{i}^{m}), i.e. the ithi^{\text{th}} sample from each dimension. The multivariate ARMS estimator is then:
+gARMS​(𝒃~1,…,𝒃~n,ϕ,𝝆)\displaystyle g_{\text{ARMS}}(\tilde{\bm{b}}_{1},...,\tilde{\bm{b}}_{n},\bm{\phi},\bm{\rho})
+=1n−1​∑i=1n(f⁡(𝒃~i)−1n​∑j=1nf⁡(𝒃~j))​𝒃~i−σ⁡(ϕ)1−𝝆,\displaystyle\quad=\frac{1}{n-1}\sum_{i=1}^{n}\Bigg(f(\tilde{\bm{b}}_{i})-\frac{1}{n}\sum_{j=1}^{n}f(\tilde{\bm{b}}_{j})\Bigg)\frac{\tilde{\bm{b}}_{i}-\sigma(\bm{\phi})}{1-\bm{\rho}},
+where just like the univariate case, we only need nn evaluations of ff regardless of the number of dimensions mm.
+3.3 ARMS for the Multi Sample Variational Bound
+In variational inference, a commonly optimized objective of the form of Eq. 1 is the ELBO (Jordan et al., 1998), a tractable lower bound of the marginal likelihood:
+ℒELBO=𝔼qϕ​(𝒃|𝒙)​[ln⁡p𝜽​(𝒃,𝒙)−ln⁡qϕ​(𝒃|𝒙)]≤ln⁡p⁡(𝒙).\mathcal{L}_{\text{ELBO}}=\mathbb{E}_{q_{\bm{\phi}}(\bm{b}|\bm{x})}[\ln p_{\bm{\theta}}(\bm{b},\bm{x})-\ln q_{\bm{\phi}}(\bm{b}|\bm{x})]\leq\ln p(\bm{x}).
+If we use multiple independent samples 𝒃1,…,𝒃n\bm{b}_{1},...,\bm{b}_{n}, with qϕ​(𝒃|𝒙)=∏k=1nqϕ​(𝒃k|𝒙)q_{\bm{\phi}}(\bm{b}|\bm{x})=\prod_{k=1}^{n}q_{\bm{\phi}}(\bm{b}_{k}|\bm{x}) (Burda et al., 2016) show that we can form a tighter bound:
+ℒn=𝔼qϕ​(𝒃|𝒙)​[ln⁡(1n​∑k=1nr⁡(𝒃k))],r⁡(𝒃k)=p𝜽​(𝒃k,𝒙)qϕ​(𝒃k|𝒙),\mathcal{L}_{n}=\mathbb{E}_{q_{\bm{\phi}}(\bm{b}|\bm{x})}\Bigg[\ln\Bigg(\frac{1}{n}\sum_{k=1}^{n}r(\bm{b}_{k})\Bigg)\Bigg],\;r(\bm{b}_{k})=\frac{p_{\bm{\theta}}(\bm{b}_{k},\bm{x})}{q_{\bm{\phi}}(\bm{b}_{k}|\bm{x})},
+and proved that ℒELBO≤ℒn≤ℒn+1≤ln⁡p⁡(𝒙)\mathcal{L}_{\text{ELBO}}\leq\mathcal{L}_{n}\leq\mathcal{L}_{n+1}\leq\ln p(\bm{x}). The multi sample bound depends non-linearly on each sample due to the logarithm inside the expectation, which means replacing the nn i.i.d. samples with dependent ones changes the objective. For example, if we let 𝒃1=…=𝒃n=𝒃\bm{b}_{1}=...=\bm{b}_{n}=\bm{b}, then instead of ℒn\mathcal{L}_{n}, we obtain:
+𝔼𝒃∼qϕ​(𝒃|𝒙)​[ln⁡1n​∑i=1nr⁡(𝒃)]=𝔼𝒃∼qϕ​(𝒃|𝒙)​[ln⁡r⁡(𝒃)]=ℒ1.\resizebox{21705675}{}{$\displaystyle\mathbb{E}_{\bm{b}\sim q_{\bm{\phi}}(\bm{b}|\bm{x})}\left[\ln\frac{1}{n}\sum_{i=1}^{n}r(\bm{b})\right]=\mathbb{E}_{\bm{b}\sim q_{\bm{\phi}}(\bm{b}|\bm{x})}\Big[\ln r(\bm{b})\Big]=\mathcal{L}_{1}$}.
+However, we can still use ARMS to create a local baseline for each sample if we draw nn additional correlated samples. Let 𝒃1,..,𝒃n\bm{b}_{1},..,\bm{b}_{n} denote the i.i.d. samples and 𝒃~1,..,𝒃~n\tilde{\bm{b}}_{1},..,\tilde{\bm{b}}_{n} the correlated samples. Define f⁡(𝒃)=ln⁡(1n​∑k=1nr⁡(𝒃k))f(\bm{b})=\ln\left(\frac{1}{n}\sum_{k=1}^{n}r(\bm{b}_{k})\right), and f𝒃−k​(𝒃k)=ln⁡(1n​(∑l≠kr⁡(𝒃l)+r⁡(𝒃k)))f_{\bm{b}_{-k}}(\bm{b}_{k})=\ln\left(\frac{1}{n}\big(\sum_{l\neq k}r(\bm{b}_{l})+r(\bm{b}_{k})\big)\right). Because the samples are i.i.d., the gradient can be written as:
+∇ϕ𝔼𝒃​[f⁡(𝒃)]=𝔼𝒃​[f⁡(𝒃)​∇ϕ​ln​∏k=1nqϕ​(𝒃k|𝒙)]=\displaystyle\nabla_{\bm{\phi}}\mathbb{E}_{\bm{b}}[f(\bm{b})]=\mathbb{E}_{\bm{b}}\Big[f(\bm{b})\nabla_{\bm{\phi}}\ln\prod_{k=1}^{n}q_{\bm{\phi}}(\bm{b}_{k}|\bm{x})\Big]=
+=∑k=1n𝔼𝒃​[f⁡(𝒃)​∇ϕ​ln⁡qϕ​(𝒃k|𝒙)]=\displaystyle=\sum_{k=1}^{n}\mathbb{E}_{\bm{b}}\Big[f(\bm{b})\nabla_{\bm{\phi}}\ln q_{\bm{\phi}}(\bm{b}_{k}|\bm{x})\Big]=
+=∑k=1n𝔼𝒃−k​[𝔼𝒃k​[f𝒃−k​(𝒃k)​∇ϕ​ln⁡qϕ​(𝒃k|𝒙)]]\displaystyle=\sum_{k=1}^{n}\mathbb{E}_{\bm{b}_{-k}}\Bigg[\mathbb{E}_{\bm{b}_{k}}\Big[f_{\bm{b}_{-k}}(\bm{b}_{k})\nabla_{\bm{\phi}}\ln q_{\bm{\phi}}(\bm{b}_{k}|\bm{x})\Big]\Bigg]
+=∑k=1n𝔼𝒃−k[𝔼𝒃~1,..,𝒃~n[1n−1∑i=1n(f𝒃−k(𝒃~i)\displaystyle=\sum_{k=1}^{n}\mathbb{E}_{\bm{b}_{-k}}\Bigg[\mathbb{E}_{\tilde{\bm{b}}_{1},..,\tilde{\bm{b}}_{n}}\bigg[\frac{1}{n-1}\sum_{i=1}^{n}\Big(f_{\bm{b}_{-k}}(\tilde{\bm{b}}_{i})
+−1n∑j=1nf𝒃−k(𝒃~j))𝒃~i−σ⁡(ϕ)1−𝝆]],\displaystyle\hskip 80.00012pt-\frac{1}{n}\sum_{j=1}^{n}f_{\bm{b}_{-k}}(\tilde{\bm{b}}_{j})\Big)\frac{\tilde{\bm{b}}_{i}-\sigma(\bm{\phi})}{1-\bm{\rho}}\bigg]\Bigg],
+where in the last line we replaced the inner expectation, which is just REINFORCE w.r.t. 𝒃k\bm{b}_{k}, with the ARMS estimator. Note that we can precompute r⁡(𝒃1),…,r⁡(𝒃n)r(\bm{b}_{1}),...,r(\bm{b}_{n}) and r⁡(𝒃~1),…,r⁡(𝒃~n)r(\tilde{\bm{b}}_{1}),...,r(\tilde{\bm{b}}_{n}) for a total of 2​n2n function evaluations, which is the same number required by DisARM for optimizing the same nn sample bound, and the number required by VIMCO for the 2​n2n sample bound, which is the what we compare to in the experiments.
+Figure 2: Variance of the gradients of each estimator for the toy problem across a range of values of ϕ\phi. The top and bottom row correspond to using n∈{2,4,6,8}n\in\{2,4,6,8\} and n∈{10,20,50,100}n\in\{10,20,50,100\} samples, respectively, at each gradient step. The variance is estimated using 1000 Monte Carlo samples per step.
+Figure 3: Training a nonlinear discrete VAE on Fashion MNIST using the ELBO. Columns correspond to n∈{4,6,8,10}n\in\{4,6,8,10\} samples used per step, respectively. Rows correspond to the training ELBO, test log likelihood, and the variance of the gradient updates averaged over all parameters. Results for different datasets and other networks can be found in Appendix D.
+Table 1: Final training ELBO of VAEs using different estimators. Results are reported on three datasets: Dynamic MNIST, Fashion MNIST, and Omniglot, and for 4, 6, 8, and 10 samples, with the best performing methods in bold.
+Samples
+ARMS-D
+ARMS-N
+LOORF
+DisARM
+RELAX
+Dynamic MNIST
+Linear
+4
+-112.13 ± 0.10
+-111.96 ± 0.09
+-112.32 ± 0.04
+-113.26 ± 0.05
+-112.98 ± 0.25
+6
+-111.03 ± 0.02
+-110.89 ± 0.07
+-110.99 ± 0.07
+-112.11 ± 0.03
+-111.46 ± 0.06
+8
+-110.30 ± 0.04
+-110.62 ± 0.06
+-110.42 ± 0.04
+-111.78 ± 0.07
+-110.58 ± 0.01
+10
+-110.08 ± 0.05
+-110.14 ± 0.09
+-110.17 ± 0.04
+-111.08 ± 0.11
+-110.17 ± 0.09
+Nonlinr
+4
+-98.65 ± 0.16
+-98.97 ± 0.13
+-98.62 ± 0.05
+-100.45 ± 0.16
+-100.52 ± 0.08
+6
+-98.53 ± 0.13
+-97.87 ± 0.01
+-98.14 ± 0.18
+-99.28 ± 0.11
+-99.17 ± 0.17
+8
+-97.90 ± 0.12
+-97.89 ± 0.10
+-98.14 ± 0.21
+-98.69 ± 0.21
+-98.80 ± 0.02
+10
+-97.64 ± 0.06
+-97.32 ± 0.11
+-97.50 ± 0.29
+-98.62 ± 0.12
+-98.69 ± 0.07
+Fashion MNIST
+Linear
+4
+-252.56 ± 0.11
+-252.69 ± 0.06
+-252.71 ± 0.09
+-254.02 ± 0.05
+-253.53 ± 0.06
+6
+-251.94 ± 0.13
+-251.73 ± 0.05
+-252.03 ± 0.08
+-252.97 ± 0.06
+-252.31 ± 0.14
+8
+-251.32 ± 0.11
+-251.11 ± 0.23
+-251.41 ± 0.10
+-252.57 ± 0.05
+-251.36 ± 0.08
+10
+-251.29 ± 0.02
+-251.08 ± 0.08
+-251.26 ± 0.03
+-251.75 ± 0.21
+-251.16 ± 0.06
+Nonlinr
+4
+-235.65 ± 0.12
+-235.75 ± 0.06
+-235.80 ± 0.07
+-236.54 ± 0.06
+-236.77 ± 0.03
+6
+-235.47 ± 0.19
+-235.36 ± 0.08
+-235.70 ± 0.13
+-235.94 ± 0.05
+-236.20 ± 0.25
+8
+-235.41 ± 0.10
+-235.19 ± 0.14
+-235.40 ± 0.13
+-235.62 ± 0.16
+-235.70 ± 0.14
+10
+-235.18 ± 0.11
+-235.32 ± 0.05
+-235.59 ± 0.01
+-235.60 ± 0.09
+-235.46 ± 0.19
+Omniglot
+Linear
+4
+-118.25 ± 0.08
+-118.27 ± 0.05
+-118.41 ± 0.07
+-119.24 ± 0.17
+-118.75 ± 0.08
+6
+-117.62 ± 0.01
+-117.62 ± 0.04
+-117.75 ± 0.08
+-118.47 ± 0.12
+-117.90 ± 0.03
+8
+-117.60 ± 0.05
+-117.66 ± 0.12
+-117.74 ± 0.10
+-118.41 ± 0.10
+-117.71 ± 0.02
+10
+-117.03 ± 0.09
+-116.99 ± 0.04
+-117.21 ± 0.08
+-117.70 ± 0.01
+-117.13 ± 0.05
+Nonlinr
+4
+-112.09 ± 0.27
+-112.03 ± 0.12
+-112.20 ± 0.26
+-113.24 ± 0.16
+-114.08 ± 0.35
+6
+-111.50 ± 0.06
+-111.39 ± 0.10
+-111.26 ± 0.15
+-112.30 ± 0.05
+-113.71 ± 0.13
+8
+-110.91 ± 0.04
+-111.01 ± 0.06
+-110.85 ± 0.35
+-111.82 ± 0.09
+-113.64 ± 0.10
+10
+-110.66 ± 0.05
+-110.79 ± 0.26
+-110.79 ± 0.20
+-111.33 ± 0.19
+-114.00 ± 0.10
+4 Experimental Results
+Figure 4: Training a linear discrete VAE on Dynamic MNIST using the multi sample bound. Columns correspond to n∈{4,6,8,10}n\in\{4,6,8,10\} samples used per step, respectively. Rows correspond to the training multi sample bound, test log likelihood, and the variance of the gradient updates averaged over all parameters. Results for different datasets and other networks can be found in Appendix D.
+First, to illustrate the benefit of jointly antithetic samples, we compare ARMS, using either a Dirichlet (ARMS-D) or Gaussian copula (ARMS-N), to ARM, DisARM, and LOORF on the following toy problem (Tucker et al., 2017), where the task is to maximize:
+ℰ⁡(ϕ)=𝔼b​[(b−0.499)2],b∼Bern​(σ⁡(ϕ)),\mathcal{E}(\phi)=\mathbb{E}_{b}[(b-0.499)^{2}],\quad b\sim\text{Bern}(\sigma(\phi)),
+with the optimal solution being σ⁡(ϕ)=1\sigma(\phi)=1. We run the analysis for n∈{2,4,6,8,10,20,50,100}n\in\{2,4,6,8,10,20,50,100\} samples per gradient step, using an even number to ensure a fair comparison to methods that can only use pairs. Figure 3 shows the variance of the gradient of each estimator as the optimization progresses from σ⁡(ϕ)=0.1\sigma(\phi)=0.1 to σ⁡(ϕ)=0.9\sigma(\phi)=0.9, which takes approximately 20,000 steps. Both ARMS-D and ARMS-N have significantly lower variance for almost all values of ϕ\phi, but the Dirichlet copula appears to have lower variance, except for a narrow range near σ⁡(ϕ)=0.5\sigma(\phi)=0.5. Interestingly, the variance reduction for both is still large even for n=10n=10 samples, when the correlation between each Bernoulli pair in the sample cannot be larger than −1/9-1/9.
+4.1 ELBO Based Discrete VAE
+Our experimental setup follows the one in Yin & Zhou (2019) and Dong et al. (2020), and all VAE experiments are built on top of the available DisARM code. For this task, we compare ARMS-D and ARMS-N to DisARM/U2G, LOORF, and RELAX. We omit ARM, since it is outperformed by DisARM/U2G, as shown in both Yin et al. (2020) and Dong et al. (2020). All estimators optimize the ELBO of a variational autoencoder (VAE) (Kingma & Welling, 2014), a commonly used method for generative modelling. The comparison is done on three different benchmark datasets: dynamically binarized MNIST, Fashion MNIST, and Omniglot, with each dataset split into the training, validation, and test sets. For each dataset we use either a linear or nonlinear encoder decoder pairs, with n∈{4,6,8,10}n\in\{4,6,8,10\} samples per gradient step. When n=2n=2, both copulas reduce to DisARM/U2G, for which our experiments mirrored the results found in Dong et al. (2020), so we omit this case. All results are reported based on five independent runs.
+The implementation details are the following: each VAE contains a stochastic binary layer with 200 units, with two types of encoder-decoder pairs used: linear or nonlinear. The nonlinear network has two hidden layers of 200 units each, using LeakyReLU (Maas et al., 2013) activations with a coefficient of 0.3. Adam (Kingma & Ba, 2015) with a learning rate of 1​e−41e^{-4} was used to optimize the network parameters, and SGD with learning rate 1​e−21e^{-2} for the prior distribution logits. The optimization is run for 10610^{6} steps with mini batches of size 50. For RELAX, the scaling factor is initialized to 1, the temperature to 0.1, and the control variate is a neural network with one hidden layer of 137 units using LeakyReLU activations. The only data preprocessing includes subtracting the global mean of the dataset from each image. All the models were trained on a K40 Nvidia GPU and Intel Xeon E5-2680 processor.
+In Fig. 3, we plot the train ELBO, test log likelihood, and variance, for a nonlinear network trained on Fashion MNIST. The variance at each step is an average of the gradient variance of all networks parameters. The same visualization for the other datasets and linear networks can be found in Appendix D. In Table 1, we report the average of five final training ELBO results for all estimators on the three datasets, both types of networks, and different number of samples. The corresponding test log likelihood table can be found in Appendix D, with the performance gaps between methods being similar. ARMS consistently outperforms the state of the art and using either the Dirichlet and Gaussian copula appears to have no discernible difference. For linear networks, RELAX is competitive, thought not for nonlinear networks. LOORF generally appears to be a strong overlooked estimator that closely tails the performance of ARMS, indicating that it is beneficial to use all samples when creating a baseline, unlike pair based methods.
+Table 2: Final train multi sample bound of a Discrete VAE trained with different estimators. Results are averaged over five runs, with the best performing methods in bold.
+Samples
+ARMS
+DisARM
+VIMCO
+Dynamic MNIST
+Linear
+4
+-112.31 ± 0.05
+-113.26 ± 0.05
+-113.07 ± 0.14
+6
+-111.73 ± 0.04
+-112.11 ± 0.03
+-112.23 ± 0.27
+8
+-110.62 ± 0.13
+-111.78 ± 0.07
+-111.10 ± 0.27
+10
+-110.30 ± 0.07
+-111.08 ± 0.11
+-110.69 ± 0.20
+Nonlinr
+4
+-98.00 ± 0.02
+-100.45 ± 0.16
+-98.07 ± 0.06
+6
+-96.63 ± 0.15
+-99.28 ± 0.11
+-96.91 ± 0.12
+8
+-96.17 ± 0.09
+-98.69 ± 0.21
+-96.49 ± 0.04
+10
+-95.27 ± 0.10
+-98.62 ± 0.12
+-95.77 ± 0.03
+Fashion MNIST
+Linear
+4
+-252.24 ± 0.18
+-254.02 ± 0.05
+-252.75 ± 0.06
+6
+-251.40 ± 0.01
+-252.97 ± 0.06
+-251.64 ± 0.19
+8
+-250.68 ± 0.15
+-252.57 ± 0.05
+-250.78 ± 0.04
+10
+-250.54 ± 0.04
+-251.75 ± 0.21
+-250.67 ± 0.12
+Nonlinr
+4
+-234.69 ± 0.10
+-236.54 ± 0.06
+-234.71 ± 0.20
+6
+-233.68 ± 0.15
+-235.94 ± 0.05
+-233.72 ± 0.45
+8
+-233.05 ± 0.02
+-235.62 ± 0.16
+-233.40 ± 0.08
+10
+-232.74 ± 0.05
+-235.60 ± 0.09
+-233.21 ± 0.07
+Omniglot
+Linear
+4
+-119.23 ± 0.04
+-119.24 ± 0.17
+-120.16 ± 0.06
+6
+-118.50 ± 0.23
+-118.47 ± 0.12
+-119.07 ± 0.08
+8
+-118.40 ± 0.09
+-118.02 ± 0.08
+-118.49 ± 0.11
+10
+-118.19 ± 0.03
+-117.70 ± 0.01
+-118.35 ± 0.14
+Nonlinr
+4
+-111.56 ± 0.10
+-113.24 ± 0.16
+-111.72 ± 0.18
+6
+-110.51 ± 0.06
+-112.30 ± 0.05
+-110.62 ± 0.08
+8
+-109.76 ± 0.10
+-111.82 ± 0.09
+-109.84 ± 0.01
+10
+-109.35 ± 0.01
+-111.33 ± 0.19
+-109.53 ± 0.06
+4.2 Multi Sample Bound Based Discrete VAE
+For the multi sample bound objective, we compare the multi sample version of ARMS using a Dirichlet copula to VIMCO (Mnih & Rezende, 2016), an estimator tailored to this objective, and the multi sample version of DisARM (Dong et al., 2020). To ensure a fair comparison, all three estimators use the same number of function evaluations, which means VIMCO optimizes the nn-sample bound, whereas ARMS and DisARM optimize the n2\frac{n}{2}-sample bound. All the experimental details are otherwise identical to Section 4.1. We show training plots over time in Fig. 4. To be able to compare the variance, we average two nn-sample bound VIMCO estimates instead, so that the objective optimized is the same. The average of five final train multi sample bounds are shown in Table 2, for each dataset, both types of networks and different number of samples. Similarly to the ELBO case, ARMS outperforms both VIMCO and DisARM, regardless of the dataset, the type of network, or the number of samples.
+5 Conclusion
+To optimize the parameters of Bernoulli variables in expectation-based objectives, we proposed ARMS, an unbiased, low-variance gradient estimator based on nn jointly antithetic samples. Also presented are two ways of generating nn jointly antithetic Bernoulli samples, based on a Dirichlet copula and a Gaussian copula, respectively. For n=2n=2 samples, both copulas produce the same antithetic used by DisARM/U2G. ARMS also generalizes LOORF, which can be obtained by using nn independent samples. As shown by the experiments, when training a variational autoencoder using either the ELBO or the multi-sample bound, ARMS outperforms both estimators based on multiple independent samples, and the ones based on pairs of antithetic samples. There are several potential avenues of future work. We showcase two different ways of sampling nn jointly antithetic Bernoulli variables using either a Dirichlet or Gaussian copula, but there could be better ways, not necessarily based on copulas. Another promising direction is extending ARMS to categorical variables, which has been done for ARM to arrive at ARSM (Yin et al., 2019). Lastly, we optimized the multi sample bound with i.i.d. samples for fair comparison, but using antithetic samples is also a lower bound of the marginal likelihood, albeit a different bound.
+Acknowledgements
+We thank the authors of DisARM for publicly releasing their code. We also acknowledge the computational support of the Texas Advanced Computing Center, and we thank the reviewers for their thoughtful feedback.
+References
+Bengio et al. (2013)
+Bengio, Y., Léonard, N., and Courville, A.
+Estimating or propagating gradients through stochastic neurons for
+conditional computation.
+arXiv preprint arXiv:1308.3432, 2013.
+Burda et al. (2016)
+Burda, Y., Grosse, R. B., and Salakhutdinov, R.
+Importance weighted autoencoders.
+In 4th International Conference on Learning Representations,
+ICLR, 2016.
+Dong et al. (2020)
+Dong, Z., Mnih, A., and Tucker, G.
+Disarm: An antithetic gradient estimator for binary latent variables.
+In Advances in Neural Information Processing Systems 33, 2020.
+Fu (2006)
+Fu, M. C.
+Gradient estimation.
+Handbooks in operations research and management science,
+13:575–616, 2006.
+Glynn (1990)
+Glynn, P. W.
+Likelihood ratio gradient estimation for stochastic systems.
+Communications of the ACM, 33(10):75–84,
+1990.
+Grathwohl et al. (2018)
+Grathwohl, W., Choi, D., Wu, Y., Roeder, G., and Duvenaud, D.
+Backpropagation through the void: Optimizing control variates for
+black-box gradient estimation.
+In 6th International Conference on Learning Representations,
+ICLR, 2018.
+Gu et al. (2016)
+Gu, S., Levine, S., Sutskever, I., and Mnih, A.
+Muprop: Unbiased backpropagation for stochastic neural networks.
+In Bengio, Y. and LeCun, Y. (eds.), 4th International
+Conference on Learning Representations, ICLR, 2016.
+Hoernig (2018)
+Hoernig, S.
+On the minimum correlation between symmetrically distributed random
+variables.
+Operations Research Letters, 46(4):469–471, 2018.
+Jang et al. (2017)
+Jang, E., Gu, S., and Poole, B.
+Categorical reparameterization with gumbel-softmax.
+In 5th International Conference on Learning Representations,
+ICLR. OpenReview.net, 2017.
+Jordan et al. (1998)
+Jordan, M. I., Ghahramani, Z., Jaakkola, T. S., and Saul, L. K.
+An introduction to variational methods for graphical models.
+In Learning in graphical models, pp. 105–161. Springer,
+1998.
+Kingma & Ba (2015)
+Kingma, D. P. and Ba, J.
+Adam: A method for stochastic optimization.
+In Bengio, Y. and LeCun, Y. (eds.), 3rd International
+Conference on Learning Representations, ICLR, 2015.
+Kingma & Welling (2014)
+Kingma, D. P. and Welling, M.
+Auto-encoding variational bayes.
+In Bengio, Y. and LeCun, Y. (eds.), 2nd International
+Conference on Learning Representations, ICLR, 2014.
+Kool et al. (2019)
+Kool, W., van Hoof, H., and Welling, M.
+Buy 4 REINFORCE samples, get a baseline for free!
+In Workshop, Deep Reinforcement Learning Meets Structured
+Prediction, ICLR, 2019.
+Kucukelbir et al. (2017)
+Kucukelbir, A., Tran, D., Ranganath, R., Gelman, A., and Blei, D. M.
+Automatic differentiation variational inference.
+The Journal of Machine Learning Research, 18(1):430–474, 2017.
+Lorberbom et al. (2019)
+Lorberbom, G., Jaakkola, T. S., Gane, A., and Hazan, T.
+Direct optimization through arg max for discrete variational
+auto-encoder.
+In Wallach, H. M., Larochelle, H., Beygelzimer, A.,
+d’Alché-Buc, F., Fox, E. B., and Garnett, R. (eds.), Advances
+in Neural Information Processing Systems 32, pp. 6200–6211, 2019.
+Maas et al. (2013)
+Maas, A. L., Hannun, A. Y., and Ng, A. Y.
+Rectifier nonlinearities improve neural network acoustic models.
+In ICML Workshop on Deep Learning for Audio, Speech and
+Language Processing. Citeseer, 2013.
+Maddison et al. (2017)
+Maddison, C. J., Mnih, A., and Teh, Y. W.
+The concrete distribution: A continuous relaxation of discrete
+random variables.
+In 5th International Conference on Learning Representations,
+ICLR. OpenReview.net, 2017.
+Mnih & Gregor (2014)
+Mnih, A. and Gregor, K.
+Neural variational inference and learning in belief networks.
+In International Conference on Machine Learning, pp. 1791–1799. PMLR, 2014.
+Mnih & Rezende (2016)
+Mnih, A. and Rezende, D. J.
+Variational inference for monte carlo objectives.
+In Proceedings of the 33nd International Conference on Machine
+Learning, ICML, volume 48, pp. 2188–2196. JMLR.org, 2016.
+Mohamed et al. (2020)
+Mohamed, S., Rosca, M., Figurnov, M., and Mnih, A.
+Monte carlo gradient estimation in machine learning.
+J. Mach. Learn. Res., 21:132:1–132:62, 2020.
+Ng et al. (2011)
+Ng, K. W., Tian, G.-L., and Tang, M.-L.
+Dirichlet and related distributions: Theory, methods and
+applications, volume 888.
+John Wiley & Sons, 2011.
+Owen (2013)
+Owen, A. B.
+Monte carlo theory, methods and examples.
+,, 2013.
+Paisley et al. (2012)
+Paisley, J. W., Blei, D. M., and Jordan, M. I.
+Variational bayesian inference with stochastic search.
+In Proceedings of the 29th International Conference on Machine
+Learning, ICML, 2012.
+Ranganath et al. (2014)
+Ranganath, R., Gerrish, S., and Blei, D.
+Black box variational inference.
+In Artificial intelligence and statistics, pp. 814–822.
+PMLR, 2014.
+Ren et al. (2019)
+Ren, H., Zhao, S., and Ermon, S.
+Adaptive antithetic sampling for variance reduction.
+In International Conference on Machine Learning, pp. 5420–5428. PMLR, 2019.
+Rezende et al. (2014)
+Rezende, D. J., Mohamed, S., and Wierstra, D.
+Stochastic backpropagation and approximate inference in deep
+generative models.
+In International conference on machine learning, pp. 1278–1286. PMLR, 2014.
+Rosca et al. (2019)
+Rosca, M., Figurnov, M., Mohamed, S., and Mnih, A.
+Measure-valued derivatives for approximate bayesian inference.
+4th workshop on Bayesian Deep Learning, NeurIPS, 2019.
+Ruiz et al. (2016)
+Ruiz, F. J. R., Titsias, M. K., and Blei, D. M.
+The generalized reparameterization gradient.
+In Lee, D. D., Sugiyama, M., von Luxburg, U., Guyon, I., and Garnett,
+R. (eds.), Advances in Neural Information Processing Systems 29, pp. 460–468, 2016.
+Salimans & Knowles (2014)
+Salimans, T. and Knowles, D. A.
+On using control variates with stochastic approximation for
+variational bayes and its connection to stochastic linear regression.
+arXiv preprint arXiv:1401.1022, 2014.
+Titsias & Lázaro-Gredilla (2015)
+Titsias, M. and Lázaro-Gredilla, M.
+Local expectation gradients for black box variational inference.
+In Advances in neural information processing systems, pp. 2620–2628. Citeseer, 2015.
+Trivedi & Zimmer (2007)
+Trivedi, P. K. and Zimmer, D. M.
+Copula modeling: an introduction for practitioners.
+., 2007.
+Tucker et al. (2017)
+Tucker, G., Mnih, A., Maddison, C. J., Lawson, D., and Sohl-Dickstein, J.
+REBAR: low-variance, unbiased gradient estimates for discrete
+latent variable models.
+In Advances in Neural Information Processing Systems 30, pp. 2627–2636, 2017.
+Williams (1992)
+Williams, R. J.
+Simple statistical gradient-following algorithms for connectionist
+reinforcement learning.
+Machine learning, 8(3-4):229–256, 1992.
+Wu et al. (2019)
+Wu, M., Goodman, N., and Ermon, S.
+Differentiable antithetic sampling for variance reduction in
+stochastic variational inference.
+In The 22nd International Conference on Artificial Intelligence
+and Statistics, pp. 2877–2886. PMLR, 2019.
+Yin & Zhou (2019)
+Yin, M. and Zhou, M.
+ARM: augment-reinforce-merge gradient for stochastic binary
+networks.
+In 7th International Conference on Learning Representations,
+ICLR, 2019.
+Yin et al. (2019)
+Yin, M., Yue, Y., and Zhou, M.
+ARSM: augment-reinforce-swap-merge estimator for gradient
+backpropagation through categorical variables.
+In Chaudhuri, K. and Salakhutdinov, R. (eds.), Proceedings of
+the 36th International Conference on Machine Learning, volume 97, pp. 7095–7104. PMLR, 2019.
+Yin et al. (2020)
+Yin, M., Ho, N., Yan, B., Qian, X., and Zhou, M.
+Probabilistic Best Subset Selection by Gradient-Based Optimization.
+arXiv e-prints, 2020.
+Appendix
+Appendix A Proofs
+Eq 2. LOORF unbiasedness and alternate form
+It is easy to see that for independent samples LOORF is unbiased, because 𝔼⁡[∇ϕ​ln​p​(b)]=0\mathbb{E}[\nabla_{\phi}\ln p(b)]=0. Using the linearity property of expectations and the fact that for independent variables 𝔼⁡[X​Y]=𝔼⁡[X]​𝔼​[Y]\mathbb{E}[XY]=\mathbb{E}[X]\mathbb{E}[Y], we have:
+𝔼⁡[(f⁡(bi)−1n−1​∑j≠if⁡(bj))​∇ϕ​ln⁡p⁡(bi)]\displaystyle\mathbb{E}\Bigg[\bigg(f(b_{i})-\frac{1}{n-1}\sum_{j\neq i}f(b_{j})\bigg)\nabla_{\phi}\ln p(b_{i})\Bigg]
+=𝔼⁡[f⁡(bi)​∇ϕ​ln⁡p⁡(bi)]−1n−1​∑j≠i𝔼⁡[f⁡(bj)]​𝔼​[∇ϕ​ln​p​(bi)]\displaystyle=\mathbb{E}\big[f(b_{i})\nabla_{\phi}\ln p(b_{i})\big]-\frac{1}{n-1}\sum_{j\neq i}\mathbb{E}\big[f(b_{j})\big]\mathbb{E}[\nabla_{\phi}\ln p(b_{i})\big]
+=𝔼⁡[f⁡(bi)​∇ϕ​ln⁡p⁡(bi)]=∇ϕℰ​(ϕ).\displaystyle=\mathbb{E}\big[f(b_{i})\nabla_{\phi}\ln p(b_{i})\big]=\nabla_{\bm{\phi}}\mathcal{E}(\bm{\phi}).
+The alternate form of LOORF is useful because we can easily calculate the mean and subtract it from each sample. For the ithi^{\text{th}} sample, we have:
+(f⁡(bi)−1n−1​∑j≠if⁡(bj))​∇ϕ​ln⁡p⁡(bi)=nn−1​(n−1n​f​(bi)−1n​∑j≠if⁡(bj))​∇ϕ​ln⁡p⁡(bi)\displaystyle\Bigg(f(b_{i})-\frac{1}{n-1}\sum_{j\neq i}f(b_{j})\Bigg)\nabla_{\phi}\ln p(b_{i})=\frac{n}{n-1}\Bigg(\frac{n-1}{n}f(b_{i})-\frac{1}{n}\sum_{j\neq i}f(b_{j})\Bigg)\nabla_{\phi}\ln p(b_{i})
+=nn−1​((1−1n)​f​(bi)−1n​∑j≠if⁡(bj))​∇ϕ​ln⁡p⁡(bi)=nn−1​(f⁡(bi)−1n​∑i=1nf⁡(bj))​∇ϕ​ln⁡p⁡(bi).\displaystyle=\frac{n}{n-1}\Bigg(\Big(1-\frac{1}{n}\Big)f(b_{i})-\frac{1}{n}\sum_{j\neq i}f(b_{j})\Bigg)\nabla_{\phi}\ln p(b_{i})=\frac{n}{n-1}\Bigg(f(b_{i})-\frac{1}{n}\sum_{i=1}^{n}f(b_{j})\Bigg)\nabla_{\phi}\ln p(b_{i}).
+Eq 4. PoD for binary variables
+First, we show that LOORF for n=2n=2 samples is indeed PoD:
+gloorf​(b1,b2)\displaystyle g_{\text{loorf}}(b_{1},b_{2})
+=12​((f⁡(b1)−f⁡(b2))​(∇ϕ​ln​p​(b1))+(f⁡(b2)−f⁡(b1))​(∇ϕ​ln​p​(b2)))\displaystyle=\frac{1}{2}\bigg(\big(f(b_{1})-f(b_{2})\big)(\nabla_{\phi}\ln p(b_{1}))+\big(f(b_{2})-f(b_{1})\big)(\nabla_{\phi}\ln p(b_{2}))\bigg)
+=12​(f⁡(b1)−f⁡(b2))​(∇ϕ​ln​p​(b1)−∇ϕ​ln​p​(b2))=gpod​(b1,b2).\displaystyle=\frac{1}{2}\big(f(b_{1})-f(b_{2})\big)\big(\nabla_{\phi}\ln p(b_{1})-\nabla_{\phi}\ln p(b_{2})\big)=g_{\text{pod}}(b_{1},b_{2}).
+When both variables are Bern(pp), the score function is ∇ϕ​ln​pϕ​(b)=b−σ⁡(ϕ)\nabla_{\phi}\ln p_{\phi}(b)=b-\sigma(\phi), which simplifies the estimator:
+gpod​(b,b′)=(f⁡(b)−f⁡(b′))​(b−σ⁡(ϕ)−b′+σ⁡(ϕ))=(f⁡(b)−f⁡(b′))​(b−b′).\displaystyle g_{\text{pod}}(b,b^{\prime})=\big(f(b)-f(b^{\prime})\big)\big(b-\sigma(\phi)-b^{\prime}+\sigma(\phi)\big)=\big(f(b)-f(b^{\prime})\big)\big(b-b^{\prime}\big).
+For the expected value, first note that symmetric marginals P⁡(b=1)=P⁡(b′=1)P(b=1)=P(b^{\prime}=1) imply:
+P⁡(b=1,b′=0)=P⁡(b=1)−P⁡(b=1,b′=1)=P⁡(b′=1)−P⁡(b=1,b′=1)=P⁡(b=0,b′=1),\displaystyle P(b=1,b^{\prime}=0)=P(b=1)-P(b=1,b^{\prime}=1)=P(b^{\prime}=1)-P(b=1,b^{\prime}=1)=P(b=0,b^{\prime}=1),
+and also that the estimator is zero when b=b′b=b^{\prime}. With these two things in mind, we have:
+𝔼⁡[gpod​(b,b′)]\displaystyle\mathbb{E}\big[g_{\text{pod}}(b,b^{\prime})\big]
+=12​P​(b=1,b′=0)​(f⁡(1)−f⁡(0))​(1−0)+12​P​(b=0,b′=1)​(f⁡(0)−f⁡(1))​(0−1)\displaystyle=\frac{1}{2}P(b=1,b^{\prime}=0)\big(f(1)-f(0)\big)(1-0)+\frac{1}{2}P(b=0,b^{\prime}=1)\big(f(0)-f(1)\big)(0-1)
+=12​(P⁡(b=1,b′=0)+P⁡(b=0,b′=1))​(f⁡(1)−f⁡(0))=(f⁡(1)−f⁡(0))​P​(b=1,b′=0).\displaystyle=\frac{1}{2}\big(P(b=1,b^{\prime}=0)+P(b=0,b^{\prime}=1)\big)\big(f(1)-f(0)\big)=\big(f(1)-f(0)\big)P(b=1,b^{\prime}=0).
+If bb and b′b^{\prime} are independent P⁡(b=1,b′=0)=p⁡(1−p)P(b=1,b^{\prime}=0)=p(1-p), which indeed coincides with the analytical gradient:
+∇ϕℰ​(ϕ)\displaystyle\nabla_{\phi}\mathcal{E}(\phi)
+=∇ϕ𝔼​[f⁡(b)]=∇ϕ(σ⁡(ϕ)​f​(1)+(1−σ⁡(ϕ))​f​(0))=σ⁡(ϕ)​(1−σ⁡(ϕ))​f​(1)−σ⁡(ϕ)​(1−σ⁡(ϕ))​f​(0)\displaystyle=\nabla_{\phi}\mathbb{E}[f(b)]=\nabla_{\phi}\Big(\sigma(\phi)f(1)+(1-\sigma(\phi))f(0)\Big)=\sigma(\phi)(1-\sigma(\phi))f(1)-\sigma(\phi)(1-\sigma(\phi))f(0)
+=(f⁡(1)−f⁡(0))​σ​(ϕ)​(1−σ⁡(ϕ))=(f⁡(1)−f⁡(0))​p​(1−p),\displaystyle=\big(f(1)-f(0)\big)\sigma(\phi)(1-\sigma(\phi))=\big(f(1)-f(0)\big)p(1-p),
+where we used the fact that ∇ϕσ​(ϕ)=σ⁡(ϕ)​(1−σ⁡(ϕ))\nabla_{\phi}\sigma(\phi)=\sigma(\phi)(1-\sigma(\phi)).
+Theorem 2. Variance of ARTS
+The easiest way to compare the variance of ARTS to PoD is to just compute both. Define Δ​f=f⁡(1)−f⁡(0)\Delta f=f(1)-f(0), and the shorthand for the true gradient: ∇ϕ=∇ϕℰ​(ϕ)=Δ​f​p​(1−p)\nabla_{\phi}=\nabla_{\phi}\mathcal{E}(\phi)=\Delta fp(1-p). Since ARTS reduces to PoD for ρ=0\rho=0, and we know their expected values (∇ϕ\nabla_{\phi}), the variance is:
+𝔼⁡[garts2]=𝔼⁡[(12​(f⁡(b)−f⁡(b′))​(b−b′))2​(2​p​(1−p)P⁡(b≠b′))2]=1P⁡(b≠b′)​(Δ​f​p​(1−p))2=∇ϕ2P⁡(b≠b′)\displaystyle\mathbb{E}\big[g_{\text{arts}}^{2}\big]=\mathbb{E}\Bigg[\bigg(\frac{1}{2}\big(f(b)-f(b^{\prime})\big)(b-b^{\prime})\bigg)^{2}\bigg(\frac{2p(1-p)}{P(b\neq b^{\prime})}\bigg)^{2}\Bigg]=\frac{1}{P(b\neq b^{\prime})}\big(\Delta fp(1-p)\big)^{2}=\frac{\nabla_{\phi}^{2}}{P(b\neq b^{\prime})}
+⟹Var​(garts2)=𝔼⁡[garts2]−𝔼​[garts]2=∇2(1P⁡(b≠b′)−1).\displaystyle\implies\text{Var}(g_{\text{arts}}^{2})=\mathbb{E}\big[g_{\text{arts}}^{2}\big]-\mathbb{E}\big[g_{\text{arts}}\big]^{2}=\nabla^{2}\bigg(\frac{1}{P(b\neq b^{\prime})}-1\bigg).
+Rewriting this using the correlation will make the relationship clear:
+11−ρ=2​p​(1−p)P⁡(b≠b′)\displaystyle\frac{1}{1-\rho}=\frac{2p(1-p)}{P(b\neq b^{\prime})}
+⟹1P⁡(b≠b′)=12​p​(1−p)​(1−ρ)\displaystyle\implies\frac{1}{P(b\neq b^{\prime})}=\frac{1}{2p(1-p)(1-\rho)}
+ρ<0⟹2​p​(1−p)​(1−ρ)>2​p​(1−p)\displaystyle\rho<0\implies 2p(1-p)(1-\rho)>2p(1-p)
+⟹12​p​(1−p)​(1−ρ)<12​p​(1−p),\displaystyle\implies\frac{1}{2p(1-p)(1-\rho)}<\frac{1}{2p(1-p)},
+which implies, for ρ<0\rho<0:
+Var​(garts2)=∇2(12​p​(1−p)​(1−ρ)−1)<∇2(12​p​(1−p)−1)=Var​(gpod2).\displaystyle\text{Var}(g_{\text{arts}}^{2})=\nabla^{2}\bigg(\frac{1}{2p(1-p)(1-\rho)}-1\bigg)<\nabla^{2}\bigg(\frac{1}{2p(1-p)}-1\bigg)=\text{Var}(g_{\text{pod}}^{2}).
+It is clear from above that the variance is an increasing (typo in original paper) function of ρ\rho, and the lowest value it can achieve is the lower limit on a correlation of two Bernoulli variables. This depends on maximizing the probability P⁡(b=1,b′=0)P(b=1,b^{\prime}=0) as seen below, for which we have: P⁡(b=1,b′=0)≤P⁡(b=1)P(b=1,b^{\prime}=0)\leq P(b=1) as well as P⁡(b=1,b′=0)≤P⁡(b′=0)P(b=1,b^{\prime}=0)\leq P(b^{\prime}=0), which implies P⁡(b=1,b′=0)≤min⁡(p,1−p)P(b=1,b^{\prime}=0)\leq\min(p,1-p). Putting it all together:
+ρ=P⁡(b=1,b′=1)−p2p⁡(1−p)=p−P⁡(b=1,b′=0)−p2p⁡(1−p)=p−min⁡(p,1−p)−p2p⁡(1−p)=−min⁡(p1−p,1−pp).\displaystyle\rho=\frac{P(b=1,b^{\prime}=1)-p^{2}}{p(1-p)}=\frac{p-P(b=1,b^{\prime}=0)-p^{2}}{p(1-p)}=\frac{p-\min(p,1-p)-p^{2}}{p(1-p)}=-\min\bigg(\frac{p}{1-p},\frac{1-p}{p}\bigg).
+The lower limit is achieved when P⁡(b=1,b′=0)=P⁡(u⁡<p,(1−u)>​p)=P⁡(u<p,u<(1−p))=min⁡(p,1−p)P(b=1,b^{\prime}=0)=P(u<p,(1-u)>p)=P(u<p,u<(1-p))=\min(p,1-p), with u∼Unif​(0,1)u\sim\text{Unif}(0,1), which corresponds to the DisARM/U2G sampling method. Lastly, the debiasing term is:
+11−ρ=p⁡(1−p)P⁡(b=1,b′=0)=p⁡(1−p)min⁡(p,1−p)=max⁡(p,1−p)\displaystyle\frac{1}{1-\rho}=\frac{p(1-p)}{P(b=1,b^{\prime}=0)}=\frac{p(1-p)}{\min(p,1-p)}=\max(p,1-p)
+Eq 6. LOORF is all PoD pairs
+gloorf​(CLOSE\displaystyle g_{\text{loorf}}(
+OPEN𝒃)=1n​∑i=1n(f⁡(𝒃i)−1n−1​∑j≠if⁡(𝒃j))​∇ϕ​ln⁡p⁡(𝒃i)=1n​∑i=1nf⁡(𝒃i)​∇ϕ​ln⁡p⁡(𝒃i)−1n⁡(n−1)​∑i=1n∇ϕ​ln​p​(𝒃i)​∑j≠if⁡(𝒃j)\displaystyle\bm{b})=\frac{1}{n}\sum_{i=1}^{n}\left(f(\bm{b}_{i})-\frac{1}{n-1}\sum_{j\neq i}f(\bm{b}_{j})\right)\nabla_{\bm{\phi}}\ln p(\bm{b}_{i})=\frac{1}{n}\sum_{i=1}^{n}f(\bm{b}_{i})\nabla_{\bm{\phi}}\ln p(\bm{b}_{i})-\frac{1}{n(n-1)}\sum_{i=1}^{n}\nabla_{\bm{\phi}}\ln p(\bm{b}_{i})\sum_{j\neq i}f(\bm{b}_{j})
+=1n⁡(n−1)​∑i≠j(f⁡(𝒃i)​∇ϕ​ln⁡p⁡(𝒃i)−f⁡(𝒃i)​∇ϕ​ln⁡p⁡(𝒃j))=1n⁡(n−1)​∑i≠j12​(f⁡(𝒃i)−f⁡(𝒃j))​(∇ϕ​ln​p​(𝒃i)−∇ϕ​ln​p​(𝒃j))\displaystyle=\frac{1}{n(n-1)}\sum_{i\neq j}\Big(f(\bm{b}_{i})\nabla_{\bm{\phi}}\ln p(\bm{b}_{i})-f(\bm{b}_{i})\nabla_{\bm{\phi}}\ln p(\bm{b}_{j})\Big)=\frac{1}{n(n-1)}\sum_{i\neq j}\frac{1}{2}(f(\bm{b}_{i})-f(\bm{b}_{j}))(\nabla_{\bm{\phi}}\ln p(\bm{b}_{i})-\nabla_{\bm{\phi}}\ln p(\bm{b}_{j}))
+=1n⁡(n−1)​∑i≠jgpod​(bi,bj).\displaystyle=\frac{1}{n(n-1)}\sum_{i\neq j}g_{\text{pod}}(b_{i},b_{j}).
+Appendix B Theorem 4. Dirichlet Copula Derivation
+The two things we need to derive are the univariate and bivariate CDF. For both, we will make use of the Dirichlet aggregation property (Ng et al., 2011): if 𝒅=(d1,…,dn)∼Dir​(𝜶)\bm{d}=(d_{1},...,d_{n})\sim\text{Dir}(\bm{\alpha}), where 𝜶=(α1,..,αn)\bm{\alpha}=(\alpha_{1},..,\alpha_{n}), then:
+(d1,…,di+dj,…,dn)∼Dir​(α1,…,αi+αj,…,αn).(d_{1},...,d_{i}+d_{j},...,d_{n})\sim\text{Dir}(\alpha_{1},...,\alpha_{i}+\alpha_{j},...,\alpha_{n}).
+This is easily seen to be true from the Gamma sampling procedure:
+gi∼Gamma​(αi,θ),di=gi∑jgj⟹(d1,…,dn)∼Dir​(α1,…,αn),\displaystyle g_{i}\sim\text{Gamma}(\alpha_{i},\theta),\;d_{i}=\frac{g_{i}}{\sum_{j}g_{j}}\;\implies\;(d_{1},...,d_{n})\sim\text{Dir}(\alpha_{1},...,\alpha_{n}),
+because adding any two elements has no influence on the distribution of the others, and the fact that gi+gj∼Gamma​(αi+αj,1)g_{i}+g_{j}\sim\text{Gamma}(\alpha_{i}+\alpha_{j},1).
+B.1 Univariate CDF
+Using the aggregation property, we see that the marginal distribution of did_{i} is:
+(di,∑j≠idj)∼Dir​(αi,∑j≠iαj)=Beta​(αi,∑j≠iαj).(d_{i},\sum_{j\neq i}d_{j})\sim\text{Dir}(\alpha_{i},\sum_{j\neq i}\alpha_{j})=\text{Beta}(\alpha_{i},\sum_{j\neq i}\alpha_{j}).
+The CDF of the Beta distribution is the regularized incomplete Beta function Ix​(a,b)I_{x}(a,b), which has a simple closed form value when a=1a=1 or b=1b=1:
+Ix​(a,b)=B⁡(x,a,b)B⁡(a,b)=∫0xta−1​(1−t)b−1​𝑑t∫01ta−1​(1−t)b−1​𝑑t,Ix​(1,b)=1−(1−x)b,Ix​(a,1)=xa.I_{x}(a,b)=\frac{B(x,a,b)}{B(a,b)}=\frac{\int_{0}^{x}t^{a-1}(1-t)^{b-1}dt}{\int_{0}^{1}t^{a-1}(1-t)^{b-1}dt},\quad I_{x}(1,b)=1-(1-x)^{b},\quad I_{x}(a,1)=x^{a}.
+Since 1−di∼Beta​(∑j≠iαj,αi)1-d_{i}\sim\text{Beta}(\sum_{j\neq i}\alpha_{j},\alpha_{i}), given a sample 𝒅∼Dir​(𝟏n)\bm{d}\sim\text{Dir}(\bm{1}_{n}) we can obtain two different copula samples using the probability integral transform from Eq. 3. If 𝜶=𝟏n\bm{\alpha}=\bm{1}_{n}, then the two marginal CDFs are Ix​(1,n−1)I_{x}(1,n-1) and Ix​(n−1,1)I_{x}(n-1,1) for did_{i} and 1−di1-d_{i}, respectively.
+B.2 Bivariate CDF
+The bivariate CDF is necessary for calculating ρ=Corr​(b~i,b~j)\rho=\text{Corr}(\tilde{b}_{i},\tilde{b}_{j}) because:
+ρ=E⁡[bi​bj]−p2p⁡(1−p)=P⁡(bi=1,bj=1−p2CLOSEp⁡(1−p)=P⁡(u~i<p,u~j<p)−p2p⁡(1−p).\displaystyle\rho=\frac{E[b_{i}b_{j}]-p^{2}}{p(1-p)}=\frac{P(b_{i}=1,b_{j}=1-p^{2}}{p(1-p)}=\frac{P(\tilde{u}_{i}<p,\tilde{u}_{j}<p)-p^{2}}{p(1-p)}.
+The transformation u~i=1−(1−di)n−1\tilde{u}_{i}=1-(1-d_{i})^{n-1} implies di=1−(1−u~i)1n−1d_{i}=1-(1-\tilde{u}_{i})^{\frac{1}{n-1}}, which makes the unknown term:
+P⁡(u~i<p,u~j<p)=P⁡(di<1−(1−p)1/(n−1),dj<1−(1−p)1/(n−1)),\displaystyle P(\tilde{u}_{i}<p,\tilde{u}_{j}<p)=P(d_{i}<1-(1-p)^{1/(n-1)},d_{j}<1-(1-p)^{1/(n-1)}),
+so the calculation reduces to finding the bivariate Dirichlet distribution of (di,dj)(d_{i},d_{j}). Using the aggregation property again, the density of (di,dj)(d_{i},d_{j}) is equivalent in both of these cases:
+(d1,…,di,…,dj,…,dn)∼Dir​(α1,…,αi,…,αj,…,αn)⇔(di,dj,∑k≠i,jdk)∼Dir​(αi,αj,∑k≠i,jαk).\displaystyle(d_{1},...,d_{i},...,d_{j},...,d_{n})\sim\text{Dir}(\alpha_{1},...,\alpha_{i},...,\alpha_{j},...,\alpha_{n})\;\iff\;(d_{i},d_{j},\sum_{k\neq i,j}d_{k})\sim\text{Dir}(\alpha_{i},\alpha_{j},\sum_{k\neq i,j}\alpha_{k}).
+When 𝜶=𝟏n\bm{\alpha}=\bm{1}_{n}, the density of Dir​(1,1,n−2)\text{Dir}(1,1,n-2) is: f⁡(x,y)=(n−1)​(n−2)​(1−x−y)n−3f(x,y)=(n-1)(n-2)(1-x-y)^{n-3}. Note that P⁡(x<a,y<b)=P⁡(x>a,y>b)−1+P⁡(x<a)+P⁡(y<b)P(x<a,y<b)=P(x>a,y>b)-1+P(x<a)+P(y<b), so we can equivalently solve for the survival function P⁡(x>a,y>b)P(x>a,y>b). Let a=b=q=1−(1−p)1/(n−1)a=b=q=1-(1-p)^{1/(n-1)}. To calculate the survival function P⁡(x>q,y>q)P(x>q,y>q) we need to be careful about the limits of integration. The conditions are:
+q<x<1,q<y<1,y<1−x,x<1−q⟹q<y<1−x,q<x<1−q.q<x<1,\quad q<y<1,\quad y<1-x,\quad x<1-q\quad\implies\quad q<y<1-x,\quad q<x<1-q.
+The last condition implies q<1−q⟹1−2​q>0q<1-q\implies 1-2q>0. When this holds, the integral becomes:
+∫p1−q\displaystyle\int_{p}^{1-q}
+∫p1−x(n−1)(n−2)(1−x−y)n−3dydx=(n−1)(n−2)∫p1−q−(1−x−y)n−2n−2|y=q1−xdx\displaystyle\int_{p}^{1-x}(n-1)(n-2)(1-x-y)^{n-3}dydx=(n-1)(n-2)\int_{p}^{1-q}-\frac{(1-x-y)^{n-2}}{n-2}\Bigg|_{y=q}^{1-x}dx
+=(n−1)​∫q1−q(1−x−q)n−2​𝑑x=−(n−1)​(1−x−q)n−1n−1|x=q1−q=(1−2​q)n−1.\displaystyle=(n-1)\int_{q}^{1-q}(1-x-q)^{n-2}dx=-(n-1)\frac{(1-x-q)^{n-1}}{n-1}\Bigg|_{x=q}^{1-q}=(1-2q)^{n-1}.
+Therefore, P⁡(x>q,y>q)=max⁡(1−2​q,0)n−1P(x>q,y>q)=\max(1-2q,0)^{n-1}, which implies P⁡(u~i′<p,u~j′<p)=max⁡(0,2​p1/(n−1)−1)n−1P(\tilde{u}^{\prime}_{i}<p,\tilde{u}^{\prime}_{j}<p)=\max(0,2p^{1/(n-1)}-1)^{n-1}. For the other copula uniforms 𝒖~=1−𝒖~′\tilde{\bm{u}}=1-\tilde{\bm{u}}^{\prime}, we have:
+P⁡(ui<p,uj<p)\displaystyle P(u_{i}<p,u_{j}<p)
+=P(1−u~i<p,1−u~j<p)=P(u~i>1−p,u~j>1−p)\displaystyle=P(1-\tilde{u}_{i}<p,1-\tilde{u}_{j}<p)=P(\tilde{u}_{i}>1-p,\tilde{u}_{j}>1-p)
+=1−P⁡(u~i<1−p)−P⁡(u~j<1−p)+P⁡(u~i<1−p,u~j<1−p)\displaystyle=1-P(\tilde{u}_{i}<1-p)-P(\tilde{u}_{j}<1-p)+P(\tilde{u}_{i}<1-p,\tilde{u}_{j}<1-p)
+=2​p−1+max⁡(0,2​(1−p)1/(n−1)−1).\displaystyle=2p-1+\max(0,2(1-p)^{1/(n-1)}-1).
+Putting it all together:
+P⁡(u~i<p,u~j<p)\displaystyle P(\tilde{u}_{i}<p,\tilde{u}_{j}<p)
+=2​p−1+max⁡(0,2​(1−p)1/(n−1)−1)n−1\displaystyle=2p-1+\max(0,2(1-p)^{1/(n-1)}-1)^{n-1}\;
+⟹ρ=max⁡(0,2​(1−p)1n−1−1)n−1−(1−p)2p⁡(1−p)\displaystyle\implies\;\rho=\frac{\max(0,2(1-p)^{\frac{1}{n-1}}-1)^{n-1}-(1-p)^{2}}{p(1-p)}
+P⁡(u~i′<p,u~j′<p)\displaystyle P(\tilde{u}_{i}^{\prime}<p,\tilde{u}_{j}^{\prime}<p)
+=max⁡(0,2​p1/(n−1)−1)n−1\displaystyle=\max(0,2p^{1/(n-1)}-1)^{n-1}\;
+⟹ρ′=max⁡(0,2​p1/(n−1)−1)n−1−p2p⁡(1−p).\displaystyle\implies\;\rho^{\prime}=\frac{\max(0,2p^{1/(n-1)}-1)^{n-1}-p^{2}}{p(1-p)}.
+Appendix C Dirichlet Copula Joint Density
+To use the Dirichlet copula it is not necessary to know the joint densities of 𝒖~\tilde{\bm{u}} or 𝒖~′\tilde{\bm{u}}^{\prime}, but it is possible to derive either of them using the multivariate change of variables theorem pU​(u1,…,un)=|det​(J)|​pD​(d1,…,dn)p_{U}(u_{1},\dots,u_{n})=|\text{det}(J)|p_{D}(d_{1},\dots,d_{n}), where |det​(J)||\text{det}(J)| denotes the absolute value of the determinant of the Jacobian, whose elements are Ji​j=∂di/∂ujJ_{ij}=\partial d_{i}/\partial u_{j}.
+For ease of notation denote the copula sample 𝒖=𝒖~′\bm{u}=\tilde{\bm{u}}^{\prime}, which uses the elementwise transformation ui=f⁡(di)=(1−di)n−1u_{i}=f(d_{i})=(1-d_{i})^{n-1}, with inverse di=f−1​(ui)=1−ui1/(n−1)d_{i}=f^{-1}(u_{i})=1-u_{i}^{1/(n-1)}. Since did_{i} depends only on uiu_{i} the determinant of the Jacobian is diagonal and thus has a simple form:
+|det(J)|=|∏i=1n∂∂ui​(1−ui1/(n−1))|=(n−1)−n​∏i=1nui1n−1−1.\displaystyle|\det(J)|=\bigg|\prod_{i=1}^{n}\frac{\partial}{\partial u_{i}}\Big(1-u_{i}^{1/(n-1)}\Big)\bigg|=(n-1)^{-n}\prod_{i=1}^{n}u_{i}^{\frac{1}{n-1}-1}.
+For the Dirichlet density simplex condition, we have:
+1=∑i=1ndi=∑i=1n(1−ui1/(n−1))=n−∑i=1nui1/(n−1)⟹∑i=1nui1/(n−1)=n−1\displaystyle 1=\sum_{i=1}^{n}d_{i}=\sum_{i=1}^{n}(1-u_{i}^{1/(n-1)})=n-\sum_{i=1}^{n}u_{i}^{1/(n-1)}\;\implies\;\sum_{i=1}^{n}u_{i}^{1/(n-1)}=n-1
+Putting it all together, the density is:
+p⁡(u1,…,un)=(n−1)!(n−1)n​∏i=1nui1n−1−1,such that∑i=1nui1/(n−1)=n−1.\displaystyle p(u_{1},...,u_{n})=\frac{(n-1)!}{(n-1)^{n}}\prod_{i=1}^{n}u_{i}^{\frac{1}{n-1}-1},\quad\text{such that}\quad\sum_{i=1}^{n}u_{i}^{1/(n-1)}=n-1.
+Appendix D Additional Results
+Table 3: Test log likelihoods for ELBO optimized VAEs using different estimators. Results are reported on three datasets: Dynamic MNIST, Fashion MNIST, and Omniglot, and for 4, 6, 8, and 10 samples. Results are averaged over five runs, with the best performing methods in bold.
+Samples
+ARMS-D
+ARMS-N
+LOORF
+DisARM
+RELAX
+Dynamic MNIST
+Linear
+4
+-111.57 ± 0.13
+-111.47 ± 0.16
+-111.67 ± 0.04
+-112.71 ± 0.07
+-112.57 ± 0.34
+6
+-110.47 ± 0.02
+-110.4 ± 0.12
+-110.42 ± 0.03
+-111.58 ± 0.02
+-110.94 ± 0.14
+8
+-109.73 ± 0.06
+-110.08 ± 0.06
+-109.88 ± 0.07
+-111.28 ± 0.16
+-110.08 ± 0.10
+10
+-109.52 ± 0.07
+-109.61 ± 0.14
+-109.61 ± 0.04
+-110.56 ± 0.11
+-109.64 ± 0.15
+Nonlinr
+4
+-100.02 ± 0.24
+-100.05 ± 0.17
+-99.63 ± 0.07
+-101.65 ± 0.32
+-101.72 ± 0.18
+6
+-99.67 ± 0.20
+-98.90 ± 0.01
+-99.21 ± 0.23
+-100.42 ± 0.18
+-100.31 ± 0.3
+8
+-98.89 ± 0.36
+-98.86 ± 0.09
+-99.22 ± 0.41
+-99.82 ± 0.25
+-99.91 ± 0.07
+10
+-98.71 ± 0.22
+-98.31 ± 0.44
+-98.35 ± 0.54
+-99.73 ± 0.27
+-99.79 ± 0.20
+Fashion MNIST
+Linear
+4
+-254.65 ± 0.17
+-254.76 ± 0.05
+-254.89 ± 0.07
+-256.12 ± 0.04
+-255.65 ± 0.08
+6
+-254.04 ± 0.22
+-253.78 ± 0.08
+-254.14 ± 0.18
+-255.11 ± 0.09
+-254.40 ± 0.18
+8
+-253.43 ± 0.13
+-253.24 ± 0.31
+-253.56 ± 0.14
+-254.73 ± 0.07
+-253.49 ± 0.10
+10
+-253.38 ± 0.04
+-253.19 ± 0.17
+-253.28 ± 0.01
+-253.87 ± 0.29
+-253.28 ± 0.13
+Nonlinr
+4
+-238.25 ± 0.46
+-238.36 ± 0.11
+-238.42 ± 0.06
+-239.19 ± 0.09
+-239.45 ± 0.15
+6
+-238.08 ± 0.25
+-238.01 ± 0.15
+-238.31 ± 0.22
+-238.59 ± 0.11
+-238.87 ± 0.39
+8
+-238.01 ± 0.14
+-237.71 ± 0.22
+-237.98 ± 0.18
+-238.25 ± 0.18
+-238.25 ± 0.20
+10
+-237.79 ± 0.16
+-237.94 ± 0.02
+-238.19 ± 0.01
+-238.24 ± 0.13
+-238.02 ± 0.27
+Omniglot
+Linear
+4
+-118.61 ± 0.08
+-118.73 ± 0.03
+-118.63 ± 0.09
+-119.66 ± 0.26
+-119.11 ± 0.06
+6
+-118.00 ± 0.02
+-118.03 ± 0.06
+-118.12 ± 0.18
+-118.87 ± 0.13
+-118.24 ± 0.05
+8
+-117.60 ± 0.05
+-117.66 ± 0.12
+-117.74 ± 0.10
+-118.41 ± 0.10
+-117.71 ± 0.02
+10
+-117.33 ± 0.14
+-117.39 ± 0.04
+-117.51 ± 0.02
+-118.06 ± 0.01
+-117.40 ± 0.05
+Nonlinr
+4
+-116.14 ± 0.55
+-115.88 ± 0.15
+-116.03 ± 0.39
+-117.45 ± 0.24
+-118.54 ± 0.51
+6
+-115.33 ± 0.12
+-115.27 ± 0.24
+-115.05 ± 0.35
+-116.45 ± 0.12
+-118.05 ± 0.27
+8
+-114.71 ± 0.10
+-114.79 ± 0.05
+-114.52 ± 0.25
+-115.80 ± 0.17
+-118.12 ± 0.15
+10
+-114.39 ± 0.16
+-114.52 ± 0.40
+-114.60 ± 0.36
+-115.15 ± 0.34
+-118.50 ± 0.06
+Table 4: Test log likelihoods for different estimators optimizing the multi sample bound, with the best performing methods in bold.
+Samples
+ARMS
+DisARM
+VIMCO
+Dynamic MNIST
+Linear
+4
+-111.82 ± 0.09
+-111.87 ± 0.07
+-112.52 ± 0.23
+6
+-111.27 ± 0.01
+-111.15 ± 0.17
+-111.66 ± 0.44
+8
+-110.11 ± 0.18
+-110.50 ± 0.11
+-110.57 ± 0.31
+10
+-109.74 ± 0.12
+-109.89 ± 0.25
+-110.17 ± 0.28
+Nonlinr
+4
+-98.96 ± 0.03
+-99.30 ± 0.14
+-98.98 ± 0.09
+6
+-97.51 ± 0.27
+-98.35 ± 0.20
+-97.65 ± 0.09
+8
+-97.05 ± 0.20
+-97.23 ± 0.31
+-97.33 ± 0.04
+10
+-96.08 ± 0.22
+-96.65 ± 0.11
+-96.55 ± 0.02
+Fashion MNIST
+Linear
+4
+-254.34 ± 0.10
+-254.48 ± 0.20
+-254.86 ± 0.13
+6
+-253.51 ± 0.07
+-253.41 ± 0.18
+-253.76 ± 0.32
+8
+-252.78 ± 0.13
+-252.72 ± 0.16
+-252.90 ± 0.09
+10
+-252.58 ± 0.07
+-251.90 ± 0.10
+-252.70 ± 0.15
+Nonlinr
+4
+-237.31 ± 0.18
+-238.16 ± 0.10
+-237.28 ± 0.25
+6
+-236.22 ± 0.52
+-236.62 ± 0.25
+-236.33 ± 0.58
+8
+-235.64 ± 0.02
+-236.37 ± 0.04
+-235.96 ± 0.08
+10
+-235.27 ± 0.04
+-235.65 ± 0.27
+-235.72 ± 0.06
+Omniglot
+Linear
+4
+-119.56 ± 0.09
+-119.28 ± 0.31
+-120.71 ± 0.16
+6
+-119.34 ± 0.37
+-119.09 ± 0.08
+-119.65 ± 0.09
+8
+-119.00 ± 0.11
+-118.90 ± 0.16
+-119.08 ± 0.21
+10
+-118.82 ± 0.10
+-118.57 ± 0.08
+-118.93 ± 0.17
+Nonlinr
+4
+-115.79 ± 0.35
+-116.91 ± 0.40
+-115.87 ± 0.35
+6
+-114.56 ± 0.25
+-115.31 ± 0.42
+-114.68 ± 0.10
+8
+-114.09 ± 0.09
+-114.45 ± 0.30
+-113.89 ± 0.22
+10
+-113.40 ± 0.05
+-114.19 ± 0.16
+-113.55 ± 0.05
+Figure 5: For each dataset, shown is training a linear discrete VAE using the ELBO. Each group of three rows, from top to bottom, represent Dynamic MNIST, Fashion MNIST, and Omniglot, respectively. Within each triplet of rows, they correspond to the training ELBO, test log likelihood, and the variance of the gradient updates averaged over all parameters. Columns correspond to n∈{4,6,8,10}n\in\{4,6,8,10\} samples used per step.
+Figure 6: For each dataset, shown is training a nonlinear discrete VAE using the ELBO. Each group of three rows, from top to bottom, represent Dynamic MNIST, Fashion MNIST, and Omniglot, respectively. Within each triplet of rows, they correspond to the training ELBO, test log likelihood, and the variance of the gradient updates averaged over all parameters. Columns correspond to n∈{4,6,8,10}n\in\{4,6,8,10\} samples used per step.
+Figure 7: For each dataset, shown is training a linear discrete VAE using the multi sample bound. Each group of three rows, from top to bottom, represent Dynamic MNIST, Fashion MNIST, and Omniglot, respectively. Within each triplet of rows, they correspond to the training multi sample bound, test log likelihood, and the variance of the gradient updates averaged over all parameters. Columns correspond to n∈{4,6,8,10}n\in\{4,6,8,10\} samples used per step.
+Figure 8: For each dataset, shown is training a nonlinear discrete VAE using the multi sample bound. Each group of three rows, from top to bottom, represent Dynamic MNIST, Fashion MNIST, and Omniglot, respectively. Within each triplet of rows, they correspond to the training multi sample bound, test log likelihood, and the variance of the gradient updates averaged over all parameters. Columns correspond to n∈{4,6,8,10}n\in\{4,6,8,10\} samples used per step.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

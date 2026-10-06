@@ -1,0 +1,15 @@
+# Disabled owned CMCL common400 H16 fit preparation
+
+Author preparation only; another reader must review the new context/process owner. No fitting, model/data/label/prediction access, prepared imports, CLI, server or launch occurred.
+
+The only released callable delta is the unique `SOURCE_RELEASED = False` → `True` replacement in reviewed d5fc0dd9… cmcl_H16.py. Original source and old parity scopes are preserved. Released copy: 14261 B / SHA 239ee8048808a8d53263d384829dbb9569418702ad6b6d8e39bd1aa71510b774. Its formulas, horizon, peer pins, tolerances and admission checks are unchanged.
+
+The owner provides launch/supervise/fit/poll using the exact reviewed ownership and process helpers. One fixed fresh output consumes the attempt; WAIT creates no waiter and polling never retries. The normal detached supervisor owns one direct fit child, full PID/start/argv/cwd/exe/session checks, wait4/watchdog/cleanup and resource/result joining. Actual native parity386bdd06… and terminal1ee25c02… are prerequisites, not fitting authority. A distinct new root fit scope, owner review and exclusive GPU grant remain false in ROOT_SCOPE_TEMPLATE.json.
+
+Fit loads the original seed17/split0 W-only common400 image, native full-graph family, original functional callback and public-role custody. Only fixed S2449/R2450 targets train. No W continuation loss, A/VALID/TEST labels, optimizer selection, feature sharing, replacement endpoint or shortened horizon. It calls the unchanged run_H16 for16 simultaneous SGD commits, M4/K3/beta.75, core/private .001/.01. This is one representative full-Amazon baseline extension before A scoring, not confirmation.
+
+It freezes initial/final complete family checkpoints, common/final full member logits and mean-probability serving artifacts, fsynced per-update trace, actual attempted callbacks and source counters. Callback boundaries persist progress. Failure retains last completed state as a partial checkpoint when available, partial trace/counters/errors/resources; it authorizes no retry or cap expansion. The bill is64 value +64 replay +8 serving=136 native callbacks,16 small-logit gradient APIs,64 parameter VJP APIs,16 shared/64 private SGD maps.
+
+Prospective fixed caps:900s,8GiB RSS,72GiB allocated,74GiB reserved; exclusive selected GPU,78GiB free floor,1020s external watchdog with existing5/10s cleanup bounds. Actual parity wall was 33.044666s for20 callbacks. Simple136/20 scaling gives 224.703729s; this is a budgeting proxy, not measured H16 wall/peak or guaranteed feasibility.900s also pays constructor/load/checkpoint/trace/restoration overhead. No cap expands automatically.
+
+Concrete remaining bindings: different-reader owner review, actual frozen new fit admission, fresh exclusive GPU clearance and readonly source/evidence deployment. This packet adds no fit authority from the qualification scope. Author checks are stdlib AST, source/evidence hash and exact one-flag byte comparison only, not independent certification or runtime tests.
