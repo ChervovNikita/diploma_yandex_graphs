@@ -1,0 +1,82 @@
+--- matched_first_order_private_gradient_utility_native_qualification_preparation_20261006_v1/qualify.py
++++ matched_first_order_private_gradient_utility_native_qualification_preparation_20261006_v3/qualify.py
+@@ -111,7 +111,9 @@
+     require(scope["external_watchdog_required"] is True
+             and type(scope["external_watchdog_seconds"]) in (int, float)
+             and math.isfinite(scope["external_watchdog_seconds"])
+-            and scope["external_watchdog_seconds"] > limits["max_elapsed_seconds"], "Root-fixed external watchdog required")
++            and scope["external_watchdog_seconds"] > limits["max_elapsed_seconds"]
++            and scope["external_terminal_accounting_required"] is True,
++            "Root-fixed watchdog and whole-child terminal accounting required")
+     require(scope["utility_synthetic_result"] == SYNTHETIC_RESULT, "Exact root-supplied actual synthetic descriptor required")
+     synthetic = bound_json(phase, SYNTHETIC_RESULT)
+     require(synthetic["status"] == "PASS_CPU_FLOAT64_UTILITY_SYNTHETIC_PARITY_ONLY"
+@@ -302,11 +304,13 @@
+                 ((core, derivatives[:len(core)]), (phi, derivatives[len(core):])))
+             results.append(result)
+         full, h_path, g_path = results
+-        require(maximum(h_path) > NONTRIVIAL and maximum(g_path) > NONTRIVIAL,
+-                "Both native mixed-credit paths must be nontrivial")
++        require(maximum(h_path[0]) > NONTRIVIAL and maximum(g_path[0]) > NONTRIVIAL,
++                "Both shared native mixed-credit paths must be nontrivial")
+         error = compare(full, add_trees(h_path, g_path))
+     return full, {"both_differentiable_factor_paths_supported": True, "product_rule_sum_max_error": error,
+                   "h_path_max_abs": maximum(h_path), "g_path_max_abs": maximum(g_path),
++                  "h_path_shared_max_abs": maximum(h_path[0]), "g_path_shared_max_abs": maximum(g_path[0]),
++                  "h_path_private_max_abs": maximum(h_path[1]), "g_path_private_max_abs": maximum(g_path[1]),
+                   "isolated_support_counts": dict(observations), "full_monolithic_oracle": False}
+ 
+ 
+@@ -581,14 +585,43 @@
+     require(SOURCE_RELEASED is False, "This default-disabled engineering caller keeps its artifact marker false")
+     if not all((args.execution_scope, args.execution_scope_sha256, args.output)):
+         parser.error("Exact future root execution scope/sha and fresh output required")
+-    output = Path(args.output).resolve()
++    # Deliberate research paths only; normal libraries/runtime caches are untouched.
++    host = socket.gethostname()
++    require(host in HOST_REPOSITORIES, "Only named authorized numeric hosts are permitted")
++    repository = Path(HOST_REPOSITORIES[host])
++    argument = Path(args.source_root).absolute()
++    require(".." not in argument.parts
++            and argument == repository / "experiments_iclr/postsubmission_20260930"
++            and Path.cwd().resolve() == repository.resolve(), "Named authorized source phase/cwd required")
++    phase = argument.resolve()
++    require(phase.is_dir() and phase.parent.parent == repository.resolve(), "Source phase escapes named repository")
++    scope_argument = Path(args.execution_scope).absolute()
++    require(".." not in scope_argument.parts and scope_argument.is_relative_to(argument)
++            and not scope_argument.is_symlink() and scope_argument.resolve().is_relative_to(phase),
++            "Root execution scope must be inside the named source phase")
++    read_scope(args, phase)  # Validate immutable authority before any output creation.
++    output_argument = Path(args.output).absolute()
++    require(".." not in output_argument.parts and output_argument.is_relative_to(argument)
++            and not output_argument.is_symlink() and output_argument.resolve().is_relative_to(phase),
++            "Deliberate output must remain inside the named source phase")
++    output = output_argument.resolve()
++    require(not output.exists() and output.parent.is_dir(), "New output with existing project parent required")
+     output.mkdir(parents=False, exist_ok=False)
++    created = output.stat()
++    output_identity = (created.st_dev, created.st_ino)
++    def owned_output():
++        require(not output.is_symlink() and output.is_dir(), "Created output directory changed")
++        current = output.stat()
++        require((current.st_dev, current.st_ino) == output_identity, "Only this invocation's output may be finalized")
+     receipt = {"schema": "native_utility_strict_FP32_episode_support_result_v1", "status": "RUNNING",
+         "UTC": datetime.now(timezone.utc).isoformat(), "worker_sha256": sha(__file__), "utility_pin": UTILITY,
+         "checks": [], "model_fits": 0, "persistent_updates": 0, "A_scoring": False, "VALID_TEST_access": False,
+         "full_monolithic_higher_order_or_FD_retry": False, "original_six_arm_pilot_changed": False,
+         "cheaper_memory_runtime_FLOP_novelty_or_predictive_claim": False}
+     def save():
++        owned_output()
++        receipt["resource_measurement_scope"] = "Worker capture through numerical checks/restoration; excludes subsequent final publication and exit."
++        receipt["external_terminal_resource_closure_required"] = True
+         receipt["whole_process_resources"] = resources()
+         temporary = output / "RESULT.tmp"
+         temporary.write_text(json.dumps(receipt, indent=2, allow_nan=False) + "\n")
+@@ -612,6 +645,7 @@
+         receipt.update(status="FAIL_NATIVE_UTILITY_QUALIFICATION", error_type=type(error).__name__, error=str(error), traceback=traceback.format_exc())
+     finally:
+         save()
++        owned_output()
+         (output / "RESULT.json").chmod(0o444)
+     print(json.dumps({"status": receipt["status"], "checks_completed": len(receipt["checks"]), "error": receipt.get("error"), "fit_authorized": False}))
+     raise SystemExit(code)

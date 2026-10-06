@@ -1,0 +1,63 @@
+--- amazon_ordinary_shared_bank_own_pool_reference_preparation_20261006_v1/ordinary_reference.py
++++ amazon_ordinary_shared_bank_own_pool_reference_preparation_20261006_v2/ordinary_reference.py
+@@ -21,6 +21,8 @@
+ import traceback
+ 
+ SOURCE_RELEASED = False
++AUTHORIZED_REPOSITORY = "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs"
++AUTHORIZED_PHASE_RELATIVE = "experiments_iclr/postsubmission_20260930"
+ OBJECTIVES = ("own", "own_pool")
+ UPDATES, PREFIX, MEMBERS, NODES, CLASSES = 2300, 16, 4, 24492, 5
+ PINS = {
+@@ -37,6 +39,41 @@
+ def require(value, message):
+     if not value:
+         raise RuntimeError(message)
++
++
++def deliberate_paths(args):
++    """Assert only the named project/phase and deliberately supplied file paths.
++
++    These checks do not constrain normal interpreter libraries, runtime caches,
++    CUDA caches, temporary libraries or the user's filesystem namespace.
++    """
++    named_repository = Path(AUTHORIZED_REPOSITORY).resolve()
++    named_argument = Path(AUTHORIZED_REPOSITORY) / AUTHORIZED_PHASE_RELATIVE
++    root_argument = Path(args.source_root).absolute()
++    root = root_argument.resolve()
++    require(root == named_argument.resolve() and root.parent.parent == named_repository
++            and root.is_dir(), "Source root must be the named authorized project phase")
++    def inside(argument, *, new):
++        argument = Path(argument).absolute()
++        require(".." not in argument.parts and any(argument.is_relative_to(prefix)
++                for prefix in (root_argument, root, named_argument.absolute())),
++                "Admission/output must be deliberately inside the source root")
++        require(not argument.is_symlink() and argument.resolve().is_relative_to(root),
++                "Admission/output symlink escape is not permitted")
++        # An in-root spelling must not traverse a parent that escapes root.
++        for parent in argument.parents:
++            if parent in (root_argument, root, named_argument.absolute()):
++                break
++            if parent.exists() or parent.is_symlink():
++                require(parent.resolve().is_relative_to(root), "Parent path escapes the source root")
++        resolved = argument.resolve()
++        if new:
++            require(not resolved.exists() and not argument.exists() and resolved.parent.is_dir(),
++                    "Output must be new with an existing in-root parent")
++        else:
++            require(resolved.is_file(), "Existing in-root admission file required")
++        return resolved
++    return root, inside(args.output, new=True), inside(args.admission, new=False)
+ 
+ 
+ def sha(path):
+@@ -225,8 +262,7 @@
+ 
+ def run(args, receipt, save):
+     require(SOURCE_RELEASED is True, "Disabled ordinary references require independent source/runtime/resource review and root release")
+-    root, output = Path(args.source_root).resolve(), Path(args.output).resolve()
+-    admission_path = Path(args.admission).resolve()
++    root, output, admission_path = deliberate_paths(args)
+     require(not admission_path.is_symlink() and admission_path.stat().st_mode & 0o222 == 0, "Immutable root admission required")
+     admission = json.loads(admission_path.read_text())
+     require(admission["root_fit_authorized"] is True and admission["A_scoring"] is False and admission["VALID_TEST_access"] is False

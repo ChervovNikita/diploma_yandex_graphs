@@ -1,6 +1,6 @@
 # Current access override — 6 October 2026
 
-The human restored18.77 access and clarified that “7 server” means18.77. The paired MacLink route is now authenticated: hostnamepeptide, exact project Git root /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git and both expected A10080GB GPU UUIDs verified at00:19:06UTC. Both GPUs were100% utilized with42583MiB free each. This is aggregate telemetry, not a free-server or job-ownership claim. Use normal execution inside that repository after workload qualification. Seven-GPU access remains forwarding relay only. Continue the verified one-GPU anogena-2 route. Current state is in PUBLIC_STATUS.md and RESEARCH_STATE.md.
+The human explicitly restored access to18.77: “Now you can use the77 server again.” This supersedes the5 October temporary withdrawal. Access remains limited to the authorized project repository on shmelev@192.168.18.77; verify host peptide and the expected two GPU UUIDs before scientific execution. The paired MacLink relay/controller is running, but the other-Mac listener is offline in the latest observation; restoration of authorization is not verification of connectivity. Seven-GPU access is forwarding relay only. Continue the verified one-GPU anogena-2 route independently. Current state is in PUBLIC_STATUS.md and RESEARCH_STATE.md.
 
 ## Preserved temporary withdrawal
 

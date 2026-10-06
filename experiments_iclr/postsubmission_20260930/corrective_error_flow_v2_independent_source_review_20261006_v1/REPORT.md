@@ -1,0 +1,9 @@
+# Independent source review of post-score error flow V2
+
+**Source PASS; the V1 stable-NLL blocker is repaired and no further concrete blocker identified.** Reviewed error_flow.py SHA4851fbb0e3bbb47d91a03485c2d26cb0dcb2f9e54c9267df991ba626cf0ead98 and manifest58f04b6877fb60c9a98b7b0461dda2e0589e7c28b79855222b0b42d1f4ff53ad. AST, exact delta, source/report/check-source manifest bindings and all read-only packet modes were verified. No prepared source was imported or executed, and no scientific arrays/result payloads were read.
+
+The sole source delta replaces unshifted target-minus-logsumexp with explicit per-member logits minus their own maximum before target-minus-logsumexp. This retains the log-normalizer at large common offsets; five equal logits yield log probability -log(5), and four equal member distributions yield pooled NLL log(5). The repaired formula agrees with the original evaluator's shifted float64 log_softmax/logsumexp convention. Root supplied the preserved passing synthetic arithmetic receipt fb73626649ede905ea5da585d57faa793ab6c0dea646b82af64462cd8a9a9287; the reviewer did not execute it.
+
+Every other source byte is identical to V1, preserving exact ordered ID alignment, native-logit raw member argmax versus supplied served-FP32 pool argmax, first-class ties, saved-probability Brier/mean-pool checks, the four transition/net-repair identities, separate wrong-class churn, baseline-only common-error cohort, fixed class/degree slices and same-node paired confidence/probability/loss changes. Empty slices retain denominators/undefined means. No independent-node significance, acceptance, causal, fitting or source-release gate is added.
+
+V1 and its blocker review remain preserved. Source marker stays false; this review supplies no scientific scoring/release authority. Original evaluator, published scores and fixed pilot remain unchanged. Root owns any future immutable post-score caller and scientific result interpretation.

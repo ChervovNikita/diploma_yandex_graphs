@@ -1,0 +1,153 @@
+--- amazon_ordinary_shared_bank_own_pool_reference_preparation_20261006_v2/ordinary_reference.py
++++ amazon_ordinary_shared_bank_own_pool_reference_preparation_20261006_v3/ordinary_reference.py
+@@ -17,11 +17,14 @@
+ import resource
+ import signal
+ import socket
++import stat
+ import sys
+ import traceback
+ 
+ SOURCE_RELEASED = False
+-AUTHORIZED_REPOSITORY = "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs"
++AUTHORIZED_TARGETS = {
++    "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs": "anogena-2-0",
++    "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git": "peptide"}
+ AUTHORIZED_PHASE_RELATIVE = "experiments_iclr/postsubmission_20260930"
+ OBJECTIVES = ("own", "own_pool")
+ UPDATES, PREFIX, MEMBERS, NODES, CLASSES = 2300, 16, 4, 24492, 5
+@@ -47,12 +50,18 @@
+     These checks do not constrain normal interpreter libraries, runtime caches,
+     CUDA caches, temporary libraries or the user's filesystem namespace.
+     """
+-    named_repository = Path(AUTHORIZED_REPOSITORY).resolve()
+-    named_argument = Path(AUTHORIZED_REPOSITORY) / AUTHORIZED_PHASE_RELATIVE
+-    root_argument = Path(args.source_root).absolute()
++    choices = {str(Path(repository) / AUTHORIZED_PHASE_RELATIVE): (repository, host)
++               for repository, host in AUTHORIZED_TARGETS.items()}
++    # Validate the supplied literal BEFORE resolving or touching any other path.
++    require(isinstance(args.source_root, str) and args.source_root in choices,
++            "Supply exactly one of the two named authorized project-phase spellings")
++    repository, expected_host = choices[args.source_root]
++    require(socket.gethostname() == expected_host, "Named repository/expected host pair differs")
++    named_argument, root_argument = Path(args.source_root), Path(args.source_root)
++    named_repository = Path(repository).resolve()
+     root = root_argument.resolve()
+-    require(root == named_argument.resolve() and root.parent.parent == named_repository
+-            and root.is_dir(), "Source root must be the named authorized project phase")
++    require(root.parent.parent == named_repository and root.is_dir(),
++            "Resolved source phase must belong to its chosen named repository")
+     def inside(argument, *, new):
+         argument = Path(argument).absolute()
+         require(".." not in argument.parts and any(argument.is_relative_to(prefix)
+@@ -74,6 +83,34 @@
+             require(resolved.is_file(), "Existing in-root admission file required")
+         return resolved
+     return root, inside(args.output, new=True), inside(args.admission, new=False)
++
++
++class CreatedOutput:
++    """Creator token and directory identity for this invocation's fresh output."""
++    def __init__(self, path, root):
++        self.path, self.root, self.creator_token = path, root, object()
++        require(not path.is_symlink() and path.resolve().is_relative_to(root),
++                "Verified output path escaped before creation")
++        path.mkdir(parents=False, exist_ok=False)
++        information = path.lstat()
++        require(stat.S_ISDIR(information.st_mode), "Created output is not a real directory")
++        self.device, self.inode = information.st_dev, information.st_ino
++
++    def verify(self, creator_token):
++        require(creator_token is self.creator_token and not self.path.is_symlink()
++                and self.path.resolve().is_relative_to(self.root),
++                "Output creator token/path no longer belongs to this invocation")
++        information = self.path.lstat()
++        require(stat.S_ISDIR(information.st_mode)
++                and (information.st_dev, information.st_ino) == (self.device, self.inode),
++                "Created output directory identity changed")
++        return self.path
++
++    def freeze(self, creator_token):
++        path = self.verify(creator_token)
++        for child in path.iterdir():
++            if child.is_file() and not child.is_symlink():
++                child.chmod(0o444)
+ 
+ 
+ def sha(path):
+@@ -299,7 +336,8 @@
+         and type(admission["external_watchdog_seconds"]) in (int, float)
+         and math.isfinite(admission["external_watchdog_seconds"])
+         and admission["external_watchdog_seconds"] > caps["max_elapsed_seconds"], "Prospectively frozen root resource limits/watchdog required")
+-    output.mkdir(parents=False, exist_ok=False)
++    output_owner = CreatedOutput(output, root)
++    save(output_owner, output_owner.creator_token)
+     audit, names, endpoints, prefixes = Audit(output), [], {}, {}
+     old_env_present, old_env = "CUBLAS_WORKSPACE_CONFIG" in os.environ, os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+     old_path, python_rng = list(sys.path), random.getstate()
+@@ -459,37 +497,54 @@
+ def main():
+     parser = argparse.ArgumentParser()
+     parser.add_argument("--execute-authorized", action="store_true")
+-    parser.add_argument("--source-root", default=str(Path(__file__).resolve().parent.parent))
++    parser.add_argument("--source-root")
+     parser.add_argument("--public-b-dir"); parser.add_argument("--admission"); parser.add_argument("--output")
+     args = parser.parse_args()
+     if not args.execute_authorized:
+         print(json.dumps({"status": "DISABLED_ORDINARY_TWO_REFERENCE_SOURCE_ONLY", "SOURCE_RELEASED": SOURCE_RELEASED, "numeric_imports": False})); return
+     require(SOURCE_RELEASED is True, "Disabled preparation has no fitting authority")
+-    require(all((args.public_b_dir, args.admission, args.output)), "Exact future root admission/context/output required")
+     receipt = {"status": "RUNNING_ORDINARY_TWO_REFERENCE", "A_scoring": False, "VALID_TEST_access": False,
+         "original_six_arm_pilot_changed": False, "comparison_complete": False, "endpoints": {}, "prefixes": {}}
+-    output = Path(args.output).resolve()
+-    def save():
++    created_output, creator_token = None, None
++    def save(owner=None, token=None):
++        nonlocal created_output, creator_token
++        if owner is not None:
++            require(isinstance(owner, CreatedOutput) and (created_output is None or owner is created_output),
++                    "Receipt output must be the verified directory created by this invocation")
++            owner.verify(token)
++            created_output, creator_token = owner, token
++            receipt["created_output_identity"] = {"path": str(owner.path), "device": owner.device, "inode": owner.inode}
+         receipt["elapsed_seconds_including_imports_setup_fit_restore"] = time.monotonic() - STARTED
+         receipt["process_peak_rss_bytes"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024)
+         if "torch" in sys.modules and sys.modules["torch"].cuda.is_initialized():
+             receipt["cuda_peak_allocated_bytes"] = sys.modules["torch"].cuda.max_memory_allocated("cuda:0")
+             receipt["cuda_peak_reserved_bytes"] = sys.modules["torch"].cuda.max_memory_reserved("cuda:0")
+-        if output.exists(): atomic(output / "RESULT.json", receipt)
++        if created_output is not None:
++            output = created_output.verify(creator_token)
++            atomic(output / "RESULT.json", receipt)
+     code = 1
+     try:
++        require(all((args.source_root, args.public_b_dir, args.admission, args.output)),
++                "Exact named source-root and future root admission/context/output required")
+         run(args, receipt, save)
+         receipt["status"] = "ORDINARY_TWO_REFERENCE_COMPLETE_A_CLOSED"; code = 0
+     except BaseException as error:
+         receipt.update(status="FAIL_ORDINARY_TWO_REFERENCE", error_type=type(error).__name__, error=str(error), traceback=traceback.format_exc())
+     finally:
+-        save()
+-        if output.exists():
+-            for path in output.iterdir():
+-                if path.is_file(): path.chmod(0o444)
+-    print(json.dumps({"status": receipt["status"], "A_scoring": False, "error": receipt.get("error")}))
++        # Before a verified successful mkdir there is no output authority.
++        # Rejected/existing/outside/symlink paths stay untouched; print failure.
++        try:
++            save()
++            if created_output is not None:
++                created_output.freeze(creator_token)
++        except BaseException as error:
++            code = 1
++            receipt.update(status="FAIL_ORDINARY_TWO_REFERENCE", output_finalization_error_type=type(error).__name__,
++                           output_finalization_error=str(error), output_finalization_traceback=traceback.format_exc())
++    print(json.dumps({"status": receipt["status"], "A_scoring": False, "error": receipt.get("error"),
++        "output_finalization_error": receipt.get("output_finalization_error"),
++        "verified_created_output": created_output is not None}))
+     raise SystemExit(code)
+-
+ 
+ if __name__ == "__main__":
+     main()

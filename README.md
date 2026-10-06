@@ -4,21 +4,21 @@
 
 Our target is better predictions from a shared graph ensemble. Original five-dataset scores remain unchanged. No new method has established predictive superiority and novelty; manuscript acceptance remains unmet.
 
-Saved Amazon development predictions show slightly weaker members, limited pooling benefit and confident common mistakes. The next fixed hypothesis uses measured private learning response to assign additional class-competitor supervision, while retaining ordinary supervision for every member. Its paired outcome counts errors repaired and new errors introduced, alongside member strength and probability losses. Greater disagreement alone does not establish improved predictions.
+Saved Amazon development predictions show weaker members, limited pooling benefit and confident common mistakes. The fixed corrective experiment uses private learning response to assign extra class-competitor supervision while retaining ordinary supervision for every member. Evaluation will count repaired errors and newly introduced errors, member accuracy and probability losses. Changes in disagreement alone cannot establish better predictions.
 
-The exact sequential implementation matches the all-six synthetic reference. Strict full-native all-six episodes and independent original-phi recommits now pass at the unchanged tolerances, with zero observed numerical discrepancies. Peak CUDA allocation is37.423GB/reservation39.865GB. This is implementation/resource evidence at the tested initial state. Prior numerical and memory failures remain preserved.
+The scientific run completed its 400-update common training stage and nine LIVE correction episodes by 00:37 UTC. Six 16-episode arms are fixed; assessment, validation and test scoring remain closed. The exact common checkpoint and origin metadata are bound for two competent ordinary shared-bank references: member cross-entropy and a fixed mixture of member and served-pool losses. Both will complete the original native training horizon. Native implementation/resource qualification precedes fitting on 18.77.
 
-The first fixed scientific launch failed before any forward/update because Torch2.1.2 lacks its construction default-device observer. The minimal equivalent compatibility successor is reviewed and actually training86/400 common updates at23:54UTC, preserving the method, settings and original failure. No corrective accuracy result is available. A first-order utility comparison is implemented and source-reviewed; actual CPU float64 synthetic parity passed, while native qualification and competent ordinary/capable/independent references remain required.
+Strict all-six native episodes and original-state recommits passed at the original tolerances. First-order utility passed synthetic algebraic parity; its native qualifier and external supervisor passed source review, with execution pending. The adapter's input/output factors have a function-preserving scale symmetry, so Euclidean private response depends on parameterization and optimizer. This analysis is a limitation to test, not a novelty claim. All numerical, compatibility and memory failures remain preserved.
 
-Private-transfer has29/39 selected fits complete at23:54UTC, with the seventh b2 cell running. Complete cohort custody precedes scoring. The authorized allocation is training. The user restored77 access; paired relay/controller are ready but the other Mac listener is offline; target/two-GPU verification is pending. Wrong-allocation evidence stays excluded and the seven-GPU route is forwarding relay only.
+Private-transfer has 30/39 fixed fits complete. Complete cohort custody precedes scoring. 18.77 is authenticated as the expected two A100 80 GB server and project repository. Both GPUs were busy at 00:19 UTC with 42,583 MiB free each; no new fit has been launched there. Seven-GPU access remains forwarding only and wrong-allocation evidence stays excluded.
 
 - [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
-- [Errors and corrective outcome definitions](experiments_iclr/postsubmission_20260930/amazon_error_analysis_corrective_method_decision_note_20261006_v1/REPORT.md)
-- [Actual strict six-arm implementation qualification](experiments_iclr/postsubmission_20260930/learnability_responsibility_sequential_strict_cuda_full_six_execution_root_20261006_v1/REPORT.md)
-- [Preserved zero-update compatibility failure](experiments_iclr/postsubmission_20260930/amazon_learnability_responsibility_strict_scientific_execution_root_20261006_v1/REPORT.md)
-- [First-order utility source review](experiments_iclr/postsubmission_20260930/matched_first_order_private_gradient_utility_control_independent_source_review_20261006_v1/REPORT.md)
-- [Comparison obligations and scoped reading](experiments_iclr/postsubmission_20260930/shared_backbone_confident_error_learning_response_decision_20261006_v1/REPORT.md)
-- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v4.json)
+- [Frozen error outcomes](experiments_iclr/postsubmission_20260930/amazon_error_analysis_corrective_method_decision_note_20261006_v1/REPORT.md)
+- [Reviewed paired error analysis](experiments_iclr/postsubmission_20260930/corrective_error_flow_v2_independent_source_review_20261006_v1/REPORT.md)
+- [Ordinary shared-bank comparisons](experiments_iclr/postsubmission_20260930/amazon_ordinary_shared_bank_own_pool_reference_preparation_20261006_v4/REPORT.md)
+- [Parameterization analysis](experiments_iclr/postsubmission_20260930/native_private_learnability_parameterization_analysis_20261006_v1/REPORT.md)
+- [Authenticated 18.77 route](experiments_iclr/postsubmission_20260930/gpu77_connection_restoration_authenticated_20261006_v1/REPORT.md)
+- [Saved literature scopes](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v5.json)
 
 ## Original method
 
