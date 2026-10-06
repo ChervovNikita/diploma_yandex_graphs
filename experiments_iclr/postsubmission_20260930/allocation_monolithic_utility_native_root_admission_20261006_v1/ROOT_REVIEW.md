@@ -1,0 +1,3 @@
+# Root admission of one original-monolithic numerical check
+
+Independent V6/V4 source review passed. Original utility83967 and actual CPU96ce are exact prerequisites. The scalar reference, joint self-check, fixed cotangents, negative controls, native full context and FP32 thresholds remain unchanged. All streamed candidate failures stay FAIL. This invocation tests the original monolithic implementation on the authorized80GB allocation with prospectively fixed64/68GiB CUDA,1800s whole-child wall and1920s watchdog. No fit or held scoring is authorized. Expected54F/77native/88API; actual terminal counts and restoration must close before any H16 admission. Fresh free-memory floor70GiB is enforced again at dispatch. No77cofit or automatic retry.

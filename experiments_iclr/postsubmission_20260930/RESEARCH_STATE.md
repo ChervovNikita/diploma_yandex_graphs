@@ -1,14 +1,12 @@
-# Current state: correct common prediction errors
+# Current state
 
-Updated 2026-10-06T02:04:17+00:00. Goal active and unmet. Original scores unchanged. [Details](PUBLIC_STATUS.md).
+Updated 2026-10-06T03:51:29.173171+00:00. Goal active and unmet; original scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
 
-1. Error diagnosis motivates private learning response plus member supervision; accuracy benefit and novelty remain unestablished.
-2. Common400 and five of six H16 arms completed by 02:02:21 UTC; final STOP-Q episode 2 started. Held scoring stays closed.
-3. Ordinary shared-bank qualification passed on both 18.77 GPUs, including gradients, Adam/RNG replay and whole-child resource closure. A once-only own/own_pool 2300-update pair is being admitted.
-4. Native first-order utility failed with OOM; failure is preserved. Exact branch replay repair passed synthetic parity. Independent review of native V4 qualifier/supervisor precedes allocation execution after the six-arm terminal.
-5. Fresh native SINGLE/ENS4 source V2 and its separate qualifier/supervisor passed independent review; the actual native16 discarded-update check and external closure passed. The missing-parent prelude failure is preserved. These use independent W400 seeds followed by SR2300, with no held labels.
-6. Error-flow V2 remains disabled and reviewed; no scientific evaluation or new score release.
-7. Private-transfer 32/39 fits complete; full custody precedes histories/scoring and fixed F1 successors follow actual predecessors.
-8. 18.77 retry authenticated at 02:02:47 UTC; exact repo and both GPUs verified, each with 42583MiB free. Seven-GPU route forwarding only.
-9. Literature base index72/active supplementV6 unchanged; no inflated reading counts or novelty clearance.
-10. Verified GitHub head 0c2c28559cdcf60c71aadaf54d3c4ba5b129cc68. New engineering results/repair are pending publication. No manuscript acceptance.
+1. Six-condition Amazon correction training completed; exit0/restoration verified; held scoring closed.
+2. 18.77 own/own-pool controls are training toward2300 updates each; actual226/227 at03:49:27 UTC. No extra substantial cofit there.
+3. Fresh native16 implementation/ownership checks passed on both sites. No independent reference cohort fit yet; exact allocation full-fit admission is being prepared after high-memory sequencing.
+4. Original monolithic first-order native check passed (zero scalar-reference gradient residual, clean closure). The earlier streamed implementation remains FAIL. Original common400/H16 fit is now running once with reviewed caller/supervision, exact warm start and frozen fit caps; held scoring closed.
+5. Error-flow analysis is reviewed and disabled; no new predictive result, novelty clearance or paper verdict.
+6. Private-transfer35/39 confirmed; next fixed F1b1 queue active. Prior32/39 report corrected to31/39 for that earlier observation; histories/scoring stay closed.
+7. Literature base72 unchanged; activeV8 includes bounded CMCL and three additional meta-teaching method scopes; authenticated CMCL objective-transplant design saved separately. GEENI primary inaccessible.
+8. Latest verified published head0231b8d11f7b81730d67c327bcf005c6c097a75a. New source/actual records await publication.

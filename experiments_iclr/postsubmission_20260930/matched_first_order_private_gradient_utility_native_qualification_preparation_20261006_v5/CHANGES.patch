@@ -1,0 +1,251 @@
+--- matched_first_order_private_gradient_utility_native_qualification_preparation_20261006_v4/qualify.py
++++ matched_first_order_private_gradient_utility_native_qualification_preparation_20261006_v5/qualify.py
+@@ -3,7 +3,7 @@
+ Synthetic monolithic parity is a separate immutable prerequisite. This caller
+ uses the original native callback/cold state/public+B projection and qualifies
+ one complete utility episode, a fresh original-phi recommit and an isolated
+-one-forward product-rule support control. No full-graph monolithic oracle/FD.
++one-forward full-scalar/joint-factor VJP support control. No episode oracle/FD.
+ """
+ import time
+ STARTED = time.monotonic()
+@@ -273,11 +273,87 @@
+     return result
+ 
+ 
+-def product_support(op, theta, phis, forward, pairs, s, ys, fixed_t, observations):
+-    """One native forward, two private partials, three product-rule VJPs.
+-
+-    Isolated fixed-cotangent native support; not a monolithic full-graph oracle.
+-    Every attempted API is recorded before invocation. No input state is written.
++def support_residual(actual, expected, observations, branches=None):
++    """Detached coordinate diagnostics; original allclose thresholds only."""
++    observations["comparison_attempts"] += 1
++    started = time.monotonic()
++    result = {"allclose_at_original_tolerance": True, "all_tensors_finite": True, "active_coordinate_mismatch": False,
++              "first_failing_tensor": None, "worst_normalized_coordinate": None,
++              "max_absolute_error": 0.0, "max_normalized_residual": 0.0,
++              "ATOL": ATOL, "RTOL": RTOL,
++              "declared_active_coordinates": "shared/private names except local_head.*"}
++    def finite_scalar(value):
++        number = float(value)
++        return number if math.isfinite(number) else None
++    try:
++        require(isinstance(actual, tuple) and isinstance(expected, tuple) and len(actual) == len(expected) == 2,
++                "Support diagnostic shared/private structure differs")
++        for group, a_tree, e_tree in zip(("shared", "private"), actual, expected):
++            require(a_tree.keys() == e_tree.keys(), "Support diagnostic parameter order differs")
++            for name, e_live in e_tree.items():
++                observations["tensor_comparison_attempts"] += 1
++                a, e = a_tree[name].detach(), e_live.detach()
++                require(a.shape == e.shape and a.dtype == e.dtype and a.device == e.device,
++                        "Support diagnostic tensor structure differs")
++                observations["tensor_coordinates_examined"] += e.numel()
++                finite = bool(torch.isfinite(a).all()) and bool(torch.isfinite(e).all())
++                close = finite and torch.allclose(a, e, atol=ATOL, rtol=RTOL)
++                active = not name.startswith("local_head.")
++                result["all_tensors_finite"] &= finite
++                result["allclose_at_original_tolerance"] &= bool(close)
++                result["active_coordinate_mismatch"] |= active and finite and not bool(close)
++                row = {"group": group, "parameter": name, "shape": list(e.shape),
++                       "active": active, "finite": finite, "allclose": bool(close)}
++                if finite and e.numel():
++                    delta = (a - e).abs()
++                    threshold = ATOL + RTOL * e.abs()
++                    normalized = delta / threshold
++                    index = int(normalized.reshape(-1).argmax())
++                    flat_index, coordinate = index, []
++                    for size in reversed(e.shape):
++                        coordinate.append(flat_index % size); flat_index //= size
++                    error, norm = float(delta.max()), float(normalized.reshape(-1)[index])
++                    row.update(flat_index=index, coordinate=list(reversed(coordinate)),
++                        actual=finite_scalar(a.reshape(-1)[index]), expected=finite_scalar(e.reshape(-1)[index]),
++                        threshold=finite_scalar(threshold.reshape(-1)[index]),
++                        coordinate_absolute_error=finite_scalar(delta.reshape(-1)[index]),
++                        tensor_max_absolute_error=finite_scalar(error), max_normalized_residual=finite_scalar(norm))
++                    result["max_absolute_error"] = max(result["max_absolute_error"], error)
++                    if norm >= result["max_normalized_residual"]:
++                        result["max_normalized_residual"] = norm
++                        if branches is not None:
++                            h = float(branches[0][0 if group == "shared" else 1][name].detach().reshape(-1)[index])
++                            g = float(branches[1][0 if group == "shared" else 1][name].detach().reshape(-1)[index])
++                            branch_sum = h + g
++                            row.update(h_only=finite_scalar(h), g_only=finite_scalar(g),
++                                branch_sum=finite_scalar(branch_sum), branch_sum_zero=branch_sum == 0.0,
++                                branch_condition_ratio=finite_scalar((abs(h)+abs(g))/abs(branch_sum)) if branch_sum else None)
++                        result["worst_normalized_coordinate"] = row
++                if not close and result["first_failing_tensor"] is None:
++                    result["first_failing_tensor"] = row
++        return result
++    finally:
++        observations["elapsed_seconds"] += time.monotonic() - started
++
++
++def record_support_residual(label, actual, expected, diagnostics, save, branches=None):
++    diagnostics[label] = {"status": "ATTEMPTED"}; save()
++    try:
++        row = support_residual(actual, expected, diagnostics["diagnostic_work"], branches)
++        row["status"] = "DIAGNOSTIC_MATCH" if row["allclose_at_original_tolerance"] else "DIAGNOSTIC_MISMATCH"
++        diagnostics[label] = row; save()
++        return row
++    except BaseException as error:
++        diagnostics[label].update(status="DIAGNOSTIC_COLLECTION_FAILED", error_type=type(error).__name__, error=str(error))
++        save(); raise
++
++
++def product_support(op, theta, phis, forward, pairs, s, ys, fixed_t, observations, diagnostics, save):
++    """One original native graph, two private partials and four native VJPs.
++
++    Return the original both-live full scalar derivative. The fourth VJP uses
++    analytic joint (g,h) seeds on that same graph; no candidate/replay helper.
++    Separate rounded branch sum is diagnostic only, with old failure preserved.
+     """
+     core = {n: v.detach().requires_grad_(True) for n, v in theta.items()}
+     phi = {n: v.detach().requires_grad_(True) for n, v in phis[0].items()}
+@@ -293,6 +369,8 @@
+         observations["private_partial_API_attempts"] += 1
+         dh = torch.autograd.grad(weighted, tuple(phi.values()), allow_unused=True, create_graph=True, retain_graph=True)
+         h = {n: torch.zeros_like(v) if d is None else d for (n, v), d in zip(phi.items(), dh)}
++        diagnostics["g_h_nontrivial"] = maximum(g) > NONTRIVIAL and maximum(h) > NONTRIVIAL
++        save()
+         require(maximum(g) > NONTRIVIAL and maximum(h) > NONTRIVIAL, "Fixed native support factors are trivial")
+         anchor = sum(0.0 * v.sum() for v in (*core.values(), *phi.values()))
+         values = (sum((g[n] * h[n]).sum() for n in phi),
+@@ -302,20 +380,65 @@
+         for index, value in enumerate(values):
+             observations["shared_private_VJP_API_attempts"] += 1
+             derivatives = torch.autograd.grad(-op.Config().eta_probe * value + anchor,
+-                tuple(core.values()) + tuple(phi.values()), allow_unused=True, retain_graph=index != 2)
++                tuple(core.values()) + tuple(phi.values()), allow_unused=True, retain_graph=True)
+             result = tuple({n: torch.zeros_like(v) if d is None else d.detach()
+                 for (n, v), d in zip(params.items(), part)} for params, part in
+                 ((core, derivatives[:len(core)]), (phi, derivatives[len(core):])))
+             results.append(result)
+         full, h_path, g_path = results
++        diagnostics["parameter_order"] = {"shared": list(core), "private": list(phi)}
++        diagnostics["branch_shared_nontrivial"] = maximum(h_path[0]) > NONTRIVIAL and maximum(g_path[0]) > NONTRIVIAL
++        diagnostics["path_scales"] = {name: value if math.isfinite(value) else None for name, value in
++            (("full", maximum(full)), ("h_only", maximum(h_path)), ("g_only", maximum(g_path)),
++             ("split", maximum(add_trees(h_path, g_path))))}
++        save()
+         require(maximum(h_path[0]) > NONTRIVIAL and maximum(g_path[0]) > NONTRIVIAL,
+                 "Both shared native mixed-credit paths must be nontrivial")
+-        error = compare(full, add_trees(h_path, g_path))
+-    return full, {"both_differentiable_factor_paths_supported": True, "product_rule_sum_max_error": error,
++        # Generalized VJP output order is all g then all h in original phi order.
++        # Constant outputs have zero derivative and are excluded from grad API;
++        # all unused inputs still map to exact zero in the returned full tree.
++        factors = [("g", n, g[n], -op.Config().eta_probe * h[n].detach()) for n in phi]
++        factors += [("h", n, h[n], -op.Config().eta_probe * g[n].detach()) for n in phi]
++        live = [row for row in factors if row[2].requires_grad]
++        diagnostics["joint_factor_output_order"] = [[kind, name] for kind, name, _, _ in live]
++        diagnostics["constant_factor_outputs_zero_derivative"] = [[kind, name] for kind, name, value, _ in factors if not value.requires_grad]
++        diagnostics["joint_VJP_status"] = "ATTEMPTED"
++        observations["shared_private_VJP_API_attempts"] += 1
++        save()
++        derivatives = torch.autograd.grad(tuple(row[2] for row in live), tuple(core.values()) + tuple(phi.values()),
++            grad_outputs=tuple(row[3] for row in live), allow_unused=True, retain_graph=False)
++        joint = tuple({n: torch.zeros_like(v) if d is None else d.detach()
++            for (n, v), d in zip(params.items(), part)} for params, part in
++            ((core, derivatives[:len(core)]), (phi, derivatives[len(core):])))
++        diagnostics["joint_VJP_status"] = "COMPLETED"
++        joint_scale = maximum(joint)
++        diagnostics["path_scales"]["joint"] = joint_scale if math.isfinite(joint_scale) else None
++        save()
++        split_row = record_support_residual("scalar_full_vs_split_diagnostic", full, add_trees(h_path, g_path),
++            diagnostics, save, (h_path, g_path))
++        joint_row = record_support_residual("scalar_full_vs_joint", full, joint, diagnostics, save, (h_path, g_path))
++        h_omission = record_support_residual("omit_g_path_keep_h_only", h_path, full, diagnostics, save, (h_path, g_path))
++        g_omission = record_support_residual("omit_h_path_keep_g_only", g_path, full, diagnostics, save, (h_path, g_path))
++        diagnostics["joint_self_gate"] = "ATTEMPTED"; save()
++        try:
++            error = compare(full, joint)
++        except BaseException as failure:
++            diagnostics["joint_self_gate"] = "FAILED"; save(); raise
++        diagnostics["joint_self_gate"] = "SATISFIED"
++        omission_rejected = all(row["all_tensors_finite"] and row["active_coordinate_mismatch"] for row in (h_omission, g_omission))
++        diagnostics["branch_omission_controls"] = "SATISFIED" if omission_rejected else "FAILED"
++        save()
++        require(omission_rejected,
++                "Each omitted native factor path must fail original active-coordinate tolerance")
++    return full, {"both_differentiable_factor_paths_supported": True, "scalar_full_vs_joint_max_error": error,
++                  "joint_analytic_factor_VJP_self_gate_satisfied": True, "both_factor_omission_controls_rejected": True,
++                  "full_vs_split_diagnostic_only": True, "historical_full_vs_split_gate_status": "FAILED_PRESERVED",
++                  "full_vs_split_diagnostic": split_row,
+                   "h_path_max_abs": maximum(h_path), "g_path_max_abs": maximum(g_path),
+                   "h_path_shared_max_abs": maximum(h_path[0]), "g_path_shared_max_abs": maximum(g_path[0]),
+                   "h_path_private_max_abs": maximum(h_path[1]), "g_path_private_max_abs": maximum(g_path[1]),
+-                  "isolated_support_counts": dict(observations), "full_monolithic_oracle": False}
++                  "isolated_support_counts": dict(observations), "full_monolithic_oracle": False,
++                  "returned_reference": "original_one_forward_both_live_full_scalar_derivative"}
+ 
+ 
+ def run(args, receipt, save, check):
+@@ -338,6 +461,15 @@
+     support_observations = {"native_forward_callbacks": 0, "private_partial_API_attempts": 0, "shared_private_VJP_API_attempts": 0}
+     receipt["independent_observations"] = physical
+     receipt["isolated_support_observations"] = support_observations
++    support_diagnostics = {"historical_full_vs_split_gate": {"status": "FAILED_PRESERVED",
++        "diagnosis": {"path": "matched_first_order_private_gradient_utility_native_isolated_oracle_failure_diagnosis_20261006_v1/FINDINGS.json",
++            "bytes": 6133, "sha256": "976eeaf968229dc2d7ef00e4f0a8bf2f5f15a6a30d764ff0d1540c38f70bedd8"},
++        "failed_worker": {"path": "allocation_streamed_utility_native_terminal_handoff_root_20261006_v2/WORKER_RESULT.json",
++            "bytes": 33625, "sha256": "14ebb2181e7c0410d5730a557a68f1f5b6ad66cd4588bb2fe4b27681dae5f4f7"}},
++        "prospective_validation": "original full scalar vs same-graph analytic joint(g,h) VJP; candidate remains vs original scalar full",
++        "diagnostic_work": {"comparison_attempts": 0, "tensor_comparison_attempts": 0,
++            "tensor_coordinates_examined": 0, "elapsed_seconds": 0.0}}
++    receipt["isolated_support_diagnostics"] = support_diagnostics
+     try:
+         def expired(signum, frame):
+             raise TimeoutError("Root-frozen native utility whole-process deadline exceeded")
+@@ -472,8 +604,14 @@
+             candidate = observed_call("fixed_credit", meters["fixed_credit"], physical, forward,
+                 lambda counted: utility._engine(*arguments, theta, phis, counted, pairs, s, ys, r, yr,
+                     engineering_authorized=True, counters=meters["fixed_credit"])._utility_credit(fixed_t, 0), CREDIT)
+-            reference, support = product_support(op, theta, phis, forward, pairs, s, ys, fixed_t, support_observations)
+-            error = compare(candidate, reference)
++            reference, support = product_support(op, theta, phis, forward, pairs, s, ys, fixed_t, support_observations, support_diagnostics, save)
++            record_support_residual("candidate_vs_original_scalar_full", candidate, reference, support_diagnostics, save)
++            support_diagnostics["candidate_vs_full_gate"] = "ATTEMPTED"; save()
++            try:
++                error = compare(candidate, reference)
++            except BaseException as failure:
++                support_diagnostics["candidate_vs_full_gate"] = "FAILED"; save(); raise
++            support_diagnostics["candidate_vs_full_gate"] = "SATISFIED"; save()
+             base.zero_unused(candidate[0])
+             for name, value in candidate[1].items():
+                 if name.startswith("local_head."):
+@@ -483,17 +621,17 @@
+                     "same_caller_state_restored": verify_native(), "no_full_monolithic_or_FD": True}
+         check("nontrivial_native_both_factor_mixed_credit_support", mixed_support)
+         require(support_observations == {"native_forward_callbacks": 1, "private_partial_API_attempts": 2,
+-                                         "shared_private_VJP_API_attempts": 3}, "Actual isolated support accounting differs")
++                                         "shared_private_VJP_API_attempts": 4}, "Actual isolated support accounting differs")
+         receipt["actual_native_forward_total"] = sum(v["native_forward_callbacks"] for v in physical.values()) + support_observations["native_forward_callbacks"]
+         receipt["actual_ordinary_grad_API_total"] = (sum(v["ordinary_autograd_grad_API_attempts"] for v in physical.values())
+             + support_observations["private_partial_API_attempts"] + support_observations["shared_private_VJP_API_attempts"])
+-        require(receipt["actual_native_forward_total"] == 59 and receipt["actual_ordinary_grad_API_total"] == 97,
++        require(receipt["actual_native_forward_total"] == 59 and receipt["actual_ordinary_grad_API_total"] == 98,
+                 "Actual complete native utility support bill differs")
+         native_kinds = ("private_gradient_calls", "native_vjp_calls", "utility_margin_phi_vjp_calls",
+                         "utility_dummy_cotangent_reverse_calls", "utility_weighted_margin_private_gradient_calls")
+         receipt["native_reverse_constructions_excluding_maps_query"] = (sum(m.total[k] for m in meters.values() for k in native_kinds)
+             + support_observations["private_partial_API_attempts"] + support_observations["shared_private_VJP_API_attempts"])
+-        require(receipt["native_reverse_constructions_excluding_maps_query"] == 86, "Actual native reverse bill differs")
++        require(receipt["native_reverse_constructions_excluding_maps_query"] == 87, "Actual native reverse bill differs")
+         receipt["native_restoration_on_exit"] = verify_native()
+         receipt["all_constructed_states_discarded_no_parameter_commit"] = True
+     except BaseException as error:
+@@ -502,6 +640,13 @@
+     finally:
+         signal.setitimer(signal.ITIMER_REAL, 0)
+         receipt["attempted_candidate_counters"] = {k: v.snapshot() for k, v in meters.items()}
++        receipt["attempted_native_forward_total"] = sum(v["native_forward_callbacks"] for v in physical.values()) + support_observations["native_forward_callbacks"]
++        receipt["attempted_ordinary_grad_API_total"] = (sum(v["ordinary_autograd_grad_API_attempts"] for v in physical.values())
++            + support_observations["private_partial_API_attempts"] + support_observations["shared_private_VJP_API_attempts"])
++        native_attempt_kinds = ("private_gradient_calls", "native_vjp_calls", "utility_margin_phi_vjp_calls",
++            "utility_dummy_cotangent_reverse_calls", "utility_weighted_margin_private_gradient_calls")
++        receipt["attempted_native_reverse_constructions_excluding_maps_query"] = (sum(m.total[k] for m in meters.values() for k in native_attempt_kinds)
++            + support_observations["private_partial_API_attempts"] + support_observations["shared_private_VJP_API_attempts"])
+         errors = []
+         def restore(label, function):
+             try:

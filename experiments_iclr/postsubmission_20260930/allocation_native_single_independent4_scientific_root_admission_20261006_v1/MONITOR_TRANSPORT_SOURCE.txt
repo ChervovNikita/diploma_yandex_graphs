@@ -1,0 +1,51 @@
+cd /home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs && /usr/bin/python3 -I -S -B - <<'NATIVECOHORTMONITOR'
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json,socket
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930';parent=phase/'allocation_native_single_independent4_scientific_execution_root_20261006_v1'
+assert Path.cwd()==repo and socket.gethostname()=='anogena-2-0'
+if not (parent/'DISPATCH_LAUNCH_RECEIPT.json').exists():
+ print(json.dumps({'status':'DISABLED_NATIVE_MONITOR_NO_OWNED_LAUNCH_RECEIPT','fit_launches':0,'filesystem_mutations':0}),flush=True);raise SystemExit(0)
+def read(path):
+ assert path.is_file() and not path.is_symlink() and path.resolve().is_relative_to(parent)
+ data=path.read_bytes();return json.loads(data),{'path':str(path.relative_to(phase)),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'mode':oct(path.stat().st_mode&0o777)}
+launch,launchrow=read(parent/'DISPATCH_LAUNCH_RECEIPT.json');assert launch['launch_attempts']==1 and launch['root_scientific_dispatch_authorized'] is True
+def identity(pid,ticks,expected):
+ proc=Path('/proc')/str(pid)
+ if not proc.exists():return {'PID':pid,'expected_start_ticks':ticks,'absent':True}
+ try:
+  f=(proc/'stat').read_text().rsplit(')',1)[1].split();assert int(f[19])==ticks
+  row={'PID':pid,'start_ticks':int(f[19]),'state':f[0],'parent_PID':int(f[1])}
+  if f[0]!='Z':
+   actual=[v.decode() for v in (proc/'cmdline').read_bytes().split(b'\0') if v];assert actual==expected
+   row.update(actual_argv=actual,cwd=str((proc/'cwd').resolve()),interpreter=str((proc/'exe').resolve()))
+   for line in (proc/'status').read_text().splitlines():
+    if line.startswith(('VmRSS:','VmHWM:')):
+     key,value,unit=line.split();assert unit=='kB';row[key[:-1]+'_bytes']=int(value)*1024
+  return row
+ except FileNotFoundError:return {'PID':pid,'expected_start_ticks':ticks,'exited_during_exact_identity_observation':True}
+sup_identity={'PID':launch.get('PID'),'launch_identity_token_complete':launch.get('physical_identity_verified') is True}
+if launch.get('physical_identity_verified') is True:sup_identity=identity(launch['PID'],launch['physical_identity']['start_ticks'],launch['requested_argv'])
+result=resultrow=None;children=[]
+if (parent/'supervisor/RESULT.json').exists():
+ result,resultrow=read(parent/'supervisor/RESULT.json')
+ for c in result['children']:
+  assert c['job_id']=='native_cohort' and c['parent_pid']==launch['PID'] and c['CUDA_VISIBLE_DEVICES']=='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+  if c['starttime_ticks'] is not None:children.append({'receipt':c,'observed_identity':identity(c['pid'],c['starttime_ticks'],[c['python'],'-B',c['worker'],*c['argv']])})
+worker=workerrow=None
+if (parent/'cohort/RESULT.json').exists():worker,workerrow=read(parent/'cohort/RESULT.json')
+progress={}
+for member in range(4):
+ for stage in ('W','SR'):
+  name='member'+str(member)+'_'+stage+'.trace.jsonl';p=parent/'cohort'/name
+  if p.exists():
+   assert p.is_file() and not p.is_symlink() and p.resolve().is_relative_to(parent/'cohort')
+   data=p.read_bytes();complete=data[:data.rfind(b'\n')+1].splitlines();last=json.loads(complete[-1]) if complete else None
+   progress[name]={'complete_rows':len(complete),'last_completed_update':last['update'] if last else 0,'sampled_bytes':len(data),'loss_values_returned':False}
+terminal=result is not None and result['status']!='RUNNING' and resultrow['mode']=='0o444'
+if terminal and result['status']=='FRESH_NATIVE_SINGLE_ENS4_COHORT_COMPLETE_A_CLOSED':
+ assert result['child_exit_code']==0 and result['wait4_closed'] is True and result['cleanup_errors']==[] and result['comparison_complete'] is True
+ assert len(result['children'])==1 and result['children'][0]['wait4_closed'] is True and result['children'][0]['child_exit_code']==0 and not result['children'][0]['external_timeout']
+ assert worker['restoration_errors']==[] and workerrow['mode']=='0o444'
+print(json.dumps({'UTC':datetime.now(timezone.utc).isoformat(),'status':'OWNED_NATIVE_COHORT_TERMINAL_SNAPSHOT' if terminal else 'OWNED_NATIVE_COHORT_RUNNING_METADATA_SNAPSHOT','dispatch_launch':launch,'dispatch_launch_descriptor':launchrow,'supervisor_observed_identity':sup_identity,'children':children,'supervisor_RESULT':result,'supervisor_RESULT_descriptor':resultrow,'worker_RESULT':worker,'worker_RESULT_descriptor':workerrow,'fixed_trace_progress':progress,'checkpoint_or_prediction_or_label_payloads_copied':False,'filesystem_mutations':0,'fit_launches':0,'retry_launches':0,'scoring':False}),flush=True)
+NATIVECOHORTMONITOR

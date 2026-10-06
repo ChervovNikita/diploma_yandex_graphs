@@ -258,10 +258,19 @@ This public repository identifies its contributors. Conference review uses a sep
 
 ## Complete link-prediction follow-up (4 October 2026)
 
-The NCNC family closed with35physical fits and25served cells. Complete saved validation favors member-specific completion over pooling by 0.8432 percentage points across five paired seeds and approximately matches independent4. Selected-checkpoint replay and heldout confirmation are pending. This is development evidence on one graph/time split. It does not establish novelty or a new state-of-the-art result.
+The NCNC family completed 35 physical fits and 25 served cells, selected-checkpoint metric auditing and once-only heldout scoring. Its frozen private-completion versus pooled-completion contrast was +0.2236 percentage points, with a descriptive 95% seed interval of [-0.7775, 1.2247]. The contrast against independent four was -0.3389 points. The heldout result does not confirm the earlier development advantage or establish a quality winner. This is one graph/time split; the [independent evidence audit](experiments_iclr/postsubmission_20260930/ncnc_all25_heldout_fresh_evidence_audit_20261004_v1/REPORT.md) preserves the complete outcomes and limits.
 
 The fixed BUDDY family completed15served cells/24physical fits, selected-checkpoint audit, once-only heldout evaluation and the predeclared paired analysis. Shared4 has mean53.196% Hits50, compared with53.960% single256,53.253% independent4 and53.191% the matched single. Every reported contrast interval includes zero. No quality winner is promoted. Complete candidate order and15member/pooled prediction files remain on the authorized server, with exact primary metric agreement and published descriptors.
 
 The completed whole-pattern versus individual-incidence comparison scored64.3066% versus64.0903% validation Hits@50: +0.2164 percentage points in one seed. All100 training streams matched and both1700-update fits, diagnostics, closure and complete-pair reader finished. Pooling the learned completion weights outperformed private completion at the fixed selected states; that adverse mechanism diagnostic is preserved. No serving route is promoted from this inspection. The next prospective source includes pooled J/F training, a capable count-aware single and a no-auxiliary control. It is not an executed experiment or established contribution.
 
 For the latest completed Amazon comparison, queue state and qualification limits, see [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Existing manuscript scores remain unchanged.
+
+
+## Accuracy-oriented research (6 October 2026)
+
+The current extension allocates additional class-competitor supervision using each member's private learning response while training the shared backbone through separate training-query supervision. Prediction uses the mean of member probabilities. The motivation is to repair confident mistakes shared by all members; disagreement alone is not a success criterion.
+
+The fixed six-condition training study has completed. Heldout outcomes remain closed while competent ordinary training, fresh native single/independent models and a matched first-order learning-response control are completed. The original first-order implementation passed the full-graph gradient and process checks; an unsuccessful memory-saving implementation remains recorded as failed. Neither check is an accuracy result.
+
+MetaDistil, Meta Pseudo Labels and dynamic-loss teaching supply prior for virtual learning steps, query feedback and recommitting from the original state. Those principles are not claimed as new. Saved [literature conclusions](experiments_iclr/postsubmission_20260930/training_query_private_response_competing_primary_literature_20261006_v1/REPORT.md) and the [error interpretation plan](experiments_iclr/postsubmission_20260930/training_query_private_response_competing_primary_literature_20261006_v1/INTERPRETATION_PLAN.md) define the remaining controlled question. No new superiority or methodological novelty is established yet. The five original manuscript scores are unchanged.

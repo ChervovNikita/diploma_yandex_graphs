@@ -1,0 +1,41 @@
+# Training-query response: three additional primary method scopes
+
+6 October 2026. **Bounded literature and interpretation only.** Index72, ACTIVE_SUPPLEMENTS through20261006v7 and the saved nearest-prior/control/decision reports were reused first. MetaFun, WarpGrad, ProMP, CMCL, Ren and Meta-Weight-Net were not fetched again. Three additional primary identities had no indexed or saved scoped-method record; the old Meta-Weight-Net bibliography mentions dynamic-loss teaching but does not supply an earlier method-reading scope.
+
+## 1. MetaDistil supplies a direct original-state recommit precedent
+
+**Zhou, Xu and McAuley, “BERT Learns to Teach: Knowledge Distillation with Meta Learning,” ACL2022** ([official primary PDF](https://aclanthology.org/2022.acl-long.485.pdf), DOI10.18653/v1/2022.acl-long.485). Read §3.1.1–3.2.2, Eqs1–3 and complete Algorithm1, PDF pp3–5/printed7039–7041. Algorithm1/Eqs2–3 were visually checked.
+
+The student objective combines task supervision and differentiable teacher/student distillation. The teacher is optimized for quiz loss after an experimental student step. Its **pilot update** copies the current student, updates the copy on training batch x under the current teacher, updates the teacher through the copy's quiz loss, discards the copy, then updates the **original student on the same x with the updated teacher**. The quiz set is separate from the validation set used for model selection. The teacher changes to help this persistent student, rather than merely learning an initialization for later tasks.
+
+This directly precedes the generic explanation “virtual private update → outer update → recompute and commit from original private state.” That order cannot be credited as a new principle. In the active GNN configuration, outer parameters are shared prediction parameters, not a separate distillation teacher; Q is generated from member-specific S-margin learning responses under graph/balance constraints; and all four branches serve their probability mean. These are operation differences to test, not a novelty certificate. The inspected paper does not establish that the GNN bank needs four members, learns useful correction or beats competent ordinary supervision.
+
+## 2. MPL combines finite student-update feedback with gradient alignment
+
+**Pham, Dai, Xie and Le, “Meta Pseudo Labels,” CVPR2021** ([official primary landing page](https://openaccess.thecvf.com/content/CVPR2021/html/Pham_Meta_Pseudo_Labels_CVPR_2021_paper.html), DOI10.1109/CVPR46437.2021.01139). Read complete main §2/Eqs1–3 (PDF pp1–3) and supplementary AppendixA/Eqs4–12 plus AppendixB/complete Algorithm1 (supplement PDF pp1–3, printed13–15). Eq12/Algorithm1 were visually checked. No experiment/result sections or author code were reviewed.
+
+MPL replaces a full student-training argmin by one SGD step and trains the teacher to reduce labeled-data loss at the resulting student parameters. Soft pseudo targets make that one-step objective differentiable; the reported practical hard-label path samples targets and uses the appendix's REINFORCE/Monte Carlo approximation. Eq12 forms a scalar dot product between the student's **labeled-loss gradient at the updated student** and its **pseudo-label training gradient at the original student**, multiplying the teacher pseudo-label CE gradient. Algorithm1 updates the persistent student first, computes this feedback, and updates the teacher with feedback plus auxiliary objectives. Only the student is returned for prediction.
+
+This is direct prior for valuing supervision by the result of a finite learning step, gradient-alignment feedback and training-only adaptation with ordinary deployment. Its practical scalar is not the matched control's original-state S-margin/own-CE directional derivative: its query factor is evaluated after a student update, its labels/data roles differ, and it updates a teacher through sampled pseudo targets. The inspected approximation is not a general unbiased-gradient or convergence guarantee. Neither “finite feedback” nor “gradient utility” alone distinguishes the candidate from this literature.
+
+## 3. Dynamic-loss teaching differentiates the student learning trajectory
+
+**Wu, Tian, Xia, Fan, Qin, Lai and Liu, “Learning to Teach with Dynamic Loss Functions,” 2018, arXiv1810.12081v1** ([versioned primary preprint](https://arxiv.org/pdf/1810.12081v1)). Read §3.1–3.3/Eqs1–5, complete Algorithm1 and leading §3.4 on PDF pp3–5. Algorithm1/Eqs3–5 were visually checked; §3.4 is partial, and appendix derivations/code/results were not audited.
+
+A teacher maps student training state to loss coefficients. The student takes SGD steps using that loss; teacher optimization maximizes a relaxed development objective after the training trajectory. Reverse-mode differentiation propagates through SGD with ordinary Hessian/mixed-Hessian vector products. Algorithm1 randomly initializes a student for each teacher-optimization trajectory, trains it forward, reverses the trajectory, and updates teacher parameters. This differs from the active bank's persistent private rows and per-episode shared/private ownership, but establishes optimized supervision from post-update query feedback and the derivative machinery. It prevents a claim that “first-order” allocation implies a Hessian-free outer learner.
+
+The printed v1 algorithm/prose point to Eqs6/7 while the displayed expressions in this scope use Eqs1/4. That notation issue is preserved; no implementation or proof was inferred from the mismatched pointers. Accepted-version equivalence was not checked.
+
+## What remains falsifiable
+
+The useful question is specific: **does finite private class-competitor response cost improve complete served pooled predictions and repair common errors beyond the matched live first-order cost substitution and competent ordinary training?** Ren/Meta-Weight-Net already establish alignment and bilevel weighting; the new scopes strengthen finite-update feedback and recommit ancestry. A literal MPL, MetaDistil or learned-loss teacher port would change data roles, objectives, parameter ownership and serving. It is not silently an extra arm of the frozen study.
+
+A live-versus-uniform/current-margin/stop-Q win would narrow mechanisms within the special learner, but would not isolate a finite-response contribution. First-order utility must retain both differentiable factors, the same normalization/Q/main/query/recommit/serving and original tolerances; it remains a mixed-derivative outer learner. Any finite/utility difference belongs to that complete matched learning-map substitution, including nonlinear normalization and finite assignment effects, not an automatic curvature-benefit claim. Their measured costs differ.
+
+The short [interpretation plan](INTERPRETATION_PLAN.md) separates pooled repairs, introduced errors, wrong-class churn and confidence changes. It preserves all fixed endpoints, existing gates and the complete comparison set. No desired outcome is encoded. Even a favorable controlled screen would establish conditional utility, with broader novelty and confirmation still separate. Unread competing methods, including the saved unresolved ensemble papers, remain unresolved.
+
+## Honest reading and access bill
+
+Eight public HTTP requests: three OpenAlex discovery queries, three primary PDFs, one official MPL link-resolution page and its supplementary PDF. Four PDF files represent **three new bounded method identities**, not four papers. There are **zero new full-paper reads, zero author-code scopes and zero empirical-score/result-table adoption**. Automatic heading navigation/frontmatter and four visual method-page checks are distinct from a full reading. Adjacent setup prose was incidentally exposed in two rendered pages; it was not used for an outcome claim. The method texts include author performance language, which was not adopted.
+
+Exact PDFs, selected method text, scopes and hashes are saved. No canonical index/ledger/ACTIVE_SUPPLEMENTS update, model/native computation, prediction/label/checkpoint payload access, held scoring, fit, source or frozen-study modification occurred. The base index's cumulative full-reading count is not certified here.

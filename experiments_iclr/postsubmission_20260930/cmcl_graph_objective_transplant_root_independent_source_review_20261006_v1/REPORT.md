@@ -1,0 +1,5 @@
+# Independent CMCL helper review
+
+PASS_SOURCE_MATH_ONLY. Root checked the exact4330-byte source against the authenticated saved objective, without importing it. Selecting K lowest CE−beta KL minimizes beta sum(KL)+sum-owner(CE−beta KL) for each fixed input. On a fixed stopped branch, owner gradients are P−e_y and nonowner gradients beta(P−U), multiplied by the explicit half-role node mean. The rational fixture CE sum is log64 and its nonowner term is (3/20)log[(16×64^4)/(5^5×15^4)]. The separate forward-KL, uniform nonowner and complete probability-mean cases independently reject the main implementation shortcuts.
+
+Both public entry points remain disabled; no numerical execution, model, fitting or scoring occurred. The whole-graph caller, gradient/RNG/resource checks and representative experiment are still absent. The fixed member sum, tie behavior, unclipped KL and transplanted role/optimizer choices must be disclosed. This review grants no execution and no predictive or novelty conclusion.
