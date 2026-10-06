@@ -1,0 +1,13 @@
+# Contribution criteria for the shared-backbone learning method
+
+The research target is a specific, useful training method with defensible differences from close prior work and reproducible predictive gains. A new universal learning principle, new predictor class or tangent-rank increase is not required. Known components must be cited and their role made explicit. Combining them is not automatically novel or useful; the exact training map and the evidence decide the scope of the contribution.
+
+A capable single that expresses the same served function rules out exclusive-capacity claims. It does not prove that training that single produces the same predictor, nor disprove an ensemble's optimization or inductive-bias benefit. Those benefits must be measured against competent same-information single and independent controls. Architecture equivalence cannot replace their training.
+
+For the current candidate, the operation to evaluate is graph-coupled balanced allocation of class-competitor supervision from finite private correction, with the query gradient propagated through the allocation into the shared core. Credit prior specialization, finite-update meta-learning and graph regularization. Describe response as a property of the specified parameterization, optimizer, step and state; do not call it intrinsic capacity. The exact closest-prior comparison remains unresolved until source attribution and the completed experiments support it.
+
+The already frozen controls distinguish finite response from first-order utility, graph-conditioned allocation from graph-free/permuted allocation, differentiating through allocation from stopping that derivative, and the special rule from current margins, uniform supervision, ordinary own/pool training and CMCL. Competent native SINGLE/independent-four references remain mandatory. No arm, horizon, threshold or held-score rule changes here.
+
+A gain must concern the full served prediction population and survive member-competence checks. Error transitions explain the gain after the comparison; they are not new winner-selection criteria. Training Q variation, different hidden states, better calibration alone, oracle-member gains or one favorable subgroup do not establish predictive superiority. The optional shared-opponent diagnostic is elementary analysis, not a new theorem or contribution.
+
+This decision corrects an overly restrictive interpretation of capacity-equivalence arguments while retaining rigorous attribution and evaluation. It does not reopen closed numerical failures, erase unsuccessful experiments, declare novelty, establish an accuracy result or request an acceptance verdict. Original paper scores remain unchanged.

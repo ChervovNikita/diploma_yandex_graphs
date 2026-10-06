@@ -1,0 +1,13 @@
+# Actual support-census interpretation
+
+The one-time CPU census completed on the authorized one-GPU allocation with child exit0. Exact source/input/topology/custodian checks passed. All ten pair supports and every component are retained. The full B/W/S/R label member was decoded by the disclosed custodian; only copied S labels entered this analysis. A/VALID/TEST labels, model/checkpoint/prediction payloads and held scores stayed closed.
+
+Across the ten actual induced pair graphs, 58.82%–82.34% of support nodes are nonloop isolates. Pair supports contain334–1537nodes; induced graphs have35–436undirected edges and300–1140anchored components. The full public graph contains24,492nodes and93,050distinct undirected nonloop edges and is connected. All pair anchors are therefore connected through the full public graph. The restricted pair+nonS variant loses some paths through other S classes; it is descriptive, not the proposed complete public graph.
+
+The current pair graph discards many public paths. For an isolated support row its local Laplacian-energy term has no nonloop coupling. This does not establish weak classifier propagation, predictive harm, graph inactivity, assignment equality, superiority of an alternate prior, or novelty. The classifier already uses the public graph. Global balancing, finite solver step sizes, subsequent optimization and shared model propagation remain relevant. The graph-free control also changes the2gamma term in the step denominator, so it does not isolate graph energy.
+
+A label-free public-path responsibility energy is now motivated by observed support fragmentation. Classical harmonic/Kron and diffusion constructions must receive credit; feasibility, topology attribution and served quality still require prospective testing. No alternate K, fit, tuning rule or held gate is changed by this result. Target orientation is a distinct hypothesis and must not be conflated with restoring paths.
+
+Pair membership totals repeat each S node four times; they are not unique-node totals. Cross-class denominators in the compact summary are the retained class-count products, with nested-view deltas computed from exact saved numerators. The8.54s internal timer starts after imports/admission; the root receipt interval includes transport. Neither is a kernel RSS or whole-child CPU/GPU resource bill.
+
+V1 failed before accessor import or any label/topology decode because three exact accessor metadata files were writable. The reviewed remedy restored only those three modes after verifying all five finite source/protocol pins. V2 source, INPUTS, runtime and guards are unchanged. V1 and its cost interval remain preserved.

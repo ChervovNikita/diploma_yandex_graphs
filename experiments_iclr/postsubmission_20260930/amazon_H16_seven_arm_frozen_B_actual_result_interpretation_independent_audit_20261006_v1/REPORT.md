@@ -1,0 +1,13 @@
+# Saved B summary and interpretation: independent audit
+
+The saved result and root interpretation are supported within their training-diagnostic scope; no concrete issue found. Exact SUMMARY:523,402 bytes SHA `017d15359c2ec968c399697b40c29dbc5962dab80b1d45f591d5b7aa8bd419ca`, matching returned UTF8/descriptor/stdout and locally frozen0444. Its initial local0644 observation copy was frozen without changing bytes.
+
+Actual V2 command exit0 is distinct from V1 command exit1 (both transports exited0). V1 failed at Torch import before any weights_only diagnostic-value load; its receipt remains preserved. V2 uses the same be51 reader/14cea seven-input list and two-file source manifest, with a distinct release/output, standard existing-project PYTHONPATH and emptyCUDA. No installation or scientific source/input/math change occurred. Root receipt intervals including transport were0.877984s and5.582959s, not isolated child kernel/resource bills.
+
+All7/16/10/4 series and raw denominators are complete:160 pair-episode cells per arm,1,120 total; per-arm overlapping pair-row denominator156,736 and Q-entry denominator626,944. Every stored mean/min/max/count reproduces its saved scalar series exactly; all observed-response normalizations and compact/source/input/release joins match. No raw B tensor or computation was replayed.
+
+Root's rounded observations are correct: live mean RMS/epsilon66.98070659, range8.71161092–306.87928200 and smooth-normalized mean0.99884769; mean Q relativeRMS0.10901118. Uniform has exactly zero deviation and entropylog4. At matched utility states, centered discrepancy RMS mean0.02350224 versus paid-finite0.06697570 and first-order0.07252601. The descriptive ratio of those separate means is0.35090692, not a relative-error guarantee. All160 same-state discrepancy entries match; no cross-arm trajectory difference is presented as Taylor error.
+
+The graph-free/permuted/stop-Q training loss and aggregate Q summaries are close, but neither the reader nor interpretation claims pointwise Q equality or causal absence of graph effects. Endpoint shared/private displacement remains endpoint/common distance, not episode norm or quality/capacity measure. No held-data, gain, generalization, novelty or acceptance verdict follows. Existing held comparison/gates remain unchanged.
+
+This analysis adds zero dataset experiments/model fits/native forwards/autograd/held scores. The audit used only local saved JSON/scalar/source metadata and stdlib arithmetic; no server contact, raw B/label/checkpoint/prediction load/hash, Torch/prepared code import/run, numerical rerun or predecessor modification occurred.

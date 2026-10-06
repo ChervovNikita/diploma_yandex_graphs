@@ -1,0 +1,15 @@
+# CMCL native parity runner: independent source review
+
+**PASS_SOURCE**, no concrete source blockers. Exact31,563-byte source SHA `2a2127e63bf58da8a3f48be70e9eaa339a6d4313c960e6cc158b9d35568d6c58`. Execution/fit authority:false; native numeric checks:0. All11 packet files are readonly; manifest/seal,12 source pins, CPUd73/b658/63d764 and callable-reviewb69 bindings match.
+
+The reference independently writes the original full scalar CMCL objective on four retained native graphs, using exact KL(U||P), stopped stableK3 owners, member sum and equal half S/R means. One joint gradient call returns all shared/private parameter derivatives and the full bank cotangent; direct coupled SGD endpoints use original inputs/rates. It does not use CMCL/candidate/SGD helpers for expectations.
+
+Streamed candidate and fixed repeat each start from identical original commonW400 state/context/RNG, not oracle endpoints. Complete logits, total/S/R loss, cotangents, all shared/private gradients and endpoints are compared at unchanged2e-6/2e-5; owners and logical RNG are exact. Zero non-S/R cotangents, dormant coordinates, original values/objects/storage/versions/flags, family parameters/modes/attributes/buffers and input/common/source custody are checked. Full original shared4/global/eval24492x300 FP32 graph/S2449/R2450 is reused.
+
+The fixed sequence totals20 native callbacks,9 native+2 small gradient APIs and3 discarded endpoint constructions. Counters precede calls; candidate partial counts reconcile in finally, and hard termination can establish only last-persisted lower bounds. No serving, fit, persistent update, Adam, checkpoint/prediction write or scoring is added. RNG/backend/reversible threads/path/environment/signals/helper bindings/source receipts restore; one-time interop initialization is explicitly not claimed reversible.
+
+Only metadata RESULT is written through existing owned-output helpers; root supplies external launch/watchdog/wait4/exit/tail/resource closure, with no new supervisor. Worker boundary/final capture does not close its final publication/exit tail. Partial/failing/resource outcomes cannot become support PASS.
+
+Proposed900s/RSS8GiB/allocated72GiB/reserved74GiB/watchdog1020s and78GiB fresh-free floor remain unmeasured capacity proposals. Actual exclusive scheduling and fresh memory receipts are pending; current free is unavailable, and coexistence with priority jobs is not inferred. The child rechecks free before native graph work. Root must freeze exact new scope/review/source/runtime/binary/deployment pins, use readonly mirrors for four local0644 borrowed files, clear the real exclusive window and own whole-child closure before any invocation. Native parity and four-graph memory feasibility remain unproven; a replay failure at original tolerances stays FAIL and any later monolithic baseline needs separate authority.
+
+No subject/helpers imported/run, scientific payload accessed/hashed, remote/GPU/process action, staging, fit/scoring or predecessor modification occurred. This source verdict supplies no predictive, efficiency or contribution claim.

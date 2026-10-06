@@ -2,23 +2,19 @@
 
 ## Current research — 6 October 2026
 
-Our target is better predictions from a shared graph ensemble. Original five-dataset scores remain unchanged. No new method has established predictive superiority or novelty; manuscript acceptance remains unmet.
+We are developing a shared graph ensemble for better predictions. The original five-dataset benchmark tables remain unchanged. The current extension has completed training pilots and is waiting for complete baseline comparisons; predictive superiority and methodological novelty remain open.
 
-Saved Amazon development predictions show weaker members, limited pooling benefit and confident common mistakes. The fixed corrective experiment asks whether a member's response to a private learning step can assign useful extra class-competitor supervision. Every member retains ordinary supervision, and serving averages all member probabilities. Evaluation will count repaired errors and newly introduced errors, member accuracy and probability losses.
+Selected development predictions show common mistakes across shared members and limited benefit from averaging. Our current training rule gives extra supervision to members whose private learning step appears useful. Every member retains ordinary supervision. A training-query objective trains the shared core, and inference averages all member probabilities. Evaluation will count repaired and introduced errors as well as member competence and probability losses.
 
-The allocation completed its 400-update common stage and five of six fixed correction conditions; the final condition was active at the latest observation. Assessment, validation and test scoring remain closed. Exact common-state staging and normal strict runtime are verified on 18.77. Its checkout and original host receipts are preserved.
+Seven fixed Amazon correction conditions have completed training. Independently audited training diagnostics confirm nonuniform member supervision weights and a measurable difference between finite-step and first-order response costs. Similar training losses across graph controls do not establish useful graph effects. Held-out accuracy comparisons are pending.
 
-Both GPUs passed the native ordinary shared-bank implementation check, including coupled gradients and Adam/RNG replay. The reviewed once-only 2300-update own/own-pool pair is admitted and awaits dispatch. Fresh native single/independent-four references also passed their separate 16-update full-graph check and external resource closure; no cohort fit is claimed. The native first-order utility check failed with OOM. Its exact branch-replay repair passed the small numerical fixture and still needs full-graph qualification. Failures and complete costs are retained; these checks do not establish predictive superiority.
+A new structural analysis identifies a specific limitation of the current responsibility prior: 58.82–82.34% of training nodes in each class-pair support have no supported neighbour, while the full public graph is connected. This motivates testing a prior that retains paths through other public nodes. Harmonic graph learning, Kron reduction and graph diffusion are established methods and receive explicit credit. Connectivity alone does not establish an accuracy gain.
 
-Scoped reading of MetaFun, WarpGrad and ProMP adds concrete antecedents for functional correction, shared learned update geometry and adaptation with soft KL control. The factor scale symmetry also makes Euclidean private response optimizer-dependent. These conclusions constrain the contribution; they supply no new accuracy or novelty claim. Every failure, cost and frozen decision remains recorded.
+At 06:45 UTC, the first fresh independent reference had completed its 2,300 continuation updates and the second had reached 1,994; two continuations remained pending. At 06:44 UTC, the ordinary controls on 18.77 had reached 750 and 752 of 2,300 updates, using both GPUs. Those jobs continued during the MacLink interruption. The private-transfer replication has 37 of 39 selected fits completed; the final two are pending. Complete references and custody precede held-out comparisons.
 
-- [Current evidence and limits](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md)
-- [Frozen error outcomes](experiments_iclr/postsubmission_20260930/amazon_error_analysis_corrective_method_decision_note_20261006_v1/REPORT.md)
-- [Exact 18.77 source and input staging](experiments_iclr/postsubmission_20260930/gpu77_ordinary_native_readiness_and_exact_staging_20261006_v1/REPORT.json)
-- [Reviewed numerical qualifier](experiments_iclr/postsubmission_20260930/amazon_ordinary_shared_bank_first_order_qualifier_root_independent_source_review_20261006_v1/REPORT.md)
-- [Reviewed two-GPU scheduling](experiments_iclr/postsubmission_20260930/amazon_ordinary_shared_bank_two_gpu_scheduler_root_independent_source_review_20261006_v1/REPORT.md)
-- [Saved primary method scopes](experiments_iclr/postsubmission_20260930/output_movement_private_response_new_primary_scout_20261006_v1/REPORT.md)
-- [Active literature memory](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v6.json)
+The research ledger preserves unsuccessful attempts, experiment costs, prospective decisions and source bindings. Saved literature conclusions prevent repeated searches; bounded method readings are distinguished from full-paper readings. New results will enter the paper after their fixed analyses and independent audits. A fresh paper review will assess the resulting manuscript.
+
+[Current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) · [Research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json) · [Training analysis](experiments_iclr/postsubmission_20260930/amazon_H16_seven_arm_frozen_B_summary_execution_root_20261006_v2/ROOT_INTERPRETATION.md) · [Graph support](experiments_iclr/postsubmission_20260930/amazon_fixed_pair_S_graph_support_census_execution_root_20261006_v2/ROOT_INTERPRETATION.md) · [Saved literature](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v11.json)
 
 ## Original method
 

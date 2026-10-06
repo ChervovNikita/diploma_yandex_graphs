@@ -1,0 +1,11 @@
+# Amended39 D2 activation and accounting: narrow delta review
+
+**PASS_SOURCE** for both exact source variants; no new source blockers. Analysis/execution/fit authority remains false. This reuses the authoritative94f433 source and its independent review; no duplicate scientific audit or execution was performed.
+
+Flag-only447661 (41,211 bytes) differs solely by the interface-reviewed boolean. Accounting proposal0fdd06 (42,138 bytes) adds one pinned accounting global and main metadata authentication/result provenance only. Reversing these enumerated edits yields the authoritative whole AST exactly. No function is added; metric/selector/custody/global science and complete39 registry, all39 history/FREEZE/CONFIG/selector then Torch/logit read order remain unchanged. New cost metadata authentication follows release_scope before populations and introduces no scientific read.
+
+Addendum290253 matches exact root operational-summary/evidence pins:20 excluded old77 registered fits completed with20zero exits/waits; fit elapsed42,365.51448023692s and queue-inclusive42,368.53260349482s. Original e3c70 registration ledger/UNKNOWN_AFTER_WITHDRAWAL/45lower-bound bytes remain intact. Proposal labels old unknown/45 as registration history and records current known completion/elapsed costs through the authenticated addendum.59 is selected39+excluded20 after actual full39, not an all-research census. Queue sums overlap; sampled resource peaks are not allocator/kernel/GPU-energy bills. No old donor or outcome becomes selectable.
+
+All15 packet files are now0444 with unchanged manifest3fc153 and seal0e78f8. Both root templates retain false approvals and null actual registry/history/source-manifest/new-review authority. Final3/full39 real closure, complete registry/history custody and a distinct actual root release remain required. For a self-contained eventual result, prefer the reviewed accounting proposal; the strict flag-only copy retains legacy output provenance.
+
+No prepared imports/run, scientific payload reads/hashes, staging, remote/process/fit/scoring action or source/predecessor modification occurred. The review closes only this delta; it supplies no observed full39 result or predictive conclusion.

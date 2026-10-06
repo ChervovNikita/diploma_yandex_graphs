@@ -1,0 +1,13 @@
+# Distinguish common wrong decisions from errors that averaging can repair
+
+This prospective descriptive extension is frozen before A/VALID/TEST scoring. It does not change any training arm, comparison, endpoint, selector, serving rule, original metric or decision gate. All scientific inputs remain unavailable and the public source stays disabled.
+
+The existing all-members-wrong cohort does not establish an averaging obstruction. Members can have different wrong top classes while their average places the target first. Conversely, if there is one competing class j with p_m(j)>p_m(y) for every member m, every convex combination of those unchanged probability vectors places j above y in exact arithmetic. This follows by summing the strictly negative target-minus-j gaps with nonnegative weights. It is elementary convexity, not methodological novelty.
+
+The successor retains every V2 calculation and adds one fixed baseline cohort: actual pool errors with a shared strict opponent in the saved served member probabilities. It reports the existing complete error accounting on that cohort, plus how many repairs still have no individually correct member. These quantities distinguish changing the predictions from merely pooling unchanged predictions; a repaired pool does not require an individually correct top-class member.
+
+The obstruction is sufficient, not necessary. For two kinds of prediction (target, class1, class2)=(.2,.7,.1) and(.2,.1,.7), there is no shared strict opponent. Yet no convex mixture makes the target first: its probability is always .2, while the two competitor probabilities sum to .8, so at least one exceeds .2. This diagnostic therefore gives no complete oracle bound on aggregation. Learned class-dependent corrections, new information or re-training change the prediction vectors and are outside its pooling statement.
+
+All comparisons are strict and threshold-free. Actual FP32 served pooling may round or tie differently from exact arithmetic on the saved member values; the added cohort explicitly also requires an observed baseline pool error and makes no zero-roundoff claim. Member correctness keeps the original native-logit argmax convention. No significance test, causal conclusion, new threshold, label selector or acceptance claim is introduced.
+
+The packet contains only source and artificial arithmetic checks. It does not show that any current dataset has this obstruction or that any candidate repairs it. A separately reviewed caller remains required after the original complete-endpoint evaluation. This internal diagnostic is not elementary background intended for the manuscript supplement.
