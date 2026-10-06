@@ -1,0 +1,70 @@
+The computation of SVD introduces computational overhead in the initial training stage. Since we
+do not require gradient computation or storing of optimizer states, there is no overhead in terms
+of memory. SVD has a time complexity of O(min(b2d, bd2)) which can be reduced to O(k2b) for
+k << d by randomly choosing k columns from X as introduced in Halko et al. (2011). Let T
+be the number of minibatches until all components are converged for N weight matrices, then the
+time complexity is O(N T k2b). In other words, the complexity scales linearly with the number of
+weight matrices and the number of minibatches. To speed up the computation of SVD, we provide an
+implementation that runs entirely on GPU.
+3.3 Adaptive Rank Allocation
+The singular values obtained by SVD provide an estimate of the variance that is explained by their
+components. Leveraging this information, we can redistribute ranks across weight matrices of the
+pre-trained model such that the maximum amount of variance is explained. This can be done by
+allocating more ranks to layers that propagate more information, i.e., explain more variance. More
+formally, the variance explained by each component in vi
+j,: is given by their explained variance ratio
+ξi
+j = σi2
+j
+(M − 1)||σi||1
+, (3)
+where || · ||1 denotes the ℓ1 norm, σi is a vector containing all r singular values, and M is the total
+number of samples used for the incremental SVD computation. Next, we sort the components vi
+j,: for
+each weight matrix in descending order according to their explained variance ratio ξi
+j. Finally, we
+assign ranks to pre-traiend weights until we reach a certain rank budget.
+Algorithm 1 Fine-tuning via EV A
+Input: FM ψ(·), ρ, rank r, dataset D
+1: while not all_converged (ψ) do
+2: X ← ψ(next(D)) ▷ get activations
+3: Vnew, ξ ← SVD(X, ρr)
+4: if isclose(Vold, vnew) then
+5: wrap_and_initialize(Wj, Vnew)
+6: end if
+7: Vold ← Vnew
+8: end while
+9: redistribute_ranks(ψ, ξ, Vnew)
+10: lora_finetune(ψ, X)
+Additionally, we introduce a hyperparameter
+ρ ∈ [1, ∞) which controls the uniformity of the
+rank distribution. ρ determines the number of
+ranks that we compute during SVD and increas-
+ing ρ allows for an increasingly heterogeneous
+rank distribution. That is, for each W i we com-
+pute rρ components initially meaning we obtain
+N rρ components in total. For the redistribution
+we only use the top N r components accord-
+ing to their explained variance ratio ξi
+j. Thus,
+setting ρ = 1 , results in a uniform rank distri-
+bution as in LoRA, but initialized according to
+EV A. Therefore,ρ provides us with the means
+to change the rank distribution in a controlled
+manner prior to fine-tuning at the initialization
+stage, as opposed to learning it throughout the
+training process as done in prior works (Zhang et al., 2023a; Valipour et al., 2023; Meo et al., 2024).
+In practice we found that the redistribution converges for values of ρ > 2 (see Appendix G). Finally,
+we initialize B with zeros and perform the standard LoRA fine-tuning, as recommended in Hayou
+et al. (2024a). In Algorithm 1 we provide pseudocode for EV A.
+4 Experiments
+First, we elaborate on implementation details of EV A in Section 4.1. Then, we show results for
+fine-tuning large language models (LLMs) on math and reasoning tasks in Section 4.2 and language
+understanding tasks in Section 4.3. Further we show results for image classification in Section 4.4 and
+decision making tasks in Section 4.5. Finally, in Section 4.6 we demonstrate that the computational
+overhead induced by EV A over LoRA is negligible and that incremental SVD converges and is
+invariant to batch order and batch size.
+4.1 Implementation Details
+We follow the standard LoRA training procedure from Hu et al. (2022). Similar to Kalajdzievski
+(2023), we found LoRA training to be very sensitive to the scaling parameter α. Therefore, we
+5

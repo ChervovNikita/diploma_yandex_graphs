@@ -1,0 +1,59 @@
+In this paper, we adopt a parameter-efﬁcient approach, where the task-speciﬁc parameter increment
+∆Φ = ∆Φ(Θ) is further encoded by a much smaller-sized set of parametersΘ with|Θ|≪| Φ0|. The
+task of ﬁnding∆Φ thus becomes optimizing over Θ:
+max
+Θ
+∑
+(x,y)∈Z
+|y|∑
+t=1
+log
+(
+pΦ0+∆Φ(Θ)(yt|x, y<t)
+)
+(2)
+As we shall see in the subsequent sections, we propose to use a low-rank representation to encode
+∆Φ that is both computational and memory efﬁcient. When the pre-trained model is GPT-3, the size
+of trainable parameters|Θ| can be as small as 0.01% of|Φ0|.
+3 Our Method
+We describe the simple design of LoRA and its practical implications. The principles outlined here
+apply to any dense layers in deep learning models, though we only focus on certain weights in
+Transformers in our experiments for practical reasons.
+Low-Rank Constraint on Update Matrices. A typical neural network contains numerous dense
+layers that perform matrix multiplication. The weight matrices in these layers are allowed to have
+full-rank. When adapting to a speciﬁc task, however, Aghajanyan et al. [1] shows that the pre-
+trained language models have a low “instrisic dimension” and can still learn efﬁciently despite a
+low-dimensional reparametrization. Inspired by this observation, we wonder if the updates to the
+weights also have a low “intrinsic rank" when adapting to downstream tasks. For a pre-trained
+weight matrix W0∈ Rd×k, we constrain its update by representing it with a low-rank decomposition
+W0+∆W = W0+BA, where B∈ Rd×r, A∈ Rr×k, and the rank r≪ min(d, k). During training,
+W0 is frozen and does not receive gradient updates, while A and B contain trainable parameters.
+Note both W0 and ∆W = BA are multiplied with the same input, and their respective output vectors
+are summed coordinate-wise. For h = W0x, our modiﬁed forward pass yields:
+h = W0x + ∆W x = W0x + BAx (3)
+We illustrate our reparametrization in Fig. 1. We use a random Gaussian initialization for A and zero
+for B, so ∆W = BA is zero at the beginning of training. We then scale ∆W x by 1
+r during training
+to keep the coordinates of ∆W x roughly Θ(1) in r after training [? ].
+Weight Decay to Pre-trained Weights. We note that weight decay behaves differently with LoRA
+than with full ﬁne-tuning. Speciﬁcally, preforming the usual weight decay onA and B is similar to
+decaying back to the pre-trained weights, which has been studied as a potentially effective form of
+regularization against “catastrophic forgetting” [ 16, 18]. While extensive experiments isolating its
+effect is out-of-scope for this work, we believe that this, coupled with a constrained parameter space,
+might provide some regularization advantages. For example, see how LoRA withr = dmodel = 1024
+outperforms full ﬁne-tuning on GPT-2 Medium in Sec. 5.3 and Sec. G.2.
+No Additional Inference Latency. During deployment, we can explicitly computeW = W0 + BA
+and perform inference as usual. When we need to switch to another downstream task, we can recover
+W0 by subtracting BA and then adding a different B′A′. This causes a minor increase in peak
+memory usage and adds a latency to model switching that does not exceed a single model forward
+pass. Critically, we do not introduce any additional latency during inference in return.
+3.1 Applying LoRA to Transformer
+In principle, we can apply LoRA to any subset of weight matrices in a neural network to reduce the
+number of trainable parameters. In the Transformer architecture, there are four weight matrices in the
+self-attention module (Wq, Wk, Wv, Wo) and two in the MLP module. We treat Wq (or Wk, Wv) as
+a single matrix of dimension dmodel× dmodel, even though the output dimension is usually sliced
+into attention heads. We limit our study to only changing the attention weights for downstream
+tasks and freeze the MLP modules (so they are not trained in downstream tasks) since applying LoRA
+to the latter results in 4 times the number of trainable parameters given the same rank r. We further
+study the effect on adapting different types of weight matrices in a Transformer in Sec. 6.1.
+3

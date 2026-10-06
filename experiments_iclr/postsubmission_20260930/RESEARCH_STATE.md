@@ -1,24 +1,17 @@
 # Current state
 
-Updated 2026-10-06T22:38:35+00:00. Goal active and unmet. No supported new-method superiority or fresh paper acceptance. Original manuscript scores remain unchanged.
+Updated 2026-10-06T23:57:46.805582+00:00. Goal active and unmet. Original paper scores unchanged. No supported new-method superiority or fresh paper acceptance.
 
-## Experiments and source checks
+## Scientific work
 
-- Initialization: all seven seed 0 conditions completed 60 cycles with clean terminal records. The serial queue then failed because an outer supervisor treated the expected detached warm worker as an escaped process. The orphan seed 1 warm worker wrote its complete 20-cycle/3660-update checkpoint and is absent from process/CUDA inventories. Its exit code is unknown. Artifact admission is under review and will be disclosed. The prescribed seed 2 warm is running under the existing warm owner directly, avoiding nested supervision. The remaining 14 postfits are being scheduled through a flat queue with unchanged scientific sources/seeds/horizons. No initializer accuracy values have been used for decisions. TEST closed.
-- 18.77: scaled-BPR single and jointly trained untied four completed 60 cycles cleanly. Shared4 reached34cycles at22:32UTC. J4 has separate parameters but a pooled-plus-member objective and joint Adam. It is not ordinary independently trained ENS. TEST closed.
-- Nonlinear private messages: all six b0 numerical inclusion/gradient gates passed. All five discarded complete TRAIN cost cycles passed, including244episodes/732updates for the independent4 control. Actual growth training is not yet launched. Same-seed qualifications for seeds1/2 and the15fixed fits await correct warm custody.
-- WikiCS/Polynormer-r: full official graph acquired without test labels. The first qualifier failed on a top-level parameter-name fixture, repaired narrowly. The second failed a FP32copy tolerance with maximum difference4.29e-6. Both paid failures remain preserved. A native-repeat/family/FP64 diagnostic is being prepared. Tolerances have not been widened. No full WikiCS fit has run.
+- Initialization fixed21: seed0 all7 completed, seed1 three completed and graph-covariance running. Original seeds/horizon unchanged. No initializer quality values used in recovery. Warm1 artifact admitted with explicit unknown process exit status.
+- Private nonlinear messages fixed15: all3 same-seed gates and5TRAINcosts passed. Full fits active. First graph arm complete, unfiltered arm running. Partial progress exposed one VALID row accidentally and is disclosed. All15 source/jobs and attribution hypothesis predate exposure. No plan changes or TEST access.
+- WikiCS strong native reference: source-v3 scientific1100 recipe approved, exact published model unchanged. Activation-v4 owner496299 supervises seeds17/29/43 in parallel. At23:56UTC they reached32/32/31epochs with actual finite first-TRAIN checks passed. Startup-v3 omitted existing PYTHONPATH and performed zero updates, retained as failed. Strict tiny FP32 reference parity is no longer a prerequisite after user's correction. Source/data checks and actual finite training/terminal custody retained.
+- Larger shared-backbone method: private graph residual paths using raw features+learned states. Residual source v2 reviewed, new engineering/admission v3 pending. No residual quality fits yet. Deep Sub-Ensembles/Hydra/TreeNets ancestry credited. Simple pool dilution risk saved as scientific analysis.
+- 18.77 known BPR b0: all3fits complete cleanly. Postcompletion audit MRR S/J4/shared=0.2723/0.2889/0.2869, Hits10=0.5154/0.4978/0.5022. One seed and VALID only. J4 jointly trained untied, not ordinary independent ENS. No new-method win. Queue completed23:08UTC.
 
-## Distinct method directions
+## Publication and limits
 
-Initialization now includes function-preserving nonlinear message growth. A separate outgoing-zero initialization may expose nonlinear neighbourhood features to the first learning step. Its closest prior work is being checked before adoption.
+Reviewed source, notes and compact results from both servers are published in batches on codex/postsubmission-research-20260930. Last exact-ref verified push before this batch is040ca27a0f7f3eaa5ba68581386fd7d267d6427e. Full checkpoints/logits remain on authorized servers. Scientific execution uses only the singleton allocation and18.77. Seven-GPU route is forwarding only. No PDF compilation, sudo or GENLINK.
 
-Agents are preparing two larger changes: compression of independently acquired GNNs into a shared body with private internal corrections, and staged private graph residual paths using raw features plus shared states. Merging, distillation and boosting ancestry is credited. Neither direction has an accuracy or novelty claim yet.
-
-The common-neighbour interaction mechanism passed actual gate and complete-cycle cost, but its witnessed training supervision is rare on this dataset. The full structural pilot is not adopted. An exhaustive TRAIN-only census found 562 unlabelled nonedges with the required witness. They are not treated as known negatives.
-
-## Completed decisions and publication
-
-Citeseer live-credit and AmazonG0 failed their fixed quality comparisons and stop. Collab private sharing improved over single and lost to independent4. Every unsuccessful outcome is retained. No original paper score is recalculated.
-
-Latest verified pushed commit:393299a0aabbac62f07c3980d350f8aa91fefd82. New reviewed source, gate/cost evidence, failures and decisions are being published. Scientific execution uses only the authorized singleton allocation and18.77. Seven-GPU access is forwarding only.
+Citeseer live-credit and AmazonG0 failed fixed comparisons and stopped. Collab private sharing improved over single and lost to independent4. Failures and costs preserved. No original paper score is recalculated. Literature conclusions are reused, scoped reading counts are not full-paper counts, and no future reviewer is asked for an accept verdict.

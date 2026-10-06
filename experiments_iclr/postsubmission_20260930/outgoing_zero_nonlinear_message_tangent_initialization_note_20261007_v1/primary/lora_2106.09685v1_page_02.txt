@@ -1,0 +1,54 @@
+model’s usable sequence length [14, 19, 21, 25]. More importantly, these prior attempts sometimes
+fail to match the ﬁne-tuning baselines, posing a trade-off between efﬁciency and model quality.
+We take inspiration from [1, 20] which show that the learned over-parametrized models in fact reside
+on a low intrinsic dimension. We hypothesize that the update matrices in language model adaptation
+also have a low “intrinsic rank”, leading to our proposed Low-Rank Adaptation (LoRA) approach.
+LoRA allows us to train every dense layer in a neural network indirectly by injecting and optimizing
+rank decomposition matrices of the dense layer’s update instead, while keeping the original matrices
+frozen, as shown in Fig. 1. Using GPT-3 175B as an example, we show that a very low rank (i.e., r in
+Fig. 1 can be one or two) sufﬁces even when the full rank (i.e.,d) is as high as 12288, making LoRA
+both space- and compute-efﬁcient.
+LoRA possesses several key advantages as follows.
+• A single pre-trained model can be shared and used to build many small LoRA modules for
+different tasks. We can keep the shared original model in VRAM and efﬁciently switch tasks by
+replacing the matrices A and B in Fig. 1, which signiﬁcantly reduces the storage requirement and
+task-switching overhead.
+• It makes training more efﬁcient and lowers the hardware barrier to entry by 3 times, since we do
+not need to calculate the gradients or maintain the optimizer states for most model parameters
+when using adaptive optimizers. Instead, we only optimize the injected low-rank matrices, which
+have much fewer parameters.
+• Its simple linear design allows us to merge the update matrices with the original weights during
+deployment, introducing no inference latency.
+• LoRA is orthogonal to prior techniques and can be combined with many of them (such as
+preﬁx-tuning). We provide an example in Appendix D.
+Terminologies We make frequent references to the Transformer architecture and use the conven-
+tional terminologies for its dimensions. We call its hidden size, or the size of its activations, dmodel.
+We use Wq, Wk, Wv, and Wo to refer to the query/key/value/output projection matrices in the
+self-attention module. W or W0 refers to a pre-trained weight matrix and ∆W its update during
+adaptation. We use r to denote the rank of a LoRA module.
+2 Problem Statement
+While our proposal is agnostic to the training objective, we focus on language modeling as the
+primary use case. Below is a brief description of the language modeling problem and, in particular,
+the maximization of conditional probabilities given a task-speciﬁc prompt.
+Suppose we are given a pre-trained autoregressive language model pΦ(y|x) that is parametrized
+by Φ. For instance, pΦ(y|x) can be a generic multi-task learner such as GPT-2 [ 32] or GPT-3
+[6] based on the Transformer architecture [36]. Now, consider adapting this pre-trained model to
+(possibly multiple) downstream conditional text generation tasks, such as summarization, machine
+reading comprehension (MRC), and natural language to SQL (NL2SQL). Each downstream task
+is represented by a training dataset of context-target pairs: Z ={(xi, yi)}i=1,..,N , where both xi
+and yi are sequences of tokens. For example, in NL2SQL, xi is a natural language query and yi its
+equivalent SQL command; for summarization, xi is the content of an article and yi its short summary.
+During ﬁne-tuning, the model is initialized with pre-trained parametersΦ0 and updated to Φ0 + ∆Φ
+by repeatedly following the gradient to maximize the conditional language modeling objective:
+max
+Φ
+∑
+(x,y)∈Z
+|y|∑
+t=1
+log (pΦ(yt|x, y<t)) (1)
+One of the main drawbacks for full ﬁne-tuning is that foreach downstream task, we learn a different
+set of parameters ∆Φ whose dimensions|∆Φ| equals|Φ0|. Thus, if the pre-trained model is large
+(such as GPT-3 with|Φ0|≈ 175 Billion), storing and deploying many independent instances of
+ﬁne-tuned models can be challenging, if at all plausible.
+2

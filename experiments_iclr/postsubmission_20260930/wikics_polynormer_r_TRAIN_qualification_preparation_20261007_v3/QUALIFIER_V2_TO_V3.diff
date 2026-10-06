@@ -1,0 +1,96 @@
+--- v2/qualify.py
++++ v3/qualify.py
+@@ -2,6 +2,7 @@
+ """Bounded discarded full-WikiCS TRAIN checks and six complete epoch costs."""
+ import argparse
+ import ast
++import copy
+ from contextlib import contextmanager
+ import hashlib
+ import json
+@@ -20,6 +21,10 @@
+ SOURCE_SHA = '7257d81cf4cb9623f89cbfd75e78bfa023b5c3d9013e7ea32d4acd975dbd8c71'
+ GPU = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+ TOLERANCES = {'logits': (1e-5, 1e-6), 'gradients_moments': (1e-4, 2e-6), 'parameters': (1e-5, 1e-6), 'weight_balance': (1e-5, 2e-7)}
++COPY_FP64_RTOL, COPY_FP64_ATOL = 1e-10, 1e-12
++COPY_NATIVE_REPEATS = 4
++COPY_REPEAT_MULTIPLIER, COPY_EPS_MULTIPLIER = 2., 2.
++
+ 
+ 
+ def sha(path):
+@@ -222,13 +227,69 @@
+             if {p.data_ptr() for p in native.parameters()} & {p.data_ptr() for p in family.parameters()}: raise ValueError('Native and neutral-family storage aliases')
+             for module in family.modules():
+                 if isinstance(module, BoundaryProjector) and (module.B.stride(0) < module.B.shape[1] or not bool((module.R == 1).all() and (module.S == 1).all())): raise ValueError('Neutral private rows overlap or are not identity')
++            # Engineering COPY contract v3: original FP32 criterion is retained
++            # as reported evidence. It is not claimed to pass when native itself
++            # has comparable full-graph FP32 forward variation.
+             with torch.no_grad():
+-                ordinary = native(x, edge); deltas = []
++                repeated = [native(x, edge) for _ in range(COPY_NATIVE_REPEATS)]
++                ordinary = repeated[0]
++                def copied_stats(left, right):
++                    if left.shape != right.shape or left.dtype != right.dtype or not bool(torch.isfinite(left).all() and torch.isfinite(right).all()):
++                        raise ValueError('COPY geometry/finiteness differs')
++                    difference = (left.double()-right.double()).abs()
++                    rtol, atol = TOLERANCES['logits']
++                    return {'max_abs': float(difference.max()), 'RMS': float(difference.square().mean().sqrt()),
++                        'original_FP32_within_tolerance': bool(torch.allclose(left,right,rtol=rtol,atol=atol)),
++                        'original_FP32_violations': int((difference > atol+rtol*right.double().abs()).sum())}
++                native_repeat = [copied_stats(repeated[a],repeated[b])
++                    for a in range(COPY_NATIVE_REPEATS) for b in range(a)]
++                native_max = max(row['max_abs'] for row in native_repeat)
++                native_rms = max(row['RMS'] for row in native_repeat)
++                scale_max = max(1.,max(float(value.abs().max()) for value in repeated))
++                scale_rms = max(1.,max(float(value.double().square().mean().sqrt()) for value in repeated))
++                epsilon = float(torch.finfo(ordinary.dtype).eps)
++                max_limit = COPY_REPEAT_MULTIPLIER*native_max+COPY_EPS_MULTIPLIER*epsilon*scale_max
++                rms_limit = COPY_REPEAT_MULTIPLIER*native_rms+COPY_EPS_MULTIPLIER*epsilon*scale_rms
++                fp32_records = []
+                 for route in range(4):
+-                    value = family.forward_member(x, edge, route); deltas.append(compare(value, ordinary, 'logits')); del value
+-                del ordinary
+-            results['copy_checks'][stage] = {'exact_parameter_copy': True, 'independent_storage': True, 'private_bias_rows_distinct': True,
+-                'maximum_logit_delta': max(deltas), 'neutral_numeric_check_only': True, 'setup_seconds': time.monotonic()-setup}
++                    value = family.forward_member(x,edge,route)
++                    record = {'route':route,**copied_stats(value,ordinary)}
++                    record['within_fixed_repeatability_envelope'] = record['max_abs'] <= max_limit and record['RMS'] <= rms_limit
++                    fp32_records.append(record); del value
++                fp64_native = copy.deepcopy(native).double()
++                fp64_family = copy.deepcopy(family).double()
++                double_features = x.double()
++                double_reference = fp64_native(double_features,edge)
++                fp64_records = []
++                for route in range(4):
++                    value = fp64_family.forward_member(double_features,edge,route)
++                    if not bool(torch.isfinite(value).all() and torch.isfinite(double_reference).all()):
++                        raise ValueError('Nonfinite full-graph FP64 COPY')
++                    difference = (value-double_reference).abs()
++                    agrees = bool(torch.allclose(value,double_reference,rtol=COPY_FP64_RTOL,atol=COPY_FP64_ATOL))
++                    fp64_records.append({'route':route,'max_abs':float(difference.max()),
++                        'RMS':float(difference.square().mean().sqrt()),'within_fixed_FP64_tolerance':agrees})
++                    del value,difference
++                results['copy_checks'][stage] = {'exact_parameter_copy':True,'independent_storage':True,'private_bias_rows_distinct':True,
++                    'maximum_logit_delta':max(row['max_abs'] for row in fp32_records),'neutral_numeric_check_only':True,
++                    'copy_contract':'engineering_precision_aware_v3','original_FP32_criterion_preserved_reported':True,
++                    'original_FP32_all_routes_passed':all(row['original_FP32_within_tolerance'] for row in fp32_records),
++                    'FP32_routes':fp32_records,'native_FP32_repeat_pairwise':native_repeat,
++                    'FP32_envelope':{'native_repetitions':COPY_NATIVE_REPEATS,'pairwise_native_max_abs':native_max,'pairwise_native_max_RMS':native_rms,
++                        'repeat_multiplier':COPY_REPEAT_MULTIPLIER,'machine_epsilon':epsilon,'epsilon_multiplier':COPY_EPS_MULTIPLIER,
++                        'native_output_max_scale':scale_max,'native_output_RMS_scale':scale_rms,
++                        'max_abs_limit':max_limit,'RMS_limit':rms_limit,
++                        'formula':'maxabs<=2*max_pairwise_native_maxabs+2*eps*max(1,native_output_maxabs); RMS<=2*max_pairwise_native_RMS+2*eps*max(1,native_output_RMS)'},
++                    'FP64_routes':fp64_records,'FP64_rtol':COPY_FP64_RTOL,'FP64_atol':COPY_FP64_ATOL,
++                    'FP64_reference':'Same copied FP32 parameter values converted to float64, dropout off, full public graph, both native stages.',
++                    'setup_seconds':time.monotonic()-setup}
++                del fp64_native,fp64_family,double_features,double_reference,repeated,ordinary
++                torch.cuda.empty_cache()
++                if not all(row['within_fixed_repeatability_envelope'] for row in fp32_records):
++                    raise ValueError('FP32 COPY exceeds predeclared native repeatability envelope')
++                if not all(row['within_fixed_FP64_tolerance'] for row in fp64_records):
++                    raise ValueError('Full-graph FP64 COPY fails predeclared1e-10/1e-12')
++                deadline()
+             private_ids = {id(p) for module in family.modules() if isinstance(module, BoundaryProjector) for p in (module.R, module.S, module.B)}
+             common_names = [name for name, p in family.named_parameters() if id(p) not in private_ids and not inactive(name, True, global_stage)]
+             def deterministic_gradients(weights):
