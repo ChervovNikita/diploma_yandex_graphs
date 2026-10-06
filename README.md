@@ -1,20 +1,16 @@
 # GNNM: shared propagation in graph ensembles
 
-## Current research — 6 October 2026
+## Current research — 7 October 2026
 
-We are developing a shared graph ensemble for better predictions. The original five-dataset benchmark tables remain unchanged. The current extension has completed training pilots and is waiting for complete baseline comparisons; predictive superiority and methodological novelty remain open.
+We are developing a graph ensemble for better predictions while retaining a shared learned backbone. Original paper tables remain unchanged. No supported new-method superiority or fresh paper acceptance has been established.
 
-Selected development predictions show common mistakes across shared members and limited benefit from averaging. Our current training rule gives extra supervision to members whose private learning step appears useful. Every member retains ordinary supervision. A training-query objective trains the shared core, and inference averages all member probabilities. Evaluation will count repaired and introduced errors as well as member competence and probability losses.
+The first seed of the seven-condition initialization study completed. The two remaining prescribed seeds are being recovered after an orchestration error. No quality value has guided the recovery. A larger model extension adds private nonlinear message paths. Its native inclusion and gradient checks and all five complete TRAIN cost cycles passed. Its fixed three-seed quality comparison has not started.
 
-Seven fixed Amazon correction conditions have completed training. Independently audited training diagnostics confirm nonuniform member supervision weights and a measurable difference between finite-step and first-order response costs. Similar training losses across graph controls do not establish useful graph effects. Held-out accuracy comparisons are pending.
+Two additional designs are being developed: internal corrections initialized from genuinely independent GNNs, and private graph residual paths fitted to the ensemble's remaining errors. These use ideas from merging, distillation and boosting. We will compare each with strong single and genuinely independently trained models. Methodological novelty remains to be established.
 
-A new structural analysis identifies a specific limitation of the current responsibility prior: 58.82–82.34% of training nodes in each class-pair support have no supported neighbour, while the full public graph is connected. This motivates testing a prior that retains paths through other public nodes. Harmonic graph learning, Kron reduction and graph diffusion are established methods and receive explicit credit. Connectivity alone does not establish an accuracy gain.
+The WikiCS study uses the published Polynormer-r backbone. A small FP32 native-copy discrepancy is under arithmetic diagnosis. Original tolerances and both paid failures remain recorded. On 18.77, the known ranking-loss study is running. Its untied four-member control uses joint training and is explicitly distinguished from ordinary independent ENS.
 
-At 06:45 UTC, the first fresh independent reference had completed its 2,300 continuation updates and the second had reached 1,994; two continuations remained pending. At 06:44 UTC, the ordinary controls on 18.77 had reached 750 and 752 of 2,300 updates, using both GPUs. Those jobs continued during the MacLink interruption. The private-transfer replication has 37 of 39 selected fits completed; the final two are pending. Complete references and custody precede held-out comparisons.
-
-The research ledger preserves unsuccessful attempts, experiment costs, prospective decisions and source bindings. Saved literature conclusions prevent repeated searches; bounded method readings are distinguished from full-paper readings. New results will enter the paper after their fixed analyses and independent audits. A fresh paper review will assess the resulting manuscript.
-
-[Current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) · [Research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json) · [Training analysis](experiments_iclr/postsubmission_20260930/amazon_H16_seven_arm_frozen_B_summary_execution_root_20261006_v2/ROOT_INTERPRETATION.md) · [Graph support](experiments_iclr/postsubmission_20260930/amazon_fixed_pair_S_graph_support_census_execution_root_20261006_v2/ROOT_INTERPRETATION.md) · [Saved literature](experiments_iclr/postsubmission_20260930/literature_memory/ACTIVE_SUPPLEMENTS_20261006_v11.json)
+[Current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) · [Research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json) · [Private message source](experiments_iclr/postsubmission_20260930/citeseer_nonlinear_preaggregation_growth_pilot_source_20261007_v2/REPORT.md) · [Staged graph residual design](experiments_iclr/postsubmission_20260930/shared_backbone_staged_private_residual_design_20261007_v1/PROPOSAL.json)
 
 ## Original method
 
@@ -263,10 +259,8 @@ The completed whole-pattern versus individual-incidence comparison scored64.3066
 For the latest completed Amazon comparison, queue state and qualification limits, see [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Existing manuscript scores remain unchanged.
 
 
-## Accuracy-oriented research (6 October 2026)
+## Accuracy-oriented research
 
-The complete Citeseer live-credit comparison and Amazon correction study failed their fixed quality gates; those configurations stop and every outcome is retained. Citeseer's ordinary shared baseline shows that shared members are not universally weaker, but saved predictions expose many ranking errors common to all shared members. This motivates testing member competence and graph information, rather than disagreement alone.
+The complete Citeseer live-credit and Amazon correction studies failed their prescribed quality comparisons and stop. All results and costs remain in the ledger. Saved Citeseer predictions show frequent ranking errors common to every shared member, so choosing one of the existing members cannot repair every error.
 
-A fixed three-seed initialization study is now training on complete HeaRT Citeseer: random signs, a TabM-inspired start, an unchanged warm lift, edge-difference covariance, hidden-feature covariance, native single and independent four. The first TRAIN-only warm fit completed; the first condition is training. A separate known scaled-BPR baseline study is active on 18.77, with the single completed and independent four training. TEST remains closed.
-
-A learned common-neighbour edge-interaction prototype and a shared-encoder/full-native-head capacity control are prepared. They have close prior work and no demonstrated novelty or quality gain yet. Numerical qualification and complete-cycle costs precede their full comparisons. [Current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) gives exact completed outcomes, active jobs and limits. Original manuscript scores remain unchanged.
+Current work changes member initialization and neighbourhood computation. The structural common-neighbour mechanism is numerically implemented, but the full pilot is not adopted because suitable supervision is rare in this setting. The private-message study has passed its first seed's native checks and all complete cost cycles. The held comparison and larger model designs are still pending. [Current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) records the exact evidence and limitations.

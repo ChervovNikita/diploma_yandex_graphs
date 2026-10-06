@@ -1,20 +1,24 @@
 # Current state
 
-Updated 2026-10-06T20:53:44.019362+00:00. Goal active and unmet. Original manuscript scores are unchanged.
+Updated 2026-10-06T22:38:35+00:00. Goal active and unmet. No supported new-method superiority or fresh paper acceptance. Original manuscript scores remain unchanged.
 
-## Active experiments
+## Experiments and source checks
 
-- **Allocation:** initialization seed 0 is training under the fixed seven-condition plan. Fresh process identities verified at 20:50 UTC; random-sign condition reached cycle 56/60 and 10,248 Adam updates. The common native warm fit completed 20 TRAIN-only cycles and 3,660 updates. Seeds 1 and 2 are being staged for the same fixed plan; their fits have not started. TEST is closed.
-- **18.77:** known scaled-BPR comparison is active. The single completed 60 cycles and 10,980 updates with clean exit 0 at 20:29 UTC. Independent four reached cycle 32 at the latest 20:50 UTC observation. Shared four remains queued after both first-wave closures. This is a calibration control, not a new method.
+- Initialization: all seven seed 0 conditions completed 60 cycles with clean terminal records. The serial queue then failed because an outer supervisor treated the expected detached warm worker as an escaped process. The orphan seed 1 warm worker wrote its complete 20-cycle/3660-update checkpoint and is absent from process/CUDA inventories. Its exit code is unknown. Artifact admission is under review and will be disclosed. The prescribed seed 2 warm is running under the existing warm owner directly, avoiding nested supervision. The remaining 14 postfits are being scheduled through a flat queue with unchanged scientific sources/seeds/horizons. No initializer accuracy values have been used for decisions. TEST closed.
+- 18.77: scaled-BPR single and jointly trained untied four completed 60 cycles cleanly. Shared4 reached34cycles at22:32UTC. J4 has separate parameters but a pooled-plus-member objective and joint Adam. It is not ordinary independently trained ENS. TEST closed.
+- Nonlinear private messages: all six b0 numerical inclusion/gradient gates passed. All five discarded complete TRAIN cost cycles passed, including244episodes/732updates for the independent4 control. Actual growth training is not yet launched. Same-seed qualifications for seeds1/2 and the15fixed fits await correct warm custody.
+- WikiCS/Polynormer-r: full official graph acquired without test labels. The first qualifier failed on a top-level parameter-name fixture, repaired narrowly. The second failed a FP32copy tolerance with maximum difference4.29e-6. Both paid failures remain preserved. A native-repeat/family/FP64 diagnostic is being prepared. Tolerances have not been widened. No full WikiCS fit has run.
 
-## Distinct next mechanisms
+## Distinct method directions
 
-The learned common-neighbour interaction prototype tests information beyond endpoint products and sums of common-neighbour features. Numerical qualification and complete-cycle cost are pending. Prior CAR, OCN/NCN2 and subgraph GNNs prevent a generic novelty claim.
+Initialization now includes function-preserving nonlinear message growth. A separate outgoing-zero initialization may expose nonlinear neighbourhood features to the first learning step. Its closest prior work is being checked before adoption.
 
-A separate full-native-head capacity control is source-reviewed. Its actual native equality, gradient checks and fit are pending. It distinguishes restrictions of factorized heads from the shared encoder; it does not change the initialization study.
+Agents are preparing two larger changes: compression of independently acquired GNNs into a shared body with private internal corrections, and staged private graph residual paths using raw features plus shared states. Merging, distillation and boosting ancestry is credited. Neither direction has an accuracy or novelty claim yet.
 
-## Completed decisions
+The common-neighbour interaction mechanism passed actual gate and complete-cycle cost, but its witnessed training supervision is rare on this dataset. The full structural pilot is not adopted. An exhaustive TRAIN-only census found 562 unlabelled nonedges with the required witness. They are not treated as known negatives.
 
-Citeseer endpoint live-credit and Amazon G0 failed their fixed quality comparisons and stop. The saved common-error analysis completed without new model forwards or original-score recalculation. It identifies common ranking failures but does not prove their cause. Complete unsuccessful outcomes remain available.
+## Completed decisions and publication
 
-Latest verified pushed commit: `f91853d6b879cb8d654856e2f9f3941c1bb82214`. Subsequent reviewed source, compact outcomes and execution evidence await publication.
+Citeseer live-credit and AmazonG0 failed their fixed quality comparisons and stop. Collab private sharing improved over single and lost to independent4. Every unsuccessful outcome is retained. No original paper score is recalculated.
+
+Latest verified pushed commit:393299a0aabbac62f07c3980d350f8aa91fefd82. New reviewed source, gate/cost evidence, failures and decisions are being published. Scientific execution uses only the authorized singleton allocation and18.77. Seven-GPU access is forwarding only.

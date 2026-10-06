@@ -1,0 +1,28 @@
+cd /home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs && /usr/bin/python3 -I -S -B - <<'ACTIVATEPY'
+from pathlib import Path
+import json,hashlib,socket,subprocess,os,time
+repo=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');phase=repo/'experiments_iclr/postsubmission_20260930'
+assert Path.cwd()==repo and socket.gethostname()=='anogena-2-0'
+assert subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True,timeout=10).split()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+source=phase/'citeseer_gnnm_initialization_pilot_serial_followups_preparation_20261006_v1'
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+assert sha(source/'MANIFEST.json')=='13efed8f139f0ac92dd4c53e87a352e49dd96cd590d77e3cd6bc98f2f43ae9cd'
+for row in json.loads((source/'MANIFEST.json').read_text())['files']:
+ q=source/row['path'];assert q.stat().st_size==row['bytes'] and sha(q)==row['sha256']
+preview=source/'SERIAL_CONFIG_DISABLED.json';assert sha(preview)=='efb6bb624454cc130430056f7c998634083e6a9f1d07df440d86162c042ad93a'
+cfg=json.loads(preview.read_text());assert cfg['root_execution_authorized'] is False;cfg['root_execution_authorized']=True
+root=phase/cfg['execution_directory_relative'];target=root/'SERIAL_CONFIG.json'
+with target.open('x') as stream:json.dump(cfg,stream,indent=2,sort_keys=True);stream.write('\n')
+target.chmod(0o444);cfgsha=sha(target)
+program=source/'serial_owner.py';assert sha(program)=='1964bc95314fa4e73608294604a0255fdd00badfb797b12cfa1bffae30bfedbf'
+argv=['/usr/bin/python3','-I','-S','-B',str(program),'--config',str(target),'--config-sha256',cfgsha]
+with (root/'serial_owner.stdout.log').open('xb') as out,(root/'serial_owner.stderr.log').open('xb') as err:
+ proc=subprocess.Popen(argv,cwd=repo,stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True,close_fds=True)
+time.sleep(.2)
+raw=(Path('/proc')/str(proc.pid)/'stat').read_text();f=raw[raw.rfind(')')+2:].split()
+result={'owner_PID':proc.pid,'start_ticks':int(f[19]),'sid':int(f[3]),'pgid':int(f[2]),'exit_code':proc.poll(),'config_sha256':cfgsha,'stage':'waits_b0_then_fixed_b1_b2','science_started_by_this_launch':False}
+assert result['sid']==result['pgid']==proc.pid and result['exit_code'] is None
+with (root/'SERIAL_LAUNCH.json').open('x') as stream:json.dump(result,stream,indent=2);stream.write('\n')
+print(json.dumps(result))
+
+ACTIVATEPY
