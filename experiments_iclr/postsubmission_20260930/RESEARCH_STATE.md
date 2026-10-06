@@ -1,12 +1,13 @@
 # Current state
 
-Updated 2026-10-06T03:51:29.173171+00:00. Goal active and unmet; original scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
+Updated 2026-10-06T04:57:47.636245+00:00. Goal active and unmet; original paper scores unchanged. [Evidence and limits](PUBLIC_STATUS.md).
 
-1. Six-condition Amazon correction training completed; exit0/restoration verified; held scoring closed.
-2. 18.77 own/own-pool controls are training toward2300 updates each; actual226/227 at03:49:27 UTC. No extra substantial cofit there.
-3. Fresh native16 implementation/ownership checks passed on both sites. No independent reference cohort fit yet; exact allocation full-fit admission is being prepared after high-memory sequencing.
-4. Original monolithic first-order native check passed (zero scalar-reference gradient residual, clean closure). The earlier streamed implementation remains FAIL. Original common400/H16 fit is now running once with reviewed caller/supervision, exact warm start and frozen fit caps; held scoring closed.
-5. Error-flow analysis is reviewed and disabled; no new predictive result, novelty clearance or paper verdict.
-6. Private-transfer35/39 confirmed; next fixed F1b1 queue active. Prior32/39 report corrected to31/39 for that earlier observation; histories/scoring stay closed.
-7. Literature base72 unchanged; activeV8 includes bounded CMCL and three additional meta-teaching method scopes; authenticated CMCL objective-transplant design saved separately. GEENI primary inaccessible.
-8. Latest verified published head0231b8d11f7b81730d67c327bcf005c6c097a75a. New source/actual records await publication.
+1. Six fixed Amazon correction conditions and matched first-order H16 control completed with clean process/resource closure. Held scoring remains closed.
+2. Fresh SINGLE/independent-four references started once on the allocation at04:24 UTC. All four W400 states are frozen; member0 has65/2300 continuation updates at04:55 UTC. SINGLE is fixed member0.
+3. MacLink retry succeeded. Both existing18.77 ordinary controls continue: own423/2300 and own-pool424/2300 at04:54:53 UTC. No restart.
+4. Private-transfer36/39 selected fits have verified terminal custody. The final frozen three-fit queue launched once at04:55:29 UTC. Histories/scoring stay closed until complete39 custody.
+5. Original20 completed77fits have recovered terminal costs and remain excluded donors. Failed attempts and earlier cost uncertainty remain in history.
+6. CMCL CPU V2 passed19 analytic checks with external closure; V1 failure remains preserved. Native callable review/parity preparation is active, without fit/scoring authority.
+7. Literature base72 unchanged. Active supplementV9 adds three scoped primary methods; no full-paper count, new mechanism, novelty clearance or result adoption.
+8. Reviewed error-flow analysis remains closed until required references finish. No new predictive superiority or fresh manuscript acceptance.
+9. Latest verified GitHub headb5765bcefb149de3466782931a5705eaaf4ab4fa; this continuation awaits publication.
