@@ -1,0 +1,118 @@
+--- portable_context_steering_public_interface_20261008_v1/session_objectives_adapter.py
++++ context_positive_same_class_denominator_inactive_assessment_20261008_v1/denominator_source_successor_v1/denominator_adapter.py
+@@ -1,73 +1,46 @@
+-"""Per-session fixed TRAIN-target facade for public WikiCS Session/replay.
+-
+-Source-provenance and runtime qualification limits are documented in README.md.
+-"""
+-import numpy as np
+-from context_positive_masks import sampled_weights
+-from context_alignment_objective import context_alignment
++"""Patch one live original ROUTE facade; preserve target tensors and own loss."""
++from types import MethodType
++import time
++from denominator_objective import masked_context_alignment, retained_entries
+ 
+ 
+-class ContextObjectivesFacade:
+-    def __init__(self, session, complete_train_labels, masks, mode):
+-        if session.task != 'wikics' or session.model.members not in (1,4):
+-            raise ValueError('native WikiCS M1/M4 only')
+-        if mode not in ('route','common','cycle'):
+-            raise ValueError('explicit context mode required')
+-        if session.model.members == 1 and mode != 'common':
+-            raise ValueError('matched single must use Qbar')
+-        self.session, self.mode = session, mode
+-        original = session.core['objectives']
+-        self.own_supervision = original.own_supervision
+-        self.complete_labels = complete_train_labels.to(session.device).clone()
+-        if self.complete_labels.ndim!=1 or self.complete_labels.dtype!=session.torch.long or len(self.complete_labels) != 580:
+-            raise ValueError('complete original580 TRAIN labels required')
+-        size = min(len(self.complete_labels), session.config['contrastive']['max_objects'])
+-        # Exact same device/operator as the pinned original Session and replay.
+-        self.index = session.torch.linspace(0,len(self.complete_labels)-1,steps=size,
+-                                            device=session.device).long()
+-        self.rows = self.index.cpu().numpy()
+-        self.masks = np.array(masks,copy=True)
+-        if self.masks.shape != (4,580,580):
+-            raise ValueError('complete frozen TRAIN-context relation required')
+-        labels = self.complete_labels.cpu().numpy()
+-        if np.any(self.masks & (labels[:,None] != labels[None,:])[None]):
+-            raise ValueError('wrong-class positive forbidden')
+-        self.masks.setflags(write=False)
+-        dtype=next(session.model.parameters()).dtype
+-        # The original deterministic auxiliary panel is fixed. Cache its
+-        # frozen targets once, rather than recreate/copy megabytes each update.
+-        if mode=='cycle':
+-            route=sampled_weights(self.masks,self.rows,'route')
+-            self.weight_cache=tuple(session.torch.as_tensor(
+-                np.broadcast_to(route[i:i+1],route.shape).copy(),device=session.device,dtype=dtype)
+-                for i in range(4))
+-        else:
+-            weights=sampled_weights(self.masks,self.rows,mode)
+-            if session.model.members==1:
+-                weights=weights[:1]
+-            self.weight_cache=session.torch.as_tensor(weights,device=session.device,dtype=dtype)
+-        self.alignment_source_calls = self.residual_source_calls = 0
+-
+-    def alignment_loss(self, a, b, labels, task, temperature=.2, identities=None):
+-        if task != 'wikics' or temperature != .2 or identities is not None:
+-            raise ValueError('original WikiCS target/view contract required')
+-        if not self.session.torch.equal(labels,self.complete_labels[self.index]):
+-            raise ValueError('original deterministic auxiliary TRAIN order required')
+-        weights=self.weight_cache[self.session.steps%4] if self.mode=='cycle' else self.weight_cache
+-        self.alignment_source_calls+=1
+-        return context_alignment(a,b,weights,temperature)
+-
+-    def residual_member_contrast(self,a,b,labels,temperature=.2):
+-        if temperature!=.2:
+-            raise ValueError('fixed original temperature required')
+-        # Source Session/replay still calls this facade; no repulsion is added.
+-        return a.sum()*0
++def alignment_loss(self, a, b, labels, task, temperature=.2, identities=None):
++    if task != 'wikics' or temperature != .2 or identities is not None or self.mode != 'route':
++        raise ValueError('Only original WikiCS ROUTE target/view contract')
++    if not self.session.torch.equal(labels, self.complete_labels[self.index]):
++        raise ValueError('Original deterministic512 TRAIN order required')
++    self.alignment_source_calls += 1
++    return masked_context_alignment(a, b, self.weight_cache, labels, temperature, self.denominator_retained)
+ 
+ 
+-def install(session, complete_train_labels, masks, mode):
+-    if not session.model.contrastive:
+-        raise ValueError('construct original unit/single/untied contrastive arm first')
+-    facade=ContextObjectivesFacade(session,complete_train_labels,masks,mode)
+-    session.core=dict(session.core,objectives=facade)
+-    session.config['contrastive'].update(alignment_weight=.05,residual_weight=0.,temperature=.2)
+-    return facade
++def install(session, facade, policy):
++    started = time.monotonic()
++    if (session.task != 'wikics' or session.arm != 'be_unit_contrastive'
++        or session.model.arm != 'be_unit_contrastive' or session.model.independent
++        or session.model.members != 4 or policy.method != 'shared_route' or policy.own_selected_four
++        or facade.mode != 'route' or session.core['objectives'] is not facade
++        or session.config['contrastive'] != {'alignment_weight': .05, 'max_objects': 512,
++                                            'residual_weight': 0., 'temperature': .2}):
++        raise ValueError('Inactive denominator contrast is only original shared ROUTE')
++    torch = session.torch
++    labels = facade.complete_labels[facade.index]
++    weights = facade.weight_cache  # Preserve the exact original cached Qm.
++    retained = retained_entries(weights, labels)
++    different = (labels[:, None] != labels[None, :])[None].expand_as(retained)
++    positive = weights > 0
++    excluded = ~retained
++    facade.denominator_retained = retained
++    facade.alignment_loss = MethodType(alignment_loss, facade)
++    stats = dict(rule='selected original Qm positives union all different-class panel rows',
++        same_original_target_tensor=True, removed_target_mass=False, own_supervision_unchanged=True,
++        coefficient=.05, temperature=.2, route_only=True, COMMON_symmetry_claim=False,
++        total_scored_anchor_rows=int(retained.shape[0]*retained.shape[1]),
++        retained_entries=int(retained.sum()), excluded_same_class_zero_target_entries=int(excluded.sum()),
++        retained_selected_positive_entries=int(positive.sum()), retained_different_class_entries=int(different.sum()),
++        retained_denominator_count_per_route_anchor=retained.sum(-1).cpu().tolist(),
++        excluded_count_per_route_anchor=excluded.sum(-1).cpu().tolist(),
++        same_class_positive_count_per_route_anchor=positive.sum(-1).cpu().tolist(),
++        denominator_preparation_seconds=time.monotonic()-started,
++        numerical_rule='stored target mass times retained logsumexp minus finite target-weighted scores',
++        denominator_renormalizes_retained_cotangents=True, competence_guaranteed=False)
++    return stats

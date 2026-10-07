@@ -1,6 +1,6 @@
 # Current research state
 
-Updated 2026-10-07T23:17:29.439531+00:00. **Goal active and unmet:** no verified new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged. Last verified pushed and synchronized commit before this packet:ad0d37d1359973c5bd19427bf5304569ec3a28ca. Prior decisions and complete failures remain in the research ledger and Git.
+Updated 2026-10-07T23:17:29.439531+00:00. **Goal active and unmet:** no verified new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged. Last verified pushed and synchronized commit before this packet:d670d113a6c100a46ed94c566c56eac24c13c9e4. Prior decisions and complete failures remain in the research ledger and Git.
 
 ## New result analysis and public source
 
@@ -32,7 +32,7 @@ Complete real TRAIN target preprocessing passed in6.44seconds: original11701node
 
 Actual full-native qualifier passed all5paths/local+global:10discarded updates,136training member forwards,68reverse collections,72TRAIN inference calls,57.1worker seconds,11.3867GiB peak reserved. Exact model/Adam and native stage restoration, finite declared active gradients and original RNG replay passed. Tiny reload arithmetic variation was recorded without blocking. Engineering eligibility is not a quality result.
 
-Scientific owner526200/start6021896966, current child526650/start6022235548; output `context_positive_stage1_scientific_execution_root_20261008_v1`; activation `context_positive_stage1_scientific_activation_root_20261008_v1`. Fresh observation23:11UTC October7: shared_common8101 completed1100epochs with a clean original terminal receipt, shared_route8101 at515/1100, both current handles live, no failure. One context child runs alongside original Mol18 under20GiB allocator cap/24GiB fresh admission. Per-cell9h bound is a safety maximum, not ETA. Narrow independent source review resolved target binding and owner cleanup findings before release. Observe same handles; do not restart after a transport timeout.
+Scientific owner526200/start6021896966, current child527200/start6022574923; output `context_positive_stage1_scientific_execution_root_20261008_v1`; activation `context_positive_stage1_scientific_activation_root_20261008_v1`. Fresh observation23:43UTC October7: shared_common8101 and shared_route8101 completed1100epochs with original terminal receipts. The next fixed permuted8101 cell is at32/1100. Original owner and current child live, no failure, no scores opened. One context child runs alongside original Mol18 under20GiB allocator cap/24GiB fresh admission. Per-cell9h bound is a safety maximum, not ETA. Narrow independent source review resolved target binding and owner cleanup findings before release. Observe same handles; do not restart after a transport timeout.
 
 Compact whole9 reader `context_positive_closed9_readout_source_20261008_v1` is prepared, not executed. It reuses existing complete-population errors/NLL/Brier/seed intervals and at most36member calls. Collect and freeze all COMMON cohorts before ROUTE/shuffled predictions. Whole9/terminal custody is required before comparative opening; no automatic gate-triggered training. Need real quality, matched references, unused confirmation and capable published controls to establish a contribution.
 
@@ -65,3 +65,11 @@ The dedicated owner retains private attention scoring vectors with shared dense 
 ## Conditional loss proposal
 
 The separate scientific critique retains one denominator hypothesis: omit unselected same-class TRAIN rows from the original ROUTE denominator while preserving the selected positive targets. The removed pressure may be harmful or helpful. Masking renormalizes all retained gradients and makes route supports differ from the COMMON union support, so the original aggregate-target gradient symmetry does not transfer. A single paired full-versus-masked ROUTE comparison is proposed, not implemented or admitted. No new primary paper read, outcome access or quality claim. See `context_positive_same_class_denominator_inactive_assessment_20261008_v1/PROPOSAL.md`.
+
+## Prepared controls and capacity limits
+
+The private-attention source critique establishes a restricted BE scale absorption construction. Native biased parallel branches, shared normalization/mixing and state accumulation block its simple general cancellation. It does not prove strict whole-network capacity gain. Private attention remains a conditional utility hypothesis that may act through parameterization/optimizer ownership.
+
+The independent critic retains updatewise permutation of the four factual targets among routes. At every fixed history/state and target-independent view realization, the expected alignment objective and every raw gradient equalCOMMON(Qbar), without route symmetry. The same target multiset/concentration is preserved each step, while persistent route/context association is removed. Conditional assignment noise adds a positive-semidefinite gradient covariance term. Finite Adam trajectories can differ. This is a conditional three-fit persistence diagnostic, not implemented or admitted.
+
+The separate masked-ROUTE source is ready at `context_positive_same_class_denominator_inactive_assessment_20261008_v1/denominator_source_successor_v1`. Eight artificial CPU loss/score/representation-cotangent checks passed on the existing allocation runtime without models or GPU. Full-native two-update qualification remains pending. Original targets/recipe/views/selectors/serving and current studies are unchanged. Neither new control is a novelty or accuracy result.
