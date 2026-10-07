@@ -1,0 +1,252 @@
+--- wikics_staged_private_graph_residual_method_preparation_20261007_v3/common.py
++++ wikics_staged_private_graph_residual_method_preparation_20261007_v4/common.py
+@@ -8,12 +8,13 @@
+ import subprocess
+ import sys
+ import time
++from host_admission import admit_host,verify_runtime_provider
++
++HOST_CONTEXT = None
+ 
+ ROOT = Path(__file__).resolve().parent
+ PHASE = ROOT.parent
+ REPO = ROOT.parents[2]
+-ALLOCATION = '/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs'
+-GPU = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+ RUNTIME = {'torch':'2.1.2+cu118','numpy':'1.26.4','PyG':'2.7.0',
+            'torch_scatter':'2.1.2+pt21cu118','torch_sparse':'0.6.18+pt21cu118','CUDA':'11.8'}
+ TOLERANCES = {'logits':(1e-5,1e-6),'gradients_moments':(1e-4,2e-6),'parameters':(1e-5,1e-6)}
+@@ -41,13 +42,8 @@
+         raise ValueError('Disabled source requires independent root review and release')
+     if job.get('TEST_access') is not False or job.get('retry') is not False or job['kind']!=kind:
+         raise ValueError('Exact declared work kind; TEST closed and no retry')
+-    if str(REPO)!=ALLOCATION or Path.cwd().resolve()!=REPO.resolve() or socket.gethostname()!='anogena-2-0':
+-        raise ValueError('Existing one-GPU allocation repository only')
+-    if os.environ.get('CUDA_VISIBLE_DEVICES')!=GPU or subprocess.check_output(
+-        ['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True,timeout=10).splitlines()!=[GPU]:
+-        raise ValueError('Exact authorized physical GPU and visible singleton required')
+-    if str(Path(sys.executable).absolute())!=str(PHASE/'native_ncn_runtime_20261005_v1/.venv/bin/python'):
+-        raise ValueError('Existing native interpreter required')
++    global HOST_CONTEXT
++    HOST_CONTEXT=admit_host(ROOT,PHASE,REPO,job,bound,sha)
+     if output.exists() or not output.parent.is_dir() or not output.is_relative_to(PHASE.resolve()) or str(output)!=job['output_directory']:
+         raise ValueError('Fresh exact root-owned output required')
+     if sha(program)!=job['program_sha256'] or sha(ROOT/'MANIFEST.json')!=job['source_manifest_sha256']:
+@@ -94,6 +90,8 @@
+     versions={'torch':str(torch.__version__),'numpy':np.__version__,'PyG':torch_geometric.__version__,
+               'torch_scatter':torch_scatter.__version__,'torch_sparse':torch_sparse.__version__,'CUDA':torch.version.cuda}
+     if versions!=RUNTIME or torch.cuda.device_count()!=1:raise ValueError('Pinned full native operator/runtime differs')
++    verify_runtime_provider(HOST_CONTEXT,{'torch':torch,'numpy':np,'torch_geometric':torch_geometric,
++        'torch_scatter':torch_scatter,'torch_sparse':torch_sparse},sha)
+     torch.set_num_threads(2);torch.set_num_interop_threads(1)
+     torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False
+     torch.backends.cudnn.deterministic=True;torch.backends.cudnn.benchmark=False
+--- wikics_staged_private_graph_residual_method_preparation_20261007_v3/host_admission.py
++++ wikics_staged_private_graph_residual_method_preparation_20261007_v4/host_admission.py
+@@ -0,0 +1,100 @@
++"""GPU77 host/provider and root-bound comparison custody; no numerical work."""
++import json
++import os
++from pathlib import Path
++import socket
++import subprocess
++import sys
++
++
++def admit_host(root,phase,repo,job,bound,sha):
++    config=json.loads((root/'HOST_CONTEXT.json').read_text())
++    if job['kind'] not in ('native_fit','fit'):
++        raise ValueError('This host port admits ordinary scientific fits only; no parity diagnostics')
++    if str(repo)!=config['repository'] or Path.cwd().resolve()!=repo.resolve() or socket.gethostname()!=config['hostname']:
++        raise ValueError('Exact authorized GPU77 repository and hostname required')
++    selected=job.get('physical_gpu_uuid')
++    if selected not in config['physical_gpu_inventory'] or os.environ.get('CUDA_VISIBLE_DEVICES')!=selected:
++        raise ValueError('Root-selected authorized physical GPU and visible singleton required')
++    observed=[]
++    rows=subprocess.check_output(['nvidia-smi','--query-gpu=uuid,name,driver_version,memory.total',
++        '--format=csv,noheader,nounits'],text=True,timeout=10).splitlines()
++    for row in rows:
++        uuid,name,driver,memory=[value.strip() for value in row.split(',')]
++        observed.append({'uuid':uuid,'name':name,'driver_version':driver,'memory_total_MiB':int(memory)})
++    if [row['uuid'] for row in observed]!=config['physical_gpu_inventory'] or any(
++        row['name']!=config['physical_gpu_name'] or row['memory_total_MiB']!=config['physical_gpu_memory_total_MiB'] for row in observed):
++        raise ValueError('Exact authorized full two-GPU physical inventory required')
++    python=config['python_executable']
++    if (str(Path(sys.executable).absolute())!=python['path'] or str(Path(sys.executable).resolve())!=python['resolved_path']
++        or sha(Path(sys.executable).resolve())!=python['sha256'] or sys.prefix!=config['runtime_prefix']):
++        raise ValueError('Exact existing GPU77 interpreter/provider required')
++    if os.environ.get('PYTHONPATH','')!='' or os.environ.get('PYTHONHOME'):
++        raise ValueError('Use the existing self-contained GPU77 provider without an allocation overlay')
++    bound(config['runtime_provider']);bound(config['runtime_environment_verification'])
++    context=json.loads(bound(job['execution_context']).read_text())
++    descriptor={'host_context_id':config['host_context_id'],'hostname':config['hostname'],
++        'repository':config['repository'],'physical_gpu_uuid':selected,'python_executable':python['path'],
++        'runtime_provider':config['runtime_provider'],'runtime_versions':config['runtime_versions']}
++    if (context.get('root_adopted') is not True or context.get('device_runtime')!=descriptor
++        or context.get('physical_inventory')!=observed or context.get('seed')!=job['seed']
++        or context.get('data_manifest')!=job['data_manifest'] or context.get('plan')!=job['plan']
++        or context.get('soft_seconds')!=job['soft_seconds'] or context.get('hard_seconds')!=job['hard_seconds']):
++        raise ValueError('Exact root-bound actual host/runtime/data/plan/resource context required')
++    authority=json.loads(bound(job['data_manifest']).read_text())
++    if (authority['available']['sha256']!=config['safe_data_payload_sha256']
++        or authority.get('TEST_labels_available_to_trainer') is not False
++        or context.get('data_payload')!=authority['available']):
++        raise ValueError('Local GPU77 safe data manifest must bind the same fixed TRAIN/VALID payload; TEST closed')
++    copy_receipt=json.loads(bound(context['local_data_custody']).read_text())
++    if (copy_receipt.get('complete') is not True or copy_receipt.get('local_repository')!=config['repository']
++        or copy_receipt.get('local_hostname')!=config['hostname'] or copy_receipt.get('data_manifest')!=job['data_manifest']
++        or copy_receipt.get('data_payload')!=authority['available'] or copy_receipt.get('TEST_labels_copied') is not False):
++        raise ValueError('Exact local GPU77 data copy/acquisition custody required')
++    block=json.loads(bound(context['comparison_block']).read_text())
++    if (block.get('root_adopted') is not True or block.get('seed')!=job['seed']
++        or block.get('fixed_arms')!=config['fixed_arms'] or block.get('data_manifest')!=job['data_manifest']):
++        raise ValueError('Fixed seed comparison block and common data required')
++    policy=block.get('comparison_policy')
++    if policy not in ('matched_device_runtime','cross_runtime_limit_recorded'):
++        raise ValueError('Root must prospectively record the device/runtime comparison scope')
++    if policy=='matched_device_runtime' and block.get('device_runtime')!=descriptor:
++        raise ValueError('Native baseline and candidates in a seed must share the declared physical GPU/runtime')
++    if policy=='cross_runtime_limit_recorded' and not isinstance(block.get('cross_runtime_limit'),str):
++        raise ValueError('Cross-runtime comparison needs an explicit root-recorded interpretation limit')
++    if policy=='cross_runtime_limit_recorded' and not block['cross_runtime_limit'].strip():
++        raise ValueError('Empty cross-runtime interpretation limit')
++    freezes=job.get('donor_freezes',[]);origins=job.get('donor_origins',[])
++    if len(origins)!=len(freezes):raise ValueError('Every donor requires exact training-origin custody')
++    for freeze_binding,origin_binding in zip(freezes,origins):
++        freeze=json.loads(bound(freeze_binding).read_text());origin=json.loads(bound(origin_binding).read_text())
++        training_job_path=bound(origin['source_training_job']);training_job=json.loads(training_job_path.read_text())
++        if (origin.get('complete_custody_record') is not True or origin.get('freeze')!=freeze_binding
++            or training_job.get('source_manifest_sha256')!=freeze['source_manifest_sha256']
++            or training_job.get('program_sha256')!=freeze['program_sha256']
++            or (freeze.get('job_sha256') is not None and freeze['job_sha256']!=sha(training_job_path))):
++            raise ValueError('Donor source training job and frozen output custody differs')
++        bound(origin['training_terminal_evidence'])
++        training_context=origin['training_device_runtime']
++        original=config['original_allocation_donor_origin']
++        if freeze['source_manifest_sha256']==original['source_manifest_sha256']:
++            if (any(training_context.get(key)!=original[key] for key in ('hostname','repository','physical_gpu_uuid','python_executable'))
++                or freeze['program_sha256']!=original['program_sha256'] or origin.get('trained_locally_on_gpu77') is not False):
++                raise ValueError('Transferred allocation donor must retain its actual allocation training origin')
++            bound(origin['transfer_custody'])
++        else:
++            acquired=json.loads(bound(training_job['execution_context']).read_text())['device_runtime']
++            if training_context!=acquired or origin.get('trained_locally_on_gpu77') is not True:
++                raise ValueError('Local donor must bind its actual GPU77 training context')
++        if policy=='matched_device_runtime' and training_context!=descriptor:
++            raise ValueError('Donor training differs from seed comparison GPU/runtime; record the cross-runtime limit')
++        bound(freeze['selected']);bound(freeze['end'])
++    return config
++
++
++def verify_runtime_provider(config,modules,sha):
++    if config is None:raise ValueError('Host context was not admitted')
++    for name,module in modules.items():
++        expected=config['core_module_provider'][name];path=Path(module.__file__).resolve()
++        if str(path)!=expected['resolved_path'] or path.stat().st_size!=expected['bytes'] or sha(path)!=expected['sha256']:
++            raise ValueError('Actual imported GPU77 runtime provider differs: '+name)
+--- wikics_staged_private_graph_residual_method_preparation_20261007_v3/HOST_CONTEXT.json
++++ wikics_staged_private_graph_residual_method_preparation_20261007_v4/HOST_CONTEXT.json
+@@ -0,0 +1,103 @@
++{
++  "PYTHONHOME": null,
++  "PYTHONPATH": "",
++  "core_module_provider": {
++    "numpy": {
++      "bytes": 17005,
++      "path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/numpy/__init__.py",
++      "resolved_path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/numpy/__init__.py",
++      "sha256": "22cd1535fa14d74ef6f457cca149ffdc80875f460be313b8f895273f78bc402e"
++    },
++    "torch": {
++      "bytes": 71411,
++      "path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch/__init__.py",
++      "resolved_path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch/__init__.py",
++      "sha256": "7261130fcc9dae49bb38843604ae2d0cab8d6b7277eb57b5dbc1559e35e34be1"
++    },
++    "torch_geometric": {
++      "bytes": 2280,
++      "path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch_geometric/__init__.py",
++      "resolved_path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch_geometric/__init__.py",
++      "sha256": "ed0819813f6e85116ff84353b246bcb73b02c77c8af366c054253936bfa9664b"
++    },
++    "torch_scatter": {
++      "bytes": 4399,
++      "path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch_scatter/__init__.py",
++      "resolved_path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch_scatter/__init__.py",
++      "sha256": "ebb6cf8315c8d3983f8151fa7e6a93357286538bcdbd427501238753f52ea940"
++    },
++    "torch_sparse": {
++      "bytes": 3462,
++      "path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch_sparse/__init__.py",
++      "resolved_path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/lib/python3.11/site-packages/torch_sparse/__init__.py",
++      "sha256": "0b9f92e735c65ad99f0b58f02e1f204698d7140dcc07d932b57a50afaf10a6b3"
++    }
++  },
++  "existing_ownership_helper": {
++    "path": "shared_private_transfer_gpu77_qualification_preparation_20261005_v3/ownership_helpers.py",
++    "sha256": "e71503c87865546319cddbbf7a4f9f15d13cdf9e4875e406d65de21e64e047fd"
++  },
++  "existing_run_fit": {
++    "function": "run_fit",
++    "path": "citeseer_known_ranking_control_gpu77_b0_owned_preparation_20261006_v1/owner.py",
++    "sha256": "a8d36b95fd7faa767f44b3813c6e4f484d97c4dec72cc1c141cf4139ce4e462d"
++  },
++  "fits_enabled_by_source": false,
++  "fixed_arms": [
++    "E_stage",
++    "E_joint",
++    "E_own",
++    "S_continue",
++    "S_paths",
++    "I_native",
++    "U_stage"
++  ],
++  "host_context_id": "gpu77_private_transfer_cp311_cu118",
++  "hostname": "peptide",
++  "original_allocation_donor_origin": {
++    "hostname": "anogena-2-0",
++    "physical_gpu_uuid": "GPU-44039938-fd82-41d2-fefd-de71514e2fac",
++    "program_sha256": "c1ab13f5abc08409e893156cbed64ecd87b828b79fb236fe61e9ad9f2a7a288a",
++    "python_executable": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/native_ncn_runtime_20261005_v1/.venv/bin/python",
++    "repository": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs",
++    "source_manifest_sha256": "aae2dc35bde0339c38857923af1d202cc2e65eeab080c1adc8ee8f5f7d9407d3"
++  },
++  "phase": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930",
++  "physical_gpu_inventory": [
++    "GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998",
++    "GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced"
++  ],
++  "physical_gpu_memory_total_MiB": 81920,
++  "physical_gpu_name": "NVIDIA A100 80GB PCIe",
++  "python_executable": {
++    "bytes": 25553408,
++    "path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/bin/python",
++    "resolved_path": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/bin/python3.11",
++    "sha256": "06499e8ed04c1244eac93b0c604f6b4c9c9d78817ccb41f1c86f7668c4c8cef5"
++  },
++  "repository": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git",
++  "runtime_environment_verification": {
++    "path": "shared_private_transfer_gpu77_environment_execution_20261005_v1/ENVIRONMENT_VERIFICATION.json",
++    "sha256": "345ccb1e5ba29532d71d7fdfed4067234cd16020e2514fbd0170ae394cb3ef82"
++  },
++  "runtime_prefix": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1",
++  "runtime_provider": {
++    "path": "shared_private_transfer_gpu77_environment_execution_20261005_v1/PROVIDERS.json",
++    "sha256": "8f266cf0e27e908af087fb18092631eb7410c150e414d437b05ed3e7573b2fe4"
++  },
++  "runtime_versions": {
++    "CUDA": "11.8",
++    "PyG": "2.7.0",
++    "numpy": "1.26.4",
++    "torch": "2.1.2+cu118",
++    "torch_scatter": "2.1.2+pt21cu118",
++    "torch_sparse": "0.6.18+pt21cu118"
++  },
++  "safe_data_original_manifest": {
++    "path": "wikics_official_acquisition_root_20261007_v1/AVAILABLE_MANIFEST.json",
++    "sha256": "90eb221f523f892cdc9418ab5fb6a199dc8614e62a73774a2cd471a95d61f348"
++  },
++  "safe_data_payload_sha256": "74868c33350221f3a38f26f156a72003f6ee943f6275fb87c205f6bc1cf775a5",
++  "schema": "WikiCS_authorized_gpu77_host_runtime_admission_v1",
++  "strict_parity_diagnostics_port_authorized": false
++}

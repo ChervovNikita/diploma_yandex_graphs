@@ -1,0 +1,37 @@
+# Outgoing-zero comparison: independent source findings
+
+**Source-approved for three TRAIN initializer jobs and the fixed21 actual training cells on18.77, under exact root jobs/artifact bindings and the declared finite caps. No launch-blocking implementation or scientific-scope defect was found.** This review creates no new numerical gate, launch or source edit. Optional identity3 remains separately disabled. No data, warm checkpoint, partial quality, remote output or numerical runtime was opened/executed.
+
+Reviewed SOURCE_MANIFEST SHA256: `38a5d669d386f2ba0d27eb1d13fbc7948b52d191cfc69d5fd3776120bdbf3182`. All seven source rows and all29 bound dependency rows match hashes/sizes; run.py/growth.py parse without importing them. The original growth/model/initializer/provider source was inspected only for the relevant forwarded operators. This is a source review by an existing reviewer, not a fresh-agent or empirical verdict.
+
+## Gradient routing and shapes
+
+The actual correction is `P tanh(H V_m) B_m`, added to the literal native latent before the unchanged NCN head. Shared shapes are V[4,256,2]/B[4,2,256]; single8 is V[1,256,8]/B[1,8,256]; each independently owned single route is V[1,256,2]/B[1,2,256]. Original constructors still count4096 added trainable parameters in each growth arm. Every native leaf and both factors remain trainable.
+
+With finite V and B=0, the branch output is zero, incoming V gradients are zero initially, and outgoing B receives the realized nonlinear dictionary's gradient. After B updates, V can learn through tanh and P. The incoming reference uses V=0 and finite right-singular B, reversing the first accessible factor. Routed inner calls and packed outer/serving calls select the correct member slices; column concatenation/splitting preserves member/unit order. No cached latent replaces a live trainable encoder.
+
+The ordinary driver commits three Adam passes—inner, outer, repeated inner—with the original own and equal own/pool BCE objectives. Inner pass0 reuses its dropout state; pass2 advances it. The liveness hooks observe the actual parameter-gradient callbacks during those paid backwards and return None, so they do not modify gradients or add updates. Finite loss/logits, connected finite gradients and updated parameters remain checked. Initial zeros and later nonzero norms are recorded for interpretation, not used as tolerance or positive-result gates. Observation is not convergence or utility certification.
+
+## Calibration and comparison custody
+
+The native interface requires full3327×3703 features projected to256, one normalized PureConv identity layer, the unchanged zero-dropout tail and scalar JK. Calibration uses the exact first cycle0 TRAIN episode, native TRAIN negative bank and endpoint/random positive-union target mask; dropout is off. The initializer reader does not deserialize VALID/TEST values. H/G are finite and the SVD/RMS work is explicitly charged.
+
+Graph left/right vectors come from the same Kq SVD; unfiltered top8 left, raw-H top8 right and a single isolated seeded Gaussian supply the fixed controls. Outgoing columns use public-node RMS(Hv)=1, without labels at those nodes, centering, redraw or scale search. The single8 dictionary is the literal concatenation of all four graph column pairs. Realized dictionary rank/saturation/residual diagnostics are initial-state measurements, not a full old-score-Jacobian or trained-function certificate.
+
+Fit admission binds one successful zero-update TRAIN initializer receipt per seed, exact bank/calibration/draw files, warm checkpoint, provider, physical GPU and runtime. Each fit recomputes and hash-matches the fixed draw but reloads the literal saved bank; it does not rerun or redraw SVDs. Warm20 metadata, seed, training roles and feature/train identities are checked before strict state loading. Seed1's warm exit is disclosed as unknown under root's existing complete-artifact admission; this reviewer does not invent a clean process exit. Root retains exact stable artifact custody.
+
+The capable single has the full native encoder/predictor and all eight nonlinear units, with the same4096 new parameters. It receives the union of four inner lists. The four-model control has disjoint complete native routes, separate Adam/dropout/query streams, own losses and full union exposure per learner; no pooled training gradient is introduced. Its common warm origin and synchronous pooled checkpoint selector are correctly disclosed. It is a common-warm independently optimized control, not four independently acquired and independently selected native fits.
+
+Sixty complete61-episode cycles, three passes per episode and twelve complete VALID cadence evaluations are retained; all500 negatives per227 positives are ranked. Selection is the first strict maximum pooled MRR rounded4, with no early stop. TEST remains unavailable. Source jobs comprise three initializers,21 mandatory fits, and three separately disabled identity fits. They are all disabled until root activation.
+
+## Attribution and compute limits
+
+- Outgoing versus incoming changes the accessible factor, left/input versus right/output subspace, finite nonlinear dictionary and normalization. A gain cannot be attributed solely to which matrix is zero. Graph versus unfiltered/feature/random is the useful fixed initialization-policy comparison.
+- The initial nonlinear feature residual outside col(PH) does not prove new directions outside the complete encoder/head score Jacobian. Graph-band bases need not remain specialized after training. Larger initial gradients or lower overlap do not establish accuracy value.
+- The predeclared identity branch is required before attributing gain specifically to nonlinear neighborhood moments. If identity explains it, credit private linear mixing/bilinear scoring. The21 primary cells alone can support only their narrower development comparisons. Native/no-growth benefit and broad ensemble/GNN claims need properly matched strong references; none is inferred from unread original scores.
+- The single and independent controls use richer full-learner exposure/objectives than a private F4 route, intentionally avoiding weak controls. They do not isolate parameter sharing causally. Independent4 pays four complete trajectories and union exposures; the single has all eight units. Added parameter counts do not equal total native parameter or compute counts.
+- Charge warm20, one physical initializer campaign per seed, all sparse P work, diagnostics, every fit/selector/checkpoint and failed/capped work. Per-policy dictionary timers are not independently repeated initializer campaigns. Actual costs are logged during training; no speed claim is approved.
+
+One nonblocking metadata remnant is inherited `PARAMETER_PARTITION.growth.FP32_gate_required=True` from the original constructor. The new driver explicitly waives repeated parity and does not enforce that flag. Do not cite it as an executed gate or a pass; it does not prevent training.
+
+This is post-proposal development with prior partial-quality exposure disclosed by root. Complete all21 prescribed cells and retain every failed/capped result; do not tune or drop controls from partial scores. Finite but dormant factors or absent usable nonlinear features close the corresponding mechanism interpretation. Three optimizer seeds on one graph and validation-selected states do not establish significance, confirmation, novelty or acceptance. No additional gate machinery is proposed.

@@ -1,0 +1,133 @@
+# graphmae2 bounded method scope
+
+Primary URL: https://arxiv.org/html/2304.04779v1
+
+Blocks 15 through 46 inclusive in graphmae2_blocks.json. Zero full-paper credit.
+
+## Block 15
+
+2. Method
+
+## Block 16
+
+In this section, we first revisit masked autoencoding for graph SSL and identify its deficiency in which the effectiveness of masked feature reconstruction can be vulnerable to the distinguishability of input node features. Then we present our GraphMAE2 to overcome the problem by imposing regularization on the feature decoding.
+
+## Block 17
+
+2.1. Masked Autoencoding on Graphs
+
+## Block 18
+
+Notations. Let $\mathcal{G}=(\mathcal{V},{\bm{A}},{\bm{X}})$ , where $\mathcal{V}$ is the node set, $N=|\mathcal{V}|$ represents the number of nodes, ${\bm{A}}\in\{0,1\}^{N\times N}$ is the adjacency matrix with each element ${\bm{A}}(i,j)=1$ indicating that there exists an edge between $v_{i}$ and $v_{j}$ . ${\bm{X}}\in\mathbb{R}^{N\times d_{in}}$ is the input node feature matrix. In graph autoencoders, we use $f_{E}$ to represent the GNN encoder such as GAT ( Velickovic et al., 2018 ) and GCN ( Kipf and Welling, 2017 ) . And $f_{D}$ represents the decoder which can be a multi-layer perceptron (MLP) or GNN. Denoting the hidden embedding ${\bm{H}}\in\mathbb{R}^{N\times d}$ , the general goal of graph autoencoders is to learn representation ${\bm{H}}$ or a well-initialized $f_{E}$ through reconstructing input node features or structure:
+
+## Block 19
+
+(1) ${\bm{H}}=f_{E}({\bm{A}},{\bm{X}}),\ \widetilde{\mathcal{G}}=f_{D}({\bm{A}},{\bm{H}})$
+
+## Block 20
+
+where $\widetilde{\mathcal{G}}$ denotes the reconstructed graph characteristics, which can be structure, node features or both.
+
+## Block 21
+
+Overview of masked feature reconstruction. The idea of masked autoencoder has seen successful practice in graph SSL ( Hou et al., 2022 ) . As a form of more general denoising autoencoders, it removes a portion of data in the graph, e.g., node features or links, with the masking operation and learns to predict the masked content. And it has been demonstrated that reconstructing masked node features as the only pretext task could generate promising performance. In this work, we follow the paradigm of masked feature reconstruction and aim to further boost the performance by resolving the potential concerns in existing works.
+
+## Block 22
+
+Formally, we uniformly sample a subset of nodes $\widetilde{\mathcal{V}}\subset\mathcal{V}$ without replacement and replace their feature with a mask token [MASK], i.e. a learnable vector ${\bm{x}}_{[M]}\in\mathbb{R}^{d_{in}}$ . And sampling with a relatively large mask ratio (e.g., 50%) helps eliminate redundancy in graphs and benefit performance. The features $\widetilde{{\bm{x}}}_{i}$ for node $v_{i}\in\mathcal{V}$ in the corrupted feature matrix $\widetilde{{\bm{X}}}$ can be represented as:
+
+## Block 23
+
+$\widetilde{{\bm{x}}}_{i}=\begin{cases}{\bm{x}}_{[M]}&v_{i}\in\widetilde{\mathcal{V}}\\ {\bm{x}}_{i}&v_{i}\notin\widetilde{\mathcal{V}}\end{cases}$
+
+## Block 24
+
+Then the corrupted graph $({\bm{A}},\widetilde{{\bm{X}}}$ ) is fed into the encoder $f_{E}$ to generate representations ${\bm{H}}$ . And the decoder $f_{D}$ decodes the predicted masked features ${\bm{Z}}$ from ${\bm{H}}$ . The training objective is to match the predicted ${\bm{Z}}$ with the original features ${\bm{X}}$ with a designated criterion, such as (scaled) cosine error.
+
+## Block 25
+
+Problems in masked feature reconstruction. Despite the excellent performance, there exists potential concern for masked node feature reconstruction due to the inaccurate semantics of node features. A recent study ( Chien et al., 2022 ) shows that the performance of GNNs on downstream tasks can be significantly affected by the distinguishability of node features. In masked feature reconstruction, less discriminative reconstruction targets might cause misleading and harm the learning. To verify this assumption, we conduct pilot experiments by comparing the results using original features with less discriminative features. To induce information loss on features, we compress the features by mapping the original features to low dimensional space, i.e., 50 dimensions, using PCA. Table 1 shows the results. We observe that the performance of GraphMAE degrades more significantly than the supervised counterpart when using the compressed features. The results indicate that the performance of learning through input feature reconstruction tends to be more vulnerable to the discriminability of the features.
+
+## Block 26
+
+In CV and NLP, where the philosophy of masked prediction has groundbreaking practices, their inputs are exact descriptions of data without loss of semantic information, e.g., pixels for images and words for texts. However, the input ${\bm{X}}$ of graphs could inevitably and intrinsically contain unexpected noises since they processed products from various raw data, e.g., texts or hand-crafted features. The input ${\bm{X}}$ is and generated by various feature extractors. For example, the node features of Cora ( Yang et al., 2016 ) are bag-of-words vectors, ogbn-Arxiv ( Hu et al., 2020b ) averages word embeddings of word2vec, and MAG240M ( Hu et al., 2021 ) are from pretrained language model. Their discriminability is constrained to the expressiveness of the feature generator and could inherit the substantial noise in the generator. In masked feature reconstruction, the objective of recovering less discriminative node features can guide the model to fit inaccurate targets and unexpected noises, bringing potential negative effects.
+
+## Block 27
+
+2.2. The GraphMAE2 Framework
+
+## Block 28
+
+We present GraphMAE2 to overcome the aforementioned issue. It follows the masked prediction paradigm and further incorporates regularization to the decoding stage to improve effectiveness.
+
+## Block 29
+
+To improve feature reconstruction, we propose to randomly re-mask the encoded representations multiple times and force the decoder to reconstruct input features from the corrupted representations. Then to minimize the direct effects of input features, we also enforce the model to predict representations of masked nodes in the embedding space beyond the input feature space. Both strategies serve as regularization to avoid the model over-fitting to the input features. Moreover, we extend GraphMAE2 to large graphs and propose to sample densely-connected subgraphs to accommodate with GraphMAE2’s training, The overall framework of GraphMAE2 is illustrated in Figure 2 .
+
+## Block 30
+
+Multi-view random re-mask decoding. From the perspective of input feature reconstruction, we introduce randomness in the decoding and require the decoder to restore the input ${\bm{X}}$ from different and partially observed embeddings.
+
+## Block 31
+
+The decoder maps the latent code ${\bm{H}}$ to the input feature space to reconstruct ${\bm{X}}$ for optimization. GraphMAE ( Hou et al., 2022 ) shows that using a GNN as the decoder achieves better performance than using MLP, and the GNN decoder helps the encoder learn high-level latent code when recovering the high-dimension and low-semantic features. The main difference is that GNN involves propagation and recovers the input relying on neighborhood information. Based on this characteristic of the GNN decoder, instead of the fixed re-mask decoding used in GraphMAE, we propose a multi-view random re-mask decoding strategy. It randomly re-masks the encoded representation before they are fed into the decoder, which resembles the random propagation in semi-supervised learning ( Feng et al., 2020 ) . Formally, we resample a subset of nodes $\overline{\mathcal{V}}\subset\mathcal{V}$ following a uniform distribution. $\overline{\mathcal{V}}$ is different from the input masked nodes $\widetilde{\mathcal{V}}$ and nodes are equally selected for re-masking regardless of whether they are masked before. Then corrupted representation matrix $\widetilde{{\bm{H}}}$ is built from ${\bm{H}}$ by replacing the ${\bm{h}}_{i}$ of node $v_{i}\in\overline{\mathcal{V}}$ with another shared mask token [DMASK], i.e., a learnable vector ${\bm{h}}_{[M]}\in\mathbb{R}^{d}$ :
+
+## Block 32
+
+$\widetilde{{\bm{h}}}_{i}=\begin{cases}{\bm{h}}_{[M]}&v_{i}\in\overline{\mathcal{V}}\\ {\bm{h}}_{i}&v_{i}\notin\overline{\mathcal{V}}\end{cases}$
+
+## Block 33
+
+Then the decoder would reconstruct the input ${\bm{X}}$ from the corrupted $\widetilde{{\bm{H}}}$ . The procedure is repeated several times to generate $K$ different re-masked nodes sets $\{\overline{\mathcal{V}}^{(j)}\}_{1,...,K}$ and corresponding corrupted representations $\{\widetilde{{\bm{H}}}^{(j})\}_{1,...,K}$ . Each view contains different information after re-masking, and they are all enforced to reconstruct input node features. The randomness of decoding serves as regularization preventing the network from memorizing unexpected patterns in the input ${\bm{X}}$ , and thus the training would be less sensitive to the disturbance in the input feature. Finally, we employ the scaled cosine error ( Hou et al., 2022 ) to measure the reconstruction error and sum over the errors of the $K$ views for training:
+
+## Block 34
+
+(2) $\mathcal{L}_{input}=\frac{1}{|\widetilde{\mathcal{V}}|}\sum_{j=1}^{K}\sum_{v_{i}\in\widetilde{\mathcal{V}}}(1-\frac{{\bm{x}}_{i}^{\top}{\bm{z}}^{(j)}_{i}}{\lVert{\bm{x}}_{i}\rVert\cdot\lVert{\bm{z}}_{i}^{(j)}\rVert})^{\gamma}$
+
+## Block 35
+
+where ${\bm{x}}_{i}$ is the $i$ -th row of ${\bm{X}}$ , ${\bm{z}}_{i}^{(j)}$ is the $i$ -th row of predicted feature ${\bm{Z}}^{(j)}=f_{D}({\bm{A}},\widetilde{{\bm{H}}}^{(j)})$ , and $\gamma>=1$ is the scaled coefficient. In this work, the decoder $f_{D}$ for feature reconstruction consists of a light single-layer GAT. Therefore, this strategy is very efficient and only incurs negligible computational costs.
+
+## Block 36
+
+Latent representation prediction. In line with the mask-then-predict, the focus of this part is on constructing an additional informative prediction target that is minimally influenced by the direct effects of input features. To achieve this, we propose to perform the prediction in representation space beyond input feature space.
+
+## Block 37
+
+Considering that the neural networks can essentially serve as denoising encoders ( Ma et al., 2021 ) and encode high-level semantics ( Zhou et al., 2022 ; Caron et al., 2021 ) , we propose to employ a network as the target generator to produce latent prediction targets from the unmasked graph. Formally, we denote the GNN encoder as $f_{E}(\cdot;\theta)=f_{E}$ . We also define a projector $g(\cdot;\theta)$ , corresponding to the decoder $f_{D}$ in input feature reconstruction, to map the code ${\bm{H}}$ to representation space for prediction. $\theta$ denotes their learnable weights. The target generator network shares the same architecture as the encoder and projector but uses a different set of weights, i.e., $f_{E}^{\prime}(\cdot;\xi)$ and $g^{\prime}(\cdot;\xi)$ . During the pretraining, the unmasked graph is first passed through the target generator to produce target representation $\bar{{\bm{X}}}$ . Then the encoding results ${\bm{H}}$ of the masked graph $\mathcal{G}({\bm{A}},\widetilde{{\bm{X}}})$ are projected to representation space, resulting in $\bar{{\bm{Z}}}$ for latent prediction:
+
+## Block 38
+
+(3) $\bar{{\bm{Z}}}=g({\bm{H}};\theta),\ \bar{{\bm{X}}}=g^{\prime}(f_{E}^{\prime}({\bm{A}},{\bm{X}};\xi);\xi)$
+
+## Block 39
+
+The encoder and projector network are trained to match the output of the target generator on masked nodes. Of particular interest, encouraging the correspondence of unmasked nodes would bring slight benefits to our framework. This may attribute to the masking operation implicitly serving as a special type of augmentation. We learn the parameters $\theta$ of the encoder and projector by minimizing the following scaled cosine error with gradient descent.
+
+## Block 40
+
+(4) $\mathcal{L}_{latent}=\frac{1}{N}\sum_{i}^{N}(1-\frac{\bar{{\bm{z}}}_{i}^{\top}\bar{{\bm{x}}}_{i}}{\lVert\bar{{\bm{z}}}\rVert\cdot\lVert\bar{{\bm{x}}}\rVert})^{\gamma}$
+
+## Block 41
+
+And the parameters of target generator $\xi$ are updated via an exponential moving average of $\theta$ ( Lillicrap et al., 2015 ) using weight decay $\tau$ :
+
+## Block 42
+
+(5) $\xi\leftarrow\tau\xi+(1-\tau)\theta$
+
+## Block 43
+
+The target generator shares similarities with the teacher network in self-knowledge distillation ( Caron et al., 2021 ; Zhou et al., 2022 ) or contrastive methods ( Grill et al., 2020 ) . But there exist differences in both the motivation and implementation: GraphMAE2 aims to direct the prediction of masked nodes with output from the unmasked graph as the target. In contrast, knowledge-distillation and contrastive methods target maximizing the consistency of two augmented views. The characteristic is that our method does not rely on any elaborate data augmentations and thus has no worry about whether the augmentations would alter the semantics in particular graphs.
+
+## Block 44
+
+Training and inference. The overall training flow of GraphMAE2 is summarized in Figure 2 . Given a graph, the original graph is passed through the target generator to generate the latent target $\bar{{\bm{X}}}$ . Then we randomly mask the features of a certain portion of nodes and feed the masked graph with partially observed features into the encoder $f_{E}({\bm{A}},\tilde{{\bm{X}}};\theta)$ to generate the code ${\bm{H}}$ . Next, the decoding consists of two streams. On the one hand, we apply the multi-view random re-masking to replace re-masked nodes in ${\bm{H}}$ with [DMASK] token, and the results are fed into the decoder $f_{D}$ to reconstruct the input ${\bm{X}}$ . On the other hand, another decoder $g$ is adapted to predict the latent target $\bar{{\bm{X}}}$ . We combine the two losses with a mixing coefficient $\lambda$ during training:
+
+## Block 45
+
+(6) $\mathcal{L}=\mathcal{L}_{input}+\lambda\mathcal{L}_{latent}$
+
+## Block 46
+
+Note that the time and space complexity of GraphMAE2 is linear with the number of nodes $N$ , and thus it can scale to extremely large graphs. When applying to downstream tasks, the decoder and target generator are discarded, and only the GNN encoder is used to generating embeddings or finetuned for downstream tasks.
