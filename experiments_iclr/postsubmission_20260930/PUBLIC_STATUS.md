@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated 2026-10-07T09:11:26.663156+00:00. **Goal active and unmet.** No supported new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged.
+Updated 2026-10-07T12:53:49.498107+00:00. **Goal active and unmet.** No supported new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged.
 
 ## Active scientific comparisons
 
@@ -140,3 +140,13 @@ The prospective Mol18 selected-prediction/rank analysis is implemented. It resto
 The method explanation now separates task losses precisely: Wiki's own-minus-probability-pool risk is KL from uniform member weights to true-class responsibilities; mean-logit binary BCE yields a target-independent softplus Jensen/Bregman gap at fixed logits. I changes which blocks receive that established gap derivative. It neither guarantees useful graph evidence nor breaks exact deterministic collapse. Learning lambda directly through J favors its upper bound when the gap is positive. These are attributed algebra, not new theorems, and supply no performance claim. No new paper-reading credit was added. [Mechanism and limits](internal_pool_risk_gap_identity_explanation_20261007_v1/NOTE.md).
 
 At11:35UTC the unchanged Wiki24 family had15 full fits complete; be_init_contrastive6203 was at468/1100. The exact family and CPU-only after-closure waiter owners remained live, with no failure or closure. Scores stay closed until the unchanged family ends. No18.77 contact or new job has occurred while the other Mac is off.
+
+## Latest live progress and next molecular comparison
+
+At12:50UTC the unchanged WikiCS family had19/24 complete full1100-epoch fits. The last ordinary independent ensemble completed; the independent-contrastive control for seed6307 was at243/1100. Exact scientific owner and the automatic CPU after-closure analysis waiter remained live, with no family failure or closure. Comparative scores stay closed through the whole fixed family. [Actual observation](allocation_goal_continuation_20261007_v1/OBSERVATION17.json).
+
+The exact four-policy MolHIV GPU execution owner is now live on the authorized allocation, PID521566/start6018676170. It waits without a numerical child for the already reviewed science window or whole Wiki24 terminal closure. Its maximum waiting time is24h; admitted representative work is180s plus10s cleanup. No scientific molecular fit, other-job change or18.77 contact occurred. The18-fit scientific pilot remains frozen and requires its thin full-family execution wrapper and a successful same-host GPU run. [Launch](allocation_controls_molhiv_OIPG_GPU_representative_activation_root_20261007_v2/LAUNCH_OBSERVATION.json).
+
+A further scoped Local Ensembles method read adds one conditional initialization question: at matched predictive disturbance and own-loss damage, can prediction-guided internal directions improve eventual ensemble decisions beyond random directions. Jacobian and curvature ensemble ancestry is close; no new principle or performance advantage is established. The current molecular architecture already places private message factors after LayerNorm and before bond-aware aggregation. No new normalization mechanism is claimed. [Saved assessment](predictive_tangent_internal_BE_initialization_assessment_20261007_v1/NOTE.md).
+
+Latest verified pushed HEAD before this update:2a505e1410ba750d0a283d51f2be4406fb45242f. Goal remains active and unmet.

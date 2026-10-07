@@ -1,6 +1,6 @@
 # Current state
 
-Updated 2026-10-07T10:46:04.026756+00:00. Goal active and unmet. No verified new-method superiority or fresh manuscript acceptance. Original paper scores unchanged.
+Updated 2026-10-07T12:53:49.498107+00:00. Goal active and unmet. No verified new-method superiority or fresh manuscript acceptance. Original paper scores unchanged.
 
 ## Active experiment and analysis
 
@@ -43,3 +43,13 @@ Exact O/I MolHIV CPU work is complete:66.43s/6.48GB RSS, two collections/eight m
 Mol18 selected-state collector and full-pair rank analysis v2 are sealed, source-reviewed, allocation-staged and help-checked. It restores selected/ordinary own-bank states without Adam and captures O-only common inversions, full-population AUC repairs, member quality and exploratory paired n3 intervals. Actual Mol18 closure/owner custody and collector runtime qualification remain missing. Binary Collab readout remains a separate unwired task.
 
 The new attributed exact-gap explanation clarifies Wiki true-class responsibilities versus binary softplus Jensen gaps, symmetry and learned-lambda degeneracy. No new theorem, scientific variant, paper credit or performance guarantee is claimed.
+
+## Latest execution — 7 October12:50UTC
+
+WikiCS19/24 full fits are complete; independent4_contrastive6307 is at243/1100. Exact scientific and CPU analysis-waiter owners are live, with no family failure/closure and no comparative-score opening. Observation17 records this actual state.
+
+Root approved and staged exact MolHIV O/I/P/G GPU source v2 seal4132c6c29d48b10b22dd0bb3fbf977b3dfb1ce560393921d4b03bc23a1d20dca. Waiting owner521566/ticks6018676170 is detached/live, without numerical/GPU child. It waits for the frozen coexistence window or all24 terminal closure. No full Mol fit or77 contact. The implementation agent is preparing only the thin exact18-fit executor/closure wrapper for the already adopted Mol pilot.
+
+Root read and verified predictive_tangent_internal_BE_initialization_assessment_20261007_v1. It preserves one conditional orientation hypothesis with close Jacobian/curvature priors; no new principle, initialization rule/strength adoption or fit. Local Ensembles adds one scoped method read and zero full-paper credits. Mol already has internal post-LayerNorm message factors before GINE aggregation.
+
+Most recent exact-ref verified pushed HEAD before this update is2a505e1410ba750d0a283d51f2be4406fb45242f. Its missing local push receipt has now been mirrored from the authorized allocation.
