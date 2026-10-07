@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated 2026-10-07T05:38:58.398714+00:00. **Goal active and unmet.** No supported new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged.
+Updated 2026-10-07T06:58:39.550839+00:00. **Goal active and unmet.** No supported new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged.
 
 ## Active scientific comparisons
 
@@ -77,3 +77,11 @@ The small portable Molhiv24 queue has been root-reviewed. It calls unchanged pub
 The exact portable Molhiv queue was staged on the allocation and its help CLI passed. Its source is ready for18.77, with same-host/runtime/device/data work qualification required there. No new77 job or full Molhiv family has started. The allocation Wiki family advanced from epoch554 to585 during the29.8-second check, with its same native worker and owner retained. [Actual representative work](internal_BE_portable_molhiv_GPU_check_20261007_v1/OBSERVATION01.json).
 
 The source-ready handoff now includes exact retrieved/rehashed CPU/GPU receipts and a concrete prospective77 command, with historical paths explicitly awaiting live verification. Actual portable runtime checks cover Molhiv. Core conversion/training sources cover all three tasks. [Handoff](internal_BE_portable_reproduction_readiness_report_20261007_v1/NOTES.txt). Compact source, complete initialization findings and actual work metadata were pushed and remote-ref verified at commit8872980c69d1e55268718f99b209c5d74585bc97. No full new Molhiv family or77 job is inferred.
+
+## Three-task code readiness and matched controls
+
+At06:54UTC, five complete WikiCS fits were recorded and be_init6101 was at42/1100. The unchanged family owner was live. Citeseer growth had14/15 complete endpoints, with the last independent growth fit at28/60. All family comparisons and TEST remain closed. No new18.77 contact or job occurred.
+
+The public WikiCS and Collab converters both passed actual full ordered equality on the allocation in14.18s and20.74s. Combined with MolHIV, all three public data converters now have executed equality checks. Full portable model training remains measured only within the representative MolHIV scope described above. The corrected prospective single8 plan includes ordinary independent4: eight arms by five reserved seeds per separately adopted task, with original own-selected ensemble serving retained. This is conditional source preparation, not an automatic120-fit campaign.
+
+A counterexample shows that low hidden residual contrast and good class alignment can coexist with identical predictions at the representation/head interface. It does not prove the actual BE GNN realizes that construction. Prior/source assessment supports GNCL actual member/pool risk and live block-specific gradient ancestry. Restricting the mixture to internal factors while boundaries retain own risk remains an attributed unmeasured control, not established novelty. Two new primary scopes were inspected, with zero new whole-paper reading credits. [Plain experiment handoff](internal_BE_allocation_multitask_handoff_20261007_v2/EXPERIMENTS.md).
