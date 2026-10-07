@@ -1,0 +1,3 @@
+# Seed17 native-bank continuation
+
+This root adapter waits for the already authorized four-model seed17 native1100 acquisition and its clean owned child terminal. It then binds exact completed member freezes to two previously prescribed arms, I_native and U_stage. It preserves the existing source, scientific recipe, donor reuse and adopted seven-arm plan. Prefix acquisition is charged once. No partial quality values guide activation. No scoring aggregation or TEST opening is authorized. A failed/absent dependency stops this adapter, without a training retry or parent-process signal. Existing17/29/43 source/raw outcomes remain untouched.77successors await restored access and its own source/data/runtime custody.
