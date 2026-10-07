@@ -1,0 +1,372 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "text": "Talking-Heads Attention"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "We introduce \"talking-heads attention\" - a variation on multi-head attention which includes linear projections across the attention-heads dimension, immediately before and after the softmax operation. While inserting only a small number of additional parameters and a moderate amount of additional computation, talking-heads attention leads to better perplexities on masked language modeling tasks, as well as better quality when transfer-learning to language comprehension and question answering tasks."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Neural Attention was introduced by [Bahdanau et al., 2014] as a way of extracting information from variable-length representations. The Transformer model [Vaswani et al., 2017] uses \"multi-head\" attention, consisting of multiple attention layers (\"heads\") in parallel, each with different projections on its inputs and outputs. By using a dimensionality reduction in the input projections, the computational cost is kept similar to that of basic attention. Quality is improved, presumably due to the ability to attend to multiple positions simultaneously based on multiple different types of relationships."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "As noted in [Vaswani et al., 2017]11 1 Section (A) of table 3 in [Vaswani et al., 2017]. Also the first sections of tables 1 and 5 of this paper., taking this process to the extreme (more attention heads projected to lower dimensionality) becomes counterproductive. We believe that this is due to the fact that the query-vectors and key-vectors become so low-dimensional that their dot product can no longer constitute an informative matching function."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "In this paper, we introduce a new variant, \"talking-heads attention\", that addresses this problem by inserting a learned linear projection across the attention-heads dimension of the attention-logits tensor. This allows each attention function to depend on all of the keys and queries. We also insert a second such projection immediately following the softmax."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "We show experimentally that inserting these \"talking-heads\" projections leads to better perplexities on masked language modeling tasks, as well as better quality when transfer-learning to language comprehension and question answering tasks."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "2 Notation"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "In our pseudocode, we use capital letters to represent tensors and lower-case letters to represent their dimensions. Each tensor is followed by a dimension list in brackets. For example, a 4-dimensional image-tensor with (batch, height, width, channels) dimensions would be written as:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "We use einsum notation for generalized contractions between tensors of arbitrary dimension. The computation is numerically equivalent to broadcasting each input to have the union of all dimensions, multiplying component-wise, and summing across all dimensions not in the output. Rather than identifying the dimensions by an equation, as in TensorFlow and numpy, the dimensions are indentified by the dimension-list annotations on the arguments and on the result. For example, multiplying two matrices would be expressed as:"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "3 Review of Attention Algorithms"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.1 Dot-Product Attention"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "Simple dot-product attention can be described by the pseudocode below. The logits L are computed as the dot-products of the query-vectors and the memory-vectors. For each query, the logits are passed through a softmax function to produce weights, and the different memory-vectors are averaged together, weighted by those weights. In this code, we show the case where there are [MATH n] nn different queries all attending to the same [MATH m] mm memory-vectors. If there is only one query, the code is identical except that the \"n\" dimension is removed from all tensors. ⬇ def DotProductAttention( X[n, d], # n query-vectors with dimensionality d M[m, d]): # m memory-vectors with dimensionality d L[n, m] = einsum(X[n, d], M[m, d]) # Attention logits W[n, m] = softmax(L[n, m], reduced_dim=m) # Attention weights Y[n, d] = einsum(W[n, m], M[m, d]) return Y[n, d]"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.2 Dot-Product Attention With Projections"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "[Vaswani et al., 2017] propose a dimensionality-reduction to reduce the computational complexity of the attention algorithm. In this version, instead of computing the attention algorithm directly on the inputs [MATH X] XX and [MATH M] MM, we first project the inputs using the learned linear projections [MATH P_{q}] PqP_{q}, [MATH P_{k}] PkP_{k} and [MATH P_{v}] PvP_{v}, to produce lower-dimensional query-vectors, key-vectors and value-vectors [MATH Q] QQ, [MATH K] KK and [MATH V] VV. We use a fourth learned linear projection, [MATH P_{o}] PoP_{o}, to produce the output."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.3 Multi-Head Attention"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "text": "The multi-head attention described in [Vaswani et al., 2017] consists of the sum of multiple parallel attention layers. This can be represented by adding a \"heads\" dimension h to the above computation. ⬇ def MultiHeadAttention( X[n, d_X], # n vectors with dimensionality d_X M[m, d_M], # m vectors with dimensionality d_M P_q[d_X, d_k, h], # learned linear projection to produce queries P_k[d_M, d_k, h], # learned linear projection to produce keys P_v[d_M, d_v, h], # learned linear projection to produce values P_o[d_Y, d_v, h]): # learned linear projection of output Q[n, d_k, h] = einsum(X[n, d_X], P_q[d_X, d_k, h]) # queries h*n*d_X*d_k K[m, d_k, h] = einsum(M[m, d_M], P_k[d_M, d_k, h]) # keys h*m*d_M*d_k V[m, d_v, h] = einsum(M[m, d_M], P_v[d_M, d_v, h]) # values h*m*d_M*d_v L[n, m, h] = einsum(Q[n, d_k, h], K[m, d_k, h]) # logits h*n*m*d_k W[n, m, h] = softmax(L[n, m, h], reduced_dim=m) # weights O[n, d_v, h] = einsum(W[n, m, h], V[m, d_v, h]) # h*n*m*d_v Y[n, d_Y] = einsum(O[n, d_v, h], P_o[d_Y, d_v, h]) # output h*n*d_Y*d_v return Y[n, d_Y]"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "text": "The pseudo-code above illustrates the practical step-by-step computation of multi-head attention. The costs of the einsum operations (the number of multiplications in a naive implementation) are shown in the comments. The equivalent pseudo-code below uses multi-way einsums and is more concise: ⬇ def MultiHeadAttentionConcise(X, M, P_q, P_k, P_v, P_o): L[n, m, h] = einsum(X[n, d_X], M[m, d_M], P_q[d_X, d_k, h], P_k[d_M, d_k, h]) W[n, m, h] = softmax(L[n, m, h], reduced_dim=m) Y[n, d] = einsum(W[n, m, h], M[m, d_M], P_v[d_M, d_v, h], P_o[d_Y, d_v, h]) return Y[n, d_Y]"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p3.1",
+    "text": "Note: [Vaswani et al., 2017] include a constant scaling factor on the logits. We omit this in our code, as it can be folded into the linear projections [MATH P_{q}] PqP_{q} or [MATH P_{k}] PkP_{k}."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "4 Talking-Heads Attention"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "In multi-head attention, the different attention heads perform separate computations, which are then summed at the end. Our new variation, which we call \"Talking-Heads Attention\" breaks that separation. We insert two additional learned linear projections, [MATH {P_{l}}] Pl{P_{l}} and [MATH {P_{w}}] Pw{P_{w}}, which transform the attention-logits and the attention-weights respectively, moving information across attention heads. 22 2 Appendix A presents a variation on this, where the projection matrices themselves are input-dependent. Instead of one \"heads\" dimension [MATH h] hh across the whole computation, we now have three separate heads dimensions: [MATH h_{k}] hkh_{k}, [MATH h] hh, and [MATH h_{v}] hvh_{v}, which can optionally differ in size (number of \"heads\"). [MATH h_{k}] hkh_{k} refers to the number of attention heads for the keys and the queries. [MATH h] hh refers to the number of attention heads for the logits and the weights, and [MATH h_{v}] hvh_{v} refers to the number of attention heads for the values. The algorithm is shown by the pseudo-code below. The costs of the einsum operations are shown in the comments. ⬇ def TalkingHeadsAttention( X[n, d_X], # n vectors with dimensionality d_X M[m, d_M], # m vectors with dimensionality d_M P_q[d_X, d_k, h_k], # learned linear projection to produce queries P_k[d_M, d_k, h_k], # learned linear projection to produce keys P_v[d_M, d_v, h_v], # learned linear projection to produce values P_o[d_Y, d_v, h_v], # learned linear projection of output P_l[h_k, h], # talking-heads projection for logits P_w[h, h_v]): # talking-heads projection for weights Q[n, d_k, h_k] = einsum(X[n, d_X], P_q[d_X, d_k, h_k]) # queries n*d_X*d_k*h_k K[m, d_k, h_k] = einsum(M[m, d_M], P_k[d_M, d_k, h_k]) # keys m*d_M*d_k*h_k V[m, d_v, h_v] = einsum(M[m, d_M], P_v[d_M, d_v, h_v]) # values m*d_M*d_v*h_v J[n, m, h_k] = einsum(Q[n, d_k, h_k], K[m, d_k, h_k]) # dot prod. n*m*d_k*h_k L[n, m, h] = einsum(J[n, m, h_k], P_l[h_k, h]) # Talking-heads proj. n*m*h*h_k W[n, m, h] = softmax(L[n, m, h], reduced_dim=m) # Attention weights U[n, m, h_v] = einsum(W[n, m, h], P_w[h, h_v]) # Talking-heads proj. n*m*h*h_v O[n, d_v, h_v] = einsum(U[n, m, h_v], V[m, d_v, h_v]) # n*m*d_v*h_v Y[n, d_Y] = einsum(O[n, d_v, h_v], P_o[d_Y, d_v, h_v]) # n*d_Y*d_v*h_v return Y[n, d_Y] Again, we can write this more concisely using multi-way einsum operations: ⬇ def TalkingHeadsAttentionConcise(X, M, P_q, P_k, P_v, P_o, P_l, P_w): L[n, m, h] = einsum(X[n, d_X], M[m, d_M], P_q[d_X, d_k, h_k], P_k[d_M, d_k, h_k], P_l[h_k, h]) W[n, m, h] = softmax(L[n, m, h], reduced_dim=m) Y[n, d_Y] = einsum(W[n, m, h], M[m, d_M], P_v[d_M, d_v, h_v], P_o[d_Y, d_v, h_v], P_w[h, h_v]) return Y[n, d_Y]"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "5 Complexity Analysis"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "If we assume that [MATH d_{X}=d_{Y}] dX=dYd_{X}=d_{Y}, then the number of scalar multiplications in multi-head attention is:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p2.1",
+    "text": "The number of scalar multiplications in talking-heads attention is:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p2.2",
+    "text": "The first term in this expression matches up with the cost of multi-head attention. The second term is due to the talking-heads projections. If [MATH h<d_{k}] h<dkh<d_{k} and [MATH h<d_{v}] h<dvh<d_{v}, the the costs of the new talking-heads projections, [MATH n\\cdot m\\cdot h\\cdot h_{k}] n⋅m⋅h⋅hkn\\cdot m\\cdot h\\cdot h_{k} and [MATH n\\cdot m\\cdot h\\cdot h_{v}] n⋅m⋅h⋅hvn\\cdot m\\cdot h\\cdot h_{v} are less than the existing terms [MATH n\\cdot m\\cdot d_{k}\\cdot h_{k}] n⋅m⋅dk⋅hkn\\cdot m\\cdot d_{k}\\cdot h_{k} and [MATH n\\cdot m\\cdot d_{v}\\cdot h_{v}] n⋅m⋅dv⋅hvn\\cdot m\\cdot d_{v}\\cdot h_{v}, respectively."
+  },
+  {
+    "tag": "p",
+    "id": "S5.p3.1",
+    "text": "In practice, the talking-heads projections may be expensive on some neural-network accelerators due to the small dimension sizes involved."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "6 One More Way To Look At It"
+  },
+  {
+    "tag": "p",
+    "id": "S6.p1.1",
+    "text": "Mathematically, one can view multi-head attention and talking-heads attention as two special cases of the same general function, which we will call \"general bilinear multihead attention\" (GBMA). GBMA uses two three-dimensional parameter tensors, as defined in the pseudocode below. Due to its high computational cost, GBMA may have no practical use. Multi-head attention is mathematically equivalent to a version of GBMA where each of the two parameter tensors is expressed as the product of two factors, as shown below. Talking-heads attention is mathematically equivalent to a version of GBMA where each of the two parameter tensors is expressed as the product of three factors, as shown below. ⬇ def GeneralBilinearMultiheadAttention( X[n, d_X], # n vectors with dimensionality d_X M[m, d_M], # m vectors with dimensionality d_M P[d_X, d_M, h], # learned parameters Q[d_M, d_Y, h]): # learned parameters L[n, m, h] = einsum(X[n, d_X], M[m, d_M], P[d_X, d_M, h]) W[n, m, h] = softmax(L[n, m, h], reduced_dim=m) Y[n, d_Y] = einsum(W[n, m, h], M[m, d_M], Q[d_M, d_Y, h]) return Y[n, d_Y] def MultiHeadAttentionInefficient(X, M, P_q, P_k, P_v, P_o): P[d_X, d_M, h] = einsum(P_q[d_X, d_k, h], P_k[d_M, d_k, h]) Q[d_M, d_Y, h] = einsum(P_v[d_M, d_v, h], P_o[d_Y, d_v, h]) return GeneralBilinearMultiheadAttention(X, M, P, Q) def TalkingHeadsAttentionInefficient(X, M, P_q, P_k, P_v, P_o, P_l, P_w): P[d_X, d_M, h] = einsum(P_q[d_X, d_k, h_k], P_k[d_M, d_k, h_k], P_l[h_k, h]) Q[d_M, d_Y, h] = einsum(P_v[d_M, d_v, h_v], P_o[d_Y, d_v, h_v], P_w[h, h_v]) return GeneralBilinearMultiheadAttention(X, M, P, Q)"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "7 Experiments"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "7.1 Text-to-Text Transfer Transformer (T5)"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.p1.1",
+    "text": "We test various configurations of multi-head attention and talking-heads attention on the transfer-learning setup from [Raffel et al., 2019]. An encoder-decoder transformer model [Vaswani et al., 2017] is pre-trained on a denoising objective of predicting missing text segments (average span length 3) from the C4 dataset [Raffel et al., 2019] 33 3 This is identical to one of the training objecives described in [Raffel et al., 2019], and subsequently fine-tuned on various language understanding tasks. We use the same code base and model architecture as the base model from [Raffel et al., 2019]. The encoder and decoder each consist of 12 layers, with [MATH d_{model}=768] dm​o​d​e​l=768d_{model}=768 and [MATH d_{ff}=3072] df​f=3072d_{ff}=3072. Each encoder layer contains a multi-head self-attention layer, and each decoder layer contains a multi-head self-attention layer and a multi-head attention-over-encoder layer. For their base model, [Raffel et al., 2019] follow [Devlin et al., 2018] and others, using [MATH h=12] h=12h=12 and [MATH d_{k}=d_{v}=64] dk=dv=64d_{k}=d_{v}=64 for all of these attention layers. We compare this setting to a variety of other configurations of multi-head and talking-heads attention, as detailed in table 1."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.p2.1",
+    "text": "Similar to [Raffel et al., 2019], we pre-train our models for 524288 steps. Each training batch consists of 128 examples, each of which has an input of 512 tokens and an output of 114 tokens, the output containing multiple spans of tokens which were deleted from the input. Similarly to [Raffel et al., 2019], we use the Adafactor optimizer [Shazeer and Stern, 2018] and an inverse-square-root learning-rate schedule. We also decay the learning rate linearly for the final 10 percent of the training steps. Our main departure from [Raffel et al., 2019] is that we, as suggested by [Lan et al., 2019], use no dropout during pre-training. We find this to produce superior results. We compute the log-perplexity on the training objective on a held-out shard of C4, which we believe to be a good indicator of model quality. For each configuration, we train one model for the \"full\" 524288 steps and four models for a shorter time (65536 steps) to measure inter-run variability. The results are listed in table 1."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.p3.1",
+    "text": "We then fine-tune each of the models on an examples-proportional mixture of SQUAD [Rajpurkar et al., 2016], GLUE [Wang et al., 2018] and SuperGlue [Wang et al., 2019]. Fine-tuning consists of 131072 additional steps with a learning rate of [MATH 10^{-3}] 10−310^{-3}. Following [Raffel et al., 2019], we use a dropout rate [MATH 0.1] 0.10.1 on the layer outputs, feed-forward hidden-layers and attention weights. The embedding matrix (also used as the projection in the final classifier layer) is fixed during fine-tuning. Tables 1, 2, 3 and 4 include results for SQUAD and MNLI-m. Results for all other tasks are listed in the appendix."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "7.1.1 Multi-Head vs Talking-Heads Attention"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.SSS1.p1.1",
+    "text": "In table 1, we compare multi-head attention to talking-heads attention. For each of the two algorithms, we test versions with 6, 12, 24 and 48 heads. Following [Vaswani et al., 2017], as we increase the number of heads, we decrease the key/value dimensionality [MATH d_{k}] dkd_{k} and [MATH d_{v}] dvd_{v}, so as to keep the number of parameters constant. For each number of heads, talking-heads attention improves over multi-head attention on all quality metrics."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.SSS1.p2.1",
+    "text": "Additionally, multi-head attention gets worse as we increase the number of heads from 24 to 48 and decrease the key and value dimensionalty from 32 to 16, while talking-heads attention gets better. We presume that this is due to the keys being too short to produce a good matching signal."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.SSS1.p3.1",
+    "text": "For additional comparison, we include in table 1 two models with significantly more parameters and computation in the attention layers. In the first, we double the number of heads in our baseline model from [MATH 12] 1212 to [MATH 24] 2424 without reducing [MATH d_{k}] dkd_{k} and [MATH d_{v}] dvd_{v}, resulting in a multi-head attention layer with double the parameters and double the computation. In the second, we use \"general bilinear multihead attention\", as described in section 6."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.SSS1.p4.1",
+    "text": "We also list the results from [Raffel et al., 2019]. We believe that their results are worse due to their use of dropout during pre-training."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "7.1.2 Varying the Heads-Dimensions Separately"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.SSS2.p1.1",
+    "text": "In table 2, we experiment with independently varying the sizes of the three heads-dimensions. From the results, it appears that all three are good to increase, but that the softmax-heads dimension [MATH h] hh is particularly important."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "7.1.3 Logits-Projection Only and Weights-Projection Only"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.SSS3.p1.1",
+    "text": "In the middle two experiments of table 3, we examine hybrids of multi-head attention and talking-heads attention, where there is a projection on one but not both of the logits and the weights."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "7.1.4 Encoder vs. Decoder"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS1.SSS4.p1.1",
+    "text": "The transformer model contains three types of attention layers - self-attention in the encoder, self-attention in the decoder, and attention-over-encoder in the decoder. In each of the middle three experiments of table 4, we employ talking-heads attention in only one of these types of attention layers, and multi-head attention in the others. We find that modifying the encoder-self-attention layers has the biggest effect on the downstream language-understanding tasks. This is unsurprising, given that these tasks have more to do with analyzing the input than with generating output."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "7.2 ALBERT"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS2.p1.1",
+    "text": "[Lan et al., 2019] introduce ALBERT, a variation on BERT [Devlin et al., 2018]. The main difference between the ALBERT and BERT architectures is that ALBERT shares layer parameters among all layers, significantly reducing the number of parameters. For example, a 12-layer ALBERT model has about 1/12 the number of parameters in the attention and feed-forward layers as a similar BERT model. Another difference is that the ALBERT model factorizes the word embedding as the product of two matrices with smaller bases, again significantly reducing the parameter count. This makes ALBERT appealing for memory limited devices such as mobiles. Besides above architecture differences, ALBERT also uses sentence order prediction (SOP) to replace next sentence prediction (NSP) in BERT."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS2.p2.1",
+    "text": "We report here experiments done with the base setting for ALBERT: a Transformer network with 12 layers of attention, the hidden and embedding size set to 768. The pre-training and fine-tuning hyperparameter settings are also exactly the same as in [Lan et al., 2019]. We use the English Wikipedia and book corpus datasets [Devlin et al., 2018] to pre-train various models with different head sizes and talking-heads configurations. We evaluate the resulting representations by using them as a starting point to finetune for the SQuAD task (SQuAD1.1, SQuAD2.0 dev set) and various tasks (MNLI, SST-2, RACE) from the GLUE benchmark. Results are in Table 5."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS2.p3.1",
+    "text": "We find that as the number of heads increases beyond 12 and the dimensionality of the attention-keys and attention-values decreases below 64, the performance of multi-head attention decays. On the other hand, the performance of talking-head attention keeps improving."
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS2.p4.1",
+    "text": "In addition, we also compare the logits projection and the weight projection separately with multi-head and talking-heads attention. The results are shown in Table 6. Similar to our observation in T5 experiments, only applying either the logits projection or the weight projection does not result in significant improvement compared to without them. These results again confirm the importance of having both projections."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "7.3 BERT"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS3.p1.1",
+    "text": "We test various configurations of talking-heads attention based on [Devlin et al., 2018]. All of our experiments use the simplified relative position embeddings [Raffel et al., 2019] instead of fixed position embedding. We first pre-train a 12 Transformer layers using the same dataset as [Devlin et al., 2018]. And then we finetune for the SQuAD1.1 task and the MNLI from the GLUE dataset. Our experiments show that quality continues to improve when we grow the number of heads up to 768 and decrease the key and value dimensionality down to 1 44 4 These extreme hyperparameter settings likely have no practical use, due to the massive amount of computation."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "7.4 Visualizing the Projection Matrices of Talking-Heads"
+  },
+  {
+    "tag": "p",
+    "id": "S7.SS4.p1.1",
+    "text": "To illustrate how different heads exchange information with each other, we visualize the projection matrices ( [MATH P_{l}] PlP_{l} and [MATH P_{w}] PwP_{w}) of a 12 layer BERT with 12 talking-heads in figure 1. Since [MATH P_{w}] PwP_{w} is applied after [MATH P_{l}] PlP_{l} (although there is a softmax non-linearity in between), we also visualize the combined transformation [MATH P_{l}\\times P_{w}] Pl×PwP_{l}\\times P_{w} in figure 1. As can be observed, the main diagonals of the projection matrices do not have significant greater values than other entries. This is expected because with talking-heads, a pair of query and key do not corresponds to any specific value-vector. All keys and queries jointly decide how the values in each head interchange data. Additionally, all projection matrices are well conditioned (magnitude of determinant above [MATH 10^{-9}] 10−910^{-9} with smallest eigenvalue above [MATH 10^{-3}] 10−310^{-3}), indicating that no significant approximation can be achieved."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "8 Conclusions and Future Work"
+  },
+  {
+    "tag": "p",
+    "id": "S8.p1.1",
+    "text": "We have proposed talking-heads attention and shown some promising results. One potential challenge is speed on modern deep-learning accelerators, which are optimized for large-dimension matrix multiplications. We imagine that this will be an area of future work. One approach is to build hardware which is better at small-dimension matrix-multiplication. Another potential approach is to decrease the number of memory-positions considered for each query-position - for example, by using the local-attention and memory-compressed-attention approaches described in [Liu et al., 2018]. We look forward to more applications of talking-heads attention, as well as to further architectural improvements."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A Variation: Dynamic Projections"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.1",
+    "text": "In the basic talking-heads attention algorithm described in section 4, the talking-heads projections are represented by two learned weight matrices [MATH P_{l}[h_{k},h]] Pl​[hk,h]P_{l}[h_{k},h] and [MATH P_{w}[h,h_{v}]] Pw​[h,hv]P_{w}[h,h_{v}]. In an additional wrinkle, we can make these projections matrices themselves input-dependent, adding terms to the projection matrices that are themselves learned linear projections of the inputs [MATH X] XX and [MATH M] MM. The algorithm is described by the pseudo-code below. ⬇ def TalkingHeadsAttentionWithDynamicProjections( X[n, d_X], # n vectors with dimensionality d_X M[m, d_M], # m vectors with dimensionality d_M P_q[d_X, d_k, h_k], # learned linear projection to produce queries P_k[d_M, d_k, h_k], # learned linear projection to produce keys P_v[d_M, d_v, h_v], # learned linear projection to produce values P_o[d_Y, d_v, h_v], # learned linear projection of output P_l[h_k, h], # learned static talking-heads proj. on logits P_Xl[d_X, h_k, h], # learned projection to generate dynamic talking-heads projection P_Ml[d_M, h_k, h], # learned projection to generate dynamic talking-heads projection P_w[h, h_v], # learned static talking-heads proj. on weights P_Xw[d_X, h, h_v], # learned projection to generate dynamic talking-heads projection P_Mw[d_X, h, h_v]) # learned projection to generate dynamic talking-heads projection Q[n, d_k, h_k] = einsum(X[n, d_X], P_q[d_X, d_k, h_k]) # queries n*d_X*d_k*h_k K[m, d_k, h_k] = einsum(M[m, d_M], P_k[d_M, d_k, h_k]) # keys m*d_M*d_k*h_k V[m, d_v, h_v] = einsum(M[m, d_M], P_v[d_M, d_v, h_v]) # values m*d_M*d_v*h_v J[n, m, h_k] = einsum(Q[n, d_k, h_k], K[m, d_k, h_k]) # dot prod. n*m*d_k*h_k R_Xl[n, h_k, h] = einsum(X[n, d_X], P_Xl[d_X, h_k, h]) # dynamic proj. n*d_X*h_k*h R_Ml[n, h_k, h] = einsum(M[m, d_M], P_Ml[d_M, h_k, h]) # dynamic proj. n*d_M*h_k*h L[n, m, h] = ( einsum(J[n, m, h_k], P_l[h_k, h]) + # Static talking-heads proj. n*m*h*h_k einsum(J[n, m, h_k], R_Xl[n, h_k, h]) + # Dynamic talking-heads proj. n*m*h*h_k einsum(J[n, m, h_k], R_Ml[m, h_k, h])) # Dynamic talking-heads proj. n*m*h*h_k W[n, m, h] = softmax(L[n, m, h], reduced_dim=m) # Attention weights R_Xw[n, h, h_v] = einsum(X[n, d_X], P_Xw[d_X, h, h_v]) # dynamic proj. n*d_X*h*h_v R_Mw[n, h, h_v] = einsum(M[m, d_M], P_Mw[d_M, h, h_v]) # dynamic proj. n*d_M*h*h_v U[n, m, h_v] = ( einsum(W[n, m, h], P_w[h, h_v]) + # Static Talking-heads proj. n*m*h*h_v einsum(W[n, m, h], R_Xw[n, h, h_v]) + # Dynamic talking-heads proj. n*m*h*h_v einsum(W[n, m, h], R_Mw[m, h, h_v])) # Dynamic talking-heads proj. n*m*h*h_v O[n, d_v, h_v] = einsum(U[n, m, h_v], V[m, d_v, h_v]) # n*m*d_v*h_v Y[n, d_Y] = einsum(O[n, d_v, h_v], P_o[d_Y, d_v, h_v]) # n*d_Y*d_v*h_v return Y[n, d_Y]"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.1",
+    "text": "We observed that the model only trained well if we initialized the projection-generating parameter matrices ( [MATH P_{xl}] Px​lP_{xl}, [MATH P_{ml}] Pm​lP_{ml}, [MATH P_{xw}] Px​wP_{xw}, [MATH P_{xw}] Px​wP_{xw}) to contain small enough values. We used normal initializers with standard deviations of [MATH 0.1/\\sqrt{d_{X}\\cdot h_{k}}] 0.1/dX⋅hk0.1/\\sqrt{d_{X}\\cdot h_{k}}, [MATH 0.1/\\sqrt{d_{M}\\cdot h_{k}}] 0.1/dM⋅hk0.1/\\sqrt{d_{M}\\cdot h_{k}}, [MATH 0.1/\\sqrt{d_{X}\\cdot h}] 0.1/dX⋅h0.1/\\sqrt{d_{X}\\cdot h}, and [MATH 0.1/\\sqrt{d_{M}\\cdot h}] 0.1/dM⋅h0.1/\\sqrt{d_{M}\\cdot h}, respectively."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "A.1 Experiments"
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS1.p1.1",
+    "text": "We evaluate talking-heads attention with dynamic projections on T5 [Raffel et al., 2019] in a set of experiments similar to those described in section 7.1."
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS1.p2.1",
+    "text": "Table 8 compares multi-head attention, taking-heads attention with static projections, and talking-heads attention with dynamic projections. The dynamic projections reduce perplexity on the pre-training task. However, in our experiments, we did not see an improvement on the downstream tasks."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "A.1.1 Comparing the Four Dynamic Projections"
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS1.SSS1.p1.1",
+    "text": "Table 9 examines the effects of the four dynamic projections employed individually. The middle four rows represent experiments where only one of the four dynamic projections were employed. These are compared to static projections (top row) and all four dynamic projections together (bottom row)."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "A.1.2 Talking-Heads in Encoder Only"
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS1.SSS2.p1.1",
+    "text": "In section 7.1.4 we saw that talking heads were particularly useful in the encoder part of the model. Table 10 presents a set of experiments where the decoder uses only multi-head attention, while the encoder uses either multi-head attention (top row), talking-heads attention with static projections (middle row), or talking-heads attention with dynamic projections (bottom row). We observe that in this case, the dynamic projections do not appear to degrade performance on the downstream tasks."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix B T5 Fine-Tuning Full Results"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p1.1",
+    "text": "Tables 11, 12 and 13 present the results of fine-tuning the models in section 7.1 and appendix A on the GLUE [Wang et al., 2018] and SuperGlue [Wang et al., 2019], and Stanford Question-Answering Dataset (SQuAD) [Rajpurkar et al., 2016] benchmarks."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]

@@ -1,0 +1,1117 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "text": "Mixture of Weak & Strong Experts on Graphs"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Realistic graphs contain both rich self-features of nodes and informative structures of neighborhoods, jointly handled by a GNN in the typical setup. We propose to decouple the two modalities by mixture of weak and strong experts (Mowst), where the weak expert is a light-weight Multi-layer Perceptron (MLP), and the strong expert is an off-the-shelf Graph Neural Network (GNN). To adapt the experts’ collaboration to different target nodes, we propose a “confidence” mechanism based on the dispersion of the weak expert’s prediction logits. The strong expert is conditionally activated when either the node’s classification relies on neighborhood information, or the weak expert has low model quality. We reveal interesting training dynamics by analyzing the influence of the confidence function on loss: our training algorithm encourages the specialization of each expert by effectively generating soft splitting of the graph. In addition, our “confidence” design imposes a desirable bias toward the strong expert to benefit from GNN’s better generalization capability. Mowst is easy to optimize and achieves strong expressive power, with a computation cost comparable to a single GNN. Empirically, Mowst shows significant accuracy improvement on 6 standard node classification benchmarks (including both homophilous and heterophilous graphs)."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Graph Neural Networks (GNNs) have achieved tremendous success (Zhou et al., 2020; Wu et al., 2020). Many widely used models are derived based on the global properties of the graph. For example, Kipf & Welling (2016); Wu et al. (2019); Chen et al. (2020b) perform signal smoothing using the full Laplacian; Xu et al. (2019) tests [MATH k] kk-hop isomorphism for all target nodes; Hamilton et al. (2017); Veličković et al. (2018) apply spatial aggregation on (approximation of) the full neighborhood. However, realistic graphs contain non-homogeneous patterns. Different parts of the graph may exhibit different characteristics. For example, locally homophilous and locally heterophilous regions may co-exist in one graph (Zhu et al., 2021). Suresh et al. (2021) further proposes a node-level assortativity metric to demonstrate the diverse signal mixing patterns across nodes. Zhang et al. (2021) notes that the number graph convolution iterations need to be adjusted on a per-node basis based on local structure. Therefore, a powerful model should have diversified treatments on different target nodes."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "The root problem underlying the above challenge is the limited model capacity. One solution is to develop more advanced layer architectures to improve the expressiveness of a single GNN model (Yun et al., 2019; Brody et al., 2022; Zheng et al., 2023; Joshi et al., 2023). The other way is to combine existing GNN models into a Mixture-of-Experts (MoE) system (Jacobs et al., 1991; Hu et al., 2022), considering that MoE has effectively improved model capacity in many domains (Masoudnia & Ebrahimpour, 2014; Du et al., 2022; Lepikhin et al., 2021). However, both approaches have drawbacks. GNNs are both expensive to compute and hard to optimize. “Neighborhood explosion” (Chen et al., 2018) makes it infeasible to train a deep and complicated GNN model on commercial hardware. The widely observed oversmoothing (Chen et al., 2020a; Li et al., 2018) and oversquashing (Topping et al., 2022; Alon & Yahav, 2021) phenomena make it hard to optimize the model well. Therefore, the above two solutions increase model capacity at the cost of exacerbating the computation and optimization issues. Note that variants of MoE, exemplified by Sparse MoE (Shazeer et al., 2017), may partially address the computation challenge by activating only a subset of experts during inference. However, it is a well-known issue that the sparse gating may make the optimization even harder due to manually introduced discontinuity and intentionally added noises (Fedus et al., 2022)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "To improve model capacity without significant trade-offs in computation overhead and optimization difficulty, we follow the basic MoE design philosophy, but take a step back to mix a simple Multi-Layer Perceptron (MLP) with an off-the-shelf GNN – an intentionally imbalanced combination unseen in traditional MoE models. The intuitive justifications are two-fold. First, the MLP and GNN models can specialize to address the two most fundamental modalities in realistic graphs: the feature of a node itself, and the structure of its neighborhood. The MLP, though much weaker than the GNN, can play an important role in various cases. For example, in a cluster of high homophily, the neighbors are similar, and thus aggregating their features via a GNN layer may not be more advantageous than extracting just the rich self-features of nodes. On the other hand, in the highly heterophilous parts of the graph, the edges connecting dissimilar neighbors may be noisy. Thus, performing message passing there may bring more harm than benefits (Zhu et al., 2020a). The MLP can help “clean up” the dataset for the GNN, enabling the strong expert to focus on the more complicated nodes whose neighborhood structure provides useful information for the learning task. The second justification for our “weak-strong” duo is that an MLP is both lightweight and easy to optimize. Its lack of recursive neighborhood aggregation not only makes the computation orders of magnitude cheaper than GNN (Wu et al., 2019; Zhang et al., 2022), but also automatically avoids oversmoothing and oversquashing."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "Contributions. We propose mixture of weak and strong experts (Mowst) on graphs, where the MLP and GNN experts specialize in the feature and structure modalities. To encourage collaboration without complicated gating functions, we propose a “confidence” mechanism to control the contribution of each expert on a per-node basis. Unlike recent MoE designs where experts are fused in each layer (Du et al., 2022; Lepikhin et al., 2021), our experts execute independently through their last layer and are then mixed based on a confidence score calculated by the dispersion of the MLP’s prediction logits. Our mixing mechanism has the following properties. First, since the confidence score solely depends on MLP’s output, the system is biased and inherently favors the GNN’s prediction. However, such bias is desirable since under the same training loss, a GNN can generalize better than an MLP (Yang et al., 2023). The extent of such bias depends on the confidence function, which can be learned in training. Second, our model-level (rather than layer-level) mixture makes the optimization easier and more explainable. Through theoretical analysis of the optimization behavior, we uncover various interesting collaboration modes between the two experts. During training, the system dynamically creates a soft splitting of the graph based on not only the nodes’ characteristics but also the two experts’ relative model quality. Such splitting leads to experts’ specialization. Upon convergence, it is possible that the GNN expert dominates and the splitting becomes insignificant. Even so, Mowst still outperforms a GNN alone: the MLP denoises for the GNN during training, ultimately enabling the GNN to converge better. The above advantages of Mowst, together with the theoretically high expressive power, come at the cost of minor computation overhead. In experiments, we extensively evaluate Mowst on 2 types of GNN experts and 6 standard benchmarks covering both homophilous and heterophilous graphs. We show consistent accuracy improvements over state-of-the-art baselines."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "2 Model"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "Our discussion mainly focuses on the most fundamental form, consisting of a weak MLP expert and a strong GNN expert (§2.7 presents the generalization to more experts). The key challenge lies in designing the mixture module in consideration of the inherent imbalance between experts. There are subtleties in experts’ interactions. On the one hand, the weak expert should only be cautiously activated to avoid accuracy degradation. On the other hand, for nodes that can be truly mastered by the MLP, we should ensure that the weak expert can meaningfully contribute rather than being overshadowed by its stronger counterpart. We present the overall model in §2.1 and §2.2, and discuss how our mixing mechanism encourages collaboration via theory §2.3 and analysis §2.4. We also present a variant of Mowst in §2.5, and analyze the expressive power and computation cost in §2.6."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "Notations. Let [MATH \\mathcal{G}\\left(\\mathcal{V},\\mathcal{E},\\bm{X}\\right)] 𝒢⁡(𝒱,ℰ,𝑿)\\mathcal{G}\\left(\\mathcal{V},\\mathcal{E},\\bm{X}\\right) be a graph with node set [MATH \\mathcal{V}] 𝒱\\mathcal{V} and edge set [MATH \\mathcal{E}] ℰ\\mathcal{E}. Each node [MATH v] vv has a length- [MATH f] ff raw feature vector [MATH \\bm{x}_{v}] 𝒙v\\bm{x}_{v}. The node features can be stacked as [MATH \\bm{X}\\in\\mathbb{R}^{\\left\\lvert\\mathcal{V}\\right\\rvert\\times f}] 𝑿∈ℝ|𝒱|×f\\bm{X}\\in\\mathbb{R}^{\\left\\lvert\\mathcal{V}\\right\\rvert\\times f}. Denote [MATH v] vv’s ground truth label as [MATH \\bm{y}_{v}\\in\\mathbb{R}^{n}] 𝒚v∈ℝn\\bm{y}_{v}\\in\\mathbb{R}^{n}, where [MATH n] nn is the number of classes. Denote the model prediction as [MATH \\bm{p}_{v}\\in\\mathbb{R}^{n}] 𝒑v∈ℝn\\bm{p}_{v}\\in\\mathbb{R}^{n}."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.1 Mowst"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "Inference. By Algorithm 1, on a target [MATH v] vv, the two experts each execute independently until they generate their own predictions [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} and [MATH \\bm{p}_{v}^{\\prime}] 𝒑v′\\bm{p}_{v}^{\\prime}. The mixture module either accepts [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} with probability [MATH C\\left(\\bm{p}_{v}\\right)] C⁡(𝒑v)C\\left(\\bm{p}_{v}\\right) (in which case we do not need to execute the GNN at all), or discards [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} and uses [MATH \\bm{p}_{v}^{\\prime}] 𝒑v′\\bm{p}_{v}^{\\prime} as the final prediction. The score [MATH C\\left(\\bm{p}_{v}\\right)] C⁡(𝒑v)C\\left(\\bm{p}_{v}\\right) reflects how confident the MLP is in its prediction. e.g., in binary classification, [MATH \\bm{p}_{v}=[0,1]^{\\mathsf{T}}] 𝒑v=[0,1]𝖳\\bm{p}_{v}=[0,1]^{\\mathsf{T}} and [MATH [0.5,0.5]^{\\mathsf{T}}] [0.5,0.5]𝖳[0.5,0.5]^{\\mathsf{T}} correspond to cases where the MLP is certain and uncertain about its prediction. The corresponding [MATH C\\left(\\bm{p}_{v}\\right)] C⁡(𝒑v)C\\left(\\bm{p}_{v}\\right) should be close to 1 and 0 respectively."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "Training. The training (Algorithm 2) minimizes the expected loss of inference. Thus, the loss is:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p4.1",
+    "text": "where [MATH \\bm{p}_{v}={\\text{MLP}\\left(\\bm{x}_{v};\\bm{\\theta}\\right)}] 𝒑v=MLP​(𝒙v,𝜽)\\bm{p}_{v}={\\text{MLP}\\left(\\bm{x}_{v};\\bm{\\theta}\\right)} and [MATH \\bm{p}^{\\prime}_{v}={\\text{GNN}\\left(\\bm{x}_{v};\\bm{\\theta}^{\\prime}\\right)}] 𝒑v′=GNN​(𝒙v,𝜽′)\\bm{p}^{\\prime}_{v}={\\text{GNN}\\left(\\bm{x}_{v};\\bm{\\theta}^{\\prime}\\right)} are the experts’ predictions; [MATH \\bm{\\theta}] 𝜽\\bm{\\theta} and [MATH \\bm{\\theta}^{\\prime}] 𝜽′\\bm{\\theta}^{\\prime} are the experts’ model parameters. [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} is fully differentiable. While we could simultaneously optimize both experts via standard gradient descent, Algorithm 2 shows an alternative “training in turn” strategy: we fix one expert’s parameters while optimizing the other. Training in turn enables the experts to more thoroughly optimize themselves despite the different convergence behaviors due to the different model architectures. If [MATH C] CC is learnable (see §2.2), we update its parameters together with MLP’s [MATH \\bm{\\theta}] 𝜽\\bm{\\theta}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p5.1",
+    "text": "Intuition. We demonstrate via a simple case study how [MATH C] CC moderates the two experts. Suppose at some point of training, the two experts have the same loss on some [MATH v] vv. In case 1, [MATH v] vv’s self features are sufficient for a good prediction, then MLP can make [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} more certain to lower its [MATH L\\left(\\bm{p}_{v},\\bm{y}_{v}\\right)] L⁡(𝒑v,𝒚v)L\\left(\\bm{p}_{v},\\bm{y}_{v}\\right) and increase [MATH C] CC. The better MLP’s loss then contributes more to [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} than GNN’s loss, thus improving the overall [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}}. In case 2, [MATH v] vv’s self-features are insufficient for further reducing MLP’s loss. Then if the MLP makes [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} more certain, [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} will deteriorate since an increased [MATH C] CC will up-weight the contribution of a worse [MATH L\\left(\\bm{p}_{v},\\bm{y}_{v}\\right)] L⁡(𝒑v,𝒚v)L\\left(\\bm{p}_{v},\\bm{y}_{v}\\right). Otherwise, if the MLP acts in the reverse way to even degrade [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} to random guess, [MATH L\\left(\\bm{p}_{v},\\bm{y}_{v}\\right)] L⁡(𝒑v,𝒚v)L\\left(\\bm{p}_{v},\\bm{y}_{v}\\right) will still be worse but [MATH C] CC will also reduce to 0. Thus, [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} remains unaffected even if MLP is completely ignored. Case 2 shows the bias of Mowst towards the GNN, but thanks to case 1, the weak MLP can indeed play a role on nodes where it specializes well."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.2 Confidence function"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "In this sub-section, we omit subscript [MATH v] vv. We formally categorize the class of the confidence function [MATH C] CC. Consider single task, multi-class node prediction, where [MATH n] nn is the total number of classes. The input to [MATH C] CC, [MATH \\bm{p}] 𝒑\\bm{p}, belongs to the standard [MATH \\left(n-1\\right)] (n−1)\\left(n-1\\right)-simplex, [MATH \\mathcal{S}_{n-1}] 𝒮n−1\\mathcal{S}_{n-1}. i.e., [MATH \\sum_{1\\leq i\\leq n}p_{i}=1] ∑1≤i≤npi=1\\sum_{1\\leq i\\leq n}p_{i}=1 and [MATH p_{i}\\geq 0] pi≥0p_{i}\\geq 0, for [MATH i=1,\\ldots,n] i=1,…,ni=1,\\ldots,n. The output of [MATH C] CC falls between 0 and 1. Since [MATH C] CC depends on how certain the MLP’s prediction is, we further apply decomposition as [MATH C=G\\circ D] C=G∘DC=G\\circ D, where [MATH D] DD takes [MATH \\bm{p}] 𝒑\\bm{p} as input and computes its dispersion, and [MATH G] GG is a real-valued scalar function. We formally define [MATH G] GG and [MATH D] DD as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem1.p1.1",
+    "text": "[MATH D:\\mathcal{S}_{n-1}\\mapsto\\mathbb{R}] D:𝒮n−1↦ℝD:\\mathcal{S}_{n-1}\\mapsto\\mathbb{R} is continuous and quasiconvex where [MATH D\\left(\\frac{1}{n}\\bm{1}\\right)=0] D⁡(1n​𝟏)=0D\\left(\\frac{1}{n}\\bm{1}\\right)=0 and [MATH D\\left(\\bm{p}\\right)>0] D⁡(𝐩)>0D\\left(\\bm{p}\\right)>0 if [MATH \\bm{p}\\neq\\frac{1}{n}\\bm{1}] 𝐩≠1n​𝟏\\bm{p}\\neq\\frac{1}{n}\\bm{1}. [MATH G:\\mathbb{R}\\mapsto\\mathbb{R}] G:ℝ↦ℝG:\\mathbb{R}\\mapsto\\mathbb{R} is monotonically non-decreasing where [MATH G\\left(0\\right)=0] G⁡(0)=0G\\left(0\\right)=0 and [MATH 0<G\\left(x\\right)\\leq 1,\\forall x>0] 0<G⁡(x)≤1,∀x>00<G\\left(x\\right)\\leq 1,\\forall x>0."
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem2.p1.1",
+    "text": "[MATH C=G\\circ D] C=G∘DC=G\\circ D is quasiconvex."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p2.1",
+    "text": "[MATH D] DD’s definition states that only a prediction as bad as a random guess receives 0 dispersion. Typical dispersion functions such as variance and (offsetted) negative entropy belong to our class of [MATH D] DD. [MATH G] GG’s definition states that the confidence [MATH C] CC does not decrease with a higher dispersion, which is reasonable as dispersion reflects the certainty of the prediction. During training, we can fix [MATH C] CC by manually specifying both [MATH D] DD and [MATH G] GG. Alternatively, we can use a lightweight neural network (e.g., MLP) to learn [MATH G] GG, where the input to [MATH G] GG’s MLP is the variance and negative entropy computed by [MATH D] DD (§4)."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.3 Interaction Between Experts"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p1.1",
+    "text": "On any node, the experts’ coefficients, [MATH C] CC and [MATH 1-C] 1−C1-C, always sum up to 1. When training starts, the experts compete for higher weight. When training progresses, the experts specialize in diverse ways. Correspondingly, [MATH C] CC evolves to accumulate on some nodes, while diminish on the others. The eventual [MATH C] CC distribution turns experts’ competition into collaboration, improving the overall Mowst accuracy."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p2.1",
+    "text": "Assume the MLP expert can fit an arbitrary function on node features. This is reasonable as an MLP is a universal approximator (Hornik et al., 1989) and optimizing it is easy. Accordingly, we divide the graph nodes into [MATH m] mm disjoint groups, where nodes are in the same group, [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i}, if and only if they have indistinguishable self-features. For all nodes in [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i}, an MLP generates the same prediction denoted as [MATH \\hat{\\bm{p}}_{i}] 𝒑^i\\hat{\\bm{p}}_{i}. However, nodes [MATH u,v\\in\\mathcal{M}_{i}] u,v∈ℳiu,v\\in\\mathcal{M}_{i} may have different labels [MATH \\bm{y}_{u}\\neq\\bm{y}_{v}] 𝒚u≠𝒚v\\bm{y}_{u}\\neq\\bm{y}_{v}. In such a case, the MLP expert can never distinguish [MATH u] uu from [MATH v] vv since neighborhood information is necessary. Let [MATH \\bm{\\alpha}_{i}] 𝜶i\\bm{\\alpha}_{i} be the label distribution for [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i}. i.e., [MATH \\alpha_{ij}\\in(0,1)] αi​j∈(0,1)\\alpha_{ij}\\in(0,1) portion of nodes in [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i} have label [MATH j] jj, and [MATH \\sum_{1\\leq j\\leq n}\\alpha_{ij}=1] ∑1≤j≤nαi​j=1\\sum_{1\\leq j\\leq n}\\alpha_{ij}=1. Consider the phase of training the MLP expert while fixing the GNN. We analyze the optimal [MATH \\hat{\\bm{p}}^{*}_{i}] 𝒑^i∗\\hat{\\bm{p}}^{*}_{i} that minimizes [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} in Equation 1. The optimization problem is as follows (Appendix C.1):"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p4.1",
+    "text": "where [MATH \\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)=\\frac{1}{\\left\\lvert\\mathcal{M}_{i}\\right\\rvert}\\sum_{v\\in\\mathcal{M}_{i}}L\\left(\\hat{\\bm{p}}_{i},\\bm{y}_{v}\\right)=-\\sum_{1\\leq j\\leq n}\\alpha_{ij}\\cdot\\log\\hat{p}_{ij}] L^𝜶i(𝒑^i)=1|ℳi|∑v∈ℳiL(𝒑^i,𝒚v)=−∑1≤j≤nαi​j⋅logp^i​j\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)=\\frac{1}{\\left\\lvert\\mathcal{M}_{i}\\right\\rvert}\\sum_{v\\in\\mathcal{M}_{i}}L\\left(\\hat{\\bm{p}}_{i},\\bm{y}_{v}\\right)=-\\sum_{1\\leq j\\leq n}\\alpha_{ij}\\cdot\\log\\hat{p}_{ij} is the average MLP cross-entropy loss on nodes in [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i}; [MATH \\mu_{i}=\\frac{1}{\\left\\lvert\\mathcal{M}_{i}\\right\\rvert}\\sum_{v\\in\\mathcal{M}_{i}}L\\left(\\bm{p}^{\\prime}_{v},\\bm{y}_{v}\\right)] μi=1|ℳi|​∑v∈ℳiL⁡(𝒑v′,𝒚v)\\mu_{i}=\\frac{1}{\\left\\lvert\\mathcal{M}_{i}\\right\\rvert}\\sum_{v\\in\\mathcal{M}_{i}}L\\left(\\bm{p}^{\\prime}_{v},\\bm{y}_{v}\\right) is a constant representing the average GNN loss on nodes in [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i}. We first summarize the properties of the loss as follows."
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem3.p1.1",
+    "text": "Given [MATH \\bm{\\alpha}_{i}] 𝛂i\\bm{\\alpha}_{i}, [MATH \\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)] L^𝛂i​(𝐩^i)\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right) is a convex function of [MATH \\hat{\\bm{p}}_{i}] 𝐩^i\\hat{\\bm{p}}_{i} with unique minimizer [MATH \\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i}] 𝐩^i∗=𝛂i\\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i}. Let [MATH \\Delta\\left(\\bm{\\alpha}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right)] Δ⁡(𝛂)=L^𝛂​(𝛂)\\Delta\\left(\\bm{\\alpha}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right) be a function of [MATH \\bm{\\alpha}] 𝛂\\bm{\\alpha}, [MATH \\Delta] Δ\\Delta is a concave function with unique maximizer [MATH \\bm{\\alpha}^{*}=\\frac{1}{n}\\bm{1}] 𝛂∗=1n​𝟏\\bm{\\alpha}^{*}=\\frac{1}{n}\\bm{1}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p5.1",
+    "text": "[MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)] Δ⁡(𝜶i)\\Delta\\left(\\bm{\\alpha}_{i}\\right) reflects the best possible performance of any MLP on a group [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i}. We now analyze the optimization problem 2. Theorem 2.4 quantifies the positions of the minimizer [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*} and the corresponding values of [MATH C] CC. In case 3 ( [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)<\\mu_{i}] Δ⁡(𝜶i)<μi\\Delta\\left(\\bm{\\alpha}_{i}\\right)<\\mu_{i}), it is impossible to derive the exact [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*} without knowing the specific [MATH C] CC. Therefore, we bound [MATH \\hat{\\bm{p}}^{*}_{i}] 𝒑^i∗\\hat{\\bm{p}}^{*}_{i} via “sub-level sets”, which characterize the shapes of the loss and confidence functions. The last sentence of Theorem 2.4 shows the “tightness” of the bound."
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem4.p1.1",
+    "text": "Suppose [MATH C=G\\circ D] C=G∘DC=G\\circ D follows Definition 2.1. Denote [MATH \\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}=\\{\\hat{\\bm{p}}_{i}\\;|\\;\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)=\\mu_{i}\\}] ℒ𝛂iμi={𝐩^i|L^𝛂i​(𝐩^i)=μi}\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}=\\{\\hat{\\bm{p}}_{i}\\;|\\;\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)=\\mu_{i}\\} and [MATH \\mathcal{L}_{\\bm{\\alpha}_{i}}^{<\\mu_{i}}=\\{\\hat{\\bm{p}}_{i}\\;|\\;\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)<\\mu_{i}\\}] ℒ𝛂i<μi={𝐩^i|L^𝛂i​(𝐩^i)<μi}\\mathcal{L}_{\\bm{\\alpha}_{i}}^{<\\mu_{i}}=\\{\\hat{\\bm{p}}_{i}\\;|\\;\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)<\\mu_{i}\\} as the level set and strict sublevel set of [MATH \\hat{L}_{\\bm{\\alpha}_{i}}] L^𝛂i\\hat{L}_{\\bm{\\alpha}_{i}}. Denote [MATH \\mathcal{C}^{<\\mu_{i}}=\\{\\hat{\\bm{p}}_{i}\\;|\\;C\\left(\\hat{\\bm{p}}_{i}\\right)<\\mu_{i}\\}] 𝒞<μi={𝐩^i|C⁡(𝐩^i)<μi}\\mathcal{C}^{<\\mu_{i}}=\\{\\hat{\\bm{p}}_{i}\\;|\\;C\\left(\\hat{\\bm{p}}_{i}\\right)<\\mu_{i}\\} as the strict sublevel set of [MATH C] CC. For a given [MATH \\bm{\\alpha}_{i}\\neq\\frac{1}{n}\\bm{1}_{n}] 𝛂i≠1n​𝟏n\\bm{\\alpha}_{i}\\neq\\frac{1}{n}\\bm{1}_{n}, the minimizer [MATH \\hat{\\bm{p}}_{i}^{*}] 𝐩^i∗\\hat{\\bm{p}}_{i}^{*} satisfies:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i1.p1.1",
+    "text": "If [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)>\\mu_{i}] Δ⁡(𝜶i)>μi\\Delta\\left(\\bm{\\alpha}_{i}\\right)>\\mu_{i}, then [MATH \\hat{\\bm{p}}_{i}^{*}=\\frac{1}{n}\\bm{1}_{n}] 𝒑^i∗=1n​𝟏n\\hat{\\bm{p}}_{i}^{*}=\\frac{1}{n}\\bm{1}_{n} and [MATH C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)=0] C⁡(𝒑^i∗)=0C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)=0."
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i2.p1.1",
+    "text": "If [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)=\\mu_{i}] Δ⁡(𝜶i)=μi\\Delta\\left(\\bm{\\alpha}_{i}\\right)=\\mu_{i}, then [MATH \\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i}] 𝒑^i∗=𝜶i\\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i} or [MATH \\hat{\\bm{p}}_{i}^{*}=\\frac{1}{n}\\bm{1}] 𝒑^i∗=1n​𝟏\\hat{\\bm{p}}_{i}^{*}=\\frac{1}{n}\\bm{1}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i3.p1.1",
+    "text": "If [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)<\\mu_{i}] Δ⁡(𝜶i)<μi\\Delta\\left(\\bm{\\alpha}_{i}\\right)<\\mu_{i}, then [MATH \\hat{\\bm{p}}_{i}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{<\\mu_{i}}-\\mathcal{C}^{<\\mu^{\\prime}}] 𝒑^i∗∈ℒ𝜶i<μi−𝒞<μ′\\hat{\\bm{p}}_{i}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{<\\mu_{i}}-\\mathcal{C}^{<\\mu^{\\prime}} where [MATH \\mu^{\\prime}=C\\left(\\bm{\\alpha}_{i}\\right)\\leq C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)\\leq G\\left(\\max_{\\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}}D\\left(\\hat{\\bm{p}}_{i}\\right)\\right)] μ′=C⁡(𝜶i)≤C⁡(𝒑^i∗)≤G⁡(max𝒑^i∈ℒ𝜶iμi⁡D⁡(𝒑^i))\\mu^{\\prime}=C\\left(\\bm{\\alpha}_{i}\\right)\\leq C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)\\leq G\\left(\\max_{\\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}}D\\left(\\hat{\\bm{p}}_{i}\\right)\\right). Further, there exists [MATH C] CC such that [MATH \\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i}] 𝒑^i∗=𝜶i\\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i}, or [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*} is sufficiently close to the level set [MATH \\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}] ℒ𝜶iμi\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem4.Thmcorollary1.p1.1",
+    "text": "For binary classification ( [MATH n=2] n=2n=2), w.l.o.g, assume [MATH \\alpha_{i1}\\in[0.5,1)] αi​1∈[0.5,1)\\alpha_{i1}\\in[0.5,1). Define [MATH \\hat{L}_{i+}\\left(p\\right)=\\hat{L}_{\\bm{\\alpha}}\\left([p,1-p]^{\\mathsf{T}}\\right)] L^i+​(p)=L^𝛂​([p,1−p]𝖳)\\hat{L}_{i+}\\left(p\\right)=\\hat{L}_{\\bm{\\alpha}}\\left([p,1-p]^{\\mathsf{T}}\\right) for [MATH p\\in[\\alpha_{i1},1)] p∈[αi​1,1)p\\in[\\alpha_{i1},1). For strictly quasiconvex [MATH D] DD and monotonically increasing [MATH G] GG, [MATH \\hat{p}_{i1}^{*}\\in\\left[\\alpha_{i1},\\hat{L}_{i+}^{-1}\\left(\\mu_{i}\\right)\\right)] p^i​1∗∈[αi​1,L^i+−1​(μi))\\hat{p}_{i1}^{*}\\in\\left[\\alpha_{i1},\\hat{L}_{i+}^{-1}\\left(\\mu_{i}\\right)\\right) and [MATH C\\left(\\bm{\\alpha}_{i}\\right)\\leq C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)<C\\left(\\left[\\hat{L}_{i+}^{-1}\\left(\\mu_{i}\\right),1-\\hat{L}_{i+}^{-1}\\left(\\mu_{i}\\right)\\right]^{\\mathsf{T}}\\right)] C⁡(𝛂i)≤C⁡(𝐩^i∗)<C⁡([L^i+−1​(μi),1−L^i+−1​(μi)]𝖳)C\\left(\\bm{\\alpha}_{i}\\right)\\leq C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)<C\\left(\\left[\\hat{L}_{i+}^{-1}\\left(\\mu_{i}\\right),1-\\hat{L}_{i+}^{-1}\\left(\\mu_{i}\\right)\\right]^{\\mathsf{T}}\\right) when [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)<\\mu_{i}] Δ⁡(𝛂i)<μi\\Delta\\left(\\bm{\\alpha}_{i}\\right)<\\mu_{i}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p6.1",
+    "text": "Proposition 2.3 and Theorem 2.4 jointly reveal factors affecting the MLP’s contribution to the overall system: 1. Ratio of indistinguishable nodes, [MATH \\bm{\\alpha}_{i}] 𝜶i\\bm{\\alpha}_{i}: the closer [MATH \\bm{\\alpha}_{i}] 𝜶i\\bm{\\alpha}_{i} is to [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1}, the harder it is to reduce the MLP loss, and thus the lower the confidence [MATH C] CC is. 2. Relative strength of experts, [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)-\\mu_{i}] Δ⁡(𝜶i)−μi\\Delta\\left(\\bm{\\alpha}_{i}\\right)-\\mu_{i}: when the best possible MLP loss [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)] Δ⁡(𝜶i)\\Delta\\left(\\bm{\\alpha}_{i}\\right) cannot beat the GNN loss [MATH \\mu_{i}] μi\\mu_{i}, the MLP simply learns to give up on the node group [MATH \\mathcal{M}_{i}] ℳi\\mathcal{M}_{i} by generating random guess [MATH \\hat{\\bm{p}}_{i}^{*}=\\frac{1}{n}\\bm{1}] 𝒑^i∗=1n​𝟏\\hat{\\bm{p}}_{i}^{*}=\\frac{1}{n}\\bm{1}. Otherwise, if the MLP can possibly outperform GNN, it will do so by learning a [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*} in some neighborhood of [MATH \\bm{\\alpha}_{i}] 𝜶i\\bm{\\alpha}_{i} and obtaining positive confidence [MATH C] CC. The worse the GNN (i.e., larger [MATH \\mu_{i}] μi\\mu_{i}), the easier to obtain a more dispersed [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*} (i.e., enlarged [MATH \\mathcal{L}_{\\bm{\\alpha}_{i}}^{<\\mu_{i}}] ℒ𝜶i<μi\\mathcal{L}_{\\bm{\\alpha}_{i}}^{<\\mu_{i}}), and so the easier to achieve a larger [MATH C] CC (i.e., increased [MATH \\max_{\\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}}D\\left(\\hat{\\bm{p}}_{i}\\right)] max𝒑^i∈ℒ𝜶iμi⁡D⁡(𝒑^i)\\max_{\\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}}D\\left(\\hat{\\bm{p}}_{i}\\right)). 3. Shape of the confidence function [MATH C] CC: the sub-level set, [MATH \\mathcal{C}^{<\\mu^{\\prime}}] 𝒞<μ′\\mathcal{C}^{<\\mu^{\\prime}}, constrains the range of [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*}. Additionally, changing [MATH G] GG’s shape can push [MATH C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)] C⁡(𝒑^i∗)C\\left(\\hat{\\bm{p}}_{i}^{*}\\right) towards the lower bound [MATH C\\left(\\bm{\\alpha}_{i}\\right)] C⁡(𝜶i)C\\left(\\bm{\\alpha}_{i}\\right) or the upper bound [MATH G\\left(\\max_{\\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}}D\\left(\\hat{\\bm{p}}_{i}\\right)\\right)] G⁡(max𝒑^i∈ℒ𝜶iμi⁡D⁡(𝒑^i))G\\left(\\max_{\\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}_{i}}^{\\mu_{i}}}D\\left(\\hat{\\bm{p}}_{i}\\right)\\right). See Appendix B.1 for specific [MATH G] GG constructions and all proofs."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p7.1",
+    "text": "Point (1) above shows a property of the graph. Point (2) leads to diverse training dynamics (§2.4). In addition, it reflects the inherent bias of Mowst: a better GNN completely dominates the MLP by [MATH 1-C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)=1] 1−C⁡(𝒑^i∗)=11-C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)=1, while a better MLP only softly deprecates the GNN with [MATH C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)<1] C⁡(𝒑^i∗)<1C\\left(\\hat{\\bm{p}}_{i}^{*}\\right)<1. Such bias is by design: first, a GNN is harder to optimize than an MLP. So even if it temporarily performs badly during training, we still preserve positive [MATH 1-C] 1−C1-C so that it has a chance to later catch up with the MLP. Second, since a GNN can generalize better on the test set (Yang et al., 2023), we prefer it when the training performance of the two experts is similar. Point (3) justifies our learnable [MATH G] GG design in §2.2."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.4 Training dynamics"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p1.1",
+    "text": "Specialization via data splitting. At the beginning of training ( [MATH r=1] r=1r=1, Algorithm 2), a randomly initialized GNN approximately produces random guess. So MLP generates a distribution of [MATH C] CC over all training nodes purely based on self-feature importance. Denote the subset of nodes with large [MATH 1-C] 1−C1-C as [MATH \\mathcal{S}_{\\text{GNN}}] 𝒮GNN\\mathcal{S}_{\\text{GNN}}. When it is GNN’s turn to update its model parameters, the GNN optimizes [MATH \\mathcal{S}_{\\text{GNN}}] 𝒮GNN\\mathcal{S}_{\\text{GNN}} better due to the larger loss weight. In the next round [MATH r=2] r=2r=2, the MLP will fail to beat the GNN on many nodes, especially on [MATH \\mathcal{S}_{\\text{GNN}}] 𝒮GNN\\mathcal{S}_{\\text{GNN}}. According to Theorem 2.4, the MLP will completely ignore such challenging nodes (by setting [MATH C=0] C=0C=0 on [MATH \\mathcal{S}_{\\text{GNN}}] 𝒮GNN\\mathcal{S}_{\\text{GNN}}), simplifying the learning task for the weak expert. When MLP again converges, it specializes better on a smaller subset of the training set, and the updated [MATH C] CC distribution makes the data partition between the two experts more clear. This process goes on and each additional round of “in-turn training” reinforces better specialization between experts."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p2.1",
+    "text": "Denoised fine-tuning. From analysis above, it is natural to expect that MLP is assigned with a significant portion of nodes when the overall Mowst training converges. Yet we empirically observe that this is not always the case. When the GNN is really powerful, it can possibly dominate MLP on almost all nodes. This seems to degrade Mowst to a vanilla GNN during inference when MLP plays a negligible role. Surprisingly, Mowst still achieves significant accuracy improvement. We next uncover how MLP helps us fine-tune a better GNN by denoising a small number of critical nodes during training. Imagine 3 categories of nodes: 1. [MATH \\mathcal{S}_{1}] 𝒮1\\mathcal{S}_{1}(e.g., 95% of [MATH \\mathcal{V}] 𝒱\\mathcal{V}), where GNN has converged very well, 2. [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}(e.g., 4% of [MATH \\mathcal{V}] 𝒱\\mathcal{V}), where GNN can potentially further improve, 3. [MATH \\mathcal{S}_{3}] 𝒮3\\mathcal{S}_{3}(e.g., 1% of [MATH \\mathcal{V}] 𝒱\\mathcal{V}), where GNN performs badly due to unrecoverable noises. A standalone GNN may be stuck in sub-optimality since the harmful gradients from [MATH \\mathcal{S}_{3}] 𝒮3\\mathcal{S}_{3} may counter-act the useful gradients from [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}. To improve GNN on [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}, the MLP expert needs to break the equilibrium. From the §2.3 analysis on experts’ relative strength, MLP will have [MATH C=0] C=0C=0 on [MATH \\mathcal{S}_{1}] 𝒮1\\mathcal{S}_{1}, low [MATH C] CC on [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2} and high [MATH C] CC on [MATH \\mathcal{S}_{3}] 𝒮3\\mathcal{S}_{3}. Essentially, MLP ignores most of [MATH \\mathcal{V}] 𝒱\\mathcal{V} and overfits the small set of [MATH \\mathcal{S}_{3}] 𝒮3\\mathcal{S}_{3}. MLP’s overfitting eliminates the harmful gradients for the GNN, enabling it to fine-tune on [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}. In this case, MLP is a training-time noise filter."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.5 Mowst [MATH \\star] ⋆\\star"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p1.1",
+    "text": "We propose a model variant, Mowst [MATH \\star] ⋆\\star, by modifying the training loss of Mowst. In Equation 1, we compute the losses of the two experts separately, and then combine them via [MATH C] CC to get the overall loss [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}}. In Equation 3, we first use [MATH C] CC to combine the predictions of the two experts, [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} and [MATH \\bm{p}_{v}^{\\prime}] 𝒑v′\\bm{p}_{v}^{\\prime}, and then calculate a single loss for [MATH L_{\\text{{Mowst}}}^{\\star}] LMowst⋆L_{\\text{{Mowst}}}^{\\star}. Note that the cross entropy loss, [MATH L\\left(\\cdot,\\bm{y}_{v}\\right)] L⁡(⋅,𝒚v)L\\left(\\cdot,\\bm{y}_{v}\\right) is convex, and the weighted sum based on [MATH C] CC also corresponds to a convex combination. We thus derive Proposition 2.5, which states that Mowst [MATH \\star] ⋆\\star is theoretically better than Mowst due to a lower loss."
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem5.p1.1",
+    "text": "[MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} upper-bounds [MATH L_{\\text{{Mowst}}}^{\\star}] LMowst⋆L_{\\text{{Mowst}}}^{\\star}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p3.1",
+    "text": "Since Mowst [MATH \\star] ⋆\\star only has a single loss term, we no longer use “in-turn training” of Algorithm 2. Instead, we directly differentiate [MATH L_{\\text{{Mowst}}}^{\\star}] LMowst⋆L_{\\text{{Mowst}}}^{\\star} and update the MLP, GNN and the learnable [MATH C] CC altogether. During inference, Mowst [MATH \\star] ⋆\\star computes both experts and predicts via [MATH C\\left(\\bm{p}_{v}\\right)\\cdot\\bm{p}_{v}+\\left(1-C\\left(\\bm{p}_{v}\\right)\\right)\\cdot\\bm{p}_{v}^{\\prime}] C⁡(𝒑v)⋅𝒑v+(1−C⁡(𝒑v))⋅𝒑v′C\\left(\\bm{p}_{v}\\right)\\cdot\\bm{p}_{v}+\\left(1-C\\left(\\bm{p}_{v}\\right)\\right)\\cdot\\bm{p}_{v}^{\\prime}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p4.1",
+    "text": "Mowst vs. Mowst [MATH \\star] ⋆\\star. Both variants have similar collaboration behaviors (e.g., §2.4), fundamentally determined by the “weak-strong” design choice and the confidence mechanism. Regarding tradeoffs, Mowst may be easier to optimize as its “in-turn training” fully decouples the experts’ different model architectures, while Mowst [MATH \\star] ⋆\\star enjoys a theoretically lower loss. Both variants can be practically useful."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.6 Expressive power and computation complexity"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p1.1",
+    "text": "We jointly analyze Mowst and Mowst [MATH \\star] ⋆\\star due to their commonalities. Since the MLP and GNN experts execute all their layers independently before mixture, it is intuitive that our system can express a vanilla single-expert model by simply disabling the other expert. In Proposition 2.6, we construct a specific [MATH G] GG so that the confidence function acts like a binary gate between experts. Theorem 2.7 provides a stronger result on the GCN architecture (Kipf & Welling, 2016). The idea (Appendix B.3.1) is that, when neighbors are noisy (or even adversarial), their aggregation brings more harm than benefit. An MLP is a simple yet effective way to eliminate such neighbor noises. The theoretical proof is inherently consistent with the empirically observed “denoising” behavior discussed in §2.4."
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem6.p1.1",
+    "text": "Mowst and Mowst [MATH \\star] ⋆\\star are at least as expressive as the MLP or GNN expert alone."
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem7.p1.1",
+    "text": "Mowst-GCN and Mowst [MATH \\star] ⋆\\star-GCN are more expressive than the GCN expert alone."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p2.1",
+    "text": "For computation complexity, we consider the average cost of predicting one node in inference. For sake of discussion, we consider the GCN architecture and assume that both experts have the same number of layers [MATH \\ell] ℓ\\ell and feature dimension [MATH f] ff. In the worst case, both experts are activated (note from Algorithm 1 that we can skip the strong expert with probability [MATH C] CC). The cost of the GCN is lower bound by [MATH \\Omega\\left(f^{2}\\cdot\\left(\\ell+b_{\\ell-1}\\right)\\right)] Ω⁡(f2⋅(ℓ+bℓ−1))\\Omega\\left(f^{2}\\cdot\\left(\\ell+b_{\\ell-1}\\right)\\right) where [MATH b_{\\ell-1}] bℓ−1b_{\\ell-1} is the average number of [MATH \\left(\\ell-1\\right)] (ℓ−1)\\left(\\ell-1\\right)-hop neighbors. The cost of the MLP is [MATH O\\left(f^{2}\\cdot\\ell\\right)] O⁡(f2⋅ℓ)O\\left(f^{2}\\cdot\\ell\\right). On large graphs, the neighborhood size [MATH b_{\\ell-1}] bℓ−1b_{\\ell-1} can grow exponentially with [MATH \\ell] ℓ\\ell. So realistically, [MATH b_{\\ell-1}\\gg\\ell] bℓ−1≫ℓb_{\\ell-1}\\gg\\ell. This means the worst-case cost of Mowst or Mowst [MATH \\star] ⋆\\star is similar to that of a vanilla GCN. The conclusion still holds if we use an additional, lightweight MLP to compute the confidence score [MATH C] CC (such an MLP only approximates a scalar function [MATH G] GG, and thus is very compact)."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.7 Mixture of progressively stronger experts"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS7.p1.1",
+    "text": "Suppose we have a series of [MATH k] kk progressively stronger experts where expert [MATH i] ii is stronger than [MATH j] jj if [MATH i>j] i>ji>j (e.g., 3 experts consisting of MLP, SGC (Wu et al., 2019) and GCN (Kipf & Welling, 2016)). Mowst and Mowst [MATH \\star] ⋆\\star can be generalized following a recursive formulation. Let [MATH L_{i}^{v}] LivL_{i}^{v} be the loss of expert [MATH i] ii on node [MATH v] vv, [MATH L_{\\geq i}^{v}] L≥ivL_{\\geq i}^{v} be the loss of a Mowst sub-system consisting of experts [MATH i] ii to [MATH k] kk, and [MATH C^{v}_{i}] CivC^{v}_{i} be the confidence of expert [MATH i] ii computed by [MATH i] ii’s prediction on node [MATH v] vv. Then Equation 1 generalizes to [MATH L_{\\text{{Mowst}}}=\\frac{1}{\\left\\lvert\\mathcal{V}\\right\\rvert}\\sum_{v\\in\\mathcal{V}}L_{\\geq 1}^{v}] LMowst=1|𝒱|​∑v∈𝒱L≥1vL_{\\text{{Mowst}}}=\\frac{1}{\\left\\lvert\\mathcal{V}\\right\\rvert}\\sum_{v\\in\\mathcal{V}}L_{\\geq 1}^{v} and [MATH L_{\\geq i}^{v}=C_{i}^{v}\\cdot L_{i}^{v}+\\left(1-C_{i}^{v}\\right)\\cdot L_{\\geq i+1}^{v}] L≥iv=Civ⋅Liv+(1−Civ)⋅L≥i+1vL_{\\geq i}^{v}=C_{i}^{v}\\cdot L_{i}^{v}+\\left(1-C_{i}^{v}\\right)\\cdot L_{\\geq i+1}^{v}. During inference, similar to Algorithm 1, the strong expert will be activated only when all previous weaker experts are passed due to their low confidence. The case for Mowst [MATH \\star] ⋆\\star can be derived similarly. See Appendix C.2 for final form of [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}}. Due to the recursive way of adding new experts, all our analysis and observation in previous sections still hold. For example, the expressive power is ensured as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.Thmtheorem8.p1.1",
+    "text": "Mowst and Mowst [MATH \\star] ⋆\\star are at least as expressive as any expert alone."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "3 Related Work"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "Mixture-of-Experts. Since its original proposal (Jacobs et al., 1991), MoE has been effective in increasing model capacity (Masoudnia & Ebrahimpour, 2014; Yuksel et al., 2012; Riquelme et al., 2021). The key idea is to localize / specialize different expert models to different partitions of the data. Typically, experts have comparable strengths. Thus, the numerous gating functions in the literature have a symmetric form w.r.t. all experts without biasing towards any specific one (e.g., variants of softmax (Jordan & Jacobs, 1994; Shazeer et al., 2017; Puigcerver et al., 2023)). In comparison, Mowst deliberately breaks the balance among experts and adopts a biased gating. Another major concern in existing MoE models is the increased computation cost. Sparse gating is needed to save computation by conditionally deactivating some experts. However, it is widely observed that such sparsity causes training instability (Fedus et al., 2022; Shazeer et al., 2017; Puigcerver et al., 2023). Under our confidence-based gating, Mowst is both easy to train (§2.4) and computationally efficient (§2.6). Finally, many recent designs apply MoE in each layer of a large model (Riquelme et al., 2021; Du et al., 2022; Lepikhin et al., 2021), while Mowst only mixes at the output layers. We fully decouple the experts with imbalanced strengths in consideration of their different training dynamics."
+  },
+  {
+    "tag": "p",
+    "id": "S3.p2.1",
+    "text": "MoE & model ensemble on graphs. GraphDIVE (Hu et al., 2022) proposed mixture of multi-view experts to address the class-imbalance issue in graph classification. GraphMoE (Wang et al., 2023) proposed to mix multiple GNN experts via the top- [MATH K] KK sparse gating (Shazeer et al., 2017). Zhou & Luo (2019) explored a similar idea of mixing multiple GNNs with existing gating functions. AdaGCN (Sun et al., 2021) proposed a model ensemble technique for GNNs, based on the classic AdaBoost algorithm (Freund et al., 1999). In addition, AM-GCN (Wang et al., 2020) performs graph convolution on the decoupled topological and feature graphs to learn multi-channel information."
+  },
+  {
+    "tag": "p",
+    "id": "S3.p3.1",
+    "text": "Decoupling feature & structure information. GraphSAGE (Hamilton et al., 2017), GCNII (Chen et al., 2020b) and H2GCN (Zhu et al., 2020b) use various forms of residual connections to facilitate self-feature propagation. GPR-GNN (Chien et al., 2021), MixHop (Abu-El-Haija et al., 2019) and SIGN (Frasca et al., 2020) blend information from various hops away via different weighting strategies. NDLS (Zhang et al., 2021) performs adaptive [MATH k] kk-hop sampling to customize the per-node receptive field. GLNN (Zhang et al., 2022) distills structural information into an MLP. These methods implicitly decouple the feature and structure information implicitly within one model, while Mowst does so explicitly via separate expert models. The above models can also be a GNN expert of Mowst."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "4 Experiments"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "We use the notation “Mowst( [MATH \\star] ⋆\\star)” when we do not differentiate Mowst (§2.1) and Mowst [MATH \\star] ⋆\\star (§2.5)."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p2.1",
+    "text": "Setup. We evaluate Mowst( [MATH \\star] ⋆\\star) on a diverse set of benchmarks, including 3 homophilous graphs (Flickr (Zeng et al., 2020), ogbn-arxiv and ogbn-products (Hu et al., 2020)) and 3 heterophilous graphs (Penn94, pokec and twitch-gamer (Lim et al., 2021)). Following the literature, we perform node prediction with the “accuracy” metric, under standard training / validation / test split. The graph sizes range from 89K (Flickr) to 2.4M (ogbn-products) nodes. See details in Appendix A.1."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p3.1",
+    "text": "Baselines. GCN (Kipf & Welling, 2016), GraphSAGE (Hamilton et al., 2017), GAT (Veličković et al., 2018) and GIN (Xu et al., 2019) are the most widely used GNN architectures achieving, state-of-the-art accuracy on both homophilous (Hu et al., 2020; Shi et al., 2023) and heterophilous (Lim et al., 2021; Zhu et al., 2021; Platonov et al., 2023) graphs. In addition, GPR-GNN (Chien et al., 2021) decouples the aggregation of neighbors within different hops, achieving flexibility in learning feature and structure information. AdaGCN (Sun et al., 2021) and GraphMoE (Wang et al., 2023) are the state-of-the-art ensemble and MoE models respectively, both combining multiple GNNs."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p4.1",
+    "text": "Hyperparameters. For Flickr, ogbn-products and ogbn-arxiv, we follow the original literature (Hu et al., 2020; Zeng et al., 2021) to set the number of layers as 3 and hidden dimension as 256, for all the baselines as well as for both the MLP and GNN experts of Mowst( [MATH \\star] ⋆\\star). Regarding Penn94, pokec and twitch-gamer, the authors of the original paper (Lim et al., 2021) searched for the best network architecture for each baseline independently. We follow the same protocol and hyperparameter space for our baselines and Mowst( [MATH \\star] ⋆\\star). We set an additional constraint on Mowst( [MATH \\star] ⋆\\star) to ensure fair comparison under similar computation costs: we first follow Lim et al. (2021) to determine the number of layers [MATH \\ell] ℓ\\ell and hidden dimension [MATH d] dd of the baseline GCN and GraphSAGE, and then set the same [MATH \\ell] ℓ\\ell and [MATH d] dd for Mowst( [MATH \\star] ⋆\\star)-GCN and Mowst( [MATH \\star] ⋆\\star)-SAGE. We use another MLP to implement the learnable [MATH G] GG function (§2.2). To reduce the size of the hyperparameter space, we set the number of layers and hidden dimension of [MATH G] GG’s MLP the same as those of the experts. See Appendix A.2 for the hyperparameter space (e.g., learning rate, dropout) and the grid-search methodology."
+  },
+  {
+    "tag": "p",
+    "id": "S4.T1.14.1",
+    "text": "Flickr ogbn-products ogbn-arxiv Penn94 pokec twitch-gamer Rank MLP 46.93 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.00}] ±0.00{\\color[rgb]{0.5,0.5,0.5}\\pm 0.00} 61.06† [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.08}] ±0.08{\\color[rgb]{0.5,0.5,0.5}\\pm 0.08} 55.50† [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.23}] ±0.23{\\color[rgb]{0.5,0.5,0.5}\\pm 0.23} 73.61‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.40}] ±0.40{\\color[rgb]{0.5,0.5,0.5}\\pm 0.40} 62.37‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.02}] ±0.02{\\color[rgb]{0.5,0.5,0.5}\\pm 0.02} 60.92‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.07}] ±0.07{\\color[rgb]{0.5,0.5,0.5}\\pm 0.07} 10.3 GAT 52.47 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.14}] ±0.14{\\color[rgb]{0.5,0.5,0.5}\\pm 0.14} OOM 71.58 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.17}] ±0.17{\\color[rgb]{0.5,0.5,0.5}\\pm 0.17} 81.53‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.55}] ±0.55{\\color[rgb]{0.5,0.5,0.5}\\pm 0.55} 71.77‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 6.18}] ±6.18{\\color[rgb]{0.5,0.5,0.5}\\pm 6.18} 59.89‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 4.12}] ±4.12{\\color[rgb]{0.5,0.5,0.5}\\pm 4.12} 7.8 GIN 53.71 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.35}] ±0.35{\\color[rgb]{0.5,0.5,0.5}\\pm 0.35} 70.26 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.00}] ±0.00{\\color[rgb]{0.5,0.5,0.5}\\pm 0.00} 69.39 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.56}] ±0.56{\\color[rgb]{0.5,0.5,0.5}\\pm 0.56} 82.68 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.32}] ±0.32{\\color[rgb]{0.5,0.5,0.5}\\pm 0.32} 53.37 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 2.15}] ±2.15{\\color[rgb]{0.5,0.5,0.5}\\pm 2.15} 61.76 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.60}] ±0.60{\\color[rgb]{0.5,0.5,0.5}\\pm 0.60} 7.0 GPR-GNN 53.23 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.14}] ±0.14{\\color[rgb]{0.5,0.5,0.5}\\pm 0.14} 72.41 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.04}] ±0.04{\\color[rgb]{0.5,0.5,0.5}\\pm 0.04} 71.10 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.22}] ±0.22{\\color[rgb]{0.5,0.5,0.5}\\pm 0.22} 81.38‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.16}] ±0.16{\\color[rgb]{0.5,0.5,0.5}\\pm 0.16} 78.83‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.05}] ±0.05{\\color[rgb]{0.5,0.5,0.5}\\pm 0.05} 61.89‡ [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.29}] ±0.29{\\color[rgb]{0.5,0.5,0.5}\\pm 0.29} 5.8 AdaGCN 48.96 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.06}] ±0.06{\\color[rgb]{0.5,0.5,0.5}\\pm 0.06} 69.06 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.04}] ±0.04{\\color[rgb]{0.5,0.5,0.5}\\pm 0.04} 58.45 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.50}] ±0.50{\\color[rgb]{0.5,0.5,0.5}\\pm 0.50} 74.42 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.58}] ±0.58{\\color[rgb]{0.5,0.5,0.5}\\pm 0.58} 55.92 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.35}] ±0.35{\\color[rgb]{0.5,0.5,0.5}\\pm 0.35} 61.02 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.14}] ±0.14{\\color[rgb]{0.5,0.5,0.5}\\pm 0.14} 9.7 GCN 53.86 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.37}] ±0.37{\\color[rgb]{0.5,0.5,0.5}\\pm 0.37} 75.64† [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.21}] ±0.21{\\color[rgb]{0.5,0.5,0.5}\\pm 0.21} 71.74† [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.29}] ±0.29{\\color[rgb]{0.5,0.5,0.5}\\pm 0.29} 82.17 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.04}] ±0.04{\\color[rgb]{0.5,0.5,0.5}\\pm 0.04} 76.01 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.49}] ±0.49{\\color[rgb]{0.5,0.5,0.5}\\pm 0.49} 62.42 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.53}] ±0.53{\\color[rgb]{0.5,0.5,0.5}\\pm 0.53} 4.3 GraphMoE-GCN 53.03 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.14}] ±0.14{\\color[rgb]{0.5,0.5,0.5}\\pm 0.14} 73.90 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.00}] ±0.00{\\color[rgb]{0.5,0.5,0.5}\\pm 0.00} 71.88†† [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.32}] ±0.32{\\color[rgb]{0.5,0.5,0.5}\\pm 0.32} 81.61 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.27}] ±0.27{\\color[rgb]{0.5,0.5,0.5}\\pm 0.27} 76.99 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.10}] ±0.10{\\color[rgb]{0.5,0.5,0.5}\\pm 0.10} 62.76 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.22}] ±0.22{\\color[rgb]{0.5,0.5,0.5}\\pm 0.22} 4.8 Mowst( [MATH \\star] ⋆\\star)-GCN 54.62 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.23}] ±0.23{\\color[rgb]{0.5,0.5,0.5}\\pm 0.23} 76.49 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.22}] ±0.22{\\color[rgb]{0.5,0.5,0.5}\\pm 0.22} 72.52 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.07}] ±0.07{\\color[rgb]{0.5,0.5,0.5}\\pm 0.07} 83.19 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.43}] ±0.43{\\color[rgb]{0.5,0.5,0.5}\\pm 0.43} 77.28 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.08}] ±0.08{\\color[rgb]{0.5,0.5,0.5}\\pm 0.08} 63.74 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.23}] ±0.23{\\color[rgb]{0.5,0.5,0.5}\\pm 0.23} 2.0 (+0.76) (+0.85) (+0.64) (+1.02) (+0.29) (+0.83) GraphSAGE 53.51 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.05}] ±0.05{\\color[rgb]{0.5,0.5,0.5}\\pm 0.05} 78.50† [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.14}] ±0.14{\\color[rgb]{0.5,0.5,0.5}\\pm 0.14} 71.49† [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.27}] ±0.27{\\color[rgb]{0.5,0.5,0.5}\\pm 0.27} 76.75 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.52}] ±0.52{\\color[rgb]{0.5,0.5,0.5}\\pm 0.52} 75.76 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.04}] ±0.04{\\color[rgb]{0.5,0.5,0.5}\\pm 0.04} 61.99 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.30}] ±0.30{\\color[rgb]{0.5,0.5,0.5}\\pm 0.30} 5.8 GraphMoE-SAGE 52.16 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.13}] ±0.13{\\color[rgb]{0.5,0.5,0.5}\\pm 0.13} 77.79 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.00}] ±0.00{\\color[rgb]{0.5,0.5,0.5}\\pm 0.00} 71.19 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.15}] ±0.15{\\color[rgb]{0.5,0.5,0.5}\\pm 0.15} 77.04 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.55}] ±0.55{\\color[rgb]{0.5,0.5,0.5}\\pm 0.55} 76.67 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.08}] ±0.08{\\color[rgb]{0.5,0.5,0.5}\\pm 0.08} 63.42 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.23}] ±0.23{\\color[rgb]{0.5,0.5,0.5}\\pm 0.23} 5.8 Mowst( [MATH \\star] ⋆\\star)-SAGE 53.90 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.18}] ±0.18{\\color[rgb]{0.5,0.5,0.5}\\pm 0.18} 79.38 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.44}] ±0.44{\\color[rgb]{0.5,0.5,0.5}\\pm 0.44} 72.04 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.24}] ±0.24{\\color[rgb]{0.5,0.5,0.5}\\pm 0.24} 79.07 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.43}] ±0.43{\\color[rgb]{0.5,0.5,0.5}\\pm 0.43} 77.84 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.04}] ±0.04{\\color[rgb]{0.5,0.5,0.5}\\pm 0.04} 64.38 [MATH {\\color[rgb]{0.5,0.5,0.5}\\pm 0.14}] ±0.14{\\color[rgb]{0.5,0.5,0.5}\\pm 0.14} 2.5 (+0.39) (+0.88) (+0.55) (+2.03) (+1.33) (+1.05)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p5.1",
+    "text": "Comparison with SoTA. In Table 1, we compare with the baselines under two criteria. First, comparing Mowst( [MATH \\star] ⋆\\star) with all baselines, we consistently achieve significant accuracy improvement on almost all datasets, with one exception: GPR-GNN on pokec. However, the performance of GPR-GNN on the other 5 graphs does not stand out. To more clearly see the overall performance, we rank all models on each graph and show the ranking averaged over all 6 graphs in the last column. Mowst( [MATH \\star] ⋆\\star)-GCN and Mowst( [MATH \\star] ⋆\\star)-SAGE are clearly the top 2 models, followed by GCN with an average ranking of 4.3. Second, we perform a comparison within two sub-groups, one with GCN as the backbone architecture (GCN, GraphMoE-GCN and Mowst( [MATH \\star] ⋆\\star)-GCN) and the other with GraphSAGE (GraphSAGE, GraphMoE-SAGE and Mowst( [MATH \\star] ⋆\\star)-SAGE). In both sub-groups, Mowst( [MATH \\star] ⋆\\star) achieves significant accuracy improvement over the second best. The accuracy improvement is consistently observed on both homophilous and heterophilous graphs, showing that the decoupling of the self-feature and neighbor structures and the weak expert’s denoising effect are generally beneficial. Lastly, consistently with our analysis in §2.6, we observe that the inference speed of Mowst( [MATH \\star] ⋆\\star)-GCN and Mowst( [MATH \\star] ⋆\\star)-SAGE is almost identical to that of the GCN and GraphSAGE baselines."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p6.1",
+    "text": "Ablation study. We first justify our most fundamental design choice to favor a “weak-strong” combination over the traditional “strong-strong” duo. Then we compare variants of Mowst."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p7.1",
+    "text": "Weak-strong vs. strong-strong. We implement a “strong-strong” variant of Mowst [MATH \\star] ⋆\\star consisting of two GNN experts with identical network architecture. Figure 1 shows the convergence curves of the test set accuracy during training, with GCN as the strong experts’ architecture. On both Penn94 and ogbn-arxiv, we observe that the convergence quality of the “strong-strong” variant is much worse. Specifically, on Penn94, the “strong-strong” model eventually failed to identify a suitable collaboration mode between the two GNNs, causing the collapse of the accuracy curve. On ogbn-arxiv, the collapse of the “strong-strong” model does not happen. Yet it is still clear that 1. training a “weak-strong” model is more stable, indicated by the much smaller variance, and 2. the accuracy of the “strong-strong” variant is significantly lower. Lastly, note that the [MATH x] xx-axis denotes number of epochs. The per-epoch execution time for “strong-strong” is also significantly longer, indicating an even longer overall convergence time than the “weak-strong” model."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p8.1",
+    "text": "Mowst vs. Mowst [MATH \\star] ⋆\\star. Using the GCN architecture as an example, we compare three model variants: 1. Mowst, 2. Mowst [MATH \\star] ⋆\\starand 3. Mowst(joint), a vanilla version of Mowst that performs training by simultaneously updating the two experts from the gradients of the whole [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} (Equation 1). i.e., Mowst (joint) does not follow the “in-turn training” strategy discussed in Algorithm 2. From Table 2, we observe that 1. Mowst(joint) achieves lower test accuracy on all 3 graphs, 2. Mowstor Mowst [MATH \\star] ⋆\\star may outperform the other variant depending on the property of the graph. Observation (1) shows the efficacy of our “in-turn training” strategy. Intuitively, since the two experts may have difference convergence rate, updating one expert with the other one fixed may help stabilize training and improve the overall convergence quality. Observation (2) is consistent with our tradeoff analysis in §2.5. Mowst [MATH \\star] ⋆\\star can theoretically achieve a lower loss, while Mowst may be easier to optimize. In practice, both variants can be useful."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p9.1",
+    "text": "Training dynamics. The two behaviors described in §2.4 may be observed on both Mowst and Mowst [MATH \\star] ⋆\\star. For demonstration, we visualize each behavior with one model variant."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p10.1",
+    "text": "Specialization via data splitting. We track the evolution of the confidence score [MATH C] CC during Mowst [MATH \\star] ⋆\\star-GCN training. In Figure 2, for each benchmark graph, we plot the distribution of [MATH C] CC generated by different snapshots of the model. The distribution on the upper side of the figure corresponds to earlier stage of training, while the distribution on the lower side reflects the relative weighting between the two experts when the training has converged well. In each distribution, the height shows the percentage of nodes assigned with such [MATH C] CC. On Penn94, the GNN dominates initially. The MLP gradually learns to specialize on a significant portion of the data. Eventually, the whole graph is clearly split between the two experts, indicated by the two large peaks around 0 and 0.8 (corresponding to nodes assigned to GNN and MLP respectively). For pokec, the specialization is not so strong. When training progresses, the MLP becomes less confidence when the GNN is optimized better – nodes initially having larger [MATH C] CC gradually reduce [MATH C] CC to form a peak at around 0.2. For different graphs, the two experts will adapt their extent of collaboration by minimizing the confidence-weighted loss."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p11.1",
+    "text": "Denoised fine-tuning. When this behavior emerges, the GNN expert has been optimized reasonably well and it dominates the MLP on almost all nodes. We focus on two distinct node groups and visualize their positions in a shared latent space by employing t-SNE (Van der Maaten & Hinton, 2008) on the second-to-last layer of the GNN expert, as illustrated in Figure 3. The first node group comprises those nodes that elicit high confidence from the MLP expert (nodes with top-25% [MATH C] CC). The second group includes the remaining nodes. Green and blue dots represent the initial positions of the group 1 and 2 nodes at the end of training round [MATH r] rr (Algorithm 2). Red and orange dots represent the final positions of the group 1 and 2 nodes at the end of training round [MATH r+10] r+10r+10. e.g., a node starting from a green dot will end at a red dot. Notably, we observe that a significant portion of nodes remains relatively stable throughout the training process, and thus their start and end positions almost completely overlap. We refrain from visualizing them, as their GNN’s predictions remain unaltered. Instead, we visualize only those nodes whose movement exceeds the 75th percentile in terms of Euclidean distance. In Figure 3, the blue and green nodes are tightly clustered together, indicating that the GNN cannot differentiate them. After the MLP filters out the green nodes via high [MATH C] CC, the GNN is then able to better optimize the blue nodes even if doing so will increase the GNN loss on the green ones (since the loss on green nodes is down-weighted). Eventually, the GNN pushes the blue nodes to a better position belonging to their true class (the shift of the green nodes is a side effect, as the GNN cannot differentiate the green from the blue ones). Overall, the blue nodes are originally misclassified but are corrected during this fine-tuning process enabled by the MLP expert’s denoising effect."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "5 Conclusion"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "We presented a novel mixture-of-experts design to combine a weak MLP expert with a strong GNN expert for decoupling the self-feature and neighbor structure modalities in graphs. The “weak-strong” collaboration emerges under a gating mechanism based on the weak expert’s prediction confidence. We theoretically and empirically demonstrated intriguing training dynamics that evolve based on the properties of the graph and the relative strengths of the experts. We showed significant accuracy improvement over state-of-the-art on both homophilous and heterophilous graphs."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "tag": "p",
+    "id": "p2.1",
+    "text": "Table of Contents (Appendix)"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A More Details on Experiments"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "A.1 Dataset statistics"
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS1.p1.1",
+    "text": "Table 3 summarizes the basic statistics of the 6 benchmark graphs. Flickr is originally proposed in Zeng et al. (2020). ogbn-products and ogbn-arxiv are originally proposed in Hu et al. (2020). Penn94, pokec and twitch-gamer are originally proposed in Lim et al. (2021)."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "A.2 Hyperparameters"
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS2.p1.1",
+    "text": "We perform grid search within the entire hyperparameter space defined as follows. Note that for GPR-GNN (Chien et al., 2021) and AdaGCN (Sun et al., 2021), we use the same grid search as reported in their original papers."
+  },
+  {
+    "tag": "p",
+    "id": "A1.I1.i1.p1.1",
+    "text": "MLP, GCN, GraphSAGE, GAT, GIN: learning rate [MATH lr\\in\\{.1,.01,.001\\}] l​r∈{.1,.01,.001}lr\\in\\{.1,.01,.001\\} for all graphs. For all the homophilous graphs, the dropout ratio is searched in [MATH \\{.1,.2,.3,.4,.5\\}] {.1,.2,.3,.4,.5}\\{.1,.2,.3,.4,.5\\}, hidden dimension is set as 256 and the number of layers is 3 according to Hu et al. (2020). For the heterophilous graphs, we follow the same as Lim et al. (2021)."
+  },
+  {
+    "tag": "p",
+    "id": "A1.I1.i2.p1.1",
+    "text": "GPR-GNN: [MATH lr\\in\\{.01,.05,.002\\}] l​r∈{.01,.05,.002}lr\\in\\{.01,.05,.002\\}, [MATH \\alpha\\in\\{.1,.2,.5,.9\\}] α∈{.1,.2,.5,.9}\\alpha\\in\\{.1,.2,.5,.9\\}, hidden dimension [MATH \\in\\{16,32,64,128,256\\}] ∈{16,32,64,128,256}\\in\\{16,32,64,128,256\\}."
+  },
+  {
+    "tag": "p",
+    "id": "A1.I1.i3.p1.1",
+    "text": "AdaGCN: [MATH lr\\in\\{.01,.005,.001\\}] l​r∈{.01,.005,.001}lr\\in\\{.01,.005,.001\\}, number of layers [MATH \\in\\{5,10\\}] ∈{5,10}\\in\\{5,10\\}, dropout ratio [MATH \\in\\{.0,.5\\}] ∈{.0,.5}\\in\\{.0,.5\\}."
+  },
+  {
+    "tag": "p",
+    "id": "A1.I1.i4.p1.1",
+    "text": "GraphMoE: [MATH lr\\in\\{.1,.01,.001\\}] l​r∈{.1,.01,.001}lr\\in\\{.1,.01,.001\\}, dropout ratio [MATH \\in\\{.1,.2,.3,.4,.5\\}] ∈{.1,.2,.3,.4,.5}\\in\\{.1,.2,.3,.4,.5\\}, number of experts [MATH \\in\\{2,8\\}] ∈{2,8}\\in\\{2,8\\}."
+  },
+  {
+    "tag": "p",
+    "id": "A1.I1.i5.p1.1",
+    "text": "Mowst and Mowst [MATH \\star] ⋆\\star: The learning rate and dropout ratio of the MLP expert and the GNN expert are kept the same. The girds for them are [MATH lr\\in\\{.1,.01,.001\\}] l​r∈{.1,.01,.001}lr\\in\\{.1,.01,.001\\}, dropout ratio [MATH \\in\\{.1,.2,.3,.4,.5\\}] ∈{.1,.2,.3,.4,.5}\\in\\{.1,.2,.3,.4,.5\\}. As for the gating module, we also conduct a grid search to find the optimal combination of the learning rate and dropout ratio. The grid for them are [MATH lr\\in\\{.1,.01,.001\\}] l​r∈{.1,.01,.001}lr\\in\\{.1,.01,.001\\}, dropout ratio [MATH \\in\\{.1,.2,.3,.4,.5\\}] ∈{.1,.2,.3,.4,.5}\\in\\{.1,.2,.3,.4,.5\\}."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "A.3 Implementation details"
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS3.p1.1",
+    "text": "We implement our code using PyTorch and the PyTorch Geometric library (for the GCN and GraphSAGE layers of Mowst( [MATH \\star] ⋆\\star)-GCN and Mowst( [MATH \\star] ⋆\\star)-SAGE). Training of our models and the baselines were conducted on NVIDIA A100 GPUs with 80GB memory. All trainings were conducted by full-batch gradient descent using Adam (Kingma & Ba, 2014) optimizer, without any neighborhood or subgraph sampling."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix B Proof and Derivation"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "B.1 Proofs related to model optimization"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem1.p1.1",
+    "text": "(Convex function (Bertsekas et al., 2003)) Let [MATH \\mathcal{D}] 𝒟\\mathcal{D} be a convex subset of [MATH \\mathbb{R}^{n}] ℝn\\mathbb{R}^{n}. A function [MATH f:\\mathcal{D}\\mapsto\\mathbb{R}] f:𝒟↦ℝf:\\mathcal{D}\\mapsto\\mathbb{R} is convex if [MATH f\\left(\\lambda\\cdot x+\\left(1-\\lambda\\right)\\cdot y\\right)\\leq\\lambda\\cdot f\\left(x\\right)+\\left(1-\\lambda\\right)\\cdot f\\left(y\\right)] f⁡(λ⋅x+(1−λ)⋅y)≤λ⋅f⁡(x)+(1−λ)⋅f⁡(y)f\\left(\\lambda\\cdot x+\\left(1-\\lambda\\right)\\cdot y\\right)\\leq\\lambda\\cdot f\\left(x\\right)+\\left(1-\\lambda\\right)\\cdot f\\left(y\\right), [MATH \\forall x,y\\in\\mathcal{D}] ∀x,y∈𝒟\\forall x,y\\in\\mathcal{D} and [MATH \\forall\\lambda\\in[0,1]] ∀λ∈[0,1]\\forall\\lambda\\in[0,1]."
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem2.p1.1",
+    "text": "(Quasiconvex function (Boyd & Vandenberghe, 2004)) Consider a real-valued function [MATH f] ff whose domain [MATH \\mathcal{D}] 𝒟\\mathcal{D} is convex. Function [MATH f] ff is quasiconvex if for any [MATH \\gamma\\in\\mathbb{R}] γ∈ℝ\\gamma\\in\\mathbb{R}, its [MATH \\gamma] γ\\gamma-sublevel set [MATH \\{x\\in\\mathcal{D}\\;|\\;f(x)\\leq\\gamma\\}] {x∈𝒟|f⁡(x)≤γ}\\{x\\in\\mathcal{D}\\;|\\;f(x)\\leq\\gamma\\} is convex. Equivalently, [MATH f] ff is quasiconvex if, for all [MATH x,y\\in\\mathcal{D}] x,y∈𝒟x,y\\in\\mathcal{D} and [MATH \\lambda\\in[0,1]] λ∈[0,1]\\lambda\\in[0,1], we have [MATH f\\left(\\lambda\\cdot x+\\left(1-\\lambda\\right)\\cdot y\\right)\\leq\\max\\left\\{f\\left(x\\right),f\\left(y\\right)\\right\\}] f⁡(λ⋅x+(1−λ)⋅y)≤max⁡{f⁡(x),f⁡(y)}f\\left(\\lambda\\cdot x+\\left(1-\\lambda\\right)\\cdot y\\right)\\leq\\max\\left\\{f\\left(x\\right),f\\left(y\\right)\\right\\}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem3.p1.1",
+    "text": "(Strictly quasiconvex function) A real-valued function [MATH f] ff defined on a convex domain [MATH \\mathcal{D}] 𝒟\\mathcal{D} is strictly quasiconvex if, for all [MATH x,y\\in\\mathcal{D}] x,y∈𝒟x,y\\in\\mathcal{D}, [MATH x\\neq y] x≠yx\\neq y and [MATH \\lambda\\in(0,1)] λ∈(0,1)\\lambda\\in(0,1), we have [MATH f\\left(\\lambda\\cdot x+\\left(1-\\lambda\\right)\\cdot y\\right)<\\max\\left\\{f\\left(x\\right),f\\left(y\\right)\\right\\}] f⁡(λ⋅x+(1−λ)⋅y)<max⁡{f⁡(x),f⁡(y)}f\\left(\\lambda\\cdot x+\\left(1-\\lambda\\right)\\cdot y\\right)<\\max\\left\\{f\\left(x\\right),f\\left(y\\right)\\right\\}."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "B.1.1 Proof of Proposition 2.2"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem4.p1.1",
+    "text": "(Originally Proposition 2.2) [MATH C=G\\circ D] C=G∘DC=G\\circ D is quasiconvex."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS1.p1.1",
+    "text": "The proof directly follows Agrawal & Boyd (2020), which states that if [MATH g:\\mathcal{D}\\mapsto\\mathbb{R}] g:𝒟↦ℝg:\\mathcal{D}\\mapsto\\mathbb{R} is a quasiconvex function and [MATH h] hh is a non-decreasing real-valued function on the real line, then [MATH f=h\\circ g] f=h∘gf=h\\circ g is quasiconvex. By Definition 2.1, we have [MATH C=G\\circ D] C=G∘DC=G\\circ D is quasiconvex."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS1.p2.1",
+    "text": "Then the only thing remains to be shown is the quasiconvexity of typical dispersion functions. We show the convexity of the variance and negative entropy functions by following Definition B.1. Then we complete the proof since any convex function is also quasiconvex (based on Definitions B.1 and B.2: if [MATH f] ff is convex, then [MATH f\\left(\\lambda x+\\left(1-\\lambda\\right)y\\right)\\leq\\lambda f(x)+\\left(1-\\lambda\\right)f(y)\\leq\\lambda\\max\\{f(x),f(y)\\}+\\left(1-\\lambda\\right)\\max\\{f(x),f(y)\\}=\\max\\{f(x),f(y)\\}] f⁡(λ​x+(1−λ)​y)≤λ​f​(x)+(1−λ)​f​(y)≤λ​max​{f⁡(x),f⁡(y)}+(1−λ)​max​{f⁡(x),f⁡(y)}=max⁡{f⁡(x),f⁡(y)}f\\left(\\lambda x+\\left(1-\\lambda\\right)y\\right)\\leq\\lambda f(x)+\\left(1-\\lambda\\right)f(y)\\leq\\lambda\\max\\{f(x),f(y)\\}+\\left(1-\\lambda\\right)\\max\\{f(x),f(y)\\}=\\max\\{f(x),f(y)\\})."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS1.p3.1",
+    "text": "To show convexity of the dispersion function [MATH D\\left(\\bm{p}\\right)] D⁡(𝒑)D\\left(\\bm{p}\\right), we first note that its domain is a [MATH \\left(n-1\\right)] (n−1)\\left(n-1\\right)-simplex (i.e., [MATH \\sum_{1\\leq i\\leq n}p_{i}=1] ∑1≤i≤npi=1\\sum_{1\\leq i\\leq n}p_{i}=1 and [MATH p_{i}\\geq 0] pi≥0p_{i}\\geq 0 for [MATH i=1,2,\\ldots,n] i=1,2,…,ni=1,2,\\ldots,n), which is a convex set. Next, for specific [MATH D] DD:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS1.Px1.p1.1",
+    "text": "is defined as [MATH D\\left(\\bm{p}\\right)=\\sum_{1\\leq i\\leq n}\\left(p_{i}-\\frac{1}{n}\\right)^{2}] D⁡(𝒑)=∑1≤i≤n(pi−1n)2D\\left(\\bm{p}\\right)=\\sum_{1\\leq i\\leq n}\\left(p_{i}-\\frac{1}{n}\\right)^{2}. For two points [MATH \\bm{p}] 𝒑\\bm{p} and [MATH \\bm{p}^{\\prime}] 𝒑′\\bm{p}^{\\prime} and [MATH \\lambda\\in[0,1]] λ∈[0,1]\\lambda\\in[0,1], it is easy to show that [MATH D\\left(\\lambda\\bm{p}+\\left(1-\\lambda\\right)\\bm{p}^{\\prime}\\right)\\leq\\lambda D\\left(\\bm{p}\\right)+\\left(1-\\lambda\\right)D\\left(\\bm{p}^{\\prime}\\right)] D⁡(λ​𝒑+(1−λ)​𝒑′)≤λ​D​(𝒑)+(1−λ)​D​(𝒑′)D\\left(\\lambda\\bm{p}+\\left(1-\\lambda\\right)\\bm{p}^{\\prime}\\right)\\leq\\lambda D\\left(\\bm{p}\\right)+\\left(1-\\lambda\\right)D\\left(\\bm{p}^{\\prime}\\right) (we can follow a similar treatment as Equation 12 by noting that scalar function [MATH d(x)=\\left(x-\\frac{1}{n}\\right)^{2}] d⁡(x)=(x−1n)2d(x)=\\left(x-\\frac{1}{n}\\right)^{2} is convex)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS1.Px2.p1.1",
+    "text": "is defined as [MATH D\\left(\\bm{p}\\right)=c+\\sum_{1\\leq i\\leq n}p_{i}\\cdot\\log p_{i}] D⁡(𝒑)=c+∑1≤i≤npi⋅log⁡piD\\left(\\bm{p}\\right)=c+\\sum_{1\\leq i\\leq n}p_{i}\\cdot\\log p_{i}, where [MATH c] cc is just a constant to satisfy Definition 2.1 that [MATH D\\left(\\frac{1}{n}\\bm{1}\\right)=0] D⁡(1n​𝟏)=0D\\left(\\frac{1}{n}\\bm{1}\\right)=0. It is a well-known result that the negative entropy is convex. See for example the proof in JoramSoch (2020)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS1.Px2.p2.1",
+    "text": "∎"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "B.1.2 Proof of Proposition 2.3"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem5.p1.1",
+    "text": "(Originally Proposition 2.3) Given [MATH \\bm{\\alpha}_{i}] 𝛂i\\bm{\\alpha}_{i}, [MATH \\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)] L^𝛂i​(𝐩^i)\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right) is a convex function of [MATH \\hat{\\bm{p}}_{i}] 𝐩^i\\hat{\\bm{p}}_{i} with unique minimizer [MATH \\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i}] 𝐩^i∗=𝛂i\\hat{\\bm{p}}_{i}^{*}=\\bm{\\alpha}_{i}. Let [MATH \\Delta\\left(\\bm{\\alpha}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right)] Δ⁡(𝛂)=L^𝛂​(𝛂)\\Delta\\left(\\bm{\\alpha}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right) be a function of [MATH \\bm{\\alpha}] 𝛂\\bm{\\alpha}, [MATH \\Delta] Δ\\Delta is a concave function with unique maximizer [MATH \\bm{\\alpha}^{*}=\\frac{1}{n}\\bm{1}] 𝛂∗=1n​𝟏\\bm{\\alpha}^{*}=\\frac{1}{n}\\bm{1}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS2.p1.1",
+    "text": "We can formulate the problem of finding the minimizer [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*} of [MATH \\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right)] L^𝜶i​(𝒑^i)\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\hat{\\bm{p}}_{i}\\right) as"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS2.p1.2",
+    "text": "The Larangian is"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS2.p1.3",
+    "text": "Applying the KKT condition (Bertsekas, 2009), we have"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS2.p2.1",
+    "text": "Solving the system of equations in 8, we have [MATH \\hat{p}^{*}_{ij}=\\alpha_{ij}/\\left(\\sum_{1\\leq j\\leq n}{\\alpha_{ij}}\\right)] p^i​j∗=αi​j/(∑1≤j≤nαi​j)\\hat{p}^{*}_{ij}=\\alpha_{ij}/\\left(\\sum_{1\\leq j\\leq n}{\\alpha_{ij}}\\right). Since [MATH \\bm{\\alpha}_{i}] 𝜶i\\bm{\\alpha}_{i} forms a distribution, we further have [MATH \\hat{p}^{*}_{ij}=\\alpha_{ij}] p^i​j∗=αi​j\\hat{p}^{*}_{ij}=\\alpha_{ij}, i.e.,"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS2.p3.1",
+    "text": "Since [MATH \\hat{L}_{\\bm{\\alpha_{i}}}] L^𝜶𝒊\\hat{L}_{\\bm{\\alpha_{i}}} is also strictly convex (Proposition B.7), its minimizer is unique."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS2.p4.1",
+    "text": "In particular, [MATH \\Delta\\left(\\bm{\\alpha}_{i}\\right)=\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\bm{\\alpha}_{i}\\right)=-\\sum_{1\\leq j\\leq n}\\alpha_{ij}\\cdot\\log\\alpha_{ij}=\\mathcal{H}\\left(\\bm{\\alpha}_{i}\\right)] Δ(𝜶i)=L^𝜶i(𝜶i)=−∑1≤j≤nαi​j⋅logαi​j=ℋ(𝜶i)\\Delta\\left(\\bm{\\alpha}_{i}\\right)=\\hat{L}_{\\bm{\\alpha}_{i}}\\left(\\bm{\\alpha}_{i}\\right)=-\\sum_{1\\leq j\\leq n}\\alpha_{ij}\\cdot\\log\\alpha_{ij}=\\mathcal{H}\\left(\\bm{\\alpha}_{i}\\right). It is easy to show that the entropy function [MATH \\mathcal{H}] ℋ\\mathcal{H} is strictly concave w.r.t. the probability mass function and attains its maximum when [MATH \\bm{\\alpha}_{i}^{*}=\\frac{1}{n}\\bm{1}] 𝜶i∗=1n​𝟏\\bm{\\alpha}_{i}^{*}=\\frac{1}{n}\\bm{1} (JoramSoch, 2020)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS2.p5.1",
+    "text": "∎"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "B.1.3 Proof of Theorem 2.4 and Corollary 2.4.1"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p1.1",
+    "text": "We first observe that the optimization problem defined in Equation 2 can be fully decomposed:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p3.1",
+    "text": "It clearly follows that we can break down the original optimization problem 2 into [MATH m] mm independent sub-problems:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p5.1",
+    "text": "Therefore, in the following, we omit the subscript [MATH i] ii."
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem6.p1.1",
+    "text": "(Extreme points (Bertsekas et al., 2003)) Given a nonempty convex set [MATH \\mathcal{D}] 𝒟\\mathcal{D}, a point [MATH x\\in\\mathcal{D}] x∈𝒟x\\in\\mathcal{D} is an extreme point if there do not exist [MATH y\\in\\mathcal{D}] y∈𝒟y\\in\\mathcal{D} and [MATH z\\in\\mathcal{D}] z∈𝒟z\\in\\mathcal{D} with [MATH y\\neq x] y≠xy\\neq x and [MATH z\\neq x] z≠xz\\neq x, and a scalar [MATH \\lambda\\in(0,1)] λ∈(0,1)\\lambda\\in(0,1), such that [MATH x=\\lambda y+\\left(1-\\lambda\\right)z] x=λ​y+(1−λ)​zx=\\lambda y+\\left(1-\\lambda\\right)z."
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem7.p1.1",
+    "text": "The loss function [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)] L^𝛂​(𝐩^)\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right) is strictly convex. For all [MATH \\mu] μ\\mu, the sub-level set [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝛂≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} is convex and compact."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p6.1",
+    "text": "For strict convexity, first of all, the domain of [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝜶\\hat{L}_{\\bm{\\alpha}}, the [MATH \\left(n-1\\right)] (n−1)\\left(n-1\\right)-simplex, is convex. Then consider two points [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}} and [MATH \\hat{\\bm{p}}^{\\prime}] 𝒑^′\\hat{\\bm{p}}^{\\prime} in [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝜶\\hat{L}_{\\bm{\\alpha}}’s domain and some [MATH \\lambda\\in(0,1)] λ∈(0,1)\\lambda\\in(0,1):"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p8.1",
+    "text": "where “(a)” is due to the strict convexity of the [MATH \\log] log\\log function. This proves that [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝜶\\hat{L}_{\\bm{\\alpha}} is strictly convex. Then it directly follows that all its sub-level sets are convex."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p9.1",
+    "text": "Note that [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝜶\\hat{L}_{\\bm{\\alpha}} is continuous (and so lower semicontinuous as well). By Proposition 1.2.2 of Bertsekas et al. (2003), all sublevel sets of [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝜶\\hat{L}_{\\bm{\\alpha}} are closed. Further, since [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝜶\\hat{L}_{\\bm{\\alpha}} is defined on the [MATH \\left(n-1\\right)] (n−1)\\left(n-1\\right)-simplex, [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} is also bounded. So [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} is compact (compact means closed and bounded). ∎"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem8.p1.1",
+    "text": "The set of extreme points of [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝛂≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} equals [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] ℒ𝛂μ\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p10.1",
+    "text": "Denote [MATH \\mathcal{P}] 𝒫\\mathcal{P} as the set of extreme points of [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}. We first show that [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}\\subseteq\\mathcal{P}] ℒ𝜶μ⊆𝒫\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}\\subseteq\\mathcal{P}. Consider a point [MATH \\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] 𝒑^0∈ℒ𝜶μ\\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}. Suppose there exist some other points [MATH \\hat{\\bm{p}}_{1},\\hat{\\bm{p}}_{2}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^1,𝒑^2∈ℒ𝜶≤μ\\hat{\\bm{p}}_{1},\\hat{\\bm{p}}_{2}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} (with [MATH \\hat{\\bm{p}}_{1}\\neq\\hat{\\bm{p}}_{0}] 𝒑^1≠𝒑^0\\hat{\\bm{p}}_{1}\\neq\\hat{\\bm{p}}_{0} and [MATH \\hat{\\bm{p}}_{2}\\neq\\hat{\\bm{p}}_{0}] 𝒑^2≠𝒑^0\\hat{\\bm{p}}_{2}\\neq\\hat{\\bm{p}}_{0}), such that [MATH \\lambda\\hat{\\bm{p}}_{1}+\\left(1-\\lambda\\right)\\hat{\\bm{p}}_{2}=\\hat{\\bm{p}}_{0}] λ​𝒑^1+(1−λ)​𝒑^2=𝒑^0\\lambda\\hat{\\bm{p}}_{1}+\\left(1-\\lambda\\right)\\hat{\\bm{p}}_{2}=\\hat{\\bm{p}}_{0} for some [MATH \\lambda\\in(0,1)] λ∈(0,1)\\lambda\\in(0,1). By strict convexity shown in Proposition B.7, we have [MATH \\mu=\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\lambda\\hat{\\bm{p}}_{1}+\\left(1-\\lambda\\right)\\hat{\\bm{p}}_{2}\\right)<\\lambda\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{1}\\right)+\\left(1-\\lambda\\right)\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{2}\\right)] μ=L^𝜶​(𝒑^0)=L^𝜶​(λ​𝒑^1+(1−λ)​𝒑^2)<λ​L^𝜶​(𝒑^1)+(1−λ)​L^𝜶​(𝒑^2)\\mu=\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\lambda\\hat{\\bm{p}}_{1}+\\left(1-\\lambda\\right)\\hat{\\bm{p}}_{2}\\right)<\\lambda\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{1}\\right)+\\left(1-\\lambda\\right)\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{2}\\right). This implies that [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{1}\\right)>\\mu] L^𝜶​(𝒑^1)>μ\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{1}\\right)>\\mu or [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{2}\\right)>\\mu] L^𝜶​(𝒑^2)>μ\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{2}\\right)>\\mu, which contradicts with the condition that [MATH \\hat{\\bm{p}}_{1},\\hat{\\bm{p}}_{2}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^1,𝒑^2∈ℒ𝜶≤μ\\hat{\\bm{p}}_{1},\\hat{\\bm{p}}_{2}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}. Thus, any point [MATH \\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] 𝒑^0∈ℒ𝜶μ\\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu} is an extreme point of [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p11.1",
+    "text": "Now we show [MATH \\mathcal{P}\\subseteq\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] 𝒫⊆ℒ𝜶μ\\mathcal{P}\\subseteq\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}. Consider a point [MATH \\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}] 𝒑^0∈ℒ𝜶<μ\\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}. For any [MATH \\mu\\in\\mathbb{R}] μ∈ℝ\\mu\\in\\mathbb{R}, we always have [MATH \\hat{p}_{0i}>0] p^0​i>0\\hat{p}_{0i}>0, for all [MATH i=1,2,\\ldots,n] i=1,2,…,ni=1,2,\\ldots,n (otherwise, [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}\\right)\\rightarrow\\infty] L^𝜶​(𝒑^0)→∞\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}\\right)\\rightarrow\\infty). This means that we can find a vector [MATH \\bm{\\epsilon}] ϵ\\bm{\\epsilon}, such that 1. [MATH \\sum_{1\\leq i\\leq n}\\epsilon_{i}=0] ∑1≤i≤nϵi=0\\sum_{1\\leq i\\leq n}\\epsilon_{i}=0, 2. [MATH |\\epsilon_{i}|<\\hat{p}_{0i}] |ϵi|<p^0​i|\\epsilon_{i}|<\\hat{p}_{0i}, for all [MATH 1\\leq i\\leq n] 1≤i≤n1\\leq i\\leq n, and 3. [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}+\\bm{\\epsilon}\\right)\\leq\\mu] L^𝜶​(𝒑^0+ϵ)≤μ\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}+\\bm{\\epsilon}\\right)\\leq\\muand [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}-\\bm{\\epsilon}\\right)\\leq\\mu] L^𝜶​(𝒑^0−ϵ)≤μ\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{0}-\\bm{\\epsilon}\\right)\\leq\\mu. Point (1) and (2) ensure that [MATH \\hat{\\bm{p}}_{0}+\\bm{\\epsilon}] 𝒑^0+ϵ\\hat{\\bm{p}}_{0}+\\bm{\\epsilon} and [MATH \\hat{\\bm{p}}_{0}-\\bm{\\epsilon}] 𝒑^0−ϵ\\hat{\\bm{p}}_{0}-\\bm{\\epsilon} are both with the domain of [MATH \\hat{L}_{\\bm{{\\alpha}}}] L^𝜶\\hat{L}_{\\bm{{\\alpha}}}. For Point (3), we can always find small enough [MATH \\epsilon_{i}] ϵi\\epsilon_{i} due to the continuity of the loss function [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝜶\\hat{L}_{\\bm{\\alpha}}. We thus find two points, [MATH \\hat{\\bm{p}}_{1}=\\hat{\\bm{p}}_{0}+\\bm{\\epsilon}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^1=𝒑^0+ϵ∈ℒ𝜶≤μ\\hat{\\bm{p}}_{1}=\\hat{\\bm{p}}_{0}+\\bm{\\epsilon}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} and [MATH \\hat{\\bm{p}}_{2}=\\hat{\\bm{p}}_{0}-\\bm{\\epsilon}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^2=𝒑^0−ϵ∈ℒ𝜶≤μ\\hat{\\bm{p}}_{2}=\\hat{\\bm{p}}_{0}-\\bm{\\epsilon}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}, where [MATH \\hat{\\bm{p}}_{0}=\\frac{1}{2}\\hat{\\bm{p}}_{1}+\\frac{1}{2}\\hat{\\bm{p}}_{2}] 𝒑^0=12​𝒑^1+12​𝒑^2\\hat{\\bm{p}}_{0}=\\frac{1}{2}\\hat{\\bm{p}}_{1}+\\frac{1}{2}\\hat{\\bm{p}}_{2}. Thus, [MATH \\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}] 𝒑^0∈ℒ𝜶<μ\\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu} is not an extreme point of [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p12.1",
+    "text": "In summary, [MATH \\mathcal{P}=\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] 𝒫=ℒ𝜶μ\\mathcal{P}=\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem9.p1.1",
+    "text": "(Krein-Milman Theorem (Bertsekas et al., 2003)) Let [MATH \\mathcal{D}] 𝒟\\mathcal{D} be a nonempty convex subset of [MATH \\mathbb{R}^{n}] ℝn\\mathbb{R}^{n}. If [MATH \\mathcal{D}] 𝒟\\mathcal{D} is compact, then [MATH \\mathcal{D}] 𝒟\\mathcal{D} is equal to the convex hull of its extreme points."
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem10.p1.1",
+    "text": "(Caratheodory’s Theorem (Bertsekas, 2009)) Let [MATH \\mathcal{D}] 𝒟\\mathcal{D} be a nonempty subset of [MATH \\mathbb{R}^{n}] ℝn\\mathbb{R}^{n}. Every point from the convex hull of [MATH \\mathcal{D}] 𝒟\\mathcal{D} can be represented as a convex combination of [MATH x_{1},\\ldots,x_{m}] x1,…,xmx_{1},\\ldots,x_{m} from [MATH \\mathcal{D}] 𝒟\\mathcal{D}, where [MATH m\\leq n+1] m≤n+1m\\leq n+1 and [MATH x_{2}-x_{1},\\ldots,x_{m}-x_{1}] x2−x1,…,xm−x1x_{2}-x_{1},\\ldots,x_{m}-x_{1} are linearly independent."
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem11.p1.1",
+    "text": "If [MATH f] ff is a quasiconvex function defined on [MATH \\mathcal{D}] 𝒟\\mathcal{D}, then for all [MATH x_{1},\\ldots,x_{m}\\in\\mathcal{D}] x1,…,xm∈𝒟x_{1},\\ldots,x_{m}\\in\\mathcal{D} and [MATH \\lambda_{1}\\geq 0,\\ldots,\\lambda_{m}\\geq 0] λ1≥0,…,λm≥0\\lambda_{1}\\geq 0,\\ldots,\\lambda_{m}\\geq 0 such that [MATH \\sum_{1\\leq i\\leq m}\\lambda_{i}=1] ∑1≤i≤mλi=1\\sum_{1\\leq i\\leq m}\\lambda_{i}=1, we have [MATH f\\left(\\sum_{1\\leq i\\leq m}\\lambda_{i}x_{i}\\right)\\leq\\max_{1\\leq i\\leq m}\\{f\\left(x_{i}\\right)\\}] f⁡(∑1≤i≤mλi​xi)≤max1≤i≤m⁡{f⁡(xi)}f\\left(\\sum_{1\\leq i\\leq m}\\lambda_{i}x_{i}\\right)\\leq\\max_{1\\leq i\\leq m}\\{f\\left(x_{i}\\right)\\}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem12.p1.1",
+    "text": "If [MATH f] ff is a strictly quasiconvex function defined on [MATH \\mathcal{D}] 𝒟\\mathcal{D}, then for 1. [MATH x_{1},\\ldots,x_{m}\\in\\mathcal{D}] x1,…,xm∈𝒟x_{1},\\ldots,x_{m}\\in\\mathcal{D}such that [MATH x_{1}\\neq x_{2}\\ldots\\neq x_{m}] x1≠x2​…≠xmx_{1}\\neq x_{2}\\ldots\\neq x_{m} and [MATH x_{2}-x_{1},\\ldots,x_{m}-x_{1}] x2−x1,…,xm−x1x_{2}-x_{1},\\ldots,x_{m}-x_{1} are linearly independent, and 2. [MATH \\lambda_{1}>0,\\ldots,\\lambda_{m}>0] λ1>0,…,λm>0\\lambda_{1}>0,\\ldots,\\lambda_{m}>0such that [MATH \\sum_{1\\leq i\\leq m}\\lambda_{i}=1] ∑1≤i≤mλi=1\\sum_{1\\leq i\\leq m}\\lambda_{i}=1, we have [MATH f\\left(\\sum_{1\\leq i\\leq m}\\lambda_{i}x_{i}\\right)<\\max_{1\\leq i\\leq m}\\{f\\left(x_{i}\\right)\\}] f⁡(∑1≤i≤mλi​xi)<max1≤i≤m⁡{f⁡(xi)}f\\left(\\sum_{1\\leq i\\leq m}\\lambda_{i}x_{i}\\right)<\\max_{1\\leq i\\leq m}\\{f\\left(x_{i}\\right)\\}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p13.1",
+    "text": "For brevity, we only show the proof for Proposition B.12 as the proof for Proposition B.11 is similar (and easier). We prove by induction. The base case of [MATH m=2] m=2m=2 automatically holds by Definition B.2."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p14.1",
+    "text": "For [MATH m>2] m>2m>2, note that"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p16.1",
+    "text": "Let [MATH \\lambda_{j}^{\\prime}=\\frac{\\lambda_{j}}{\\sum_{2\\leq i\\leq m}\\lambda_{i}}] λj′=λj∑2≤i≤mλi\\lambda_{j}^{\\prime}=\\frac{\\lambda_{j}}{\\sum_{2\\leq i\\leq m}\\lambda_{i}}. Apparently, [MATH \\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}=1] ∑2≤j≤mλj′=1\\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}=1 and [MATH \\lambda_{j}^{\\prime}>0] λj′>0\\lambda_{j}^{\\prime}>0 for all [MATH 2\\leq j\\leq m] 2≤j≤m2\\leq j\\leq m. In addition, [MATH x_{3}-x_{2},\\ldots,x_{m}-x_{2}] x3−x2,…,xm−x2x_{3}-x_{2},\\ldots,x_{m}-x_{2} are linearly independent (To show this: [MATH \\sum_{2\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{1}\\right)=\\sum_{3\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{2}\\right)+\\left(\\sum_{2\\leq j\\leq m}\\beta_{j}\\right)\\left(x_{2}-x_{1}\\right)] ∑2≤j≤mβj​(xj−x1)=∑3≤j≤mβj​(xj−x2)+(∑2≤j≤mβj)​(x2−x1)\\sum_{2\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{1}\\right)=\\sum_{3\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{2}\\right)+\\left(\\sum_{2\\leq j\\leq m}\\beta_{j}\\right)\\left(x_{2}-x_{1}\\right). If [MATH x_{3}-x_{2},\\ldots,x_{m}-x_{2}] x3−x2,…,xm−x2x_{3}-x_{2},\\ldots,x_{m}-x_{2} are linearly dependent, then there exists [MATH \\beta_{3},\\ldots,\\beta_{m}] β3,…,βm\\beta_{3},\\ldots,\\beta_{m} such that [MATH \\sum_{3\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{2}\\right)=0] ∑3≤j≤mβj​(xj−x2)=0\\sum_{3\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{2}\\right)=0. Then by letting [MATH \\beta_{2}=-\\sum_{3\\leq j\\leq m}\\beta_{j}] β2=−∑3≤j≤mβj\\beta_{2}=-\\sum_{3\\leq j\\leq m}\\beta_{j}, we have [MATH \\sum_{2\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{1}\\right)=0] ∑2≤j≤mβj​(xj−x1)=0\\sum_{2\\leq j\\leq m}\\beta_{j}\\left(x_{j}-x_{1}\\right)=0 – contradiction with the hypothesis that [MATH x_{2}-x_{1},\\ldots,x_{m}-x_{1}] x2−x1,…,xm−x1x_{2}-x_{1},\\ldots,x_{m}-x_{1} are linearly independent). Therefore, by induction hypothesis, we have"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p17.1",
+    "text": "Let [MATH x^{\\prime}=\\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}x_{j}] x′=∑2≤j≤mλj′​xjx^{\\prime}=\\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}x_{j}. Since [MATH x_{2}-x_{1},\\ldots,x_{m}-x_{1}] x2−x1,…,xm−x1x_{2}-x_{1},\\ldots,x_{m}-x_{1} are linearly independent, we must have [MATH \\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}\\left(x_{j}-x_{1}\\right)\\neq 0] ∑2≤j≤mλj′​(xj−x1)≠0\\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}\\left(x_{j}-x_{1}\\right)\\neq 0. Equivalently, [MATH \\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}x_{j}=x^{\\prime}\\neq x_{1}] ∑2≤j≤mλj′​xj=x′≠x1\\sum_{2\\leq j\\leq m}\\lambda_{j}^{\\prime}x_{j}=x^{\\prime}\\neq x_{1}. Thus,"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p19.1",
+    "text": "This completes the induction process and thus concludes the proof. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem13.p1.1",
+    "text": "(Originally Theorem 2.4) Suppose [MATH C=G\\circ D] C=G∘DC=G\\circ D follows Definition 2.1. Denote [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}=\\{\\hat{\\bm{p}}\\;|\\;\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)=\\mu\\}] ℒ𝛂μ={𝐩^|L^𝛂​(𝐩^)=μ}\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}=\\{\\hat{\\bm{p}}\\;|\\;\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)=\\mu\\} and [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}=\\{\\hat{\\bm{p}}\\;|\\;\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)<\\mu\\}] ℒ𝛂<μ={𝐩^|L^𝛂​(𝐩^)<μ}\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}=\\{\\hat{\\bm{p}}\\;|\\;\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)<\\mu\\} as the level set and strict sublevel set of [MATH \\hat{L}_{\\bm{\\alpha}}] L^𝛂\\hat{L}_{\\bm{\\alpha}}. Denote [MATH \\mathcal{C}^{<\\mu}=\\{\\hat{\\bm{p}}\\;|\\;C\\left(\\hat{\\bm{p}}\\right)<\\mu\\}] 𝒞<μ={𝐩^|C⁡(𝐩^)<μ}\\mathcal{C}^{<\\mu}=\\{\\hat{\\bm{p}}\\;|\\;C\\left(\\hat{\\bm{p}}\\right)<\\mu\\} as the strict sublevel set of [MATH C] CC. For a given [MATH \\bm{\\alpha}\\neq\\frac{1}{n}\\bm{1}_{n}] 𝛂≠1n​𝟏n\\bm{\\alpha}\\neq\\frac{1}{n}\\bm{1}_{n}, the minimizer [MATH \\hat{\\bm{p}}^{*}] 𝐩^∗\\hat{\\bm{p}}^{*} satisfies:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.I3.i1.p1.1",
+    "text": "If [MATH \\Delta\\left(\\bm{\\alpha}\\right)>\\mu] Δ⁡(𝜶)>μ\\Delta\\left(\\bm{\\alpha}\\right)>\\mu, then [MATH \\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}_{n}] 𝒑^∗=1n​𝟏n\\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}_{n} and [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)=0] C⁡(𝒑^∗)=0C\\left(\\hat{\\bm{p}}^{*}\\right)=0."
+  },
+  {
+    "tag": "p",
+    "id": "A2.I3.i2.p1.1",
+    "text": "If [MATH \\Delta\\left(\\bm{\\alpha}\\right)=\\mu] Δ⁡(𝜶)=μ\\Delta\\left(\\bm{\\alpha}\\right)=\\mu, then [MATH \\hat{\\bm{p}}^{*}=\\bm{\\alpha}] 𝒑^∗=𝜶\\hat{\\bm{p}}^{*}=\\bm{\\alpha} or [MATH \\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}] 𝒑^∗=1n​𝟏\\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.I3.i3.p1.1",
+    "text": "If [MATH \\Delta\\left(\\bm{\\alpha}\\right)<\\mu] Δ⁡(𝜶)<μ\\Delta\\left(\\bm{\\alpha}\\right)<\\mu, then [MATH \\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu^{\\prime}}] 𝒑^∗∈ℒ𝜶<μ−𝒞<μ′\\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu^{\\prime}} where [MATH \\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)\\leq C\\left(\\hat{\\bm{p}}^{*}\\right)\\leq G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right)] μ′=C⁡(𝜶)≤C⁡(𝒑^∗)≤G⁡(max𝒑^∈ℒ𝜶μ⁡D⁡(𝒑^))\\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)\\leq C\\left(\\hat{\\bm{p}}^{*}\\right)\\leq G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right). Further, there exists [MATH C] CC such that [MATH \\hat{\\bm{p}}^{*}=\\bm{\\alpha}] 𝒑^∗=𝜶\\hat{\\bm{p}}^{*}=\\bm{\\alpha}, or [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} is sufficiently close to the level set [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] ℒ𝜶μ\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.p20.1",
+    "text": "We separately consider the three cases listed by Theorem 2.4."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px1.p1.1",
+    "text": "By Proposition 2.3, we have [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\geq\\min_{\\hat{\\bm{p}}}\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right)-\\mu=\\Delta\\left(\\bm{\\alpha}\\right)-\\mu>0] L^𝜶​(𝒑^)−μ≥min𝒑^⁡(L^𝜶​(𝒑^)−μ)=L^𝜶​(𝜶)−μ=Δ⁡(𝜶)−μ>0\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\geq\\min_{\\hat{\\bm{p}}}\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right)-\\mu=\\Delta\\left(\\bm{\\alpha}\\right)-\\mu>0 for all [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}}. By Definition 2.1, we have [MATH C\\left(\\hat{\\bm{p}}\\right)\\geq 0] C⁡(𝒑^)≥0C\\left(\\hat{\\bm{p}}\\right)\\geq 0 for all [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}}. We can thus derive the following bound: [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=\\min_{\\hat{\\bm{p}}}\\left(C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)\\right)\\geq 0] C⁡(𝒑^∗)⋅(L^𝜶​(𝒑^∗)−μ)=min𝒑^⁡(C⁡(𝒑^)⋅(L^𝜶​(𝒑^)−μ))≥0C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=\\min_{\\hat{\\bm{p}}}\\left(C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)\\right)\\geq 0. Further, since [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu>0] L^𝜶​(𝒑^)−μ>0\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu>0 for all [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}}, the lower bound [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=0] C⁡(𝒑^∗)⋅(L^𝜶​(𝒑^∗)−μ)=0C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=0 is achieved if and only if [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)=0] C⁡(𝒑^∗)=0C\\left(\\hat{\\bm{p}}^{*}\\right)=0. By Definition 2.1, the minimizer [MATH \\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}_{n}] 𝒑^∗=1n​𝟏n\\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}_{n}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px2.p1.1",
+    "text": "The reasoning is similar to Case 1. We can derive [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)\\geq 0] C⁡(𝒑^∗)⋅(L^𝜶​(𝒑^∗)−μ)≥0C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)\\geq 0. Now to achieve the lower bound [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=0] C⁡(𝒑^∗)⋅(L^𝜶​(𝒑^∗)−μ)=0C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=0, we either need [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)=0] C⁡(𝒑^∗)=0C\\left(\\hat{\\bm{p}}^{*}\\right)=0 or [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu=0] L^𝜶​(𝒑^∗)−μ=0\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu=0, which means either [MATH \\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}_{n}] 𝒑^∗=1n​𝟏n\\hat{\\bm{p}}^{*}=\\frac{1}{n}\\bm{1}_{n} or [MATH \\hat{\\bm{p}}^{*}=\\bm{\\alpha}] 𝒑^∗=𝜶\\hat{\\bm{p}}^{*}=\\bm{\\alpha}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px3.p1.1",
+    "text": "First, observe that [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=\\min_{\\hat{\\bm{p}}}\\left(C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)\\right)\\stackrel{{\\scriptstyle\\hat{\\bm{p}}=\\bm{\\alpha}}}{{\\leq}}C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right)-\\mu\\right)=C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)<0] C⁡(𝒑^∗)⋅(L^𝜶​(𝒑^∗)−μ)=min𝒑^⁡(C⁡(𝒑^)⋅(L^𝜶​(𝒑^)−μ))≤𝒑^=𝜶C⁡(𝜶)⋅(L^𝜶​(𝜶)−μ)=C⁡(𝜶)⋅(Δ⁡(𝜶)−μ)<0C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)=\\min_{\\hat{\\bm{p}}}\\left(C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)\\right)\\stackrel{{\\scriptstyle\\hat{\\bm{p}}=\\bm{\\alpha}}}{{\\leq}}C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\bm{\\alpha}\\right)-\\mu\\right)=C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)<0 (note that we assume [MATH \\bm{\\alpha}\\neq\\frac{1}{n}\\bm{1}_{n}] 𝜶≠1n​𝟏n\\bm{\\alpha}\\neq\\frac{1}{n}\\bm{1}_{n}). Since [MATH C\\left(\\hat{\\bm{p}}\\right)\\geq 0] C⁡(𝒑^)≥0C\\left(\\hat{\\bm{p}}\\right)\\geq 0 for all [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}}, this implies that"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px3.p3.1",
+    "text": "By inequality 19, we have [MATH \\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}] 𝒑^∗∈ℒ𝜶<μ\\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px3.p4.1",
+    "text": "We can further constrain [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} such that [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)\\geq C\\left(\\bm{\\alpha}\\right)] C⁡(𝒑^∗)≥C⁡(𝜶)C\\left(\\hat{\\bm{p}}^{*}\\right)\\geq C\\left(\\bm{\\alpha}\\right): Suppose otherwise that [MATH 0\\leq C\\left(\\hat{\\bm{p}}^{*}\\right)<C\\left(\\bm{\\alpha}\\right)] 0≤C⁡(𝒑^∗)<C⁡(𝜶)0\\leq C\\left(\\hat{\\bm{p}}^{*}\\right)<C\\left(\\bm{\\alpha}\\right). By Proposition 2.3, we have [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\geq\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\quad\\Rightarrow\\quad-\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)\\leq-\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)] L^𝜶​(𝒑^∗)−μ≥Δ⁡(𝜶)−μ⇒−(L^𝜶​(𝒑^∗)−μ)≤−(Δ⁡(𝜶)−μ)\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\geq\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\quad\\Rightarrow\\quad-\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)\\leq-\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right). Combining the two inequalities together, we have [MATH -C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)<-C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)\\quad\\Rightarrow\\quad C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)>C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)] −C(𝒑^∗)⋅(L^𝜶(𝒑^∗)−μ)<−C(𝜶)⋅(Δ(𝜶)−μ)⇒C(𝒑^∗)⋅(L^𝜶(𝒑^∗)−μ)>C(𝜶)⋅(Δ(𝜶)−μ)-C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)<-C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)\\quad\\Rightarrow\\quad C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)>C\\left(\\bm{\\alpha}\\right)\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right). This means that [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} is not a minimizer – a contradiction. In other words, we must have [MATH \\hat{\\bm{p}}^{*}\\not\\in\\mathcal{C}^{<\\mu^{\\prime}}] 𝒑^∗∉𝒞<μ′\\hat{\\bm{p}}^{*}\\not\\in\\mathcal{C}^{<\\mu^{\\prime}} where [MATH \\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)] μ′=C⁡(𝜶)\\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px3.p5.1",
+    "text": "So far, we have proven [MATH \\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu^{\\prime}}] 𝒑^∗∈ℒ𝜶<μ−𝒞<μ′\\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu^{\\prime}} where [MATH \\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)\\leq C\\left(\\hat{\\bm{p}}^{*}\\right)] μ′=C⁡(𝜶)≤C⁡(𝒑^∗)\\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)\\leq C\\left(\\hat{\\bm{p}}^{*}\\right). Next, we further upper-bound the range of the confidence corresponding to [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*}. Note that"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px3.p7.1",
+    "text": "For “ [MATH \\stackrel{{\\scriptstyle(a)}}{{\\leq}}] ≤(a)\\stackrel{{\\scriptstyle(a)}}{{\\leq}}” above, the reason is that [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu^{\\prime}}\\subseteq\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶<μ−𝒞<μ′⊆ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu^{\\prime}}\\subseteq\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}. For “ [MATH \\stackrel{{\\scriptstyle(b)}}{{=}}] =(b)\\stackrel{{\\scriptstyle(b)}}{{=}}”, let’s first consider [MATH \\sup_{\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)] supℒ𝜶≤μD⁡(𝒑^)\\sup_{\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right). By Proposition B.7, [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} is compact. By Definition 2.1, [MATH D] DD is continuous. So by the extreme value theorem (Murphy, 2008), [MATH D] DD attains its maximum value. i.e., there exists [MATH \\hat{\\bm{p}}^{\\prime}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^′∈ℒ𝜶≤μ\\hat{\\bm{p}}^{\\prime}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} such that [MATH D\\left(\\hat{\\bm{p}}^{\\prime}\\right)=\\sup_{\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)=\\max_{\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)] D⁡(𝒑^′)=supℒ𝜶≤μD⁡(𝒑^)=maxℒ𝜶≤μ⁡D⁡(𝒑^)D\\left(\\hat{\\bm{p}}^{\\prime}\\right)=\\sup_{\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)=\\max_{\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right). In other words, [MATH D\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\geq D\\left(\\hat{\\bm{p}}\\right)] D⁡(𝒑^′)≥D⁡(𝒑^)D\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\geq D\\left(\\hat{\\bm{p}}\\right) for all [MATH \\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^∈ℒ𝜶≤μ\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}. Now since [MATH G] GG is monotonically non-decreasing (Definition 2.1), we have [MATH G\\left(D\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\right)\\geq G\\left(D\\left(\\hat{\\bm{p}}\\right)\\right)] G⁡(D⁡(𝒑^′))≥G⁡(D⁡(𝒑^))G\\left(D\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\right)\\geq G\\left(D\\left(\\hat{\\bm{p}}\\right)\\right) for all [MATH \\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^∈ℒ𝜶≤μ\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}. This means [MATH C=G\\circ D] C=G∘DC=G\\circ D attains its maximum at [MATH \\hat{\\bm{p}}^{\\prime}] 𝒑^′\\hat{\\bm{p}}^{\\prime} and [MATH \\sup_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}C\\left(\\hat{\\bm{p}}\\right)=\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}C\\left(\\hat{\\bm{p}}\\right)=G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right)] sup𝒑^∈ℒ𝜶≤μC⁡(𝒑^)=max𝒑^∈ℒ𝜶≤μ⁡C⁡(𝒑^)=G⁡(max𝒑^∈ℒ𝜶≤μ⁡D⁡(𝒑^))\\sup_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}C\\left(\\hat{\\bm{p}}\\right)=\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}C\\left(\\hat{\\bm{p}}\\right)=G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right). Finally, for “ [MATH \\stackrel{{\\scriptstyle(c)}}{{=}}] =(c)\\stackrel{{\\scriptstyle(c)}}{{=}}”, we need to show [MATH \\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)=\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)] max𝒑^∈ℒ𝜶≤μ⁡D⁡(𝒑^)=max𝒑^∈ℒ𝜶μ⁡D⁡(𝒑^)\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)=\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right). By Proposition B.7, B.8 and B.9, [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] ℒ𝜶≤μ\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu} is the convex hull of [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] ℒ𝜶μ\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}. So by Proposition B.10, for any point [MATH \\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}] 𝒑^0∈ℒ𝜶≤μ\\hat{\\bm{p}}_{0}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}, we can find [MATH \\hat{\\bm{p}}_{1},\\ldots,\\hat{\\bm{p}}_{m}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] 𝒑^1,…,𝒑^m∈ℒ𝜶μ\\hat{\\bm{p}}_{1},\\ldots,\\hat{\\bm{p}}_{m}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu} (with [MATH m\\leq n+1] m≤n+1m\\leq n+1), such that [MATH \\hat{\\bm{p}}_{0}=\\sum_{1\\leq i\\leq m}\\lambda_{i}\\hat{\\bm{p}}_{i}] 𝒑^0=∑1≤i≤mλi​𝒑^i\\hat{\\bm{p}}_{0}=\\sum_{1\\leq i\\leq m}\\lambda_{i}\\hat{\\bm{p}}_{i} (with [MATH \\sum_{1\\leq i\\leq m}\\lambda_{i}=1] ∑1≤i≤mλi=1\\sum_{1\\leq i\\leq m}\\lambda_{i}=1 and [MATH \\lambda_{i}\\geq 0] λi≥0\\lambda_{i}\\geq 0 for [MATH i=1,\\ldots,m] i=1,…,mi=1,\\ldots,m). By Proposition B.11, we have [MATH D\\left(\\hat{\\bm{p}}_{0}\\right)\\leq\\max_{1\\leq i\\leq m}\\{D\\left(\\hat{\\bm{p}}_{i}\\right)\\}\\leq\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)] D⁡(𝒑^0)≤max1≤i≤m⁡{D⁡(𝒑^i)}≤max𝒑^∈ℒ𝜶μ⁡D⁡(𝒑^)D\\left(\\hat{\\bm{p}}_{0}\\right)\\leq\\max_{1\\leq i\\leq m}\\{D\\left(\\hat{\\bm{p}}_{i}\\right)\\}\\leq\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right). Thus, [MATH \\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)=\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)] max𝒑^∈ℒ𝜶≤μ⁡D⁡(𝒑^)=max𝒑^∈ℒ𝜶μ⁡D⁡(𝒑^)\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu}}D\\left(\\hat{\\bm{p}}\\right)=\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right). This completes the proof for Equation 20. Thus, we have proven the bound on both the minimizer [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} and its corresponding [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)] C⁡(𝒑^∗)C\\left(\\hat{\\bm{p}}^{*}\\right)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p1.1",
+    "text": "From the above proof, we know that when [MATH \\Delta\\left(\\bm{\\alpha}\\right)<\\mu] Δ⁡(𝜶)<μ\\Delta\\left(\\bm{\\alpha}\\right)<\\mu, the possible positions that the minimizer [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} can take are determined by the two level sets [MATH \\mathcal{C}^{<\\mu^{\\prime}}] 𝒞<μ′\\mathcal{C}^{<\\mu^{\\prime}} ( [MATH \\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)] μ′=C⁡(𝜶)\\mu^{\\prime}=C\\left(\\bm{\\alpha}\\right)) and [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}] ℒ𝜶<μ\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}. We now show that the bound on [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} is tight since [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} can be close to the two level sets under appropriate [MATH C=G\\circ D] C=G∘DC=G\\circ D function. Note that all our proof is based on [MATH C] CC defined by 2.1, meaning that [MATH C] CC does not need to be continuous."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p2.1",
+    "text": "First, we construct a [MATH C] CC such that [MATH \\hat{\\bm{p}}^{*}=\\bm{\\alpha}] 𝒑^∗=𝜶\\hat{\\bm{p}}^{*}=\\bm{\\alpha}. Such a [MATH C] CC can be defined by a simple [MATH G] GG for any [MATH D] DD:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p4.1",
+    "text": "Since [MATH \\bm{\\alpha}\\neq\\frac{1}{n}\\bm{1}_{n}] 𝜶≠1n​𝟏n\\bm{\\alpha}\\neq\\frac{1}{n}\\bm{1}_{n}, we have [MATH D\\left(\\bm{\\alpha}\\right)>0] D⁡(𝜶)>0D\\left(\\bm{\\alpha}\\right)>0 and thus [MATH C\\left(\\bm{\\alpha}\\right)=G\\left(D\\left(\\bm{\\alpha}\\right)\\right)=1] C⁡(𝜶)=G⁡(D⁡(𝜶))=1C\\left(\\bm{\\alpha}\\right)=G\\left(D\\left(\\bm{\\alpha}\\right)\\right)=1. By conditions 18, 19, we have [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)\\geq\\max C\\left(\\hat{\\bm{p}}\\right)\\cdot\\min\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=1\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)=\\Delta\\left(\\bm{\\alpha}\\right)-\\mu] C⁡(𝒑^∗)⋅(L^𝜶​(𝒑^∗)−μ)≥max⁡C⁡(𝒑^)⋅min⁡(L^𝜶​(𝒑^)−μ)=1⋅(Δ⁡(𝜶)−μ)=Δ⁡(𝜶)−μC\\left(\\hat{\\bm{p}}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)-\\mu\\right)\\geq\\max C\\left(\\hat{\\bm{p}}\\right)\\cdot\\min\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=1\\cdot\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)=\\Delta\\left(\\bm{\\alpha}\\right)-\\mu. In addition, since the problem [MATH \\min\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)] min⁡(L^𝜶​(𝒑^)−μ)\\min\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right) has a unique minimizer at [MATH \\bm{\\alpha}] 𝜶\\bm{\\alpha} (Proposition 2.3), and [MATH C\\left(\\bm{\\alpha}\\right)=\\max C\\left(\\hat{\\bm{p}}\\right)=1] C⁡(𝜶)=max⁡C⁡(𝒑^)=1C\\left(\\bm{\\alpha}\\right)=\\max C\\left(\\hat{\\bm{p}}\\right)=1, we know that under [MATH C] CC defined by Equation 21, we have a unique minimizer [MATH \\hat{\\bm{p}}^{*}=\\bm{\\alpha}] 𝒑^∗=𝜶\\hat{\\bm{p}}^{*}=\\bm{\\alpha} for the overall optimization problem 11."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p5.1",
+    "text": "Next, we construct a [MATH C] CC such that [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} is close to [MATH \\hat{L}_{\\bm{\\alpha}}^{\\mu}] L^𝜶μ\\hat{L}_{\\bm{\\alpha}}^{\\mu}. We first define the distance between a point [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}} and the level set [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] ℒ𝜶μ\\mathcal{L}_{\\bm{\\alpha}}^{\\mu} as:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p7.1",
+    "text": "Thus, we want to show that there exists a [MATH C] CC, such that [MATH {\\text{dist}\\left(\\hat{\\bm{p}}^{*},\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}\\right)}<\\epsilon] dist​(𝒑^∗,ℒ𝜶μ)<ϵ{\\text{dist}\\left(\\hat{\\bm{p}}^{*},\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}\\right)}<\\epsilon for any [MATH \\epsilon>0] ϵ>0\\epsilon>0."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p8.1",
+    "text": "Consider another sub-level set [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta}] ℒ𝜶≤μ−η\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta} for some [MATH \\eta>0] η>0\\eta>0 (we also let [MATH \\eta] η\\eta to be small enough so that [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta}] ℒ𝜶≤μ−η\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta} is non-empty). We have shown before (by combining Propositions B.7, B.8, B.9 and B.10) that any point [MATH \\hat{\\bm{p}}^{\\prime}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}] 𝒑^′∈ℒ𝜶<μ−η\\hat{\\bm{p}}^{\\prime}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta} can be expressed as a convex combination of [MATH \\hat{\\bm{p}}_{1},\\ldots,\\hat{\\bm{p}}_{m}] 𝒑^1,…,𝒑^m\\hat{\\bm{p}}_{1},\\ldots,\\hat{\\bm{p}}_{m}, where [MATH m\\leq n+1] m≤n+1m\\leq n+1, [MATH \\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta}] 𝒑^i∈ℒ𝜶μ−η\\hat{\\bm{p}}_{i}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta} and [MATH \\hat{\\bm{p}}_{2}-\\hat{\\bm{p}}_{1},\\ldots,\\hat{\\bm{p}}_{m}-\\hat{\\bm{p}}_{1}] 𝒑^2−𝒑^1,…,𝒑^m−𝒑^1\\hat{\\bm{p}}_{2}-\\hat{\\bm{p}}_{1},\\ldots,\\hat{\\bm{p}}_{m}-\\hat{\\bm{p}}_{1} are linearly independent. Since [MATH \\hat{\\bm{p}}^{\\prime}] 𝒑^′\\hat{\\bm{p}}^{\\prime} is in the strict sub-level set and [MATH \\hat{\\bm{p}}_{i}] 𝒑^i\\hat{\\bm{p}}_{i} are in the sub-level set, we have [MATH \\hat{\\bm{p}}^{\\prime}\\neq\\hat{\\bm{p}}_{i}] 𝒑^′≠𝒑^i\\hat{\\bm{p}}^{\\prime}\\neq\\hat{\\bm{p}}_{i}, and thus we can write [MATH \\hat{\\bm{p}}^{\\prime}=\\sum_{1\\leq i\\leq m}\\lambda_{i}\\hat{\\bm{p}}_{i}] 𝒑^′=∑1≤i≤mλi​𝒑^i\\hat{\\bm{p}}^{\\prime}=\\sum_{1\\leq i\\leq m}\\lambda_{i}\\hat{\\bm{p}}_{i} where [MATH \\lambda_{i}>0] λi>0\\lambda_{i}>0 and [MATH \\sum_{1\\leq i\\leq m}\\lambda_{i}=1] ∑1≤i≤mλi=1\\sum_{1\\leq i\\leq m}\\lambda_{i}=1."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p9.1",
+    "text": "Suppose [MATH D] DD is strictly quasiconvex. We can now apply Proposition B.12, such that"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p10.1",
+    "text": "The strict “ [MATH <] <<” means that [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}] ℒ𝜶<μ−η\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta} cannot contain any maximizer of the optimization problem “ [MATH \\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta}}D\\left(\\hat{\\bm{p}}\\right)] max𝒑^∈ℒ𝜶≤μ−η⁡D⁡(𝒑^)\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta}}D\\left(\\hat{\\bm{p}}\\right)” (note that previously, we have only shown [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta}] ℒ𝜶μ−η\\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta} contains the maximizer, but it is also possible for [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}] ℒ𝜶<μ−η\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta} to contain the maximizer if [MATH D] DD is not strictly quasiconvex). Now, define [MATH D_{\\text{max}}\\coloneqq\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta}}D\\left(\\hat{\\bm{p}}\\right)>0] Dmax≔max𝒑^∈ℒ𝜶≤μ−η⁡D⁡(𝒑^)>0D_{\\text{max}}\\coloneqq\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\leq\\mu-\\eta}}D\\left(\\hat{\\bm{p}}\\right)>0 and the corresponding maximizer (or one of the maximizers) as [MATH \\hat{\\bm{p}}^{*}_{\\eta}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta}] 𝒑^η∗∈ℒ𝜶μ−η\\hat{\\bm{p}}^{*}_{\\eta}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta}. For all [MATH \\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}] 𝒑^∈ℒ𝜶<μ−η\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}, we have [MATH D\\left(\\hat{\\bm{p}}\\right)<D_{\\text{max}}] D⁡(𝒑^)<DmaxD\\left(\\hat{\\bm{p}}\\right)<D_{\\text{max}}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p11.1",
+    "text": "Consider a [MATH G] GG function defined as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p13.1",
+    "text": "By definition, [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)=\\mu-\\eta>0] L^𝜶​(𝒑^η∗)=μ−η>0\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)=\\mu-\\eta>0. Also, [MATH C\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)=G\\left(D\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)\\right)=1] C⁡(𝒑^η∗)=G⁡(D⁡(𝒑^η∗))=1C\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)=G\\left(D\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)\\right)=1. So [MATH C\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)-\\mu\\right)=-\\eta] C⁡(𝒑^η∗)⋅(L^𝜶​(𝒑^η∗)−μ)=−ηC\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}_{\\eta}^{*}\\right)-\\mu\\right)=-\\eta. For any point [MATH \\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}] 𝒑^∈ℒ𝜶<μ−η\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}, we have [MATH C\\left(\\hat{\\bm{p}}\\right)=G\\left(D\\left(\\hat{\\bm{p}}\\right)\\right)=\\beta] C⁡(𝒑^)=G⁡(D⁡(𝒑^))=βC\\left(\\hat{\\bm{p}}\\right)=G\\left(D\\left(\\hat{\\bm{p}}\\right)\\right)=\\beta. So [MATH \\min_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}}C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=\\beta\\min_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}}\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=\\beta\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right)] min𝒑^∈ℒ𝜶<μ−η⁡C⁡(𝒑^)⋅(L^𝜶​(𝒑^)−μ)=β​min𝒑^∈ℒ𝜶<μ−η⁡(L^𝜶​(𝒑^)−μ)=β⁡(Δ⁡(𝜶)−μ)\\min_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}}C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=\\beta\\min_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}}\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)=\\beta\\left(\\Delta\\left(\\bm{\\alpha}\\right)-\\mu\\right). Therefore, as long as [MATH 0<\\beta<\\frac{\\eta}{\\mu-\\Delta\\left(\\bm{\\alpha}\\right)}] 0<β<ημ−Δ⁡(𝜶)0<\\beta<\\frac{\\eta}{\\mu-\\Delta\\left(\\bm{\\alpha}\\right)}, the minimizer [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} of the original optimization problem 11 must satisfy [MATH \\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}] 𝒑^∗∈ℒ𝜶<μ−ℒ𝜶<μ−η\\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta} (or more precisely, [MATH \\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}-\\mathcal{C}^{<\\mu^{\\prime}}] 𝒑^∗∈ℒ𝜶<μ−ℒ𝜶<μ−η−𝒞<μ′\\hat{\\bm{p}}^{*}\\in\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu-\\eta}-\\mathcal{C}^{<\\mu^{\\prime}})."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p14.1",
+    "text": "Now the last issue is to determine the relationship between [MATH \\eta] η\\eta and [MATH \\epsilon] ϵ\\epsilon. We know that [MATH \\mu-\\eta\\leq\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)<\\mu] μ−η≤L^𝜶​(𝒑^∗)<μ\\mu-\\eta\\leq\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)<\\mu. We utilize the idea of path integral. We first note that the domain of [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)] L^𝜶​(𝒑^)\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right) is the [MATH \\left(n-1\\right)] (n−1)\\left(n-1\\right)-simplex, which lies within a hyperplane of [MATH \\mathbb{R}^{n}] ℝn\\mathbb{R}^{n}. It is easy to show that the normal vector of such a hyperplane is parallel to [MATH \\bm{1}] 𝟏\\bm{1}. For a point [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}}, denote [MATH \\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)] 𝝅⁡(𝒑^)\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right) as the vector by projecting the gradient [MATH \\nabla\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)] ∇L^𝜶​(𝒑^)\\nabla\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right) onto the hyperplane. With some basic calculation, we derive that"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p16.1",
+    "text": "The linear system of equations [MATH \\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)=\\bm{0}] 𝝅⁡(𝒑^)=𝟎\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)=\\bm{0} has unique solution of [MATH \\hat{\\bm{p}}=\\bm{\\alpha}] 𝒑^=𝜶\\hat{\\bm{p}}=\\bm{\\alpha}, since the coefficient matrix in Equation 26 has full rank. In other words, [MATH \\|\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)\\|>0] ‖𝝅⁡(𝒑^)‖>0\\|\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)\\|>0 for all [MATH \\hat{\\bm{p}}\\neq\\bm{\\alpha}] 𝒑^≠𝜶\\hat{\\bm{p}}\\neq\\bm{\\alpha}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p17.1",
+    "text": "Imagine we start from [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} and traverse a path [MATH P] PP in the hyperplane. Suppose that the path always follows the direction of [MATH \\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)] 𝝅⁡(𝒑^)\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right) for all [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}} on the [MATH P] PP. If the total length of [MATH P] PP is less than [MATH \\|\\hat{\\bm{p}}^{*}-\\bm{\\alpha}\\|] ‖𝒑^∗−𝜶‖\\|\\hat{\\bm{p}}^{*}-\\bm{\\alpha}\\|, then regardless of what path [MATH P] PP looks like, it always holds that [MATH \\|\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)\\|>0] ‖𝝅⁡(𝒑^)‖>0\\|\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)\\|>0 for all [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}} on [MATH P] PP. Define [MATH d_{\\text{min}}\\coloneqq\\min_{\\hat{\\bm{p}}\\text{ on path }P}\\|\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)\\|>0] dmin≔min𝒑^​ on path ​P⁡‖𝝅⁡(𝒑^)‖>0d_{\\text{min}}\\coloneqq\\min_{\\hat{\\bm{p}}\\text{ on path }P}\\|\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)\\|>0."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p18.1",
+    "text": "Now consider the path integral along [MATH P] PP. The start point of [MATH P] PP is [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*}. Denote [MATH P] PP’s end point at [MATH \\hat{\\bm{p}}^{\\prime}] 𝒑^′\\hat{\\bm{p}}^{\\prime}"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p20.1",
+    "text": "where “(a)” is due to that [MATH \\nabla\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)] ∇L^𝜶​(𝒑^)−𝝅⁡(𝒑^)\\nabla\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right) is a vector perpendicular to the hyperplane (and thus to [MATH d\\hat{\\bm{p}}] d​𝒑^d\\hat{\\bm{p}}). “(b)” is due to that [MATH \\nabla\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)] ∇L^𝜶​(𝒑^)\\nabla\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right) defines a gradient field, and the path integral can be computed by the end points and is path independent (gradient theorem)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p21.1",
+    "text": "In addition, note that"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p23.1",
+    "text": "where “(c)” is due to that we always traverse the path along the direction of [MATH \\bm{\\pi}\\left(\\hat{\\bm{p}}\\right)] 𝝅⁡(𝒑^)\\bm{\\pi}\\left(\\hat{\\bm{p}}\\right); [MATH {\\text{len}\\left(P\\right)}] len​(P){\\text{len}\\left(P\\right)} denotes the total length of the path [MATH P] PP."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p24.1",
+    "text": "Combining 27 and 28, we have [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\geq d_{\\text{min}}\\cdot{\\text{len}\\left(P\\right)}+\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right)] L^𝜶​(𝒑^′)≥dmin⋅len​(P)+L^𝜶​(𝒑^∗)\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\geq d_{\\text{min}}\\cdot{\\text{len}\\left(P\\right)}+\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{*}\\right). This means, if we start from a point [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*} at level set [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta}] ℒ𝜶μ−η\\mathcal{L}_{\\bm{\\alpha}}^{\\mu-\\eta} and traverse a path with length at most [MATH \\frac{\\eta}{d_{\\text{min}}}] ηdmin\\frac{\\eta}{d_{\\text{min}}}, we will arrive at a point [MATH \\hat{\\bm{p}}^{\\prime}] 𝒑^′\\hat{\\bm{p}}^{\\prime} at the level set [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}] ℒ𝜶μ\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}. We can further derive the following bound:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p26.1",
+    "text": "In summary, for any budget [MATH \\epsilon>0] ϵ>0\\epsilon>0, we can construct a [MATH C] CC according to Equation 24 by choosing parameters such that [MATH 0<\\eta\\leq d_{\\text{min}}\\cdot\\epsilon] 0<η≤dmin⋅ϵ0<\\eta\\leq d_{\\text{min}}\\cdot\\epsilon and [MATH 0<\\beta<\\frac{\\eta}{\\mu-\\Delta\\left(\\bm{\\alpha}\\right)}] 0<β<ημ−Δ⁡(𝜶)0<\\beta<\\frac{\\eta}{\\mu-\\Delta\\left(\\bm{\\alpha}\\right)}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p27.1",
+    "text": "∎"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem13.Thmcorollary1.p1.1",
+    "text": "(Originally Corollary 2.4.1) For binary classification ( [MATH n=2] n=2n=2), w.l.o.g, assume [MATH \\alpha_{1}\\in[0.5,1)] α1∈[0.5,1)\\alpha_{1}\\in[0.5,1). Define [MATH \\hat{L}_{+}\\left(p\\right)=\\hat{L}_{\\bm{\\alpha}}\\left([p,1-p]^{\\mathsf{T}}\\right)] L^+​(p)=L^𝛂​([p,1−p]𝖳)\\hat{L}_{+}\\left(p\\right)=\\hat{L}_{\\bm{\\alpha}}\\left([p,1-p]^{\\mathsf{T}}\\right) for [MATH p\\in[\\alpha_{1},1)] p∈[α1,1)p\\in[\\alpha_{1},1). For strictly quasiconvex [MATH D] DD and monotonically increasing [MATH G] GG, [MATH \\hat{p}_{1}^{*}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right)] p^1∗∈[α1,L^+−1​(μ))\\hat{p}_{1}^{*}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right) and [MATH C\\left(\\bm{\\alpha}\\right)\\leq C\\left(\\hat{\\bm{p}}^{*}\\right)<C\\left(\\left[\\hat{L}_{+}^{-1}\\left(\\mu\\right),1-\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}}\\right)] C⁡(𝛂)≤C⁡(𝐩^∗)<C⁡([L^+−1​(μ),1−L^+−1​(μ)]𝖳)C\\left(\\bm{\\alpha}\\right)\\leq C\\left(\\hat{\\bm{p}}^{*}\\right)<C\\left(\\left[\\hat{L}_{+}^{-1}\\left(\\mu\\right),1-\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}}\\right) when [MATH \\Delta\\left(\\bm{\\alpha}\\right)<\\mu] Δ⁡(𝛂)<μ\\Delta\\left(\\bm{\\alpha}\\right)<\\mu."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p28.1",
+    "text": "Proof of Corollary 2.4.1"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p29.1",
+    "text": "For binary classification, we have [MATH \\hat{\\bm{p}}=[\\hat{p}_{1},\\hat{p}_{2}]^{\\mathsf{T}}=[\\hat{p}_{1},1-\\hat{p}_{1}]^{\\mathsf{T}}] 𝒑^=[p^1,p^2]𝖳=[p^1,1−p^1]𝖳\\hat{\\bm{p}}=[\\hat{p}_{1},\\hat{p}_{2}]^{\\mathsf{T}}=[\\hat{p}_{1},1-\\hat{p}_{1}]^{\\mathsf{T}}. So:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p31.1",
+    "text": "Let [MATH \\hat{L}_{\\pm}\\left(\\hat{p}\\right)=-\\alpha_{1}\\cdot\\log\\hat{p}-\\left(1-\\alpha\\right)\\cdot\\log\\left(1-\\hat{p}\\right)] L^±(p^)=−α1⋅logp^−(1−α)⋅log(1−p^)\\hat{L}_{\\pm}\\left(\\hat{p}\\right)=-\\alpha_{1}\\cdot\\log\\hat{p}-\\left(1-\\alpha\\right)\\cdot\\log\\left(1-\\hat{p}\\right). Define [MATH \\hat{L}_{+}\\left(\\hat{p}\\right)=\\hat{L}_{\\pm}\\left(\\hat{p}\\right)] L^+​(p^)=L^±​(p^)\\hat{L}_{+}\\left(\\hat{p}\\right)=\\hat{L}_{\\pm}\\left(\\hat{p}\\right) where [MATH \\hat{p}\\in[\\alpha_{1},1)] p^∈[α1,1)\\hat{p}\\in[\\alpha_{1},1) and [MATH \\hat{L}_{-}\\left(\\hat{p}\\right)=\\hat{L}_{\\pm}\\left(\\hat{p}\\right)] L^−​(p^)=L^±​(p^)\\hat{L}_{-}\\left(\\hat{p}\\right)=\\hat{L}_{\\pm}\\left(\\hat{p}\\right) where [MATH \\hat{p}\\in(0,\\alpha_{1}]] p^∈(0,α1]\\hat{p}\\in(0,\\alpha_{1}]. It is easy to verify that [MATH \\hat{L}_{+}] L^+\\hat{L}_{+} monotonically increases and [MATH \\hat{L}_{-}] L^−\\hat{L}_{-} monotonically decreases. In addition, [MATH \\hat{L}_{+}\\left(\\alpha_{1}\\right)=\\hat{L}_{-}\\left(\\alpha_{1}\\right)=\\Delta\\left([\\alpha_{1},1-\\alpha_{1}]^{\\mathsf{T}}\\right)=\\Delta\\left(\\bm{\\alpha}\\right)] L^+​(α1)=L^−​(α1)=Δ⁡([α1,1−α1]𝖳)=Δ⁡(𝜶)\\hat{L}_{+}\\left(\\alpha_{1}\\right)=\\hat{L}_{-}\\left(\\alpha_{1}\\right)=\\Delta\\left([\\alpha_{1},1-\\alpha_{1}]^{\\mathsf{T}}\\right)=\\Delta\\left(\\bm{\\alpha}\\right)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p32.1",
+    "text": "When [MATH \\Delta\\left(\\bm{\\alpha}\\right)<\\mu] Δ⁡(𝜶)<μ\\Delta\\left(\\bm{\\alpha}\\right)<\\mu, then [MATH \\hat{L}_{+}\\left(\\hat{p}\\right)<\\mu] L^+​(p^)<μ\\hat{L}_{+}\\left(\\hat{p}\\right)<\\mu if and only if [MATH \\hat{p}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right)] p^∈[α1,L^+−1​(μ))\\hat{p}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right), and [MATH \\hat{L}_{-}\\left(\\hat{p}\\right)<\\mu] L^−​(p^)<μ\\hat{L}_{-}\\left(\\hat{p}\\right)<\\mu if and only if [MATH \\hat{p}\\in\\left(\\hat{L}_{-}^{-1}\\left(\\mu\\right),\\alpha_{1}\\right]] p^∈(L^−−1​(μ),α1]\\hat{p}\\in\\left(\\hat{L}_{-}^{-1}\\left(\\mu\\right),\\alpha_{1}\\right]. Thus, let [MATH \\hat{\\bm{p}}_{-}=\\left[\\hat{L}_{-}^{-1}\\left(\\mu\\right),1-\\hat{L}_{-}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}}] 𝒑^−=[L^−−1​(μ),1−L^−−1​(μ)]𝖳\\hat{\\bm{p}}_{-}=\\left[\\hat{L}_{-}^{-1}\\left(\\mu\\right),1-\\hat{L}_{-}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}} and [MATH \\hat{\\bm{p}}_{+}=\\left[\\hat{L}_{+}^{-1}\\left(\\mu\\right),1-\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}}] 𝒑^+=[L^+−1​(μ),1−L^+−1​(μ)]𝖳\\hat{\\bm{p}}_{+}=\\left[\\hat{L}_{+}^{-1}\\left(\\mu\\right),1-\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}}. Then [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}=\\{\\hat{\\bm{p}}_{-},\\hat{\\bm{p}}_{+}\\}] ℒ𝜶μ={𝒑^−,𝒑^+}\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}=\\{\\hat{\\bm{p}}_{-},\\hat{\\bm{p}}_{+}\\} and [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}] ℒ𝜶<μ\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu} consists of the open line segment connecting [MATH \\hat{\\bm{p}}_{-}] 𝒑^−\\hat{\\bm{p}}_{-} and [MATH \\hat{\\bm{p}}_{+}] 𝒑^+\\hat{\\bm{p}}_{+} (not including the two end points [MATH \\hat{\\bm{p}}_{-}] 𝒑^−\\hat{\\bm{p}}_{-} and [MATH \\hat{\\bm{p}}_{+}] 𝒑^+\\hat{\\bm{p}}_{+})."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p33.1",
+    "text": "For [MATH C] CC, since [MATH D] DD is strictly quasiconvex, then let [MATH \\bm{\\alpha}=[\\alpha_{1},1-\\alpha_{1}]^{\\mathsf{T}}] 𝜶=[α1,1−α1]𝖳\\bm{\\alpha}=[\\alpha_{1},1-\\alpha_{1}]^{\\mathsf{T}} and [MATH \\bm{\\alpha}^{\\prime}=[1-\\alpha_{1},\\alpha_{1}]^{\\mathsf{T}}] 𝜶′=[1−α1,α1]𝖳\\bm{\\alpha}^{\\prime}=[1-\\alpha_{1},\\alpha_{1}]^{\\mathsf{T}}, we have [MATH D\\left(\\lambda\\cdot\\bm{\\alpha}+\\left(1-\\lambda\\right)\\cdot\\bm{\\alpha}^{\\prime}\\right)<\\max\\left\\{D\\left(\\bm{\\alpha}\\right),D\\left(\\bm{\\alpha}^{\\prime}\\right)\\right\\}=D\\left(\\bm{\\alpha}\\right)=D\\left(\\bm{\\alpha}^{\\prime}\\right)] D⁡(λ⋅𝜶+(1−λ)⋅𝜶′)<max⁡{D⁡(𝜶),D⁡(𝜶′)}=D⁡(𝜶)=D⁡(𝜶′)D\\left(\\lambda\\cdot\\bm{\\alpha}+\\left(1-\\lambda\\right)\\cdot\\bm{\\alpha}^{\\prime}\\right)<\\max\\left\\{D\\left(\\bm{\\alpha}\\right),D\\left(\\bm{\\alpha}^{\\prime}\\right)\\right\\}=D\\left(\\bm{\\alpha}\\right)=D\\left(\\bm{\\alpha}^{\\prime}\\right) for [MATH \\lambda\\in(0,1)] λ∈(0,1)\\lambda\\in(0,1) (see Definition B.3; also note that [MATH [p,1-p]^{\\mathsf{T}}] [p,1−p]𝖳[p,1-p]^{\\mathsf{T}} and [MATH [1-p,p]^{\\mathsf{T}}] [1−p,p]𝖳[1-p,p]^{\\mathsf{T}} should always have the same dispersion). Therefore, for all [MATH \\hat{p}\\in(1-\\alpha_{1},\\alpha_{1})] p^∈(1−α1,α1)\\hat{p}\\in(1-\\alpha_{1},\\alpha_{1}), we have [MATH D\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)<D\\left(\\bm{\\alpha}\\right)] D⁡([p^,1−p^]𝖳)<D⁡(𝜶)D\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)<D\\left(\\bm{\\alpha}\\right). We can similarly show that for all [MATH \\hat{p}\\in(0,1-\\alpha_{1})\\cup(\\alpha_{1},1)] p^∈(0,1−α1)∪(α1,1)\\hat{p}\\in(0,1-\\alpha_{1})\\cup(\\alpha_{1},1), we have [MATH D\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)>D\\left(\\bm{\\alpha}\\right)] D⁡([p^,1−p^]𝖳)>D⁡(𝜶)D\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)>D\\left(\\bm{\\alpha}\\right). Now since [MATH G] GG is monotonically increasing, then for [MATH \\hat{p}\\in(1-\\alpha_{1},\\alpha_{1})] p^∈(1−α1,α1)\\hat{p}\\in(1-\\alpha_{1},\\alpha_{1}), we have [MATH C\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)<C\\left(\\bm{\\alpha}\\right)=\\mu^{\\prime}] C⁡([p^,1−p^]𝖳)<C⁡(𝜶)=μ′C\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)<C\\left(\\bm{\\alpha}\\right)=\\mu^{\\prime}. For [MATH \\hat{p}\\in(0,1-\\alpha_{1})\\cup(\\alpha_{1},1)] p^∈(0,1−α1)∪(α1,1)\\hat{p}\\in(0,1-\\alpha_{1})\\cup(\\alpha_{1},1), we have [MATH C\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)<\\mu^{\\prime}] C⁡([p^,1−p^]𝖳)<μ′C\\left([\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\right)<\\mu^{\\prime}. Therefore, [MATH \\mathcal{C}^{<\\mu^{\\prime}}] 𝒞<μ′\\mathcal{C}^{<\\mu^{\\prime}} consists of the open line segment connecting [MATH \\bm{\\alpha}] 𝜶\\bm{\\alpha} and [MATH \\bm{\\alpha}^{\\prime}] 𝜶′\\bm{\\alpha}^{\\prime} (not including the two end points of [MATH \\bm{\\alpha}] 𝜶\\bm{\\alpha} and [MATH \\bm{\\alpha}^{\\prime}] 𝜶′\\bm{\\alpha}^{\\prime})."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p34.1",
+    "text": "If [MATH 1-\\alpha_{1}\\leq\\hat{L}_{-}^{-1}\\left(\\mu\\right)<\\alpha_{1}] 1−α1≤L^−−1​(μ)<α11-\\alpha_{1}\\leq\\hat{L}_{-}^{-1}\\left(\\mu\\right)<\\alpha_{1}, then the line segment connecting [MATH \\hat{\\bm{p}}_{-}] 𝒑^−\\hat{\\bm{p}}_{-} and [MATH \\bm{\\alpha}] 𝜶\\bm{\\alpha} overlap with [MATH \\mathcal{C}^{<\\mu^{\\prime}}] 𝒞<μ′\\mathcal{C}^{<\\mu^{\\prime}}. So [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu}] ℒ𝜶<μ−𝒞<μ\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu} equals the line segment between [MATH \\bm{\\alpha}] 𝜶\\bm{\\alpha} and [MATH \\hat{\\bm{p}}_{+}] 𝒑^+\\hat{\\bm{p}}_{+}. i.e., [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu}=\\{[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\;|\\;\\hat{p}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right)\\}] ℒ𝜶<μ−𝒞<μ={[p^,1−p^]𝖳|p^∈[α1,L^+−1​(μ))}\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu}=\\{[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\;|\\;\\hat{p}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right)\\}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p35.1",
+    "text": "If [MATH 0.5>1-\\alpha_{1}>\\hat{L}_{-}^{-1}\\left(\\mu\\right)] 0.5>1−α1>L^−−1​(μ)0.5>1-\\alpha_{1}>\\hat{L}_{-}^{-1}\\left(\\mu\\right), then the line segment between [MATH \\bm{\\alpha}] 𝜶\\bm{\\alpha} and [MATH \\bm{\\alpha}^{\\prime}] 𝜶′\\bm{\\alpha}^{\\prime} fully overlap with the line segment between [MATH \\hat{\\bm{p}}_{-}] 𝒑^−\\hat{\\bm{p}}_{-} and [MATH \\hat{\\bm{p}}_{+}] 𝒑^+\\hat{\\bm{p}}_{+}. So [MATH \\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu}] ℒ𝜶<μ−𝒞<μ\\mathcal{L}_{\\bm{\\alpha}}^{<\\mu}-\\mathcal{C}^{<\\mu} consisting of 1. a segment between [MATH \\hat{\\bm{p}}_{-}] 𝒑^−\\hat{\\bm{p}}_{-} and [MATH \\bm{\\alpha}^{\\prime}] 𝜶′\\bm{\\alpha}^{\\prime}, defined by [MATH \\mathcal{S}_{1}=\\{[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\;|\\;\\hat{p}\\in\\left(\\hat{L}_{-}^{-1}\\left(\\mu\\right),1-\\alpha_{1}\\right]\\}] 𝒮1={[p^,1−p^]𝖳|p^∈(L^−−1(μ),1−α1]}\\mathcal{S}_{1}=\\{[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\;|\\;\\hat{p}\\in\\left(\\hat{L}_{-}^{-1}\\left(\\mu\\right),1-\\alpha_{1}\\right]\\}, and 2. a segment between [MATH \\bm{\\alpha}] 𝜶\\bm{\\alpha} and [MATH \\hat{\\bm{p}}_{+}] 𝒑^+\\hat{\\bm{p}}_{+}, defined by [MATH \\mathcal{S}_{2}=\\{[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\;|\\;\\hat{p}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right)\\}] 𝒮2={[p^,1−p^]𝖳|p^∈[α1,L^+−1​(μ))}\\mathcal{S}_{2}=\\{[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\;|\\;\\hat{p}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right)\\}. We can further rule out segment (1) by the following analysis. For all [MATH \\hat{p}\\in(0,0.5)] p^∈(0,0.5)\\hat{p}\\in(0,0.5), we have [MATH \\hat{L}_{\\pm}\\left(\\hat{p}\\right)-\\hat{L}_{\\pm}\\left(1-\\hat{p}\\right)=\\left(1-2\\alpha_{1}\\right)\\left(\\log\\left(1-\\hat{p}\\right)-\\log\\hat{p}\\right)>0] L^±​(p^)−L^±​(1−p^)=(1−2​α1)​(log⁡(1−p^)−log⁡p^)>0\\hat{L}_{\\pm}\\left(\\hat{p}\\right)-\\hat{L}_{\\pm}\\left(1-\\hat{p}\\right)=\\left(1-2\\alpha_{1}\\right)\\left(\\log\\left(1-\\hat{p}\\right)-\\log\\hat{p}\\right)>0. This implies that [MATH \\hat{L}_{+}^{-1}\\left(\\mu\\right)>1-\\hat{L}_{-}^{-1}\\left(\\mu\\right)>0.5] L^+−1​(μ)>1−L^−−1​(μ)>0.5\\hat{L}_{+}^{-1}\\left(\\mu\\right)>1-\\hat{L}_{-}^{-1}\\left(\\mu\\right)>0.5. So for any [MATH \\hat{\\bm{p}}=[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\in\\mathcal{S}_{1}] 𝒑^=[p^,1−p^]𝖳∈𝒮1\\hat{\\bm{p}}=[\\hat{p},1-\\hat{p}]^{\\mathsf{T}}\\in\\mathcal{S}_{1}, we can find a corresponding [MATH \\hat{\\bm{p}}^{\\prime}=[1-\\hat{p},\\hat{p}]^{\\mathsf{T}}\\in\\mathcal{S}_{2}] 𝒑^′=[1−p^,p^]𝖳∈𝒮2\\hat{\\bm{p}}^{\\prime}=[1-\\hat{p},\\hat{p}]^{\\mathsf{T}}\\in\\mathcal{S}_{2}. Since [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}} and [MATH \\hat{\\bm{p}}^{\\prime}] 𝒑^′\\hat{\\bm{p}}^{\\prime} have the same dispersion, then [MATH C\\left(\\hat{\\bm{p}}\\right)=C\\left(\\hat{\\bm{p}}^{\\prime}\\right)] C⁡(𝒑^)=C⁡(𝒑^′)C\\left(\\hat{\\bm{p}}\\right)=C\\left(\\hat{\\bm{p}}^{\\prime}\\right). However, [MATH \\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)=\\hat{L}_{\\pm}\\left(\\hat{p}\\right)>\\hat{L}_{\\pm}\\left(1-\\hat{p}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{\\prime}\\right)] L^𝜶​(𝒑^)=L^±​(p^)>L^±​(1−p^)=L^𝜶​(𝒑^′)\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)=\\hat{L}_{\\pm}\\left(\\hat{p}\\right)>\\hat{L}_{\\pm}\\left(1-\\hat{p}\\right)=\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{\\prime}\\right). So [MATH C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)>C\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{\\prime}\\right)-\\mu\\right)] C⁡(𝒑^)⋅(L^𝜶​(𝒑^)−μ)>C⁡(𝒑^′)⋅(L^𝜶​(𝒑^′)−μ)C\\left(\\hat{\\bm{p}}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}\\right)-\\mu\\right)>C\\left(\\hat{\\bm{p}}^{\\prime}\\right)\\cdot\\left(\\hat{L}_{\\bm{\\alpha}}\\left(\\hat{\\bm{p}}^{\\prime}\\right)-\\mu\\right). This implies that [MATH \\hat{\\bm{p}}] 𝒑^\\hat{\\bm{p}} cannot be a minimizer. In summary, the minimizer can only fall in [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p36.1",
+    "text": "Considering the two cases, we have [MATH \\hat{p}^{*}_{1}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right)] p^1∗∈[α1,L^+−1​(μ))\\hat{p}^{*}_{1}\\in\\left[\\alpha_{1},\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right) for the minimizer [MATH \\hat{\\bm{p}}^{*}] 𝒑^∗\\hat{\\bm{p}}^{*}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p37.1",
+    "text": "Finally, let us consider the range of [MATH C\\left(\\hat{\\bm{p}}^{*}\\right)] C⁡(𝒑^∗)C\\left(\\hat{\\bm{p}}^{*}\\right). According to Theorem 2.4, we only need to consider the upper bound [MATH G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right)] G⁡(max𝒑^∈ℒ𝜶μ⁡D⁡(𝒑^))G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right). We have shown that [MATH \\mathcal{L}_{\\bm{\\alpha}}^{\\mu}=\\{\\hat{\\bm{p}}_{-},\\hat{\\bm{p}}_{+}\\}] ℒ𝜶μ={𝒑^−,𝒑^+}\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}=\\{\\hat{\\bm{p}}_{-},\\hat{\\bm{p}}_{+}\\}, as well as [MATH \\hat{L}_{+}^{-1}\\left(\\mu\\right)>1-\\hat{L}_{-}^{-1}\\left(\\mu\\right)>0.5] L^+−1​(μ)>1−L^−−1​(μ)>0.5\\hat{L}_{+}^{-1}\\left(\\mu\\right)>1-\\hat{L}_{-}^{-1}\\left(\\mu\\right)>0.5. Thus, the dispersion of [MATH \\hat{\\bm{p}}_{+}] 𝒑^+\\hat{\\bm{p}}_{+} is no less than that of [MATH \\hat{\\bm{p}}_{-}] 𝒑^−\\hat{\\bm{p}}_{-}, meaning that [MATH G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right)=G\\left(D\\left(\\hat{\\bm{p}}_{+}\\right)\\right)=C\\left(\\hat{\\bm{p}}_{+}\\right)=C\\left(\\left[\\hat{L}_{+}^{-1}\\left(\\mu\\right),1-\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}}\\right)] G⁡(max𝒑^∈ℒ𝜶μ⁡D⁡(𝒑^))=G⁡(D⁡(𝒑^+))=C⁡(𝒑^+)=C⁡([L^+−1​(μ),1−L^+−1​(μ)]𝖳)G\\left(\\max_{\\hat{\\bm{p}}\\in\\mathcal{L}_{\\bm{\\alpha}}^{\\mu}}D\\left(\\hat{\\bm{p}}\\right)\\right)=G\\left(D\\left(\\hat{\\bm{p}}_{+}\\right)\\right)=C\\left(\\hat{\\bm{p}}_{+}\\right)=C\\left(\\left[\\hat{L}_{+}^{-1}\\left(\\mu\\right),1-\\hat{L}_{+}^{-1}\\left(\\mu\\right)\\right]^{\\mathsf{T}}\\right)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS3.Px4.p38.1",
+    "text": "∎"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "B.1.4 Proof of Proposition 2.5"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem14.p1.1",
+    "text": "(Originally Proposition 2.5) [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} upper-bounds [MATH L_{\\text{{Mowst}}}^{\\star}] LMowst⋆L_{\\text{{Mowst}}}^{\\star}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS4.p1.1",
+    "text": "We compare Equation 1 and 3. Note that the loss [MATH L] LL is a convex function. In addition, [MATH C\\left(\\bm{p}_{v}\\right)\\in[0,1]] C⁡(𝒑v)∈[0,1]C\\left(\\bm{p}_{v}\\right)\\in[0,1]. Thus, [MATH C\\left(\\bm{p}_{v}\\right)\\cdot\\bm{p}_{v}+\\left(1-C\\left(\\bm{p}_{v}\\right)\\right)\\cdot\\bm{p}_{v}^{\\prime}] C⁡(𝒑v)⋅𝒑v+(1−C⁡(𝒑v))⋅𝒑v′C\\left(\\bm{p}_{v}\\right)\\cdot\\bm{p}_{v}+\\left(1-C\\left(\\bm{p}_{v}\\right)\\right)\\cdot\\bm{p}_{v}^{\\prime} is a convex combination of [MATH \\bm{p}_{v}] 𝒑v\\bm{p}_{v} and [MATH \\bm{p}_{v}^{\\prime}] 𝒑v′\\bm{p}_{v}^{\\prime} in [MATH L] LL’s domain."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS4.p2.1",
+    "text": "Thus, by Definition B.1,"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS1.SSS4.p3.1",
+    "text": "Summing the left-hand side and right-hand side of the above inequality over all nodes [MATH v\\in\\mathcal{V}] v∈𝒱v\\in\\mathcal{V}, we derive the conclusion that [MATH L_{\\text{{Mowst}}}\\geq L_{\\text{{Mowst}}}^{\\star}] LMowst≥LMowst⋆L_{\\text{{Mowst}}}\\geq L_{\\text{{Mowst}}}^{\\star}. ∎"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "B.2 Proofs related to expressive power"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "B.3 Proof of Proposition 2.6"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem15.p1.1",
+    "text": "(Originally Proposition 2.6) Mowst and Mowst [MATH \\star] ⋆\\star are at least as expressive as the MLP or GNN expert alone."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.p1.1",
+    "text": "We complete the proof by showing a particular confidence function [MATH C=G\\circ D] C=G∘DC=G\\circ D and expert configuration, that reduce Mowst to an expert alone."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.p2.1",
+    "text": "Define [MATH \\bm{q}_{v}=C\\left(\\bm{p}_{v}\\right)\\cdot\\bm{p}_{v}+\\left(1-C\\left(\\bm{p}_{v}\\right)\\right)\\cdot\\bm{p}_{v}^{\\prime}] 𝒒v=C⁡(𝒑v)⋅𝒑v+(1−C⁡(𝒑v))⋅𝒑v′\\bm{q}_{v}=C\\left(\\bm{p}_{v}\\right)\\cdot\\bm{p}_{v}+\\left(1-C\\left(\\bm{p}_{v}\\right)\\right)\\cdot\\bm{p}_{v}^{\\prime}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.p3.1",
+    "text": "Further, define the following [MATH G] GG:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS0.Px1.p1.1",
+    "text": "Let the GNN expert in our Mowst system always generate random prediction of [MATH \\bm{p}_{v}^{\\prime}=\\frac{1}{n}\\bm{1}] 𝒑v′=1n​𝟏\\bm{p}_{v}^{\\prime}=\\frac{1}{n}\\bm{1}, regardless of [MATH v] vv. If the MLP expert does not generate a purely random guess (i.e., [MATH \\bm{p}_{v}\\neq\\frac{1}{n}\\bm{1}] 𝒑v≠1n​𝟏\\bm{p}_{v}\\neq\\frac{1}{n}\\bm{1}), then [MATH D\\left(\\bm{p}_{v}\\right)>0] D⁡(𝒑v)>0D\\left(\\bm{p}_{v}\\right)>0 according to Definition 2.1. So [MATH C\\left(\\bm{p}_{v}\\right)=G\\left(D\\left(\\bm{p}_{v}\\right)\\right)=1] C⁡(𝒑v)=G⁡(D⁡(𝒑v))=1C\\left(\\bm{p}_{v}\\right)=G\\left(D\\left(\\bm{p}_{v}\\right)\\right)=1, and thus [MATH \\bm{q}_{v}=\\bm{p}_{v}] 𝒒v=𝒑v\\bm{q}_{v}=\\bm{p}_{v}. In the extreme case, where [MATH \\bm{p}_{v}=\\frac{1}{n}\\bm{1}] 𝒑v=1n​𝟏\\bm{p}_{v}=\\frac{1}{n}\\bm{1}, we have [MATH \\bm{q}_{v}=\\bm{p}_{v}^{\\prime}] 𝒒v=𝒑v′\\bm{q}_{v}=\\bm{p}_{v}^{\\prime}. Yet, note that we configure our GNN expert to always output [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1}. So we still have [MATH \\bm{q}_{v}=\\bm{p}_{v}=\\frac{1}{n}\\bm{1}] 𝒒v=𝒑v=1n​𝟏\\bm{q}_{v}=\\bm{p}_{v}=\\frac{1}{n}\\bm{1}. This shows that Mowst [MATH \\star] ⋆\\star can always produce identical output as an MLP alone."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS0.Px2.p1.1",
+    "text": "We configure the MLP expert such that it always generates a trivial prediction of [MATH \\bm{p}_{v}=\\frac{1}{n}\\bm{1}] 𝒑v=1n​𝟏\\bm{p}_{v}=\\frac{1}{n}\\bm{1}. Then [MATH D\\left(\\bm{p}_{v}\\right)=0] D⁡(𝒑v)=0D\\left(\\bm{p}_{v}\\right)=0 for all [MATH v] vv, and [MATH C\\left(\\bm{p}_{v}\\right)=G\\left(D\\left(\\bm{p}_{v}\\right)\\right)=0] C⁡(𝒑v)=G⁡(D⁡(𝒑v))=0C\\left(\\bm{p}_{v}\\right)=G\\left(D\\left(\\bm{p}_{v}\\right)\\right)=0 for all [MATH v] vv according to Equation 32. So [MATH \\bm{q}_{v}=\\bm{p}_{v}^{\\prime}] 𝒒v=𝒑v′\\bm{q}_{v}=\\bm{p}_{v}^{\\prime}, and Mowst [MATH \\star] ⋆\\star always produces identical output as a GNN alone."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS0.Px3.p1.1",
+    "text": "Similar reasoning can be applied to the Mowst design, where we can use the [MATH G] GG function defined in Equation 32 to let the Mowst system always predict according to the MLP expert alone, or the GNN expert alone (see Algorithm 1 for the inference operation)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS0.Px3.p2.1",
+    "text": "∎"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "B.3.1 Proof of Theorem 2.7"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem16.p1.1",
+    "text": "(Originally Theorem 2.7) Mowst-GCN and Mowst [MATH \\star] ⋆\\star-GCN are more expressive than the GCN expert alone."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p1.1",
+    "text": "By Proposition 2.6, we know that Mowst-GCN and Mowst [MATH \\star] ⋆\\star-GCN are at least as expressive as a GCN alone. To show that Mowst-GCN and Mowst [MATH \\star] ⋆\\star-GCN are more expressive than GCN, we only need to construct an example graph where 1. Mowst-GCNand Mowst [MATH \\star] ⋆\\star-GCN can differentiate all nodes that a GCN can differentiate, and 2. Mowst-GCNand Mowst [MATH \\star] ⋆\\star-GCN can differentiate some nodes that any GCN cannot differentiate."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p2.1",
+    "text": "Suppose the GCN has [MATH K] KK layers. We construct a graph [MATH \\mathcal{G}\\left(\\mathcal{V},\\mathcal{E},\\bm{X}\\right)] 𝒢⁡(𝒱,ℰ,𝑿)\\mathcal{G}\\left(\\mathcal{V},\\mathcal{E},\\bm{X}\\right) as follows. Consider two sets of nodes [MATH \\mathcal{S}_{1}] 𝒮1\\mathcal{S}_{1} and [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}, where [MATH v\\in\\mathcal{S}_{1}] v∈𝒮1v\\in\\mathcal{S}_{1} has label [MATH y] yy and [MATH v\\in\\mathcal{S}_{2}] v∈𝒮2v\\in\\mathcal{S}_{2} has label [MATH y^{\\prime}] y′y^{\\prime} ( [MATH y\\neq y^{\\prime}] y≠y′y\\neq y^{\\prime}). Denote [MATH \\mathcal{N}_{v}^{k}] 𝒩vk\\mathcal{N}_{v}^{k} as the set of neighbor nodes that are [MATH k] kk hops away from [MATH v] vv (let [MATH \\mathcal{N}_{v}^{0}=\\{v\\}] 𝒩v0={v}\\mathcal{N}_{v}^{0}=\\{v\\}). We further enforce the following two constraints:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.I6.i1.p1.1",
+    "text": "For any [MATH u\\in\\mathcal{S}_{1}] u∈𝒮1u\\in\\mathcal{S}_{1} and [MATH v\\in\\mathcal{S}_{2}] v∈𝒮2v\\in\\mathcal{S}_{2}, their [MATH K] KK-hop neighborhood do not overlap. i.e., [MATH \\left(\\bigcup_{0\\leq k\\leq K}\\mathcal{N}_{u}^{k}\\right)\\cap\\left(\\bigcup_{0\\leq k\\leq K}\\mathcal{N}_{v}^{k}\\right)=\\emptyset] (⋃0≤k≤K𝒩uk)∩(⋃0≤k≤K𝒩vk)=∅\\left(\\bigcup_{0\\leq k\\leq K}\\mathcal{N}_{u}^{k}\\right)\\cap\\left(\\bigcup_{0\\leq k\\leq K}\\mathcal{N}_{v}^{k}\\right)=\\emptyset"
+  },
+  {
+    "tag": "p",
+    "id": "A2.I6.i2.p1.1",
+    "text": "For any [MATH v\\in\\mathcal{S}_{1}\\cup\\mathcal{S}_{2}] v∈𝒮1∪𝒮2v\\in\\mathcal{S}_{1}\\cup\\mathcal{S}_{2} and for any [MATH u\\in\\mathcal{N}_{v}^{k}] u∈𝒩vku\\in\\mathcal{N}_{v}^{k} (where [MATH 1\\leq k\\leq K-1] 1≤k≤K−11\\leq k\\leq K-1), there exist some edge [MATH \\left(u,w\\right)\\in\\mathcal{E}] (u,w)∈ℰ\\left(u,w\\right)\\in\\mathcal{E} where [MATH w\\in\\mathcal{N}_{v}^{k+1}] w∈𝒩vk+1w\\in\\mathcal{N}_{v}^{k+1}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p3.1",
+    "text": "Next, we discuss how to set the node features. We first review the operation of a GCN layer. For a node [MATH v] vv in layer [MATH k] kk, the GCN performs weighted sum of the embedding vectors of [MATH v] vv’s direct neighbors in layer [MATH \\left(k-1\\right)] (k−1)\\left(k-1\\right). Denote [MATH \\bm{h}_{v}^{\\left(k\\right)}] 𝒉v(k)\\bm{h}_{v}^{\\left(k\\right)} as the output embedding vector of [MATH v] vv in layer [MATH k] kk. Then"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p5.1",
+    "text": "where [MATH \\sigma] σ\\sigma is the activation function, [MATH \\bm{W}^{\\left(k\\right)}] 𝑾(k)\\bm{W}^{\\left(k\\right)} is the learnable weight matrix of layer [MATH k] kk, and [MATH {\\text{deg}\\left(\\cdot\\right)}] deg​(⋅){\\text{deg}\\left(\\cdot\\right)} gives the degree of the node."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p6.1",
+    "text": "Denote [MATH \\bm{x}_{v}=\\bm{h}_{v}^{\\left(0\\right)}] 𝒙v=𝒉v(0)\\bm{x}_{v}=\\bm{h}_{v}^{\\left(0\\right)} as the raw node feature. We can construct the graph features such that [MATH \\sum_{u\\in\\mathcal{N}_{v}^{1}\\cup\\{v\\}}\\frac{1}{\\sqrt{\\left({\\text{deg}\\left(u\\right)}+1\\right)\\cdot\\left({\\text{deg}\\left(v\\right)}+1\\right)}}\\bm{h}_{u}^{\\left(0\\right)}=\\bm{0}] ∑u∈𝒩v1∪{v}1(deg​(u)+1)⋅(deg​(v)+1)​𝒉u(0)=𝟎\\sum_{u\\in\\mathcal{N}_{v}^{1}\\cup\\{v\\}}\\frac{1}{\\sqrt{\\left({\\text{deg}\\left(u\\right)}+1\\right)\\cdot\\left({\\text{deg}\\left(v\\right)}+1\\right)}}\\bm{h}_{u}^{\\left(0\\right)}=\\bm{0} for all [MATH v\\in\\bigcup_{0\\leq k\\leq K-1}\\mathcal{N}_{v}^{k}] v∈⋃0≤k≤K−1𝒩vkv\\in\\bigcup_{0\\leq k\\leq K-1}\\mathcal{N}_{v}^{k}. This can be achieved due to the constraint (2) above: for each [MATH u\\in\\mathcal{N}_{v}^{k}] u∈𝒩vku\\in\\mathcal{N}_{v}^{k}, we can set the feature of [MATH u] uu’s neighbor(s) in [MATH \\mathcal{N}_{v}^{k+1}] 𝒩vk+1\\mathcal{N}_{v}^{k+1} so that it “counter-acts” the features for [MATH u] uu’s neighbor(s) in [MATH \\mathcal{N}_{v}^{k}\\cup\\mathcal{N}_{v}^{k-1}] 𝒩vk∪𝒩vk−1\\mathcal{N}_{v}^{k}\\cup\\mathcal{N}_{v}^{k-1}. i.e., [MATH \\sum_{w\\in\\mathcal{N}_{u}^{1}\\cap\\mathcal{N}_{v}^{k+1}}\\frac{1}{\\sqrt{\\left({\\text{deg}\\left(w\\right)}+1\\right)\\cdot\\left({\\text{deg}\\left(u\\right)}+1\\right)}}\\cdot\\bm{h}_{w}^{\\left(0\\right)}=\\sum_{w^{\\prime}\\in\\mathcal{N}_{u}^{1}\\cap\\left(\\mathcal{N}_{v}^{k}\\cup\\mathcal{N}_{v}^{k-1}\\right)}\\frac{1}{\\sqrt{\\left({\\text{deg}\\left(w^{\\prime}\\right)}+1\\right)\\cdot\\left({\\text{deg}\\left(u\\right)}+1\\right)}}\\cdot\\bm{h}_{w^{\\prime}}^{\\left(0\\right)}] ∑w∈𝒩u1∩𝒩vk+11(deg​(w)+1)⋅(deg​(u)+1)⋅𝒉w(0)=∑w′∈𝒩u1∩(𝒩vk∪𝒩vk−1)1(deg​(w′)+1)⋅(deg​(u)+1)⋅𝒉w′(0)\\sum_{w\\in\\mathcal{N}_{u}^{1}\\cap\\mathcal{N}_{v}^{k+1}}\\frac{1}{\\sqrt{\\left({\\text{deg}\\left(w\\right)}+1\\right)\\cdot\\left({\\text{deg}\\left(u\\right)}+1\\right)}}\\cdot\\bm{h}_{w}^{\\left(0\\right)}=\\sum_{w^{\\prime}\\in\\mathcal{N}_{u}^{1}\\cap\\left(\\mathcal{N}_{v}^{k}\\cup\\mathcal{N}_{v}^{k-1}\\right)}\\frac{1}{\\sqrt{\\left({\\text{deg}\\left(w^{\\prime}\\right)}+1\\right)\\cdot\\left({\\text{deg}\\left(u\\right)}+1\\right)}}\\cdot\\bm{h}_{w^{\\prime}}^{\\left(0\\right)}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p7.1",
+    "text": "When we configure the [MATH K] KK-hop neighbors in this way, it is easy to see that for any two nodes [MATH v,u\\in\\mathcal{S}_{1}\\cup\\mathcal{S}_{2}] v,u∈𝒮1∪𝒮2v,u\\in\\mathcal{S}_{1}\\cup\\mathcal{S}_{2}, all possible [MATH K] KK-layer GCN will always output the same prediction. This can be seen by an induction process. In layer 1, the model aggregates [MATH \\bm{h}_{w}^{\\left(0\\right)}] 𝒉w(0)\\bm{h}_{w}^{\\left(0\\right)} from all [MATH w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{1,0,0}K}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{1,0,0}K}}\\mathcal{N}_{v}^{k}\\right)] w∈(⋃0≤k≤K𝒩uk)∪(⋃0≤k≤K𝒩vk)w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{1,0,0}K}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{1,0,0}K}}\\mathcal{N}_{v}^{k}\\right). Nodes [MATH w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{v}^{k}\\right)] w∈(⋃0≤k≤K−1𝒩uk)∪(⋃0≤k≤K−1𝒩vk)w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{v}^{k}\\right) gets [MATH \\bm{0}] 𝟎\\bm{0} from the neighbor aggregation, and thus all such [MATH w] ww have identical layer-1 output embeddings. In layer 2, the model aggregates [MATH \\bm{h}_{w}^{\\left(1\\right)}] 𝒉w(1)\\bm{h}_{w}^{\\left(1\\right)} from [MATH w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{v}^{k}\\right)] w∈(⋃0≤k≤K−1𝒩uk)∪(⋃0≤k≤K−1𝒩vk)w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,0,1}K-1}}\\mathcal{N}_{v}^{k}\\right) and gets [MATH \\bm{0}] 𝟎\\bm{0}, so all [MATH w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,1,0}K-2}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,1,0}K-2}}\\mathcal{N}_{v}^{k}\\right)] w∈(⋃0≤k≤K−2𝒩uk)∪(⋃0≤k≤K−2𝒩vk)w\\in\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,1,0}K-2}}\\mathcal{N}_{u}^{k}\\right)\\cup\\left(\\bigcup_{0\\leq k\\leq{\\color[rgb]{0,1,0}K-2}}\\mathcal{N}_{v}^{k}\\right) have identical [MATH \\bm{h}_{w}^{\\left(2\\right)}] 𝒉w(2)\\bm{h}_{w}^{\\left(2\\right)}. Following this reasoning, [MATH \\bm{h}_{v}^{\\left(K\\right)}] 𝒉v(K)\\bm{h}_{v}^{\\left(K\\right)} and [MATH \\bm{h}_{u}^{\\left(K\\right)}] 𝒉u(K)\\bm{h}_{u}^{\\left(K\\right)} output from the last GCN layer must be the same. So it is impossible for any [MATH K] KK-layer GCN to differentiate nodes in [MATH \\mathcal{S}_{1}] 𝒮1\\mathcal{S}_{1} from those in [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p8.1",
+    "text": "Now consider Mowst-GCN and Mowst [MATH \\star] ⋆\\star-GCN. For simplicity, consider that for all [MATH u\\in\\mathcal{S}_{1}] u∈𝒮1u\\in\\mathcal{S}_{1}, they have identical self-feature [MATH \\bm{x}_{w}=\\bm{x}_{1}] 𝒙w=𝒙1\\bm{x}_{w}=\\bm{x}_{1}. For all [MATH w\\in\\mathcal{S}_{2}] w∈𝒮2w\\in\\mathcal{S}_{2}, they also have identical self-feature [MATH \\bm{x}_{w}=\\bm{x}_{2}] 𝒙w=𝒙2\\bm{x}_{w}=\\bm{x}_{2}. And [MATH \\bm{x}_{1}\\neq\\bm{x}_{2}] 𝒙1≠𝒙2\\bm{x}_{1}\\neq\\bm{x}_{2}. In addition, for all other nodes [MATH w\\in\\mathcal{V}-\\mathcal{S}_{1}-\\mathcal{S}_{2}] w∈𝒱−𝒮1−𝒮2w\\in\\mathcal{V}-\\mathcal{S}_{1}-\\mathcal{S}_{2} that we want to predict, they have self-features not equal to [MATH \\bm{x}_{1}] 𝒙1\\bm{x}_{1} or [MATH \\bm{x}_{2}] 𝒙2\\bm{x}_{2}. Consider the following confidence function defined by"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS1.p10.1",
+    "text": "We can have an MLP expert which only differentiates nodes in [MATH \\mathcal{S}_{1}] 𝒮1\\mathcal{S}_{1} and [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2} based on the input feature [MATH \\bm{x}_{1}] 𝒙1\\bm{x}_{1} and [MATH \\bm{x}_{2}] 𝒙2\\bm{x}_{2}, and always produces a [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1} prediction for all other target nodes. This is doable because target nodes not in [MATH \\mathcal{S}_{1}\\cup\\mathcal{S}_{2}] 𝒮1∪𝒮2\\mathcal{S}_{1}\\cup\\mathcal{S}_{2} have different self-features. In this case, for nodes in [MATH \\mathcal{S}_{1}\\cup\\mathcal{S}_{2}] 𝒮1∪𝒮2\\mathcal{S}_{1}\\cup\\mathcal{S}_{2}, the MLP’s prediction has positive dispersion and so [MATH G=1] G=1G=1. This means that the confidence function acts like a binary gate to completely disable the GCN expert. Otherwise, the MLP’s prediction has zero dispersion and so [MATH G=0] G=0G=0. The confidence function completely disable the MLP expert and rely on the GCN expert. Under the above configuration, Mowst-GCN and Mowst [MATH \\star] ⋆\\star-GCN can differentiate all nodes that a GCN model can differentiate, and they can also differentiate nodes that any GCN model cannot differentiate ( [MATH \\mathcal{S}_{1}] 𝒮1\\mathcal{S}_{1} vs. [MATH \\mathcal{S}_{2}] 𝒮2\\mathcal{S}_{2}). This proves that Mowst-GCN and Mowst [MATH \\star] ⋆\\star-GCN are strictly more expressive than a GCN alone. ∎"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "B.3.2 Proof of Proposition 2.8"
+  },
+  {
+    "tag": "p",
+    "id": "A2.Thmtheorem17.p1.1",
+    "text": "(Originally Proposition 2.8) Mowst and Mowst [MATH \\star] ⋆\\star are at least as expressive as any expert alone."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS2.p1.1",
+    "text": "The proof follows the idea of proving Proposition 2.8."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS2.p2.1",
+    "text": "The logic to prove the case of Mowst is identical to that of Mowst [MATH \\star] ⋆\\star, and thus we only discuss the Mowst case in detail. Consider a confidence function [MATH C=G\\circ D] C=G∘DC=G\\circ D defined by:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS2.p4.1",
+    "text": "Equation 40 defines the general form for Mowst consisting of [MATH M] MM experts. The coefficient in front of the [MATH L_{m}^{v}] LmvL_{m}^{v} loss, [MATH \\tau_{m}^{v}\\coloneqq\\left(\\prod\\limits_{1\\leq i<m}\\left(1-C_{i}^{v}\\right)\\right)\\cdot C_{m}^{v}] τmv≔(∏1≤i<m(1−Civ))⋅Cmv\\tau_{m}^{v}\\coloneqq\\left(\\prod\\limits_{1\\leq i<m}\\left(1-C_{i}^{v}\\right)\\right)\\cdot C_{m}^{v} , defines the probability of activating expert [MATH m] mm during inference (i.e., we can easily generalize Algorithm 1 based on Equation 40). If we want the whole Mowst system to produce identical results as the [MATH m] mm-th expert, we (roughly) need to show that [MATH \\tau_{m}^{v}=1] τmv=1\\tau_{m}^{v}=1 for all [MATH v] vv, and [MATH \\tau_{m^{\\prime}}^{v}=0] τm′v=0\\tau_{m^{\\prime}}^{v}=0 (except some corner case that we will separately discuss)."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS2.p5.1",
+    "text": "For [MATH m^{\\prime}\\neq m] m′≠mm^{\\prime}\\neq m, we always let the expert [MATH m^{\\prime}] m′m^{\\prime} to generate random guess of [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1} for all [MATH v] vv. Note that a [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1} prediction corresponds to a 0 dispersion, and thus the corresponding [MATH G] GG and [MATH C] CC are also 0. A prediction not equal to [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1} leads to positive dispersion, and thus a confidence of 1. Since the confidence value in our setup is binary, then if we want [MATH \\tau_{m^{\\prime}}^{v}=0] τm′v=0\\tau_{m^{\\prime}}^{v}=0 for some [MATH 1\\leq m^{\\prime}\\leq M] 1≤m′≤M1\\leq m^{\\prime}\\leq M, we either need its own [MATH C_{m^{\\prime}}^{v}=0] Cm′v=0C_{m^{\\prime}}^{v}=0, or at least one of its preceding experts to have [MATH C_{m^{\\prime\\prime}}^{v}=1] Cm′′v=1C_{m^{\\prime\\prime}}^{v}=1 (for some [MATH m^{\\prime\\prime}<m^{\\prime}] m′′<m′m^{\\prime\\prime}<m^{\\prime}). If we want [MATH \\tau_{m^{\\prime}}^{v}=1] τm′v=1\\tau_{m^{\\prime}}^{v}=1 for some [MATH 1\\leq m^{\\prime}\\leq M] 1≤m′≤M1\\leq m^{\\prime}\\leq M, we need all its preceding experts to have [MATH C_{m^{\\prime\\prime}}^{v}=0] Cm′′v=0C_{m^{\\prime\\prime}}^{v}=0 (for all [MATH m^{\\prime\\prime}<m^{\\prime}] m′′<m′m^{\\prime\\prime}<m^{\\prime}) as well as [MATH C_{m^{\\prime}}^{v}=1] Cm′v=1C_{m^{\\prime}}^{v}=1."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS2.p6.1",
+    "text": "According to the above categorization, for expert [MATH m^{\\prime}] m′m^{\\prime} where [MATH m^{\\prime}<m] m′<mm^{\\prime}<m, we always have their [MATH \\tau_{m^{\\prime}}^{v}=0] τm′v=0\\tau_{m^{\\prime}}^{v}=0 since [MATH C_{m^{\\prime}}^{v}=0] Cm′v=0C_{m^{\\prime}}^{v}=0. If expert [MATH m] mm generates a non- [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1} prediction, then [MATH \\tau_{m}^{v}=1] τmv=1\\tau_{m}^{v}=1 and thus the whole Mowst system degrades to a single expert [MATH m] mm. If expert [MATH m] mm predicts [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1}, then [MATH \\tau_{M}^{v}=1] τMv=1\\tau_{M}^{v}=1 (since by definition, [MATH C_{M}^{v}=1] CMv=1C_{M}^{v}=1 for all [MATH v] vv). Since the expert [MATH M] MM also predicts [MATH \\frac{1}{n}\\bm{1}] 1n​𝟏\\frac{1}{n}\\bm{1}, the system’s output is also equivalent to expert [MATH m] mm’s output."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS2.p7.1",
+    "text": "Thus, Mowst and Mowst [MATH \\star] ⋆\\star can produce identical results as any expert alone."
+  },
+  {
+    "tag": "p",
+    "id": "A2.SS3.SSS2.p8.1",
+    "text": "∎"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix C Additional Algorithmic Details"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "C.1 Derivation of the optimization problem 2"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p1.1",
+    "text": "We re-write [MATH L_{\\text{{Mowst}}}] LMowstL_{\\text{{Mowst}}} (Equation 1) as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p3.1",
+    "text": "Since we optimize the MLP parameters by fixing the GNN, [MATH L\\left(\\bm{p}_{v}^{\\prime},\\bm{y}_{v}\\right)] L⁡(𝒑v′,𝒚v)L\\left(\\bm{p}_{v}^{\\prime},\\bm{y}_{v}\\right) remains constant throughout the process. So:"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p5.1",
+    "text": "Now we simplify as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p7.1",
+    "text": "where Equation 38 is (almost) exactly our objective in optimization problem 2, with the only difference being the scaling factor [MATH \\left\\lvert\\mathcal{M}_{i}\\right\\rvert] |ℳi|\\left\\lvert\\mathcal{M}_{i}\\right\\rvert. We can use the “decomposible” argument in Appendix B.1.3 to easily derive that this scaling factor does not affect the optimizer [MATH \\hat{\\bm{p}}_{i}^{*}] 𝒑^i∗\\hat{\\bm{p}}_{i}^{*}."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "C.2 Extending to more than two experts"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p1.1",
+    "text": "Following the notations in §2.7, we first have the case of 3 agents:"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p2.1",
+    "text": "In general, for [MATH M] MM experts, we have the following loss:"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p3.1",
+    "text": "where we define [MATH \\prod_{x\\leq i<x}\\left(1-C_{i}^{v}\\right)=1] ∏x≤i<x(1−Civ)=1\\prod_{x\\leq i<x}\\left(1-C_{i}^{v}\\right)=1 for any integer [MATH x] xx."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p4.1",
+    "text": "We further define the following term:"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p6.1",
+    "text": "So [MATH L_{\\text{{Mowst}}}=\\frac{1}{\\left\\lvert\\mathcal{V}\\right\\rvert}\\sum_{v\\in\\mathcal{V}}L_{\\geq 1}^{v}] LMowst=1|𝒱|​∑v∈𝒱L≥1vL_{\\text{{Mowst}}}=\\frac{1}{\\left\\lvert\\mathcal{V}\\right\\rvert}\\sum_{v\\in\\mathcal{V}}L_{\\geq 1}^{v} and [MATH L_{\\geq q}^{v}=C_{q}^{v}\\cdot L_{q}^{v}+\\left(1-C_{q}^{v}\\right)\\cdot L_{\\geq q+1}^{v}] L≥qv=Cqv⋅Lqv+(1−Cqv)⋅L≥q+1vL_{\\geq q}^{v}=C_{q}^{v}\\cdot L_{q}^{v}+\\left(1-C_{q}^{v}\\right)\\cdot L_{\\geq q+1}^{v} defines the basic recursive formulation."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]

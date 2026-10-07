@@ -1,6 +1,6 @@
 # GNNM research status
 
-Updated 2026-10-07T15:32:43.138260+00:00. Goal active: establish a useful methodological extension with verified gains and a fresh neutral manuscript review. **No verified superiority over an ordinary independent ensemble or new manuscript acceptance yet.** Original submitted scores are unchanged.
+Updated 2026-10-07T17:17:37.776966+00:00. Goal active: establish a useful methodological extension with verified gains and a fresh neutral manuscript review. **No verified superiority over an ordinary independent ensemble or new manuscript acceptance yet.** Original submitted scores are unchanged.
 
 ## New completed evidence
 
@@ -15,15 +15,17 @@ These are meaningful diagnostic results, not a new method victory. Full eight-ar
 
 ## Actual work now
 
-The molecular graph study began on the authorized allocation. At 15:23 UTC its first single-model run reached 25/100 epochs. The frozen 18 fits compare single, ordinary independent4, and four shared-ensemble learning rules O/I/P/G on full official scaffold TRAIN 32901/development 4113. Candidate I was fixed before outcomes. No molecular comparative scores have been opened. This family is not duplicated on 18.77.
+The molecular graph study is active on the authorized allocation. The first single_7101 completed all100 epochs with a clean exit; at17:20 UTC independent4_7101 reached epoch 95/100. The frozen 18 fits compare single, ordinary independent4, and four shared-ensemble learning rules O/I/P/G on full official scaffold TRAIN 32901/development 4113. Candidate I was fixed before outcomes. No molecular comparative scores have been opened and no duplicate family is launched on 18.77.
 
-18.77 reconnected successfully at 15:18 UTC. Both prior four-member native prefix banks for seeds 29/43 completed 1100 epochs/member while detached. Their original checkpoints and clean terminal receipts remain on that server. The four remaining continuation/private-path controls are admitted from these completed banks. Both continuation fits actually started at 15:41 UTC, one per GPU; each first member reached epoch 1200 by 15:42 UTC. The private-path fit follows its continuation in each lane. Owner 3614607/start 1753763677 is detached. No original prefix was restarted. Both expected A100 80 GB GPU identities are verified. The Git checkout was synchronized to 8dd796bf91f65e1de2ed99a3ee6a3efe6a3d2bf3 without replacing working files or touching jobs.
+18.77 is reachable and both expected GPU identities are verified. The older WikiCS private-correction study is now complete, 21/21 endpoints. Its primary candidate E_stage averages 80.24% selected development accuracy versus 81.62% for continued single and 82.18% for the independently acquired ensemble. E_stage loses to continued single on every same-host seed; stop this exact recipe. Two candidate-to-independent comparisons cross runtimes and are descriptive. The original native banks were reused, the four successor endpoints exited cleanly, and all failures/costs are retained. See `wikics_private_controls_complete21_scientific_readout_20261007_v1/REPORT.md`.
+
+The original WikiCS attribution qualifier timed out before any numerical child because the full eight-tape execution needs about 77 GiB fresh memory. Its failure is preserved. A separate execution computes joint output cotangents once, then replays the same eight member/view graphs one at a time and updates Adam after the complete gradient sum. It retains the original data, losses, architecture, epochs, selector and stochastic views, while charging eight extra forwards per update. All four conditions in local/global mode passed fullgraph qualification, reload and finite-gradient checks. Measured peak reserved memory is 11.32 GiB, below the 32 GiB owned cap. This is an execution change, with no bitwise parity or model-quality claim. The fixed twelve fresh 18.77 fits will separate plain, alignment, residual repulsion and combined losses across three seeds; scientific training started on both 77 GPUs at17:21 UTC; both first plain fits reached 6/1100 epochs by17:21:55 UTC.
 
 ## Research decisions
 
 Earlier Citeseer initialization and private-growth studies failed their declared references and remain stopped. A local Collab gain over single still lost to independent4. Keep those results and their costs. Hidden separation, stronger average members, parameter savings, or an engineering source pass alone do not establish the required quality contribution.
 
-We continue studying training rules and graph-specific evidence differences. The molecular factors already overlap member-conditioned normalization/GNN-FiLM; no new primitive or global-descent theorem is claimed. Literature notes retain exact source scope and failures. An attribution control is prepared but inactive until its scientific question is warranted. New paper text and acceptance review require meaningful supported evidence, separate frozen confirmation and honest uncertainty.
+We continue studying training rules and graph-specific evidence differences. The molecular factors already overlap member-conditioned normalization/GNN-FiLM; no new primitive or global-descent theorem is claimed. Literature notes retain exact source scope and failures. The attribution study is exploratory after the Wiki24 outcomes and cannot serve as independent confirmation. New paper text and acceptance review require meaningful supported evidence, separate frozen confirmation and honest uncertainty.
 
 ## Boundaries
 

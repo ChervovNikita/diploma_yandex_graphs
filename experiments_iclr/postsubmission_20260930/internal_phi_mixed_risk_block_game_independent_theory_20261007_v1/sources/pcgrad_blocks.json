@@ -1,0 +1,762 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "text": "Gradient Surgery for Multi-Task Learning"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "While deep learning and deep reinforcement learning (RL) systems have demonstrated impressive results in domains such as image classification, game playing, and robotic control, data efficiency remains a major challenge. Multi-task learning has emerged as a promising approach for sharing structure across multiple tasks to enable more efficient learning. However, the multi-task setting presents a number of optimization challenges, making it difficult to realize large efficiency gains compared to learning tasks independently. The reasons why multi-task learning is so challenging compared to single-task learning are not fully understood. In this work, we identify a set of three conditions of the multi-task optimization landscape that cause detrimental gradient interference, and develop a simple yet general approach for avoiding such interference between task gradients. We propose a form of gradient surgery that projects a task’s gradient onto the normal plane of the gradient of any other task that has a conflicting gradient. On a series of challenging multi-task supervised and multi-task RL problems, this approach leads to substantial gains in efficiency and performance. Further, it is model-agnostic and can be combined with previously-proposed multi-task architectures for enhanced performance."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "While deep learning and deep reinforcement learning (RL) have shown considerable promise in enabling systems to learn complex tasks, the data requirements of current methods make it difficult to learn a breadth of capabilities, particularly when all tasks are learned individually from scratch. A natural approach to such multi-task learning problems is to train a network on all tasks jointly, with the aim of discovering shared structure across the tasks in a way that achieves greater efficiency and performance than solving tasks individually. However, learning multiple tasks all at once results is a difficult optimization problem, sometimes leading to worse overall performance and data efficiency compared to learning tasks individually (Parisotto et al., 2015; Rusu et al., 2016a). These optimization challenges are so prevalent that multiple multi-task RL algorithms have considered using independent training as a subroutine of the algorithm before distilling the independent models into a multi-tasking model (Levine et al., 2016; Parisotto et al., 2015; Rusu et al., 2016a; Ghosh et al., 2017; Teh et al., 2017), producing a multi-task model but losing out on the efficiency gains over independent training. If we could tackle the optimization challenges of multi-task learning effectively, we may be able to actually realize the hypothesized benefits of multi-task learning without the cost in final performance."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "While there has been a significant amount of research in multi-task learning (Caruana, 1997; Ruder, 2017), the optimization challenges are not well understood. Prior work has described varying learning speeds of different tasks (Chen et al., 2017; Hessel et al., 2019) and plateaus in the optimization landscape (Schaul et al., 2019) as potential causes, whereas a range of other works have focused on the model architecture (Misra et al., 2016b; Liu et al., 2018). In this work, we instead hypothesize that one of the main optimization issues in multi-task learning arises from gradients from different tasks conflicting with one another in a way that is detrimental to making progress. We define two gradients to be conflicting if they point away from one another, i.e., have a negative cosine similarity. We hypothesize that such conflict is detrimental when a) conflicting gradients coincide with b) high positive curvature and c) a large difference in gradient magnitudes."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "As an illustrative example, consider the 2D optimization landscapes of two task objectives in Figure 1a-c. The optimization landscape of each task consists of a deep valley, a property that has been observed in neural network optimization landscapes (Goodfellow et al., 2014), and the bottom of each valley is characterized by high positive curvature and large differences in the task gradient magnitudes. Under such circumstances, the multi-task gradient is dominated by one task gradient, which comes at the cost of degrading the performance of the other task. Further, due to high curvature, the improvement in the dominating task may be overestimated, while the degradation in performance of the non-dominating task may be underestimated. As a result, the optimizer struggles to make progress on the optimization objective. In Figure 1d), the optimizer reaches the deep valley of task 1, but is unable to traverse the valley in a parameter setting where there are conflicting gradients, high curvature, and a large difference in gradient magnitudes (see gradients plotted in Fig. 1d). In Section 5.4, we find experimentally that this tragic triad also occurs in a higher-dimensional neural network multi-task learning problem."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "The core contribution of this work is a method for mitigating gradient interference by altering the gradients directly, i.e. by performing “gradient surgery.” If two gradients are conflicting, we alter the gradients by projecting each onto the normal plane of the other, preventing the interfering components of the gradient from being applied to the network. We refer to this particular form of gradient surgery as projecting conflicting gradients (PCGrad). PCGrad is model-agnostic, requiring only a single modification to the application of gradients. Hence, it is easy to apply to a range of problem settings, including multi-task supervised learning and multi-task reinforcement learning, and can also be readily combined with other multi-task learning approaches, such as those that modify the architecture. We theoretically prove the local conditions under which PCGrad improves upon standard multi-task gradient descent, and we empirically evaluate PCGrad on a variety of challenging problems, including multi-task CIFAR classification, multi-objective scene understanding, a challenging multi-task RL domain, and goal-conditioned RL. Across the board, we find PCGrad leads to substantial improvements in terms of data efficiency, optimization speed, and final performance compared to prior approaches, including a more than 30% absolute improvement in multi-task reinforcement learning problems. Further, on multi-task supervised learning tasks, PCGrad can be successfully combined with prior state-of-the-art methods for multi-task learning for even greater performance."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "2 Multi-Task Learning with PCGrad"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "While the multi-task problem can in principle be solved by simply applying a standard single-task algorithm with a suitable task identifier provided to the model, or a simple multi-head or multi-output model, a number of prior works (Parisotto et al., 2015; Rusu et al., 2016a; Sener & Koltun, 2018) have found this learning problem to be difficult. In this section, we introduce notation, identify possible causes for the difficulty of multi-task optimization, propose a simple and general approach to mitigate it, and theoretically analyze the proposed approach."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.1 Preliminaries: Problem and Notation"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "The goal of multi-task learning is to find parameters [MATH \\theta] θ\\theta of a model [MATH f_{\\theta}] fθf_{\\theta} that achieve high average performance across all the training tasks drawn from a distribution of tasks [MATH p(\\mathcal{T})] p⁡(𝒯)p(\\mathcal{T}). More formally, we aim to solve the problem: [MATH \\min\\limits_{\\theta}\\mathbb{E}_{\\mathcal{T}_{i}\\sim p(\\mathcal{T})}\\left[\\mathcal{L}_{i}(\\theta)\\right]] minθ⁡𝔼𝒯i∼p⁡(𝒯)​[ℒi​(θ)]\\min\\limits_{\\theta}\\mathbb{E}_{\\mathcal{T}_{i}\\sim p(\\mathcal{T})}\\left[\\mathcal{L}_{i}(\\theta)\\right], where [MATH \\mathcal{L}_{i}] ℒi\\mathcal{L}_{i} is a loss function for the [MATH i] ii-th task [MATH \\mathcal{T}_{i}] 𝒯i\\mathcal{T}_{i} that we want to minimize. For a set of tasks, [MATH \\{\\mathcal{T}_{i}\\}] {𝒯i}\\{\\mathcal{T}_{i}\\}, we denote the multi-task loss as [MATH \\mathcal{L}(\\theta)=\\sum_{i}\\mathcal{L}_{i}(\\theta)] ℒ⁡(θ)=∑iℒi​(θ)\\mathcal{L}(\\theta)=\\sum_{i}\\mathcal{L}_{i}(\\theta), and the gradients of each task as [MATH \\mathbf{g}_{i}=\\nabla\\mathcal{L}_{i}(\\theta)] 𝐠i=∇ℒi​(θ)\\mathbf{g}_{i}=\\nabla\\mathcal{L}_{i}(\\theta) for a particular [MATH \\theta] θ\\theta. (We drop the reliance on [MATH \\theta] θ\\theta in the notation for brevity.) To obtain a model that solves a specific task from the task distribution [MATH p(\\mathcal{T})] p⁡(𝒯)p(\\mathcal{T}), we define a task-conditioned model [MATH f_{\\theta}(y|x,z_{i})] fθ​(y|x,zi)f_{\\theta}(y|x,z_{i}), with input [MATH x] xx, output [MATH y] yy, and encoding [MATH z_{i}] ziz_{i} for task [MATH \\mathcal{T}_{i}] 𝒯i\\mathcal{T}_{i}, which could be provided as a one-hot vector or in any other form."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.2 ​​​The Tragic Triad: Conflicting Gradients, Dominating Gradients, High Curvature"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "We hypothesize that a key optimization issue in multi-task learning arises from conflicting gradients, where gradients for different tasks point away from one another as measured by a negative inner product. However, conflicting gradients are not detrimental on their own. Indeed, simply averaging task gradients should provide the correct solution to descend the multi-task objective. However, there are conditions under which such conflicting gradients lead to significantly degraded performance. Consider a two-task optimization problem. If the gradient of one task is much larger in magnitude than the other, it will dominate the average gradient. If there is also high positive curvature along the directions of the task gradients, then the improvement in performance from the dominating task may be significantly overestimated, while the degradation in performance from the dominated task may be significantly underestimated. Hence, we can characterize the co-occurrence of three conditions as follows: (a) when gradients from multiple tasks are in conflict with one another (b) when the difference in gradient magnitudes is large, leading to some task gradients dominating others, and (c) when there is high curvature in the multi-task optimization landscape. We formally define the three conditions below."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefinition1.p1.1",
+    "text": "We define [MATH \\phi_{ij}] ϕi​j\\phi_{ij} as the angle between two task gradients [MATH \\mathbf{g}_{i}] 𝐠i\\mathbf{g}_{i} and [MATH \\mathbf{g}_{j}] 𝐠j\\mathbf{g}_{j}. We define the gradients as conflicting when [MATH \\cos\\phi_{ij}<0] cos⁡ϕi​j<0\\cos\\phi_{ij}<0."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefinition2.p1.1",
+    "text": "We define the gradient magnitude similarity between two gradients [MATH \\mathbf{g}_{i}] 𝐠i\\mathbf{g}_{i} and [MATH \\mathbf{g}_{j}] 𝐠j\\mathbf{g}_{j} as"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p2.1",
+    "text": "When the magnitude of two gradients is the same, this value is equal to 1. As the gradient magnitudes become increasingly different, this value goes to zero."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefinition3.p1.1",
+    "text": "We define multi-task curvature as"
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefinition3.p1.2",
+    "text": "which is the averaged curvature of [MATH \\mathcal{L}] ℒ\\mathcal{L} between [MATH \\theta] θ\\theta and [MATH \\theta^{\\prime}] θ′\\theta^{\\prime} in the direction of the multi-task gradient [MATH \\nabla\\mathcal{L}(\\theta)] ∇ℒ​(θ)\\nabla\\mathcal{L}(\\theta). When [MATH \\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\prime})>C] 𝐇⁡(ℒ,θ,θ′)>C\\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\prime})>C for some large positive constant [MATH C] CC for the model parameter [MATH \\theta] θ\\theta and [MATH \\theta^{\\prime}] θ′\\theta^{\\prime} at the current and next iteration, we characterize that the high curvature phenomenon exists in the optimization landscape."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p3.1",
+    "text": "We aim to study the tragic triad and observe the presence of the three conditions listed above through two examples. First, consider the two-dimensional optimization landscape illustrated in Fig. 1a, where the landscape for each task objective corresponds to a deep and curved valley with large curvatures (Fig. 1b and 1c). The optima of this multi-task objective correspond to where the two valleys meet. More details on the optimization landscape are in Appendix E. Particular points of this optimization landscape exhibit the three described conditions, and we observe that, the Adam (Kingma & Ba, 2014) optimizer stalls precisely at one of these points (see Fig. 1d), preventing it from reaching an optimum. This provides some empirical evidence for our hypothesis. Our experiments in Section 5.4 further suggest that this phenomenon occurs in multi-task learning with deep neural networks."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p4.1",
+    "text": "Motivated by these observations, we develop an algorithm that aims to alleviate the optimization challenges caused by conflicting gradients, dominating gradients, and high curvature, which we describe next."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.3 ​​​PCGrad: Project Conflicting Gradients"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p1.1",
+    "text": "Our goal is to break one condition of the tragic triad by directly altering the gradients themselves to prevent conflict. In this section, we outline our approach for altering the gradients. In the next section, we will theoretically show that de-conflicting gradients can benefit multi-task learning when dominating gradients and high curvatures are present."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p2.1",
+    "text": "To be maximally effective and widely applicable, we aim to alter the gradients in a way that allows for positive interactions between the task gradients and does not introduce assumptions on the form of the model. Hence, when gradients do not conflict, we do not change the gradients. When gradients do conflict, the goal of PCGrad is to modify the gradients for each task so as to minimize negative conflict with other task gradients, which will in turn mitigate under- and over-estimation problems arising from high curvature."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p3.1",
+    "text": "To deconflict gradients during optimization, PCGrad adopts a simple procedure: if the gradients between two tasks are in conflict, i.e. their cosine similarity is negative, we project the gradient of each task onto the normal plane of the gradient of the other task. This amounts to removing the conflicting component of the gradient for the task, thereby reducing the amount of destructive gradient interference between tasks. A pictorial description of this idea is shown in Fig. 2. Suppose the gradient for task [MATH \\mathcal{T}_{i}] 𝒯i\\mathcal{T}_{i} is [MATH \\mathbf{g}_{i}] 𝐠i\\mathbf{g}_{i}, and the gradient for task [MATH \\mathcal{T}_{j}] 𝒯j\\mathcal{T}_{j} is [MATH \\mathbf{g}_{j}] 𝐠j\\mathbf{g}_{j}. PCGrad proceeds as follows: (1) First, it determines whether [MATH \\mathbf{g}_{i}] 𝐠i\\mathbf{g}_{i} conflicts with [MATH \\mathbf{g}_{j}] 𝐠j\\mathbf{g}_{j} by computing the cosine similarity between vectors [MATH \\mathbf{g}_{i}] 𝐠i\\mathbf{g}_{i} and [MATH \\mathbf{g}_{j}] 𝐠j\\mathbf{g}_{j}, where negative values indicate conflicting gradients. (2) If the cosine similarity is negative, we replace [MATH \\mathbf{g}_{i}] 𝐠i\\mathbf{g}_{i} by its projection onto the normal plane of [MATH \\mathbf{g}_{j}] 𝐠j\\mathbf{g}_{j}: [MATH \\mathbf{g}_{i}=\\mathbf{g}_{i}-\\frac{\\mathbf{g}_{i}\\cdot\\mathbf{g}_{j}}{\\|\\mathbf{g}_{j}\\|^{2}}\\mathbf{g}_{j}] 𝐠i=𝐠i−𝐠i⋅𝐠j‖𝐠j‖2​𝐠j\\mathbf{g}_{i}=\\mathbf{g}_{i}-\\frac{\\mathbf{g}_{i}\\cdot\\mathbf{g}_{j}}{\\|\\mathbf{g}_{j}\\|^{2}}\\mathbf{g}_{j}. If the gradients are not in conflict, i.e. cosine similarity is non-negative, the original gradient [MATH \\mathbf{g}_{i}] 𝐠i\\mathbf{g}_{i} remains unaltered. (3) PCGrad repeats this process across all of the other tasks sampled in random order from the current batch [MATH \\mathcal{T}_{j}~\\forall~j\\neq i] 𝒯j​∀j≠i\\mathcal{T}_{j}~\\forall~j\\neq i, resulting in the gradient [MATH \\mathbf{g}_{i}^{\\text{PC}}] 𝐠iPC\\mathbf{g}_{i}^{\\text{PC}} that is applied for task [MATH \\mathcal{T}_{i}] 𝒯i\\mathcal{T}_{i}. We perform the same procedure for all tasks in the batch to obtain their respective gradients. The full update procedure is described in Algorithm 1 and a discussion on using a random task order is included in Appendix H."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p4.1",
+    "text": "This procedure, while simple to implement, ensures that the gradients that we apply for each task per batch interfere minimally with the other tasks in the batch, mitigating the conflicting gradient problem, producing a variant on standard first-order gradient descent in the multi-objective setting. In practice, PCGrad can be combined with any gradient-based optimizer, including commonly used methods such as SGD with momentum and Adam (Kingma & Ba, 2014), by simply passing the computed update to the respective optimizer instead of the original gradient. Our experimental results verify the hypothesis that this procedure reduces the problem of conflicting gradients, and find that, as a result, learning progress is substantially improved."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.4 Theoretical Analysis of PCGrad"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p1.1",
+    "text": "In this section, we theoretically analyze the performance of PCGrad with two tasks:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefinition4.p1.1",
+    "text": "Consider two task loss functions [MATH \\mathcal{L}_{1}:\\mathbb{R}^{n}\\rightarrow\\mathbb{R}] ℒ1:ℝn→ℝ\\mathcal{L}_{1}:\\mathbb{R}^{n}\\rightarrow\\mathbb{R} and [MATH \\mathcal{L}_{2}:\\mathbb{R}^{n}\\rightarrow\\mathbb{R}] ℒ2:ℝn→ℝ\\mathcal{L}_{2}:\\mathbb{R}^{n}\\rightarrow\\mathbb{R}. We define the two-task learning objective as [MATH \\mathcal{L}(\\theta)=\\mathcal{L}_{1}(\\theta)+\\mathcal{L}_{2}(\\theta)] ℒ⁡(θ)=ℒ1​(θ)+ℒ2​(θ)\\mathcal{L}(\\theta)=\\mathcal{L}_{1}(\\theta)+\\mathcal{L}_{2}(\\theta) for all [MATH \\theta\\in\\mathbb{R}^{n}] θ∈ℝn\\theta\\in\\mathbb{R}^{n}, where [MATH {\\mathbf{g}_{1}}=\\nabla\\mathcal{L}_{1}(\\theta)] 𝐠1=∇ℒ1​(θ){\\mathbf{g}_{1}}=\\nabla\\mathcal{L}_{1}(\\theta), [MATH {\\mathbf{g}_{2}}=\\nabla\\mathcal{L}_{2}(\\theta)] 𝐠2=∇ℒ2​(θ){\\mathbf{g}_{2}}=\\nabla\\mathcal{L}_{2}(\\theta), and [MATH {\\mathbf{g}}={\\mathbf{g}_{1}}+{\\mathbf{g}_{2}}] 𝐠=𝐠1+𝐠2{\\mathbf{g}}={\\mathbf{g}_{1}}+{\\mathbf{g}_{2}}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p2.1",
+    "text": "We first aim to verify that the PCGrad update corresponds to a sensible optimization procedure under simplifying assumptions. We analyze convergence of PCGrad in the convex setting, under standard assumptions:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem1.p1.1",
+    "text": "Assume [MATH \\mathcal{L}_{1}] ℒ1\\mathcal{L}_{1} and [MATH \\mathcal{L}_{2}] ℒ2\\mathcal{L}_{2} are convex and differentiable. Suppose the gradient of [MATH \\mathcal{L}] ℒ\\mathcal{L} is Lipschitz continuous with constant [MATH L>0] L>0L>0. Then, the PCGrad update rule with step size [MATH t\\leq\\frac{1}{L}] t≤1Lt\\leq\\frac{1}{L} will converge to either (1) a location in the optimization landscape where [MATH \\cos(\\phi_{12})=-1] cos⁡(ϕ12)=−1\\cos(\\phi_{12})=-1 or (2) the optimal value [MATH \\mathcal{L}(\\theta^{*})] ℒ⁡(θ∗)\\mathcal{L}(\\theta^{*})."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p3.1",
+    "text": "See Appendix A. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p4.1",
+    "text": "Theorem 1 states that application of the PCGrad update in the two-task setting with a convex and Lipschitz multi-task loss function [MATH \\mathcal{L}] ℒ\\mathcal{L} leads to convergence to either the minimizer of [MATH \\mathcal{L}] ℒ\\mathcal{L} or a potentially sub-optimal objective value. A sub-optimal solution occurs when the cosine similarity between the gradients of the two tasks is exactly [MATH -1] −1-1, i.e. the gradients directly conflict, leading to zero gradient after applying PCGrad. However, in practice, since we are using SGD, which is a noisy estimate of the true batch gradients, the cosine similarity between the gradients of two tasks in a minibatch is unlikely to be [MATH -1] −1-1, thus avoiding this scenario."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p5.1",
+    "text": "Now that we have checked the sensibility of PCGrad, we aim to understand how PCGrad relates to the three conditions in the tragic triad. In particular, we derive sufficient conditions under which PCGrad achieves lower loss after one update. Here, we still analyze the two task setting, but no longer assume convexity of the loss functions."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefinition5.p1.1",
+    "text": "We define the multi-task curvature bounding measure"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p6.1",
+    "text": "With the above definition, we present our next theorem:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem2.p1.1",
+    "text": "Suppose [MATH \\mathcal{L}] ℒ\\mathcal{L} is differentiable and the gradient of [MATH \\mathcal{L}] ℒ\\mathcal{L} is Lipschitz continuous with constant [MATH L>0] L>0L>0. Let [MATH \\theta^{\\text{MT}}] θMT\\theta^{\\text{MT}} and [MATH \\theta^{\\text{PCGrad}}] θPCGrad\\theta^{\\text{PCGrad}} be the parameters after applying one update to [MATH \\theta] θ\\theta with [MATH {\\mathbf{g}}] 𝐠{\\mathbf{g}} and PCGrad-modified gradient [MATH {\\mathbf{g}}^{\\text{PC}}] 𝐠PC{\\mathbf{g}}^{\\text{PC}} respectively, with step size [MATH t>0] t>0t>0. Moreover, assume [MATH \\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2}] 𝐇⁡(ℒ,θ,θMT)≥ℓ​‖𝐠‖22\\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2} for some constant [MATH \\ell\\leq L] ℓ≤L\\ell\\leq L, i.e. the multi-task curvature is lower-bounded. Then [MATH \\mathcal{L}(\\theta^{\\text{PCGrad}})\\leq\\mathcal{L}(\\theta^{\\text{MT}})] ℒ⁡(θPCGrad)≤ℒ⁡(θMT)\\mathcal{L}(\\theta^{\\text{PCGrad}})\\leq\\mathcal{L}(\\theta^{\\text{MT}}) if"
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i1.p1.1",
+    "text": "[MATH \\cos\\phi_{12}\\leq-\\Phi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}})] cos⁡ϕ12≤−Φ⁡(𝐠1,𝐠2)\\cos\\phi_{12}\\leq-\\Phi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}}),"
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i2.p1.1",
+    "text": "[MATH \\ell\\geq\\xi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}})L] ℓ≥ξ⁡(𝐠1,𝐠2)​L\\ell\\geq\\xi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}})L, and"
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i3.p1.1",
+    "text": "[MATH t\\geq\\frac{2}{\\ell-\\xi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}})L}.] t≥2ℓ−ξ⁡(𝐠1,𝐠2)​L.t\\geq\\frac{2}{\\ell-\\xi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}})L}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p7.1",
+    "text": "See Appendix B. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p8.1",
+    "text": "Intuitively, Theorem 2 implies that PCGrad achieves lower loss value after a single gradient update compared to standard gradient descent in multi-task learning when (i) the angle between task gradients is not too small, i.e. the two tasks need to conflict sufficiently (condition (a)), (ii) the difference in magnitude needs to be sufficiently large (condition (a)), (iii) the curvature of the multi-task gradient should be large (condition (b)), (iv) and the learning rate should be big enough so that large curvature would lead to overestimation of performance improvement on the dominating task and underestimation of performance degradation on the dominated task (condition (c)). These first three points (i-iii) correspond to exactly the triad of conditions outlined in Section 2.2, while the latter condition (iv) is desirable as we hope to learn quickly. We empirically validate that the first three points, (i-iii), are frequently met in a neural network multi-task learning problem in Figure 5 in Section 5.4."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p9.1",
+    "text": "For additional analysis, including complete sufficient and necessary conditions for the PCGrad update to outperform the vanilla multi-task gradient, see Appendix C."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "3 PCGrad in Practice"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "We use PCGrad in supervised learning and reinforcement learning problems with multiple tasks or goals. Here, we discuss the practical application of PCGrad to those settings."
+  },
+  {
+    "tag": "p",
+    "id": "S3.p2.1",
+    "text": "In multi-task supervised learning, each task [MATH \\mathcal{T}_{i}\\sim p(\\mathcal{T})] 𝒯i∼p⁡(𝒯)\\mathcal{T}_{i}\\sim p(\\mathcal{T}) has a corresponding training dataset [MATH \\mathcal{D}_{i}] 𝒟i\\mathcal{D}_{i} consisting of labeled training examples, i.e. [MATH \\mathcal{D}_{i}=\\{(x,y)_{n}\\}] 𝒟i={(x,y)n}\\mathcal{D}_{i}=\\{(x,y)_{n}\\}. The objective for each task in this supervised setting is then defined as [MATH \\mathcal{L}_{i}(\\theta)=\\mathbb{E}_{(x,y)\\sim\\mathcal{D}_{i}}\\left[-\\log f_{\\theta}(y|x,z_{i})\\right]] ℒi​(θ)=𝔼(x,y)∼𝒟i​[−log⁡fθ​(y|x,zi)]\\mathcal{L}_{i}(\\theta)=\\mathbb{E}_{(x,y)\\sim\\mathcal{D}_{i}}\\left[-\\log f_{\\theta}(y|x,z_{i})\\right], where [MATH z_{i}] ziz_{i} is a one-hot encoding of task [MATH \\mathcal{T}_{i}] 𝒯i\\mathcal{T}_{i}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.p3.1",
+    "text": "At each training step, we randomly sample a batch of data points [MATH \\mathcal{B}] ℬ\\mathcal{B} from the whole dataset [MATH \\bigcup_{i}\\mathcal{D}_{i}] ⋃i𝒟i\\bigcup_{i}\\mathcal{D}_{i} and then group the sampled data with the same task encoding into small batches denoted as [MATH \\mathcal{B}_{i}] ℬi\\mathcal{B}_{i} for each [MATH \\mathcal{T}_{i}] 𝒯i\\mathcal{T}_{i} represented in [MATH \\mathcal{B}] ℬ\\mathcal{B}. We denote the set of tasks appearing in [MATH \\mathcal{B}] ℬ\\mathcal{B} as [MATH \\mathcal{B}_{\\mathcal{T}}] ℬ𝒯\\mathcal{B}_{\\mathcal{T}}. After sampling, we precompute the gradient of each task in [MATH \\mathcal{B}_{\\mathcal{T}}] ℬ𝒯\\mathcal{B}_{\\mathcal{T}} as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p3.2",
+    "text": "Given the set of precomputed gradients [MATH \\nabla_{\\theta}\\mathcal{L}_{i}(\\theta)] ∇θℒi​(θ)\\nabla_{\\theta}\\mathcal{L}_{i}(\\theta), we also precompute the cosine similarity between all pairs of the gradients in the set. Using the pre-computed gradients and their similarities, we can obtain the PCGrad update by following Algorithm 1, without re-computing task gradients nor backpropagating into the network."
+  },
+  {
+    "tag": "p",
+    "id": "S3.p4.1",
+    "text": "Since the PCGrad procedure is only modifying the gradients of shared parameters in the optimization step, it is model-agnostic and can be readily applied to any architecture designed for supervised multi-task learning. In Section 5, we combine PCGrad with two state-of-the-art architectures for multi-task learning, which leads to noticeable improvement over their original performance."
+  },
+  {
+    "tag": "p",
+    "id": "S3.p5.1",
+    "text": "For multi-task reinforcement learning, PCGrad can be readily applied to policy gradient methods by directly updating the computed policy gradient of each task, following Algorithm 1, analogous to the supervised learning setting. For actor-critic algorithms, it is also straightforward to apply PCGrad: we simply replace the task gradients for both the actor and the critic by their gradients computed via PCGrad."
+  },
+  {
+    "tag": "p",
+    "id": "S3.p6.1",
+    "text": "In our experiments, we apply PCGrad to the soft actor-critic (SAC) algorithm (Haarnoja et al., 2018), an off-policy RL method. In the context of SAC specifically, we also propose to learn the temperature [MATH \\alpha] α\\alpha for adjusting entropy of the policy on a per-task basis. This allows the method to control the entropy of the multi-task policy per-task. For more details on the practical instantiations of multi-task and goal-conditioned reinforcement learning, see Appendix D."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "4 Related Work"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "Algorithms for multi-task learning typically consider how to train a single model that can solve a variety of different tasks (Caruana, 1997; Bakker & Heskes, 2003; Ruder, 2017). The multi-task formulation has been applied to many different settings, including supervised learning (Zhang et al., 2014; Long & Wang, 2015; Yang & Hospedales, 2016; Sener & Koltun, 2018; Zamir et al., 2018) and reinforcement-learning (Espeholt et al., 2018; Wilson et al., 2007), as well as many different domains, such as vision (Bilen & Vedaldi, 2016; Misra et al., 2016a; Kokkinos, 2017; Liu et al., 2018; Zamir et al., 2018), language (Collobert & Weston, 2008; Dong et al., 2015; McCann et al., 2018; Radford et al., 2019) and robotics (Riedmiller et al., 2018; Wulfmeier et al., 2019; Hausman et al., 2018). While multi-task learning has the promise of accelerating acquisition of large task repertoires, in practice it presents a challenging optimization problem, which has been tackled in several ways in prior work."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p2.1",
+    "text": "A number of architectural solutions have been proposed to the multi-task learning problem based on multiple modules or paths (Fernando et al., 2017; Devin et al., 2016; Misra et al., 2016b; Rusu et al., 2016b; Rosenbaum et al., 2018; Vandenhende et al., 2019; Rosenbaum et al., 2018), or using attention-based architectures (Liu et al., 2018; Maninis et al., 2019). Our work is agnostic to the model architecture and can be combined with prior architectural approaches in a complementary fashion. A different set of multi-task learning approaches aim to decompose the problem into multiple local problems, often corresponding to each task, that are significantly easier to learn, akin to divide and conquer algorithms (Levine et al., 2016; Rusu et al., 2016a; Parisotto et al., 2015; Teh et al., 2017; Ghosh et al., 2017; Czarnecki et al., 2019). Eventually, the local models are combined into a single, multi-task policy using different distillation techniques (outlined in (Hinton et al., 2015; Czarnecki et al., 2019)). In contrast to these methods, we propose a simple and cogent scheme for multi-task learning that allows us to learn the tasks simultaneously using a single, shared model without the need for network distillation."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p3.1",
+    "text": "Similarly to our work, a number of prior approaches have observed the difficulty of optimization in the multi-task learning setting (Hessel et al., 2019; Kendall et al., 2018b; Schaul et al., 2019). Our work, in contrast, suggests that the challenge in multi-task learning may be attributed to what we describe as the tragic triad of multi-task learning (i.e., conflicting gradients, high curvature, and large gradient differences), which we address directly by introducing a simple and practical algorithm that deconflicts gradients from different tasks. Prior works combat optimization challenges by rescaling task gradients (Sener & Koltun, 2018; Chen et al., 2018). We alter both the magnitude and direction of the gradient, which we find to be critical for good performance (see Fig. 3). Prior work has also used the cosine similarity between gradients to define when an auxiliary task might be useful for single-task learning (Du et al., 2018). We similarly use cosine similarity between gradients to determine if the gradients between a pair of tasks are in conflict. Unlike Du et al. (2018), we use this measure for effective multi-task learning, instead of ignoring auxiliary objectives."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p4.1",
+    "text": "Multiple approaches to continual learning have studied how to prevent gradient updates from adversely affecting previously-learned tasks through various forms of gradient projection (Lopez-Paz & Ranzato, 2017; Chaudhry et al., 2018). These methods focus on sequential learning settings, and either solve for the gradient projections using quadratic programming (Lopez-Paz & Ranzato, 2017), or only project onto the normal plane of the average gradient of past tasks (Chaudhry et al., 2018). In contrast, our work focuses on positive transfer when simultaneously learning multiple tasks, does not require solving a QP, and iteratively projects the gradients of each task instead of averaging. Finally, our method is distinct from and solves a different problem than the projected gradient method (Calamai & Moré, 1987), which is an approach for constrained optimization that projects gradients onto the constraint manifold."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "5 Experiments"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "The goal of our experiments is to study the following questions: (1) Is the tragic triad of multi-task learning a major factor in making optimization for multi-task learning challenging? (2) Does PCGrad make the optimization problems easier for various multi-task learning problems including supervised, reinforcement, and goal-conditioned reinforcement learning settings across different task families? (3) Can PCGrad be combined with other multi-task learning approaches to further improve performance? To broadly evaluate PCGrad, we consider multi-task supervised learning, multi-task RL, and goal-conditioned RL problem setups. For details on the experimental set-up and model architectures see Appendix I."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "5.1 Multi-Task Supervised Learning"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p1.1",
+    "text": "To answer question (3), we perform experiments on three standard multi-task supervised learning datasets: MultiMNIST, multi-task CIFAR-100 and NYUv2. We include the results on MultiMNIST in Appendix F."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p2.1",
+    "text": "For CIFAR-100, we follow (Rosenbaum et al., 2018) to treat 20 coarse labels in the dataset as distinct tasks and create a dataset with 20 tasks and 2500 training instances as well as 500 test instances per task. We combine PCGrad with a powerful multi-task learning architecture, routing networks (Rosenbaum et al., 2018; Rosenbaum et al., 2019), by simply projecting gradients of the shared parameters in routing networks. As shown in Table 2, applying PCGrad to a single network achieves 71% classification accuracy, which outperforms most of the prior methods such as independent training and cross-stitch (Misra et al., 2016b). Though routing networks achieve better performance than PCGrad on its own, PCGrad is complementary to routing networks and combining PCGrad with routing networks leads to a [MATH 2.8\\%] 2.8%2.8\\% absolute improvement in test accuracy averaged over [MATH 3] 33 runs."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p3.1",
+    "text": "We also combine PCGrad with another state-of-art multi-task learning algorithm, MTAN (Liu et al., 2018), and evaluate the performance on a more challenging indoor scene dataset, NYUv2, which contains 3 tasks: 13-class semantic segmentation, depth estimation, and surface normal prediction. We compare MTAN with PCGrad to a list of methods mentioned in Appendix I.1, where each method is trained with three different weighting schemes as in (Liu et al., 2018), equal weighting, weight uncertainty (Kendall et al., 2018a), and DWA (Liu et al., 2018). We only run MTAN with PCGrad with weight uncertainty as we find weight uncertainty as the most effective scheme for training MTAN. The results comparing Cross-Stitch, MTAN and MTAN + PCGrad are presented in Table 1 while the full comparison can be found in Table 4 in the Appendix I.3. MTAN with PCGrad is able to achieve the best scores in 8 out of the 9 categories where there are 3 categories per task."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p4.1",
+    "text": "Our multi-task supervised learning results indicate that PCGrad can be seamlessly combined with state-of-art multi-task learning architectures and further improve their results on established supervised multi-task learning benchmarks."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "5.2 Multi-Task Reinforcement Learning"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p1.1",
+    "text": "To answer question (2), we first consider the multi-task reinforcement learning problem and evaluate our algorithm on the recently proposed Meta-World benchmark (Yu et al., 2019). In particular, we test all methods on the MT10 and MT50 benchmarks in Meta-World, which contains [MATH 10] 1010 and [MATH 50] 5050 manipulation tasks respectively shown in Figure 4. At each data collection step, we collect [MATH 600] 600600 samples for each task, and at each training step, we sample [MATH 128] 128128 datapoints per task from corresponding replay buffers. The results are shown in left two plots in Figure 3. We measure success according to the metrics used in the Meta-World benchmark where the reported the success rates are averaged across tasks. For all methods, we apply the temperature adjustment strategy as discussed in Section 3 to learn a separate alpha term per task as the task encoding in MT10 and MT50 is just a one-hot encoding. PCGrad combined with SAC learns all tasks with the best data efficiency and successfully solves all of the [MATH 10] 1010 tasks in MT10 and about [MATH 70] 7070% of the [MATH 50] 5050 tasks in MT50. Training a single SAC policy and a multi-head policy turns out to be unable to acquire half of the skills in both MT10 and MT50, suggesting that eliminating gradient interference across tasks can significantly boost performance of multi-task RL. Training independent SAC agents is able to eventually solve all tasks in MT10 and [MATH 70] 7070% of the tasks in MT50, but requires about [MATH 2] 22 millions and [MATH 15] 1515 millions more samples than PCGrad with SAC in MT10 and MT50 respectively, implying that applying PCGrad can result in leveraging shared structure among tasks that expedites multi-task learning."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p2.1",
+    "text": "As noted by Yu et al. (2019), these tasks involve fairly distinct behavior motions, which makes learning all of them with a single policy challenging as demonstrated by poor baseline performance. The ability to learn these tasks together opens the door for a number of interesting extensions to meta-learning, goal conditioned RL and generalization to novel task families. We present the results of PCGrad on goal-conditioned RL in the following subsection."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p3.1",
+    "text": "We also provide an ablation study on the importance of correcting the gradient direction and scaling the gradient magnitudes in PCGrad. We construct two variants of PCGrad: (1) only applying the gradient direction corrected with PCGrad while keeping the gradient magnitude unchanged and (2) only applying the gradient magnitude computed by PCGrad while keeping the gradient direction unchanged. As shown in the rightmost plot in Figure 3, both variants perform worse than PCGrad and the variant where we only vary the gradient magnitude is much worse than PCGrad. This emphasizes the importance of the orientation change, which is particularly notable as multiple prior works only alter gradient magnitudes (Chen et al., 2017; Sener & Koltun, 2018). For a direct comparison to Chen et al. (2017), see Figure 6 in Appendix G."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "5.3 Goal-Conditioned Reinforcement Learning"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS3.p1.1",
+    "text": "For our goal-conditioned RL evaluation, we adopt the goal-conditioned robotic pushing task with a Sawyer robot where the goals are represented as the concatenations of the initial positions of the puck to be pushed and the its goal location, both of which are uniformly sampled (details in Appendix I.2). We also apply the temperature adjustment strategy as discussed in Section 3 to predict the temperature for entropy term given the goal. We summarize the results in the plot second from right in Figure 3. PCGrad with SAC achieves better performance in terms of average distance to the goal position, while the vanilla SAC agent is struggling to successfully accomplish the task. This suggests that PCGrad is able to ease the RL optimization problem also when the task distribution is continuous."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "5.4 Empirical Analysis of the Tragic Triad"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS4.p1.1",
+    "text": "Finally, to answer question (1), we compare the performance of the network trained with standard multi-task learning conditioned on ground truth task labels and Adam optimizer and the network trained with multi-task learning and Adam optimizer with PCGrad-modified gradients on two tasks, reach and press button top, in the Meta-World (Yu et al., 2019) benchmark. As shown in the leftmost plot in Figure 5, we plot the multi-task curvature, which is computed as"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS4.p1.2",
+    "text": "by Taylor’s Theorem where [MATH \\mathcal{L}] ℒ\\mathcal{L} is the multi-task loss, and [MATH \\theta^{t}] θt\\theta^{t} and [MATH \\theta^{t+1}] θt+1\\theta^{t+1} are the parameters at iteration [MATH t] tt and [MATH t+1] t+1t+1. During the training process, the multi-task curvature stays positive and is increasing for both Adam and Adam combined PCGrad, suggesting that condition (b) in Theorem 2 that the multi-task curvature is lower bounded by some positive value is widely held empirically. To further analyze conditions in Theorem 2 empirically, we plot the percentage of condition (a) (i.e. conflicting gradients) and the implication of condition (b) ( [MATH \\xi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}})\\leq 1] ξ⁡(𝐠1,𝐠2)≤1\\xi({\\mathbf{g}_{1}},{\\mathbf{g}_{2}})\\leq 1) in Theorem 2 being held among the total number of iterations where the cosine similarity is negative in the plot in the middle of Figure 5. Along with the plot on the right in Figure 5, which presents the average return of the two tasks during training, we can see that while Adam and Adam with PCGrad haven’t received reward signal from Task 2, condition (a) and the implication of condition (b) stay held and as soon as Adam with PCGrad begins to solve Task 2, the percentage of condition (a) and the implication of condition (b) being held start to decrease. Such a pattern suggests that conflicting gradients, high curvatures and dominating gradients indeed produce considerable challenges in optimization before multi-task learner gains any useful learning signal, which also implies that the tragic triad may indeed be the determining factor where PCGrad can lead to better performance gain over standard multi-task learning in practice."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "6 Conclusion"
+  },
+  {
+    "tag": "p",
+    "id": "S6.p1.1",
+    "text": "In this work, we identified a set of conditions that underlies major challenges in multi-task optimization: conflicting gradients, high positive curvature, and large gradient differences. We proposed a simple algorithm (PCGrad) to mitigate these challenges via “gradient surgery.” PCGrad provides a simple solution to mitigating gradient interference, which substantially improves optimization performance. We provide simple didactic examples and subsequently show significant improvement in optimization for a variety of multi-task supervised learning and reinforcement learning problems. We show that, when some optimization challenges of multi-task learning are alleviated by PCGrad, we can obtain the hypothesized benefits in efficiency and asymptotic performance of multi-task settings."
+  },
+  {
+    "tag": "p",
+    "id": "S6.p2.1",
+    "text": "While we studied multi-task supervised learning and multi-task reinforcement learning in this work, we suspect the problem of conflicting gradients to be prevalent in a range of other settings and applications, such as meta-learning, continual learning, multi-goal imitation learning (Codevilla et al., 2018), and multi-task problems in natural language processing applications (McCann et al., 2018). Due to its simplicity and model-agnostic nature, we expect that applying PCGrad in these domains to be a promising avenue for future investigation. Further, the general idea of gradient surgery may be an important ingredient for alleviating a broader class of optimization challenges in deep learning, such as the challenges in the stability challenges in two-player games (Roth et al., 2017) and multi-agent optimizations (Nedic & Ozdaglar, 2009). We believe this work to be a step towards simple yet general techniques for addressing some of these challenges."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Acknowledgements"
+  },
+  {
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "text": "The authors would like to thank Eric Mitchell for technical guidance, and Aravind Rajeswaran and Deirdre Quillen for helpful discussions."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "tag": "p",
+    "id": "p1.1",
+    "text": "Appendix"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A Proof of Theorem 1"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.1",
+    "text": "See 1"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.1",
+    "text": "We will use the shorthand [MATH ||\\cdot||] ||⋅||||\\cdot|| to denote the [MATH L_{2}] L2L_{2}-norm and [MATH \\nabla\\mathcal{L}=\\nabla_{\\theta}\\mathcal{L}] ∇ℒ=∇θℒ\\nabla\\mathcal{L}=\\nabla_{\\theta}\\mathcal{L}, where [MATH \\theta] θ\\theta is the parameter vector. Following Definition 1 and 4, let [MATH {\\mathbf{g_{1}}}=\\nabla\\mathcal{L}_{1}] 𝐠𝟏=∇ℒ1{\\mathbf{g_{1}}}=\\nabla\\mathcal{L}_{1}, [MATH {\\mathbf{g_{2}}}=\\nabla\\mathcal{L}_{2}] 𝐠𝟐=∇ℒ2{\\mathbf{g_{2}}}=\\nabla\\mathcal{L}_{2}, [MATH {\\mathbf{g}}=\\nabla\\mathcal{L}={\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}] 𝐠=∇ℒ=𝐠𝟏+𝐠𝟐{\\mathbf{g}}=\\nabla\\mathcal{L}={\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}, and [MATH \\phi_{12}] ϕ12\\phi_{12} be the angle between [MATH {\\mathbf{g_{1}}}] 𝐠𝟏{\\mathbf{g_{1}}} and [MATH {\\mathbf{g_{2}}}] 𝐠𝟐{\\mathbf{g_{2}}}."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p3.1",
+    "text": "At each PCGrad update, we have two cases: [MATH cos(\\phi_{12})\\geq 0] c​o​s​(ϕ12)≥0cos(\\phi_{12})\\geq 0 or [MATH \\cos(\\phi_{12})<0] cos⁡(ϕ12)<0\\cos(\\phi_{12})<0."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p4.1",
+    "text": "If [MATH \\cos(\\phi_{12})\\geq 0] cos⁡(ϕ12)≥0\\cos(\\phi_{12})\\geq 0, then we apply the standard gradient descent update using [MATH t\\leq\\frac{1}{L}] t≤1Lt\\leq\\frac{1}{L}, which leads to a strict decrease in the objective function value [MATH \\mathcal{L}(\\theta)] ℒ⁡(θ)\\mathcal{L}(\\theta) (since it is also convex) unless [MATH \\nabla\\mathcal{L}(\\theta)=0] ∇ℒ​(θ)=0\\nabla\\mathcal{L}(\\theta)=0, which occurs only when [MATH \\theta=\\theta^{*}] θ=θ∗\\theta=\\theta^{*} (Boyd & Vandenberghe, 2004)."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p5.1",
+    "text": "In the case that [MATH \\cos(\\phi_{12})<0] cos⁡(ϕ12)<0\\cos(\\phi_{12})<0, we proceed as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p6.1",
+    "text": "Our assumption that [MATH \\nabla\\mathcal{L}] ∇ℒ\\nabla\\mathcal{L} is Lipschitz continuous with constant [MATH L] LL implies that [MATH \\nabla^{2}\\mathcal{L}(\\theta)-LI] ∇2ℒ​(θ)−L​I\\nabla^{2}\\mathcal{L}(\\theta)-LI is a negative semi-definite matrix. Using this fact, we can perform a quadratic expansion of [MATH \\mathcal{L}] ℒ\\mathcal{L} around [MATH \\mathcal{L}(\\theta)] ℒ⁡(θ)\\mathcal{L}(\\theta) and obtain the following inequality:"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p6.2",
+    "text": "Now, we can plug in the PCGrad update by letting [MATH \\theta^{+}=\\theta-t\\cdot({\\mathbf{g}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{1}}}||^{2}}{\\mathbf{g_{1}}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{2}}}||^{2}}{\\mathbf{g_{2}}})] θ+=θ−t⋅(𝐠−𝐠𝟏⋅𝐠𝟐‖𝐠𝟏‖2​𝐠𝟏−𝐠𝟏⋅𝐠𝟐‖𝐠𝟐‖2​𝐠𝟐)\\theta^{+}=\\theta-t\\cdot({\\mathbf{g}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{1}}}||^{2}}{\\mathbf{g_{1}}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{2}}}||^{2}}{\\mathbf{g_{2}}}). We then get:"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p6.3",
+    "text": "Using [MATH t\\leq\\frac{1}{L}] t≤1Lt\\leq\\frac{1}{L}, we know that [MATH -(1-\\frac{1}{2}Lt)=\\frac{1}{2}Lt-1\\leq\\frac{1}{2}L(1/L)-1=\\frac{-1}{2}] −(1−12​L​t)=12​L​t−1≤12​L​(1/L)−1=−12-(1-\\frac{1}{2}Lt)=\\frac{1}{2}Lt-1\\leq\\frac{1}{2}L(1/L)-1=\\frac{-1}{2} and [MATH Lt^{2}\\leq t] L​t2≤tLt^{2}\\leq t."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p7.1",
+    "text": "Plugging this into the last expression above, we can conclude the following:"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p8.1",
+    "text": "If [MATH \\cos(\\phi_{12})>-1] cos⁡(ϕ12)>−1\\cos(\\phi_{12})>-1, then [MATH \\frac{1}{2}t(1-\\cos^{2}(\\phi_{12}))\\|{\\mathbf{g}}\\|^{2}] 12​t​(1−cos2⁡(ϕ12))​‖𝐠‖2\\frac{1}{2}t(1-\\cos^{2}(\\phi_{12}))\\|{\\mathbf{g}}\\|^{2} will always be positive unless [MATH {\\mathbf{g}}=0] 𝐠=0{\\mathbf{g}}=0. This inequality implies that the objective function value strictly decreases with each iteration where [MATH \\cos(\\phi_{12})>-1] cos⁡(ϕ12)>−1\\cos(\\phi_{12})>-1."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p9.1",
+    "text": "Hence repeatedly applying PCGrad process can either reach the optimal value [MATH \\mathcal{L}(\\theta)=\\mathcal{L}(\\theta^{*})] ℒ⁡(θ)=ℒ⁡(θ∗)\\mathcal{L}(\\theta)=\\mathcal{L}(\\theta^{*}) or [MATH \\cos(\\phi_{12})=-1] cos⁡(ϕ12)=−1\\cos(\\phi_{12})=-1, in which case [MATH \\frac{1}{2}t(1-\\cos^{2}(\\phi_{12}))\\|{\\mathbf{g}}\\|^{2}=0] 12​t​(1−cos2⁡(ϕ12))​‖𝐠‖2=0\\frac{1}{2}t(1-\\cos^{2}(\\phi_{12}))\\|{\\mathbf{g}}\\|^{2}=0. Note that this result only holds when we choose [MATH t] tt to be small enough, i.e. [MATH t\\leq\\frac{1}{L}] t≤1Lt\\leq\\frac{1}{L}."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p10.1",
+    "text": "∎"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix B Proof of Theorem 2"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p1.1",
+    "text": "See 2"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.1",
+    "text": "Note that [MATH \\theta^{\\text{MT}}=\\theta-t\\cdot{\\mathbf{g}}] θMT=θ−t⋅𝐠\\theta^{\\text{MT}}=\\theta-t\\cdot{\\mathbf{g}} and [MATH \\theta^{\\text{PCGrad}}=\\theta-t({\\mathbf{g}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{1}}}||^{2}}{\\mathbf{g_{1}}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{2}}}||^{2}}{\\mathbf{g_{2}}})] θPCGrad=θ−t⁡(𝐠−𝐠𝟏⋅𝐠𝟐‖𝐠𝟏‖2​𝐠𝟏−𝐠𝟏⋅𝐠𝟐‖𝐠𝟐‖2​𝐠𝟐)\\theta^{\\text{PCGrad}}=\\theta-t({\\mathbf{g}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{1}}}||^{2}}{\\mathbf{g_{1}}}-\\frac{{\\mathbf{g_{1}}}\\cdot{\\mathbf{g_{2}}}}{||{\\mathbf{g_{2}}}||^{2}}{\\mathbf{g_{2}}}). Based on the condition that [MATH \\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2}] 𝐇⁡(ℒ,θ,θMT)≥ℓ​‖𝐠‖22\\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2}, we first apply Taylor’s Theorem to [MATH \\mathcal{L}(\\theta^{\\text{MT}})] ℒ⁡(θMT)\\mathcal{L}(\\theta^{\\text{MT}}) and obtain the following result:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.2",
+    "text": "where the first inequality follows from Definition 3 and the assumption [MATH \\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2}] 𝐇⁡(ℒ,θ,θMT)≥ℓ​‖𝐠‖22\\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2}. From equation 1, we have the simplified upper bound for [MATH \\mathcal{L}(\\theta^{\\text{PCGrad}})] ℒ⁡(θPCGrad)\\mathcal{L}(\\theta^{\\text{PCGrad}}):"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.3",
+    "text": "Apply Equation 2 and Equation 3 and we have the following inequality:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.4",
+    "text": "Since [MATH \\cos\\phi_{12}\\leq-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})=-\\frac{2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}}{\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2}}] cos⁡ϕ12≤−Φ⁡(𝐠𝟏,𝐠𝟐)=−2​‖𝐠𝟏‖2​‖𝐠𝟐‖2‖𝐠𝟏‖22+‖𝐠𝟐‖22\\cos\\phi_{12}\\leq-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})=-\\frac{2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}}{\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2}} and [MATH \\ell\\geq\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})=\\frac{(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L] ℓ≥ξ⁡(𝐠𝟏,𝐠𝟐)=(1−cos2⁡ϕ12)​(‖𝐠𝟏−𝐠𝟐‖22)‖𝐠𝟏+𝐠𝟐‖22​L\\ell\\geq\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})=\\frac{(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L, we have"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.5",
+    "text": "and"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.6",
+    "text": "By the condition that [MATH t\\geq\\frac{2}{\\ell-\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})L}=\\frac{2}{\\ell-\\frac{(1-\\cos^{2}\\phi_{12})\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2}}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L}] t≥2ℓ−ξ⁡(𝐠𝟏,𝐠𝟐)​L=2ℓ−(1−cos2⁡ϕ12)​‖𝐠𝟏−𝐠𝟐‖22‖𝐠𝟏+𝐠𝟐‖22​Lt\\geq\\frac{2}{\\ell-\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})L}=\\frac{2}{\\ell-\\frac{(1-\\cos^{2}\\phi_{12})\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2}}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L} and monotonicity of linear functions, we have the following:"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.7",
+    "text": "∎"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix C PCGrad: Sufficient and Necessary Conditions for Loss Improvement"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p1.1",
+    "text": "Beyond the sufficient conditions shown in Theorem 2, we also present the sufficient and necessary conditions under which PCGrad achieves lower loss after one gradient update in Theorem 3 in the two-task setting."
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem3.p1.1",
+    "text": "Suppose [MATH \\mathcal{L}] ℒ\\mathcal{L} is differentiable and the gradient of [MATH \\mathcal{L}] ℒ\\mathcal{L} is Lipschitz continuous with constant [MATH L>0] L>0L>0. Let [MATH \\theta^{\\text{MT}}] θMT\\theta^{\\text{MT}} and [MATH \\theta^{\\text{PCGrad}}] θPCGrad\\theta^{\\text{PCGrad}} be the parameters after applying one update to [MATH \\theta] θ\\theta with [MATH {\\mathbf{g}}] 𝐠{\\mathbf{g}} and PCGrad-modified gradient [MATH {\\mathbf{g}}^{\\text{PC}}] 𝐠PC{\\mathbf{g}}^{\\text{PC}} respectively, with step size [MATH t>0] t>0t>0. Moreover, assume [MATH \\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2}] 𝐇⁡(ℒ,θ,θMT)≥ℓ​‖𝐠‖22\\mathbf{H}(\\mathcal{L};\\theta,\\theta^{\\text{MT}})\\geq\\ell\\|{\\mathbf{g}}\\|_{2}^{2} for some constant [MATH \\ell\\leq L] ℓ≤L\\ell\\leq L, i.e. the multi-task curvature is lower-bounded. Then [MATH \\mathcal{L}(\\theta^{\\text{PCGrad}})\\leq\\mathcal{L}(\\theta^{\\text{MT}})] ℒ⁡(θPCGrad)≤ℒ⁡(θMT)\\mathcal{L}(\\theta^{\\text{PCGrad}})\\leq\\mathcal{L}(\\theta^{\\text{MT}}) if and only if"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I1.i1.p1.1",
+    "text": "[MATH -\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})\\leq\\cos\\phi_{12}<0] −Φ⁡(𝐠𝟏,𝐠𝟐)≤cos⁡ϕ12<0-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})\\leq\\cos\\phi_{12}<0"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I1.i2.p1.1",
+    "text": "[MATH \\ell\\leq\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})L] ℓ≤ξ⁡(𝐠𝟏,𝐠𝟐)​L\\ell\\leq\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})L"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I1.i3.p1.1",
+    "text": "[MATH 0<t\\leq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}] 0<t≤(∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ1212​‖𝐠𝟏+𝐠𝟐‖22​ℓ−1−cos2⁡ϕ122​(‖𝐠𝟏−𝐠𝟐‖22)​L0<t\\leq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}"
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem3.p1.2",
+    "text": "or"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I2.i1.p1.1",
+    "text": "[MATH \\cos\\phi_{12}\\leq-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})] cos⁡ϕ12≤−Φ⁡(𝐠𝟏,𝐠𝟐)\\cos\\phi_{12}\\leq-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I2.i2.p1.1",
+    "text": "[MATH \\ell\\geq\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})L] ℓ≥ξ⁡(𝐠𝟏,𝐠𝟐)​L\\ell\\geq\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})L"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I2.i3.p1.1",
+    "text": "[MATH t\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}.] t≥(∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ1212​‖𝐠𝟏+𝐠𝟐‖22​ℓ−1−cos2⁡ϕ122​(‖𝐠𝟏−𝐠𝟐‖22)​L.t\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.1",
+    "text": "To show the necessary conditions, from Equation 4, all we need is"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.2",
+    "text": "Since [MATH t\\geq 0] t≥0t\\geq 0, it reduces to show"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.3",
+    "text": "For Equation 6 to hold while ensuring that [MATH t\\geq 0] t≥0t\\geq 0, there are two cases:"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I3.i1.p1.1",
+    "text": "[MATH \\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})L\\geq 0] 12​‖𝐠𝟏+𝐠𝟐‖22​ℓ−(1−cos2⁡ϕ12)​(‖𝐠𝟏‖22+‖𝐠𝟐‖22)​L≥0\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})L\\geq 0, [MATH (\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}\\geq 0] (∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ12≥0(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}\\geq 0, [MATH t\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}] t≥(∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ1212​‖𝐠𝟏+𝐠𝟐‖22​ℓ−1−cos2⁡ϕ122​(‖𝐠𝟏−𝐠𝟐‖22)​Lt\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I3.i2.p1.1",
+    "text": "[MATH \\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})L\\leq 0] 12​‖𝐠𝟏+𝐠𝟐‖22​ℓ−(1−cos2⁡ϕ12)​(‖𝐠𝟏‖22+‖𝐠𝟐‖22)​L≤0\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})L\\leq 0, [MATH (\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}\\leq 0] (∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ12≤0(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}\\leq 0, [MATH t\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}] t≥(∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ1212​‖𝐠𝟏+𝐠𝟐‖22​ℓ−1−cos2⁡ϕ122​(‖𝐠𝟏−𝐠𝟐‖22)​Lt\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.4",
+    "text": ", which can be simplified to"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I4.i1.p1.1",
+    "text": "[MATH \\cos\\phi_{12}\\leq-\\frac{2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}}{\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2}}=-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})] cos⁡ϕ12≤−2​‖𝐠𝟏‖2​‖𝐠𝟐‖2‖𝐠𝟏‖22+‖𝐠𝟐‖22=−Φ⁡(𝐠𝟏,𝐠𝟐)\\cos\\phi_{12}\\leq-\\frac{2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}}{\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2}}=-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}}), [MATH \\ell\\geq\\frac{(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L=\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})] ℓ≥(1−cos2⁡ϕ12)​(‖𝐠𝟏‖22+‖𝐠𝟐‖22)‖𝐠𝟏+𝐠𝟐‖22​L=ξ⁡(𝐠𝟏,𝐠𝟐)\\ell\\geq\\frac{(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L=\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}}), [MATH t\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}] t≥(∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ1212​‖𝐠𝟏+𝐠𝟐‖22​ℓ−1−cos2⁡ϕ122​(‖𝐠𝟏−𝐠𝟐‖22)​Lt\\geq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}"
+  },
+  {
+    "tag": "p",
+    "id": "A3.I4.i2.p1.1",
+    "text": "[MATH -\\frac{2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}}{\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2}}=-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})\\leq\\cos\\phi_{12}<0] −2​‖𝐠𝟏‖2​‖𝐠𝟐‖2‖𝐠𝟏‖22+‖𝐠𝟐‖22=−Φ⁡(𝐠𝟏,𝐠𝟐)≤cos⁡ϕ12<0-\\frac{2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}}{\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2}}=-\\Phi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})\\leq\\cos\\phi_{12}<0, [MATH \\ell\\leq\\frac{(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L=\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}})] ℓ≤(1−cos2⁡ϕ12)​(‖𝐠𝟏‖22+‖𝐠𝟐‖22)‖𝐠𝟏+𝐠𝟐‖22​L=ξ⁡(𝐠𝟏,𝐠𝟐)\\ell\\leq\\frac{(1-\\cos^{2}\\phi_{12})(\\|{\\mathbf{g_{1}}}\\|_{2}^{2}+\\|{\\mathbf{g_{2}}}\\|_{2}^{2})}{\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}}L=\\xi({\\mathbf{g_{1}}},{\\mathbf{g_{2}}}), [MATH 0<t\\leq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}] 0<t≤(∥𝐠𝟏∥22+∥𝐠𝟐∥22)cos2ϕ12+2∥𝐠𝟏∥2∥𝐠𝟐∥2cosϕ1212​‖𝐠𝟏+𝐠𝟐‖22​ℓ−1−cos2⁡ϕ122​(‖𝐠𝟏−𝐠𝟐‖22)​L0<t\\leq\\frac{(\\|{\\mathbf{g_{1}}}\\|^{2}_{2}+\\|{\\mathbf{g_{2}}}\\|^{2}_{2})\\cos^{2}\\phi_{12}+2\\|{\\mathbf{g_{1}}}\\|_{2}\\|{\\mathbf{g_{2}}}\\|_{2}\\cos\\phi_{12}}{\\frac{1}{2}\\|{\\mathbf{g_{1}}}+{\\mathbf{g_{2}}}\\|_{2}^{2}\\ell-\\frac{1-\\cos^{2}\\phi_{12}}{2}(\\|{\\mathbf{g_{1}}}-{\\mathbf{g_{2}}}\\|_{2}^{2})L}."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p3.1",
+    "text": "The sufficient conditions hold as we can plug the conditions to RHS of Equation 6 and achieve non-negative result. ∎"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix D Practical Details of PCGrad on Multi-Task and Goal-Conditioned Reinforcement Learning"
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.1",
+    "text": "When applying PCGrad to goal-conditioned RL, we represent [MATH p(\\mathcal{T})] p⁡(𝒯)p(\\mathcal{T}) as a distribution of goals and let [MATH z_{i}] ziz_{i} be the encoding of a goal. Similar to the multi-task supervised learning setting discussed in Section 3, PCGrad may be combined with various architectures designed for multi-task and goal-conditioned RL (Fernando et al., 2017; Devin et al., 2016), where PCGrad operates on the gradients of shared parameters, leaving task-specific parameters untouched."
+  },
+  {
+    "tag": "p",
+    "id": "A4.p2.1",
+    "text": "As discussed in Section 3, we use SAC for our experiments. In SAC, we employ a Q-learning style gradient to compute the gradient of the Q-function network, [MATH Q_{\\phi}(s,a,z_{i})] Qϕ​(s,a,zi)Q_{\\phi}(s,a,z_{i}), often known as the critic, and a reparameterization-style gradient to compute the gradient of the policy network [MATH \\pi_{\\theta}(a|s,z_{i})] πθ​(a|s,zi)\\pi_{\\theta}(a|s,z_{i}), often known as the actor. For sampling, we instantiate a set of replay buffers [MATH \\{\\mathcal{D}_{i}\\}_{\\mathcal{T}_{i}\\sim p(\\mathcal{T})}] {𝒟i}𝒯i∼p⁡(𝒯)\\{\\mathcal{D}_{i}\\}_{\\mathcal{T}_{i}\\sim p(\\mathcal{T})}. Training and data collection are alternated throughout training. During a data collection step, we run the policy [MATH \\pi_{\\theta}] πθ\\pi_{\\theta} on all the tasks [MATH \\mathcal{T}_{i}\\sim p(\\mathcal{T})] 𝒯i∼p⁡(𝒯)\\mathcal{T}_{i}\\sim p(\\mathcal{T}) to collect an equal number of paths for each task and store the paths of each task [MATH \\mathcal{T}_{i}] 𝒯i\\mathcal{T}_{i} into the corresponding replay buffer [MATH \\mathcal{D}_{i}] 𝒟i\\mathcal{D}_{i}. At each training step, we sample an equal amount of data from each replay buffer [MATH \\mathcal{D}_{i}] 𝒟i\\mathcal{D}_{i} to form a stratified batch. For each task [MATH \\mathcal{T}_{i}\\sim p(\\mathcal{T})] 𝒯i∼p⁡(𝒯)\\mathcal{T}_{i}\\sim p(\\mathcal{T}), the parameters of the critic [MATH \\theta] θ\\theta are optimized to minimize the soft Bellman residual:"
+  },
+  {
+    "tag": "p",
+    "id": "A4.p2.2",
+    "text": "where [MATH \\gamma] γ\\gamma is the discount factor, [MATH \\bar{\\phi}] ϕ¯\\bar{\\phi} are the delayed parameters, and [MATH \\alpha] α\\alpha is a learnable temperature that automatically adjusts the weight of the entropy term. For each task [MATH \\mathcal{T}_{i}\\sim p(\\mathcal{T})] 𝒯i∼p⁡(𝒯)\\mathcal{T}_{i}\\sim p(\\mathcal{T}), the parameters of the policy [MATH \\pi_{\\theta}] πθ\\pi_{\\theta} are trained to minimize the following objective"
+  },
+  {
+    "tag": "p",
+    "id": "A4.p2.3",
+    "text": "We compute [MATH \\nabla_{\\phi}J^{(i)}_{Q}(\\phi)] ∇ϕJQ(i)​(ϕ)\\nabla_{\\phi}J^{(i)}_{Q}(\\phi) and [MATH \\nabla_{\\theta}J^{(i)}_{\\pi}(\\theta)] ∇θJπ(i)​(θ)\\nabla_{\\theta}J^{(i)}_{\\pi}(\\theta) for all [MATH \\mathcal{T}_{i}\\sim p(\\mathcal{T})] 𝒯i∼p⁡(𝒯)\\mathcal{T}_{i}\\sim p(\\mathcal{T}) and apply PCGrad to both following Algorithm 1."
+  },
+  {
+    "tag": "p",
+    "id": "A4.p3.1",
+    "text": "For details of the temperature adjustment strategy, the motivation is that if we use a single learnable temperature for adjusting entropy of the multi-task policy [MATH \\pi_{\\theta}(a|s,z_{i})] πθ​(a|s,zi)\\pi_{\\theta}(a|s,z_{i}), SAC may stop exploring once all easier tasks are solved, leading to poor performance on tasks that are harder or require more exploration. To address this issue, we propose to learn the temperature on a per-task basis as mentioned in Section 3, i.e. using a parametrized model to represent [MATH \\alpha_{\\psi}(z_{i})] αψ​(zi)\\alpha_{\\psi}(z_{i}). This allows the method to control the entropy of [MATH \\pi_{\\theta}(a|s,z_{i})] πθ​(a|s,zi)\\pi_{\\theta}(a|s,z_{i}) per-task. We optimize the parameters of [MATH \\alpha_{\\psi}(z_{i})] αψ​(zi)\\alpha_{\\psi}(z_{i}) using the same constrained optimization framework as in (Haarnoja et al., 2018)."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix E 2D Optimization Landscape Details"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p1.1",
+    "text": "To produce the 2D optimization visualizations in Figure 1, we used a parameter vector [MATH \\theta=[\\theta_{1},\\theta_{2}]\\in\\mathbbm{R}^{2}] θ=[θ1,θ2]∈ℝ2\\theta=[\\theta_{1},\\theta_{2}]\\in\\mathbbm{R}^{2} and the following task loss functions:"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p1.2",
+    "text": "The multi-task objective is [MATH \\mathcal{L}(\\theta)=\\mathcal{L}_{1}(\\theta)+\\mathcal{L}_{2}(\\theta)] ℒ⁡(θ)=ℒ1​(θ)+ℒ2​(θ)\\mathcal{L}(\\theta)=\\mathcal{L}_{1}(\\theta)+\\mathcal{L}_{2}(\\theta). We initialized [MATH \\theta=[0.5,-3]] θ=[0.5,−3]\\theta=[0.5,-3] and performed 500,000 gradient updates to minimize [MATH \\mathcal{L}] ℒ\\mathcal{L} using the Adam optimizer with learning rate [MATH 0.001] 0.0010.001. We compared using Adam for each update to using Adam in conjunction with the PCGrad method presented in Section 2.3."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix F Experimental Results on MultiMNIST"
+  },
+  {
+    "tag": "p",
+    "id": "A6.p1.1",
+    "text": "Following the same set-up of Sener & Koltun (2018), for each image, we sample a different one uniformly at random. Then we put one of the image on the top left and the other one on the bottom right. The two tasks in the multi-task learning problem are to classify the digits on the top left (task-L) and bottom right (task-R) respectively. We construct such [MATH 60] 6060K examples. We combine PCGrad with the same backbone architecture used in (Sener & Koltun, 2018) and compare its performance to Sener & Koltun (2018) by running the open-sourced code provided in (Sener & Koltun, 2018). As shown in Table 3, our method results 0.13% and 0.55% improvement over (Sener & Koltun, 2018) in left and right digit accuracy respectively."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix G Comparison to GradNorm"
+  },
+  {
+    "tag": "p",
+    "id": "A7.p1.1",
+    "text": "We compare PCGrad to a prior method GradNorm (Chen et al., 2018), which scales the magnitude of gradients of all the tasks. As shown in Figure 6, PCGrad significantly outperforms GradNorm. We also notice that the variant of PCGrad where only the gradient magnitudes change (see the rightmost plot in Figure 3) achieves comparable performance to GradNorm, which suggests that it is important to modify both the gradient directions and magnitudes to eliminate interference and achieve good multi-task learning results."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix H Ablation study on the task order"
+  },
+  {
+    "tag": "p",
+    "id": "A8.p1.1",
+    "text": "As stated on line 4 in Algorithm 1, we sample the tasks from the batch and randomly shuffle the order of the tasks before performing the update steps in PCGrad. With random shuffling, we make PCGrad symmetric w.r.t. the task order in expectation. In Figure 7, we observe that PCGrad with a random task order achieves better performance between PCGrad with a fixed task order in the setting of MT50 where the number of tasks is large and the conflicting gradient phenomenon is much more likely to happen."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix I Experiment Details"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "I.1 Detailed Experiment Set-up"
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS1.p1.1",
+    "text": "For our CIFAR-100 multi-task experiment, we adopt the architecture used in (Rosenbaum et al., 2019), which is a convolutional neural network that consists of 3 convolutional layers with [MATH 160] 160160 [MATH 3\\times 3] 3×33\\times 3 filters each layer and 2 fully connected layers with [MATH 320] 320320 hidden units. As for experiments on the NYUv2 dataset, we follow (Liu et al., 2018) to use SegNet (Badrinarayanan et al., 2017) as the backbone architecture."
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS1.p2.1",
+    "text": "Our reinforcement learning experiments all use the SAC (Haarnoja et al., 2018) algorithm as the base algorithm, where the actor and the critic are represented as 6-layer fully-connected feedforward neural networks for all methods. The numbers of hidden units of each layer of the neural networks are [MATH 160] 160160, [MATH 300] 300300 and [MATH 200] 200200 for MT10, MT50 and goal-conditioned RL respectively."
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS1.p3.1",
+    "text": "We use five algorithms as baselines in the CIFAR-100 multi-task experiment: task specific-1-fc (Rosenbaum et al., 2018): a convolutional neural network shared across tasks except that each task has a separate last fully-connected layer, task specific-1-fc (Rosenbaum et al., 2018) : all the convolutional layers shared across tasks with separate fully-connected layers for each task, cross stitch-all-fc (Misra et al., 2016b): one convolutional neural network per task along with cross-stitch units to share features across tasks, routing-all-fc + WPL (Rosenbaum et al., 2019): a network that employs a trainable router trained with multi-agent RL algorithm (WPL) to select trainable functions for each task, independent: training separate neural networks for each task."
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS1.p4.1",
+    "text": "For comparisons on the NYUv2 dataset, we consider 5 baselines: Single Task, One Task: the vanilla SegNet used for single-task training, Single Task, STAN (Liu et al., 2018): the single-task version of MTAN as mentioned below, Multi-Task, Split, Wide / Deep (Liu et al., 2018): the standard SegNet shared for all three tasks except that each task has a separate last layer for final task-specific prediction with two variants Wide and Deep specified in (Liu et al., 2018), Multi-Task Dense: a shared network followed by separate task-specific networks, Multi-Task Cross-Stitch (Misra et al., 2016b): similar to the baseline used in CIFAR-100 experiment but with SegNet as the backbone, MTAN (Liu et al., 2018): a shared network with a soft-attention module for each task."
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS1.p5.1",
+    "text": "In the case of multi-task reinforcement learning, we evaluate our algorithm on the recently proposed Meta-World benchmark (Yu et al., 2019). This benchmark includes a variety of simulated robotic manipulation tasks contained in a shared, table-top environment with a simulated Sawyer arm (visualized as the ”Push” environment in Fig. 4). In particular, we use the multi-task benchmarks MT10 and MT50, which consists of the 10 tasks and 50 tasks respectively depicted in Fig. 4 that require diverse strategies to solve them, which makes them difficult to optimize jointly with a single policy. Note that MT10 is a subset of MT50."
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS1.p6.1",
+    "text": "On the multi-task and goal-conditioned RL domain, we apply PCGrad to the vanilla SAC algorithm with task encoding as part of the input to the actor and the critic as described in Section 3 and compare our method to the vanilla SAC without PCGrad and training actors and critics for each task individually (Independent)."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "I.2 Goal-conditioned Experiment Details"
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS2.p1.1",
+    "text": "We use the pushing environment from the Meta-World benchmark (Yu et al., 2019) as shown in Figure 4. In this environment, the table spans from [MATH [-0.4,0.2]] [−0.4,0.2][-0.4,0.2] to [MATH [0.4,1.0]] [0.4,1.0][0.4,1.0] in the 2D space. To construct the goals, we sample the intial positions of the puck from the range [MATH [-0.2,0.6]] [−0.2,0.6][-0.2,0.6] to [MATH [0.2,0.7]] [0.2,0.7][0.2,0.7] on the table and the goal positions from the range [MATH [-0.2,0.85]] [−0.2,0.85][-0.2,0.85] to [MATH [0.2,0.95]] [0.2,0.95][0.2,0.95] on the table. The goal is represented as a concatenation of the initial puck position and the goal position. Since in the goal-conditioned setting, the task distribution is continuous, we sample a minibatch of [MATH 9] 99 goals and [MATH 128] 128128 samples per goal at each training iteration and also sample [MATH 600] 600600 samples per goal in the minibatch at each data collection step."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "I.3 Full NYUv2 Results"
+  },
+  {
+    "tag": "p",
+    "id": "A9.SS3.p1.1",
+    "text": "We provide the full comparison on the NYUv2 dataset in Table 4."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]

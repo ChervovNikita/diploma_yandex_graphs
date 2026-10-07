@@ -1,0 +1,412 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "text": "Collaborative Learning for Deep Neural Networks"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "We introduce collaborative learning in which multiple classifier heads of the same network are simultaneously trained on the same training data to improve generalization and robustness to label noise with no extra inference cost. It acquires the strengths from auxiliary training, multi-task learning and knowledge distillation. There are two important mechanisms involved in collaborative learning. First, the consensus of multiple views from different classifier heads on the same example provides supplementary information as well as regularization to each classifier, thereby improving generalization. Second, intermediate-level representation (ILR) sharing with backpropagation rescaling aggregates the gradient flows from all heads, which not only reduces training computational complexity, but also facilitates supervision to the shared layers. The empirical results on CIFAR and ImageNet datasets demonstrate that deep neural networks learned as a group in a collaborative way significantly reduce the generalization error and increase the robustness to label noise."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "When training deep neural networks, we must confront the challenges of general nonconvex optimization problems. Local gradient descent methods that most deep learning systems rely on, such as variants of stochastic gradient descent (SGD), have no guarantee that the optimization algorithm will converge to a global minimum. It is well known that an ensemble of multiple instances of a target neural network trained with different random seeds generally yields better predictions than a single trained instance. However, an ensemble of models is too computationally expensive at inference time. To keep the exact same computational complexity for inference, several training techniques have been developed by adding additional networks in the training graph to boost accuracy without affecting the inference graph, including auxiliary training [19], multi-task learning [4, 3], and knowledge distillation [10]. Auxiliary training is introduced to improve the convergence of deep networks by adding auxiliary classifiers connected to certain intermediate layers [19]. However, auxiliary classifiers require specific new designs for their network structures in addition to the target network. Furthermore, it is found later [20] that auxiliary classifiers do not result in obvious improved convergence or accuracy. Multi-task learning is an approach to learn multiple related tasks simultaneously so that knowledge obtained from each task can be reused by the others [4, 3, 21]. However, it is not useful for a single task use case. Knowledge distillation is introduced to facilitate training a smaller network by transferring knowledge from another high-capacity model, so that the smaller one obtains better performance than that trained by using labels only [10]. However, distillation is not an end-to-end solution due to having two separate training phases, which consume more training time."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "In this paper, we propose a framework of collaborative learning that trains several classifier heads of the same network simultaneously on the same training data to cope with the above challenges. The method acquires the advantages from auxiliary training, multi-task learning, and knowledge distillation, such as, appending the exact same network as the target one in the training graph for a single task, sharing intermediate-level representation (ILR), learning from the outputs of other heads (peers) besides the ground-truth labels, and keeping the inference graph unchanged. Experiments have been performed with several popular deep neural networks on different datasets to benchmark performance, and their results demonstrate that collaborative learning provides significant accuracy improvement for image classification problems in a generic way. There are two major mechanisms collaborative learning benefits from: 1) The consensus of multiple views from different classifier heads on the same data provides supplementary information and regularization to each classifier. 2) Besides computational complexity reduction benefited from ILR sharing, backpropagation rescaling aggregates the gradient flows from all heads in a balanced way, which leads to additional performance enhancement. The per-layer network weight distribution shows that ILR sharing reduces the number of “dead” filter weights in the bottom layers due to the vanishing gradient issue, thereby enlarging the network capacity."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "The major contributions are summarized as follows. 1) Collaborative learning provides a new training framework that for any given model architecture, we can use the proposed collaborative training method to potentially improve accuracy, with no extra inference cost, with no need to design another model architecture, with minimal hyperparameter re-tuning. 2) We introduce ILR sharing into co-distillation that not only enhances training time/memory efficiency but also improves generalization error. 3) Backpropagation rescaling we propose to avoid gradient explosion when the number of heads is big is also proven able to improve accuracy when the number of heads is small. 4) Collaborative learning is demonstrated to be robust to label noise."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "2 Related work"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "In addition to auxiliary training, multi-task learning, and distillation mentioned before, we list other related work as follows."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "General label smoothing. Label smoothing replaces the hard values (1 or 0) in one-hot labels for a classifier with smoothed values, and is shown to reduce the vulnerability of noisy or incorrect labels in datasets [20]. It regularizes the model and relaxes the confidence on the labels. Temporal ensembling forms a consensus prediction of the unknown labels using the outputs of the network-in-training on different epochs to improve the performance of semi-supervised learning [14]. However, it is hard to scale for a large dataset since temporal ensembling requires to memorize the smoothed label of each data example."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p3.1",
+    "text": "Two-way distillation. Co-distillation of two instances of the same neural network is studied in [2] with a focus on training speed-up in a distributed learning environment. Two-way distillation between two networks, which can use the same architecture or different, is also studied in [23]. Each of them alternatively optimizes its own network parameters. However, the developed algorithms are far from optimized. First, when different classifiers have different architectures, each of them should have a different weight associated with its loss function to balance injected backpropagation error flows. Second, multiple copies of the target network increase proportionally the memory consumption in graphics processing unit (GPU) and the training time."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p4.1",
+    "text": "Self-distillation/born-again neural networks. Self-distillation is a kind of distillation when the student network is identical to the teacher in terms of the network graph. Furthermore, the distillation process can be performed consecutively several times. At each consecutive step, a new identical model is initialized from a different random seed and trained from the supervision of the earlier generation. At the end of the procedure, additional gains can be achieved with an ensemble of multiple students generations [7]. However, multiple self-distillation processes multiply the total training time proportionally; an ensemble of multiple student generations increases the inference time accordingly as well."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p5.1",
+    "text": "In comparison, the major goal of this paper is to improve the accuracy of a target network without changing its inference graph and emphasize both the accuracy and the training efficiency."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "3 Collaborative learning"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "The framework of collaborative learning consists of three major parts: the generation of a population of classifier heads in the training graph, the formulation of the learning objective, and optimization for learning a group of classifiers collaboratively. We will describe the details of each of them in the following subsections."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.1 Generation of training graph"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "Similar to auxiliary training [19], we add several new classifier heads into the original network graph during training time. At inference time, only the original network is kept and all added parts are discarded. Unlike auxiliary training, each classifier head here has an identical network to the original one in terms of graph structure. This approach leads to advantages over auxiliary training in terms of engineering effort minimization. First, it does not require to design additional networks for the auxiliary classifiers. Second, the structure symmetry for all heads does not require additional different weights associated with loss functions to well balance injected backpropagation error flows, because an equal weight for each head’s objective is optimal for training."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "text": "Figure 1 illustrates several patterns to create a group of classifiers in the training graph. Figure 1 (a) is a target network to train. The network can be expressed as [MATH \\bm{z}=g(\\bm{x};\\bm{\\theta})] 𝒛=g⁡(𝒙,𝜽)\\bm{z}=g(\\bm{x};\\bm{\\theta}), where [MATH g] gg is determined by the graph architecture, and [MATH \\bm{\\theta}] 𝜽\\bm{\\theta} represents the network parameters. To better explain the following patterns, we assume the network [MATH g] gg can be represented as a cascade of three functions or subnets,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.2",
+    "text": "where [MATH \\bm{\\theta}=[\\bm{\\theta}_{1},\\bm{\\theta}_{2},\\bm{\\theta}_{3}]] 𝜽=[𝜽1,𝜽2,𝜽3]\\bm{\\theta}=[\\bm{\\theta}_{1},\\bm{\\theta}_{2},\\bm{\\theta}_{3}] and [MATH \\bm{\\theta}_{i}] 𝜽i\\bm{\\theta}_{i} includes all parameters of subnet [MATH g_{i}] gig_{i} accordingly. In Figure 1 (b), each head is just a new instance of the original network. The output of head [MATH h] hh is [MATH \\bm{z}^{(h)}=g(\\bm{x};\\bm{\\theta}^{(h)})] 𝒛(h)=g⁡(𝒙,𝜽(h))\\bm{z}^{(h)}=g(\\bm{x};\\bm{\\theta}^{(h)}), where [MATH \\bm{\\theta}^{(h)}] 𝜽(h)\\bm{\\theta}^{(h)} is an instance of network parameters for head [MATH h] hh. Another pattern allows all heads to share ILRs in the same low layers, which is shown in Figure 1 (c). This structure is very similar to multi-task learning [4, 3], in which different supervised tasks share the same input, as well as some ILR. However, collaborative learning has the same supervised tasks for all heads. It can be expressed as follows [MATH \\bm{z}^{(h)}=g_{3}(g_{2}(g_{1}(\\bm{x};\\bm{\\theta_{1}});\\bm{\\theta_{2}}^{(h)});\\bm{\\theta}_{3}^{(h)})] 𝒛(h)=g3​(g2​(g1​(𝒙,𝜽𝟏),𝜽𝟐(h)),𝜽3(h))\\bm{z}^{(h)}=g_{3}(g_{2}(g_{1}(\\bm{x};\\bm{\\theta_{1}});\\bm{\\theta_{2}}^{(h)});\\bm{\\theta}_{3}^{(h)}), where there is only one instance of [MATH \\bm{\\theta}_{1}] 𝜽1\\bm{\\theta}_{1} shared by all heads. Furthermore, multi-heads can take advantage of multiple hierarchical ILRs, as shown in Figure 1 (d). The hierarchy is similar to a binary tree in which the branches at the same levels are copies of each other. For inference, we just need to keep one head with its dependent nodes and discard the rest. Therefore, the inference graph is identical to the original graph [MATH g] gg."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p3.1",
+    "text": "It is shown in [17, 5] that the training memory size is roughly proportional to the number of layers/operations. With the multi-instance pattern, the number of parameters in the whole training graph is proportional to the number of heads. Obviously, ILR sharing can proportionally reduce the memory consumption and speed up training, compared to multiple instances without sharing. It is more interesting that the empirical results and analysis in Section 4 will demonstrate that ILR sharing is able to boost the classification accuracy as well."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.2 Learning objectives"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "The main idea of collaborative learning is that each head learns from ground-truth labels but also from the whole population through the training process. We focus on multi-class classification problems in this paper. For head [MATH h] hh, the classifier’s logit vector is represented as [MATH \\bm{z}=[z_{1},z_{2},\\dots,z_{m}]^{tr}] 𝒛=[z1,z2,…,zm]t​r\\bm{z}=[z_{1},z_{2},\\dots,z_{m}]^{tr} for [MATH m] mm classes. The associated softmax with temperature [MATH T] TT is defined as follows,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.2",
+    "text": "When [MATH T=1] T=1T=1, (2) is just a normal softmax function. Using a higher value for [MATH T] TT produces a softer probability distribution over classes. The loss function for head [MATH h] hh is proposed as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.3",
+    "text": "where [MATH \\beta\\in(0,1]] β∈(0,1]\\beta\\in(0,1]. The objective function with regard to a ground-truth label [MATH J_{hard}] Jh​a​r​dJ_{hard} is just the classification loss – cross entropy between a one-hot encoding of the label [MATH \\bm{y}] 𝒚\\bm{y} and the softmax output with temperature of 1: [MATH J_{hard}(\\bm{y},\\bm{z}^{(h)})=-\\sum_{i=1}^{m}y_{i}\\log(\\sigma_{i}(\\bm{z}^{(h)};1))] Jh​a​r​d(𝒚,𝒛(h))=−∑i=1myilog(σi(𝒛(h);1))J_{hard}(\\bm{y},\\bm{z}^{(h)})=-\\sum_{i=1}^{m}y_{i}\\log(\\sigma_{i}(\\bm{z}^{(h)};1)). The soft label of head [MATH h] hh is proposed to be a consensus of all other heads’ predictions as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "text": "which combines the multiple views on the same data and contains additional information rather than the ground-truth label. The objective function with regard to the soft label is the cross entropy between the soft label and the softmax output with a certain temperature, i.e."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p2.2",
+    "text": "which can be regarded as a distance measure between an average prediction from population and the prediction of each head [10]. Minimizing this objective aims at transferring the information from the soft label to the logits and regularizing the training network."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.3 Optimization for a group of classifier heads"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "text": "In addition to performance optimization, another design criterion for collaborative learning is to keep the hyperparameters in training algorithms, e.g. the type of SGD, regularization, and learning rate schedule, the same as those used in individual learning. Thus, collaborative learning can be simply put on top of individual learning. The optimization here is mainly designed to take new concepts involved in collaborative learning into account, including a group of classifiers, and ILR sharing."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "text": "Simultaneous SGD. Since multiple heads are involved in optimization, it seems straightforward to alternatively update the parameters associated with each head one-by-one. This algorithm is used in both [23, 2]. In fact, alternative optimization is popular in generative adversarial networks [8], in which a generator and discriminator get alternatively updated. However, alternative optimization has the following shortcomings. In terms of speed, it is slow because one head needs to recalculate a new prediction after updating its parameters. In terms of convergence, recent work [15, 16] reveals that simultaneous SGD has faster convergence and achieves better performance than the alternative one. Therefore, we propose to apply SGD and update all parameters simultaneously in the training graph according to the total loss, which is the sum of each head’s loss as well as regularization [MATH \\Omega(\\bm{\\theta})] Ω⁡(𝜽)\\Omega(\\bm{\\theta})."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p2.2",
+    "text": "We suggest keeping the same regularization and its hyperparameters as individual training when applying collaborative learning. It is important to avoid unnecessary hyperparameter search in practice when introducing a new training approach. The effectiveness of simultaneous SGD will be validated in Section 4.1."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p3.1",
+    "text": "Backpropagation rescaling. First, we describe an important stability issue with ILR sharing. Assume that there are [MATH H] HH heads sharing subnet [MATH g_{1}(\\cdot;\\bm{\\theta}_{1})] g1​(⋅,𝜽1)g_{1}(\\cdot;\\bm{\\theta}_{1}) as shown in Figure 2 (a), in which [MATH \\bm{\\theta}_{1}] 𝜽1\\bm{\\theta}_{1} and [MATH \\smash{\\bm{\\theta}_{2}^{(h)}}] 𝜽2(h)\\smash{\\bm{\\theta}_{2}^{(h)}} represent the parameters of [MATH g_{1}] g1g_{1} and those of [MATH g_{2}] g2g_{2} associated with head [MATH h] hh, respectively. The output of the shared layers, [MATH \\bm{x}_{1}] 𝒙1\\bm{x}_{1}, is fed to all corresponding heads. However, the backward graph becomes a many-to-one connection. According to (4), the backpropagation input for the shared layers is [MATH \\smash{\\nabla_{\\bm{x}_{1}}L=\\sum_{h=1}^{H}\\nabla_{\\bm{x}_{1}}L^{(h)}}] ∇𝒙1L=∑h=1H∇𝒙1L(h)\\smash{\\nabla_{\\bm{x}_{1}}L=\\sum_{h=1}^{H}\\nabla_{\\bm{x}_{1}}L^{(h)}}. It is not hard to discover an issue that the variance of [MATH \\nabla_{\\bm{x}_{1}}L] ∇𝒙1L\\nabla_{\\bm{x}_{1}}L grows as the number of heads grows. Assume that the gradient of each head’s loss has a limited variance, i.e., [MATH \\text{Var}((\\nabla_{\\bm{x}_{1}}L^{(h)})_{i})<\\infty] Var​((∇𝒙1L(h))i)<∞\\text{Var}((\\nabla_{\\bm{x}_{1}}L^{(h)})_{i})<\\infty, where [MATH i] ii represents each element in a vector. We should make the system stable, i.e., [MATH \\text{Var}((\\nabla_{\\bm{x}_{1}}L)_{i})<\\infty] Var​((∇𝒙1L)i)<∞\\text{Var}((\\nabla_{\\bm{x}_{1}}L)_{i})<\\infty, even when [MATH H\\xrightarrow{}\\infty] H→∞H\\xrightarrow{}\\infty. Unfortunately, the backpropagation flow of Figure 2 (a) is unstable in the asymptotic sense due to the sum of all gradient flows."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p4.1",
+    "text": "Note that simple loss scaling, i.e., [MATH \\smash{L=\\frac{1}{H}\\sum_{h}L^{(h)}}] L=1H​∑hL(h)\\smash{L=\\frac{1}{H}\\sum_{h}L^{(h)}}, bring another problem: resulting in very slow learning w.r.t [MATH \\bm{\\theta}_{2}^{(h)}] 𝜽2(h)\\bm{\\theta}_{2}^{(h)}. The SGD update is [MATH \\bm{\\theta}_{2}^{(h)}\\leftarrow\\bm{\\theta}_{2}^{(h)}-\\eta\\frac{1}{H}\\nabla_{\\bm{\\theta}_{2}^{(h)}}{L^{(h)}}] 𝜽2(h)←𝜽2(h)−η​1H​∇𝜽2(h)L(h)\\bm{\\theta}_{2}^{(h)}\\leftarrow\\bm{\\theta}_{2}^{(h)}-\\eta\\frac{1}{H}\\nabla_{\\bm{\\theta}_{2}^{(h)}}{L^{(h)}}. For a fixed learning rate [MATH \\eta] η\\eta, [MATH \\eta\\frac{1}{H}\\nabla_{\\bm{\\theta}_{2}^{(h)}}{L^{(h)}}\\rightarrow 0] η​1H​∇𝜽2(h)L(h)→0\\eta\\frac{1}{H}\\nabla_{\\bm{\\theta}_{2}^{(h)}}{L^{(h)}}\\rightarrow 0 when [MATH H\\rightarrow\\infty] H→∞H\\rightarrow\\infty."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p5.1",
+    "text": "Therefore, backpropagation rescaling is proposed to achieve two goals at the same time – to normalize the backpropagation flow in subnet [MATH g_{1}] g1g_{1} and keep that in subnet [MATH g_{2}] g2g_{2} the same as the single classifier case. The solution to add a new operation [MATH I(\\cdot)] I⁡(⋅)I(\\cdot) between [MATH g_{1}] g1g_{1} and [MATH g_{2}] g2g_{2}, shown in Figure 2 (b), which is"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p5.2",
+    "text": "And then the backpropagation input for the shared layers becomes"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p5.3",
+    "text": "The variance of (6) is then always limited, which is proven in Session 1 of Supplementary material. Backpropagation rescaling is essential for ILR sharing to have better performance by just reusing a training configuration well tuned in individual learning. Its effectiveness on classification accuracy will be validated in Section 4.1."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p6.1",
+    "text": "Balance between hard and soft loss objectives. We follow the suggestion in [10] that the backpropagation flow from each soft objective should be multiplied by [MATH T^{2}] T2T^{2} since the magnitudes of the gradients produced by the soft targets scale as [MATH 1/T^{2}] 1/T21/T^{2}. This ensures that the relative contributions of the hard and soft targets remain roughly unchanged when tuning [MATH T] TT."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.4 Robustness to label noise"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p1.1",
+    "text": "In supervised learning, it is hard to completely avoid confusion during network training either due to incorrect labels or data augmentation. For example, random cropping is a very important data augmentation technique when training an image classifier. However, the entire labeled objects or large portion of them occasionally get cut off, which really challenges the classifier. Since multiple views on the same example have diversity of predictions, collaborative learning is by nature more robust to label noise than individual learning, which will be validated in Section 4.1."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "4 Experiments"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "We will evaluate the performance of collaborative learning on various network architectures for several datasets, with analysis of important and interesting observations. We use [MATH T=2] T=2T=2 and [MATH \\beta=0.5] β=0.5\\beta=0.5 for all experiments. In addition, the performance of any model trained with collaborative learning is evaluated using the first classifier head without head selection. All experiments are conducted with Tensorflow [1]."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "4.1 CIFAR Datasets"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "The two CIFAR datasets, CIFAR-10 and CIFAR-100, consist of colored natural images with 32x32 pixels [13] and have 10 and 100 classes, respectively. We conduct empirical studies on the CIFAR-10 dataset with ResNet-32, ResNet-110 [2], and DenseNet-40-12 [4]. ResNets and DenseNets for CIFAR are all designed to have three building blocks, residual or dense blocks. For the simple ILR sharing, the split point is just after the first block. For the hierarchical sharing, the two split points are located after the first and second blocks, respectively. Refer to Section 2 in Supplementary material for the detailed training setup."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "text": "Classification results. All results are summarized in Table 1. It can be concluded from Table 1 that with a given training graph pattern, the more classifier heads, the lower generalization error. More important, ILR sharing reduces not only GPU memory consumption and training time but also the generalization error considerately."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p3.1",
+    "text": "Simultaneous vs alternative optimization. We repeat an experiment that was performed in [23]. It is just a special case of collaborative learning in which we train two instances of ResNet-32 on CIFAR-100 with [MATH T=1] T=1T=1, [MATH \\beta=0.5] β=0.5\\beta=0.5. The only difference is that we replace the alternative optimization [23] with the simultaneous one. It is shown in Table 2 that based on the corresponding baseline, simultaneous optimization provides additional 1%+ accuracy gain compared to alternative one. With [MATH T=2] T=2T=2, simultaneous one has another 1% boost. Thus, simultaneous optimization substantially outperforms alternative one in terms of accuracy and speed."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p4.1",
+    "text": "Backpropagation rescaling. Backpropagation rescaling is proposed to be necessary for ILR sharing theoretically in Section 3.3. We intend to confirm it by experiments on the CIFAR-10 dataset. To train a ResNet-32, we use a simple ILR sharing topology with four heads, and the split point located after the first residual block. The results in Table 3 provide evidence that backpropagation rescaling clearly outperforms others – no scaling and loss scaling. While no scaling suffers from too large gradients in the shared layers, loss scaling results in a too small factor for updating the parameters of independent layers. We suggest backpropagation rescaling for all multi-head learning problems beyond collaborative learning."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p5.1",
+    "text": "Noisy label robustness. In this experiment, we aim at validating the noisy label resistance of collaborative learning on the CIFAR-10 dataset with ResNet-32. Assume that a portion of labels, whose percentage is called noise level, are corrupted with a uniform distribution over the label set. The partition for images with corruption or not is fixed for all runs; their noisy labels are randomly generated every epoch. The results in Figure 3 validate that the test error rates of all collaborative learning setups are substantially lower than the baseline, and the accuracy gain becomes larger at a considerately larger noise level. It is well expected since the consensus formed from a group is able to mitigate the effect of noisy labels without knowledge of noise distribution. Another observation is that 4 heads with hierarchical ILR sharing, which constantly provides the lowest error rate at a relatively low noise level, seems worse at a high noise level. We conjecture that the diversity of predictions is more important than better ILR sharing in this scenario. Collaborative learning provides flexibility to trade off the diversity of predictions from the group with additional supervision and regularization for the common layers."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "4.2 ImageNet Dataset"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "The ILSVRC 2012 classification dataset consists of 1.2 million for training, and 50,000 for validation [6]. We evaluate how collaborative learning helps improve the performance of ResNet-50 network. As following the notations in [2], we consider two heads sharing ILRs up to “conv3_x\" block for simple ILR sharing. For the hierarchical sharing with four heads, two split points are located after “conv3_x\" and “conv4_x\" blocks, respectively. Refer to Section 3 in Supplementary material for the detailed training setup."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p2.1",
+    "text": "Classification error vs training computing resources (GPU memory consumption as well as training time). Classification error on Imagenet is particularly important because many state-of-the-art computer vision problems derive image features or architectures from ImageNet classification models. For instance, a more accurate classifier typically leads to a better object detection model based on the classifier [12]. Table 4 summarizes the performance of various training graph patterns with ResNet-50 on ImageNet. As mentioned in Section 3.1, collaborative learning brings some extra training cost since it generates more classifier heads in training, and ILR sharing is designed for training speedup and memory consumption reduction. We have measured GPU memory consumption and training time and also listed them in Table 4. It is similar to the CIFAR results that two heads with simple ILR sharing and four heads with hierarchical ILR sharing reduce the validation top-1 error rate significantly in this case, from 23.47% with the baseline to 22.70% and 22.29%, respectively. Note that increasing training time for individual learning does not improve accuracy [22]. Since the convolution filters are shared in the space domain in deep convolutional networks, the memory consumption by storing the intermediate feature maps is much higher than that by model parameters in training [17]. Therefore, ILR sharing is especially computationally efficient for deep convolutional networks because it contains only one copy of shared layers. Compared to distillation11 1 Training time of distillation is analyzed in Section 4 in Supplementary material., collaborative learning can achieve a lower error rate with a much less training time in an end-to-end way."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p3.1",
+    "text": "Model weight distribution and mechanisms of ILR sharing. We have plotted the statistical distribution of each layer’s weights of trained ResNet-50 in Figure 4, including the baseline, distilled and trained versions with hierarchical ILR sharing. Refer to Section 5 in Supplementary material for more results with other training configurations. The first finding is that the weight distribution of the baseline has a very large spike at near zero in the bottom layers. We conjecture that the gradients to many weights may be vanished so small that the weight decay part takes the major impact, which causes near-zero \"dead\" values eventually22 2 We ran another experiment in which the weight decay was reduced by half in first three layers to verify our hypothesis. Refer to Section 5 in Supplementary material for more details.. Compared to distillation, ILR sharing more effectively helps reduce the number of \"dead\" weights, thereby improve the accuracy. The second finding is that collaborative learning makes the weight distribution be more centralized to zero overall. Note that we also calculate per-layer model weight standard deviation values in Table 1 in Supplementary material to additionally support this claim. The results indicate that the consensus of multiple views on the same data provides additional regularization."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p4.1",
+    "text": "ILR sharing is somewhat related to the concept of hint training [18], in which a teacher transfers its knowledge to a student network by using not only the teacher’s predictions but also an ILR. In collaborative learning, ILR sharing can be regarded as an extreme case in which the ILRs of two separated classifier heads converge to the exact same one by forcing them to match. It is reported in [18] that using hints can outperform distillation. To a certain extent, this provides an indirect evidence for the possibility of accuracy improvement from ILR sharing."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p5.1",
+    "text": "Again, two hyperparameters [MATH \\beta] β\\beta and [MATH T] TT are fixed in all of our experiments. It is possible that more extensive hyper-parameter searches may further improve the performance on specific datasets. We evaluate the impact of hyperparameters, [MATH \\beta] β\\beta, [MATH T] TT, and split point locations for ResNet-32 on CIFAR-10 in Section 6 in Supplementary material."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "5 Conclusion"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "We have proposed a framework of collaborative learning to train a deep neural network in a group of generated classifiers based on the target network. The consensus of multiple views from different classifier heads on the same example provides supplementary information as well as regularization to each classifier, thereby improving the generalization. By well aggregating the gradient flows from all heads, ILR sharing with backpropagation rescaling not only lowers training computational cost, but also facilitates supervision to the shared layers. Empirical results have also validated the advantages of simultaneous optimization and backpropagation rescaling in group learning. Overall, collaborative learning provides a flexible and powerful end-to-end training approach for deep neural networks to achieve better performance. Collaborative learning also opens up several possibilities for future work. The mechanism of group collaboration and noisy label resistance imply that it may potentially be beneficial to semi-supervised learning. Furthermore, other machine learning tasks, such as regression, may take advantage of collaborative learning as well."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Acknowledgement"
+  },
+  {
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "text": "We would like to thank Qiqi Yan for many helpful discussions."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Supplementary Material of Collective Training for Deep Neural Networks"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "1 Proof of variance of gradient with backpropagation rescaling being finite for an arbitrary number of heads [MATH H] HH"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S1.p1.1",
+    "text": "This is equivalent to prove that [MATH \\text{Var}\\left(\\frac{1}{H}\\sum_{h=1}^{H}X_{h}\\right)<\\infty] Var​(1H​∑h=1HXh)<∞\\text{Var}\\left(\\frac{1}{H}\\sum_{h=1}^{H}X_{h}\\right)<\\infty for all [MATH H] HH if [MATH \\text{Var}(X_{h})<\\infty] Var​(Xh)<∞\\text{Var}(X_{h})<\\infty for [MATH \\forall h] ∀h\\forall h."
+  },
+  {
+    "tag": "p",
+    "id": "as1_S1.p2.1",
+    "text": "Inequality (3) is because of Cauchy–Schwarz inequality. Therefore, if [MATH \\text{Var}(X_{h})<\\infty] Var​(Xh)<∞\\text{Var}(X_{h})<\\infty for [MATH \\forall h] ∀h\\forall h, [MATH \\text{Var}\\left(\\frac{1}{H}\\sum_{h=1}^{H}X_{h}\\right)<\\infty] Var​(1H​∑h=1HXh)<∞\\text{Var}\\left(\\frac{1}{H}\\sum_{h=1}^{H}X_{h}\\right)<\\infty as well. ∎"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "2 Training setup for CIFAR"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S2.p1.1",
+    "text": "We adopt a standard data augmentation scheme that is widely used for those two datasets [2, 3]. We train three target networks: ResNet-32, ResNet-110 [2], and DenseNet-40-12 [4]. In training, we use a weight decay of [MATH 10^{-4}] 10−410^{-4}, and a Nesterov momentum of 0.9 for SGD for all networks. ResNet-32 and ResNet-110 are trained with a mini-batch size of 128 up to 200 epochs. For them, we start with a learning rate of 0.1 and divide it by 10 at 100, 150, and 192 epochs. DenseNet-40-12 is trained with a mini-batch size of 64 up to 300 epochs. Its learning rate is initially set to 0.1 and is divided it by 10 at 150, 225, and 290 epochs."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "3 Training setup for ImageNet"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S3.p1.1",
+    "text": "We adopt the same data augmentation scheme for training images as in [1]. Each network input image is a 224x224 pixel random crop from an augmented image or its horizontal flip, and then is normalized by the per-color mean and standard deviation. We train ResNet-50 [2] with a Nesterov momentum [5] of 0.9 and a weight decay of [MATH 10^{-4}] 10−410^{-4} up to 100 epochs. Each GPU consumes 32 images per mini-batch. The learning rate is initially set to 0.1, and then is divided by 10 at 30, 60, and 90 epochs. A single central crop with size of 224x224 is applied for validation."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "4 Training time of distillation"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S4.p1.1",
+    "text": "The training time of distillation can be expressed as"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S4.p1.2",
+    "text": "where [MATH T_{t}] TtT_{t} is the training time of the teacher network, [MATH T_{s}] TsT_{s} is that of the student one, and [MATH T_{tf}] Tt​fT_{tf} is the forward passing time of the teacher during distillation. For example, when distilling a ResNet-50 from an ensemble of two ResNet-50s. [MATH T_{t}=2T_{s}] Tt=2​TsT_{t}=2T_{s}, and [MATH T_{tf}\\approx 0.4T_{s}] Tt​f≈0.4​TsT_{tf}\\approx 0.4T_{s}. Therefore, the total training time is roughly 3.4x that with individual learning."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "5 Details of ResNet-50 weight distribution"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S5.p1.1",
+    "text": "The distributions in other cases are shown in Figure 1. Per-layer weight standard deviation values are listed with different training approaches in Table 1."
+  },
+  {
+    "tag": "p",
+    "id": "as1_S5.p2.1",
+    "text": "To validate our conjecture that the gradients to many weights in the bottom layers may be vanished so small that the weight decay part takes the major impact, which causes near-zero \"dead\" values eventually, we perform an experiment in which the value of weight decay is reduced to [MATH 0.5\\cdot 10^{-4}] 0.5⋅10−40.5\\cdot 10^{-4} in conv1, conv2_x, and conv3_x layers, and that in other layers remains to be [MATH 1\\cdot 10^{-4}] 1⋅10−41\\cdot 10^{-4}. Figure 2 shows the expected results that a reduced weight decay does reduce the spike in the weight distribution. However, it does not reduce the error rate of the classifier, which is 23.5% for the top-1 error. Therefore, although weight decay is related to these \"dead\" filter weights, simply reducing weight decay is not a solution to improve accuracy."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "6 Impact of hyperparameters on accuracy on CIFAR-10"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "6.1 Impact of [MATH \\beta] β\\beta and [MATH T] TT"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S6.SS1.p1.1",
+    "text": "We have run some experiments with different [MATH \\beta] β\\beta and [MATH T] TT values and plotted the results in Fig 3. The error is not sensitive to them. Carefully tuning [MATH \\beta] β\\beta and [MATH T] TT could obtain better results from the current settings ( [MATH \\beta=0.5] β=0.5\\beta=0.5, [MATH T=2] T=2T=2), but the improvement is expected to be small."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "6.2 Impact of split point location"
+  },
+  {
+    "tag": "p",
+    "id": "as1_S6.SS2.p1.1",
+    "text": "We evaluate the impact of different split point locations in ResNet-32 with 2-head simple ILR sharing on CIFAR-10, and summarize the results in Table 2."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]

@@ -1,0 +1,1757 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "tag": "p",
+    "id": "p1.1",
+    "text": "Alistair Letcher, David Balduzzi, Sébastien Racanière, James Martens, Jakob Foerster, Karl Tuyls, Thore Graepel"
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "text": "Differentiable Game Mechanics"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Deep learning is built on the foundational guarantee that gradient descent on an objective function converges to local minima. Unfortunately, this guarantee fails in settings, such as generative adversarial nets, that exhibit multiple interacting losses. The behavior of gradient-based methods in games is not well understood – and is becoming increasingly important as adversarial and multi-objective architectures proliferate. In this paper, we develop new tools to understand and control the dynamics in [MATH n] nn-player differentiable games."
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.2",
+    "text": "The key result is to decompose the game Jacobian into two components. The first, symmetric component, is related to potential games, which reduce to gradient descent on an implicit function. The second, antisymmetric component, relates to Hamiltonian games, a new class of games that obey a conservation law akin to conservation laws in classical mechanical systems. The decomposition motivates Symplectic Gradient Adjustment (SGA), a new algorithm for finding stable fixed points in differentiable games. Basic experiments show SGA is competitive with recently proposed algorithms for finding stable fixed points in GANs – while at the same time being applicable to, and having guarantees in, much more general cases."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "A significant fraction of recent progress in machine learning has been based on applying gradient descent to optimize the parameters of neural networks with respect to an objective function. The objective functions are carefully designed to encode particular tasks such as supervised learning. A basic result is that gradient descent converges to a local minimum of the objective function under a broad range of conditions (Lee et al., 2017). However, there is a growing set of algorithms that do not optimize a single objective function, including: generative adversarial networks (Goodfellow et al., 2014; Zhu et al., 2017), proximal gradient TD learning (Liu et al., 2016), multi-level optimization (Pfau and Vinyals, 2016), synthetic gradients (Jaderberg et al., 2017), hierarchical reinforcement learning (Wayne and Abbott, 2014; Vezhnevets et al., 2017), intrinsic curiosity (Pathak et al., 2017; Burda et al., 2019), and imaginative agents (Racanière et al., 2017). In effect, the models are trained via games played by cooperating and competing modules."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "The time-average of iterates of gradient descent, and other more general no-regret algorithms, are guaranteed to converge to coarse correlated equilibria in games (Stoltz and Lugosi, 2007). However, the dynamics do not converge to Nash equilibria – and do not even stabilize in general (Mertikopoulos et al., 2018; Papadimitriou and Piliouras, 2018). Concretely, cyclic behaviors emerge even in simple cases, see example 1."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "This paper presents an analysis of the second-order structure of game dynamics that allows to identify two classes of games, potential and Hamiltonian, that are easy to solve separately. We then derive symplectic gradient adjustment11 1 Source code is available at https://github.com/deepmind/symplectic-gradient-adjustment. (SGA), a method for finding stable fixed points in games. SGA’s performance is evaluated in basic experiments."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "1.1 Background and problem description"
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS1.p1.1",
+    "text": "Tractable algorithms that converge to Nash equilibria have been found for restricted classes of games: potential games, two-player zero-sum games, and a few others (Hart and Mas-Colell, 2013). Finding Nash equilibria can be reformulated as a nonlinear complementarity problem, but these are ‘hopelessly impractical to solve’ in general (Shoham and Leyton-Brown, 2008) because the problem is PPAD hard (Daskalakis et al., 2009)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS1.p2.1",
+    "text": "Players are primarily neural nets in our setting. For computational reasons we restrict to gradient-based methods, even though game-theorists have considered a much broader range of techniques. Losses are not necessarily convex in any of their parameters, so Nash equilibria are not guaranteed to exist. Even leaving existence aside, finding Nash equilibria in nonconvex games is analogous to, but much harder than, finding global minima in neural nets – which is not realistic with gradient-based methods."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS1.p3.1",
+    "text": "There are at least three problems with gradient-based methods in games. Firstly, the potential existence of cycles (recurrent dynamics) implies there are no convergence guarantees, see example 1 below and Mertikopoulos et al. (2018). Secondly, even when gradient descent converges, the rate of convergence may be too slow in practice because ‘rotational forces’ necessitate extremely small learning rates, see figure 4. Finally, since there is no single objective, there is no way to measure progress. Concretely, the losses obtained by the generator and the discriminator in GANs are not useful guides to the quality of the images generated. Application-specific proxies have been proposed, for example the inception score for GANs (Salimans et al., 2016), but these are of little help during training. The inception score is domain specific and is no substitute for looking at samples. This paper tackles the first two problems."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "1.2 Outline and summary of main contributions"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "The infinitesimal structure of games."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px1.p1.1",
+    "text": "We start with the basic case of a zero-sum bimatrix game: example 1. It turns out that the dynamics under simultaneous gradient descent can be reformulated in terms of Hamilton’s equations. The cyclic behavior arises because the dynamics live on the level sets of the Hamiltonian. More directly useful, gradient descent on the Hamiltonian converges to a Nash equilibrium."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px1.p2.1",
+    "text": "Lemma 1 shows that the Jacobian of any game decomposes into symmetric and antisymmetric components. There are thus two ‘pure’ cases corresponding to when the Jacobian is symmetric and anti-symmetric. The first case, known as potential games (Monderer and Shapley, 1996), have been intensively studied in the game-theory literature because they are exactly the games where gradient descent does converge."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px1.p3.1",
+    "text": "The second case, Hamiltonian22 2 Lu (1992) defined an unrelated notion of Hamiltonian game. games, were not studied previously, probably because they coincide with zero-sum games in the bimatrix case (or constant-sum, depending on the constraints). Zero-sum and Hamiltonian games differ when the losses are not bilinear or when there are more than two players. Hamiltonian games are important because (i) they are easy to solve and (ii) general games combine potential-like and Hamiltonian-like dynamics. Unfortunately, the concept of a zero-sum game is too loose to be useful when there are many players: any [MATH n] nn-player game can be reformulated as a zero-sum [MATH (n+1)] (n+1)(n+1)-player game where [MATH \\ell_{n+1}=-\\sum_{i=1}^{n}\\ell_{i}] ℓn+1=−∑i=1nℓi\\ell_{n+1}=-\\sum_{i=1}^{n}\\ell_{i}. In this respect, zero-sum games are as complicated as general-sum games. In contrast, Hamiltonian games are much simpler than general-sum games. Theorem 4 shows that Hamiltonian games obey a conservation law – which also provides the key to solving them, by gradient descent on the conserved quantity."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Algorithms."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px2.p1.1",
+    "text": "The general case, neither potential nor Hamiltonian, is more difficult and is therefore the focus of the remainder of the paper. Section 3 proposes symplectic gradient adjustment (SGA), a gradient-based method for finding stable fixed points in general games. Appendix A contains TensorFlow code to compute the adjustment. The algorithm computes two Jacobian-vector products, at a cost of two iterations of backprop. SGA satisfies a few natural desiderata explained in section 3.1: ( [MATH D1] D​1D1) it is compatible with the original dynamics; and it is guaranteed to find stable equilibria in ( [MATH D2] D​2D2) potential and ( [MATH D3] D​3D3) Hamiltonian games."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px2.p2.1",
+    "text": "For general games, correctly picking the sign of the adjustment (whether to add or subtract) is critical since it determines the behavior near stable and unstable equilibria. Section 2.4 defines stable equilibria and contrasts them with local Nash equilibria. Theorem 10 proves that SGA converges locally to stable fixed points for sufficiently small parameters (which we quantify via the notion of an additive condition number). While strong, this may be impractical or slow down convergence significantly. Accordingly, lemma 11 shows how to set the sign so as to be attracted towards stable equilibria and repelled from unstable ones. Correctly aligning SGA allows higher learning rates and faster, more robust convergence, see theorem 15. Finally, theorem 17 tackles the remaining class of saddle fixed points by proving that SGA locally avoids strict saddles for appropriate parameters."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Experiments."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px3.p1.1",
+    "text": "We investigate the empirical performance of SGA in four basic experiments. The first experiment shows how increasing alignment allows higher learning rates and faster convergence, figure 4. The second set of experiments compares SGA with optimistic mirror descent on two-player and four-player games. We find that SGA converges over a much wider range of learning rates."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px3.p2.1",
+    "text": "The last two sets of experiments investigate mode collapse, mode hopping and the related, less well-known problem of boundary distortion identified in Santurkar et al. (2018). Mode collapse and mode hopping are investigated in a setup involving a two-dimensional mixture of 16 Gaussians that is somewhat more challenging than the original problem introduced in Metz et al. (2017). Whereas simultaneous gradient descent completely fails, our symplectic adjustment leads to rapid convergence – slightly improved by correctly choosing the sign of the adjustment."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px3.p3.1",
+    "text": "Finally, boundary distortion is studied using a 75-dimensional spherical Gaussian. Mode collapse is not an issue since there the data distribution is unimodal. However, as shown in figure 10, a vanilla GAN with RMSProp learns only one of the eigenvalues in the spectrum of the covariance matrix, whereas SGA approximately learns all of them."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS2.SSS0.Px3.p4.1",
+    "text": "The appendix provides some background information on differential and symplectic geometry, which motivated the developments in the paper. The appendix also explores what happens when the analogy with classical mechanics is pushed further than perhaps seems reasonable. We experiment with assigning units (in the sense of masses and velocities) to quantities in games, and find that type-consistency yields unexpected benefits."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "1.3 Related work"
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS3.p1.1",
+    "text": "Nash (1950) was only concerned with existence of equilibria. Convergence in two-player games was studied in Singh et al. (2000). WoLF (Win or Learn Fast) converges to Nash equilibria in two-player two-action games (Bowling and Veloso, 2002). Extensions include weighted policy learning (Abdallah and Lesser, 2008) and GIGA-WoLF (Bowling, 2004). Infinitesimal Gradient Ascent (IGA) is a gradient-based approach that is shown to converge to pure Nash equilibria in two-player two-action games. Cyclic behaviour may occur in case of mixed equilibria. Zinkevich (2003) generalised the algorithm to [MATH n] nn-action games called GIGA. Optimistic mirror descent approximately converges in two-player bilinear zero-sum games (Daskalakis et al., 2018), a special case of Hamiltonian games. In more general settings it converges to coarse correlated equilibria."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS3.p2.1",
+    "text": "Convergence has also been studied in various [MATH n] nn-player settings, see Rosen (1965); Scutari et al. (2010); Facchinei and Kanzow (2010); Mertikopoulos and Zhou (2016). However, the recent success of GANs, where the players are neural networks, has focused attention on a much larger class of nonconvex games where comparatively little is known, especially in the [MATH n] nn-player case. Heusel et al. (2017) propose a two-time scale methods to find Nash equilibria. However, it likely scales badly with the number of players. Nagarajan and Kolter (2017) prove convergence for some algorithms, but under very strong assumptions (Mescheder et al., 2018). Consensus optimization (Mescheder et al., 2017) is closely related to our proposad algorithm, and is extensively discussed in section 3. A variety of game-theoretically or minimax motivated modifications to vanilla gradient descent have been investigated in the context of GANs, see Mertikopoulos et al. (2019); Gidel et al. (2018)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS3.p3.1",
+    "text": "Learning with opponent-learning awareness (LOLA) infinitesimally modifies the objectives of players to take into account their opponents’ goals (Foerster et al., 2018). However, Letcher et al. (2019) recently showed that LOLA modifies fixed points and thus fails to find stable equilibria in general games."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS3.p4.1",
+    "text": "Symplectic gradient adjustment was independently discovered by Gemp and Mahadevan (2018), who refer to it as “crossing-the-curl”. Their analysis draws on powerful techniques from variational inequalities and monotone optimization that are complementary to those developed here – see for example Gemp and Mahadevan (2016); Gemp and Mahadevan (2017); Gidel et al. (2019). Using techniques from monotone optimization, Gemp and Mahadevan (2018) obtained more detailed and stronger results than ours, in the more particular case of Wasserstein LQ-GANs, where the generator is linear and the discriminator is quadratic (Feizi et al., 2017; Nagarajan and Kolter, 2017)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS3.p5.1",
+    "text": "Network zero-sum games are shown to be Hamiltonian systems in Bailey and Piliouras (2019). The implications of the existence of invariant functions for games is just beginning to be understood and explored."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Notation."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS3.SSS0.Px1.p1.1",
+    "text": "Dot products are written as [MATH {\\mathbf{v}}^{\\intercal}{\\mathbf{w}}] 𝐯⊺​𝐰{\\mathbf{v}}^{\\intercal}{\\mathbf{w}} or [MATH \\langle{\\mathbf{v}},{\\mathbf{w}}\\rangle] ⟨𝐯,𝐰⟩\\langle{\\mathbf{v}},{\\mathbf{w}}\\rangle. The angle between two vectors is [MATH \\theta({\\mathbf{v}},{\\mathbf{w}})] θ⁡(𝐯,𝐰)\\theta({\\mathbf{v}},{\\mathbf{w}}). Positive definiteness is denoted [MATH {\\mathbf{S}}\\succ 0] 𝐒≻0{\\mathbf{S}}\\succ 0."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "2 The Infinitesimal Structure of Games"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "In contrast to the classical formulation of games, we do not constrain the parameter sets to the probability simplex or require losses to be convex in the corresponding players’ parameters. Our motivation is that we are primarily interested in use cases where players are interacting neural nets such as GANs (Goodfellow et al., 2014), a situation in which results from classical game theory do not straightforwardly apply."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefn1.p1.1",
+    "text": "A differentiable game consists in a set of players [MATH [n]=\\{1,\\ldots,n\\}] [n]={1,…,n}[n]=\\{1,\\ldots,n\\} and corresponding twice continuously differentiable losses [MATH \\{\\ell_{i}:{\\mathbb{R}}^{d}\\rightarrow{\\mathbb{R}}\\}_{i=1}^{n}] {ℓi:ℝd→ℝ}i=1n\\{\\ell_{i}:{\\mathbb{R}}^{d}\\rightarrow{\\mathbb{R}}\\}_{i=1}^{n}. Parameters are [MATH {\\mathbf{w}}=({\\mathbf{w}}_{1},\\ldots,{\\mathbf{w}}_{n})\\in{\\mathbb{R}}^{d}] 𝐰=(𝐰1,…,𝐰n)∈ℝd{\\mathbf{w}}=({\\mathbf{w}}_{1},\\ldots,{\\mathbf{w}}_{n})\\in{\\mathbb{R}}^{d} where [MATH \\sum_{i=1}^{n}d_{i}=d] ∑i=1ndi=d\\sum_{i=1}^{n}d_{i}=d. Player [MATH i] ii controls [MATH {\\mathbf{w}}_{i}\\in{\\mathbb{R}}^{d_{i}}] 𝐰i∈ℝdi{\\mathbf{w}}_{i}\\in{\\mathbb{R}}^{d_{i}}, and aims to minimize its loss."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "It is sometimes convenient to write [MATH {\\mathbf{w}}=({\\mathbf{w}}_{i},{\\mathbf{w}}_{-i})] 𝐰=(𝐰i,𝐰−i){\\mathbf{w}}=({\\mathbf{w}}_{i},{\\mathbf{w}}_{-i}) where [MATH {\\mathbf{w}}_{-i}] 𝐰−i{\\mathbf{w}}_{-i} concatenates the parameters of all the players other than the [MATH i^{\\text{th}}] ithi^{\\text{th}}, which is placed out of order by abuse of notation."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p3.1",
+    "text": "The simultaneous gradient is the gradient of the losses with respect to the parameters of the respective players:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p3.2",
+    "text": "By the dynamics of the game, we mean following the negative of the vector field, [MATH -\\boldsymbol{\\xi}] −𝝃-\\boldsymbol{\\xi}, with infinitesimal steps. There is no reason to expect [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} to be the gradient of a single function in general, and therefore no reason to expect the dynamics to converge to a fixed point."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.1 Hamiltonian Mechanics"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "Hamiltonian mechanics is a formalism for describing the dynamics in classical physical systems, see Arnold (1989); Guillemin and Sternberg (1990). The system is described via canonical coordinates [MATH ({\\mathbf{q}},{\\mathbf{p}})] (𝐪,𝐩)({\\mathbf{q}},{\\mathbf{p}}). For example, [MATH {\\mathbf{q}}] 𝐪{\\mathbf{q}} often refers to position and [MATH {\\mathbf{p}}] 𝐩{\\mathbf{p}} to momentum of a particle or particles."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "The Hamiltonian of the system [MATH {\\mathcal{H}}({\\mathbf{q}},{\\mathbf{p}})] ℋ⁡(𝐪,𝐩){\\mathcal{H}}({\\mathbf{q}},{\\mathbf{p}}) is a function that specifies the total energy as a function of the generalized coordinates. For example, in a closed system the Hamiltonian is given by the sum of the potential and kinetic energies of the particles. The time evolution of the system is given by Hamilton’s equations:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p2.2",
+    "text": "An importance consequence of the Hamiltonian formalism is that the dynamics of the physical system – that is, the trajectories followed by the particles in phase space – live on the level sets of the Hamiltonian. In other words, the total energy is conserved."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.2 Hamiltonian Mechanics in Games"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "The next example illustrates the essential problem with gradients in games and the key insight motivating our approach."
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg1.p1.1",
+    "text": "Zero-sum games, where [MATH \\sum_{i=1}^{n}\\ell_{i}\\equiv 0] ∑i=1nℓi≡0\\sum_{i=1}^{n}\\ell_{i}\\equiv 0, are well-studied. The zero-sum game"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg1.p1.2",
+    "text": "has a Nash equilibrium at [MATH ({\\mathbf{x}},{\\mathbf{y}})=({\\mathbf{0}},{\\mathbf{0}})] (𝐱,𝐲)=(𝟎,𝟎)({\\mathbf{x}},{\\mathbf{y}})=({\\mathbf{0}},{\\mathbf{0}}). The simultaneous gradient [MATH \\boldsymbol{\\xi}({\\mathbf{x}},{\\mathbf{y}})=({\\mathbf{A}}{\\mathbf{y}},-{\\mathbf{A}}^{\\intercal}{\\mathbf{x}})] 𝛏⁡(𝐱,𝐲)=(𝐀𝐲,−𝐀⊺​𝐱)\\boldsymbol{\\xi}({\\mathbf{x}},{\\mathbf{y}})=({\\mathbf{A}}{\\mathbf{y}},-{\\mathbf{A}}^{\\intercal}{\\mathbf{x}}) rotates around the Nash, see figure 1."
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg1.p2.1",
+    "text": "The matrix [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} admits singular value decomposition (SVD) [MATH {\\mathbf{A}}={\\mathbf{U}}^{\\intercal}{\\mathbf{D}}{\\mathbf{V}}] 𝐀=𝐔⊺​𝐃𝐕{\\mathbf{A}}={\\mathbf{U}}^{\\intercal}{\\mathbf{D}}{\\mathbf{V}}. Changing to coordinates [MATH {\\mathbf{u}}={\\mathbf{D}}^{\\frac{1}{2}}{\\mathbf{U}}{\\mathbf{x}}] 𝐮=𝐃12​𝐔𝐱{\\mathbf{u}}={\\mathbf{D}}^{\\frac{1}{2}}{\\mathbf{U}}{\\mathbf{x}} and [MATH {\\mathbf{v}}={\\mathbf{D}}^{\\frac{1}{2}}{\\mathbf{V}}{\\mathbf{y}}] 𝐯=𝐃12​𝐕𝐲{\\mathbf{v}}={\\mathbf{D}}^{\\frac{1}{2}}{\\mathbf{V}}{\\mathbf{y}} gives [MATH \\ell_{1}({\\mathbf{u}},{\\mathbf{v}})={\\mathbf{u}}^{\\intercal}{\\mathbf{v}}] ℓ1​(𝐮,𝐯)=𝐮⊺​𝐯\\ell_{1}({\\mathbf{u}},{\\mathbf{v}})={\\mathbf{u}}^{\\intercal}{\\mathbf{v}} and [MATH \\ell_{2}({\\mathbf{u}},{\\mathbf{v}})=-{\\mathbf{u}}^{\\intercal}{\\mathbf{v}}] ℓ2​(𝐮,𝐯)=−𝐮⊺​𝐯\\ell_{2}({\\mathbf{u}},{\\mathbf{v}})=-{\\mathbf{u}}^{\\intercal}{\\mathbf{v}}. Introduce the Hamiltonian"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg1.p2.2",
+    "text": "Remarkably, the dynamics can be reformulated via Hamilton’s equations in the coordinates given by the SVD of [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}}:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg1.p2.3",
+    "text": "The vector field [MATH \\boldsymbol{\\xi}] 𝛏\\boldsymbol{\\xi} cycles around the equilibrium because [MATH \\boldsymbol{\\xi}] 𝛏\\boldsymbol{\\xi} conserves the Hamiltonian’s level sets (i.e. [MATH \\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=0] ⟨𝛏,∇ℋ⟩=0\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=0). However, gradient descent on the Hamiltonian converges to the Nash equilibrium. The remainder of the paper explores the implications and limitations of this insight."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p2.1",
+    "text": "Papadimitriou and Piliouras (2016) recently analyzed the dynamics of Matching Pennies (essentially, the above example) and showed that the cyclic behavior covers the entire parameter space. The Hamiltonian reformulation directly explains the cyclic behavior via a conservation law."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.3 The Generalized Helmholtz Decomposition"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p1.1",
+    "text": "The Jacobian of a game with dynamics [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} is the [MATH (d\\times d)] (d×d)(d\\times d)-matrix of second-derivatives [MATH {\\mathbf{J}}({\\mathbf{w}}):=\\nabla_{\\mathbf{w}}\\cdot\\boldsymbol{\\xi}({\\mathbf{w}})^{\\intercal}=\\Big(\\frac{\\partial\\xi_{\\alpha}({\\mathbf{w}})}{\\partial w_{\\beta}}\\Big)_{\\alpha,\\beta=1}^{d}] 𝐉⁡(𝐰):=∇𝐰⋅𝝃​(𝐰)⊺=(∂ξα​(𝐰)∂wβ)α,β=1d{\\mathbf{J}}({\\mathbf{w}}):=\\nabla_{\\mathbf{w}}\\cdot\\boldsymbol{\\xi}({\\mathbf{w}})^{\\intercal}=\\Big(\\frac{\\partial\\xi_{\\alpha}({\\mathbf{w}})}{\\partial w_{\\beta}}\\Big)_{\\alpha,\\beta=1}^{d}, where [MATH \\boldsymbol{\\xi}_{\\alpha}({\\mathbf{w}})] 𝝃α​(𝐰)\\boldsymbol{\\xi}_{\\alpha}({\\mathbf{w}}) is the [MATH \\alpha^{\\text{th}}] αth\\alpha^{\\text{th}} entry of the [MATH d] dd-dimensional vector [MATH \\boldsymbol{\\xi}({\\mathbf{w}})] 𝝃⁡(𝐰)\\boldsymbol{\\xi}({\\mathbf{w}}). Concretely, the Jacobian can be written as"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p1.2",
+    "text": "where [MATH \\nabla^{2}_{{\\mathbf{w}}_{i},{\\mathbf{w}}_{j}}\\ell_{k}] ∇𝐰i,𝐰j2ℓk\\nabla^{2}_{{\\mathbf{w}}_{i},{\\mathbf{w}}_{j}}\\ell_{k} is the [MATH (d_{i}\\times d_{j})] (di×dj)(d_{i}\\times d_{j})-block of [MATH 2^{\\text{nd}}] 2nd2^{\\text{nd}}-order derivatives. The Jacobian of a game is a square matrix, but not necessarily symmetric. Note: Greek indices [MATH \\alpha,\\beta] α,β\\alpha,\\beta run over [MATH d] dd parameter dimensions whereas Roman indices [MATH i,j] i,ji,j run over [MATH n] nn players."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm1.p1.1",
+    "text": "The Jacobian of any vector field decomposes uniquely into two components [MATH {\\mathbf{J}}({\\mathbf{w}})={\\mathbf{S}}({\\mathbf{w}})+{\\mathbf{A}}({\\mathbf{w}})] 𝐉⁡(𝐰)=𝐒⁡(𝐰)+𝐀⁡(𝐰){\\mathbf{J}}({\\mathbf{w}})={\\mathbf{S}}({\\mathbf{w}})+{\\mathbf{A}}({\\mathbf{w}}) where [MATH {\\mathbf{S}}\\equiv{\\mathbf{S}}^{\\intercal}] 𝐒≡𝐒⊺{\\mathbf{S}}\\equiv{\\mathbf{S}}^{\\intercal} is symmetric and [MATH {\\mathbf{A}}+{\\mathbf{A}}^{\\intercal}\\equiv 0] 𝐀+𝐀⊺≡0{\\mathbf{A}}+{\\mathbf{A}}^{\\intercal}\\equiv 0 is antisymmetric."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p2.1",
+    "text": "Any matrix decomposes uniquely as [MATH {\\mathbf{M}}={\\mathbf{S}}+{\\mathbf{A}}] 𝐌=𝐒+𝐀{\\mathbf{M}}={\\mathbf{S}}+{\\mathbf{A}} where [MATH {\\mathbf{S}}=\\frac{1}{2}({\\mathbf{M}}+{\\mathbf{M}}^{\\intercal})] 𝐒=12​(𝐌+𝐌⊺){\\mathbf{S}}=\\frac{1}{2}({\\mathbf{M}}+{\\mathbf{M}}^{\\intercal}) and [MATH {\\mathbf{A}}=\\frac{1}{2}({\\mathbf{M}}-{\\mathbf{M}}^{\\intercal})] 𝐀=12​(𝐌−𝐌⊺){\\mathbf{A}}=\\frac{1}{2}({\\mathbf{M}}-{\\mathbf{M}}^{\\intercal}) are symmetric and antisymmetric. The decomposition is preserved by orthogonal change-of-coordinates: given orthogonal matrix [MATH {\\mathbf{P}}] 𝐏{\\mathbf{P}}, we have [MATH {\\mathbf{P}}^{\\intercal}{\\mathbf{M}}{\\mathbf{P}}={\\mathbf{P}}^{\\intercal}{\\mathbf{S}}{\\mathbf{P}}+{\\mathbf{P}}^{\\intercal}{\\mathbf{A}}{\\mathbf{P}}] 𝐏⊺​𝐌𝐏=𝐏⊺​𝐒𝐏+𝐏⊺​𝐀𝐏{\\mathbf{P}}^{\\intercal}{\\mathbf{M}}{\\mathbf{P}}={\\mathbf{P}}^{\\intercal}{\\mathbf{S}}{\\mathbf{P}}+{\\mathbf{P}}^{\\intercal}{\\mathbf{A}}{\\mathbf{P}} since the terms remain symmetric and antisymmetric. Applying the decomposition to the Jacobian yields the result. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p3.1",
+    "text": "The connection to the classical Helmholtz decomposition in calculus is sketched in appendix B. Two natural classes of games arise from the decomposition:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefn2.p1.1",
+    "text": "A game is a potential game if the Jacobian is symmetric, i.e. if [MATH {\\mathbf{A}}({\\mathbf{w}})\\equiv 0] 𝐀⁡(𝐰)≡0{\\mathbf{A}}({\\mathbf{w}})\\equiv 0. It is a Hamiltonian game if the Jacobian is antisymmetric, i.e. if [MATH {\\mathbf{S}}({\\mathbf{w}})\\equiv 0] 𝐒⁡(𝐰)≡0{\\mathbf{S}}({\\mathbf{w}})\\equiv 0."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p4.1",
+    "text": "Potential games are well-studied and easy to solve. Hamiltonian games are a new class of games that are also easy to solve. The general case is more difficult, see section 3."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.4 Stable Fixed Points (SFPs) vs Local Nash Equilibria (LNEs)"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p1.1",
+    "text": "There are (at least) two possible solution concepts in general differentiable games: stable fixed points and local Nash equilibria."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefn3.p1.1",
+    "text": "A point [MATH {\\mathbf{w}}^{∗}] 𝐰∗{\\mathbf{w}}^{∗} is a local Nash equilibrium if, for all [MATH i] ii, there exists a neighborhood [MATH U_{i}] UiU_{i} of [MATH {\\mathbf{w}}_{i}^{∗}] 𝐰i∗{\\mathbf{w}}_{i}^{∗} such that [MATH \\ell_{i}({\\mathbf{w}}_{i}^{\\prime},{\\mathbf{w}}_{-i}^{∗})\\geq\\ell_{i}({\\mathbf{w}}_{i}^{∗},{\\mathbf{w}}_{-i}^{∗})] ℓi​(𝐰i′,𝐰−i∗)≥ℓi​(𝐰i∗,𝐰−i∗)\\ell_{i}({\\mathbf{w}}_{i}^{\\prime},{\\mathbf{w}}_{-i}^{∗})\\geq\\ell_{i}({\\mathbf{w}}_{i}^{∗},{\\mathbf{w}}_{-i}^{∗}) for [MATH {\\mathbf{w}}^{\\prime}_{i}\\in U_{i}] 𝐰i′∈Ui{\\mathbf{w}}^{\\prime}_{i}\\in U_{i}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p2.1",
+    "text": "We introduce local Nash equilibria because finding global Nash equilibria is unrealistic in games involving neural nets. Gradient-based methods can reliably find local – but not global – optima of nonconvex objective functions (Lee et al., 2016; Lee et al., 2017). Similarly, gradient-based methods cannot be expected to find global Nash equilibria in nonconvex games."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefn4.p1.1",
+    "text": "A fixed point [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} with [MATH \\boldsymbol{\\xi}({\\mathbf{w}}^{*})=0] 𝛏⁡(𝐰∗)=0\\boldsymbol{\\xi}({\\mathbf{w}}^{*})=0 is stable if [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})\\succeq 0] 𝐉⁡(𝐰∗)⪰0{\\mathbf{J}}({\\mathbf{w}}^{*})\\succeq 0 and [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})] 𝐉⁡(𝐰∗){\\mathbf{J}}({\\mathbf{w}}^{*}) is invertible, unstable if [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})\\prec 0] 𝐉⁡(𝐰∗)≺0{\\mathbf{J}}({\\mathbf{w}}^{*})\\prec 0 and a strict saddle if [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})] 𝐉⁡(𝐰∗){\\mathbf{J}}({\\mathbf{w}}^{*}) has an eigenvalue with negative real part. Strict saddles are a subset of unstable fixed points."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p3.1",
+    "text": "The definition is adapted from Letcher et al. (2019), where conditions on the Jacobian hold at the fixed point; in contrast, Balduzzi et al. (2018a) imposed conditions on the Jacobian in a neighborhood of the fixed point. We motivate this concept as follows."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p4.1",
+    "text": "Positive semidefiniteness, [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})\\succeq 0] 𝐉⁡(𝐰∗)⪰0{\\mathbf{J}}({\\mathbf{w}}^{*})\\succeq 0, is a minimal condition for any reasonable notion of stable fixed point. In the case of a single loss [MATH \\ell] ℓ\\ell, the Jacobian of [MATH \\boldsymbol{\\xi}=\\nabla\\ell] 𝝃=∇ℓ\\boldsymbol{\\xi}=\\nabla\\ell is the Hessian of [MATH \\ell] ℓ\\ell, i.e. [MATH {\\mathbf{J}}=\\nabla^{2}\\ell] 𝐉=∇2ℓ{\\mathbf{J}}=\\nabla^{2}\\ell. Local convergence of gradient descent on single functions cannot be guaranteed if [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})\\nsucceq 0] 𝐉⁡(𝐰∗)⋡0{\\mathbf{J}}({\\mathbf{w}}^{*})\\nsucceq 0, since such points are strict saddles. These are almost always avoided by Lee et al. (2017), so this semidefinite condition must hold."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p5.1",
+    "text": "Another viewpoint is that invertibility and positive semidefiniteness of the Hessian together imply positive definiteness, and the notion of stable fixed point specializes, in a one-player game, to local minima that are detected by the second partial derivative test. These minima are precisely those which gradient-like methods provably converge to. Stable fixed points are defined by analogy, though note that invertibility and semidefiniteness do not imply positive definiteness in [MATH n] nn-player games since [MATH {\\mathbf{J}}] 𝐉{\\mathbf{J}} may not be symmetric."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p6.1",
+    "text": "Finally, it is important to impose only positive semi-definiteness to keep the class as large as possible. Imposing strict positivity would imply that the origin is not an SFP in the cyclic game [MATH \\ell_{1}=xy=-\\ell_{2}] ℓ1=x​y=−ℓ2\\ell_{1}=xy=-\\ell_{2} from Example 1, while clearly deserving of being so."
+  },
+  {
+    "tag": "p",
+    "id": "Thmrem1.p1.1",
+    "text": "The conditions [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})\\succeq 0] 𝐉⁡(𝐰∗)⪰0{\\mathbf{J}}({\\mathbf{w}}^{*})\\succeq 0 and [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})\\prec 0] 𝐉⁡(𝐰∗)≺0{\\mathbf{J}}({\\mathbf{w}}^{*})\\prec 0 are equivalent to the conditions on the symmetric component [MATH {\\mathbf{S}}({\\mathbf{w}}^{*})\\succeq 0] 𝐒⁡(𝐰∗)⪰0{\\mathbf{S}}({\\mathbf{w}}^{*})\\succeq 0 and [MATH {\\mathbf{S}}({\\mathbf{w}}^{*})\\prec 0] 𝐒⁡(𝐰∗)≺0{\\mathbf{S}}({\\mathbf{w}}^{*})\\prec 0 respectively, since"
+  },
+  {
+    "tag": "p",
+    "id": "Thmrem1.p1.2",
+    "text": "for all [MATH {\\mathbf{u}}] 𝐮{\\mathbf{u}}, by antisymmetry of [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}}. This equivalence will be used throughout."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p7.1",
+    "text": "Stable fixed points and local Nash equilibria are both appealing solution concepts, one from the viewpoint of optimisation by analogy with single objectives, and the other from game theory. Unfortunately, neither is a subset of the other:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg2.p1.1",
+    "text": "Let [MATH \\ell_{1}(x,y)=x^{3}+xy] ℓ1​(x,y)=x3+x​y\\ell_{1}(x,y)=x^{3}+xy and [MATH \\ell_{2}(x,y)=-xy] ℓ2​(x,y)=−x​y\\ell_{2}(x,y)=-xy. Then"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg2.p1.2",
+    "text": "There is a stable fixed point with invertible Hessian at [MATH (x,y)=(0,0)] (x,y)=(0,0)(x,y)=(0,0), since [MATH \\boldsymbol{\\xi}(0,0)=0] 𝛏⁡(0,0)=0\\boldsymbol{\\xi}(0,0)=0 and [MATH {\\mathbf{J}}(0,0)\\succeq 0] 𝐉⁡(0,0)⪰0{\\mathbf{J}}(0,0)\\succeq 0 invertible. However any neighbourhood of [MATH x=0] x=0x=0 contains some small [MATH \\epsilon>0] ϵ>0\\epsilon>0 for which [MATH \\ell_{1}(-\\epsilon,0)=-\\epsilon^{3}<0=\\ell_{1}(0,0)] ℓ1​(−ϵ,0)=−ϵ3<0=ℓ1​(0,0)\\ell_{1}(-\\epsilon,0)=-\\epsilon^{3}<0=\\ell_{1}(0,0), so the origin is not a local Nash equilibrium."
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg3.p1.1",
+    "text": "Let [MATH \\ell_{1}(x,y)=\\ell_{2}(x,y)=xy] ℓ1​(x,y)=ℓ2​(x,y)=x​y\\ell_{1}(x,y)=\\ell_{2}(x,y)=xy. Then"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg3.p1.2",
+    "text": "There is a fixed point at [MATH (x,y)=(0,0)] (x,y)=(0,0)(x,y)=(0,0) which is a local (in fact, global) Nash equilibrium since [MATH \\ell_{1}(0,y)=0\\geq\\ell_{1}(0,0)] ℓ1​(0,y)=0≥ℓ1​(0,0)\\ell_{1}(0,y)=0\\geq\\ell_{1}(0,0) and [MATH \\ell_{2}(x,0)=0\\geq\\ell_{2}(0,0)] ℓ2​(x,0)=0≥ℓ2​(0,0)\\ell_{2}(x,0)=0\\geq\\ell_{2}(0,0) for all [MATH x,y\\in\\mathbb{R}] x,y∈ℝx,y\\in\\mathbb{R}. However [MATH {\\mathbf{J}}={\\mathbf{S}}] 𝐉=𝐒{\\mathbf{J}}={\\mathbf{S}} has eigenvalues [MATH \\lambda_{1}=1] λ1=1\\lambda_{1}=1 and [MATH \\lambda_{2}=-1<0] λ2=−1<0\\lambda_{2}=-1<0, so [MATH (0,0)] (0,0)(0,0) is not a stable fixed point."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p8.1",
+    "text": "In Example 3, the Nash equilibrium is a saddle point of the common loss [MATH \\ell=xy] ℓ=x​y\\ell=xy. Any algorithm that converges to Nash equilibria will thus converge to an undesirable saddle point. This rules out local Nash equilibrium as a solution concept for our purposes. Conversely, Example 2 emphasises the better notion of stability whereby player 1 may have a local incentive to deviate from the origin immediately, but would later be punished for doing so since the game is locally dominated by the [MATH \\pm xy] ±x​y\\pm xy terms, whose only ‘resolution’ or ‘stable minimum’ is the origin (see Example 1)."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.5 Potential Games"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p1.1",
+    "text": "Potential games were introduced by Monderer and Shapley (1996). It turns out that our definition of potential game above coincides with a special case of the potential games of Monderer and Shapley (1996), which they refer to as exact potential games."
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefn5.p1.1",
+    "text": "A game is a potential game if there is a single potential function [MATH \\phi:{\\mathbb{R}}^{d}\\rightarrow{\\mathbb{R}}] ϕ:ℝd→ℝ\\phi:{\\mathbb{R}}^{d}\\rightarrow{\\mathbb{R}} and positive numbers [MATH \\{\\alpha_{i}>0\\}_{i=1}^{n}] {αi>0}i=1n\\{\\alpha_{i}>0\\}_{i=1}^{n} such that"
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefn5.p1.2",
+    "text": "for all [MATH i] ii and all [MATH {\\mathbf{w}}_{i}^{\\prime},{\\mathbf{w}}_{i}^{\\prime\\prime},{\\mathbf{w}}_{-i}] 𝐰i′,𝐰i′′,𝐰−i{\\mathbf{w}}_{i}^{\\prime},{\\mathbf{w}}_{i}^{\\prime\\prime},{\\mathbf{w}}_{-i}, see Monderer and Shapley (1996)."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm2.p1.1",
+    "text": "A game is a potential game iff [MATH \\alpha_{i}\\nabla_{{\\mathbf{w}}_{i}}\\ell_{i}=\\nabla_{{\\mathbf{w}}_{i}}\\phi] αi​∇𝐰iℓi=∇𝐰iϕ\\alpha_{i}\\nabla_{{\\mathbf{w}}_{i}}\\ell_{i}=\\nabla_{{\\mathbf{w}}_{i}}\\phi for all [MATH i] ii, which is equivalent to"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p2.1",
+    "text": "See Monderer and Shapley (1996). ∎"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm3.p1.1",
+    "text": "If [MATH \\alpha_{i}=1] αi=1\\alpha_{i}=1 for all [MATH i] ii then equation (11) is equivalent to requiring that the Jacobian of the game is symmetric."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p3.1",
+    "text": "In an exact potential game, the Jacobian coincides with the Hessian of the potential function [MATH \\phi] ϕ\\phi, which is necessarily symmetric. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p4.1",
+    "text": "Monderer and Shapley (1996) refer to the special case where [MATH \\alpha_{i}=1] αi=1\\alpha_{i}=1 for all [MATH i] ii as an exact potential game. We use the shorthand ‘potential game’ to refer to exact potential games in what follows."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS5.p5.1",
+    "text": "Potential games have been extensively studied since they are one of the few classes of games for which Nash equilibria can be computed (Rosenthal, 1973). For our purposes, they are games where simultaneous gradient descent on the losses corresponds to gradient descent on a single function. It follows that descent on [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} converges to a fixed point that is a local minimum of [MATH \\phi] ϕ\\phi or a saddle."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "2.6 Hamiltonian Games"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p1.1",
+    "text": "Hamiltonian games, where the Jacobian is antisymmetric, are a new class games. They are related to the harmonic games introduced in Candogan et al. (2011), see section B.4. An example from Balduzzi et al. (2018b) may help develop intuition for antisymmetric matrices:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg4.p1.1",
+    "text": "Suppose [MATH n] nn competitors play one-on-one and that the probability of player [MATH i] ii beating player [MATH j] jj is [MATH p_{ij}] pi​jp_{ij}. Then, assuming there are no draws, the probabilities satisfy [MATH p_{ij}+p_{ji}=1] pi​j+pj​i=1p_{ij}+p_{ji}=1 and [MATH p_{ii}=\\frac{1}{2}] pi​i=12p_{ii}=\\frac{1}{2}. The matrix [MATH {\\mathbf{A}}=\\left(\\log\\frac{p_{ij}}{1-p_{ij}}\\right)_{i,j=1}^{n}] 𝐀=(log⁡pi​j1−pi​j)i,j=1n{\\mathbf{A}}=\\left(\\log\\frac{p_{ij}}{1-p_{ij}}\\right)_{i,j=1}^{n} of logits is then antisymmetric. Intuitively, antisymmetry reflects a hyperadversarial setting where all pairwise interactions between players are zero-sum."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p2.1",
+    "text": "Hamiltonian games are closely related to zero-sum games."
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg5.p1.1",
+    "text": "Consider bimatrix game with [MATH \\ell_{1}({\\mathbf{x}},{\\mathbf{y}})={\\mathbf{x}}^{\\intercal}{\\mathbf{P}}{\\mathbf{y}}] ℓ1​(𝐱,𝐲)=𝐱⊺​𝐏𝐲\\ell_{1}({\\mathbf{x}},{\\mathbf{y}})={\\mathbf{x}}^{\\intercal}{\\mathbf{P}}{\\mathbf{y}} and [MATH \\ell_{2}({\\mathbf{x}},{\\mathbf{y}})={\\mathbf{x}}^{\\intercal}{\\mathbf{Q}}{\\mathbf{y}}] ℓ2​(𝐱,𝐲)=𝐱⊺​𝐐𝐲\\ell_{2}({\\mathbf{x}},{\\mathbf{y}})={\\mathbf{x}}^{\\intercal}{\\mathbf{Q}}{\\mathbf{y}}, but where the parameters are not constrained to the probability simplex. Then [MATH \\boldsymbol{\\xi}=({\\mathbf{P}}{\\mathbf{y}},{\\mathbf{Q}}^{\\intercal}{\\mathbf{x}})] 𝛏=(𝐏𝐲,𝐐⊺​𝐱)\\boldsymbol{\\xi}=({\\mathbf{P}}{\\mathbf{y}},{\\mathbf{Q}}^{\\intercal}{\\mathbf{x}}) and the Jacobian components have block structure"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg5.p1.2",
+    "text": "The game is Hamiltonian iff [MATH {\\mathbf{S}}=0] 𝐒=0{\\mathbf{S}}=0 iff [MATH {\\mathbf{P}}+{\\mathbf{Q}}=0] 𝐏+𝐐=0{\\mathbf{P}}+{\\mathbf{Q}}=0 iff [MATH \\ell_{1}+\\ell_{2}=0] ℓ1+ℓ2=0\\ell_{1}+\\ell_{2}=0."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p3.1",
+    "text": "However, in general there are Hamiltonian games that are not zero-sum and vice versa."
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg6.p1.1",
+    "text": "Fix constants [MATH a] aa and [MATH b] bb and suppose players [MATH 1] 11 and [MATH 2] 22 minimize losses"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg6.p1.2",
+    "text": "with respect to [MATH x] xx and [MATH y] yy respectively."
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg7.p1.1",
+    "text": "Players 1 and 2 minimize"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg7.p1.2",
+    "text": "The game actually has potential function [MATH \\phi(x,y)=x^{2}-y^{2}] ϕ⁡(x,y)=x2−y2\\phi(x,y)=x^{2}-y^{2}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p4.1",
+    "text": "Hamiltonian games are quite different from potential games. In a Hamiltonian game there is a Hamiltonian function [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} that specifies a conserved quantity. In potential games the dynamics equal [MATH \\nabla\\phi] ∇ϕ\\nabla\\phi; in Hamiltonian games the dynamics are orthogonal to [MATH \\nabla{\\mathcal{H}}] ∇ℋ\\nabla{\\mathcal{H}}. The orthogonality implies the conservation law that underlies the cyclic behavior in example 1."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm4.p1.1",
+    "text": "Let [MATH {\\mathcal{H}}({\\mathbf{w}}):=\\frac{1}{2}\\|\\boldsymbol{\\xi}({\\mathbf{w}})\\|^{2}_{2}] ℋ⁡(𝐰):=12​‖𝛏⁡(𝐰)‖22{\\mathcal{H}}({\\mathbf{w}}):=\\frac{1}{2}\\|\\boldsymbol{\\xi}({\\mathbf{w}})\\|^{2}_{2}. If the game is Hamiltonian then"
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i1.p1.1",
+    "text": "[MATH \\nabla{\\mathcal{H}}={\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}] ∇ℋ=𝐀⊺​𝝃\\nabla{\\mathcal{H}}={\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi} and"
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i2.p1.1",
+    "text": "[MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} preserves the level sets of [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} since [MATH \\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=0] ⟨𝝃,∇ℋ⟩=0\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=0."
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i3.p1.1",
+    "text": "If the Jacobian is invertible and [MATH \\lim_{\\|{\\mathbf{w}}\\|\\rightarrow\\infty}{\\mathcal{H}}({\\mathbf{w}})=\\infty] lim‖𝐰‖→∞ℋ⁡(𝐰)=∞\\lim_{\\|{\\mathbf{w}}\\|\\rightarrow\\infty}{\\mathcal{H}}({\\mathbf{w}})=\\infty then gradient descent on [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} converges to a stable fixed point."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p5.1",
+    "text": "Direct computation shows [MATH \\nabla{\\mathcal{H}}={\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}] ∇ℋ=𝐉⊺​𝝃\\nabla{\\mathcal{H}}={\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi} for any game. The first statement follows since [MATH {\\mathbf{J}}={\\mathbf{A}}] 𝐉=𝐀{\\mathbf{J}}={\\mathbf{A}} in Hamiltonian games."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p6.1",
+    "text": "For the second statement, the directional derivative is [MATH D_{\\boldsymbol{\\xi}}{\\mathcal{H}}=\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}] D𝝃​ℋ=⟨𝝃,∇ℋ⟩=𝝃⊺​𝐀⊺​𝝃D_{\\boldsymbol{\\xi}}{\\mathcal{H}}=\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi} where [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=(\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi})^{\\intercal}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\boldsymbol{\\xi}=-(\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi})] 𝝃⊺​𝐀⊺​𝝃=(𝝃⊺​𝐀⊺​𝝃)⊺=𝝃⊺​𝐀​𝝃=−(𝝃⊺​𝐀⊺​𝝃)\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=(\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi})^{\\intercal}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\boldsymbol{\\xi}=-(\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}) since [MATH {\\mathbf{A}}=-{\\mathbf{A}}^{\\intercal}] 𝐀=−𝐀⊺{\\mathbf{A}}=-{\\mathbf{A}}^{\\intercal} by anti-symmetry. It follows that [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=0] 𝝃⊺​𝐀⊺​𝝃=0\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=0."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p7.1",
+    "text": "For the third statement, gradient descent on [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} will converge to a point where [MATH \\nabla{\\mathcal{H}}={\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}({\\mathbf{w}})=0] ∇ℋ=𝐉⊺​𝝃​(𝐰)=0\\nabla{\\mathcal{H}}={\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}({\\mathbf{w}})=0. If the Jacobian is invertible then clearly [MATH \\boldsymbol{\\xi}({\\mathbf{w}})=0] 𝝃⁡(𝐰)=0\\boldsymbol{\\xi}({\\mathbf{w}})=0. The fixed-point is stable since [MATH 0\\equiv{\\mathbf{S}}\\succeq 0] 0≡𝐒⪰00\\equiv{\\mathbf{S}}\\succeq 0 in a Hamiltonian game, recall remark 1. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p8.1",
+    "text": "In fact, [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} is a Hamiltonian function for the game dynamics, see appendix B for a concise explanation. We use the notation [MATH {\\mathcal{H}}({\\mathbf{w}})=\\frac{1}{2}\\|\\boldsymbol{\\xi}({\\mathbf{w}})\\|^{2}] ℋ⁡(𝐰)=12​‖𝝃⁡(𝐰)‖2{\\mathcal{H}}({\\mathbf{w}})=\\frac{1}{2}\\|\\boldsymbol{\\xi}({\\mathbf{w}})\\|^{2} throughout the paper. However, [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} can only be interpreted as a Hamiltonian function for [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} when the game is Hamiltonian."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS6.p9.1",
+    "text": "There is a precise mapping from Hamiltonian games to symplectic geometry, see appendix B. Symplectic geometry is the modern formulation of classical mechanics (Arnold, 1989; Guillemin and Sternberg, 1990). Recall that periodic behaviors (e.g. orbits) often arise in classical mechanics. The orbits lie on the level sets of the Hamiltonian, which expresses the total energy of the system."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "3 Algorithms"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "We have seen that fixed points of potential and Hamiltonian games can be found by descent on [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} and [MATH \\nabla{\\mathcal{H}}] ∇ℋ\\nabla{\\mathcal{H}} respectively. This section tackles finding stable fixed points in general games."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.1 Finding Stable Fixed Points"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "There are two classes of games where we know how to find stable fixed points: potential games where [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} converges to a local minimum and Hamiltonian games where [MATH \\nabla{\\mathcal{H}}] ∇ℋ\\nabla{\\mathcal{H}}, which is orthogonal to [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi}, finds stable fixed points."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "text": "In the general case, the following desiderata provide a set of reasonable properties for an adjustment [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda} of the game dynamics. Recall that [MATH \\theta({\\mathbf{u}},{\\mathbf{v}})] θ⁡(𝐮,𝐯)\\theta({\\mathbf{u}},{\\mathbf{v}}) is the angle between the vectors [MATH {\\mathbf{u}}] 𝐮{\\mathbf{u}} and [MATH {\\mathbf{v}}] 𝐯{\\mathbf{v}}."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Desiderata."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1.p1.1",
+    "text": "To find stable fixed points, an adjustment [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda} to the game dynamics should satisfy"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i1.p1.1",
+    "text": "compatible33 3 Two nonzero vectors are compatible if they have positive inner product. with game dynamics: [MATH \\langle\\boldsymbol{\\xi}_{\\lambda},\\boldsymbol{\\xi}\\rangle=\\alpha_{1}\\cdot\\|\\boldsymbol{\\xi}\\|^{2}] ⟨𝝃λ,𝝃⟩=α1⋅‖𝝃‖2\\langle\\boldsymbol{\\xi}_{\\lambda},\\boldsymbol{\\xi}\\rangle=\\alpha_{1}\\cdot\\|\\boldsymbol{\\xi}\\|^{2};"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i2.p1.1",
+    "text": "compatible with potential dynamics: if the game is a potential game then [MATH \\langle\\boldsymbol{\\xi}_{\\lambda},\\nabla\\phi\\rangle=\\alpha_{2}\\cdot\\|\\nabla\\phi\\|^{2}] ⟨𝝃λ,∇ϕ⟩=α2⋅‖∇ϕ‖2\\langle\\boldsymbol{\\xi}_{\\lambda},\\nabla\\phi\\rangle=\\alpha_{2}\\cdot\\|\\nabla\\phi\\|^{2};"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i3.p1.1",
+    "text": "compatible with Hamiltonian dynamics: If the game is Hamiltonian then [MATH \\langle\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}}\\rangle=\\alpha_{3}\\cdot\\|\\nabla{\\mathcal{H}}\\|^{2}] ⟨𝝃λ,∇ℋ⟩=α3⋅‖∇ℋ‖2\\langle\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}}\\rangle=\\alpha_{3}\\cdot\\|\\nabla{\\mathcal{H}}\\|^{2};"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i4.p1.1",
+    "text": "attracted to stable equilibria: in neighborhoods where [MATH {\\mathbf{S}}\\succ 0] 𝐒≻0{\\mathbf{S}}\\succ 0, require [MATH \\theta(\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}})\\leq\\theta(\\boldsymbol{\\xi},\\nabla{\\mathcal{H}})] θ⁡(𝝃λ,∇ℋ)≤θ⁡(𝝃,∇ℋ)\\theta(\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}})\\leq\\theta(\\boldsymbol{\\xi},\\nabla{\\mathcal{H}});"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i5.p1.1",
+    "text": "repelled by unstable equilibria: in neighborhoods where [MATH {\\mathbf{S}}\\prec 0] 𝐒≺0{\\mathbf{S}}\\prec 0, require [MATH \\theta(\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}})\\geq\\theta(\\boldsymbol{\\xi},\\nabla{\\mathcal{H}})] θ⁡(𝝃λ,∇ℋ)≥θ⁡(𝝃,∇ℋ)\\theta(\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}})\\geq\\theta(\\boldsymbol{\\xi},\\nabla{\\mathcal{H}})."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1.p1.2",
+    "text": "for some [MATH \\alpha_{1},\\alpha_{2},\\alpha_{3}>0] α1,α2,α3>0\\alpha_{1},\\alpha_{2},\\alpha_{3}>0."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1.p2.1",
+    "text": "Desideratum [MATH D1] D​1D1 does not guarantee that players act in their own self-interest – this requires a stronger positivity condition on dot-products with subvectors of [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi}, see Balduzzi (2017). Desiderata [MATH D2] D​2D2 and [MATH D3] D​3D3 imply that the adjustment behaves correctly in potential and Hamiltonian games respectively."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1.p3.1",
+    "text": "To understand desiderata [MATH D4] D​4D4 and [MATH D5] D​5D5, observe that gradient descent on [MATH {\\mathcal{H}}=\\frac{1}{2}\\|\\boldsymbol{\\xi}\\|^{2}] ℋ=12​‖𝝃‖2{\\mathcal{H}}=\\frac{1}{2}\\|\\boldsymbol{\\xi}\\|^{2} will find local minima that are fixed points of the dynamics. However, we specifically wish to converge to stable fixed points. Desideratum [MATH D4] D​4D4 and [MATH D5] D​5D5 require that the adjustment improves the rate of convergence to stable fixed points (by finding a steeper angle of descent), and avoids unstable fixed points."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1.p4.1",
+    "text": "More concretely, desiderata [MATH D4] D​4D4 can be interpreted as follows. If [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} points at a stable equilibrium then we require that [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda} points more towards the equilibrium (i.e. has smaller angle). Conversely, desiderata [MATH D5] D​5D5 requires that if [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} points away then the adjustment should point further away."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1.p5.1",
+    "text": "The unadjusted dynamics [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} satisfies all the desiderata except [MATH D3] D​3D3."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.2 Consensus Optimization"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "Since gradient descent on the function [MATH {\\mathcal{H}}({\\mathbf{w}})=\\frac{1}{2}\\|\\boldsymbol{\\xi}\\|^{2}] ℋ⁡(𝐰)=12​‖𝝃‖2{\\mathcal{H}}({\\mathbf{w}})=\\frac{1}{2}\\|\\boldsymbol{\\xi}\\|^{2} finds stable fixed points in Hamiltonian games, it is natural to ask how it performs in general games. If the Jacobian [MATH {\\mathbf{J}}({\\mathbf{w}})] 𝐉⁡(𝐰){\\mathbf{J}}({\\mathbf{w}}) is invertible, then [MATH \\nabla{\\mathcal{H}}={\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}=0] ∇ℋ=𝐉⊺​𝝃=0\\nabla{\\mathcal{H}}={\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}=0 iff [MATH \\boldsymbol{\\xi}=0] 𝝃=0\\boldsymbol{\\xi}=0. Thus, gradient descent on [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} converges to fixed points of [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "text": "However, there is no guarantee that descent on [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} will find a stable fixed point. Mescheder et al. (2017) propose consensus optimization, a gradient adjustment of the form"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p2.2",
+    "text": "Unfortunately, consensus optimization can converge to unstable fixed points even in simple cases where the ‘game’ is to minimize a single function:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg8.p1.1",
+    "text": "Consider a potential game with losses [MATH \\ell_{1}(x,y)=\\ell_{2}(x,y)=-\\frac{\\kappa}{2}(x^{2}+y^{2})] ℓ1​(x,y)=ℓ2​(x,y)=−κ2​(x2+y2)\\ell_{1}(x,y)=\\ell_{2}(x,y)=-\\frac{\\kappa}{2}(x^{2}+y^{2}) with [MATH \\kappa\\gg 0] κ≫0\\kappa\\gg 0. Then"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg8.p1.2",
+    "text": "Note that [MATH \\|\\boldsymbol{\\xi}\\|^{2}=\\kappa^{2}(x^{2}+y^{2})] ‖𝛏‖2=κ2​(x2+y2)\\|\\boldsymbol{\\xi}\\|^{2}=\\kappa^{2}(x^{2}+y^{2}) and"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg8.p1.3",
+    "text": "Descent on [MATH \\boldsymbol{\\xi}+\\lambda\\cdot{\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}] 𝛏+λ⋅𝐉⊺​𝛏\\boldsymbol{\\xi}+\\lambda\\cdot{\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi} converges to the global maximum [MATH (x,y)=(0,0)] (x,y)=(0,0)(x,y)=(0,0) unless [MATH \\lambda<\\frac{1}{\\kappa}] λ<1κ\\lambda<\\frac{1}{\\kappa}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p3.1",
+    "text": "Although consensus optimization works well in two-player zero-sum, it cannot be considered a candidate algorithm for finding stable fixed points in general games since it fails in the basic case of potential games. Consensus optimization only satisfies desiderata [MATH D3] D​3D3 and [MATH D4] D​4D4."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.3 Symplectic Gradient Adjustment"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "text": "The problem with consensus optimization is that it can perform worse than gradient descent on potential games. Intuitively, it makes bad use of the symmetric component of the Jacobian. Motivated by the analysis in section 2, we propose symplectic gradient adjustment, which takes care to only use the antisymmetric component of the Jacobian when adjusting the dynamics."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm5.p1.1",
+    "text": "The symplectic gradient adjustment (SGA)"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm5.p1.2",
+    "text": "satisfies [MATH D1] D​1D1– [MATH D3] D​3D3 for [MATH \\lambda>0] λ>0\\lambda>0, with [MATH \\alpha_{1}=1=\\alpha_{2}] α1=1=α2\\alpha_{1}=1=\\alpha_{2} and [MATH \\alpha_{3}=\\lambda] α3=λ\\alpha_{3}=\\lambda."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "text": "First claim: [MATH \\lambda\\cdot\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=0] λ⋅𝝃⊺​𝐀⊺​𝝃=0\\lambda\\cdot\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=0 by anti-symmetry of [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}}. Second claim: [MATH {\\mathbf{A}}\\equiv 0] 𝐀≡0{\\mathbf{A}}\\equiv 0 in a potential game, so [MATH \\boldsymbol{\\xi}_{\\lambda}=\\boldsymbol{\\xi}=\\nabla\\phi] 𝝃λ=𝝃=∇ϕ\\boldsymbol{\\xi}_{\\lambda}=\\boldsymbol{\\xi}=\\nabla\\phi. Third claim: [MATH \\langle\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}}\\rangle=\\langle\\boldsymbol{\\xi}_{\\lambda},{\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}\\rangle=\\langle\\boldsymbol{\\xi}_{\\lambda},{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}\\rangle=\\lambda\\cdot\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=\\lambda\\cdot\\|\\nabla{\\mathcal{H}}\\|^{2}] ⟨𝝃λ,∇ℋ⟩=⟨𝝃λ,𝐉⊺​𝝃⟩=⟨𝝃λ,𝐀⊺​𝝃⟩=λ⋅𝝃⊺​𝐀𝐀⊺​𝝃=λ⋅‖∇ℋ‖2\\langle\\boldsymbol{\\xi}_{\\lambda},\\nabla{\\mathcal{H}}\\rangle=\\langle\\boldsymbol{\\xi}_{\\lambda},{\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}\\rangle=\\langle\\boldsymbol{\\xi}_{\\lambda},{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}\\rangle=\\lambda\\cdot\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=\\lambda\\cdot\\|\\nabla{\\mathcal{H}}\\|^{2} since [MATH {\\mathbf{J}}={\\mathbf{A}}] 𝐉=𝐀{\\mathbf{J}}={\\mathbf{A}} by assumption. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p3.1",
+    "text": "Note that desiderata [MATH D1] D​1D1 and [MATH D2] D​2D2 are true even when [MATH \\lambda<0] λ<0\\lambda<0. This will prove useful, since example 9 shows that it may be necessary to pick negative [MATH \\lambda] λ\\lambda near [MATH {\\mathbf{S}}\\prec 0] 𝐒≺0{\\mathbf{S}}\\prec 0. Section 3.5 shows how to also satisfy desiderata [MATH D4] D​4D4 and [MATH D5] D​5D5."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.4 Convergence"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p1.1",
+    "text": "We begin by analysing convergence of SGA near stable equilibria. The following lemma highlights that the interaction between the symmetric and antisymmetric components is important for convergence. Recall that two matrices [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} and [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} commute iff [MATH [{\\mathbf{A}},{\\mathbf{S}}]:={\\mathbf{A}}{\\mathbf{S}}-{\\mathbf{S}}{\\mathbf{A}}={\\mathbf{0}}] [𝐀,𝐒]:=𝐀𝐒−𝐒𝐀=𝟎[{\\mathbf{A}},{\\mathbf{S}}]:={\\mathbf{A}}{\\mathbf{S}}-{\\mathbf{S}}{\\mathbf{A}}={\\mathbf{0}}. That is, [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} and [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} commute iff [MATH {\\mathbf{A}}{\\mathbf{S}}={\\mathbf{S}}{\\mathbf{A}}] 𝐀𝐒=𝐒𝐀{\\mathbf{A}}{\\mathbf{S}}={\\mathbf{S}}{\\mathbf{A}}. Intuitively, two matrices commute if they have the same preferred coordinate system."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm6.p1.1",
+    "text": "If [MATH {\\mathbf{S}}\\succeq 0] 𝐒⪰0{\\mathbf{S}}\\succeq 0 is symmetric positive semidefinite and [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} commutes with [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} then [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝛏λ\\boldsymbol{\\xi}_{\\lambda} points towards stable fixed points for non-negative [MATH \\lambda] λ\\lambda:"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p2.1",
+    "text": "First observe that [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=-\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}{\\mathbf{A}}\\boldsymbol{\\xi}] 𝝃⊺​𝐀𝐒​𝝃=𝝃⊺​𝐒⊺​𝐀⊺​𝝃=−𝝃⊺​𝐒𝐀​𝝃\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}^{\\intercal}{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=-\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}{\\mathbf{A}}\\boldsymbol{\\xi}, where the first equality holds since the expression is a scalar, and the second holds since [MATH {\\mathbf{S}}={\\mathbf{S}}^{\\intercal}] 𝐒=𝐒⊺{\\mathbf{S}}={\\mathbf{S}}^{\\intercal} and [MATH {\\mathbf{A}}=-{\\mathbf{A}}^{\\intercal}] 𝐀=−𝐀⊺{\\mathbf{A}}=-{\\mathbf{A}}^{\\intercal}. It follows that [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}=0] 𝝃⊺​𝐀𝐒​𝝃=0\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}=0 if [MATH {\\mathbf{S}}{\\mathbf{A}}={\\mathbf{A}}{\\mathbf{S}}] 𝐒𝐀=𝐀𝐒{\\mathbf{S}}{\\mathbf{A}}={\\mathbf{A}}{\\mathbf{S}}. Finally rewrite the inequality as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p2.2",
+    "text": "since [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}=0] 𝝃⊺​𝐀𝐒​𝝃=0\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}=0 and by positivity of [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}}, [MATH \\lambda] λ\\lambda and [MATH {\\mathbf{A}}{\\mathbf{A}}^{\\intercal}] 𝐀𝐀⊺{\\mathbf{A}}{\\mathbf{A}}^{\\intercal}. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p3.1",
+    "text": "The lemma suggests that in general the failure of [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} and [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} to commute should be important for understanding the dynamics of [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda}. We therefore introduce the additive condition number [MATH \\kappa] κ\\kappa to upper-bound the worst-case noncommutativity of [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}}, which allows to quantify the relationship between [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda} and [MATH \\nabla{\\mathcal{H}}] ∇ℋ\\nabla{\\mathcal{H}}. If [MATH \\kappa=0] κ=0\\kappa=0, then [MATH {\\mathbf{S}}=\\sigma\\cdot{\\mathbf{I}}] 𝐒=σ⋅𝐈{\\mathbf{S}}=\\sigma\\cdot{\\mathbf{I}} commutes with all matrices. The larger the additive condition number [MATH \\kappa] κ\\kappa, the larger the potential failure of [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} to commute with other matrices."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm7.p1.1",
+    "text": "Let [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} be a symmetric matrix with eigenvalues [MATH \\sigma_{\\text{max}}\\geq\\cdots\\geq\\sigma_{\\text{min}}] σmax≥⋯≥σmin\\sigma_{\\text{max}}\\geq\\cdots\\geq\\sigma_{\\text{min}}. The additive condition number44 4 The condition number of a positive definite matrix is [MATH \\frac{\\sigma_{\\text{max}}}{\\sigma_{\\text{min}}}] σmaxσmin\\frac{\\sigma_{\\text{max}}}{\\sigma_{\\text{min}}}. of [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} is [MATH \\kappa:=\\sigma_{\\text{max}}-\\sigma_{\\text{min}}] κ:=σmax−σmin\\kappa:=\\sigma_{\\text{max}}-\\sigma_{\\text{min}}. If [MATH {\\mathbf{S}}\\succeq 0] 𝐒⪰0{\\mathbf{S}}\\succeq 0 is positive semidefinite with additive condition number [MATH \\kappa] κ\\kappa then [MATH \\lambda\\in(0,\\frac{4}{\\kappa})] λ∈(0,4κ)\\lambda\\in(0,\\frac{4}{\\kappa}) implies"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm7.p1.2",
+    "text": "If [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} is negative semidefinite, then [MATH \\lambda\\in(0,\\frac{4}{\\kappa})] λ∈(0,4κ)\\lambda\\in(0,\\frac{4}{\\kappa}) implies"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm7.p1.3",
+    "text": "The inequalities are strict if [MATH {\\mathbf{J}}] 𝐉{\\mathbf{J}} is invertible."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p4.1",
+    "text": "We prove the case [MATH {\\mathbf{S}}\\succeq 0] 𝐒⪰0{\\mathbf{S}}\\succeq 0; the case [MATH {\\mathbf{S}}\\preceq 0] 𝐒⪯0{\\mathbf{S}}\\preceq 0 is similar. Rewrite the inequality as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p4.2",
+    "text": "Let [MATH \\beta=\\|A^{\\intercal}\\boldsymbol{\\xi}\\|] β=‖A⊺​𝝃‖\\beta=\\|A^{\\intercal}\\boldsymbol{\\xi}\\| and [MATH \\tilde{{\\mathbf{S}}}={\\mathbf{S}}-\\sigma_{\\text{min}}\\cdot{\\mathbf{I}}] 𝐒~=𝐒−σmin⋅𝐈\\tilde{{\\mathbf{S}}}={\\mathbf{S}}-\\sigma_{\\text{min}}\\cdot{\\mathbf{I}}, where [MATH {\\mathbf{I}}] 𝐈{\\mathbf{I}} is the identity matrix. Then"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p4.3",
+    "text": "since [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}\\boldsymbol{\\xi}\\geq\\boldsymbol{\\xi}^{\\intercal}\\tilde{{\\mathbf{S}}}\\boldsymbol{\\xi}] 𝝃⊺​𝐒​𝝃≥𝝃⊺​𝐒~​𝝃\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}\\boldsymbol{\\xi}\\geq\\boldsymbol{\\xi}^{\\intercal}\\tilde{{\\mathbf{S}}}\\boldsymbol{\\xi} by construction and [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\tilde{{\\mathbf{S}}}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}-\\sigma_{\\text{min}}\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}] 𝝃⊺​𝐀​𝐒~​𝝃=𝝃⊺​𝐀𝐒​𝝃−σmin​𝝃⊺​𝐀​𝝃=𝝃⊺​𝐀𝐒​𝝃\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\tilde{{\\mathbf{S}}}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi}-\\sigma_{\\text{min}}\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}{\\mathbf{S}}\\boldsymbol{\\xi} because [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\boldsymbol{\\xi}=0] 𝝃⊺​𝐀​𝝃=0\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{A}}\\boldsymbol{\\xi}=0 by the anti-symmetry of [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}}. It therefore suffices to show that the inequality holds when [MATH \\sigma_{\\text{min}}=0] σmin=0\\sigma_{\\text{min}}=0 and [MATH \\kappa=\\sigma_{\\text{max}}] κ=σmax\\kappa=\\sigma_{\\text{max}}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p5.1",
+    "text": "Since [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} is positive semidefinite, there exists an upper-triangular square-root matrix [MATH T] TT such that [MATH {\\mathbf{T}}^{\\intercal}{\\mathbf{T}}={\\mathbf{S}}] 𝐓⊺​𝐓=𝐒{\\mathbf{T}}^{\\intercal}{\\mathbf{T}}={\\mathbf{S}} and so [MATH \\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}\\boldsymbol{\\xi}=\\|{\\mathbf{T}}\\boldsymbol{\\xi}\\|^{2}] 𝝃⊺​𝐒​𝝃=‖𝐓​𝝃‖2\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}\\boldsymbol{\\xi}=\\|{\\mathbf{T}}\\boldsymbol{\\xi}\\|^{2}. Further,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p5.2",
+    "text": "since [MATH \\|{\\mathbf{T}}\\|_{2}=\\sqrt{\\sigma_{\\text{max}}}] ‖𝐓‖2=σmax\\|{\\mathbf{T}}\\|_{2}=\\sqrt{\\sigma_{\\text{max}}}. Putting the observations together obtains"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p5.3",
+    "text": "Set [MATH \\alpha=\\sqrt{\\lambda}] α=λ\\alpha=\\sqrt{\\lambda} and [MATH \\eta=\\sqrt{\\sigma_{max}}] η=σm​a​x\\eta=\\sqrt{\\sigma_{max}}. We can continue the above computation"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p5.4",
+    "text": "Finally, [MATH 2\\alpha-\\alpha^{2}\\eta>0] 2​α−α2​η>02\\alpha-\\alpha^{2}\\eta>0 for any [MATH \\alpha] α\\alpha in the range [MATH (0,\\frac{2}{\\eta})] (0,2η)(0,\\frac{2}{\\eta}), which is to say, for any [MATH 0<\\lambda<\\frac{4}{\\sigma_{max}}] 0<λ<4σm​a​x0<\\lambda<\\frac{4}{\\sigma_{max}}. The kernel of [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} and the kernel of [MATH {\\mathbf{T}}] 𝐓{\\mathbf{T}} coincide. If [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} is in the kernel of [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}}, resp. [MATH {\\mathbf{T}}] 𝐓{\\mathbf{T}}, it cannot be in the kernel of [MATH {\\mathbf{T}}] 𝐓{\\mathbf{T}}, resp. [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} and the term [MATH (\\|{\\mathbf{T}}\\boldsymbol{\\xi}\\|-\\alpha\\|{\\mathbf{A}}\\boldsymbol{\\xi}\\|)^{2}] (‖𝐓​𝝃​‖−α‖​𝐀​𝝃‖)2(\\|{\\mathbf{T}}\\boldsymbol{\\xi}\\|-\\alpha\\|{\\mathbf{A}}\\boldsymbol{\\xi}\\|)^{2} is positive. Otherwise, the term [MATH \\|{\\mathbf{A}}\\boldsymbol{\\xi}\\|\\|{\\mathbf{T}}\\boldsymbol{\\xi}\\|] ‖𝐀​𝝃‖​‖𝐓​𝝃‖\\|{\\mathbf{A}}\\boldsymbol{\\xi}\\|\\|{\\mathbf{T}}\\boldsymbol{\\xi}\\| is positive. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p6.1",
+    "text": "The theorem above guarantees that SGA always points in the direction of stable fixed points for [MATH \\lambda] λ\\lambda sufficiently small. This does not technically guarantee convergence; we use Ostrowski’s theorem to strengthen this formally. Applying Ostrowski’s theorem will require taking a more abstract perspective by encoding the adjusted dynamics into a differentiable map [MATH F:\\Omega\\rightarrow\\mathbb{R}^{d}] F:Ω→ℝdF:\\Omega\\rightarrow\\mathbb{R}^{d} of the form [MATH F({\\mathbf{w}})={\\mathbf{w}}-\\alpha\\boldsymbol{\\xi}_{\\lambda}({\\mathbf{w}})] F⁡(𝐰)=𝐰−α​𝝃λ​(𝐰)F({\\mathbf{w}})={\\mathbf{w}}-\\alpha\\boldsymbol{\\xi}_{\\lambda}({\\mathbf{w}})."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm8.p1.1",
+    "text": "Let [MATH F:\\Omega\\rightarrow\\mathbb{R}^{d}] F:Ω→ℝdF:\\Omega\\rightarrow\\mathbb{R}^{d} be a continuously differentiable map on an open subset [MATH \\Omega\\subseteq\\mathbb{R}^{d}] Ω⊆ℝd\\Omega\\subseteq\\mathbb{R}^{d}, and assume [MATH {\\mathbf{w}}^{*}\\in\\Omega] 𝐰∗∈Ω{\\mathbf{w}}^{*}\\in\\Omega is a fixed point. If all eigenvalues of [MATH \\nabla F({\\mathbf{w}}^{*})] ∇F​(𝐰∗)\\nabla F({\\mathbf{w}}^{*}) are strictly in the unit circle of [MATH \\mathbb{C}] ℂ\\mathbb{C}, then there is an open neighbourhood [MATH U] UU of [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} such that for all [MATH {\\mathbf{w}}_{0}\\in U] 𝐰0∈U{\\mathbf{w}}_{0}\\in U, the sequence [MATH F^{k}({\\mathbf{w}}_{0})] Fk​(𝐰0)F^{k}({\\mathbf{w}}_{0}) of iterates of [MATH F] FF converges to [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*}. Moreover, the rate of convergence is at least linear in [MATH k] kk."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p7.1",
+    "text": "This is a standard result on fixed-point iterations, adapted from Ortega and Rheinboldt (2000, 10.1.3). ∎"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm9.p1.1",
+    "text": "A matrix [MATH {\\mathbf{M}}] 𝐌{\\mathbf{M}} is called positive stable if all its eigenvalues have positive real part. Assume [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} is a fixed point of a differentiable game such that [MATH ({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal}){\\mathbf{J}}({\\mathbf{w}}^{*})] (𝐈+λ​𝐀⊺)​𝐉​(𝐰∗)({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal}){\\mathbf{J}}({\\mathbf{w}}^{*}) is positive stable for [MATH \\lambda] λ\\lambda in some set [MATH \\Lambda] Λ\\Lambda. Then SGA converges locally to [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} for [MATH \\lambda\\in\\Lambda] λ∈Λ\\lambda\\in\\Lambda and [MATH \\alpha>0] α>0\\alpha>0 sufficiently small."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p8.1",
+    "text": "Let [MATH X=({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal})] X=(𝐈+λ​𝐀⊺)X=({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal}). By definition of fixed points, [MATH \\boldsymbol{\\xi}({\\mathbf{w}}^{*})=0] 𝝃⁡(𝐰∗)=0\\boldsymbol{\\xi}({\\mathbf{w}}^{*})=0 and so"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p8.2",
+    "text": "is positive stable by assumption, namely has eigenvalues [MATH a_{k}+ib_{k}] ak+i​bka_{k}+ib_{k} with [MATH a_{k}>0] ak>0a_{k}>0. Writing [MATH F({\\mathbf{w}})={\\mathbf{w}}-\\alpha X\\boldsymbol{\\xi}({\\mathbf{w}})] F⁡(𝐰)=𝐰−α​X​𝝃​(𝐰)F({\\mathbf{w}})={\\mathbf{w}}-\\alpha X\\boldsymbol{\\xi}({\\mathbf{w}}) for the iterative procedure given by SGA, it follows that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p8.3",
+    "text": "has eigenvalues [MATH 1-\\alpha a_{k}-i\\alpha b_{k}] 1−α​ak−i​α​bk1-\\alpha a_{k}-i\\alpha b_{k}, which are in the unit circle for small [MATH \\alpha] α\\alpha. More precisely,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p8.4",
+    "text": "which is always possible for [MATH a_{k}>0] ak>0a_{k}>0. Hence [MATH \\nabla F({\\mathbf{w}}^{*})] ∇F​(𝐰∗)\\nabla F({\\mathbf{w}}^{*}) has eigenvalues in the unit circle for [MATH 0<\\alpha<\\min_{k}2a_{k}/(a_{k}^{2}+b_{k}^{2})] 0<α<mink⁡2​ak/(ak2+bk2)0<\\alpha<\\min_{k}2a_{k}/(a_{k}^{2}+b_{k}^{2}), and we are done by Ostrowski’s Theorem since [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} is a fixed point of [MATH F] FF. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm10.p1.1",
+    "text": "Let [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} be a stable fixed point and [MATH \\kappa] κ\\kappa the additive condition number of [MATH {\\mathbf{S}}({\\mathbf{w}}^{*})] 𝐒⁡(𝐰∗){\\mathbf{S}}({\\mathbf{w}}^{*}). Then SGA converges locally to [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} for all [MATH \\lambda\\in(0,\\frac{4}{\\kappa})] λ∈(0,4κ)\\lambda\\in(0,\\frac{4}{\\kappa}) and [MATH \\alpha>0] α>0\\alpha>0 sufficiently small."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p9.1",
+    "text": "By Theorem 5 and the assumption that [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} is a stable fixed point with invertible Jacobian, we know that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p9.2",
+    "text": "for [MATH \\lambda\\in(0,\\frac{4}{\\kappa})] λ∈(0,4κ)\\lambda\\in(0,\\frac{4}{\\kappa}). The proof does not rely on any particular property of [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi}, and can trivially be extended to the claim that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p9.3",
+    "text": "for all non-zero vectors [MATH {\\mathbf{u}}] 𝐮{\\mathbf{u}}. In particular this can be rewritten as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p9.4",
+    "text": "which implies positive definiteness of [MATH {\\mathbf{J}}({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal})] 𝐉⁡(𝐈+λ​𝐀⊺){\\mathbf{J}}({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal}). A positive definite matrix is positive stable, and any matrices [MATH AB] A​BAB and [MATH BA] B​ABA have identical spectrum. This implies also that [MATH ({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal}){\\mathbf{J}}] (𝐈+λ​𝐀⊺)​𝐉({\\mathbf{I}}+\\lambda{\\mathbf{A}}^{\\intercal}){\\mathbf{J}} is positive stable, and we are done by the corollary above. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p10.1",
+    "text": "We conclude that SGA converges to an SFP if [MATH \\lambda] λ\\lambda is small enough, where ‘small enough’ depends on the additive condition number."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.5 Picking [MATH \\sign(\\lambda)] sign(λ)\\sign(\\lambda)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p1.1",
+    "text": "This section explains desiderata [MATH D4] D​4D4– [MATH D5] D​5D5 and shows how to pick [MATH \\sign(\\lambda)] sign(λ)\\sign(\\lambda) to speed up convergence towards stable and away from unstable fixed points. In the example below, almost any choice of positive [MATH \\lambda] λ\\lambda results in convergence to an unstable equilibrium. The problem arises from the combination of a weak repellor with a strong rotational force."
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg9.p1.1",
+    "text": "Suppose [MATH \\epsilon>0] ϵ>0\\epsilon>0 is small and"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg9.p1.2",
+    "text": "with an unstable equilibrium at [MATH (0,0)] (0,0)(0,0). The dynamics are"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg9.p1.3",
+    "text": "and"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg9.p1.4",
+    "text": "Finally observe that"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg9.p1.5",
+    "text": "which converges to the unstable equilibrium if [MATH \\lambda>\\epsilon] λ>ϵ\\lambda>\\epsilon."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p2.1",
+    "text": "We now show how to pick the sign of [MATH \\lambda] λ\\lambda to avoid unstable equilibria. First, observe that [MATH \\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=\\boldsymbol{\\xi}^{\\intercal}({\\mathbf{S}}+{\\mathbf{A}})^{\\intercal}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}\\boldsymbol{\\xi}] ⟨𝝃,∇ℋ⟩=𝝃⊺​(𝐒+𝐀)⊺​𝝃=𝝃⊺​𝐒​𝝃\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle=\\boldsymbol{\\xi}^{\\intercal}({\\mathbf{S}}+{\\mathbf{A}})^{\\intercal}\\boldsymbol{\\xi}=\\boldsymbol{\\xi}^{\\intercal}{\\mathbf{S}}\\boldsymbol{\\xi}. It follows that for [MATH \\boldsymbol{\\xi}\\neq 0] 𝝃≠0\\boldsymbol{\\xi}\\neq 0:"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p2.2",
+    "text": "A criterion to probe the positive/negative definiteness of [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} is thus to check the sign of [MATH \\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle] ⟨𝝃,∇ℋ⟩\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle. The dot product can take any value if [MATH {\\mathbf{S}}] 𝐒{\\mathbf{S}} is neither positive nor negative (semi-)definite. The behavior near saddle points will be explored in Section 3.7."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p3.1",
+    "text": "Recall that desiderata [MATH D4] D​4D4 requires that, if [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} points at a stable equilibrium then we require that [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda} points more towards the equilibrium (i.e. has smaller angle). Conversely, desiderata [MATH D5] D​5D5 requires that, if [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} points away then the adjustment should point further away. More formally,"
+  },
+  {
+    "tag": "p",
+    "id": "Thmdefn6.p1.1",
+    "text": "Let [MATH {\\mathbf{u}}] 𝐮{\\mathbf{u}} and [MATH {\\mathbf{v}}] 𝐯{\\mathbf{v}} be two vectors. The infinitesimal alignment of [MATH \\boldsymbol{\\xi}_{\\lambda}:={\\mathbf{u}}+\\lambda\\cdot{\\mathbf{v}}] 𝛏λ:=𝐮+λ⋅𝐯\\boldsymbol{\\xi}_{\\lambda}:={\\mathbf{u}}+\\lambda\\cdot{\\mathbf{v}} with a third vector [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} is"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p4.1",
+    "text": "If [MATH {\\mathbf{u}}] 𝐮{\\mathbf{u}} and [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} point the same way, [MATH {\\mathbf{u}}^{\\intercal}{\\mathbf{w}}>0] 𝐮⊺​𝐰>0{\\mathbf{u}}^{\\intercal}{\\mathbf{w}}>0, then [MATH \\algn>0] align>0\\algn>0 when [MATH {\\mathbf{v}}] 𝐯{\\mathbf{v}} bends [MATH {\\mathbf{u}}] 𝐮{\\mathbf{u}} further toward [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}}, see figure 2A. Otherwise [MATH \\algn>0] align>0\\algn>0 when [MATH {\\mathbf{v}}] 𝐯{\\mathbf{v}} bends [MATH {\\mathbf{u}}] 𝐮{\\mathbf{u}} away from [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}}, see figure 2B."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p5.1",
+    "text": "The following lemma allows us to rewrite the infinitesimal alignment in terms of known (computable) quantities, from which we can deduce the correct choice of [MATH \\lambda] λ\\lambda."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm11.p1.1",
+    "text": "When [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝛏λ\\boldsymbol{\\xi}_{\\lambda} is the symplectic gradient adjustment,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p6.1",
+    "text": "Observe that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p6.2",
+    "text": "where the denominator has no linear term in [MATH \\lambda] λ\\lambda because [MATH \\boldsymbol{\\xi}\\perp{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}] 𝝃⟂𝐀⊺​𝝃\\boldsymbol{\\xi}\\perp{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}. It follows that the sign of the infinitesimal alignment is"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p6.3",
+    "text": "as required. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p7.1",
+    "text": "Intuitively, computing the sign of [MATH \\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle] ⟨𝝃,∇ℋ⟩\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle provides a check for stable and unstable fixed points. Computing the sign of [MATH \\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle] ⟨𝐀⊺​𝝃,∇ℋ⟩\\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle checks whether the adjustment term points towards or away from the nearby fixed point. Putting the two checks together yields a prescription for the sign of [MATH \\lambda] λ\\lambda, as follows."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm12.p1.1",
+    "text": "Desiderata [MATH D4] D​4D4– [MATH D5] D​5D5 are satisfied for [MATH \\lambda] λ\\lambda such that [MATH \\lambda\\cdot\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\cdot\\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\geq 0] λ⋅⟨𝛏,∇ℋ⟩⋅⟨𝐀⊺​𝛏,∇ℋ⟩≥0\\lambda\\cdot\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\cdot\\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\geq 0."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.p8.1",
+    "text": "If we are in a neighborhood of a stable fixed point then [MATH \\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\geq 0] ⟨𝝃,∇ℋ⟩≥0\\langle\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\geq 0. It follows by lemma 11 that [MATH \\sign\\Big(\\algn(\\boldsymbol{\\xi}_{\\lambda}),\\nabla{\\mathcal{H}})\\Big)=\\sign\\Big(\\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\Big)] OPENsign(align(𝝃λ),∇ℋ))=sign(⟨𝐀⊺​𝝃,∇ℋ⟩)\\sign\\Big(\\algn(\\boldsymbol{\\xi}_{\\lambda}),\\nabla{\\mathcal{H}})\\Big)=\\sign\\Big(\\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\Big) and so choosing [MATH \\sign(\\lambda)=\\sign\\Big(\\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\Big)] sign(λ)=sign(⟨𝐀⊺​𝝃,∇ℋ⟩)\\sign(\\lambda)=\\sign\\Big(\\langle{\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi},\\nabla{\\mathcal{H}}\\rangle\\Big) leads to the angle between [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda} and [MATH \\nabla{\\mathcal{H}}] ∇ℋ\\nabla{\\mathcal{H}} being smaller than the angle between [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} and [MATH \\nabla{\\mathcal{H}}] ∇ℋ\\nabla{\\mathcal{H}}, satisfying desideratum [MATH D4] D​4D4. The proof for the unstable case is similar. ∎"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Alignment and convergence rates."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p1.1",
+    "text": "Gradient descent is also known as the method of steepest descent. In general games, however, [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} does not follow the steepest path to fixed points due to the ‘rotational force’, which forces lower learning rates and slows down convergence."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p2.1",
+    "text": "The following lemma provides some intuition about alignment. The idea is that, the smaller the cosine between the ‘correct direction’ [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} and the ‘update direction’ [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi}, the smaller the learning rate needs to be for the update to stay in a unit ball, see figure 3."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm13.p1.1",
+    "text": "If [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} and [MATH \\boldsymbol{\\xi}] 𝛏\\boldsymbol{\\xi} are unit vectors with [MATH 0<{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi}] 0<𝐰⊺​𝛏0<{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi} then [MATH \\|{\\mathbf{w}}-\\eta\\cdot\\boldsymbol{\\xi}\\|\\leq 1] ‖𝐰−η⋅𝛏‖≤1\\|{\\mathbf{w}}-\\eta\\cdot\\boldsymbol{\\xi}\\|\\leq 1 for [MATH 0\\leq\\eta\\leq 2{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi}=2\\cos\\theta({\\mathbf{w}},\\boldsymbol{\\xi})] 0≤η≤2​𝐰⊺​𝛏=2​cos⁡θ⁡(𝐰,𝛏)0\\leq\\eta\\leq 2{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi}=2\\cos\\theta({\\mathbf{w}},\\boldsymbol{\\xi}). In other words, ensuring that [MATH {\\mathbf{w}}-\\eta\\boldsymbol{\\xi}] 𝐰−η​𝛏{\\mathbf{w}}-\\eta\\boldsymbol{\\xi} is closer to the origin than [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} requires smaller learning rates [MATH \\eta] η\\eta as the angle between [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} and [MATH \\boldsymbol{\\xi}] 𝛏\\boldsymbol{\\xi} gets larger."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p3.1",
+    "text": "Check [MATH \\|{\\mathbf{w}}-\\eta\\cdot\\boldsymbol{\\xi}\\|^{2}=1+\\eta^{2}-2\\eta\\cdot{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi}\\leq 1] ‖𝐰−η⋅𝝃‖2=1+η2−2​η⋅𝐰⊺​𝝃≤1\\|{\\mathbf{w}}-\\eta\\cdot\\boldsymbol{\\xi}\\|^{2}=1+\\eta^{2}-2\\eta\\cdot{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi}\\leq 1 iff [MATH \\eta^{2}\\leq 2\\eta\\cdot{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi}] η2≤2​η⋅𝐰⊺​𝝃\\eta^{2}\\leq 2\\eta\\cdot{\\mathbf{w}}^{\\intercal}\\boldsymbol{\\xi}. The result follows. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p4.1",
+    "text": "The next lemma is a standard technical result from the convex optimization literature."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm14.p1.1",
+    "text": "Let [MATH f:{\\mathbb{R}}^{d}\\rightarrow{\\mathbb{R}}] f:ℝd→ℝf:{\\mathbb{R}}^{d}\\rightarrow{\\mathbb{R}} be a convex Lipschitz smooth function satisfying [MATH \\|\\nabla f({\\mathbf{y}})-\\nabla f({\\mathbf{x}})\\|\\leq L\\cdot\\|{\\mathbf{y}}-{\\mathbf{x}}\\|] ‖∇f​(𝐲)−∇f​(𝐱)‖≤L⋅‖𝐲−𝐱‖\\|\\nabla f({\\mathbf{y}})-\\nabla f({\\mathbf{x}})\\|\\leq L\\cdot\\|{\\mathbf{y}}-{\\mathbf{x}}\\| for all [MATH {\\mathbf{x}},{\\mathbf{y}}\\in{\\mathbb{R}}^{d}] 𝐱,𝐲∈ℝd{\\mathbf{x}},{\\mathbf{y}}\\in{\\mathbb{R}}^{d}. Then"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm14.p1.2",
+    "text": "for all [MATH {\\mathbf{x}},{\\mathbf{y}}\\in{\\mathbb{R}}^{d}] 𝐱,𝐲∈ℝd{\\mathbf{x}},{\\mathbf{y}}\\in{\\mathbb{R}}^{d}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p5.1",
+    "text": "See Nesterov (2004). ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p6.1",
+    "text": "Finally, we show that increasing alignment helps speed convergence:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm15.p1.1",
+    "text": "Suppose [MATH f] ff is convex and Lipschitz smooth with [MATH \\|\\nabla f({\\mathbf{x}})-\\nabla f({\\mathbf{y}})\\|\\leq L\\cdot\\|{\\mathbf{x}}-{\\mathbf{y}}\\|] ‖∇f​(𝐱)−∇f​(𝐲)‖≤L⋅‖𝐱−𝐲‖\\|\\nabla f({\\mathbf{x}})-\\nabla f({\\mathbf{y}})\\|\\leq L\\cdot\\|{\\mathbf{x}}-{\\mathbf{y}}\\|. Let [MATH {\\mathbf{w}}_{t+1}={\\mathbf{w}}_{t}-\\eta\\cdot{\\mathbf{v}}] 𝐰t+1=𝐰t−η⋅𝐯{\\mathbf{w}}_{t+1}={\\mathbf{w}}_{t}-\\eta\\cdot{\\mathbf{v}} where [MATH \\|{\\mathbf{v}}\\|=\\|\\nabla f({\\mathbf{w}}_{t})\\|] ‖𝐯‖=‖∇f​(𝐰t)‖\\|{\\mathbf{v}}\\|=\\|\\nabla f({\\mathbf{w}}_{t})\\|. Then the optimal step size is [MATH \\eta^{*}=\\frac{\\cos\\theta}{L}] η∗=cos⁡θL\\eta^{*}=\\frac{\\cos\\theta}{L} where [MATH \\theta:=\\theta(\\nabla f({\\mathbf{w}}_{t}),{\\mathbf{v}})] θ:=θ⁡(∇f​(𝐰t),𝐯)\\theta:=\\theta(\\nabla f({\\mathbf{w}}_{t}),{\\mathbf{v}}), with"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p7.1",
+    "text": "The proof of Theorem 15 adapts lemma 14 to handle the angle arising from the ‘rotational force’."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p8.1",
+    "text": "By the lemma 14,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p8.2",
+    "text": "where [MATH \\alpha:=\\cos\\theta] α:=cos⁡θ\\alpha:=\\cos\\theta. Solve"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p8.3",
+    "text": "to obtain [MATH \\eta^{*}=\\frac{\\alpha}{L}] η∗=αL\\eta^{*}=\\frac{\\alpha}{L} and [MATH \\Delta(\\eta^{*})=-\\frac{\\alpha^{2}}{2}L] Δ⁡(η∗)=−α22​L\\Delta(\\eta^{*})=-\\frac{\\alpha^{2}}{2}L as required. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS5.SSS0.Px1.p9.1",
+    "text": "Increasing the cosine with the steepest direction improves convergence. The alignment computation in algorithm 1 chooses [MATH \\lambda] λ\\lambda to be positive or negative such that [MATH \\boldsymbol{\\xi}_{\\lambda}] 𝝃λ\\boldsymbol{\\xi}_{\\lambda} is bent towards stable (increasing the cosine) and away from unstable fixed points. Adding a small [MATH \\epsilon>0] ϵ>0\\epsilon>0 to the computation introduces a weak bias towards stable fixed points."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.6 Aligned Consensus Optimization"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS6.p1.1",
+    "text": "The stability criterion in (36) also provides a simple way to prevent consensus optimization from converging to unstable equilibria. Aligned consensus optimization is"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS6.p1.2",
+    "text": "where in practice we set [MATH \\lambda=1] λ=1\\lambda=1. Aligned consensus optimization satisfies desiderata D3–D5. However, it behaves strangely in potential games. Multiplying by the Jacobian is the ‘inverse’ of Newton’s method since for potential games the Jacobian of [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} is the Hessian of the potential function. Multiplying by the Hessian increases the gap between small and large eigenvalues, increasing the (usual, multiplicative) condition number and slows down convergence. Nevertheless, consensus optimization works well in GANs (Mescheder et al., 2017), and aligned consensus may improve performance, see experiments below."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS6.p2.1",
+    "text": "Dropping the first term [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} from (48) yields a simpler update that also satisfies [MATH D3] D​3D3– [MATH D5] D​5D5. However, the resulting algorithm performs poorly in experiments (not shown), perhaps because it is attracted to saddles."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "3.7 Avoiding Strict Saddles"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p1.1",
+    "text": "How does SGA behave near saddles? We show that Symplectic Gradient Adjustment locally avoids strict saddles, provided that [MATH \\lambda] λ\\lambda and [MATH \\alpha] α\\alpha are small and parameters are initialized with (arbitrarily small) noise. More precisely, let [MATH {\\mathbf{F}}({\\mathbf{w}})={\\mathbf{w}}-\\alpha\\boldsymbol{\\xi}_{\\lambda}({\\mathbf{w}})] 𝐅⁡(𝐰)=𝐰−α​𝝃λ​(𝐰){\\mathbf{F}}({\\mathbf{w}})={\\mathbf{w}}-\\alpha\\boldsymbol{\\xi}_{\\lambda}({\\mathbf{w}}) be the iterative optimization procedure given by SGA. Then every strict saddle [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} has a neighbourhood [MATH U] UU such that [MATH \\{{\\mathbf{w}}\\in U\\mid{\\mathbf{F}}^{n}({\\mathbf{w}})\\to{\\mathbf{w}}^{*}\\text{ as }n\\to\\infty\\}] {𝐰∈U∣𝐅n​(𝐰)→𝐰∗​ as ​n→∞}\\{{\\mathbf{w}}\\in U\\mid{\\mathbf{F}}^{n}({\\mathbf{w}})\\to{\\mathbf{w}}^{*}\\text{ as }n\\to\\infty\\} has measure zero for small [MATH \\alpha>0] α>0\\alpha>0 and [MATH \\lambda] λ\\lambda."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p2.1",
+    "text": "Intuitively, the Taylor expansion around a strict saddle [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} is locally dominated by the Jacobian at [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*}, which has a negative eigenvalue. This prevents convergence to [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} for random initializations of [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} near [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*}. The argument is made rigorous using the Stable Manifold Theorem following Lee et al. (2017)."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm16.p1.1",
+    "text": "Let [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} be a fixed point for the [MATH C^{1}] C1C^{1} local diffeomorphism [MATH F:U\\rightarrow\\mathbb{R}^{d}] F:U→ℝdF:U\\rightarrow\\mathbb{R}^{d}, where [MATH U] UU is a neighbourhood of [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} in [MATH \\mathbb{R}^{d}] ℝd\\mathbb{R}^{d}. Let [MATH E^{s}\\oplus E^{u}] Es⊕EuE^{s}\\oplus E^{u} be the generalized eigenspaces of [MATH \\nabla F({\\mathbf{w}}^{*})] ∇F​(𝐰∗)\\nabla F({\\mathbf{w}}^{*}) corresponding to eigenvalues with [MATH \\left|\\sigma\\right|\\leq 1] |σ|≤1\\left|\\sigma\\right|\\leq 1 and [MATH \\left|\\sigma\\right|>1] |σ|>1\\left|\\sigma\\right|>1 respectively. Then there exists a local stable center manifold [MATH W] WW with tangent space [MATH E^{s}] EsE^{s} at [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} and a neighbourhood [MATH B] BB of [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} such that [MATH F(W)\\cap B\\subset W] F⁡(W)∩B⊂WF(W)\\cap B\\subset W and [MATH \\cap_{n=0}^{\\infty}F^{-n}(B)\\subset W] ∩n=0∞F−n(B)⊂W\\cap_{n=0}^{\\infty}F^{-n}(B)\\subset W."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p3.1",
+    "text": "See Shub (2000). ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p4.1",
+    "text": "It follows that if [MATH \\nabla F({\\mathbf{w}}^{*})] ∇F​(𝐰∗)\\nabla F({\\mathbf{w}}^{*}) has at least one eigenvalue [MATH \\left|\\sigma\\right|>1] |σ|>1\\left|\\sigma\\right|>1 then [MATH E^{u}] EuE^{u} has dimension at least [MATH 1] 11. Since [MATH W] WW has tangent space [MATH E^{s}] EsE^{s} at [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} with codimension at least one, we conclude that [MATH W] WW has measure zero. This is central to proving that the set of nearby initial points which converge to a given strict saddle [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} has measure zero. Since [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} is initialized randomly, the following theorem is obtained."
+  },
+  {
+    "tag": "p",
+    "id": "Thmthm17.p1.1",
+    "text": "SGA locally avoids strict saddles almost surely, for [MATH \\alpha>0] α>0\\alpha>0 and [MATH \\lambda] λ\\lambda small."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p5.1",
+    "text": "Let [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} a strict saddle and recall that SGA is given by"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p5.2",
+    "text": "All terms involved are continuously differentiable and we have"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p5.3",
+    "text": "by assumption that [MATH \\boldsymbol{\\xi}({\\mathbf{w}}^{*})=0] 𝝃⁡(𝐰∗)=0\\boldsymbol{\\xi}({\\mathbf{w}}^{*})=0. Since all terms except [MATH {\\mathbf{I}}] 𝐈{\\mathbf{I}} are of order at least [MATH \\alpha] α\\alpha, [MATH \\nabla F({\\mathbf{w}}^{*})] ∇F​(𝐰∗)\\nabla F({\\mathbf{w}}^{*}) is invertible for all [MATH \\alpha] α\\alpha sufficiently small. By the inverse function theorem, there exists a neighbourhood [MATH U] UU of [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} such that [MATH F] FF is has a continuously differentiable inverse on [MATH U] UU. Hence [MATH F] FF restricted to [MATH U] UU is a [MATH C^{1}] C1C^{1} diffeomorphism with fixed point [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p6.1",
+    "text": "By definition of strict saddles, [MATH {\\mathbf{J}}({\\mathbf{w}}^{*})] 𝐉⁡(𝐰∗){\\mathbf{J}}({\\mathbf{w}}^{*}) has an eigenvalue with negative real part. It follows by continuity that [MATH ({\\mathbf{I}}-\\alpha{\\mathbf{J}}){\\mathbf{J}}({\\mathbf{w}}^{*})] (𝐈−α​𝐉)​𝐉​(𝐰∗)({\\mathbf{I}}-\\alpha{\\mathbf{J}}){\\mathbf{J}}({\\mathbf{w}}^{*}) also has an eigenvalue [MATH a+ib] a+i​ba+ib with [MATH a<0] a<0a<0 for [MATH \\alpha] α\\alpha sufficiently small. Finally,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p6.2",
+    "text": "has an eigenvalue [MATH \\sigma=1-\\alpha a-i\\alpha b] σ=1−α​a−i​α​b\\sigma=1-\\alpha a-i\\alpha b with"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p6.3",
+    "text": "It follows that [MATH E^{s}] EsE^{s} has codimension at least one, implying in turn that the local stable set [MATH W] WW has measure zero. We can now prove that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p6.4",
+    "text": "has measure zero, or in other words, that local convergence to [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} occurs with zero probability. Let [MATH B] BB the neighbourhood guaranteed by the Stable Manifold Theorem, and take any [MATH {\\mathbf{w}}\\in Z] 𝐰∈Z{\\mathbf{w}}\\in Z. By definition of convergence there exists [MATH N\\in\\mathbb{N}] N∈ℕN\\in\\mathbb{N} such that [MATH F^{N+n}({\\mathbf{w}})\\in B] FN+n​(𝐰)∈BF^{N+n}({\\mathbf{w}})\\in B for all [MATH n\\in\\mathbb{N}] n∈ℕn\\in\\mathbb{N}, so that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p6.5",
+    "text": "by the Stable Manifold Theorem. This implies that [MATH {\\mathbf{w}}\\in F^{-N}(W)] 𝐰∈F−N​(W){\\mathbf{w}}\\in F^{-N}(W), and by extension [MATH {\\mathbf{w}}\\in\\cup_{n\\in\\mathbb{N}}F^{-n}(W)] 𝐰∈∪n∈ℕF−n(W){\\mathbf{w}}\\in\\cup_{n\\in\\mathbb{N}}F^{-n}(W). Since [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} was arbitrary, we obtain the inclusion"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p6.6",
+    "text": "Now [MATH F^{-1}] F−1F^{-1} is [MATH C^{1}] C1C^{1}, hence locally Lipschitz and thus preserves sets of measure zero, so that [MATH F^{-n}(W)] F−n​(W)F^{-n}(W) has measure zero for each [MATH n] nn. Countable unions of measure zero sets are still measure zero, so we conclude that [MATH Z] ZZ also has measure zero. In other words, SGA converges to [MATH {\\mathbf{w}}^{*}] 𝐰∗{\\mathbf{w}}^{*} with zero probability upon random initialization of [MATH {\\mathbf{w}}] 𝐰{\\mathbf{w}} in [MATH U] UU. ∎"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS7.p7.1",
+    "text": "Unlike stable and unstable fixed points, it is unclear how to avoid strict saddles using only alignment, that is, independently from the size of [MATH \\lambda] λ\\lambda."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "4 Experiments"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "We compare SGA with simultaneous gradient descent, optimistic mirror descent (Daskalakis et al., 2018) and consensus optimization (Mescheder et al., 2017) in basic settings."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "4.1 Learning rates and alignment"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "We investigate the effect of SGA when a weak attractor is coupled to a strong rotational force:"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.2",
+    "text": "Gradient descent is extremely sensitive to the choice of learning rate [MATH \\eta] η\\eta, top row of figure 4. As [MATH \\eta] η\\eta increases through [MATH \\{0.01,0.032,0.1\\}] {0.01,0.032,0.1}\\{0.01,0.032,0.1\\} gradient descent goes from converging extremely slowly, to diverging slowly, to diverging rapidly. SGA yields faster, more robust convergence. SGA converges faster with learning rates [MATH \\eta=0.01] η=0.01\\eta=0.01 and [MATH \\eta=0.032] η=0.032\\eta=0.032, and only starts overshooting the fixed point for [MATH \\eta=0.1] η=0.1\\eta=0.1."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "4.2 Basic adversarial games"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "Optimistic mirror descent is a family of algorithms that has nice convergence properties in games (Rakhlin and Sridharan, 2013; Syrgkanis et al., 2015). In the special case of optimistic gradient descent the updates are"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.2",
+    "text": "Figure 5 compares SGA with optimistic gradient descent (OMD) on a zero-sum bimatrix game with [MATH \\ell_{1/2}({\\mathbf{w}}_{1},{\\mathbf{w}}_{2})=\\pm{\\mathbf{w}}_{1}^{\\intercal}{\\mathbf{w}}_{2}] ℓ1/2​(𝐰1,𝐰2)=±𝐰1⊺​𝐰2\\ell_{1/2}({\\mathbf{w}}_{1},{\\mathbf{w}}_{2})=\\pm{\\mathbf{w}}_{1}^{\\intercal}{\\mathbf{w}}_{2}. The example is modified from Daskalakis et al. (2018) who also consider a linear offset that makes no difference. A run is taken to have converged if the average absolute value of losses on the last 10 iterations is [MATH <0.01] <0.01<0.01; we end each experiment after 250 steps."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p2.1",
+    "text": "The left panel shows the number of steps to convergence (when convergence occurs) over a range of learning rates. OMD’s peak performance is better than SGA, where the red curve dips below the blue. Howwever, we find that SGA converges – and does so faster – for a much wider range of learning rates. OMD diverges for learning rates not in the range [0.3, 1.2]. Simultaneous gradient descent oscillates without converging (not shown). The right panel shows the average performance of OMD and SGA on the last 10 steps. Once again, here SGA consistently performs better over a wider range of learning rates. Individual runs are shown in figure 6."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "OMD and SGA on a four-player game."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p1.1",
+    "text": "Figure 7 shows time to convergence (using the same convergence criterion as above) for optimistic mirror descent and SGA. The games are constructed with four players, each of which controls one parameter. The losses are"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p1.2",
+    "text": "where [MATH \\epsilon=\\frac{1}{100}] ϵ=1100\\epsilon=\\frac{1}{100} in the left panel and [MATH \\epsilon=0] ϵ=0\\epsilon=0 in the right panel. The antisymmetric component of the game Jacobian is"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p1.3",
+    "text": "and the symmetric component is"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p1.4",
+    "text": "OMD converges considerably slower than SGA across the full range of learning rates. It also diverges for learning rates [MATH >0.22] >0.22>0.22. In contrast, SGA converges more quickly and robustly."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "4.3 Learning a two-dimensional mixture of Gaussians"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p1.1",
+    "text": "We apply SGA to a basic Generative Adversarial Network setup adapted from Metz et al. (2017). Data is sampled from a highly multimodal distribution designed to probe the tendency of GANs to collapse onto a subset of modes during training. The distribution is a mixture of 16 Gaussians arranged in a [MATH 4\\times 4] 4×44\\times 4 grid. Figure 8 shows the probability distribution that is sampled to train the generator and discriminator. The generator and discriminator networks both have 6 ReLU layers of 384 neurons. The generator has two output neurons; the discriminator has one."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p2.1",
+    "text": "Figure 9 shows results after [MATH \\{2000,4000,6000,8000\\}] {2000,4000,6000,8000}\\{2000,4000,6000,8000\\} iterations. The networks are trained under RMSProp. Learning rates were chosen by visual inspection of grid search results at iteration 8000. More precisely, grid search was over learning rates [MATH \\{] {\\{1e-5, 2e-5,5e-5, 8e-5, 1e-4, 2e-4, 5e-4 [MATH \\}] }\\} and then a more refined linear search over [MATH [] [[8e-5, 2e-4 [MATH ]] ]]. Simultaneous gradient descent and SGA are shown in the figure."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p3.1",
+    "text": "The last two rows of figure 9 show the performance of consensus optimization without and with alignment. Introducing alignment slightly improves speed of convergence (second column) and final result (fourth column), although intermediate results in third column are ambiguous."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p4.1",
+    "text": "Simultaneous gradient descent exhibits mode collapse followed by mode hopping in later iterations (not shown). Mode hopping is analogous to the cycles in example 1. Unaligned SGA converges to the correct distribution; alignment speeds up convergence slightly. Consensus optimization performs similarly in this GAN example. However, consensus optimization can converge to local maxima even in potential games, recall example 8."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "4.4 Learning a high-dimensional unimodal Gaussian"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p1.1",
+    "text": "Mode collapse is a well-known phenomenon in GANs. A more subtle phenomenon, termed boundary distortion, was identified in Santurkar et al. (2018). Boundary distortion is a form of covariate shift where the generator fails to model the true data distribution."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p2.1",
+    "text": "Santurkar et al demonstrate boundary distortion using data sampled from a 75-dimensional unimodal Gaussian with spherical covariate matrix. Mode collapse is not a problem in this setting because the data distribution is unimodal. Nevertheless, they show that vanilla GANs fail to learn most of the spectrum of the covariate matrix."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p3.1",
+    "text": "Figure 10 reproduces their result. Panel A shows the ground truth: all 75 eigenvalues are equal to 1.0. Panel B shows the spectrum of the covariance matrix of the data generated by a GAN trained with RMSProp. The GAN concentrates on a single eigenvalue and essentially ignores the remaining 74 eigenvalues. This is similar to, but more extreme than, the empirical results obtained in Santurkar et al. (2018). We emphasize that the problem is not mode collapse, since the data is unimodal (although, it’s worth noting that most of the mass of a high-dimensional Gaussian lies on the “shell”)."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p4.1",
+    "text": "Finally, panel C shows the spectrum of the covariance matrix of the data sampled from a GAN trained via SGA. The GAN approximately learns all the eigenvalues, with values ranging between 0.6 and 1.5."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "5 Discussion"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "Modern deep learning treats differentiable modules like plug-and-play lego blocks. For this to work, at the very least, we need to know that gradient descent will find local minima. Unfortunately, gradient descent does not necessarily find local minima when optimizing multiple interacting objectives. With the recent proliferation of algorithms that optimize more than one loss, it is becoming increasingly urgent to understand and control the dynamics of interacting losses. Although there is interesting recent work on two-player adversarial games such as GANs, there is essentially no work on finding stable fixed points in more general games played by interacting neural nets."
+  },
+  {
+    "tag": "p",
+    "id": "S5.p2.1",
+    "text": "The generalized Helmholtz decomposition provides a powerful new perspective on game dynamics. A key feature is that the analysis is indifferent to the number of players. Instead, it is the interplay between the simultaneous gradient [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} on the losses and the symmetric and antisymmetric matrices of second-order terms that guides algorithm design and governs the dynamics under gradient adjustments."
+  },
+  {
+    "tag": "p",
+    "id": "S5.p3.1",
+    "text": "Symplectic gradient adjustment is a straightforward application of the generalized Helmholtz decomposition. It is unlikely that SGA is the best approach to finding stable fixed points. A deeper understanding of the interaction between the potential and Hamiltonian components will lead to more effective algorithms. Reinforcement learning algorithms that optimize multiple objectives are increasingly common, and second-order terms are difficult to estimate in practice. Thus, first-order methods that do not use Jacobian-vector products are of particular interest."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Gamification."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS0.SSS0.Px1.p1.1",
+    "text": "Finally, it is worth raising a philosophical point. In this paper we are concerned with finding stable fixed points (because, for example, they yield pleasing samples in GANs). We are not concerned with the losses of the players per se. The gradient adjustments may lead to a player acting against its own self-interest by increasing its loss. We consider this acceptable insofar as it encourages convergence to a stable fixed point. The players are but a means to an end."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS0.SSS0.Px1.p2.1",
+    "text": "We have argued that stable fixed points are a more useful solution concept than local Nash equilibria for our purposes. However, neither is entirely satisfactory, and the question “What is the right solution concept for neural games?” remains open. In fact, it likely has many answers. The intrinsic curiosity module introduced by Pathak et al. (2017) plays two objectives against one another to drive agents to search for novel experiences. In this case, converging to a fixed point is precisely what is to be avoided."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS0.SSS0.Px1.p3.1",
+    "text": "It is remarkable – to give a few examples sampled from many – that curiosity, generating photorealistic images, and image-to-image translation (Zhu et al., 2017) can be formulated as games. What else can games do?"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Acknowledgements."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS0.SSS0.Px2.p1.1",
+    "text": "We thank Guillaume Desjardins and Csaba Szepesvari for useful comments."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "tag": "p",
+    "id": "p2.1",
+    "text": "APPENDIX"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "A TensorFlow code to compute SGA"
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p1.1",
+    "text": "Source code is available at https://github.com/deepmind/symplectic-gradient-adjustment. Since computing the symplectic adjustment is quite simple, we include an explicit description here for completeness."
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p2.1",
+    "text": "The code requires a list of [MATH n] nn losses, [MATH \\mathtt{Ls}] 𝙻𝚜\\mathtt{Ls}, and a list of variables for the [MATH n] nn players, [MATH \\mathtt{xs}] 𝚡𝚜\\mathtt{xs}. The function fwd_gradients which implements forward mode auto-differentiation is in the module tf.contrib.kfac.utils."
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p3.1",
+    "text": "% compute Jacobian-vector product [MATH {\\mathbf{J}}{\\mathbf{v}}] 𝐉𝐯{\\mathbf{J}}{\\mathbf{v}}"
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p4.1",
+    "text": "[MATH \\mathtt{\\texttt{def jac\\_vec}(ys,xs,vs):}] def jac_vec​(𝚢𝚜,𝚡𝚜,𝚟𝚜):\\mathtt{\\texttt{def jac\\_vec}(ys,xs,vs):} [MATH \\texttt{}\\hskip 11.38092pt\\quad\\mathtt{\\texttt{return fwd\\_gradients}(ys,xs,}] return fwd_gradients​(𝚢𝚜,𝚡𝚜CLOSE,\\texttt{}\\hskip 11.38092pt\\quad\\mathtt{\\texttt{return fwd\\_gradients}(ys,xs,} [MATH \\texttt{}\\mathtt{\\texttt{grad\\_xs}=vs,\\texttt{stop\\_gradients}=xs)}] OPENgrad_xs=𝚟𝚜,stop_gradients=𝚡𝚜)\\texttt{}\\mathtt{\\texttt{grad\\_xs}=vs,\\texttt{stop\\_gradients}=xs)}"
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p5.1",
+    "text": "% compute Jacobian⊺-vector product [MATH {\\mathbf{J}}^{\\intercal}{\\mathbf{v}}] 𝐉⊺​𝐯{\\mathbf{J}}^{\\intercal}{\\mathbf{v}}"
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p6.1",
+    "text": "[MATH \\mathtt{\\texttt{def jac\\_tran\\_vec}(ys,xs,vs):}] def jac_tran_vec​(𝚢𝚜,𝚡𝚜,𝚟𝚜):\\mathtt{\\texttt{def jac\\_tran\\_vec}(ys,xs,vs):} [MATH \\texttt{}\\hskip 11.38092pt\\mathtt{dydxs=\\texttt{tf.gradients}(ys,xs,\\texttt{grad\\_ys}=vs,}] 𝚍𝚢𝚍𝚡𝚜=tf.gradients​(𝚢𝚜,𝚡𝚜,grad_ys=𝚟𝚜CLOSE,\\texttt{}\\hskip 11.38092pt\\mathtt{dydxs=\\texttt{tf.gradients}(ys,xs,\\texttt{grad\\_ys}=vs,} [MATH \\mathtt{\\texttt{stop\\_gradients}=xs)}] OPENstop_gradients=𝚡𝚜)\\mathtt{\\texttt{stop\\_gradients}=xs)} [MATH \\texttt{}\\hskip 11.38092pt\\mathtt{\\texttt{return }[\\texttt{tf.zeros\\_like}(x)\\texttt{ if }dydx\\texttt{ is }None}] return [tf.zeros_like(𝚡) if 𝚍𝚢𝚍𝚡 is 𝙽𝚘𝚗𝚎\\texttt{}\\hskip 11.38092pt\\mathtt{\\texttt{return }[\\texttt{tf.zeros\\_like}(x)\\texttt{ if }dydx\\texttt{ is }None} [MATH \\texttt{}\\hskip 54.06006pt\\mathtt{\\texttt{else }dydx}] else ​𝚍𝚢𝚍𝚡\\texttt{}\\hskip 54.06006pt\\mathtt{\\texttt{else }dydx} [MATH \\texttt{}\\mathtt{\\texttt{for }(x,dydx)\\texttt{ in zip}(xs,dydxs)]}] for (𝚡,𝚍𝚢𝚍𝚡) in zip(𝚡𝚜,𝚍𝚢𝚍𝚡𝚜)]\\texttt{}\\mathtt{\\texttt{for }(x,dydx)\\texttt{ in zip}(xs,dydxs)]}"
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p7.1",
+    "text": "% compute Symplectic Gradient Adjustment [MATH {\\mathbf{A}}^{\\intercal}\\xi] 𝐀⊺​ξ{\\mathbf{A}}^{\\intercal}\\xi"
+  },
+  {
+    "tag": "p",
+    "id": "S1a.p8.1",
+    "text": "[MATH \\mathtt{\\texttt{def get\\_sym\\_adj}(Ls,xs):}\\\\ ] def get_sym_adj​(𝙻𝚜,𝚡𝚜):\\mathtt{\\texttt{def get\\_sym\\_adj}(Ls,xs):}\\\\ % compute game dynamics [MATH \\boldsymbol{\\xi}] ξ\\boldsymbol{\\xi} [MATH \\texttt{}\\hskip 11.38092pt\\mathtt{xi=[\\texttt{tf.gradients}(\\ell,x)[0]}\\mathtt{\\texttt{ for }(\\ell,x)\\texttt{ in zip}(Ls,xs)]}] 𝚡𝚒=[tf.gradients​(ℓ,𝚡)​[𝟶]​ for ​(ℓ,𝚡)​ in zip​(𝙻𝚜,𝚡𝚜)]\\texttt{}\\hskip 11.38092pt\\mathtt{xi=[\\texttt{tf.gradients}(\\ell,x)[0]}\\mathtt{\\texttt{ for }(\\ell,x)\\texttt{ in zip}(Ls,xs)]} [MATH \\texttt{}\\hskip 11.38092pt\\mathtt{J\\_xi=\\texttt{jac\\_vec}(xi,xs,xi)}] 𝙹​_​𝚡𝚒=jac_vec​(𝚡𝚒,𝚡𝚜,𝚡𝚒)\\texttt{}\\hskip 11.38092pt\\mathtt{J\\_xi=\\texttt{jac\\_vec}(xi,xs,xi)} [MATH \\texttt{}\\hskip 11.38092pt\\mathtt{Jt\\_xi=\\texttt{jac\\_tran\\_vec}(xi,xs,xi)}] 𝙹𝚝​_​𝚡𝚒=jac_tran_vec​(𝚡𝚒,𝚡𝚜,𝚡𝚒)\\texttt{}\\hskip 11.38092pt\\mathtt{Jt\\_xi=\\texttt{jac\\_tran\\_vec}(xi,xs,xi)} % compute [MATH {\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=\\frac{1}{2}({\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}-{\\mathbf{J}}\\boldsymbol{\\xi})] 𝐀⊺​ξ=12​(𝐉⊺​ξ−𝐉​ξ){\\mathbf{A}}^{\\intercal}\\boldsymbol{\\xi}=\\frac{1}{2}({\\mathbf{J}}^{\\intercal}\\boldsymbol{\\xi}-{\\mathbf{J}}\\boldsymbol{\\xi}) [MATH \\texttt{}\\hskip 11.38092pt\\mathtt{At\\_xi=[\\frac{jt-j}{2}\\texttt{ for }(j,jt)\\texttt{ in zip}(J\\_xi,Jt\\_xi)]}\\quad\\quad] 𝙰𝚝​_​𝚡𝚒=[𝚓𝚝−𝚓𝟸​ for ​(𝚓,𝚓𝚝)​ in zip​(𝙹​_​𝚡𝚒,𝙹𝚝​_​𝚡𝚒)]\\texttt{}\\hskip 11.38092pt\\mathtt{At\\_xi=[\\frac{jt-j}{2}\\texttt{ for }(j,jt)\\texttt{ in zip}(J\\_xi,Jt\\_xi)]}\\quad\\quad [MATH \\texttt{}\\hskip 11.38092pt\\mathtt{\\texttt{return }At\\_xi}] return ​𝙰𝚝​_​𝚡𝚒\\texttt{}\\hskip 11.38092pt\\mathtt{\\texttt{return }At\\_xi}"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "B Helmholtz, Hamilton, Hodge, and Harmonic games"
+  },
+  {
+    "tag": "p",
+    "id": "S2a.p1.1",
+    "text": "This section explains the mathematical connections with the Helmholtz decomposition, symplectic geometry and the Hodge decomposition. The discussion is not necessary to understand the main text. It is also not self-contained. The details can be found in textbooks covering differential and symplectic geometry (Arnold, 1989; Guillemin and Sternberg, 1990; Bott and Tu, 1995)."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "B.1 The Helmholtz Decomposition"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1a.p1.1",
+    "text": "The classical Helmholtz decomposition states that any vector field [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} in 3-dimensions is the sum of curl-free (gradient) and divergence-free (infinitesimal rotation) components:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1a.p1.2",
+    "text": "We explain the link between curl and the antisymmetric component of the game Jacobian. Recall that gradients of functions are actually differential 1-forms, not vector fields. Differential 1-forms and vector fields on a manifold are canonically isomorphic once a Riemannian metric has been chosen. In our case, we are implicitly using the Euclidean metric. The antisymmetric matrix [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} is the differential 2-form obtained by applying the exterior derivative [MATH d] dd to the 1-form [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1a.p2.1",
+    "text": "In 3-dimensions, the Hodge star operator is an isormorphism from differential 2-forms to vector fields, and the curl can be reformulated as [MATH \\text{curl}(\\bullet)=*d(\\bullet)] curl(∙)=∗d(∙)\\text{curl}(\\bullet)=*d(\\bullet). In claiming [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} is analogous to curl, we are simply dropping the Hodge-star operator."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1a.p3.1",
+    "text": "Finally, recall that the Lie algebra of infinitesimal rotations in [MATH d] dd-dimensions is given by antisymmetric matrices. When [MATH d=3] d=3d=3, the Lie algebra can be represented as vectors (three numbers specify a [MATH 3\\times 3] 3×33\\times 3 antisymmetric matrix) with the [MATH \\times] ×\\times-product as Lie bracket. In general, the antisymmetric matrix [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} captures the infinitesimal tendency of [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} to rotate at each point in the parameter space."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "B.2 Hamiltonian Mechanics"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2a.p1.1",
+    "text": "A symplectic form [MATH \\omega] ω\\omega is a closed nondegenerate differential 2-form. Given a manifold with a symplectic form, a vector field [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} is Hamiltonian vector field if there exists a function [MATH {\\mathcal{H}}:M\\rightarrow{\\mathbb{R}}] ℋ:M→ℝ{\\mathcal{H}}:M\\rightarrow{\\mathbb{R}} satisfying"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2a.p1.2",
+    "text": "The function is then referred to as the Hamiltonian function of the vector field. In our case, the antisymmetric matrix [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} is a closed 2-form because [MATH {\\mathbf{A}}=d\\boldsymbol{\\xi}] 𝐀=d​𝝃{\\mathbf{A}}=d\\boldsymbol{\\xi} and [MATH d\\circ d=0] d∘d=0d\\circ d=0. It may however be degenerate. It is therefore a presymplectic form (Bottacin, 2005)."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2a.p2.1",
+    "text": "Setting [MATH \\omega={\\mathbf{A}}] ω=𝐀\\omega={\\mathbf{A}}, equation (58) can be rewritten in our notation as"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2a.p2.2",
+    "text": "justifying the terminology ‘Hamiltonian’."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "B.3 The Hodge Decomposition"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3a.p1.1",
+    "text": "The exterior derivative [MATH d_{k}:\\Omega^{k}(M)\\rightarrow\\Omega^{k+1}(M)] dk:Ωk​(M)→Ωk+1​(M)d_{k}:\\Omega^{k}(M)\\rightarrow\\Omega^{k+1}(M) is a linear operator that takes differential [MATH k] kk-forms on a manifold [MATH M] MM, [MATH \\Omega^{k}(M)] Ωk​(M)\\Omega^{k}(M), to differential [MATH k+1] k+1k+1-forms, [MATH \\Omega^{k+1}(M)] Ωk+1​(M)\\Omega^{k+1}(M). In the case [MATH k=0] k=0k=0, the exterior derivative is the gradient, which takes 0-forms (that is, functions) to 1-forms. Given a Riemannian metric, the adjoint of the exterior derivative [MATH \\delta] δ\\delta goes in the opposite direction. Hodge’s theorem states that [MATH k] kk-forms on a compact manifold decompose into a direct sum over three types:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3a.p1.2",
+    "text": "Setting [MATH k=1] k=1k=1, we recover a decomposition that closely resembles the generalized Helmholtz decomposition:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3a.p1.3",
+    "text": "The harmonic component is isomorphic to the de Rham cohomology of the manifold – which is zero when [MATH k=1] k=1k=1 and [MATH M={\\mathbb{R}}^{n}] M=ℝnM={\\mathbb{R}}^{n}."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3a.p2.1",
+    "text": "Unfortunately, the Hodge decomposition does not straightforwardly apply to the case when [MATH M={\\mathbb{R}}^{n}] M=ℝnM={\\mathbb{R}}^{n}, since [MATH {\\mathbb{R}}^{n}] ℝn{\\mathbb{R}}^{n} is not compact. It is thus unclear how to relate the generalized Helmholtz decomposition to the Hodge decomposition."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "B.4 Harmonic and Potential Games"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4a.p1.1",
+    "text": "Candogan et al. (2011) derive a Hodge decomposition for games that is closely related in spirit to our generalized Helmholtz decomposition – although the details are quite different. Candogan et al. (2011) work with classical games (probability distributions on finite strategy sets). Their losses are multilinear, which is easier than our setting, but they have constrained solution sets, which is harder in many ways. Their approach is based on combinatorial Hodge theory (Jiang et al., 2011) rather than differential and symplectic geometry. Finding a best-of-both-worlds approach that encompasses both settings is an open problem."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "C Type Consistency"
+  },
+  {
+    "tag": "p",
+    "id": "S3a.p1.1",
+    "text": "The next two sections carefully work through the units in classical mechanics and two-player games respectively. The third section briefly describes a use-case for type consistency."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "C.1 Units in Classical Mechanics"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p1.1",
+    "text": "Consider the well-known Hamiltonian"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p1.2",
+    "text": "where [MATH q] qq is position, [MATH p=\\mu\\cdot\\dot{q}] p=μ⋅q˙p=\\mu\\cdot\\dot{q} is momentum, [MATH \\mu] μ\\mu is mass, [MATH \\kappa] κ\\kappa is surface tension and [MATH {\\mathcal{H}}] ℋ{\\mathcal{H}} measures energy. The units (denoted by [MATH \\tau] τ\\tau) are"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p1.3",
+    "text": "where [MATH m] mm is meters, [MATH kg] k​gkg is kilograms and [MATH s] ss is seconds. Energy is measured in joules, and indeed it is easy to check that [MATH \\tau({\\mathcal{H}})=\\frac{kg\\cdot m^{2}}{s^{2}}] τ⁡(ℋ)=k​g⋅m2s2\\tau({\\mathcal{H}})=\\frac{kg\\cdot m^{2}}{s^{2}}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p2.1",
+    "text": "Note that the units for differentation by [MATH x] xx are [MATH \\tau(\\frac{\\partial}{\\partial x})=\\frac{1}{\\tau(x)}] τ⁡(∂∂x)=1τ⁡(x)\\tau(\\frac{\\partial}{\\partial x})=\\frac{1}{\\tau(x)}. For example, differentiating by time has units [MATH \\frac{1}{s}] 1s\\frac{1}{s}. Hamilton’s equations state that [MATH \\dot{q}=\\frac{\\partial H}{\\partial p}=\\frac{1}{\\mu}\\cdot p] q˙=∂H∂p=1μ⋅p\\dot{q}=\\frac{\\partial H}{\\partial p}=\\frac{1}{\\mu}\\cdot p and [MATH \\dot{p}=-\\frac{\\partial{\\mathcal{H}}}{\\partial q}=-\\kappa\\cdot q] p˙=−∂ℋ∂q=−κ⋅q\\dot{p}=-\\frac{\\partial{\\mathcal{H}}}{\\partial q}=-\\kappa\\cdot q where"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p2.2",
+    "text": "The resulting flow describing the dynamics of the system is"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p2.3",
+    "text": "with units [MATH \\tau(\\boldsymbol{\\xi})=\\frac{1}{s}] τ⁡(𝝃)=1s\\tau(\\boldsymbol{\\xi})=\\frac{1}{s}. Hamilton’s equations can be reformulated more abstractly via symplectic geometry. Introduce the symplectic form"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p2.4",
+    "text": "Observe that contracting the flow with the Hamiltonian obtains"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1a.p2.5",
+    "text": "with units [MATH \\tau(d{\\mathcal{H}})=\\tau({\\mathcal{H}})=\\frac{kg\\cdot m^{2}}{s^{2}}] τ⁡(d​ℋ)=τ⁡(ℋ)=k​g⋅m2s2\\tau(d{\\mathcal{H}})=\\tau({\\mathcal{H}})=\\frac{kg\\cdot m^{2}}{s^{2}}."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Losses in classical mechanics."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1a.p1.1",
+    "text": "Although there is no notion of “loss” in classical mechanics, it is useful (for the next section) to keep pushing the formal analogy. Define the “losses”"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px1a.p1.2",
+    "text": "with units [MATH \\tau(\\ell_{1})=\\frac{m^{2}}{s}] τ⁡(ℓ1)=m2s\\tau(\\ell_{1})=\\frac{m^{2}}{s} and [MATH \\tau(\\ell_{2})=\\frac{kg^{2}\\cdot m^{2}}{s^{3}}] τ⁡(ℓ2)=k​g2⋅m2s3\\tau(\\ell_{2})=\\frac{kg^{2}\\cdot m^{2}}{s^{3}}. The Hamiltonian dynamics can then be recovered game-theoretically by differentiating [MATH \\ell_{1}] ℓ1\\ell_{1} and [MATH \\ell_{2}] ℓ2\\ell_{2} with respect to [MATH q] qq and [MATH p] pp respectively. It is easy to check that"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "The duality between vector fields and differential forms."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p1.1",
+    "text": "Finally recall that the symplectic form in games was not “pulled out of thin air” as [MATH \\omega=dq\\wedge dp] ω=d​q∧d​p\\omega=dq\\wedge dp, but rather derived as [MATH \\omega=d\\boldsymbol{\\xi}^{\\flat}] ω=d​𝝃♭\\omega=d\\boldsymbol{\\xi}^{\\flat}, where [MATH \\boldsymbol{\\xi}^{\\flat}] 𝝃♭\\boldsymbol{\\xi}^{\\flat} is the differential form corresponding to the vector field [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} under the musical isomorphism [MATH \\flat:TM\\rightarrow T^{*}M] ♭:T​M→T∗​M\\flat:TM\\rightarrow T^{*}M."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p2.1",
+    "text": "It is instructive to compute [MATH \\boldsymbol{\\xi}^{\\flat}] 𝝃♭\\boldsymbol{\\xi}^{\\flat} in the case of a classical mechanical system and see what happens. Naively, we would guess that the musical isomorphism is [MATH \\left(\\frac{\\partial}{\\partial q}\\right)^{\\flat}=dq] (∂∂q)♭=d​q\\left(\\frac{\\partial}{\\partial q}\\right)^{\\flat}=dq and [MATH \\left(\\frac{\\partial}{\\partial p}\\right)^{\\flat}=dp] (∂∂p)♭=d​p\\left(\\frac{\\partial}{\\partial p}\\right)^{\\flat}=dp. However, applying the naive musical isomorphism to [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} to get"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p2.2",
+    "text": "results in a type violation because"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p2.3",
+    "text": "whereas"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p2.4",
+    "text": "and we cannot add objects with different types."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p3.1",
+    "text": "To correct the type inconsistency, define the musical isomorphism as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p3.2",
+    "text": "with inverse"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p3.3",
+    "text": "The correction terms in the direction [MATH \\flat:TM\\rightarrow T^{*}M] ♭:T​M→T∗​M\\flat:TM\\rightarrow T^{*}M invert the coupling terms [MATH \\kappa] κ\\kappa and [MATH \\frac{1}{\\mu}] 1μ\\frac{1}{\\mu} that were originally introduced into the Hamiltonian for physical reasons. Applying the corrected musical isomorphism to [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} yields"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p3.4",
+    "text": "The two terms of [MATH \\boldsymbol{\\xi}^{\\flat}] 𝝃♭\\boldsymbol{\\xi}^{\\flat} then have coherent types"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p3.5",
+    "text": "as required. The associated two form is"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p3.6",
+    "text": "which recovers the symplectic form (up to sign) with units [MATH \\tau(\\omega)=\\frac{kg\\cdot m^{2}}{s}] τ⁡(ω)=k​g⋅m2s\\tau(\\omega)=\\frac{kg\\cdot m^{2}}{s} as required. Finally, observe that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.SSS0.Px2.p3.7",
+    "text": "recovering the Hamiltonian."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "C.2 Units in Two-Player Games"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p1.1",
+    "text": "Without loss of generality let [MATH {\\mathbf{w}}=({\\mathbf{x}};{\\mathbf{y}})] 𝐰=(𝐱,𝐲){\\mathbf{w}}=({\\mathbf{x}};{\\mathbf{y}}) where we refer to [MATH {\\mathbf{x}}] 𝐱{\\mathbf{x}} as position and [MATH {\\mathbf{y}}] 𝐲{\\mathbf{y}} as momentum so that [MATH \\tau({\\mathbf{x}})=m] τ⁡(𝐱)=m\\tau({\\mathbf{x}})=m and [MATH \\tau({\\mathbf{y}})=\\frac{kg\\cdot m}{s}] τ⁡(𝐲)=k​g⋅ms\\tau({\\mathbf{y}})=\\frac{kg\\cdot m}{s}. The aim of this section is to check type-consistency under these, rather arbitrarily assigned, units. Since we are considering a game, we do not require that [MATH {\\mathbf{x}}] 𝐱{\\mathbf{x}} and [MATH {\\mathbf{y}}] 𝐲{\\mathbf{y}} have the same dimension – even though this would necessarily be the case for a physical system. The goal is to verify that units can be consistently assigned to games."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p2.1",
+    "text": "Consider a quadratic two player game of the form"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p2.2",
+    "text": "and"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p2.3",
+    "text": "We restrict to quadratic games since our methods only involve first and second derivatives. We assume the matrices [MATH {\\mathbf{A}}] 𝐀{\\mathbf{A}} and [MATH {\\mathbf{C}}] 𝐂{\\mathbf{C}} are symmetric without loss of generality so that, for example, [MATH {\\mathbf{A}}_{12}={\\mathbf{A}}_{21}^{\\intercal}] 𝐀12=𝐀21⊺{\\mathbf{A}}_{12}={\\mathbf{A}}_{21}^{\\intercal}. Adding constant terms to [MATH \\ell_{1}] ℓ1\\ell_{1} and [MATH \\ell_{2}] ℓ2\\ell_{2} makes no difference to the analysis so they are omitted."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p3.1",
+    "text": "By (68), the units for [MATH \\ell_{1}] ℓ1\\ell_{1} and [MATH \\ell_{2}] ℓ2\\ell_{2} should be [MATH \\frac{m^{2}}{s}] m2s\\frac{m^{2}}{s} and [MATH \\frac{kg\\cdot m^{2}}{s^{3}}] k​g⋅m2s3\\frac{kg\\cdot m^{2}}{s^{3}} respectively. We can therefore derive the correct units for each of the components of the quadratic losses as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p3.2",
+    "text": "for [MATH \\ell_{1}] ℓ1\\ell_{1} and"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p3.3",
+    "text": "for [MATH \\ell_{2}] ℓ2\\ell_{2}. It follows from a straightforward computation that the vector field [MATH \\boldsymbol{\\xi}=\\frac{\\partial\\ell_{1}}{\\partial{\\mathbf{x}}}\\frac{\\partial}{\\partial{\\mathbf{x}}}+\\frac{\\partial\\ell_{2}}{\\partial{\\mathbf{y}}}\\frac{\\partial}{\\partial{\\mathbf{y}}}] 𝝃=∂ℓ1∂𝐱​∂∂𝐱+∂ℓ2∂𝐲​∂∂𝐲\\boldsymbol{\\xi}=\\frac{\\partial\\ell_{1}}{\\partial{\\mathbf{x}}}\\frac{\\partial}{\\partial{\\mathbf{x}}}+\\frac{\\partial\\ell_{2}}{\\partial{\\mathbf{y}}}\\frac{\\partial}{\\partial{\\mathbf{y}}} has type [MATH \\tau(\\boldsymbol{\\xi})=\\frac{1}{s}] τ⁡(𝝃)=1s\\tau(\\boldsymbol{\\xi})=\\frac{1}{s} as required."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p4.1",
+    "text": "The presymplectic form [MATH \\omega=d\\boldsymbol{\\xi}^{\\flat}] ω=d​𝝃♭\\omega=d\\boldsymbol{\\xi}^{\\flat} makes use of the musical isomorphism [MATH \\flat:T^{M}\\rightarrow T^{*}M] ♭:TM→T∗​M\\flat:T^{M}\\rightarrow T^{*}M. As in section C.1, if we naively define [MATH (\\frac{\\partial}{\\partial{\\mathbf{x}}})^{\\flat}=d{\\mathbf{x}}] (∂∂𝐱)♭=d​𝐱(\\frac{\\partial}{\\partial{\\mathbf{x}}})^{\\flat}=d{\\mathbf{x}} and [MATH (\\frac{\\partial}{\\partial{\\mathbf{y}}})^{\\flat}=d{\\mathbf{y}}] (∂∂𝐲)♭=d​𝐲(\\frac{\\partial}{\\partial{\\mathbf{y}}})^{\\flat}=d{\\mathbf{y}} then"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2a.p4.2",
+    "text": "which is type inconsistent because [MATH \\tau(\\frac{\\partial\\ell_{1}}{\\partial{\\mathbf{x}}}\\cdot d{\\mathbf{x}})=\\frac{m^{2}}{s}] τ⁡(∂ℓ1∂𝐱⋅d​𝐱)=m2s\\tau(\\frac{\\partial\\ell_{1}}{\\partial{\\mathbf{x}}}\\cdot d{\\mathbf{x}})=\\frac{m^{2}}{s} and [MATH \\tau(\\frac{\\partial\\ell_{2}}{\\partial{\\mathbf{y}}}\\cdot d{\\mathbf{y}})=\\frac{kg^{2}\\cdot m^{2}}{s^{3}}] τ⁡(∂ℓ2∂𝐲⋅d​𝐲)=k​g2⋅m2s3\\tau(\\frac{\\partial\\ell_{2}}{\\partial{\\mathbf{y}}}\\cdot d{\\mathbf{y}})=\\frac{kg^{2}\\cdot m^{2}}{s^{3}}."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "text": "Type-consistency via SVD."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p1.1",
+    "text": "It is necessary, as in section C.1, to correct the naive musical isomorphism by taking into account the coupling constants for the mixed position-momentum terms. In the classical setup the coupling constants were the scalars [MATH \\frac{1}{\\mu}] 1μ\\frac{1}{\\mu} and [MATH \\kappa] κ\\kappa, whereas in a game they are the off-diagonal blocks [MATH {\\mathbf{A}}_{12}] 𝐀12{\\mathbf{A}}_{12} and [MATH {\\mathbf{C}}_{12}] 𝐂12{\\mathbf{C}}_{12}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p2.1",
+    "text": "Apply singular value decomposition to factorize"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p2.2",
+    "text": "where the entries of the diagonal matrices have types [MATH \\tau({\\mathbf{D}}_{\\mathbf{A}})=\\frac{1}{kg}] τ⁡(𝐃𝐀)=1k​g\\tau({\\mathbf{D}}_{\\mathbf{A}})=\\frac{1}{kg} and [MATH \\tau({\\mathbf{D}}_{\\mathbf{C}})=\\frac{kg}{s^{2}}] τ⁡(𝐃𝐂)=k​gs2\\tau({\\mathbf{D}}_{\\mathbf{C}})=\\frac{kg}{s^{2}}, and the types of the orthogonal matrices [MATH {\\mathbf{U}}] 𝐔{\\mathbf{U}} and [MATH {\\mathbf{V}}] 𝐕{\\mathbf{V}} are pure scalars. The diagonal matrices [MATH {\\mathbf{D}}_{\\mathbf{A}}] 𝐃𝐀{\\mathbf{D}}_{\\mathbf{A}} and [MATH {\\mathbf{D}}_{\\mathbf{C}}] 𝐃𝐂{\\mathbf{D}}_{\\mathbf{C}} have the same types as [MATH \\frac{1}{\\mu}] 1μ\\frac{1}{\\mu} and [MATH \\kappa] κ\\kappa in the classical system since they play the same coupling role."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p3.1",
+    "text": "Extending the procedure adopted in the section C.1, fix the type-inconsistency by defining the musical isomorphisms as"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p3.2",
+    "text": "and"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p3.3",
+    "text": "Alternatively, the isomorphisms can be computed by noting that [MATH {\\mathbf{U}}_{\\mathbf{A}}^{\\intercal}{\\mathbf{D}}_{\\mathbf{A}}^{-1}{\\mathbf{U}}_{\\mathbf{A}}=(\\sqrt{{\\mathbf{A}}_{12}{\\mathbf{A}}_{21}})^{-1}] 𝐔𝐀⊺​𝐃𝐀−1​𝐔𝐀=(𝐀12​𝐀21)−1{\\mathbf{U}}_{\\mathbf{A}}^{\\intercal}{\\mathbf{D}}_{\\mathbf{A}}^{-1}{\\mathbf{U}}_{\\mathbf{A}}=(\\sqrt{{\\mathbf{A}}_{12}{\\mathbf{A}}_{21}})^{-1} and [MATH {\\mathbf{V}}_{\\mathbf{C}}^{\\intercal}{\\mathbf{D}}_{\\mathbf{C}}^{-1}{\\mathbf{V}}_{\\mathbf{C}}=(\\sqrt{{\\mathbf{C}}_{21}{\\mathbf{C}}_{12}})^{-1}] 𝐕𝐂⊺​𝐃𝐂−1​𝐕𝐂=(𝐂21​𝐂12)−1{\\mathbf{V}}_{\\mathbf{C}}^{\\intercal}{\\mathbf{D}}_{\\mathbf{C}}^{-1}{\\mathbf{V}}_{\\mathbf{C}}=(\\sqrt{{\\mathbf{C}}_{21}{\\mathbf{C}}_{12}})^{-1}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p4.1",
+    "text": "The dual isomorphism [MATH \\sharp:T^{*}M\\rightarrow TM] ♯:T∗​M→T​M\\sharp:T^{*}M\\rightarrow TM is then"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p4.2",
+    "text": "If"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p4.3",
+    "text": "then it follows that"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p4.4",
+    "text": "with associated closed two form"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p4.5",
+    "text": "where the notation [MATH \\omega_{\\tau}] ωτ\\omega_{\\tau} emphasizes that the two-form is type-consistent."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "text": "C.3 What Does Type-Consistency Buy?"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg10.p1.1",
+    "text": "Consider the loss functions"
+  },
+  {
+    "tag": "p",
+    "id": "Thmeg10.p1.2",
+    "text": "with [MATH \\boldsymbol{\\xi}=(y,2x)] 𝛏=(y,2​x)\\boldsymbol{\\xi}=(y,2x). There is no function [MATH \\phi:{\\mathbb{R}}^{2}\\rightarrow{\\mathbb{R}}] ϕ:ℝ2→ℝ\\phi:{\\mathbb{R}}^{2}\\rightarrow{\\mathbb{R}} such that [MATH \\nabla\\phi=\\boldsymbol{\\xi}] ∇ϕ=𝛏\\nabla\\phi=\\boldsymbol{\\xi}. However, there is a family of functions [MATH \\phi_{\\alpha}(x,y)=\\alpha\\cdot xy] ϕα​(x,y)=α⋅x​y\\phi_{\\alpha}(x,y)=\\alpha\\cdot xy which satisfies"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3a.p1.1",
+    "text": "Although [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} is not a potential field, there is a family of functions on which [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} performs gradient descent – albeit with coordinate-wise learning rates that may not be optimal. The vector field [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} arguably does not require adjustment. This kind of situation often arises when the learning rates of different parameters are set adaptively during training of neural nets, by rescaling them by positive numbers."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3a.p2.1",
+    "text": "The vanilla and type-consistent 1-forms corresponding to [MATH \\boldsymbol{\\xi}] 𝝃\\boldsymbol{\\xi} are, respectively,"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3a.p2.2",
+    "text": "with"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3a.p2.3",
+    "text": "It follows that the type-consistent symplectic gradient adjustment is zero. Type-consistency ‘detects’ that no gradient adjustment is needed in example 10."
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]
