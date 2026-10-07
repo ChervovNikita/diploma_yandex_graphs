@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated 2026-10-07T04:05:47.231063+00:00. **Goal active and unmet.** No supported new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged.
+Updated 2026-10-07T04:29:10.831042+00:00. **Goal active and unmet.** No supported new-method superiority or fresh manuscript acceptance. Original manuscript scores remain unchanged.
 
 ## Active scientific comparisons
 
@@ -42,7 +42,7 @@ The earlier once-only Collab confirmation found private shared four +0.84828 per
 
 Saved conclusions are reused before additional primary-source searches. The base index 72 contains 260 scoped conclusion records covering 207 paper identities and two software identities; these are not full-paper reading counts. Later scoped supplements preserve prior credits. Generic shared/private branching, centred covariance initialization and graph modulation are established ideas; a new contribution requires both a distinct mechanism and supporting comparisons.
 
-The latest verified pushed commit before this update is `1bf451f8da81ce5c2c444def3987c4298c720a83`. It preserves the reviewed internal BE source, every earlier rejection/repair and the clean independent17 completion. Checkpoints and full logits remain on authorized servers. Scientific work uses only the one-GPU allocation and18.77. The seven-GPU route is forwarding only. Failed runs, costs and decisions are preserved. Fresh paper reviewers receive immutable anonymous evidence and no requested verdict.
+The latest verified pushed commit before this update is `688b0a6e7c35b5d1483fa11ba6194bf2b6a9aa3a`. It preserves the reviewed internal BE source, every earlier rejection/repair and the clean independent17 completion. Checkpoints and full logits remain on authorized servers. Scientific work uses only the one-GPU allocation and18.77. The seven-GPU route is forwarding only. Failed runs, costs and decisions are preserved. Fresh paper reviewers receive immutable anonymous evidence and no requested verdict.
 
 ## Learned internal steering proposal
 
@@ -55,3 +55,9 @@ By04:02UTC, eleven exact WikiCS arm/seed resource cases had passed. Root superse
 The objective combines each member's own labels with two stochastic views and a residual contrast after TRAIN-class centering. It credits BatchEnsemble, TabM, DICE/CDLG/SuGAr/HGEN. This tests a hypothesis, and is not an originality certificate. Arbitrary embedding separation may fail to improve decisions. The pilot therefore records member competence and ensemble errors, with unused-population confirmation, closest-prior and capable controls required for stronger claims. Adaptive weights, learned aggregation and RL remain later questions. [Implemented protocol](learnable_internal_be_contrastive_multitask_suite_20261007_v4/PROTOCOL.md). [Resource source and limits](learnable_internal_be_resource_qualifier_source_20261007_v1/PROTOCOL.md).
 
 The new functional panel is prepared but unlaunched. Fixed TRAIN-only feature and edge interventions measure class-log-odds responses and common errors, because hidden/attention distance alone need not change decisions. Residual class-centering gives zero-sum representation gradients but does not guarantee that parameter updates preserve class means. Fixed propagation does not imply identical graph dependence when a network has private nonlinear gates, recomputed attention or differently weighted residual/hop branches. [Panel and theory](wikics_functional_diversity_panel_preparation_20261007_v1/PROTOCOL.txt). [Scoped closest-prior note](graph_operator_diversity_closest_prior_gap_20261007_v1/REPORT.md).
+
+## Code readiness and first complete scientific fit
+
+The dedicated Collab/Molhiv launch package is complete and has a narrow source-reviewed scheduling successor. It reuses frozen native workers/data and adds finite memory waiting plus owner/current-cell metadata. Resource passes and scientific family releases remain pending;77 needs a separate live host/runtime/data successor. At04:23UTC, WikiCS single6101 completed all1100epochs in919.93driver seconds, and single_contrastive6101 was at394/1100. Comparative quality remains closed. [Code readiness](publication/internal_BE_other_task_code_ready_20261007_v1/STATUS.md).
+
+The new learnable-strength note credits Auto-Lambda for primary-task-driven auxiliary weighting, explains the zero-weight failure of ordinary joint coefficient minimization, and states a single-linear-map BE capacity restriction with explicit limits. No adaptive-weight method was trained. The complete-cohort Citeseer interpretation plan preserves the04:09 incomplete snapshot and fixes paired uncertainty, member-quality and common-error analyses for after closure.
