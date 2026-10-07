@@ -1,0 +1,83 @@
+--- internal_BE_WikiCS_unit_mechanism_ablation_source_20261007_v2/recompute.py
++++ contrastive_BE_steering_continuing_research_20261007_v1/integration_successor_v2/context_recompute.py
+@@ -1,7 +1,7 @@
+-"""WikiCS output-cotangent VJP replay: same joint loss, one live member graph."""
++"""Context-target WikiCS VJP replay; shared mean or explicit untied sum loss."""
+ from types import MethodType
+ 
+-MODE = 'detached-output-cotangents_then_single-member-view_VJP_recomputation_v2'
++MODE = 'context_target_detached_outputs_then_member_view_VJP_v1'
+ 
+ 
+ def clone_streams(streams):
+@@ -16,8 +16,12 @@
+ def train_step(session, batch, labels):
+     """dL/dtheta = sum_(view,member) J(output)^T dL/doutput; Adam after the sum."""
+     torch = session.torch
+-    if session.task != 'wikics' or session.model.members != 4 or session.model.independent or len(session.optimizers) != 1:
+-        raise ValueError('Only shared four-member WikiCS trajectory')
++    members = session.model.members
++    optimizer_count = members if session.model.independent else 1
++    if session.task != 'wikics' or members not in (1, 4) or len(session.optimizers) != optimizer_count:
++        raise ValueError('Original WikiCS M1/shared-M4/untied-M4 optimizer bank required')
++    if session.model.contrastive and session.config['contrastive']['residual_weight'] != 0.:
++        raise ValueError('Only registered residual-free separable context objective')
+     if labels.device != session.device or len(labels) != 580:
+         raise ValueError('Complete580 TRAIN labels on Session.device required')
+     session.model.train()
+@@ -26,15 +30,15 @@
+     parameter_versions = tuple(parameter._version for parameter in session.model.parameters())
+     before = clone_streams(session.streams)
+     with torch.no_grad():
+-        la, ha = session.forward(batch); session.execution_totals['shadow_member_forwards'] += 4
+-        lb, hb = session.forward(batch); session.execution_totals['shadow_member_forwards'] += 4
++        la, ha = session.forward(batch); session.execution_totals['shadow_member_forwards'] += members
++        lb, hb = session.forward(batch); session.execution_totals['shadow_member_forwards'] += members
+     shadow_end = clone_streams(session.streams)
+     selection, losses = session.core['selection'], session.core['objectives']
+     selection.finite_predictions(la, session.serving(la)); selection.finite_predictions(lb, session.serving(lb))
+     if not torch.isfinite(ha).all() or not torch.isfinite(hb).all():
+         raise FloatingPointError('TRAIN shadow representation')
+     # These leaves retain only [4,580,10] logits and [4,580,512] representations,
+-    # not any fullgraph backbone tape. The original losses/weights/scaling follow.
++    # not any fullgraph backbone tape. Explicit own/auxiliary scaling follows.
+     la, ha, lb, hb = [value.detach().requires_grad_(True) for value in (la, ha, lb, hb)]
+     size = min(len(labels), session.config['contrastive']['max_objects'])
+     index = torch.linspace(0, len(labels)-1, steps=size, device=labels.device).long()
+@@ -43,7 +47,7 @@
+     if session.model.contrastive:
+         auxiliary = .05 * losses.alignment_loss(ha[:, index], hb[:, index], labels[index], session.task, identities=None)
+         auxiliary = auxiliary + .05 * losses.residual_member_contrast(ha[:, index], hb[:, index], labels[index])
+-    total = own.mean() + auxiliary
++    total = own.sum() + members * auxiliary if session.model.independent else own.mean() + auxiliary
+     if not torch.isfinite(total):
+         raise FloatingPointError('TRAIN loss')
+     result = {'loss': total.detach(), 'own_mean': own.mean().detach(), 'auxiliary': auxiliary.detach()}
+@@ -84,12 +88,12 @@
+     if not equal_streams(session.streams, shadow_end, torch):
+         raise RuntimeError('Replay member RNG endpoint differs from two original shadow views')
+     if tuple(parameter._version for parameter in session.model.parameters()) != parameter_versions:
+-        raise RuntimeError('Parameters mutated before the complete eight-VJP accumulation')
++        raise RuntimeError('Parameters mutated before the complete member/view VJP accumulation')
+     active = [parameter for parameter in session.model.parameters() if parameter.grad is not None]
+     if not active or any(not torch.isfinite(parameter.grad).all() for parameter in active):
+         raise FloatingPointError('TRAIN accumulated gradient')
+     # No optimizer step, parameter update or gradient clearing is permitted
+-    # between the eight member/view VJPs. This is one original Adam bank update.
++    # between the complete member/view VJPs. Each original Adam optimizer steps once after complete accumulation.
+     for optimizer in session.optimizers:
+         optimizer.step(); session.execution_totals['optimizer_bank_updates'] += 1
+     selection.finite_state(session.model, session.optimizers)
+@@ -106,6 +110,12 @@
+ 
+ def install(session, diagnostics=False):
+     torch = session.torch
++    if session.model.contrastive:
++        from session_objectives_adapter import ContextObjectivesFacade
++        if not isinstance(session.core['objectives'], ContextObjectivesFacade):
++            raise ValueError('Legacy coupled contrast cannot use this separable context replay')
++        if session.config['contrastive']['residual_weight'] != 0.:
++            raise ValueError('Residual-free context objective required')
+     if any(isinstance(module, torch.nn.modules.batchnorm._BatchNorm) for module in session.model.modules()) or list(session.model.buffers()):
+         raise ValueError('Pinned stateless WikiCS model required; no BatchNorm or mutable buffers')
+     session.replay_prediction_diagnostics = diagnostics
