@@ -1,0 +1,49 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B -c 'from pathlib import Path
+import socket,subprocess,json
+r=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"')
+assert Path.cwd()==r and socket.gethostname()=='"'"'peptide'"'"'
+g=subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid,name,memory.free,utilization.gpu'"'"','"'"'--format=csv,noheader,nounits'"'"'],text=True,timeout=10)
+assert [x.split('"'"','"'"')[0].strip() for x in g.splitlines()]==['"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"']
+print(json.dumps({'"'"'host'"'"':socket.gethostname(),'"'"'GPU_inventory'"'"':g,'"'"'git_HEAD'"'"':subprocess.check_output(['"'"'git'"'"','"'"'rev-parse'"'"','"'"'HEAD'"'"'],text=True).strip(),'"'"'tracked_status'"'"':subprocess.check_output(['"'"'git'"'"','"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"'],text=True)}))
+' && cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B -c '
+from pathlib import Path
+import datetime,hashlib,json,socket
+repo=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');phase=repo/'"'"'experiments_iclr/postsubmission_20260930'"'"';root=phase/'"'"'wikics_native_independent_prefix_gpu77_execution_root_20261007_v1'"'"';assert Path.cwd()==repo and socket.gethostname()=='"'"'peptide'"'"'
+expected={'"'"'owner'"'"':(3557245,1748446216),'"'"'seed29'"'"':(3557262,1748446238),'"'"'seed43'"'"':(3557263,1748446238)}
+def identity(pid,ticks):
+ p=Path('"'"'/proc'"'"')/str(pid)
+ try:
+  raw=(p/'"'"'stat'"'"').read_text();fields=raw[raw.rfind('"'"')'"'"')+2:].split();argv=[s.decode() for s in (p/'"'"'cmdline'"'"').read_bytes().split(b'"'"'\0'"'"') if s];actual=int(fields[19])
+ except FileNotFoundError:return {'"'"'PID'"'"':pid,'"'"'expected_start_ticks'"'"':ticks,'"'"'present'"'"':False}
+ return {'"'"'PID'"'"':pid,'"'"'expected_start_ticks'"'"':ticks,'"'"'present'"'"':True,'"'"'actual_start_ticks'"'"':actual,'"'"'exact_start_ticks'"'"':actual==ticks,'"'"'state'"'"':fields[0],'"'"'ppid'"'"':int(fields[1]),'"'"'pgid'"'"':int(fields[2]),'"'"'sid'"'"':int(fields[3]),'"'"'argv'"'"':argv if actual==ticks else None}
+def read(path):return json.loads(path.read_text())
+def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+launch=read(root/'"'"'LAUNCH.json'"'"');assert launch['"'"'owner_PID'"'"']==expected['"'"'owner'"'"'][0] and launch['"'"'owner_start_ticks'"'"']==expected['"'"'owner'"'"'][1]
+results=[]
+for base in [29,43]:
+ cell='"'"'seed'"'"'+str(base)+'"'"'_DONOR_INDEPENDENT'"'"';output=root/'"'"'runs'"'"'/cell;row={'"'"'base_seed'"'"':base,'"'"'cell_id'"'"':cell,'"'"'process'"'"':identity(*expected['"'"'seed'"'"'+str(base)])}
+ p=output/'"'"'PROGRESS.json'"'"'
+ if p.exists():row['"'"'progress'"'"']={k:v for k,v in read(p).items() if k in {'"'"'native_seed'"'"','"'"'epoch'"'"','"'"'complete_target'"'"','"'"'scores_read_by_owner'"'"'}}
+ p=root/'"'"'logs'"'"'/(cell+'"'"'.EXIT.json'"'"')
+ if p.exists():
+  value=read(p);row['"'"'terminal'"'"']={k:value[k] for k in ['"'"'exit_code'"'"','"'"'reason'"'"','"'"'terminal_wait_observed'"'"','"'"'child_identity'"'"','"'"'raw_identity_observation'"'"','"'"'signals_sent'"'"','"'"'attempts'"'"','"'"'retry'"'"','"'"'elapsed_seconds'"'"','"'"'max_sampled_owned_RSS_bytes'"'"','"'"'max_sampled_owned_GPU_bytes'"'"','"'"'max_sampled_own_output_bytes'"'"']};row['"'"'terminal_receipt'"'"']={'"'"'path'"'"':str(p.relative_to(phase)),'"'"'sha256'"'"':sha(p)}
+ p=root/'"'"'logs'"'"'/(cell+'"'"'.PHYSICAL_TERMINAL.json'"'"')
+ if p.exists():row['"'"'physical_terminal'"'"']=read(p)
+ p=root/'"'"'logs'"'"'/(cell+'"'"'.SUMMARY.json'"'"')
+ if p.exists():row['"'"'bank_completion'"'"']=read(p)
+ p=output/'"'"'FAILURE.json'"'"'
+ if p.exists():row['"'"'failure'"'"']=read(p)
+ complete=row.get('"'"'bank_completion'"'"',{}).get('"'"'complete'"'"') is True and row.get('"'"'terminal'"'"',{}).get('"'"'exit_code'"'"')==0 and row.get('"'"'terminal'"'"',{}).get('"'"'reason'"'"') is None and row.get('"'"'physical_terminal'"'"',{}).get('"'"'owned_PID_absent'"'"') is True and row.get('"'"'physical_terminal'"'"',{}).get('"'"'owned_PID_no_CUDA_rows'"'"') is True
+ row['"'"'complete_bank_authoritatively_confirmed'"'"']=complete
+ if complete:
+  p=output/'"'"'DONOR_FREEZE.json'"'"';bank=read(p);assert bank['"'"'complete'"'"'] is True and bank['"'"'arm'"'"']=='"'"'DONOR_INDEPENDENT'"'"' and bank['"'"'seed'"'"']==base and len(bank['"'"'members'"'"'])==4
+  row['"'"'donor_bank_binding'"'"']={'"'"'path'"'"':str(p.relative_to(phase)),'"'"'sha256'"'"':sha(p)};row['"'"'native_member_freezes'"'"']=bank['"'"'members'"'"'];row['"'"'inclusive_bank_seconds'"'"']=bank['"'"'inclusive_seconds'"'"'];row['"'"'completed_native_cost_counters'"'"']=bank['"'"'costs'"'"']
+  row['"'"'native_member_header_bindings'"'"']=[]
+  for m,binding in enumerate(bank['"'"'members'"'"']):
+   p=phase/binding['"'"'path'"'"'];assert sha(p)==binding['"'"'sha256'"'"'];native=read(p)
+   assert native['"'"'complete'"'"'] is True and native['"'"'epochs'"'"']==1100 and native['"'"'seed'"'"']==base+1009*m
+   row['"'"'native_member_header_bindings'"'"'].append({k:native[k] for k in ['"'"'complete'"'"','"'"'epochs'"'"','"'"'seed'"'"','"'"'fresh_constructor_acquisition'"'"','"'"'source_native_sha256'"'"','"'"'native_arguments'"'"','"'"'data_manifest_sha256'"'"','"'"'selected'"'"','"'"'end'"'"','"'"'own_selector'"'"','"'"'own_CE_only'"'"','"'"'pooled_training_or_selection'"'"','"'"'program_sha256'"'"','"'"'source_manifest_sha256'"'"','"'"'selector_evaluations'"'"','"'"'ordinary_Adam_updates_total'"'"','"'"'kind'"'"','"'"'integrated_TRAIN_checks'"'"','"'"'native_reference_parity_pass_claimed'"'"','"'"'engineering_waiver_sha256'"'"']})
+ results.append(row)
+owner_complete=root/'"'"'OWNER_COMPLETE.json'"'"';owner_failure=root/'"'"'OWNER_FAILURE.json'"'"'
+print(json.dumps({'"'"'UTC'"'"':datetime.datetime.now(datetime.timezone.utc).isoformat(),'"'"'root'"'"':str(root.relative_to(phase)),'"'"'owner_process'"'"':identity(*expected['"'"'owner'"'"']),'"'"'owner_complete'"'"':read(owner_complete) if owner_complete.exists() else None,'"'"'owner_complete_binding'"'"':{'"'"'path'"'"':str(owner_complete.relative_to(phase)),'"'"'sha256'"'"':sha(owner_complete)} if owner_complete.exists() else None,'"'"'owner_failure'"'"':read(owner_failure) if owner_failure.exists() else None,'"'"'banks'"'"':results,'"'"'all_banks_complete'"'"':all(r['"'"'complete_bank_authoritatively_confirmed'"'"'] for r in results),'"'"'partial_quality_values_read'"'"':False,'"'"'checkpoints_fetched_locally'"'"':False}))
+'

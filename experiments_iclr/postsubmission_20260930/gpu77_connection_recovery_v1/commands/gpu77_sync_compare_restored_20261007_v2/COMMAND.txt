@@ -1,0 +1,24 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B -c 'from pathlib import Path
+import socket,subprocess,os,hashlib,json,datetime,stat
+repo=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');phase=repo/'"'"'experiments_iclr/postsubmission_20260930'"'"';head='"'"'506898bcf3c45af2b46bbf119ecbb3009666de2e'"'"';target='"'"'8dd796bf91f65e1de2ed99a3ee6a3efe6a3d2bf3'"'"'
+assert Path.cwd()==repo and socket.gethostname()=='"'"'peptide'"'"'
+def git(*args):return subprocess.check_output(['"'"'git'"'"',*args],cwd=repo,timeout=45)
+assert git('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==head and git('"'"'rev-parse'"'"','"'"'refs/remotes/origin/codex/postsubmission-research-20260930'"'"').decode().strip()==target
+assert not git('"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"') and not git('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+tracked=set(git('"'"'ls-files'"'"','"'"'-z'"'"').split(b'"'"'\0'"'"'));rows=[]
+for line in git('"'"'ls-tree'"'"','"'"'-r'"'"','"'"'-z'"'"','"'"'--full-tree'"'"',target).split(b'"'"'\0'"'"'):
+ if not line:continue
+ meta,bpath=line.split(b'"'"'\t'"'"',1);mode,kind,oid=meta.decode().split();path=os.fsdecode(bpath);f=repo/path
+ if bpath in tracked or not os.path.lexists(f):continue
+ assert path.startswith('"'"'experiments_iclr/postsubmission_20260930/'"'"') and kind=='"'"'blob'"'"' and mode in ('"'"'100644'"'"','"'"'100755'"'"','"'"'120000'"'"')
+ assert not any(q.is_symlink() for q in list(f.parents)[:len(Path(path).parts)-1])
+ if mode=='"'"'120000'"'"':assert f.is_symlink();data=os.fsencode(os.readlink(f))
+ else:assert f.is_file() and not f.is_symlink() and f.stat().st_size<2000000;data=f.read_bytes()
+ local=hashlib.sha1(b'"'"'blob '"'"'+str(len(data)).encode()+b'"'"'\0'"'"'+data).hexdigest()
+ row=dict(path=path,mode=mode,incoming_blob=oid,local_blob=local,bytes=len(data),local_sha256=hashlib.sha256(data).hexdigest(),identical=local==oid)
+ if local!=oid:row['"'"'incoming_sha256'"'"']=hashlib.sha256(git('"'"'cat-file'"'"','"'"'blob'"'"',oid)).hexdigest()
+ rows.append(row)
+out=dict(UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),head_before=head,incoming_commit=target,collisions=rows,scientific_jobs_or_existing_files_modified=False)
+a=phase/'"'"'git_sync_restored_20261007_v2'"'"';a.mkdir();(a/'"'"'INSPECTION.json'"'"').write_text(json.dumps(out,indent=2)+'"'"'\n'"'"')
+print(json.dumps(dict(collisions=len(rows),mismatches=[r for r in rows if not r['"'"'identical'"'"']],inspection=str((a/'"'"'INSPECTION.json'"'"').relative_to(phase)))))
+'

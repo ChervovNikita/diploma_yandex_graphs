@@ -1,39 +1,30 @@
-# Current GNNM research status
+# GNNM research status
 
-Updated 2026-10-07T14:43:14.389965+00:00. **Goal active and unmet.** There is no verified new-method superiority or fresh acceptance recommendation. Original manuscript scores remain unchanged. Previous status versions and all decisions remain in Git and the research ledger.
+Updated 2026-10-07T15:32:43.138260+00:00. Goal active: establish a useful methodological extension with verified gains and a fresh neutral manuscript review. **No verified superiority over an ordinary independent ensemble or new manuscript acceptance yet.** Original submitted scores are unchanged.
 
-## Current training
+## New completed evidence
 
-The fixed WikiCS study tests internal BatchEnsemble initialization and a contrastive training package with a capable Polynormer backbone. It includes native single models, ordinary independent ensembles and matched controls: eight conditions, three paired seeds, full1100epochs each. At14:35UTC22of24fits were complete; be_unit_contrastive6307 was at840/1100. The actual family owner remained live, without failure or closure. Scores remain closed until the fixed family ends. [Live receipt](allocation_goal_continuation_20261007_v1/OBSERVATION21.json).
+The full WikiCS comparison finished 24/24 fits: eight configurations, three seeds, 1100 epochs per fit. Prediction analysis also finished. On the 5274-node split 0 development population used for checkpoint selection:
 
-The5274-node development population is the union of official validation and stopping masks on split0. Selected development accuracy is distinct from published TEST accuracy. No mask or historical score changed.
+- Unit initialization plus the contrastive package improves over plain unit factors by 0.51percentage points; all three seeds improve. Its mean 81.63% is above the matched single 81.48%, but below the ordinary independent ensemble 82.04%.
+- Randomized first-factor initialization weakens members. It produces more correct-member coverage than unit factors, but poorer served accuracy.
+- The randomized-init contrastive primary yields 349 repairs and 321 new errors across three seed blocks: a small net change, with one negative seed. Selected development analysis cannot establish generalization.
+- Common wrong competitors dominate the remaining shared errors. Reweighting existing probabilities cannot repair a node when every member ranks the same wrong class above truth. Better member learning is required for those cases.
 
-The automatic CPU scalar analysis and selected-prediction analysis are now queued behind closure. The latter restores each original selected model once, preserves the ordinary ensemble's own-selected bank, freezes baseline error cohorts before candidates and reports member quality, common mistakes and repaired versus introduced errors. It performs at most78member inference calls, with no optimizer, new fit or reselection. Source reviews and the corrected elapsed-cap finding are preserved; actual readout runtime is pending. [Analysis launch](Wiki24_selected_analysis_after_closure_activation_root_20261007_v2/LAUNCH_OBSERVATION.json).
+These are meaningful diagnostic results, not a new method victory. Full eight-arm outcomes and negatives remain recorded. The gain in the unit arm mainly reflects member competence; it does not establish a contrastive diversification mechanism. Independent scientific interpretation and its proposed bounded tests are saved in `wikics24_scientific_interpretation_independent_20261007_v1`.
 
-## Next experiment
+## Actual work now
 
-The frozen MolHIV comparison tests a learning rule for one live shared GNN: shared weights and prediction boundaries receive each member's own supervision; internal factors additionally learn from the served ensemble prediction. Candidate I is fixed with untuned lambda0.5. Three matched loss-placement controls plus native single and ordinary independently selected four give18full100-epoch fits across three seeds. Primary evaluation is ROC AUC on the official scaffold development split. [Frozen study](internal_BE_molhiv_six_condition_pilot_adoption_root_20261007_v1/ADOPTION.json).
+The molecular graph study began on the authorized allocation. At 15:23 UTC its first single-model run reached 25/100 epochs. The frozen 18 fits compare single, ordinary independent4, and four shared-ensemble learning rules O/I/P/G on full official scaffold TRAIN 32901/development 4113. Candidate I was fixed before outcomes. No molecular comparative scores have been opened. This family is not duplicated on 18.77.
 
-Real representative CPU execution passed for all four policies, including full4113-molecule evaluation, original checkpoint selection and reload. The bounded GPU qualifier is waiting behind the current WikiCS family. The full18-fit executor and once-only waiting launcher passed independent source review. Waiting owner523400/start6019318952 is actually live on the authorized allocation. It starts the frozen study only after a successful source-bound CUDA check, terminal Wiki readout and fresh8GiB GPU-memory admission. No other job is modified. **Full molecular training has not started.** Execution checks are distinct from predictive evidence.
+18.77 reconnected successfully at 15:18 UTC. Both prior four-member native prefix banks for seeds 29/43 completed 1100 epochs/member while detached. Their original checkpoints and clean terminal receipts remain on that server. The four remaining continuation/private-path controls are admitted from these completed banks. Both continuation fits actually started at 15:41 UTC, one per GPU; each first member reached epoch 1200 by 15:42 UTC. The private-path fit follows its continuation in each lane. Owner 3614607/start 1753763677 is detached. No original prefix was restarted. Both expected A100 80 GB GPU identities are verified. The Git checkout was synchronized to 8dd796bf91f65e1de2ed99a3ee6a3efe6a3d2bf3 without replacing working files or touching jobs.
 
-The molecular rank-analysis source is ready. It uses every finite positive-negative pair and records repairs, ties and new inversions, alongside member quality and exploratory paired-seed uncertainty. Baseline-only cohorts are fixed before candidate prediction inspection. Runtime, whole18 closure and a separate release remain pending. [Readout](internal_BE_molhiv_selected_rank_readout_source_20261007_v2/PROTOCOL.md).
+## Research decisions
 
-## What the completed studies taught us
+Earlier Citeseer initialization and private-growth studies failed their declared references and remain stopped. A local Collab gain over single still lost to independent4. Keep those results and their costs. Hidden separation, stronger average members, parameter savings, or an engineering source pass alone do not establish the required quality contribution.
 
-Two Citeseer studies finished:21initialization fits and15private nonlinear-message fits. Neither proposed recipe beat its declared ensemble reference. In the growth study, pooled development MRR was0.272967 versus0.283967 for the separately optimized copied four. Despite stronger average members, common errors remained and averaging produced few repairs. Both recipes stop. These copied references share a warm model and are not ordinary independently acquired ensembles. [Initialization](citeseer_initialization21_closed_cohort_reader_activation_root_20261007_v2/readout/PAIRED_SUMMARIES.json) · [Growth](citeseer_growth15_completed_scientific_result_root_20261007_v1/CONCLUSION.md).
+We continue studying training rules and graph-specific evidence differences. The molecular factors already overlap member-conditioned normalization/GNN-FiLM; no new primitive or global-descent theorem is claimed. Literature notes retain exact source scope and failures. An attribution control is prepared but inactive until its scientific question is warranted. New paper text and acceptance review require meaningful supported evidence, separate frozen confirmation and honest uncertainty.
 
-The earlier complete39comparison, AmazonG0 and live-credit failures remain recorded. Its locally successful shared joint baseline was compared with a jointly trained untied control; it did not establish superiority over ordinary independent ensembles. The once-only Collab confirmation gained0.84828points over native single and lost0.33888points against independent four. No failed or limited result is promoted as broad superiority.
+## Boundaries
 
-An older WikiCS private-correction study is17/21complete and waits for detached prefix banks on18.77. Their current state is unknown while the other Mac is intentionally off. No job restarts from a connection failure.
-
-## Methodological assessment
-
-The own/pool loss and block-specific gradient assignment build on established ensemble methods. They supply no accuracy, diversity, graph-evidence or convergence guarantee. The actual molecular model already has private message factors after LayerNorm and before bond-aware activation/aggregation; these also affect the self term. GNN-FiLM supplies direct modulation ancestry. A possible contribution is an empirically justified supervision allocation for useful complementary atom-bond computations, with adequate attribution. [Mechanism and limits](molhiv_internal_pool_risk_message_mechanism_assessment_20261007_v1/NOTE.md).
-
-If the fixed study supports that question, a separate matched message-own control would test the message-factor role. It is prepared as disabled source, with numerical/runtime checks pending and is not appended to the current18-cell family. O/I/P/G alone cannot isolate that role. Prediction-guided initialization remains another conditional hypothesis, with close curvature/Jacobian priors and no implementation/adoption. Saved literature conclusions prevent repeated reading; scoped method credits are not whole-paper counts.
-
-## Publication and safeguards
-
-Most recent verified pushed HEAD before this update:254f82b1f575d9194b49775974dd2a3523006119, branch codex/postsubmission-research-20260930. README explains the current architecture, tasks and evidence limits. New source/review/launch records are being committed. Checkpoints and full logits stay on authorized servers.
-
-Science uses only the singleton anogena-2 allocation and authorized18.77 repository. The seven-GPU route is forwarding only. No sudo, restrictive host changes, PDF compilation, GENLINK, Desktop or unrelated-data operations. Fresh manuscript reviewers must use immutable anonymous paper/evidence and receive no requested verdict. A clear acceptance recommendation remains an unmet goal.
+Scientific execution stays in the project repositories on the authorized one-GPU allocation and18.77. The seven-GPU account is MacLink forwarding only. No sudo, host mount/namespace changes, PDF compilation, GENLINK, Desktop operations or unrelated-data access. Normal incidental runtime caches are allowed. Raw arrays and checkpoints stay on servers; compact active analysis is mirrored locally and committed with source/decisions. Reviewers must start fresh with the supplied skill and receive no desired verdict.
