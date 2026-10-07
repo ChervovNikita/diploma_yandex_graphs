@@ -1,0 +1,7 @@
+# Source review and qualification boundaries
+
+Root inspected the v3 diagnostic conventions and independent source assessment, and executed its20 synthetic helper checks in the bundled NumPy environment. The practical ROC decision, checkpoint selection and original serving budget are unchanged. AP is primary; trapezoidal PR remains separately named, especially for ties. The new attribution distinguishes ranking coverage from predictions lost during averaging and retains full-population harms and paired optimizer seeds. Actual molecular roles/checkpoints and partial outcomes were not opened.
+
+Root inspected the stateless graph-policy prototype against its stated native contract. It uses original parameter objects, edge_updater and propagate with post-softmax/dropout message attenuation; self/root routes remain present. The separate policy bank uses explicit constant noise and per-forward tensors. All-keep bypasses policy draws, and factor traversal/production RNG/serving remain caller responsibilities. No blocker identified in this source scope. Runtime, original-gradient/Adam identity and ST fixture execution are pending; a source pass does not admit a method or scientific grid.
+
+No new full paper, predictive superiority, efficiency or manuscript acceptance is asserted. The Wiki12 and Mol18 original jobs continue; both project Git repositories were synchronized to128e395b before this packet.
