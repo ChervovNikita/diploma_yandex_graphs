@@ -45,3 +45,7 @@ Message-own attribution source is inactive/runtime unverified; not appended to 1
 ## Latest bounded literature conclusions
 
 Read `literature_memory/CURRENT_SUPPLEMENT.json` and its prior chain before another search. CoGNN sender/receiver communication was inspected in six bounded method/setup sections; GC-MoE only in two architecture/exclusion sections. No full-paper credit or performance adoption. Conditional communication-credit comparison is saved with source/read scopes and normalization caveats; class-conditioned GEM-type protection remains unadopted. No new scientific grid or novelty claim follows.
+
+## Closed-family readout source readiness
+
+Disabled `internal_BE_Wiki12_closed_attribution_analysis_source_20261007_v1` is sealed (60a8e5eae275591e1c735b51a8779b74cb1579095486472cbe0820aa9a8e12db). It requires all12 original completions and whole owner/lane/child terminal custody before numeric opening. Original selected states/global flags/condition labels and mean probabilities are retained. Fixed ordered component contrasts, calibration/competence and plain-frozen error flows use at most48 member inference calls; tensors stay server-only. Static/help passed; independent source review and actual runtime admission remain pending. No scoring or job edits. A separate public reproduction CLI is being prepared to remove author-host dependencies from external reproduction; sealed studies remain unchanged.
