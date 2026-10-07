@@ -43,7 +43,7 @@ At 06:54 UTC on 7 October, the allocation's fixed WikiCS family had finished fiv
 
 The separate agent prepared three single-model controls with eight supervised stochastic paths per update. They test whether any benefit can instead be explained by more training views. Their corrected prospective comparison includes the ordinary independent ensemble on the same five reserved confirmation seeds. These controls are not added to the running family. Confirmation is conditional on a useful development result and verified unused seeds.
 
-A separate callable adapter compares alignment-only private gradients, hidden-diversity private gradients and an attributed GNCL member/pool-risk mixture restricted to internal factors. The shared weights and private input/output boundaries continue to learn from each member's own labels. Its coefficient remains explicit and unadopted. This is source preparation for a later comparison. It does not replace the complete training CLI or claim a new optimization principle.
+A separate callable adapter compares alignment-only private gradients, hidden-diversity private gradients and an attributed GNCL member/pool-risk mixture restricted to internal factors. The shared weights and private input/output boundaries continue to learn from each member's own labels. Its coefficient remains explicit and unadopted. A separate complete-training wrapper now supplies the CLI for these controls while reusing the original full driver. Both packets have been staged on the allocation, and CLI help passed. Real model/gradient execution of this new control remains unverified. No coefficient, comparison family or new optimization principle is adopted.
 
 ## Locations and next execution
 
@@ -55,5 +55,6 @@ The source root on the allocation is:
 - `portable_internal_be_family_queue_source_20261007_v1/` contains the fixed MolHIV family queue.
 - `internal_BE_portable_reproduction_readiness_report_20261007_v1/` contains the recorded checks and prospective 18.77 command.
 - `internal_be_single8_attribution_controls_source_20261007_v2/` contains the later view-count controls and confirmation plan.
+- `public_internal_be_private_steering_complete_interface_20261007_v1/` contains the additional full-training interface for the three private-gradient controls.
 
 Preparation and existing allocation training do not need the other Mac. When access to 18.77 is restored, first inspect existing detached jobs, sync the committed source, verify its actual runtime and GPU, and perform the stated real-data check there. Then start the new matched family and notify the user of its actual start. Source readiness does not mean that a new 18.77 job has started.
