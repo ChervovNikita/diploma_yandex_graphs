@@ -1,0 +1,122 @@
+--- internal_BE_molhiv18_family_executor_source_20261007_v2/executor.py
++++ internal_BE_molhiv18_family_executor_source_20261007_v3/executor.py
+@@ -123,7 +123,7 @@
+     require(sha(path) == digest, 'Exact root release required'); cfg = read(path)
+     require(cfg.get('schema') == 'internal-be-molhiv18-family-release-v1' and cfg.get('enabled') is True
+             and cfg.get('root_scientific_launch_authorized') is True and cfg.get('source_review_approved') is True
+-            and cfg.get('same_host_GPU_readiness_confirmed') is True and cfg.get('allocation_exclusive_for_family') is True
++            and cfg.get('same_host_GPU_readiness_confirmed') is True and cfg.get('GPU_memory_admission_confirmed') is True
+             and cfg.get('TEST_access') is False and cfg.get('automatic_retry') is False, 'Disabled pending exact root family admission')
+     require(cfg['executor_manifest_sha256'] == sha(HERE / 'MANIFEST.json'), 'Reviewed executor source differs')
+     for row in read(HERE / 'MANIFEST.json')['files']:
+@@ -202,15 +202,43 @@
+                  fit_output=str((family / (c + '_' + str(s))).relative_to(PHASE))) for s in SEEDS for c in CONDITIONS]
+ 
+ 
++def retain_reason(row, fatal):
++    if row['status'] == 'complete':
++        return
++    reason = row.get('reason') or row.get('error') or row.get('unavailable_reason')
++    code = row.get('exit_code'); failure = row.get('failure')
++    if not reason:
++        reason = ('Fit exited with code ' + str(code)) if type(code) is int and code != 0 else (
++            'Original FAILURE receipt retained' if failure else fatal or 'No complete original endpoint')
++    reason = str(reason); details = []
++    if type(code) is int and code != 0:
++        details.append('exit_code=' + str(code))
++    if failure:
++        details.append('FAILURE binding: path=' + failure['path'] + ', sha256=' + failure['sha256'] + ', bytes=' + str(failure['bytes']))
++    for detail in details:
++        if detail not in reason:
++            reason += '; ' + detail
++    row['reason'] = reason
++
++
+ def close_family(output, cells, pins, adoption, owner, started, hard, fatal):
++    handles = read(output / 'HANDLES.json') if (output / 'HANDLES.json').is_file() else {}
+     for row in cells:
+         if row['status'] == 'unlaunched':
+-            row['unavailable_reason'] = fatal or 'Not reached before finite closure'
++            if not row.get('unavailable_reason'):
++                row['unavailable_reason'] = row.get('error') or fatal or 'Not reached before finite closure'
+         else:
+             directory = inside(row['fit_output'])
+             if not directory.exists():
+                 directory.mkdir()
+                 row['empty_output_directory_retained_by_closure'] = True
++            if row['status'] != 'complete':
++                code = handles.get(row.get('owner_handle_id'), {}).get('exit_code')
++                if row.get('exit_code') is None and type(code) is int:
++                    row['exit_code'] = code
++                if not row.get('failure') and (directory / 'FAILURE.json').is_file():
++                    row['failure'] = binding(directory / 'FAILURE.json')
++        retain_reason(row, fatal)
+     closure = dict(schema='internal-be-molhiv-family-engineering-closure-v1', closed=True, task='molhiv',
+         adoption=pins['adoption'], source_manifests=adoption['sources'], family_root=str((output / 'fits').relative_to(PHASE)),
+         cells=cells, owner=owner, executor_manifest_sha256=sha(HERE / 'MANIFEST.json'), fatal=fatal,
+--- internal_BE_molhiv18_family_executor_source_20261007_v2/RELEASE_TEMPLATE_DISABLED.json
++++ internal_BE_molhiv18_family_executor_source_20261007_v3/RELEASE_TEMPLATE_DISABLED.json
+@@ -1,11 +1,11 @@
+ {
++  "GPU_memory_admission_confirmed": false,
+   "TEST_access": false,
+   "adoption": {
+     "bytes": 4463,
+     "path": "internal_BE_molhiv_six_condition_pilot_adoption_root_20261007_v1/ADOPTION.json",
+     "sha256": "10635f57c935ce38b1d5a3fe8ab0bda4b673669baaf65027b2f4e9586822dd5f"
+   },
+-  "allocation_exclusive_for_family": false,
+   "automatic_retry": false,
+   "budget_source": {
+     "bytes": 1597,
+--- internal_BE_molhiv18_family_executor_source_20261007_v2/PROTOCOL.md
++++ internal_BE_molhiv18_family_executor_source_20261007_v3/PROTOCOL.md
+@@ -1,13 +1,20 @@
+ # Frozen MolHIV 18-fit family executor
+ 
+-V2 narrowly adds fresh saved-leader identity checks before every group signal
+-and explicit elapsed hard-cap flags/guards in outer terminal evidence. The sealed
+-v1 is preserved; dispatcher, adopted work, limits, and dependencies are unchanged.
++V3 narrowly adds `row.reason` for noncomplete closure rows, using retained
++specific error/unavailable text and existing exit/failure custody. Sealed v1/v2
++are preserved; v2 signal/cap guards, dispatcher, adopted work, limits, and
++dependencies are unchanged.
++
++The launch declaration also replaces `allocation_exclusive_for_family` with
++`GPU_memory_admission_confirmed` for normal shared-host execution.
+ 
+ This source-only packet adds a serial family owner and an ordinary outer parent
+ around the adopted one-cell dispatcher. The disabled release template does not
+ authorize a scientific process. Root separately admits the family after source
+-review and same-host GPU readiness, with an exclusive normal allocation.
++review, same-host GPU readiness, and a freshly bound observation of at least
++8 GiB physical GPU memory free. This is admission at launch on the normal shared
++host. Other jobs are left running; this packet does not reserve host resources
++or add a resource scheduler.
+ 
+ ## Fixed work
+ 
+@@ -51,6 +58,14 @@
+ deserializes a checkpoint, selects an epoch, or reads trace prediction/quality
+ values. COMPLETE engineering fields are checked without copying its objectives.
+ 
++At both ordinary and fallback closure, every failed/invalid/unlaunched row retains
++its specific `reason`, `error`, or `unavailable_reason` text as the readout's
++`row.reason`. Existing nonzero exit codes and FAILURE path/hash/bytes are included
++in that reason. Missing row exit metadata may be copied only from its existing
++owner handle; a present FAILURE receipt is hash-bound if not already retained.
++Missing exit/reap or failure evidence is never invented, and a specific reason
++is never replaced with a generic one.
++
+ `FAMILY_CLOSURE.json` uses the existing MolHIV readout's whole-family closure
+ schema. `TERMINAL_EVIDENCE.json` is written by the outer parent after actually
+ waiting/reaping the family owner. Its handles include the family owner and all
+@@ -73,7 +88,7 @@
+ From `/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs`:
+ 
+ ```text
+-/usr/bin/python3 -I -S -B experiments_iclr/postsubmission_20260930/internal_BE_molhiv18_family_executor_source_20261007_v2/executor.py --release <absolute-root-release.json> --release-sha256 <exact-root-release-sha256>
++/usr/bin/python3 -I -S -B experiments_iclr/postsubmission_20260930/internal_BE_molhiv18_family_executor_source_20261007_v3/executor.py --release <absolute-root-release.json> --release-sha256 <exact-root-release-sha256>
+ ```
+ 
+ The wrapper needs Linux `/proc`, Python 3.9+, `/bin/bash`, and

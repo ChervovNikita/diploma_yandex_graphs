@@ -1,0 +1,168 @@
+--- internal_BE_molhiv18_family_executor_source_20261007_v1/executor.py
++++ internal_BE_molhiv18_family_executor_source_20261007_v2/executor.py
+@@ -82,25 +82,32 @@
+     return result
+ 
+ 
++def owned_leader(handle):
++    actual = proc(handle['pid'])
++    return bool(actual and actual['pid'] == handle['pid'] and actual['start_ticks'] == handle['start_ticks']
++        and actual['group'] == handle['group'] == handle['pid']
++        and actual['session'] == handle['session'] == handle['pid'])
++
++
+ def stop_owned(child, handle, deadline):
+-    if child.poll() is None:
+-        actual = proc(child.pid)
+-        require(actual and actual['start_ticks'] == handle['start_ticks'] and actual['group'] == child.pid
+-                and actual['session'] == child.pid, 'Owned process identity/session changed; no signal sent')
+-    # While this supervised session still has members, its group ID cannot be
+-    # reused for a new process. Reap the direct child and stop any remaining group.
++    # Numeric PGID alone is never custody after the saved leader disappears.
+     if group_live(child.pid):
++        if handle['pid'] != child.pid or not owned_leader(handle):
++            return False
+         os.killpg(child.pid, signal.SIGTERM)
+         grace_deadline = min(deadline, time.monotonic() + 5)
+         while group_live(child.pid) and time.monotonic() < grace_deadline:
+             child.poll(); time.sleep(.1)
+         if group_live(child.pid):
++            if handle['pid'] != child.pid or not owned_leader(handle):
++                return False
+             os.killpg(child.pid, signal.SIGKILL)
+     if child.poll() is None:
+         try:
+             child.wait(timeout=max(0, deadline - time.monotonic()))
+         except subprocess.TimeoutExpired:
+             pass
++    return child.poll() is not None and not group_live(child.pid)
+ 
+ 
+ def interrupted(signum, frame):
+@@ -256,14 +263,17 @@
+                     except subprocess.TimeoutExpired:
+                         timed_out = True
+                         current['error'] = 'Retained active timeout; no shortened fit or retry'
+-                        stop_owned(child, handle, cell_deadline); current['exit_code'] = child.poll()
++                        current['cleanup_custody_unavailable'] = not stop_owned(child, handle, cell_deadline)
++                        current['exit_code'] = child.poll()
+                 terminal = dict(handle, exit_code=current['exit_code'], reaped=current['exit_code'] is not None,
+                     children_terminal=not group_live(child.pid), inclusive_seconds=time.monotonic() - began)
+                 if not terminal['children_terminal']:
+-                    stop_owned(child, handle, cell_deadline); terminal['children_terminal'] = not group_live(child.pid)
++                    stopped = stop_owned(child, handle, cell_deadline)
++                    current['cleanup_custody_unavailable'] = current.get('cleanup_custody_unavailable', False) or not stopped
++                    terminal['children_terminal'] = not group_live(child.pid)
+                 handles[current['cell']] = terminal
+-                if not terminal['reaped'] or not terminal['children_terminal']:
+-                    fatal = 'Owned fit remains unreaped/live'; break
++                if current.get('cleanup_custody_unavailable') or not terminal['reaped'] or not terminal['children_terminal']:
++                    fatal = 'Owned fit exit/reap or saved-leader cleanup custody unavailable'; break
+                 if not timed_out and current['exit_code'] == 0 and time.monotonic() <= cell_deadline:
+                     try:
+                         current['artifacts'] = completion(current, adoption)
+@@ -279,7 +289,9 @@
+             except BaseException as error:
+                 current.update(status='failed' if child is not None else 'unlaunched', error=type(error).__name__ + ': ' + str(error))
+                 if child is not None and handle is not None:
+-                    stop_owned(child, handle, cell_deadline); code = child.poll()
++                    stopped = stop_owned(child, handle, cell_deadline)
++                    current['cleanup_custody_unavailable'] = current.get('cleanup_custody_unavailable', False) or not stopped
++                    code = child.poll()
+                     current['exit_code'] = code
+                     handles[current['cell']] = dict(handle, exit_code=code, reaped=code is not None, children_terminal=not group_live(child.pid))
+                 fatal = current['error']
+@@ -306,6 +318,7 @@
+     require(not output.exists() and output.parent.is_dir(), 'Fresh family execution directory required')
+     output.mkdir(mode=0o700); started = time.monotonic(); hard = 18 * limits[2]; cleanup = limits[1]
+     child = None; handle = None; code = None; error = None
++    active_timeout_triggered = False; cleanup_custody_unavailable = False
+     write(output / 'PARENT_OWNER.json', dict(proc(os.getpid()), release_sha256=args.release_sha256,
+         family_started_monotonic=started, family_hard_deadline_monotonic=started + hard))
+     try:
+@@ -318,29 +331,43 @@
+             try:
+                 code = child.wait(timeout=max(0, hard - cleanup - (time.monotonic() - started)))
+             except subprocess.TimeoutExpired:
+-                error = 'Finite whole-family active bound'; stop_owned(child, handle, started + hard); code = child.poll()
++                active_timeout_triggered = True; error = 'Finite whole-family active bound'
++                cleanup_custody_unavailable = not stop_owned(child, handle, started + hard); code = child.poll()
+     except BaseException as failure:
+         error = type(failure).__name__ + ': ' + str(failure)
+         if child is not None and handle is not None:
+-            stop_owned(child, handle, started + hard); code = child.poll()
++            stopped = stop_owned(child, handle, started + hard)
++            cleanup_custody_unavailable = cleanup_custody_unavailable or not stopped; code = child.poll()
+     handles = read(output / 'HANDLES.json') if (output / 'HANDLES.json').is_file() else {}
+     # Emergency owner failure: clean only the actual fit groups saved by this
+     # owner. Orphan exit/reap is never fabricated; incomplete custody blocks readout.
+     cleanup_records = []
+     for path in (output / 'receipts').glob('*_OWNER.json') if (output / 'receipts').is_dir() else []:
+-        owned = read(path); actual = proc(owned['pid'])
+-        if actual and actual['state'] != 'Z' and actual['start_ticks'] == owned['start_ticks'] and actual['group'] == owned['pid']:
+-            os.killpg(owned['pid'], signal.SIGTERM)
++        owned = read(path)
++        if group_live(owned['pid']):
++            record = dict(owned, emergency_owned_group_cleanup=False, actual_exit_and_reap_unavailable=True,
++                cleanup_custody_unavailable=False)
++            if owned_leader(owned):
++                os.killpg(owned['pid'], signal.SIGTERM)
++                record['emergency_owned_group_cleanup'] = True
++            else:
++                record['cleanup_custody_unavailable'] = True
+             cleanup_deadline = min(started + hard, time.monotonic() + 5)
+-            while group_live(owned['pid']) and time.monotonic() < cleanup_deadline:
++            while not record['cleanup_custody_unavailable'] and group_live(owned['pid']) and time.monotonic() < cleanup_deadline:
+                 time.sleep(.1)
+-            actual = proc(owned['pid'])
+-            if actual and actual['state'] != 'Z' and actual['start_ticks'] == owned['start_ticks'] and actual['group'] == owned['pid']:
+-                os.killpg(owned['pid'], signal.SIGKILL)
+-            cleanup_records.append(dict(owned, emergency_owned_group_cleanup=True, actual_exit_and_reap_unavailable=True))
++            if group_live(owned['pid']):
++                if owned_leader(owned):
++                    os.killpg(owned['pid'], signal.SIGKILL)
++                    record['emergency_owned_group_cleanup'] = True
++                else:
++                    record['cleanup_custody_unavailable'] = True
++            record['children_terminal_observed'] = not group_live(owned['pid'])
++            cleanup_records.append(record)
+     if cleanup_records:
+         write(output / 'EMERGENCY_CLEANUP.json', cleanup_records)
+         error = error or 'Emergency owned-group cleanup; terminal exit/reap remains unavailable'
++    if cleanup_custody_unavailable:
++        error = error or 'Saved owner custody unavailable; no signal sent to a numeric group alone'
+     closure_path = output / 'FAMILY_CLOSURE.json'
+     if not closure_path.is_file():
+         (output / 'fits').mkdir(exist_ok=True)
+@@ -348,16 +375,28 @@
+         close_family(output, cells, pins, adoption, handle, started, hard,
+             error or 'Owner exited without closure; unavailable cells retained')
+     closure = read(closure_path)
+-    cell_custody = all(row.get('owner_handle_id') in handles for row in closure['cells'] if row['status'] != 'unlaunched')
++    if error:
++        closure['fatal'] = closure.get('fatal') or error
++        write(closure_path, closure)
++    cell_custody = all(row.get('owner_handle_id') in handles and not row.get('cleanup_custody_unavailable')
++        for row in closure['cells'] if row['status'] != 'unlaunched')
+     if handle is not None:
+         handles['family_executor'] = dict(handle, exit_code=code, reaped=code is not None,
+             children_terminal=cell_custody and not group_live(child.pid)
+                 and all(row.get('reaped') is True and row.get('children_terminal') is True for row in handles.values()))
++    elapsed = time.monotonic() - started; hard_cap_exceeded = elapsed > hard
++    if hard_cap_exceeded:
++        error = error or 'Finite whole-family hard cap exceeded'
+     terminal = dict(schema='internal-be-molhiv-terminal-evidence-v1', observed_at_UTC=datetime.now(timezone.utc).isoformat(),
+         engineering_closure=binding(closure_path) if closure_path.is_file() else None, handles=handles,
+-        owner_and_children_terminal=bool(not cleanup_records and cell_custody and handle is not None and code is not None
++        owner_and_children_terminal=bool(not hard_cap_exceeded and not active_timeout_triggered
++            and not cleanup_custody_unavailable and not cleanup_records
++            and cell_custody and handle is not None and code is not None
+             and all(row.get('reaped') is True and row.get('children_terminal') is True for row in handles.values())),
+-        inclusive_parent_seconds=time.monotonic() - started, finite_family_hard_seconds=hard, error=error,
++        inclusive_parent_seconds=elapsed, finite_family_hard_seconds=hard,
++        family_hard_cap_exceeded=hard_cap_exceeded, within_family_hard_cap=not hard_cap_exceeded,
++        finite_family_active_seconds=hard - cleanup, family_active_timeout_triggered=active_timeout_triggered,
++        cleanup_custody_unavailable=cleanup_custody_unavailable or any(row['cleanup_custody_unavailable'] for row in cleanup_records), error=error,
+         quality_values_opened=False, TEST_access=False, automatic_retry=False)
+     write(output / 'TERMINAL_EVIDENCE.json', terminal)
+     print(json.dumps(dict(complete=code == 0 and terminal['owner_and_children_terminal'],

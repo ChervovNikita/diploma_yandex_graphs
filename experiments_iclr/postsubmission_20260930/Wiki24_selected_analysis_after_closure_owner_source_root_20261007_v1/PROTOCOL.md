@@ -1,0 +1,9 @@
+# Once-only Wiki24 selected-prediction analysis
+
+This owner activates the existing source-reviewed collector after the fixed24-cell family, its existing CPU metadata/scalar analysis and the already-live molecular GPU qualifier are terminal. The parent imports only standard-library modules and hides CUDA while waiting. It reuses the original reader outputs and conservative saved-handle evidence, and rechecks those known identities. Historical fits lacking start ticks retain that limitation. No missing process is restarted, no training source changes, and no outcome is inspected before closure.
+
+The collector restores each original selected state once, keeps independently selected ensemble banks intact, performs at most78 member inference calls, freezes baseline cohorts before candidate inspection and reports complete-population repairs/harms and member quality. No training, reselection, test scoring or augmentation is added. Every failed/unlaunched family row remains accounted. Raw arrays remain server-only.
+
+Finite owner wait:24h. One collector:1800active seconds plus10cleanup. Admission requires at least8GiB actual free on the sole authorized GPU. This is a resource allowance, not an efficiency or accuracy claim. The owner can stop only its own child after timeout/interruption, writes exit/reap/cost evidence and never retries. Qualifier terminal is awaited to keep the two new analysis jobs from overlapping; a failed qualification cannot become scientific method evidence. Molecular full fits require their separate release.
+
+The source template has no approval and does not execute. A separate exact-manifest root approval must authorize the owner and bind the collector manifest. Source review and actual owner observation precede activation. The original selected-prediction source remains unchanged.
