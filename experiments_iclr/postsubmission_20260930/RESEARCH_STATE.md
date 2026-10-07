@@ -1,27 +1,35 @@
 # Current state
 
-Updated 2026-10-07T04:05:47.231063+00:00. Goal active and unmet. Original paper scores unchanged. No supported new-method superiority or fresh paper acceptance.
+Updated 2026-10-07T10:46:04.026756+00:00. Goal active and unmet. No verified new-method superiority or fresh manuscript acceptance. Original paper scores unchanged.
 
-## Scientific work
+## Active experiment and analysis
 
-- WikiCS native reference: three complete 1100-update fits, clean terminal evidence, mode-restored selected replay, mean development accuracy about81.62%. Not a GNNM win.
-- WikiCS private graph correction: E_stage 17/29/43 complete400 scheduled private updates each; root quality closed until required comparisons finish. Same graph, private learned weights, one frozen competent backbone; no independent-teacher compression.
-- WikiCS common controls and seed17 independent comparison:17/21 complete. Remaining independent29/43 comparisons await detached77 prefix banks; current state unknown while the other Mac is unavailable. No restart is inferred from offline status.
-- Learned internal BE steering: three real task exports approved; fixed24-cell WikiCS family launched at04:02UTC through controller510850/ticks6015502511. Unchanged1100-epoch fits, fixed eight arms and three seeds. Comparative outcomes and TEST closed. The resource-only owner506790 was replaced at a verified idle boundary; scientific jobs were untouched.
-- Citeseer initialization fixed 21 and nonlinear private messages fixed 15 remain live. Original source, seeds and horizons preserved. One earlier growth quality exposure is disclosed. All future monitors allowlist progress counters; TEST remains closed.
-- Complementary masked targets: five-condition/three-seed TRAIN-only implementation is sealed and independently source-reviewed, but unlaunched. Its balanced target assignment mainly changes per-branch minibatch order; no new objective is claimed. Reconstruction ancestry is GraphMAE/GraphMAE2; novelty and efficacy unproved. All fifteen endpoints must freeze before its separate scorer sees VALID labels.
-- Outgoing-zero nonlinear-message initialization: reviewed representative same-runtime controls prepared, disabled. No cross-runtime initialization effect claim.
+The exact one-GPU allocation is training the fixed eight-arm/three-seed WikiCS internal BatchEnsemble initialization and auxiliary-loss family. At10:37UTC13/24 fits had completed all1100 epochs; be_init6203 was at564. Owner510850/start6015502511 remained live. Comparative scores and TEST stay closed until whole-family closure. Receipt:allocation_goal_continuation_20261007_v1/OBSERVATION13.json.
 
-## Publication and limits
+A source-reviewed CPU-only waiter518522/start6017908116 is live. After full engineering closure and conservative terminal observations of every recorded scientific handle, it runs the v3 selected-metadata extractor and scalar reader once. It changes no scientific job, performs no model forward/GPU work, and has no retry. The GPU selected-prediction collector/error analysis remains separately disabled until closure and a work release.
 
-Reviewed source, notes and compact results from both servers are published in batches on codex/postsubmission-research-20260930. Last exact-ref verified push before this update is 1bf451f8da81ce5c2c444def3987c4298c720a83. Checkpoints/full logits remain on authorized servers. Only singleton allocation and18.77 perform science; seven-GPU route forwards MacLink only. No PDF compilation, sudo or GENLINK. Original manuscript scores are preserved.
+The5,274-node WikiCS development population is the union of official validation and stopping masks, split0. Selected development results are not directly comparable to published TEST scores. The data, fits and original paper scores are unchanged.
 
-Citeseer live-credit and Amazon G0 failed fixed comparisons and stopped. Collab private sharing improved over single and lost to independent four. Citeseer shared joint baseline improved mean VALID MRR over independent four, but lost Hits@10 and does not prove general superiority. Complete results and failed costs remain in the ledger. Literature conclusions are reused; scoped reading counts are not full-paper counts. Hydra has confirmed ICML 2020 workshop/arXiv ancestry, with no verified A*/A main conference or journal version. Prior work applies regardless of venue. Fresh independent paper review still requires a supported immutable revised manuscript and evidence, without a requested verdict.
+## Cross-task method preparation
 
-## Learned internal steering proposal
+Full public training/conversion code covers WikiCS/Polynormer node classification, ogbl-collab/GCN+NCN temporal link prediction, and ogbg-molhiv/bond-aware GINE+virtual-node graph classification. All three converters passed full ordered equality on the allocation. Portable model/update/complete-validation/checkpoint/reload execution is measured within the bounded MolHIV scope; it is not a full scientific reproduction or accuracy improvement.
 
-The user proposes trainable BatchEnsemble modulation within the shared GNN, distinct initialization, contrastive learning, adaptive diversity strength and learned aggregation. The saved proposal separates label-compatible predictive differences from arbitrary embedding distance, credits DICE/CDLG/SuGAr/HGEN, and requires complete accuracy/error comparisons. Adaptive weights and reinforcement learning are not novelty claims. The existing fixed initialization, message and supervised-correction queues continue. [Proposal and limits](learnable_graph_batchensemble_steering_user_direction_20261007_v1/NOTE.md).
+O/I/P/G source interfaces restrict the own/pool mixture to internal factors, internal+prediction boundaries, or all parameters, with the same internal-only alignment term. P/G passed separate representative MolHIV CPU work; changed O/I and GPU/full-horizon runtime still need qualification. Shared alignment-only and own-only jointly selected untied controls are source-ready; ordinary independently selected four remains the practical baseline. Source readiness does not adopt a large grid.
 
-The dedicated method agent completed collaboration and molecular launch preparation; resource checks and separate scientific releases are pending. The other Mac can remain off during preparation; no new77 jobs have started. The fixed TRAIN intervention panel and later eight-view single control address functional diversity and extra-view attribution. Learned contrast strength is under literature/theory assessment, not retroactively added to the current family.
+The separate method agent is completing a compact prospective six-condition MolHIV-first handoff, followed by independently adopted Collab and later Wiki follow-up. No new18.77 job has started while the other Mac is temporarily off. Inspect detached historical18.77 owners before syncing or restarting when access returns.
 
-First new-suite full fit: single6101 completed1100epochs by04:23UTC; next alignment control progressing. Source/launch and compact notes were pushed as688b0a6. New two-task launch code and theory/analysis notes are being published in the next batch. No comparative quality or TEST opened, no new77 launch. See publication/internal_BE_other_task_code_ready_20261007_v1/STATUS.md.
+## Completed evidence and decisions
+
+Citeseer initialization and fifteen-fit nonlinear graph-growth comparisons are complete and preserved. Graph-filtered growth lost to its copied independently optimized graph-growth ensemble in all three blocks on MRR and Hits10; this recipe stops. The earlier endpoint live-credit method also failed its complete39 comparison. A shared joint baseline's local MRR gain over a jointly trained untied comparator did not establish superiority over ordinary ensembles and lost Hits10.
+
+Amazon G0 and live-credit failed; their failures/costs remain. Earlier Collab private sharing gained over the native single and lost to independent four. No failed result is promoted into a successful method. Wiki private-graph/control family17/21 still awaits old detached18.77 prefix banks; their current state is unknown offline.
+
+## Literature and publication
+
+Saved primary-source conclusions are reused. The newest scoped GAR2609.36724v1 read adds auxiliary-gradient-placement ancestry, not a new graph mechanism or global originality certificate. One new selected method scope, zero whole-paper credits. The internal supervised-risk restriction still requires O/I/P/G and practical accuracy/error evidence.
+
+Last verified pushed HEAD before this update:03f5aaa3d0587dbe0265d2addbbb766d4247563a on codex/postsubmission-research-20260930. New compact sources/notes are being published. Checkpoints and full logits stay on authorized servers. Scientific execution uses only the singleton anogena-2 allocation and18.77; seven-GPU access is MacLink relay only. No sudo, PDF compilation, GENLINK or unrelated-data access. Fresh manuscript reviewers must receive immutable anonymous paper/evidence and no requested verdict.
+
+## Latest ready handoff and prospective adoption
+
+The final three-task dispatcher and plan are sealed/staged. Root froze the first MolHIV18-fit scientific comparison: candidate I, initialized shared factors, fixed lambda0.5, paired seeds7101/7203/7307, six conditions, full100epochs. No scientific process or18.77 job starts through that adoption record; exact-source same-host work remains required. It preserves the ordinary independently selected four and native single as required practical baselines. See internal_BE_three_task_handoff_readiness_20261007_v1/README.md and internal_BE_molhiv_six_condition_pilot_adoption_root_20261007_v1/ADOPTION.json.

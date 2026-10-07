@@ -18,7 +18,7 @@ A separate experiment changes which parameters receive the ensemble's supervised
 | Link prediction | ogbl-collab, official temporal split | GCN + NCN | Mean link logits | Hits@50 | 100 epochs over all TRAIN events |
 | Molecular graph classification | ogbg-molhiv, official scaffold split | Bond-aware GINE + virtual node | Mean graph logits | ROC AUC | 100 epochs over all TRAIN molecules |
 
-These backbones and tasks are implemented explicitly. The code does not establish support for every GNN or heterogeneous graph architecture. Collab keeps repeated temporal events and the official negatives. MolHIV keeps categorical atom and bond features. WikiCS uses one transductive graph; optimizer seeds on split 0 are not additional graphs.
+These backbones and tasks are implemented explicitly. The code does not establish support for every GNN or heterogeneous graph architecture. Collab keeps repeated temporal events and the official negatives. MolHIV keeps categorical atom and bond features. WikiCS uses one transductive graph and the native union of validation and stopping masks for development selection; optimizer seeds on split 0 are not additional graphs. These development scores are distinct from published TEST scores.
 
 Wiki probability pooling gives more supervised credit to a member contributing more correct-class probability. Collab and MolHIV use mean logits, so their pool term supplies the same output residual to each member. Different internal computations may respond differently, but the Wiki responsibility explanation cannot be transferred to them.
 
