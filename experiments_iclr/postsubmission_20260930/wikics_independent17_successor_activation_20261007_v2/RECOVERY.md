@@ -1,0 +1,3 @@
+# Seed17 successor launcher correction
+
+The v1 launcher reached the completed bank then passed a {path,sha256} binding object to its relative-path helper. It stopped before any successor jobs, directories or scientific fits were created. Its traceback/failure and full wait cost remain preserved. This v2 resolves and hashes each selected/end artifact through a binding-object helper. No native prefix, method, seed, optimizer, horizon, dataset role, source review or original adopted plan changes. I_native and U_stage retain one shared existing independently acquired four-model prefix. The actual native bank finished with clean owned exit0 and the original thirteen-cell owner is complete. This is a pre-fit orchestration correction, not a restarted quality trial.
