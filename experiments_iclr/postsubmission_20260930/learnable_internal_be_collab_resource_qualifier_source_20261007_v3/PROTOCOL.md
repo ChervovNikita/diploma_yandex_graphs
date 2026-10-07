@@ -1,0 +1,25 @@
+# Disabled Collab qualifier Qv3: exact v6 source binding
+
+This is a source/review rebind to final approved suite v6, MANIFEST SHA-256 `04f40b16b3d9d75018dfacb7209fcd2bd180da0c4a8cfd278e0dd8f8c6648049`. Independent suite approval is `fresh_internal_be_Collab_official_negative_contract_review_20261007_v6/REVIEW.json`. Qv1 (`3668747a8e27ab7eaa3754f56744697d6a71cb1e2e3a05284175362e64833f50`), Qv2 (`682195231869cffeda6e84a0cf5c5e0c124344f6f9d901a80c62eec8e286f279`) and the approved Qv2 review are preserved unchanged. Qv3 source eligibility still requires root's independent inspection of this exact small diff. No authority is enabled and no actual official role/output approval is bound.
+
+## The corrected official negative contract
+
+The authenticated official100000-row VALID shared negative list contains exactly one self-pair. V6 retains that original row and every other original negative, including their source/member/array custody. It keeps integer shape/ID checks and the original ban on self-pairs in TRAIN and VALID positives. Role metadata must contain genuine integer `valid_negative_self_pair_records=1`; the v6 loader checks the complete actual list against that count. The qualifier uses that reviewed loader directly and adds no filter or replacement. This is a domain-contract correction, not a change to sampling, supervision or the link task.
+
+Collab remains `internal-be-official-role-projection-v3`, `NPZ_numeric_only`, TRAIN `{x,positive,positive_year}`, VALID `{positive,positive_year,negative}`. Original TRAIN years1963..2017 and VALID2018, full event counts and1D integer year shapes remain unchanged. Historical canonical pair recurrence is permitted. VALID identities never filter historical TRAIN support, no event or negative is dropped, and year arrays are not model features. Authentic actual v6 export and independently approved output custody remain root/author work; the job's data binding stays unset until root directs a concrete release.
+
+## Workload and execution unchanged
+
+`worker.py`, `supervise.py`, `source_ops.py` and the exposed extracted runner statements are byte-identical to Qv2 and Qv1. Suite v6 runner/model/factor/objective/selection/runtime/supervisor/provider/dependency/config bytes and graph support/grouping functions are unchanged from v5. `NARROW_SCOPE.json` binds those comparisons, while `SOURCE_DIFF.patch` shows the qualifier's literal binding changes. No new fixture or numerical identity test is included.
+
+The full resource work remains one committed source epoch1 TRAIN update: all235868 nodes and complete1179052 TRAIN records for support/negative preparation; the native shuffled first65536 positive+65536 negative targets; two stochastic views through every actual member; original full own loss and bounded512 auxiliary grouping/identities, coefficients and normalization; original Adam groups/LRs and persistent member RNG streams; source backward/finite checks and every optimizer step. Strict all-duplicate/reversed supervised TRAIN target removal in both message and NCN support is unchanged.
+
+Complete VALID still includes all60084 positives and all100000 official negatives in the original131072 grouping, full TRAIN-only graph computation, every member and original pooled/per-member Hits@50 evaluator work. The authentic negative self-pair is part of that same complete workload. No node, target, view, member, layer, graph or negative-list reduction is allowed.
+
+Closed source checkpoint/full model-Adam-RNG serialization, original finite state/output checks and actual shape/work counters remain unchanged. Predictive values stay in private resource artifacts and are absent from progress, receipts and stdout. A representative update/full VALID pass is not a complete epoch,100-epoch time guarantee, useful prediction, numerical parity or scientific-fit result. Resource snapshots cannot become fit starts or selected endpoints.
+
+Bootstrap remains separate from fit admission. A worker candidate cannot self-pass; the actual owned-child parent must observe successful child completion, finite measured CUDA/RSS/time/storage/work/custody, and terminal closure before issuing final passed evidence. Its3590 active+10 cleanup cap remains inside3600 seconds, with failures/costs retained and observed final-write overrun demoted. Exact existing singleton host/UUID/interpreter/cwd/runtime restrictions, no77, no TEST, no automatic retry, no fit/export authority, measured seed binding and the source cell-identity seed omission limitation all remain as documented in Qv2. No source was staged or executed by this author.
+
+## Review and release
+
+Root independently inspects the narrow Qv2→Qv3 diff and exact v6 source approval. The single template stays disabled with source/data/output/qualifier-review authority unset or false. Root later creates concrete jobs outside the seal, binds authentic exact v6 roles and independent output approval, and separately authorizes resource execution through the unchanged owned parent. This packet grants no export, resource, GPU, fit, score or TEST permission.

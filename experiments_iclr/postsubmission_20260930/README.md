@@ -2,11 +2,19 @@
 
 The objective is better predictive accuracy from a learnable graph ensemble with a shared backbone. No new method has yet demonstrated both superiority over strong single and independent ensembles and methodological novelty. Original five-dataset paper scores remain unchanged.
 
-Work currently uses only the authorized one-GPU allocation. The user temporarily withdrew 18.77 access; its detached jobs remain untouched and unobserved. The fixed 30-fit private-learning pilot remains unchanged. A separately frozen matched-single block launched on the allocation to test whether four private learners offer a benefit beyond one learner with the same parameter roles and four input streams. Six further companion fits remain unreleased until access returns. Progress is not an accuracy result.
+The current proposal trains member-specific BatchEnsemble factors inside a shared GNN while its shared weights also learn. Two stochastic views teach each member to retain its own predictions and learn different residual representations. Initialization and the auxiliary loss are separate comparisons. All members still execute full paths. Novelty and better predictions have not been established.
 
-The active rule trains the shared representation through private learning on other graph endpoints. Meta-learning and persistent graph-learning precedents constrain its novelty. Complete comparisons and fixed mechanism diagnostics will test prediction quality, complementary errors and actual learning credit. No favorable incomplete subset will replace the frozen cohort.
+A dedicated implementation covers WikiCS node classification, temporal collaboration links and molecular graph classification. The eight-arm, three-seed family for each task includes single models, ordinary independent ensembles and initialization/loss controls. Source review and synthetic CPU checks are complete. Official WikiCS and molecular data passed complete output audits. Six WikiCS resource cases passed complete local/global updates and VALID work. A contrastive case ran out of memory alongside two existing jobs. Its unchanged-source successor waits for sufficient free GPU memory and reuses successful checks. No new-suite scientific fit has started.
+
+Collaboration data preparation is correcting two generic assumptions to preserve the official benchmark: historical pairs may recur in future events, and its fixed negative list contains one self-pair. Both failed exports and their costs are saved. The approved v6 successor exported and audited every official event and all 100,000 negatives successfully. The transfer plan for18.77 remains disabled pending restored MacLink and live runtime/data/resource verification.
+
+The original Citeseer initialization and private-message queues continue on the one-GPU allocation. The WikiCS private-correction comparison has completed 17 of its 21 cells. Four comparison cells depend on the detached prefix banks on 18.77, which have not been observed since the other Mac became unavailable. No jobs are restarted from a missing observation. The user will restore the connection after code preparation. Scientific work on the seven-GPU allocation remains prohibited.
 
 - [Current measured results and runtime status](PUBLIC_STATUS.md)
+- [Internal BatchEnsemble experiment protocol](learnable_internal_be_contrastive_multitask_suite_20261007_v4/PROTOCOL.md)
+- [Resource measurement source and limits](learnable_internal_be_resource_qualifier_source_20261007_v1/PROTOCOL.md)
+- [Independent method source review](fresh_internal_be_suite_method_rereview_20261007_v3/REVIEW.md)
+- [Independent final runtime source review](fresh_internal_be_suite_roles_runtime_rereview_20261007_v4/REPORT.md)
 - [Pubmed full-cycle TRAIN geometry and limits](private_transfer_pubmed_train_geometry_execution_root_20261005_v1/ROOT_ADOPTION_REPORT.md)
 - [Pubmed input source workflow](private_transfer_pubmed_allocation_available_preparation_20261005_v3/REPORT.md)
 - [Pubmed port source repair review](private_transfer_pubmed_port_independent_static_review_20261005_v2/REPORT.md)
