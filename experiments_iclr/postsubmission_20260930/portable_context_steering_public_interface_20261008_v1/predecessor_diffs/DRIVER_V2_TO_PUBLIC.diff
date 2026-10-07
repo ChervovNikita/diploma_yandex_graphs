@@ -1,0 +1,316 @@
+--- contrastive_BE_steering_continuing_research_20261007_v1/integration_successor_v2/train_context.py
++++ portable_context_steering_public_interface_20261008_v1/train.py
+@@ -1,4 +1,4 @@
+-"""Disabled context-target full loop; explicit original public driver successor."""
++"""Public caller-supplied WikiCS context training; full1100epochs, original selectors/replay."""
+ import argparse
+ import json
+ import os
+@@ -7,58 +7,107 @@
+ import time
+ import sys
+ HERE = Path(__file__).resolve().parent
+-PHASE = HERE.parents[1]
+-PUBLIC_ROOT = PHASE / 'portable_internal_be_public_interface_20261007_v2'
+-sys.path.insert(0, str(PUBLIC_ROOT))
+-sys.path.insert(0, str(HERE.parent))
+-from portable import Session, recipe
+-import portable as public
+-from data_interface import load_train_valid, train_batches, validation_batches, _sha
+ from context_dispatch import (METHODS, configured_recipe, make_session,
+-    local_transition, restore_own_best_bank)
++                              local_transition, restore_own_best_bank)
+ from context_recompute import install as install_replay, MODE
+-from frozen_targets import load_frozen_targets
+-
+-
+-def admit(release_path, method, seed, inputs):
+-    release = json.loads(Path(release_path).read_text())
+-    required = ('root_adopted', 'source_review_approved',
+-        'fullgraph_targets_objective_and_selectors_qualified',
+-        'external_supervision_confirmed', 'complete_staged_protocol_frozen')
+-    if (release.get('schema') != 'context-target-cell-release-v1'
+-        or release.get('enabled') is not True
+-        or any(release.get(key) is not True for key in required)
+-        or release.get('TEST_access') is not False
+-        or release.get('automatic_retry') is not False
+-        or release.get('method') != method or release.get('seed') != seed):
+-        raise ValueError('Scientific release disabled pending complete explicit root admission')
+-    manifest_path = HERE / 'MANIFEST.json'
+-    if release.get('source_manifest_sha256') != _sha(manifest_path):
+-        raise ValueError('Exact reviewed successor source required')
+-    for row in json.loads(manifest_path.read_text())['files']:
+-        path = HERE / row['path']
+-        if not path.is_file() or path.stat().st_size != row['bytes'] or _sha(path) != row['sha256']:
+-            raise ValueError('Successor source changed')
+-    for row in json.loads((HERE / 'SOURCE_BINDINGS.json').read_text())['files']:
+-        path = PHASE / row['path']
+-        if not path.is_file() or path.stat().st_size != row['bytes'] or _sha(path) != row['sha256']:
+-            raise ValueError('Original public/helper source binding changed')
+-    if set(release.get('inputs', {})) != set(inputs):
+-        raise ValueError('Exact frozen TRAIN/development/native input bindings required')
+-    for key, path in inputs.items():
+-        row = release['inputs'][key]
+-        expected = (PHASE / row['path']).resolve()
+-        if not expected.is_relative_to(PHASE) or expected == PHASE:
+-            raise ValueError('Frozen inputs must remain inside the project research repository')
+-        if path is None or str(path.resolve()) != str(expected):
+-            raise ValueError('Input identity differs from prospective release')
+-        if _sha(path) != row['sha256']:
+-            raise ValueError('Input bytes differ from prospective release')
+-    if method in ('single_native', 'independent4_native', 'single_common_context',
+-                  'independent4_route_context'):
+-        if release.get('whole_stage1_gate_passed') is not True:
+-            raise ValueError('Stage2 remains disabled before whole9 fixed Stage1 gate')
+-    return release
++from train_targets import prepare_targets
++import hashlib
++import importlib.metadata
++try:
++    import resource
++except ImportError:
++    resource = None
++
++PUBLIC_MANIFEST_SHA = '190940ca9f8141ac45f739d064cb1ef76aaf1965ba8c91adb544ad8e38fef724'
++
++
++def sha(path):
++    value = hashlib.sha256()
++    with Path(path).open('rb') as stream:
++        for chunk in iter(lambda: stream.read(1048576), b''):
++            value.update(chunk)
++    return value.hexdigest()
++
++
++def verify_public(root):
++    root = Path(root).resolve()
++    manifest = root / 'MANIFEST.json'
++    if sha(manifest) != PUBLIC_MANIFEST_SHA:
++        raise ValueError('Supply the published portable public v2 code dependency')
++    for row in json.loads(manifest.read_text())['files']:
++        path = root / row['path']
++        if path.stat().st_size != row['bytes'] or sha(path) != row['sha256']:
++            raise ValueError('Public v2 dependency source differs: ' + row['path'])
++    return root
++
++
++def load_public_interface(root):
++    """Load the sealed public dependency from a caller path, for CLI or engineering use."""
++    root = verify_public(root)
++    sys.path.insert(0, str(root))
++    global public, load_train_valid, train_batches, validation_batches, _sha
++    import portable as public
++    import data_interface as data
++    if Path(public.__file__).resolve() != root / 'portable.py' or Path(data.__file__).resolve() != root / 'data_interface.py':
++        raise ValueError('A different public module is cached; run this CLI in a fresh Python process')
++    load_train_valid, train_batches = data.load_train_valid, data.train_batches
++    validation_batches, _sha = data.validation_batches, data._sha
++    return public
++
++
++def initialize_runtime(device):
++    import torch
++    value = torch.device(device)
++    if value.type not in ('cpu', 'cuda'):
++        raise ValueError('Use cpu or cuda[:index]')
++    if value.type == 'cuda':
++        if not torch.cuda.is_available():
++            raise RuntimeError('Requested CUDA is unavailable')
++        value = torch.device('cuda', 0 if value.index is None else value.index)
++        torch.cuda.set_device(value)
++        torch.cuda.reset_peak_memory_stats(value)
++    torch.set_num_threads(2)
++    if torch.get_num_interop_threads() != 1:
++        torch.set_num_interop_threads(1)
++    torch.backends.cuda.matmul.allow_tf32 = False
++    torch.backends.cudnn.allow_tf32 = False
++    torch.backends.cudnn.benchmark = False
++    return torch, value
++
++
++def usage():
++    if resource is None:
++        return dict(CPU_user_seconds=None, CPU_system_seconds=None, process_cumulative_peak_RSS_bytes=None)
++    value = resource.getrusage(resource.RUSAGE_SELF)
++    return dict(CPU_user_seconds=value.ru_utime, CPU_system_seconds=value.ru_stime,
++                process_cumulative_peak_RSS_bytes=value.ru_maxrss * (1 if sys.platform == 'darwin' else 1024))
++
++
++def install_cost_counters(session):
++    session.public_cost = dict(training_member_calls_attempted=0, training_member_calls_returned=0,
++        development_member_calls_attempted=0, development_member_calls_returned=0,
++        update_calls_attempted=0, update_calls_returned=0, update_wall_seconds=0.)
++    original_member, original_update = session.model.member_forward, session.train_step
++    def member(batch, index):
++        phase = 'training' if session.model.training else 'development'
++        session.public_cost[phase + '_member_calls_attempted'] += 1
++        result = original_member(batch, index)
++        session.public_cost[phase + '_member_calls_returned'] += 1
++        return result
++    def update(batch, labels):
++        began = time.monotonic()
++        session.public_cost['update_calls_attempted'] += 1
++        try:
++            result = original_update(batch, labels)
++            session.public_cost['update_calls_returned'] += 1
++            return result
++        finally:
++            session.public_cost['update_wall_seconds'] += time.monotonic() - began
++    session.model.member_forward, session.train_step = member, update
++
++
++def public_identity(method):
++    return 'public_context_steering__' + method
+ 
+ 
+ def json_write(path, value):
+@@ -117,53 +166,54 @@
+ 
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+-    parser.add_argument('--task', choices=('wikics',), required=True)
+-    parser.add_argument('--arm', choices=tuple(METHODS), required=True)
+-    parser.add_argument('--release', type=Path, required=True)
+-    parser.add_argument('--targets', type=Path, required=True)
+-    parser.add_argument('--target-preflight', type=Path, required=True)
+-    parser.add_argument('--role-manifest', type=Path, required=True)
+-    parser.add_argument('--seed', type=int, default=6101)
+-    parser.add_argument('--device', default='cpu')
++    parser.add_argument('--method', dest='arm', choices=tuple(METHODS), required=True)
++    parser.add_argument('--public-interface', type=Path, default=HERE.parent / 'portable_internal_be_public_interface_20261007_v2')
++    parser.add_argument('--seed', type=int, required=True)
++    parser.add_argument('--device', required=True, help='cpu or cuda[:index] in your environment')
+     parser.add_argument('--train', type=Path, required=True, help='Complete numeric TRAIN NPZ')
+     parser.add_argument('--valid', type=Path, required=True, help='Complete numeric VALID NPZ')
+     parser.add_argument('--output', type=Path, required=True, help='Fresh output directory')
+     parser.add_argument('--polynormer', type=Path, required=True)
+-    parser.add_argument('--ncn-model', type=Path)
+-    parser.add_argument('--ncn-utils', type=Path)
+-    args = parser.parse_args(); release = admit(args.release, args.arm, args.seed,
+-        {'train': args.train, 'development': args.valid, 'polynormer': args.polynormer,
+-         'target_archive': args.targets, 'target_preflight': args.target_preflight,
+-         'role_manifest': args.role_manifest})
+-    if not args.output.resolve().is_relative_to(PHASE) or args.output.resolve() == PHASE:
+-        raise ValueError('Fresh output must remain inside this project research repository')
+-    started = time.monotonic(); trace = []; session = None
++    args = parser.parse_args(); args.task = 'wikics'
++    if not 0 <= args.seed < 2**32:
++        parser.error('Explicit seed must be an integer in [0, 2**32)')
++    started = time.monotonic(); initial_usage = usage(); trace = []; session = None
++    torch = device = None; complete = False; target_seconds = None
++    load_public_interface(args.public_interface)
+     args.output.mkdir(parents=True, exist_ok=False)
+     try:
+         # Load evaluator providers before Session seeds its trajectory, as in
+         # frozen run.py; evaluate() then accesses these cached modules.
+         from ogb.graphproppred import Evaluator as GraphEvaluator
+         from ogb.linkproppred import Evaluator as LinkEvaluator
+-        if args.task != 'wikics' or args.seed not in (8101, 8203, 8307):
+-            raise ValueError('Exact proposed context-target task/seed roster required')
++        torch, device = initialize_runtime(args.device)
+         config = configured_recipe(public, args.arm)
+         train, valid, origin = load_train_valid(args.task, args.train, args.valid)
+-        import torch
+-        frozen_targets = load_frozen_targets(args.targets, args.target_preflight, args.role_manifest,
+-            origin['train_npz_sha256'], train, torch, args.device)
++        target_started = time.monotonic()
++        frozen_targets = prepare_targets(train, torch, device)
++        target_seconds = time.monotonic() - target_started
++        session_metadata = dict(frozen_targets.metadata, train_npz_sha256=origin['train_npz_sha256'],
++            helper_source_sha256={name: sha(HERE / name) for name in ('context_positive_masks.py',
++                'context_alignment_objective.py', 'session_objectives_adapter.py')})
+         session, facade, policy, preparation = make_session(public, args.arm, args.seed,
+-            args.device, args.polynormer, train, frozen_targets)
++            device, args.polynormer, train, frozen_targets)
+         install_replay(session)
++        install_cost_counters(session)
+         torch = session.torch
+-        json_write(args.output / 'VERIFIED_FROZEN_TARGETS.json', preparation)
+-        run = {'task': args.task, 'arm': args.arm, 'seed': args.seed, 'device': str(session.device),
++        session.np.savez(args.output / 'TRAIN_TARGETS.npz', **frozen_targets.arrays)
++        preparation = dict(preparation, **{k: v for k, v in session_metadata.items() if k not in preparation},
++            target_archive_sha256=sha(args.output / 'TRAIN_TARGETS.npz'),
++            target_preparation_seconds=target_seconds)
++        json_write(args.output / 'TARGET_PREPARATION.json', preparation)
++        run = {'task': args.task, 'arm': public_identity(args.arm), 'method': args.arm, 'seed': args.seed, 'device': str(session.device),
+                'data': origin, 'core': session.core_provenance, 'native': session.native_provenance,
+                'torch': str(torch.__version__), 'numpy': session.np.__version__,
+                'author_execution_equivalence_claimed': False, 'TEST_scoring': False,
+                'underlying_session_arm': session.arm, 'checkpoint_policy': policy.__dict__,
+                'explicit_context_objective': config['context_target_method'],
+-               'source_release_sha256': _sha(args.release), 'execution_mode': MODE,
+-               'verified_frozen_targets': preparation,
++               'public_execution': True, 'part_of_registered_author_family': False,
++               'public_interface_manifest_sha256': PUBLIC_MANIFEST_SHA, 'execution_mode': MODE,
++               'prepared_TRAIN_targets': preparation, 'automatic_retry': False,
+                'driver_sha256': _sha(__file__), 'exact_resume_supported': False}
+         json_write(args.output / 'RUN.json', run)
+         best = best_local = -float('inf')
+@@ -203,7 +253,7 @@
+                           'seconds': time.monotonic() - started})
+             json_write(args.output / 'VALID_TRACE.json', trace)
+             json_write(args.output / 'PROGRESS.json', {'epoch': epoch, 'complete_epochs': config['training']['epochs'],
+-                       'steps': session.steps, 'complete': False})
++                       'steps': session.steps, 'complete': False, 'public_execution_cost': dict(session.public_cost)})
+         if policy.own_selected_four:
+             own_selected_epochs = restore_own_best_bank(session,
+                 lambda name: torch.load(args.output / name, map_location=session.device, weights_only=False),
+@@ -230,7 +280,14 @@
+         if facade is not None and (facade.alignment_source_calls != session.steps
+                                    or facade.residual_source_calls != 0):
+             raise ValueError('Exact fixed-target alignment only, with no cross-member residual loss')
+-        json_write(args.output / 'COMPLETE.json', {'complete': True, 'task': args.task, 'arm': args.arm,
++        expected_calls = dict(training_member_calls_attempted=4*members*session.steps,
++            training_member_calls_returned=4*members*session.steps,
++            development_member_calls_attempted=members*(config['training']['epochs'] + int(policy.own_selected_four)),
++            development_member_calls_returned=members*(config['training']['epochs'] + int(policy.own_selected_four)),
++            update_calls_attempted=session.steps, update_calls_returned=session.steps)
++        if any(session.public_cost[key] != value for key, value in expected_calls.items()):
++            raise ValueError('Complete attempted/returned training/development call accounting differs')
++        json_write(args.output / 'COMPLETE.json', {'complete': True, 'task': args.task, 'arm': public_identity(args.arm), 'method': args.arm,
+             'seed': args.seed, 'epochs': config['training']['epochs'], 'steps': session.steps,
+             'selected_sha256': _sha(args.output / 'selected.pt'), 'TEST_scoring': False,
+             'seconds': time.monotonic() - started, 'parameter_counts': session.core['factors'].factor_counts(session.model),
+@@ -238,13 +295,40 @@
+             'alignment_source_calls': facade.alignment_source_calls if facade else 0,
+             'residual_source_calls': facade.residual_source_calls if facade else 0,
+             'checkpoint_policy': policy.__dict__,
+-            'execution_accounting': dict(session.execution_totals)})
++            'execution_accounting': dict(session.execution_totals),
++            'public_execution_cost': dict(session.public_cost), 'expected_complete_call_counts': expected_calls,
++            'part_of_registered_author_family': False})
++        complete = True
+     except BaseException as error:
+         json_write(args.output / 'FAILURE.json', {'complete': False, 'error_type': type(error).__name__,
+             'error': str(error), 'epochs_completed': len(trace), 'steps': session.steps if session else 0,
+             'seconds': time.monotonic() - started, 'automatic_retry': False})
+         raise
+-    print(json.dumps({'complete': True, 'task': args.task, 'arm': args.arm, 'output': str(args.output)}))
++    finally:
++        final_usage = usage()
++        cpu_delta = {key: final_usage[key] - initial_usage[key] if final_usage[key] is not None and initial_usage[key] is not None else None
++                     for key in ('CPU_user_seconds', 'CPU_system_seconds')}
++        versions = {}
++        for name in ('numpy', 'torch', 'torch-geometric', 'torch-scatter', 'torch-sparse', 'ogb'):
++            try:
++                versions[name] = importlib.metadata.version(name)
++            except importlib.metadata.PackageNotFoundError:
++                versions[name] = None
++        peaks = dict(CUDA_peak_allocated_bytes=None, CUDA_peak_reserved_bytes=None)
++        if torch is not None and device is not None and device.type == 'cuda':
++            peaks = dict(CUDA_peak_allocated_bytes=torch.cuda.max_memory_allocated(device),
++                         CUDA_peak_reserved_bytes=torch.cuda.max_memory_reserved(device))
++        json_write(args.output / 'PUBLIC_COST.json', dict(schema='public-context-training-cost-v1',
++            complete=complete, inclusive_wall_seconds=time.monotonic()-started,
++            target_preparation_seconds=target_seconds, **cpu_delta, **peaks,
++            process_cumulative_peak_RSS_bytes=final_usage['process_cumulative_peak_RSS_bytes'],
++            calls=dict(session.public_cost) if session and hasattr(session, 'public_cost') else None,
++            execution_accounting=dict(session.execution_totals) if session and hasattr(session, 'execution_totals') else None,
++            actual_provider_versions=versions, actual_device=str(device) if device is not None else args.device,
++            storage_bytes_before_cost_receipt=sum(p.stat().st_size for p in args.output.rglob('*') if p.is_file()),
++            part_of_registered_author_family=False,
++            hard_termination_limit='An external hard termination may prevent final receipts; retain the last progress and external terminal evidence.'))
++    print(json.dumps({'complete': True, 'task': args.task, 'arm': public_identity(args.arm), 'method': args.arm, 'output': str(args.output)}))
+ 
+ 
+ if __name__ == '__main__':

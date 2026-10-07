@@ -1,0 +1,164 @@
+--- contrastive_BE_steering_continuing_research_20261007_v1/integration_successor_v2/frozen_targets.py
++++ portable_context_steering_public_interface_20261008_v1/train_targets.py
+@@ -1,17 +1,15 @@
+-"""Consume the prospectively frozen TRAIN targets; never regenerate a relation."""
++"""Fixed context relations constructed only from caller TRAIN labels and graph.
++
++No model, development label, outcome, author archive or host is an input.
++Numerical modules are imported only when preparation is called.
++"""
+ from dataclasses import dataclass
+ import hashlib
+-import json
+-from pathlib import Path
+-import numpy as np
+-from context_positive_masks import sampled_weights
+ 
+-ARCHIVE_SHA = '80d30ed946a1408f861a773952b174713c487765c75e95b8e25456b30478eae6'
+-PANEL_SHA = '9b742aa62fdd93496c2604edc8198b988a20f7f2ba83922a0f1a16597b9860bd'
+-TRAIN_SHA = 'dce6c4a982027604dad198533352d397c5d1b7a0a6d6fa4868468c872457f9e2'
+-MASK_SHA = '7615d8441a699f297314e7c838b9eb897b9e3dbfe22d1be350742e83f21405a9'
+-ROLE_SHA = 'b4769a68123433fc498b6abfafbcc3190f104749eafd72b34384e70dd41ff6aa'
+-KEYS = ('train_ids','train_labels','panel_rows','masks','permuted_masks','permutations')
++KEYS = ('train_ids', 'train_labels', 'panel_rows', 'masks', 'permuted_masks', 'permutations')
++NEIGHBORS = 16
++PERMUTATION_SEED = 991327
++MINIMUM_TARGET_TV = .05
+ 
+ 
+ def require(condition, message):
+@@ -19,15 +17,8 @@
+         raise ValueError(message)
+ 
+ 
+-def file_sha(path):
+-    value = hashlib.sha256()
+-    with Path(path).open('rb') as stream:
+-        for block in iter(lambda: stream.read(1048576), b''):
+-            value.update(block)
+-    return value.hexdigest()
+-
+-
+ def content_sha(array):
++    import numpy as np
+     array = np.ascontiguousarray(array)
+     value = hashlib.sha256(str((array.dtype.str, array.shape)).encode())
+     value.update(array.tobytes())
+@@ -35,11 +26,12 @@
+ 
+ 
+ def validate_logical_arrays(arrays, train_ids, train_labels, cpu_panel, device_panel):
+-    require(set(arrays) == set(KEYS), 'Exact frozen archive fields required')
++    import numpy as np
++    require(set(arrays) == set(KEYS), 'Exact prepared target fields required')
+     for name in ('train_ids','train_labels','panel_rows','permutations'):
+-        require(arrays[name].dtype == np.int64, 'Exact integer frozen identities required')
++        require(arrays[name].dtype == np.int64, 'Exact integer target identities required')
+     ids, labels, rows = (arrays[name] for name in ('train_ids','train_labels','panel_rows'))
+-    require(ids.shape == labels.shape == (580,) and rows.shape == (512,), 'Complete580/512 frozen identities')
++    require(ids.shape == labels.shape == (580,) and rows.shape == (512,), 'Complete580/512 prepared identities')
+     require(np.array_equal(ids, train_ids) and np.array_equal(labels, train_labels),
+             'Original ordered TRAIN IDs/labels differ from frozen targets')
+     require(np.array_equal(rows, cpu_panel) and np.array_equal(rows, device_panel),
+@@ -68,62 +60,57 @@
+ 
+ 
+ @dataclass(frozen=True)
+-class FrozenTargets:
++class PreparedTargets:
+     arrays: dict
+     metadata: dict
+     array_hashes: dict
+ 
+     def validate_current(self, train, torch, device):
+         require(self.array_hashes == {key: content_sha(value) for key, value in self.arrays.items()},
+-                'Frozen in-memory target content changed')
+-        cpu = torch.linspace(0,579,steps=512,device='cpu').long().numpy()
+-        actual = torch.linspace(0,579,steps=512,device=device).long().cpu().numpy()
++                'Prepared target content changed')
++        cpu = torch.linspace(0, 579, steps=512, device='cpu').long().numpy()
++        actual = torch.linspace(0, 579, steps=512, device=device).long().cpu().numpy()
+         validate_logical_arrays(self.arrays, train['ids'].cpu().numpy(),
+-            train['y'].cpu().numpy(), cpu, actual)
++                               train['y'].cpu().numpy(), cpu, actual)
+ 
+ 
+-def load_frozen_targets(archive, receipt, role_manifest, train_sha, train, torch, device):
+-    """Validate hashes and logical contents before any model/cell is constructed."""
+-    archive, receipt, role_manifest = map(Path, (archive, receipt, role_manifest))
+-    require(train_sha == TRAIN_SHA and file_sha(archive) == ARCHIVE_SHA
+-        and archive.stat().st_size == 2724674 and file_sha(role_manifest) == ROLE_SHA,
+-        'Exact prospective TRAIN/role/target archive bindings required')
+-    result = json.loads(receipt.read_text())
+-    require(result.get('status') == 'ELIGIBLE' and result.get('TRAIN_only') is True
+-        and result.get('VALID_or_TEST_labels_accessed') is False
+-        and result.get('model_predictions_or_checkpoint_access') is False
+-        and result.get('scientific_fits') == 0
+-        and result.get('role_manifest_sha256') == ROLE_SHA
+-        and result.get('train_npz_sha256') == TRAIN_SHA
+-        and result.get('mask_source_sha256') == MASK_SHA
+-        and result.get('target_archive_sha256') == ARCHIVE_SHA
+-        and result.get('original_panel_sha256') == PANEL_SHA
+-        and result.get('permutation_seed') == 991327 and result.get('neighbor_count') == 16
+-        and result.get('panel_count') == 512 and result.get('complete_TRAIN_count') == 580,
+-        'Exact eligible source/preprocessing/panel/permutation receipt required')
+-    with np.load(archive, allow_pickle=False) as source:
+-        require(set(source.files) == set(KEYS), 'No extra frozen-target fields')
+-        arrays = {key: source[key].copy() for key in KEYS}
+-    require(hashlib.sha256(arrays['panel_rows'].astype('<i8').tobytes()).hexdigest() == PANEL_SHA,
+-            'Canonical original ordered panel bytes differ')
+-    route = sampled_weights(arrays['masks'], arrays['panel_rows'], 'route')
+-    common = sampled_weights(arrays['masks'], arrays['panel_rows'], 'common')
+-    permuted = sampled_weights(arrays['permuted_masks'], arrays['panel_rows'], 'route')
+-    tv_common = float(.5*np.abs(route-common).sum(-1).mean())
+-    tv_permuted = float(.5*np.abs(route-permuted).sum(-1).mean())
+-    require(tv_common >= .05 and tv_permuted >= .05
+-        and np.isclose(tv_common, result['target_vs_common_mean_TV'], atol=1e-12, rtol=1e-12)
+-        and np.isclose(tv_permuted, result['target_vs_permuted_mean_TV'], atol=1e-12, rtol=1e-12),
+-        'Frozen target eligibility differs from prospective receipt; no retry')
++def prepare_targets(train, torch, device):
++    """Construct one immutable target set before any model or optimizer exists."""
++    import numpy as np
++    from context_positive_masks import (graph_contexts, positive_masks,
++                                       sampled_weights, within_class_permuted)
++    ids, labels = train['ids'].cpu().numpy(), train['y'].cpu().numpy()
++    require(ids.shape == labels.shape == (580,) and ids.dtype == labels.dtype == np.int64,
++            'Complete original-order580 caller TRAIN IDs/labels required')
++    rows = torch.linspace(0, 579, steps=512, device='cpu').long().numpy()
++    actual = torch.linspace(0, 579, steps=512, device=device).long().cpu().numpy()
++    require(np.array_equal(rows, actual), 'Original CPU/device512 panel identities differ')
++    contexts = graph_contexts(train['x'].cpu().numpy(), train['edge_index'].cpu().numpy(), ids)
++    masks = positive_masks(contexts, labels, neighbors=NEIGHBORS)
++    permuted, permutations = within_class_permuted(masks, labels, PERMUTATION_SEED, panel_rows=rows)
++    arrays = dict(train_ids=ids.copy(), train_labels=labels.copy(), panel_rows=rows.copy(),
++                  masks=masks, permuted_masks=permuted, permutations=permutations)
++    validate_logical_arrays(arrays, ids, labels, rows, actual)
++    route = sampled_weights(masks, rows, 'route')
++    common = sampled_weights(masks, rows, 'common')
++    randomized = sampled_weights(permuted, rows, 'route')
++    common_tv = float(.5 * np.abs(route-common).sum(-1).mean())
++    permuted_tv = float(.5 * np.abs(route-randomized).sum(-1).mean())
++    require(common_tv >= MINIMUM_TARGET_TV and permuted_tv >= MINIMUM_TARGET_TV,
++            'Fixed TRAIN target differentiation gate failed; no permutation-seed retry')
+     hashes = {key: content_sha(value) for key, value in arrays.items()}
+     for value in arrays.values():
+         value.setflags(write=False)
+-    bundle = FrozenTargets(arrays, dict(target_archive_sha256=ARCHIVE_SHA,
+-        target_preflight_receipt_sha256=file_sha(receipt), role_manifest_sha256=ROLE_SHA,
+-        train_npz_sha256=TRAIN_SHA, original_panel_sha256=PANEL_SHA,
+-        mask_source_sha256=MASK_SHA, permutation_seed=991327,
+-        route_common_mean_target_TV=tv_common, route_permuted_mean_target_TV=tv_permuted,
++    metadata = dict(source='caller complete TRAIN graph/features/labels only', neighbors=NEIGHBORS,
++        fixed_permutation_seed=PERMUTATION_SEED, panel_objects=512, complete_TRAIN_objects=580,
++        CPU_device_panel_identity=True, context_operator='directed destination row-normalized A+I; deduplicated edges; one self-loop',
++        contexts=['X', 'X-PX', 'PX', 'P^2X'], post_panel_restriction_row_normalization=True,
++        route_common_mean_target_TV=common_tv, route_permuted_mean_target_TV=permuted_tv,
+         exact_scored_positive_counts_preserved=True, class_and_self_positives_preserved=True,
+-        target_relations_regenerated=False, frozen_array_content_sha256=hashes), hashes)
++        zero_signature_rows=np.count_nonzero(np.linalg.norm(contexts, axis=-1)==0, axis=1).tolist(),
++        original_panel_raw_int64le_sha256=hashlib.sha256(rows.astype('<i8').tobytes()).hexdigest(),
++        frozen_array_content_sha256=hashes, VALID_labels_or_model_predictions_used=False,
++        official_source_certified_from_arbitrary_NPZ=False, no_target_or_seed_retry=True)
++    bundle = PreparedTargets(arrays, metadata, hashes)
+     bundle.validate_current(train, torch, device)
+     return bundle
