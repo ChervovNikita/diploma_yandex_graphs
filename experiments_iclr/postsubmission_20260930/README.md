@@ -32,10 +32,12 @@ The frozen 18-fit molecular study is active on the allocation. At17:10 UTC its f
 - [Actual matched-single launch review](shared_private_transfer_row0_companion_root_release_20261005_v1/ROOT_REVIEW.md)
 - [Committed private-step lookahead and limits](adaptation_free_private_learning_regularization_assessment_20261005_v1/REPORT.md)
 - [Five prospective mechanism diagnostics](shared_private_transfer_fixed30_plus9_mechanism_analysis_plan_20261005_v1/REPORT.md)
-- [Canonical scoped literature memory](literature_memory/index_v67/LITERATURE_INDEX.json)
+- [Canonical scoped literature memory](literature_memory/index_v72/LITERATURE_INDEX.json)
 - [Persistent graph sharing prior conclusions](persistent_graph_private_learning_credit_followup_20261005_v1/REPORT.md)
 - [Complete Citeseer development comparison](citeseer_frame_complete_root_adoption_20261005_v1/REPORT.md)
 - [Complete Collab heldout comparison](ncnc_frozen_all25_heldout_root_adoption_20261004_v1/RESULTS_SUMMARY.md)
 - [Earlier README](coordination_snapshots/20261005_allocation_only_companion_launch_and_literature64_v1/BEFORE_README.md)
 
 Raw data and checkpoints remain on their authorized servers. Source qualification and engineering progress do not establish scientific superiority or an acceptance verdict.
+
+New scoped literature conclusions are indexed by [the active supplement](literature_memory/CURRENT_SUPPLEMENT.json). CoGNN communication and GNCL are credited priors; the communication-credit candidate is unadopted.
