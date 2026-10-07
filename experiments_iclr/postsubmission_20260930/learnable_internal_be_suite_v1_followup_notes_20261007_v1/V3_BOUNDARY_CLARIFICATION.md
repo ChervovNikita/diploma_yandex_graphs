@@ -1,0 +1,5 @@
+V3 supersedes the inconsistent v2 family-closure wording. Every separately adopted24-cell family completes or preserves failures before its comparisons open;72is a maximum unlaunched suite. The source method/loss/model choices and all eight arms are unchanged.
+
+Molecule exported receipts state TEST_target_values_parsed=False and no TEST feature/label arrays supplied to training. All-graph public node/edge COUNT metadata is parsed to locate selected TRAIN/VALID offsets; those counts are not target labels or fitted feature statistics. Skipped gzip bytes are traversed but unselected target/atom/bond/edge values are not decoded or numerically parsed. Actual export remains unexecuted and independently unverified.
+
+Allocation CPU/staging evidence establishes no77deployment readiness. Root must restore and verify authorized Peptide repo/runtime/provider/source/data bindings in a separate reviewed host port before launch; paired arms must share a host/runtime and retain identical method/data recipes.
