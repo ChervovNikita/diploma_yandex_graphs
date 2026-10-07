@@ -1,0 +1,75 @@
+--- allocation_controls_molhiv_CPU_representative_source_20261007_v1/check.py
++++ allocation_controls_molhiv_OI_CPU_representative_source_20261007_v1/check.py
+@@ -1,4 +1,4 @@
+-"""Two fresh real MolHIV P/G CPU representative fixtures; not a scientific fit."""
++"""Two fresh real MolHIV O/I CPU representative fixtures; not a scientific fit."""
+ import argparse, ast, copy, gc, hashlib, importlib.util, json, os, platform, resource, signal, socket, sys, time
+ from pathlib import Path
+ 
+@@ -7,7 +7,7 @@
+ GEOMETRY_SHA = '88d573cc103f2bb8a1f7ce5c3e0ef5bc1cf8df2f300a7a1314b4d5eb79d4c623'
+ TRAIN_SHA = 'b85a5de6b3279056781fcee7f67f9d6b8a6966d54b1ee812a5ccc0d232fe368c'
+ VALID_SHA = '23e57ea40d0148a431c0d6e34ff64679bde8b7ff326a1cb3fe8ac5c9d5dfbd01'
+-POLICIES = ('P', 'G')
++POLICIES = ('O', 'I')
+ ALLOCATION_SHA = 'e45c7c74a4e47864867275b41818d4b3a8f2ccf169288d18e0580b8deb4b43dd'
+ ALLOCATION_PROGRAM_SHA = '5fb90f0cc6e40acc0308b0a851258fc0f9904cbb933f021d786e7c6e9649c473'
+ GROUPS = ('shared_own', 'internal_private', 'boundary_own')
+@@ -48,16 +48,21 @@
+     return compile(ast.Module(body=selector, type_ignores=[]), str(public_root / 'train.py'), 'exec')
+ 
+ def observe_update(session, batch, labels, torch):
+-    """Observe P/G target sets, finite supplied gradients and the actual Adam.
+-
+-    No reference update/gradient addition or storage-pointer assertion. G's
+-    internal gradient is a source sum of two collections, not either storage.
++    """Observe O/I target sets, finite supplied gradients and the actual Adam.
++
++    No reference update/gradient addition or storage-pointer assertion. O's
++    internal gradient is the source own-plus-alignment sum; I directly collects J+A.
+     """
+     raw = session.session; partition = session.control.partition; optimizer = raw.optimizers[0]
+     policy = session.identity['policy']
+-    expected = ([('own/shared', partition['shared_own']), ('J/boundary', partition['boundary_own']),
+-                 ('J+.05A/internal', partition['internal_private'])] if policy == 'P' else
+-                [('J/all', partition['all']), ('.05A/internal', partition['internal_private'])])
++    if policy == 'O':
++        expected = [('own/all', partition['all']), ('.05A/internal', partition['internal_private'])]
++    elif policy == 'I':
++        own_rows = [(name, parameter) for name, parameter in partition['all']
++                    if partition['roles'][name] != 'internal_private']
++        expected = [('own/shared,boundary', own_rows), ('J+.05A/internal', partition['internal_private'])]
++    else:
++        raise ValueError('This CPU successor exercises only exact O/I controls')
+     before = {name: parameter.detach().clone() for name, parameter in partition['all']}
+     require(not optimizer.state and raw.steps == 0, 'Fresh empty native Adam required')
+     collections = []; supplied = {}; calls = {'forwards': 0, 'Adam': 0}
+@@ -110,7 +115,7 @@
+     reverse_calls = len(expected)
+     require(calls == {'forwards': 2, 'Adam': 1} and len(collections) == reverse_calls and raw.steps == 1, 'Observed update counts differ')
+     require(session.control.counters == {'two_view_updates': 1, 'Session_forward_calls': 2, 'member_forwards': 8,
+-        'autograd_grad_calls': reverse_calls, 'Adam_calls': 1, 'Adam_steps': 1}, 'Actual P/G method counters differ')
++        'autograd_grad_calls': reverse_calls, 'Adam_calls': 1, 'Adam_steps': 1}, 'Actual O/I method counters differ')
+     raw.core['selection'].finite_state(raw.model, raw.optimizers)
+     changes = {}
+     for group in GROUPS:
+@@ -248,7 +253,7 @@
+             'pyg': sys.modules['torch_geometric'].__version__, 'ogb': sys.modules['ogb'].__version__,
+             'torch_build_cuda': torch.version.cuda, 'device': 'cpu', 'cuda_initialized': False,
+             'torch_threads': torch.get_num_threads(), 'torch_interop_threads': torch.get_num_interop_threads()}
+-        candidate = {'schema': 'allocation-PG-MolHIV-CPU-representative-candidate-v1', 'complete': True, 'task': 'molhiv',
++        candidate = {'schema': 'allocation-OI-MolHIV-CPU-representative-candidate-v1', 'complete': True, 'task': 'molhiv',
+             'public_manifest_sha256': interface.PUBLIC_SHA, 'adapter_manifest_sha256': interface.ADAPTER_SHA,
+             'complete_interface_manifest_sha256': INTERFACE_SHA, 'allocation_controls_manifest_sha256': ALLOCATION_SHA,
+             'allocation_interface_program_sha256': ALLOCATION_PROGRAM_SHA, 'worker_program_sha256': sha(__file__),
+--- allocation_controls_molhiv_CPU_representative_source_20261007_v1/watch_cpu_once.py
++++ allocation_controls_molhiv_OI_CPU_representative_source_20261007_v1/watch_cpu_once.py
+@@ -93,7 +93,7 @@
+         'resource_supervisor_or_detector_interaction': False, 'other_jobs_modified': False}
+     write(args.output / 'TERMINAL.json', terminal)
+     if complete:
+-        receipt = {**candidate, 'schema': 'allocation-PG-MolHIV-CPU-representative-work-v1', 'exit_code': 0, 'reaped': True,
++        receipt = {**candidate, 'schema': 'allocation-OI-MolHIV-CPU-representative-work-v1', 'exit_code': 0, 'reaped': True,
+             'worker_source_manifest_sha256': sha(HERE / 'MANIFEST.json'), 'identity': identity,
+             'parent_terminal_sha256': sha(args.output / 'TERMINAL.json'), 'parent_costs': terminal,
+             'inclusive_parent_seconds': time.monotonic() - started}
