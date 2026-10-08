@@ -6,7 +6,7 @@ The complete Wiki24 comparison identifies insufficient complementary correct pre
 
 The staged one-hop label posterior P0 is closed negative: all 12 endpoints completed 1100 updates and all selected states reconstructed. C4 averages 81.62685% development accuracy, below the joint single and untied label routes; both primary gates fail. It repairs only 2, 3, and 1 native errors, introduces none, and rescues no node missed by every member. The known C&S control remains stronger. Preserve this recipe without a seed, epoch, mixture, or subset rescue.
 
-The separate query-conditioned value gate15 implementation is ready for full-input runtime qualification. It remains disabled and unexecuted, with matched controls and a permanent label-identity-erased C4 arm. The two-hop shared-kernel proposal remains an inactive source-only design. Neither supports a novelty or quality claim.
+The separate query-conditioned value gate15 implementation passed its four-update full-input engineering qualification in 19.97 seconds with no development score or native training. Matched controls and permanent label-identity erasure are fixed; the normal-host15-endpoint owner is ready for root release after source commit. Scientific training has not started. The two-hop shared-kernel proposal remains an inactive source-only design. Neither supports a novelty or quality claim.
 
 The complete original12 plus 3 canonical SupCon readouts show no supported contrastive accuracy gain. Mol18 and relation12 continue under their original complete-family rules. At 23:12 UTC on 8 October, Mol18 has 14/18 complete fits and relation12 has 6/12; their dated progress and next comparisons are in the current execution state.
 
