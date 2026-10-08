@@ -1,0 +1,34 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B -c 'from pathlib import Path
+import socket,subprocess,hashlib,json,datetime,os
+repo=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');phase=repo/'"'"'experiments_iclr/postsubmission_20260930'"'"';root=phase/'"'"'git_sync_representative_diagnostics_20261008_v1'"'"';a=json.loads((root/'"'"'INSPECTION.json'"'"').read_text());target=a['"'"'incoming_commit'"'"'];head=a['"'"'head_before'"'"'];rows=a['"'"'collisions'"'"']
+assert Path.cwd()==repo and socket.gethostname()=='"'"'peptide'"'"'
+def git(*args,input=None,check=True):
+ r=subprocess.run(['"'"'git'"'"',*args],cwd=repo,input=input,capture_output=True,timeout=45)
+ if check:r.check_returncode()
+ return r
+get=lambda *args:git(*args).stdout
+assert get('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==head and not get('"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"') and not get('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+assert get('"'"'rev-parse'"'"','"'"'refs/remotes/origin/codex/postsubmission-research-20260930'"'"').decode().strip()==target
+git('"'"'merge-base'"'"','"'"'--is-ancestor'"'"',head,target)
+assert all(r['"'"'identical'"'"'] for r in rows)
+for r in rows:
+ f=repo/r['"'"'path'"'"'];data=os.fsencode(os.readlink(f)) if r['"'"'mode'"'"']=='"'"'120000'"'"' else f.read_bytes()
+ assert hashlib.sha256(data).hexdigest()==r['"'"'local_sha256'"'"'] and hashlib.sha1(b'"'"'blob '"'"'+str(len(data)).encode()+b'"'"'\0'"'"'+data).hexdigest()==r['"'"'incoming_blob'"'"']
+ # Bytes already exist identically in the incoming Git commit; no working file is replaced.
+ git('"'"'cat-file'"'"','"'"'-e'"'"',target+'"'"':'"'"'+r['"'"'path'"'"'])
+result=dict(UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),head_before=head,incoming_commit=target,identical_collision_paths=len(rows),working_files_replaced=0,scientific_jobs_modified=False)
+try:
+ data=b'"'"''"'"'.join(r['"'"'mode'"'"'].encode()+b'"'"' '"'"'+r['"'"'incoming_blob'"'"'].encode()+b'"'"'\t'"'"'+os.fsencode(r['"'"'path'"'"'])+b'"'"'\0'"'"' for r in rows)
+ git('"'"'update-index'"'"','"'"'--add'"'"','"'"'-z'"'"','"'"'--index-info'"'"',input=data)
+ merged=git('"'"'merge'"'"','"'"'--ff-only'"'"',target,check=False);result.update(merge_exit_code=merged.returncode,merge_stderr=merged.stderr.decode()[:1500])
+ if merged.returncode:raise RuntimeError('"'"'Fast-forward failed'"'"')
+ assert get('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==target and not get('"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"') and not get('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+ result.update(complete=True,head_after=target,tracked_clean=True)
+except Exception as error:
+ result.update(complete=False,error=str(error),head_after=get('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip())
+ if result['"'"'head_after'"'"']==head:
+  git('"'"'update-index'"'"','"'"'--force-remove'"'"','"'"'-z'"'"','"'"'--stdin'"'"',input=b'"'"''"'"'.join(os.fsencode(r['"'"'path'"'"'])+b'"'"'\0'"'"' for r in rows));result['"'"'only_our_new_index_entries_removed'"'"']=True
+with (root/'"'"'SYNC_RESULT.json'"'"').open('"'"'x'"'"') as f:json.dump(result,f,indent=2);f.write('"'"'\n'"'"')
+print(json.dumps(result))
+assert result['"'"'complete'"'"']
+'

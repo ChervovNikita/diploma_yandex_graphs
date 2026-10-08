@@ -36,6 +36,8 @@ At 00:49 UTC on 8 October, both 18.77 GPUs were training the original twelve-fit
 
 MA-GCL supplies published ancestry for shared graph transformation weights under different propagation schedules. The inspected author-linked preprint uses same-observation positives and serves a single architecture. This scoped distinction does not establish novelty or accepted-body equivalence. Saved conclusions are in literature supplement v18.
 
+The [direct twelve-bundle diagnostic source](experiments_iclr/postsubmission_20260930/Wiki24_direct12_head_refit_source_20261008_v2/PROTOCOL.txt) is prepared and independently approved for scientific semantics. It preserves selected states, uses matched training objectives and reports actual correct alternatives and errors. Backend qualification and complete execution remain pending. The three original single/ordinary seed references have distinct checkpoints and selected modes. No score was recalculated.
+
 ## Original method
 
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.
