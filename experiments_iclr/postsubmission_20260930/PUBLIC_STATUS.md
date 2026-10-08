@@ -1,11 +1,11 @@
-# Post-submission research status
+# Post-submission research status — 8 October 2026
 
-The goal remains active. Original paper scores are unchanged. A method that beats the ordinary ensemble and a fresh manuscript acceptance have not been established.
+The research goal remains active and unmet. Original paper scores are unchanged. No new method superiority or fresh manuscript acceptance has been established.
 
-The completed WikiCS study gives a specific training target. Contrastive unit routes have slightly stronger mean individual accuracy than the ordinary ensemble, but fewer nodes with any correct route. Even label-aware oracle selection of the current routes would remain below ordinary ensemble pooling in every seed. Fixed convex probability reweighting cannot repair the shared wrong-rival errors. This does not bound a learned classifier that creates new scores or a retrained model.
+The completed WikiCS study identifies the target: current contrastive shared routes have slightly stronger average member accuracy, but less useful complementary correct decisions than an ordinary independent ensemble. A complete real-data classifier diagnostic found no useful gain from larger final heads. That branch is closed without further tuning.
 
-The active nine-fit context study tests whether persistent different, label-compatible training relations create more useful correct alternatives. The twelve-fit WikiCS loss attribution continues on both 18.77 GPUs. The eighteen-fit molecular study continues on the allocation. All original owners are alive and complete-family comparative readouts remain closed.
+Three fixed full-training families continue. At 03:21 UTC,4 of 9 graph-context fits,9 of 12 loss-attribution fits and5 of 18 molecular fits were complete. These use complete official training populations, capable backbones and three paired seeds. No partial scientific comparisons are opened.
 
-A public context training CLI is prepared with caller data, device and output paths. Its public target construction and five native model paths passed ten discarded TRAIN-only updates with a clean exit. External full training reproduction is still unestablished. A CPU readout successor separates actual repairs from candidate correctness and reports new shared wrong-rival errors across the full population. AMCL, CGCL and MoCL method scopes are saved. They establish close ancestry, not novelty clearance.
+A conditional private-local-attention implementation has passed small engineering checks on the existing allocation runtime. It has no measured accuracy gain. The next scientific decision comes from complete current outcomes, followed by capable ordinary/loss-matched controls and unused confirmation where warranted. Three seeds on one selected graph do not establish generalization.
 
-See [current state](RESEARCH_STATE.md), [error analysis](competence_and_coverage_result_synthesis_root_20261008_v1/REPORT.md), [public training source](portable_context_steering_public_interface_20261008_v1/README.md), and the [research ledger](research_ledger.json).
+See [current state](RESEARCH_STATE.md), [representative experiment standard](representative_scientific_continuation_root_20261008_v2/RESEARCH_STANDARD.md), [independent preread assessment](context9_representative_family_preread_independent_assessment_20261008_v1.md), [public complete-training source](portable_context_steering_public_interface_20261008_v1/README.md), and [preserved research history](research_ledger.json).

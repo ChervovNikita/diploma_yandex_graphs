@@ -1,0 +1,20 @@
+# Inactive private-local-attention hook: independent source note
+
+8 October 2026. Confined to `portable_private_local_attention_20261008_v1/private_local_attention.py` (SHA256 `ffec3e53b59ad43c1343419f5c957a6a89207d08f76d5c0714c8f61d8b9babcb`) and `qualify_cpu.py` (`b53ed86760c7051052b45e495c9bcd240a6e1cc496c2a022477ce88ce103beb1`). Both hashes verified. No imports/execution, scientific scores, server work, source edits or additional audit framework by this reviewer.
+
+## Blockers
+
+**None found within the inactive hook's stated contract.** This is not approval of a complete scientific driver or of optimizer retrofit.
+
+Torch parametrization exposes the existing native scorer getter as one selected row of a registered bank. There is no separately retained unused common scorer or trainable selector. Source prechecks scorer shape/site aliasing and rejects repeated installation. Dense value maps, BE factors, normalization and native GAT propagation are not replaced. The fixture checks exact parameter-set membership, preserved nonscorer identities/values and the fresh Adam parameter set; it does not perform an Adam step.
+
+Copied scorer rows consume no initialization draw. Selecting the same row as the original BE route preserves the initial native function under matched inputs/dropout. `forward_member` wraps a captured original callable, so the existing callable still owns factor selection and representation capture. The fixture makes different BE rows visible, checks initial local/global and training/eval functions, gradient routing and a score-only intervention without changing values or graph support. Its actual-recipe constructor count is21504 added scalars; that is storage accounting, not a quality/efficiency result.
+
+## Nonblocking caller/integration limits
+
+- **Fresh optimizer only.** Install after native reset and BE installation, before Adam construction. The installer cannot discover an external optimizer; this is an explicit caller contract, not a runtime detection guarantee. An already constructed Session/optimizer, old moments or a previously optimized common scorer must not be retrofitted. The future constructor must put installation before its fresh optimizer.
+- **Sequential explicit selection.** Mutable row selection is unsuitable for concurrent member forwards. Context restoration handles nesting/exceptions, but every shadow, replay and checkpoint recomputation must enter the same member scope and retain the original BE/RNG contract. Ordinary autograd retains the selected-row view; an added recomputation path cannot rely on the selector remaining active after forward. Do not use `parametrize.cached()` across members or pass a recursively wrapped callable.
+- **Rebuild and load.** State keys change to scorer-bank parametrization originals. Rebuild the same native/BE/hook structure and member count before strict `state_dict` loading. The plain selector attribute is not checkpoint state: restore stage/method/RNG metadata separately and explicitly select every member. Native reset, installed-model deepcopy and whole-Python-model serialization are unsupported. The fixture checks a rebuilt strict state-dict round trip, not a full training/optimizer resume.
+- **Counts and scope.** Existing factor-only counters still classify BE r/s, not the new private scorer banks; use the supplied explicit scorer metadata when reporting shared/private counts. A zero scorer gradient in a realized graph can be a legitimate GAT effect rather than an unused parameter. A fabricated active-gradient check does not establish useful attention changes on the real graph.
+
+Root reports the existing-runtime CPU receipt `representative_scientific_continuation_root_20261008_v2/PRIVATE_ATTENTION_CPU01.json` passed11 checks with one Adam construction and zero steps, no data/checkpoint/GPU calls. This supports the declared small engineering scope. Fullgraph FP32 behavior, scientific-driver ordering, replay, optimizer/checkpoint continuation and complete experiment/anchor matching remain to be qualified separately. No new test or helper is requested here.
