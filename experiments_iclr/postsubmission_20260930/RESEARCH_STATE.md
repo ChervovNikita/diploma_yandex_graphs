@@ -100,3 +100,9 @@ The primary UniMP/PGL implementation locator and bounded original arxiv masking/
 The authorized allocation already holds the identical official SAFE WikiCS input. CPU role conversion created complete TRAIN/development NPZs inside the repo, with no dataset download or Mac array copy. Structural reach is2762of5274development nodes; expected visible-anchor coverage among masked TRAIN queries is39.405%. No candidate scores or development truths were scored. Whole-population gates remain fixed.
 
 The exact four-update CUDA engineering release completed with all checks passed and both owned processes absent. It exercises the full graph, both native phases, coherent restoration and unscored reconstruction. It is not a short scientific fit, selected checkpoint or1100schedule verification. Runtime engineering evidence is adopted in `label_only_four_bank_full_input_cuda_engineering_adoption_root_20261008_v1/`; full scientific launch remains disabled pending root review of the owned representative release.
+
+## First scientific launch and narrow implementation repair
+
+The source-reviewed three-seed campaign was committed as `3ce6fae0c381093a2de54804e924e7237902ba75`, pushed and synchronized to both servers. Its first allocation worker completed one full update/evaluation, then failed serializing the training trace: native `loss`, `own_mean`, and `auxiliary` are detached scalar tensors. Parent 533583 / birth 6029258572 and worker 533589 / birth 6029258595 were reaped and are absent. Peak allocated CUDA memory was 18.13 GB. No partial comparison or checkpoint was opened. Evidence is in `label_only_four_bank_first_screen_activation_root_20261008_v1/FAILED_REMOTE_RECEIPTS/`.
+
+A new full-family output may use a narrowly reviewed successor converting those trace scalars to Python values. Original numerical method, selection, seeds, controls and gates remain fixed. The failed v1 family is retained and contributes no result.

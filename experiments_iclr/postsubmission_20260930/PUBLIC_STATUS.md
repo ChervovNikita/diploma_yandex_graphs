@@ -16,3 +16,5 @@ The new representative screen includes a four-head single with joint readout and
 
 
 The four-bank check used four discarded complete full-input updates, not a short accuracy pilot. Peak own allocated memory was 18.68 GB. Coherent restoration and full-ID serving reconstruction passed; both owned processes exited. A separately reviewed three-seed 1,100-epoch campaign is being prepared. No accuracy gain follows from engineering qualification.
+
+The first complete-screen launch stopped after one epoch because three native scalar loss tensors were sent to the JSON trace writer. Both processes exited cleanly; failures and costs are retained. Partial metrics/checkpoints remain closed. A minimal logging-only successor is being prepared; there is still no new accuracy result.
