@@ -1,0 +1,7 @@
+# Verified scheduling and complete-family readout readiness
+
+The exact reviewed unused-two controller is detached and waiting on18.77 as3693240/1759227027. Its original SupCon dependency is still live. No scientific child for either missing Wiki12 cell is started. The original ten completed fits and failed preflight/closure are preserved, and the new union must complete all twelve before scoring.
+
+Root statically reviewed the closed9 collection entry, its source/terminal gates, selected restore callbacks, full-graph data paths, fixed ordering and readout. No structural blocker was identified. It stays disabled pending exact original whole9 terminal custody and a separate root release. COMMON at all three seeds must be collected and every cohort durably frozen before ROUTE or PERMUTED inference. The maximum is36 attempted native member calls, with no Session/optimizer, training, reselection, calibration, test labels or automatic retries. The same selected development population is exploratory; unchanged scalar gates admit no training by themselves, and the common-rival mechanism screen remains required.
+
+No native fixture, array, selected checkpoint or comparative quality was accessed during source preparation. Serving improvements, methodological novelty and fresh manuscript acceptance remain unestablished. Current studies use complete real tasks and capable references; unused confirmation is required for stronger claims.

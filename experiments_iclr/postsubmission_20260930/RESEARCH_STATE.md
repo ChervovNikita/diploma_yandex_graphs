@@ -1,6 +1,14 @@
 # Current GNNM research state
 
-Updated 8 October 2026. **Goal active and unmet:** no verified methodological superiority over capable single and ordinary independent ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. The last verified pushed commit before this continuation is ca2fa29d963c30ea909497c5affd763b97bc0f05, synchronized to both authorized repositories. Earlier state and every decision/failure remain in Git and research_ledger.json.
+Updated 8 October 2026. **Goal active and unmet:** no verified methodological superiority over capable single and ordinary independent ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. The last verified pushed commit before this continuation is dbfc14d43be39525f8041fb4be5b504fa7a9e78c, synchronized to both authorized repositories. Earlier state and every decision/failure remain in Git and research_ledger.json.
+
+## Verified active queue and next whole-family readout
+
+The detached two-unused-cell scheduling owner on18.77 is3693240/1759227027, launched06:51UTC and verified waiting06:53UTC. It waits for original SupCon3 terminal cleanup and original36GiB fresh admission, then runs exactly6307residual-only andcombined once. No new scientific child has started yet. Original failed Wiki12 closure remains immutable; ten old plus both new full fits require a separate union closure. See wikics_unit_mechanism_two_unused_continuation_activation_root_20261008_v1. Switching off the paired Mac pauses transport/monitoring; the detached owner and scientific jobs continue on18.77. Never restart this owner after a transport interruption.
+
+Latest allocation metadata: Context9 has8/9 complete, final8307PERMUTED367/1100; Mol18 has5/18 complete, G7101epoch37/100. SupCon3 has6101/6203 complete and6307at166/1100. No partial comparative quality is opened. Complete-task budgets/selectors/caps remain unchanged.
+
+The disabled context9_whole_family_collection_entry_source_20261008_v1 reuses audited selected inference and readout. Root reviewed the metadata/restore/collection interfaces. After all9 original full endpoints and terminal custody, collect COMMON3 first, freeze every cohort, then ROUTE3 andPERMUTED3; max36 actual member inference calls, no training/reselection/calibration, raw arrays server-only. No numerical/source fixture was repeated; no prediction or score was opened by preparation. The whole9 result and unchanged gates remain the next scientific decision. Source preparation and scheduling are not accuracy results.
 
 ## Latest continuation: representative studies and a preserved scheduling failure
 
