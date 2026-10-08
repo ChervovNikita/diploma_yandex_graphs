@@ -1,6 +1,12 @@
 # Current GNNM research state
 
-Updated 8 October 2026. **Goal active and unmet:** no verified methodological superiority over capable single and ordinary independent ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. The last verified pushed commit before this continuation is 0b853680a21ae017986f542c544fb4b6c5947f17, synchronized to both authorized repositories. Earlier state and every decision/failure remain in Git and research_ledger.json.
+Updated 8 October 2026. **Goal active and unmet:** no verified methodological superiority over capable single and ordinary independent ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. The last verified pushed commit before this continuation is ed6854176a31569e4ec9b293620a5ce00d06828f, synchronized to both authorized repositories. Earlier state and every decision/failure remain in Git and research_ledger.json.
+
+## Latest continuation: representative studies and a preserved scheduling failure
+
+At06:26 UTC, Context9 is7/9 complete (8307 ROUTE803/1100), Mol18 is5/18 complete (G7101epoch33/100), and SupCon3 has6203 complete,6101at998/1100 and6307queued. The original Wiki12 controller is terminal with10/12 completed. A1800-second fresh-memory wait failed before6307residual-only launched; both remaining output dirs are absent. The old complete:false closure remains immutable. A separate two-unused-cell continuation is being prepared after SupCon3 terminal closure using unchanged releases/source/recipes/selectors/fit limits. No partial10 comparative outcome is opened. Read representative_scientific_progress_20261008_v3/REPORT.md and WIKI12_TERMINAL_CUSTODY.json.
+
+The new theory/operator notes describe symmetrized target gradients, conditional shared-gradient covariance and local within-class curvature. They establish no native noise, useful gradients, learned behavior, quality, novelty or acceptance. The recipient rule remains inactive and already specified; no new method was admitted. An eight-view deterministic single comparator is under feasibility assessment to distinguish persistent private predictors from more stochastic training views. Current scientific protocols are unchanged.
 
 ## Scientific result and direction
 
