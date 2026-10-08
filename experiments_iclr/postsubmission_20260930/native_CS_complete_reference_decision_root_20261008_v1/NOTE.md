@@ -1,0 +1,11 @@
+# Frozen complete stronger reference
+
+The authentic native-own-best states were restored without loading correction banks or changing checkpoint kind. Full-input unscored qualification passed the prescribed four sparse configurations, with one native forward and 302 additional propagation passes. The fixed evaluator then completed all 24 configurations across all three seeds, 72 successful records and 6,318 propagation passes, with three native forwards and no refitting. No required records failed or were removed.
+
+The frozen common recipe selector chose CS06, author autoscale correction and smoothing with DAD/DAD normalization, correction alpha 1.0, smoothing alpha 0.8 and 50+50 passes. Development truths were used for scoring/selection only. The operator received exactly the permitted 580 TRAIN labels. This is an exploratory competence choice on consumed development data, not an author WikiCS preset or untouched confirmation.
+
+Mean native accuracy is 81.5889%. The selected reference averages 81.8797%. Paired gains are +0.3223, +0.4551 and +0.0948 percentage points. The known reference therefore shows graph-label utility under this score/selector protocol. It does not establish a new ensemble contribution. It also exceeds the failed learned four-route corrector's 81.5194% mean. The native-own-best and corrected-arm selectors differ, so this does not isolate one causal architectural change.
+
+The selected nonnegative-score probability map assigns exact zero to the truth on 11, 9 and 3 development nodes. Its NLL is positive infinity in every seed. All 72 configurations and their finite/infinite risks remain in the receipt. No clipping floor, temperature fitting, NLL-based reselection or replacement recipe was added afterward. This accuracy improvement is not a calibration improvement.
+
+The full receipt, constructor/preprocessing/propagation costs, selected epochs and raw native probabilities remain on the allocation. Only compact receipts are copied to the Mac. Original paper scores remain unchanged. Next designs should account for graph reach, overconfident native mistakes and the correction objective's TRAIN-versus-development error mismatch. The complete existing graph-relation and molecular families remain in progress.
