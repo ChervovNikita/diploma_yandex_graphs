@@ -1,0 +1,124 @@
+Mol18 P_7101 source/runtime cost diagnosis
+Observation: 2026-10-07 23:55:55–23:56:05 UTC; exact owned PIDs and sole authorized GPU verified.
+
+Conclusion
+P has an intrinsic additional reverse collection, with no extra training forward
+pass or development sweep. It was active at epoch 32/100. Recent progress makes
+the frozen nine-hour cell limit a material risk; completion within the cap remains
+possible if the remaining pace improves. Shared GPU compute or bandwidth with
+the parent-reported context9 job is plausible, but this observation cannot assign
+a slowdown to that job. It provides no evidence of a hang or a P-specific repeated
+epoch loop.
+
+1. Intrinsic work
+                                    O              I              P
+Session forwards / update           2              2              2
+Member forwards / update            8              8              8
+Reverse collections / update        2              2              3
+Native Adam transitions / update    1              1              1
+Updates / epoch                    258            258            258
+Training member forwards / epoch  2064           2064           2064
+Reverse collections / epoch        516            516            774
+Development member forwards/epoch  132            132            132
+
+P collects own-supervision gradients for theta, mixture gradients for psi, then
+mixture-plus-alignment gradients for phi, from the same two retained forward
+graphs. I combines theta and psi in one own-supervision collection and then
+collects phi; O collects own supervision over all parameters and alignment over
+phi. P therefore separates an additional reverse traversal. Three versus two
+calls is 50% more calls, not a measured 50% wall-time increase: requested blocks
+and traversed paths differ, and reverse paths can overlap substantial portions
+of the network. There is no forward recomputation, extra Adam step, higher-order
+gradient graph, or extra fitting pass in P.
+
+The complete 100-epoch fit has 25,800 updates, 206,400 training member forwards,
+13,200 development member forwards, and 77,400 P reverse collections versus
+51,600 for O/I. The MolHIV recipe uses five 256-wide GINE layers, dropout 0.5,
+batch size 128, Adam learning rate 0.001, and mean raw-logit pooling.
+
+2. Work repeated every epoch or update
+All three policies perform one complete development evaluation after each epoch:
+4,113 objects in 33 batches, four member forwards per batch. The evaluation uses
+no gradients. The driver rewrites its trace/progress receipts each epoch, and the
+allocation wrapper annotates those receipts. A strict improvement can trigger a
+full model/Adam/RNG checkpoint serialization; the rule is common to O/I/P.
+The MolHIV driver has no WikiCS local/global transition.
+
+Each update checks parameters and Adam state for finiteness before and after the
+step, and checks predictions, objectives and gradients. Tensor-to-Python boolean
+checks on CUDA can synchronize the device. These common checks contribute launch
+and synchronization work in every policy; they do not explain a P-specific extra
+epoch or evaluation. No checkpoint decisions or quality values were inspected.
+
+3. Bounded runtime observation
+Parent PID 523400/start ticks 6019318952 and worker PID 526095/start ticks
+6021762957 matched the retained receipts. The worker command matched policy P,
+seed 7101 and cuda:0 on anogena-2-0, GPU-44039938-fd82-41d2-fefd-de71514e2fac.
+Its estimated start was 21:26:09.64 UTC. At 23:56:05 UTC its age was 8,995.81 s
+(2 h 29 m 56 s); PROGRESS reported epoch 32/100 and 8,256 updates, with receipt
+mtime 23:54:18.74 UTC.
+
+Across the 10.011 s sample, the worker accumulated 10.02 s of process CPU time.
+Its main-thread scheduler run-queue wait increased by only 0.000605 s. States
+changed from sleeping to running; I/O counters were unchanged during the window.
+These are signs of ongoing work and do not show severe CPU scheduler starvation
+or an active output-I/O stall in that window. They do not diagnose GPU wait time.
+
+Aggregate GPU utilization was 100% in both samples, with 15,972 MiB used and
+65,080 MiB free (about 63.6 GiB free); memory utilization was 32% and 38%.
+Aggregate utilization does not identify which job used the GPU. Memory headroom
+does not imply spare compute capacity. Concurrent context9 kernels can compete
+for GPU compute/bandwidth even when allocation fits comfortably. No competing
+process was queried, and no isolated baseline or per-process kernel timing was
+collected, so context9's contribution cannot be quantified. The tiny observed
+main-thread run-queue wait weakens an explanation based on severe CPU scheduling
+contention during this short sample only.
+
+4. Frozen finite-owner risk
+The cell's active cap is 32,390 s, cleanup allowance 10 s, hard cap 32,400 s.
+The cell-begin monotonic timestamp is not persisted. Its JOB receipt mtime gives
+an approximate upper cutoff of 2026-10-08 06:25:59.64 UTC for active work and
+06:26:09.64 UTC for the hard bound. The actual cutoff is slightly earlier because
+the owner starts its timer before writing that receipt. At observation, at most
+23,394.16 s (6 h 29 m 54 s) of active time remained.
+
+With 68 epochs remaining, the remaining average must be under 344.03 s
+(5 m 44 s) per epoch, including evaluations and finalization. The supplied
+epoch-24 to epoch-30 observations span 52 minutes: about 8.67 min/epoch. Extending
+that pace gives 9 h 49 min for the remaining 68, beyond the available 6 h 30 min.
+This is a scenario, not a finish-time prediction. Combining the supplied epoch-24
+observation with the epoch-32 receipt gives about 7.91 min/epoch, also above the
+required pace. Snapshot times are not exact epoch completion times, and workload
+sharing or epoch costs can change. The whole-run ratio so far is about
+4.69 min/completed epoch, below the required remaining pace, so these facts do
+not establish an inevitable timeout.
+
+The family has a separate 162-hour hard cap and about 153.3 hours remained at
+observation; the current per-cell bound is the immediate constraint. The v3
+executor retains a failed original cell on active timeout, performs only its
+owned cleanup, and stops further family admission after a fatal failed/invalid
+cell. No shortened fit or automatic retry is allowed.
+
+Recommendation
+Preserve the admitted jobs, sources and finite bounds. Root can follow the owned
+epoch/time metadata against the roughly 5 m 44 s remaining-epoch allowance. If
+the original cap fires, retain the original failure and resulting unlaunched
+family rows under the executor's existing closure rules. This diagnosis does
+not authorize an intervention, retry, new admission, or prospective cap change.
+
+Source references (paths relative to postsubmission_research_20260930)
+public_internal_be_allocation_controls_20261007_v1/method.py:56–131
+public_internal_be_allocation_controls_20261007_v1/train.py:121–145
+portable_internal_be_public_interface_20261007_v2/train.py:18–30,101–135
+portable_internal_be_public_interface_20261007_v2/core/selection.py:33–41
+portable_internal_be_public_interface_20261007_v2/recipes/molhiv.json
+internal_BE_molhiv18_family_executor_source_20261007_v3/executor.py:138–140,269–307
+internal_BE_molhiv18_family_executor_source_20261007_v3/SOURCE_BINDINGS.json
+
+Scope and retention
+RUNTIME_OBSERVATION.json retains only owned process metadata, route/custody/time
+fields, aggregate GPU telemetry, and whitelisted engineering PROGRESS fields.
+No fit traces, datasets, checkpoints or weights were opened. No quality fields
+were emitted or used in this diagnosis. No other process was inspected, no remote
+file was written, and no signal, restart, reschedule or host setting was changed.
+INPUT_BINDINGS.json and MANIFEST.json bind the inputs and retained diagnosis.

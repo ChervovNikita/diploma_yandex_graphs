@@ -30,6 +30,12 @@ The [public interface](experiments_iclr/postsubmission_20260930/portable_interna
 
 [Current state](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md) · [Research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json) · [Saved literature conclusions](experiments_iclr/postsubmission_20260930/literature_memory/CURRENT_SUPPLEMENT.json)
 
+**Experiments address the measured coverage deficit.** The running fullgraph and molecular studies use complete training recipes, three paired seeds and their original frozen comparisons. Program qualifications are recorded separately from model quality. A proposed twelve-bundle prediction-layer diagnostic uses all original training/development rows and the actual saved representations. It asks whether unrestricted final maps acquire correct alternatives that the BE heads miss. It includes matched factorized refits, ordinary ensemble refits and single refits. It does not establish a new complete method. [Representative experiment standard](experiments_iclr/postsubmission_20260930/representative_scientific_continuation_root_20261008_v1/RESEARCH_STANDARD.md).
+
+At 00:49 UTC on 8 October, both 18.77 GPUs were training the original twelve-fit attribution study. Six cells were complete, with two combined cells nearing completion. The molecular P cell had reached 60 of 100 epochs. Its temporary serialization with the existing context study preserves original recipes and limits. No partial comparisons were opened.
+
+MA-GCL supplies published ancestry for shared graph transformation weights under different propagation schedules. The inspected author-linked preprint uses same-observation positives and serves a single architecture. This scoped distinction does not establish novelty or accepted-body equivalence. Saved conclusions are in literature supplement v18.
+
 ## Original method
 
 GNNM makes four predictions for each node. Each member changes the input and output maps through BatchEnsemble factors, while all members reuse the same stored graph-layer parameters. Their hidden states remain separate throughout message passing. Training minimizes the mean member loss. Inference averages **raw logits**, then chooses the largest class logit or uses the binary logit as a ranking score.

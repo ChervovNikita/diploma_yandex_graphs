@@ -1,0 +1,282 @@
+
+Methodology
+To address the limitations of existing GCL methods, we will
+focus on manipulating the neural architectures of view en-
+coders as model augmentations. In this section, we will ﬁrst
+present three strategies and their beneﬁts separately. Then we
+will illustrate the overall algorithm by incorporating the three
+tricks to a simple base model.
+Asymmetric Strategy
+One-sentence Summary Using encoders with shared pa-
+rameters but different numbers of propagation layers can
+alleviate high-frequency noises.
+Main Idea Contrastive learning (CL) can extract the in-
+formation shared between different views (Tian et al. 2020),
+and thereby ﬁlter out the task-irrelevant noises that only ap-
+pear in a single view. As shown in Fig. 1 where the scale
+of each area denotes the amount of information, the learned
+representations of CL include both task-relevant information
+(area D) and task-irrelevant noises (area C). Intuitively, the
+two views should not be too far (limited information of D)
+or too close (too much noises of C). We argue that the two
+views in previous GCL methods are too close to each other:
+(1) Typical GDA techniques (e.g., edge or node dropping)
+cannot generate diverse enough augmentations while keeping
+the task-relevant information untouched; (2) The two view
+encoders have exactly the same neural architecture and tied
+parameters, which strengthens the closeness between views.
+To address this problem, we propose to use asymmetric
+view encoders with shared parameters but different numbers
+of propagation layers. As shown in Fig. 1(b), we can push
+the two views away from each other by different numbers
+of propagation layers, and shared parameters can make sure
+that the distance between them will not be too far. In this
+way, the noises in GCL (area C) can be alleviated. Note
+
+=== PDF PAGE 4 ===
+(a) Symmetric
+ (b) Asymmetric
+Figure 1: An illustration of our motivation about the asym-
+metric strategy. HereV1,V 2 andY represent the information
+of two views and downstream tasks, respectively. The strat-
+egy can push the two views away from each other, and the
+task-irrelevant noises in GCL (area C) can be alleviated.
+that the numbers of h andg operators are totally detached.
+For implementation, we employ two GNN encoders with
+the same number ofh operators but different numbers ofg
+operators. Now we will show that our implementation can
+help ﬁlter out high-frequency noises.
+Beneﬁts For simplicity, we ignore the non-linear transfor-
+mations in GNN encoders to demonstrate our beneﬁts. With-
+out non-linear functions, the weight matrices in h opera-
+tors collapse to a single weight matrix W . Then we have
+the embeddings of two encoders as Z = FLXW, Z′ =
+FL′
+XW , whereL,L′ are the numbers ofg operators in two
+view encoders, andL<L ′.
+Assume that graph ﬁlter F can be factorized to UΛUT
+by eigenvector decomposition, where U is the unitary ma-
+trix of eigenvectors and Λ = diag(λ1,λ 2,...,λ |V|) is the
+diagonal matrix of eigenvaluesλ1≥λ2≥...λ |V|. A larger
+eigenvalue of F corresponds to a smaller eigenvalue of graph
+Laplacian matrix, which is often recognized as more im-
+portant information for downstream tasks (Nt and Maehara
+2019). Here we focus on analyzing graph signals and as-
+sume one-hot node features X = I. Then the embeddings
+of two views can be written as Z = UΛLUT W, Z′ =
+UΛL′
+UT W , where W∈ R|V|×dO.
+Contrastive loss aims to minimize the distance between
+embeddings of a positive pair. Following this idea, we focus
+on the numerator term in Eq. (3) and rewrite the loss as
+min
+W
+|V|∑
+i=1
+|zi− z′
+i|2 = min
+W
+tr((Z− Z ′)(Z− Z ′)T ),
+subject to W T W = I,
+(4)
+where tr(·) denotes matrix trace, and the condition
+WT W = I is to avoid trivial all-zero solutions.
+Theorem 1. The optimal W of the contrastive learning loss
+in Eq. (4) is
+W∗ = U[k1,k 2,...k dO], (5)
+where 1≤ k1 < k2 < ...kdO ≤|V| are the best ks that
+minimize (λL
+k−λL′
+k )2, and U[k1,k 2,...k dO] denotes the
+corresponding columns of U.
+The detailed proof of Theorem 1 is presented in Ap-
+pendix.A. Now we will see which ks have the smallest
+(λL
+k−λL′
+k )2. The function minλ(λL−λL′
+)2 prefersλ→ 0
+orλ→ 1. Taking the graph ﬁlterF = 1
+2 I + 1
+2 D− 1
+2 AD− 1
+2
+used in our experiments as an example, the eigenvalues of
+F fall in range [0, 1]. As shown in (Cui et al. 2020), for
+popular graph datasets such as Cora and Citeseer (Kipf and
+Welling 2016), the eigenvalues ofF will fall in range [ 1
+4, 1]
+in practice. Besides, we also ﬁnd that the ﬁlter F of these
+popular graph data has many eigenvalues close to 1, e.g., the
+100-th largest eigenvalue of F in Cora is still larger than
+0.998. Therefore, U[k1,k 2,...k dO] is likely to be the ﬁrst
+dO columns of U in practice. Then the representations of
+view encoder are
+Z = UΛLUT W = Udiag(λL
+1,λL
+2,...,λ L
+dO, 0, 0,..., 0),
+(6)
+which can perfectly ﬁlter out the high-frequency noises.
+In contrast, if we adopt identical view encoders withL =
+L′, then Z− Z′ = U(ΛL− ΛL′
+)UT W = 0. Thus, the per-
+turbations of GDA are no longer minor terms and have to be
+considered. Assume that the inﬂuence of GDA on eigenvalues
+isϵ∈ R|V|, we have (Λ +diag(ϵ))L− ΛL≈Ldiag(ϵ)ΛL−1.
+Thus the optimal W∗ is determined by both ﬁlter F and
+the perturbations of GDA, which will probably incorporate
+high-frequency noises into learned representations.
+Random Strategy
+One-sentence Summary Randomly varying the number
+of propagation operators in view encoders at every epoch can
+help enrich training samples.
+Main Idea Without loss of generality, we illustrate our idea
+based on SGC (Wu et al. 2019) encoder, i.e.,f(X) = h◦
+g[L](X). During the training process of GCL, we propose to
+vary the number of operatorg in the encoderf. Speciﬁcally,
+we randomly sample ˆL∼ Uniform(lower,upper ) in every
+epoch, instead of employing a ﬁxedL. The intuition behind is
+that varying the propagation depth can enrich the diversity of
+training instances, and hence help predict downstream tasks.
+Now we will present the beneﬁts more formally.
+Beneﬁts As a GNN encoder withL propagation operators
+ofg,f will compute node representation Zv∈ Z for every
+nodev by aggregatingL-hop neighbors of nodev. In other
+words,f is equivalent to a function applied to the local com-
+putation tree (Nt and Maehara 2019) rooted at nodev, with a
+depth ofL.
+LetS ={v}|V|
+v=1 be the training set of GCL. Then we
+can replace the observations inS from the individual node
+v to itsL-hop computation treetL
+v , and rewrite the training
+set as ˜SL ={tL
+v}|V|
+v=1. When the number of g operators is
+randomly chosen from ˆL∼ Uniform(lower,upper ) in every
+epoch, we can hypothesize that the set of samples changes to
+˜S = ⋃
+ˆL∈[lower,upper]
+˜S ˆL. Therefore, the training set of GCL
+gets enlarged by several times. In fact, if we further take
+GDA (e.g., edge dropping) into consideration, the training set
+will involve the computation trees and their sub-trees. There
+could be an even wider gap (e.g., exponentially) between the
+set capacity with random ˆL and that with ﬁxedL.
+
+=== PDF PAGE 5 ===
+Shufﬂing Strategy
+One-sentence Summary Shufﬂing the permutation of
+propagation and transformation operators in every epoch
+brings safer augmentations.
+Main Idea Existing GDA techniques usually randomly per-
+turb the graph topology and will take the risk of destroying
+key connections (e.g., dropping an important chemical bond)
+related to downstream tasks. To address this problem, we
+propose to use different permutations of operatorsg andh in
+two view encoders as safer augmentations. Formally, if view
+encoderf hasL operators ofg andN operators ofh, thenf
+can be written as
+f(X) =hN◦g[KN ]◦hN−1◦...g [K2]◦h1◦g[K1](X), (7)
+whereK1...K N≥ 0 and ∑N
+i=1Ki =L. Then we will use
+a different set ofK′
+1,K′
+2...K ′
+N≥ 0 with ∑N
+i=1K′
+i =L for
+another view encoderf′. The intuition behind is that shufﬂing
+the order of propagation and transformation operators will
+not change the semantics of an input graph, but will perturb
+the encoded representations as safer augmentations. Now we
+will discuss more about the relationship between our strategy
+and previous GDA techniques.
+Beneﬁts As shown in (Wang and Isola 2020), contrastive
+learning includes an important step of alignment, whose met-
+ric is as follows:
+Lalign ≜ Ex∼D,x′∼ppos(x)[||fθ(x)−f′
+θ′(x′)||2], (8)
+whereppos(x) is the distribution of data augmentation, and
+θ,θ′ denote the learnable parameters in encodersf,f′.
+Previous GCL methods based on data augmentation (Zhu
+et al. 2021; You et al. 2020) can be interpreted asf′ =f and
+θ′ =θ in Eq. (8). Those based on perturbing model param-
+eters (Yang, Zhang, and Yang 2021; Xia et al. 2022) can be
+interpreted asf′ =f,x′ =x andθ′ =θ +N whereN is
+random perturbation noise (e.g., drawn from a Gaussian dis-
+tribution). Note that the function of encoded semantics with
+respect to model parameters is rather complex. Hence the
+parameter perturbation drawn from a simple distribution may
+also harm the semantics in encoded representations. While
+in this strategy, we haveθ′ = θ andx′ = x. Note that our
+f and f′ will be the same if we ignore all the non-linear
+transformations. Therefore,f′ can provide safer augmenta-
+tions by utilizing the perturbations brought by non-linear
+transformations.
+Implementation of MA-GCL
+Now we will present our MA-GCL by applying the three
+strategies on a simple base model. The base model adopts
+random edge/feature dropping, graph ﬁlter F = 1
+2 I +
+1
+2 D− 1
+2 AD− 1
+2 , 2-layer embedding projector, and InfoNCE
+loss for learning. Note that the base model can be seen as
+a simpliﬁed version of GRACE (Zhu et al. 2020) with only
+intra-view modeling. The pseudo code is shown in Alg. 1. Af-
+ter the training phase, we will use a ﬁxed encoder architecture
+and drop the embedding projector for evaluation: similar to
+the architecture of GCN, we setK1 =K2 =...K N =K,
+whereK∈{ 1, 2} is a hyper-parameter.
+Algorithm 1: Implementation of MA-GCL
+Input: Adjacency matrix A; feature matrix X; GDA
+distributionT ; Random range [low,high ];
+N transformation operatorsh1,h 2...h N ;
+Embedding projector proj(·) ;
+Output:N learned operatorsh1,h 2...h N .
+for everyepoch do
+Draw two graph augmentations:a,a′∼T ,
+(A1, X1) =a(A, X), (A2, X2) =a′(A, X);
+DrawKi,K′
+i from Uniform(low,high ) for
+i = 1...N ;
+AssureL = ∑N
+i=1Ki̸= ∑N
+i=1K′
+i =L′, and∀i
+Ki̸=K′
+i;
+Calculate graph ﬁlters ing1,g 2:
+F1 = 1
+2 I + 1
+2 D
+− 1
+2
+1 A1D
+− 1
+2
+1 ,
+F2 = 1
+2 I + 1
+2 D
+− 1
+2
+2 A2D
+− 1
+2
+2 ;
+Augmented view encoders:
+f1 =hN◦g[KN ]
+1 ...h 1◦g[K1]
+1 ,
+f2 =hN◦g[K′
+N ]
+2 ...h 1◦g[K′
+1]
+2 ;
+View encoding: Z1 =f1(X1), Z2 =f2(X2)
+Update parameters by contrastive loss
+L(proj(Z1), proj(Z2));
+end
