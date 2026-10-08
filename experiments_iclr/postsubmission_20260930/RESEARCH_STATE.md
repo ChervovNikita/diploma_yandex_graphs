@@ -1,6 +1,6 @@
 # Current GNNM research state
 
-Updated 8 October 2026. Allocation and 18.77 progress verified 17:51 UTC; exact latest source 53e73cf737b15385ece81d3cb6b12212fb1e5db1 is pushed and synchronized. **Goal active and unmet:** no verified methodological extension outperforming capable singles and ordinary ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. Earlier decisions, results and failures remain in Git and `research_ledger.json`.
+Updated 8 October 2026. Graph progress verified 18:25 UTC; new allocation correction screen verified 18:24 UTC. Executable source `7ea03c95c7791251b2461fd98bbe125582314ae0` is pushed and synchronized. **Goal active and unmet:** no verified methodological extension outperforming capable singles and ordinary ensembles, and no fresh manuscript acceptance. Original five-dataset scores remain unchanged. Earlier decisions, results and failures remain in Git and `research_ledger.json`.
 
 ## Completed contrastive comparison
 
@@ -21,7 +21,7 @@ Evidence: `Wiki12_SupCon15_union_collection_execution_root_20261008_v1/compact/`
 | Study | Actual owner | Last verified state | Next numerical opening |
 | --- | --- | --- | --- |
 | Mol18, one-GPU allocation | 523400 / 6019318952 | 11/18 fits complete; G_7203 at 36/100 epochs, 17:51 UTC | After the complete eighteen-fit roster, retaining failures |
-| Graph-relation full12, 18.77 | 3713404 / 1760762180 | 3/12 fits complete; 6101_phiJ at 242/1100 and 6203_allJ at 765/1100, 17:51 UTC | After all twelve new endpoints and the now-complete original twelve-fit union |
+| Graph-relation full12, 18.77 | 3713404 / 1760762180 | 3/12 fits complete; 6101_phiJ at 435/1100 and 6203_allJ at 971/1100, 18:25 UTC | After all twelve new endpoints and the now-complete original twelve-fit union |
 
 The original 18.77 owner 3713404 / birth 1760762180 remains alive. Current children 3767130 / birth 1762957188 (6101_phiJ) and 3755228 / birth 1762399293 (6203_allJ) were verified live. Seed 6307 remains queued behind 6101 on GPU1. Detached training continued through transport loss; no jobs were restarted. Latest authenticated snapshots are `restored_gpu77_and_allocation_observation_20261008T175103Z/`.
 
@@ -106,3 +106,9 @@ The exact four-update CUDA engineering release completed with all checks passed 
 The source-reviewed three-seed campaign was committed as `3ce6fae0c381093a2de54804e924e7237902ba75`, pushed and synchronized to both servers. Its first allocation worker completed one full update/evaluation, then failed serializing the training trace: native `loss`, `own_mean`, and `auxiliary` are detached scalar tensors. Parent 533583 / birth 6029258572 and worker 533589 / birth 6029258595 were reaped and are absent. Peak allocated CUDA memory was 18.13 GB. No partial comparison or checkpoint was opened. Evidence is in `label_only_four_bank_first_screen_activation_root_20261008_v1/FAILED_REMOTE_RECEIPTS/`.
 
 A new full-family output may use a narrowly reviewed successor converting those trace scalars to Python values. Original numerical method, selection, seeds, controls and gates remain fixed. The failed v1 family is retained and contributes no result.
+
+## Serialization-repaired full screen is active
+
+The v2 family launched at 18:23 UTC after exact publication and preflight. Parent 533819 / birth 6029309094 and worker 533825 / birth 6029309117 were live at 18:24 UTC with 24 complete native/all-bank update/evaluation events. Source and release are retained in `label_only_four_bank_first_screen_activation_root_20261008_v2/`. One seed is active at a time, alongside Mol18. Seeds 6101/6203/6307 and all four arms must complete 1,100 epochs before comparisons open.
+
+The sole numerical-program diff converts three detached native scalar losses to Python values in the JSON trace. Exact predecessor equality holds after restoring that trace expression. All method, selection and primary-gate code remains unchanged; failed v1 evidence stays excluded from successful-family aggregation. No repeated CUDA qualification or score inspection was used.
