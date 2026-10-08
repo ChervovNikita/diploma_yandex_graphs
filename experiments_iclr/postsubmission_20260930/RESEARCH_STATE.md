@@ -1,6 +1,6 @@
 # Current GNNM research state
 
-Updated at 22:05 UTC on 8 October 2026 (9 October in Moscow). **The goal remains active and unmet:** no new methodological extension has demonstrated superiority to capable single models and ordinary independent ensembles, and no fresh manuscript acceptance has been established. Original paper scores are unchanged. Complete history, failures and unsuccessful hypotheses remain in Git and `research_ledger.json`.
+Updated at 22:12 UTC on 8 October 2026 (9 October in Moscow). **The goal remains active and unmet:** no new methodological extension has demonstrated superiority to capable single models and ordinary independent ensembles, and no fresh manuscript acceptance has been established. Original paper scores are unchanged. Complete history, failures and unsuccessful hypotheses remain in Git and `research_ledger.json`.
 
 ## Current hypotheses and live training
 
@@ -8,7 +8,7 @@ Updated at 22:05 UTC on 8 October 2026 (9 October in Moscow). **The goal remains
 | --- | --- | --- | --- |
 | Molecular ensemble feedback, allocation | Parent 523400/birth6019318952; independent4 worker 537607/birth6030036890 | 13/18 fits; independent4_7307 at96/100 epochs,22:02 UTC | Open all18 only after the fixed roster closes. Candidate I, mixture0.5 remain fixed. |
 | Private graph attention,18.77 | Parent3713404/birth1760762180; relationJ workers3785030/birth1764073877 and3794365/birth1764681745 | 6/12 fits; seed6101 relationJ634/1100, seed6203 relationJ15/1100,22:03 UTC | Open all12 together with the complete original12 control union. |
-| Frozen-native label posterior, allocation | No scientific owner launched yet | Full-input engineering passed:4 discarded updates across all4banks, no development scores | Publish/review the owned complete3seed/12bank launcher, then train the frozen recipe. |
+| Frozen-native label posterior, allocation | Parent538255/birth6030676690; worker538261/birth6030676711 verified live | First seed27/1100 updates at22:12 UTC; no native training | Open all12 only after all3seed blocks close, then check selected serving. |
 
 Fresh observations are in `live_progress_root_20261009T2203Z/` and `gpu77_connection_recovery_v1/commands/graph_progress_root_20261009T2203Z/RECEIPT.json`. A transport failure never restarts a scientific job. Other users' processes remain untouched.
 
@@ -32,7 +32,7 @@ The earlier additive label-correction screen is complete negative. The new stage
 
 The code is sealed at manifest `ab2be08e841293e95d23d2098c128e0c989087e6a6215101474ce00a2ea0a3e8`. Full-input qualification passed in11.31seconds, with2,258,632,704bytes peak reserved GPU and1,221,582,848bytes peak RSS. It checks masks, frozen native parameters, optimizer ownership, learned restore and cached reconstruction, but computes no development quality. Creation-time disabled seal remains unchanged; root qualification is separate. Selected-state serving reconstruction will be checked after all12scientific endpoints close.
 
-Scientific ownership is being prepared with serial seeds6101/6203/6307, full1100updates for every arm, no retry/resume and complete-family opening. Predeclared safety bounds are7200active seconds per seed,8GiB owned GPU/RSS caps and12GiB fresh GPU headroom; Mol18 coexecution is allowed. These are resource bounds, not an ETA or reduced training horizon. Same unchanged accuracy/NLL/member pilot gates apply. This consumed split is exploratory, not unused confirmation.
+Scientific ownership is running with serial seeds6101/6203/6307, full1100updates for every arm, no retry/resume and complete-family opening. Predeclared safety bounds are7200active seconds per seed,8GiB owned GPU/RSS caps and12GiB fresh GPU headroom; Mol18 coexecution is allowed. These are resource bounds, not an ETA or reduced training horizon. Same unchanged accuracy/NLL/member pilot gates apply. This consumed split is exploratory, not unused confirmation.
 
 ## Completed evidence that changes the next action
 
@@ -60,6 +60,6 @@ Canonical literature pointer is `literature_memory/CURRENT_SUPPLEMENT.json`, sup
 
 ## Publication and completion requirements
 
-Allocation committed source at start of this continuation is3e3d037ee82418e9b1fc7a169deee03f63be497b; last verified push a26825f5853ec60671743ae2f33ee21a1a1bd08e;18.77 is still0dbc3c8b7df690c1c69d41bc7237f6a10294e8af. New diagnostics, qualification, literature decisions, custody checks and owner preparation are pending reviewed publication. Safe source synchronization must preserve consumed running files and jobs.
+Scientific execution source4bcae2cca71835b70fe8479d52e31738739361c6 is committed, pushed and synchronized to18.77; both-server sync preserved active scientific files and jobs. This publication includes the diagnostics, qualification, literature decisions, reference custody and owner source. The owned staged family is live; its launch/observation records are retained separately. Both supporting agents encountered provider capacity failures; root completed and reviewed the concrete owner source without repeating numerical qualification.
 
 A positive pilot still requires published competitive comparators, competent singles/ordinary independent ensembles, appropriate capacity/view/objective/information controls, unused split/task confirmation and uncertainty. Papers/reviewers will receive supported claims only. Fresh paper reviewers use the supplied skill, immutable complete evidence, no author history and no requested verdict. No PDF compilation, sudo, GENLINK or scientific use of the relay allocation is authorized.
