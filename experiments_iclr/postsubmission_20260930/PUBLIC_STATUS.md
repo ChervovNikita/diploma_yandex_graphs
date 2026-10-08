@@ -11,3 +11,5 @@ The first launch failed writing three native scalar tensors to JSON after one ep
 The completed fifteen-state WikiCS contrastive comparison remains negative for the fixed recipe: combined alignment/repulsion averages −0.0695 percentage points versus plain, and SupCon −0.1959 points. Decision unanimity is 98.1–99.6%; no pooled-only rescues were found. This is decision redundancy, not demonstrated hidden-state collapse.
 
 [Current state](RESEARCH_STATE.md) · [Complete comparison](Wiki12_SupCon15_union_collection_execution_root_20261008_v1/compact/REPORT.md) · [New screen](label_only_private_corrector_four_bank_first_screen_source_20261008_v2/README.md) · [Preserved decisions](research_ledger.json)
+
+At 19:03 UTC the first complete correction seed had exited cleanly after all 1,100updates (31 minutes), and the second was at 352/1100. A disabled whole-family collector and authentic native-own-best/TRAIN-only C&S adapters are source-reviewed. A fixed 24-configuration C&S/smoothing reference budget is saved before any candidate outcomes open. No quality result or new acceptance is established.
