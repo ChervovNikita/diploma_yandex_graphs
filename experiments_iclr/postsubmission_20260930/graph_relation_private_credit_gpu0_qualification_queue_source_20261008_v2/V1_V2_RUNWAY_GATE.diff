@@ -1,0 +1,158 @@
+--- v1/queue_owner.py
++++ v2/queue_owner.py
+@@ -4,6 +4,7 @@
+ import hashlib
+ import importlib.util
+ import json
++import math
+ import os
+ from pathlib import Path
+ import resource
+@@ -85,7 +86,11 @@
+     require(actual is not None and actual['start_ticks'] == expected['start_ticks'] and actual['state'] != 'Z',
+             'Exact existing full12 owner must remain live for pending lane admission')
+     family = read(bound(pins['family_release']))
+-    owner_path = inside(family['owner_output_directory']) / 'PARENT_OWNER.json'
++    owner_root = inside(family['owner_output_directory'])
++    require(not (owner_root / 'LANE_0_CLOSURE.json').exists()
++            and not (owner_root / 'FAMILY_CLOSURE.json').exists(),
++            'Existing lane0/family has a permanent terminal receipt; parent liveness does not reopen it')
++    owner_path = owner_root / 'PARENT_OWNER.json'
+     owner = read(owner_path)['identity']
+     require(owner['PID'] == expected['pid'] and owner['start_ticks'] == expected['start_ticks']
+             and actual['pgid'] == actual['sid'] == expected['pid'], 'Exact detached existing family identity')
+@@ -93,6 +98,40 @@
+         preview = read(bound(control_pins['previews'][cell]))
+         require(not inside(preview['output']).exists(), 'No previously launched/trained6203 cell admitted or retried')
+     return binding(owner_path)
++
++
++def lane0_runway(pins, control_pins, helper):
++    """Use the existing controller's current lane budget; never start a new window."""
++    family_live(pins, control_pins, helper)
++    family = read(bound(pins['family_release']))
++    path = inside(family['owner_output_directory']) / 'LANE_0_SCHEDULING.json'
++    require(path.is_file(), 'Existing controller lane0 scheduling receipt required')
++    payload = path.read_bytes()
++    receipt = json.loads(payload, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
++    receipt_binding = dict(path=str(path.relative_to(PHASE)), sha256=hashlib.sha256(payload).hexdigest(), bytes=len(payload))
++    stamp = datetime.fromisoformat(receipt['UTC'])
++    require(stamp.utcoffset() is not None, 'Controller scheduling receipt needs an aware UTC timestamp')
++    sampled_monotonic = time.monotonic()
++    age = (datetime.now(timezone.utc) - stamp).total_seconds()
++    require(0 <= age <= pins['controller_receipt_max_age_seconds'], 'Controller scheduling receipt stale or future dated')
++    require(receipt['next_cell'] == '6203_alphaF' and receipt['root_lane_admitted'] is False
++            and receipt['scientific_child_started'] is False,
++            'Exact original first unconsumed lane0 cell and prelaunch state required')
++    cumulative = receipt['cumulative_scheduling_seconds']
++    reported = receipt['scheduling_seconds_remaining']
++    allowance = control_pins['scheduling_seconds_per_lane']
++    require(type(cumulative) in (int, float) and type(reported) in (int, float)
++            and math.isfinite(cumulative) and math.isfinite(reported)
++            and 0 <= cumulative < allowance and reported > 0, 'Existing lane scheduling allowance is exhausted/invalid')
++    # Cumulative is sampled at write; reported remaining is sampled before physical/telemetry reads.
++    usable = min(reported, allowance - cumulative) - age - pins['controller_metadata_gap_reserve_seconds']
++    require(usable > 0, 'Existing controller lane0 has no remaining conservative runway')
++    family_live(pins, control_pins, helper)  # Reject terminal receipts appearing during the read.
++    return dict(receipt=receipt_binding, UTC=receipt['UTC'], receipt_age_seconds=age,
++        cumulative_scheduling_seconds=cumulative, reported_remaining_seconds=reported,
++        allowance_remaining_at_write_seconds=allowance - cumulative, usable_remaining_seconds=usable,
++        absolute_queue_monotonic_deadline=sampled_monotonic + usable,
++        metadata_gap_reserve_seconds=pins['controller_metadata_gap_reserve_seconds'])
+ 
+ 
+ def qualification_release(pins, cfg, control_pins):
+@@ -154,6 +193,9 @@
+ def admit_lane0(pins, control_pins, controller, helper, qualification, queue_release, deadline):
+     require(not STOP[0] and time.monotonic() < deadline, 'Stopped/expired queue cannot admit a new lane')
+     family_live(pins, control_pins, helper)
++    start_runway = lane0_runway(pins, control_pins, helper)
++    require(start_runway['usable_remaining_seconds'] >= pins['controller_observation_reserve_seconds'],
++            'Existing lane0 lacks commit/controller-observation runway')
+     path, before, before_sha = index_guard(pins)
+     activation = inside(pins['full_family_activation']); cells = []
+     lane_path = activation / 'LANE_0_ADMISSION.json'
+@@ -187,6 +229,11 @@
+     temporary = path.with_name(path.name + '.GPU0_QUEUE.tmp')
+     fresh_json(temporary, after)
+     require(sha(path) == before_sha, 'Index changed before atomic replacement; no overwrite')
++    final_runway = lane0_runway(pins, control_pins, helper)
++    require(final_runway['usable_remaining_seconds'] >= pins['controller_observation_reserve_seconds']
++            and not STOP[0] and time.monotonic() < deadline,
++            'Existing lane0 lacks current observation runway at final index commit')
++    family_live(pins, control_pins, helper)  # Final permanent-terminal guard before replacement.
+     os.replace(temporary, path)
+     directory = os.open(path.parent, os.O_RDONLY)
+     try:
+@@ -196,7 +243,9 @@
+     committed = read(path)
+     require(committed == after and committed['lanes']['1'] == pins['expected_lane1_binding'], 'Exact lane0-only index commit')
+     return dict(lane0_admission=lane_binding, cell_releases=cells, index_before_sha256=before_sha,
+-                index_after=binding(path), lane1_binding_preserved=pins['expected_lane1_binding'])
++                index_after=binding(path), lane1_binding_preserved=pins['expected_lane1_binding'],
++                existing_lane_runway_before_preparation=start_runway, existing_lane_runway_at_commit=final_runway,
++                post_commit_parent_liveness_or_controller_consumption_guaranteed=False)
+ 
+ 
+ def main():
+@@ -222,6 +271,9 @@
+     helper = controller.module(control_pins['ownership_helper'], '_queue_existing_ownership'); helper.GPU = pins['GPU0']
+     qualification_release(pins, cfg, control_pins)
+     index_guard(pins); family_receipt = family_live(pins, control_pins, helper)
++    initial_runway = lane0_runway(pins, control_pins, helper)
++    require(initial_runway['usable_remaining_seconds'] >= pins['qualification_hard_seconds']
++            + pins['controller_observation_reserve_seconds'], 'Existing lane0 cannot cover qualification and observation reserve')
+     activation = inside(pins['qualification_activation']); output = inside(pins['qualification_output'])
+     require(activation.is_dir() and not output.exists()
+         and not any((activation / name).exists() for name in ('QUEUE_OWNER.json', 'OWNER.json', 'CHILD_OWNER.json', 'EXIT.json', 'QUEUE_RESULT.json')),
+@@ -229,19 +281,24 @@
+     identity = helper.identity(os.getpid())
+     require(identity is not None and identity['PID'] == identity['pgid'] == identity['sid'], 'Actual detached queue owner')
+     fresh_json(activation / 'QUEUE_OWNER.json', dict(identity=identity, queue_release=binding(args.release), family_owner_receipt=family_receipt,
+-        exact_family_release=pins['family_release'], lane1_binding=pins['expected_lane1_binding'], automatic_retry=False, scores_read=False))
++        exact_family_release=pins['family_release'], lane1_binding=pins['expected_lane1_binding'],
++        existing_lane0_initial_runway=initial_runway, automatic_retry=False, scores_read=False))
+     # Exclusive once-only continuation reservation; root must not add lane0 while this queue owns it.
+     fresh_json(inside(pins['full_family_activation']) / 'LANE_0_QUEUE_RESERVATION.json',
+         dict(queue_identity=identity, queue_release=binding(args.release), family_release=pins['family_release'], automatic_retry=False))
+     for signum in (signal.SIGINT, signal.SIGTERM):
+         signal.signal(signum, lambda number, frame: STOP.__setitem__(0, True))
+-    deadline = began + pins['queue_hard_seconds']; qualification_attempts = 0; commit = None; failure = None
++    deadline = min(began + pins['queue_hard_seconds'], initial_runway['absolute_queue_monotonic_deadline'])
++    qualification_attempts = 0; commit = None; failure = None
+     qualification_binding = exit_binding = exit_record = None; wait_seconds = 0.
+     try:
+         wait_started = time.monotonic()
+         while True:
+             require(not STOP[0], 'Queue stopped before qualification; no next action')
+             index_guard(pins); family_live(pins, control_pins, helper); controller.physical(control_pins)
++            current_runway = lane0_runway(pins, control_pins, helper)
++            # A later receipt may tighten this absolute bound, but may never reset or extend it.
++            deadline = min(deadline, current_runway['absolute_queue_monotonic_deadline'])
+             terminal = controller.dependency_terminal(control_pins, helper)
+             rows = helper.query(['--query-gpu=uuid,memory.free', '--format=csv,noheader,nounits'], 10)
+             free = [row.split(',')[1].strip() for row in rows if row.split(',')[0].strip() == pins['GPU0']]
+@@ -268,7 +325,13 @@
+         qualification_attempts = 1
+         fresh_json(activation / 'QUALIFICATION_ATTEMPT.json', dict(attempts=1, release=cfg['qualification_release'],
+             source=pins['scientific_manifest'], supervisor_original=pins['existing_root_supervisor'], automatic_retry=False))
+-        require(time.monotonic() + pins['qualification_hard_seconds'] < deadline and not STOP[0], 'Full qualification envelope must fit')
++        pre_qualification_runway = lane0_runway(pins, control_pins, helper)
++        deadline = min(deadline, pre_qualification_runway['absolute_queue_monotonic_deadline'])
++        require(pre_qualification_runway['usable_remaining_seconds'] >= pins['qualification_hard_seconds']
++                + pins['controller_observation_reserve_seconds']
++                and time.monotonic() + pins['qualification_hard_seconds']
++                    + pins['controller_observation_reserve_seconds'] < deadline and not STOP[0],
++                'Existing lane0 must cover full qualification plus commit/controller-observation reserve')
+         code = supervisor.main()  # Original owned engine:300active +10cleanup +20terminal reserve.
+         require(code == 0, 'Qualification failed; preserve original supervisor artifacts, no lane0 admission')
+         qualification_binding, exit_binding, exit_record = validate_pass(pins, cfg, activation, output)
+@@ -290,6 +353,8 @@
+             retained_worker_artifacts=worker_artifacts,
+             scheduling_wait_seconds=wait_seconds, inclusive_queue_seconds=time.monotonic() - began,
+             queue_hard_seconds=pins['queue_hard_seconds'], CPU_user_seconds=usage.ru_utime - usage_start.ru_utime,
++            initial_existing_lane0_runway=initial_runway, absolute_queue_monotonic_deadline=deadline,
++            existing_lane_window_reset=False,
+             CPU_system_seconds=usage.ru_stime - usage_start.ru_stime, peak_RSS_bytes=int(usage.ru_maxrss * 1024),
+             scientific_fits_launched_by_queue=0, benchmark_or_validation_metrics_read=False, TEST_access=False,
+             automatic_retry=False, anchor_reuse_authorized=False, comparative_opening_authorized=False,

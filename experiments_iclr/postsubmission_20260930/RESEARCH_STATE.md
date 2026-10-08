@@ -1,6 +1,6 @@
 # Current GNNM research state
 
-Updated 8 October 2026, 09:40 UTC. **Goal active and unmet:** no verified extension superiority over capable single models and ordinary independent ensembles, and no fresh manuscript acceptance. Original five-dataset scores remain unchanged. Both authorized repositories were synchronized to `0389ea678623c894428305e237d7534511fde25c` before this update. Earlier states, failures and decisions remain in Git and `research_ledger.json`.
+Updated 8 October 2026, 12:00 UTC. **Goal active and unmet:** no verified extension superiority over capable single models and ordinary independent ensembles, and no fresh manuscript acceptance. Original five-dataset scores remain unchanged. Both authorized repositories were synchronized to `16dbe609efe4cc44fad6660a20c328031e829fc9` before this update. Earlier states, failures and decisions remain in Git and `research_ledger.json`.
 
 ## Complete scientific results
 
@@ -16,12 +16,12 @@ The earlier complete Wiki24 comparison found that unit-factor contrastive member
 
 | Family | Original owner | Latest verified state | Interpretation |
 | --- | --- | --- | --- |
-| Mol18, allocation | 523400 / 6019318952 | 7/18 fits complete, independent4_7203 at epoch 18/100 | Wait for whole roster before comparative opening |
+| Mol18, allocation | 523400 / 6019318952 | 8/18 fits complete, O_7203 at epoch 38/100 | Wait for whole roster before comparative opening |
 | Canonical SupCon3, 18.77 | 3682860 / 1758405237, terminal | All three original fits complete 1,100 epochs | Read with original alignment-only controls after Wiki12 union closes |
 | Original Wiki12, 18.77 | 3622814 / 1754365673, terminal | Ten fits complete, scheduling failure before the other two launched | Keep its `complete:false` closure immutable |
-| Wiki12 unused-two continuation, 18.77 | 3693240 / 1759227027 | Residual-only 6307 at epoch 653/1100, combined not started | Run only the two original never-started releases, then bind old10 + new2 union |
+| Wiki12 unused-two continuation, 18.77 | 3693240 / 1759227027 | Residual-only 6307 complete; combined 6307 at epoch 687/1100 | Run only the two original never-started releases, then bind old10 + new2 union |
 
-Metadata observations are in `representative_full_family_progress_root_20261008_0940_v1/`. Never restart these owners after a transport interruption or repeat completed cells. Mac shutdown pauses transport rather than detached training.
+Metadata observations are in `representative_full_family_progress_root_20261008_1149_v1/`. Never restart these owners after a transport interruption or repeat completed cells. Mac shutdown pauses transport rather than detached training.
 
 Wiki12 separates class alignment and residual repulsion. Its full native task uses 11,701 nodes, 442,907 ordered edges, all 580 TRAIN labels, width 512, the original model, three paired seeds and 1,100 epochs. The canonical published SupCon loss comparison keeps the same setup and original three alignment-only anchors. The original failed 1,800-second resource wait and its cost remain preserved. The two-unused continuation changes scheduling only. Full original scientific releases and fit limits remain unchanged. A separate old10-plus-new2 union is required before collection.
 
@@ -29,13 +29,15 @@ Mol18 compares single, ordinary4, O, I, P and G on all official 32,901 training 
 
 ## Active graph-relation learning experiment
 
-The new fixed twelve-fit study **started on 18.77 at 11:08 UTC**. Parent 3713404/1760762180 is detached. Its first full `6101_alphaF` control, child 3713425/1760762232, reached17/1100 epochs by11:10 UTC. Eight cells at6101/6307 are admitted on GPU1. Four6203 cells retain their fixed GPU0 assignment and await same-GPU qualification and exact original unused-two terminal cleanup. The root index allows each pending lane binding to be added once. Never restart this family after a transport interruption.
+The new fixed twelve-fit study **started on 18.77 at 11:08 UTC**. Parent 3713404/1760762180 is detached. Its first full `6101_alphaF` control, child 3713425/1760762232, reached265/1100 epochs by11:47 UTC. Eight cells at6101/6307 are admitted on GPU1. Four6203 cells retain their fixed GPU0 assignment and await same-GPU qualification and exact original unused-two terminal cleanup. The root index allows each pending lane binding to be added once. The separate GPU0 continuation is now detached: owner3722461/1761071798 was verified live at11:59UTC. It awaits the original unused-two cleanup and fresh memory, then runs one same-source qualification and adds the four fixed6203 releases once. At the observation, qualification attempts were0 and lane0 remained unadmitted. Its v1 deadline blocker is preserved; the reviewed v2 uses the existing controller scheduling window without resetting it. Never restart this family after a transport interruption.
 
 All four methods share the same private-attention architecture and unit initialization. alphaF teaches every parameter ordinary member loss. allJ teaches every parameter the equal own/pool mixture. phiJ applies that mixture to internal dense BE factors. relationJ applies it to local scorer banks and tied global query/key factors. Shared feature maps in relationJ learn ordinary member loss. This tests the combined recipient rule. phiJ overlaps relationJ in four query/key factor tensors, so it does not isolate local versus global attention separately. Local GATv1 static ranking remains.
 
 The entire11,701-node graph, all580 TRAIN labels,5274 development nodes, three paired seeds, two CE views and1100 epochs remain fixed. Primary relationJ minus alphaF must pass unchanged utility and member-competence gates. Each paired seed stays on one physical GPU. All twelve new endpoints and exact original twelve-fit union are required before any comparative opening or original-anchor numerical reuse. The original plain anchors are source-reserved, without entering training. No auxiliary objective, teacher bank, initializer grid, serving router or provisional accuracy is introduced.
 
 The native GPU1 execution check completed eight discarded full-TRAIN updates,89.56 seconds,128 member forwards and128 reverse collections, with clean exit/reap/no remaining CUDA rows. It qualifies code paths and resources only. The exact report is `graph_relation_private_credit_qualification_root_20261008_v1/QUALIFIED.json`. Independent mathematical source review found no static blocker. An admission variable-shadowing error was caught and fixed in a preserved controller successor before any scientific fit. A launch quoting failure also preceded any remote execution and is retained.
+
+The saved scientific note `graph_relation_private_credit_benefit_boundary_20261008_v1/NOTE.md` explains that pool CE is a responsibility-weighted own-label gradient. Equal correct-class probabilities give equal F/J logit gradients even if wrong-class distributions differ. Common wrong rivals are not directly repelled; useful attention/Jacobian changes must be established by repaired and introduced errors. A positive complete result would motivate one fixed shared/untied by own/relation-feedback study on genuinely unused split roles, with ordinary own-selected ensemble references still required.
 
 The field builds on known own/pool objectives and an already saved communication-credit idea. Novelty and accuracy advantage remain unestablished. A supported pilot needs capable single and ordinary ensemble controls, a single trained with the same eight stochastic views, an objective-matched untied reference, appropriate published controls and unused split/task confirmation. The code is `graph_relation_private_credit_source_20261008_v2`. Root activation and current progress are in `graph_relation_private_credit_full12_activation_root_20261008_v1`.
 
