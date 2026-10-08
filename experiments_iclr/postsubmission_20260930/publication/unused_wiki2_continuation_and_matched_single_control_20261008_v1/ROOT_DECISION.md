@@ -1,0 +1,9 @@
+# Root decision: finish the representative study
+
+The two missing Wiki12 cells never started. Root adopts the sealed continuation source and enables ADMISSION_ROOT.json to schedule exactly their unchanged original releases after SupCon3 terminal cleanup. The source imports the original reviewed ownership and fit helper; no Torch model code, recipe, selector, fit limit or old result changes. Root inspected the controller, launcher, protocol, original helper interface and SupCon closure fields. Static parsing qualifies source syntax only. An observed live scheduling owner will establish activation, not scientific success.
+
+The original failed closure and its 1800-second prelaunch wait remain immutable. A new union closure must explicitly prove ten old full fits plus both new full fits before comparative analysis. No completed fit is retried. New logs and scheduling metadata remain separate; unrelated jobs are untouched.
+
+The eight-view single assessment is adopted as a conditional control design, with no admitted fit or source change. It uses one trainable body, fixed unit factors, eight TRAIN views and the same four factual targets; one deterministic function is served. This addresses whether persistent private predictors add value beyond extra stochastic training information. The original nine plus conditional twelve-fit protocol remains unchanged.
+
+Two new primary method scopes are saved, with zero full-paper or code-audit credit. GCMAE and DGE supply attributed shared-objective and graph-evidence ancestry; neither establishes a new gradient principle or a justified replacement in WikiCS. Primary bodies are hash-verified on the authorized allocation and offloaded locally; conclusions and scopes remain in Git. No new accuracy gain, broad generalization or manuscript acceptance is established.
