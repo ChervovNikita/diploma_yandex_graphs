@@ -1,6 +1,6 @@
 # Current GNNM research state
 
-Updated 8 October 2026. Allocation progress verified 15:57 UTC. Graph progress last verified 14:21 UTC; the later SSH observation failed before authentication. **Goal active and unmet:** no verified methodological extension outperforming capable singles and ordinary ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. Published base for this update: `0f50f22ec3dd43cad1c10e936054e43029a750e1`. Earlier decisions, results and failures remain in Git and `research_ledger.json`.
+Updated 8 October 2026. Graph progress verified 14:21 UTC; allocation progress verified 14:06 UTC. **Goal active and unmet:** no verified methodological extension outperforming capable singles and ordinary ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. Published base for this update: `0f50f22ec3dd43cad1c10e936054e43029a750e1`. Earlier decisions, results and failures remain in Git and `research_ledger.json`.
 
 ## Completed contrastive comparison
 
@@ -20,10 +20,10 @@ Evidence: `Wiki12_SupCon15_union_collection_execution_root_20261008_v1/compact/`
 
 | Study | Actual owner | Last verified state | Next numerical opening |
 | --- | --- | --- | --- |
-| Mol18, one-GPU allocation | 523400 / 6019318952 | 9/18 fits complete; P_7203 at 45/100 epochs, 15:57 UTC; ten fits completed | After the complete eighteen-fit roster, retaining failures |
+| Mol18, one-GPU allocation | 523400 / 6019318952 | 9/18 fits complete; I_7203 at 54/100 epochs, 14:06 UTC | After the complete eighteen-fit roster, retaining failures |
 | Graph-relation full12, 18.77 | 3713404 / 1760762180 | Both lanes admitted; 1/12 fits complete; 6101_allJ at 86/1100 and 6203_alphaF at 641/1100, 14:21 UTC | After all twelve new endpoints and the now-complete original twelve-fit union |
 
-The first6101 control is complete. Current children were verified live: 3738864 / 1761859089 (6101_allJ) and 3727602 / 1761283669 (6203_alphaF). Seed 6307 remains queued behind 6101 on GPU1. Never restart owners after interrupted transport. Detached training continues when the paired Mac is switched off. Latest graph snapshot: `representative_full_family_progress_root_20261008_1421_v1/`; allocation snapshot: `representative_full_family_progress_root_20261008_1600_v1/`. Later graph monitoring failed before SSH authentication; no scientific process was restarted. Their observation times differ.
+The first6101 control is complete. Current children were verified live: 3738864 / 1761859089 (6101_allJ) and 3727602 / 1761283669 (6203_alphaF). Seed 6307 remains queued behind 6101 on GPU1. Never restart owners after interrupted transport. Detached training continues when the paired Mac is switched off. Latest graph snapshot: `representative_full_family_progress_root_20261008_1421_v1/`; allocation snapshot: `representative_full_family_progress_root_20261008_1410_v1/`. Their observation times differ.
 
 ### Graph attention and ensemble feedback
 
@@ -65,7 +65,7 @@ The closest-prior access pass found matching author-preprint DOI 10.2139/ssrn.45
 
 Three bounded primary scopes were added, with zero full-paper, author-code or result-reproduction credit: a2026 link-prediction oracle analysis, a2026 random-set node head, and UniMPv5's label/ masked-label operation. Choosing the best existing rank is not a universal upper bound for score fusion. Random-set heads concern uncertainty and do not establish useful member alternatives. UniMP already establishes label inputs/masked targets; C&S and the staged residual family already establish graph corrections/protected bases.
 
-One conditional hypothesis remains: native feature-only learning with four private label-only-value attention correctors, whose correction gradients stop at the backbone. All query labels must be hidden from all route/context fields. A disabled callable corrector core is source-prepared and root-inspected. Full native capture/trainer/restoration/selection integration and runtime qualification remain incomplete; no scientific launch or novelty clearance exists. All-observed-nonself-neighbor normalization is fixed, with sparse-anchor dilution and weak correction feedback retained as risks. Same-context capable single/untied, live-gradient, C&S and strong label-aware references are necessary. See `shared_private_label_conditioning_root_decision_20261008_v1.md`.
+One conditional hypothesis remains: native feature-only learning with four private label-only-value attention correctors, whose correction gradients stop at the backbone. All query labels must be hidden from all route/context fields. It is not implemented, admitted or novelty-cleared. Attention normalization and correction learning signal require explicit source choices. Same-context capable single/untied, live-gradient, C&S and strong label-aware references are necessary. See `shared_private_label_conditioning_root_decision_20261008_v1.md`.
 
 The minimum reference packet preserves the six completed historical single/ordinary records and distinguishes them from fresh matched controls. Blind transfer of WikiCS's numerical recipe to arxiv is not adopted; new graph baselines need verified dataset-specific competence before unused scoring. A disabled memory-bounded single8 own-CE source now accumulates eight backwards at old parameters then makes one native Adam step. It is source-prepared only, with no runtime or fit claim. A separate saved-source assessment retains PE4 gamma1 as one stronger efficient-ensemble comparator; a naive graph MIMO port is not certified by view counts. These additions do not change any running recipe, gate or score.
 
@@ -86,7 +86,3 @@ Allocation science: `anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:222
 18.77 science: `shmelev@192.168.18.77`, host `peptide`, GPUs `GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998` and `GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced`. Repository: `/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git`.
 
 Seven-GPU access is MacLink forwarding only; scientific evidence from the earlier wrong allocation stays excluded. Use normal host execution and existing environments. Incidental runtime caches are permitted. Keep deliberate file/data/checkpoint operations inside authorized project roots. No sudo, host mount/namespace changes, PDF compilation, Desktop writes, unrelated-data access, credential recording or GENLINK citation. The research goal and heartbeat remain active.
-
-### Disabled label-only core preparation
-
-`label_only_private_corrector_core_source_20261008_v1/` now supplies the four-route operator, detached native input interface, common query mask, conditional value scaling, own-CE update and mean-probability serving. The complete core and three exact factor primitives were source-inspected in `label_only_private_corrector_core_root_source_review_20261008_v1/`. This provides no numerical validation or accuracy claim. A separate agent is preparing native integration; running graph12 and Mol18 sources and gates remain unchanged.

@@ -1,0 +1,13 @@
+# Closest-prior check and boundaries
+
+The composition is retained as a falsifiable utility question because it makes a concrete changed graph prediction interface. It is **not** retained merely because no verbatim published recipe was found.
+
+- **C&S already supplies label-residual graph correction.** Saved v2/code conclusions specify residual `Y minus probability`, topology diffusion, addition and separate smoothing. Calling label-based correction new would be wrong. The candidate uses learned feature-conditioned attention over literal label-only values, with private routes and concurrent gradient-isolated feature learning. It must beat faithful C&S and same-context single controls.
+- **UniMP already supplies label inputs and common target masking.** New bounded primary scope confirms label embeddings, feature-plus-label propagation, prediction of masked labels and all allowed labels at inference. Common Q masking is a leakage contract, not novelty. Private masking is deliberately absent; all routes see `A minus Q`.
+- **The existing staged graph-residual family already supplies donor protection and private corrections.** Its v4 PLAN/source use raw-feature affine plus cached H, a private graph block and dense logit residual around a completely acquired frozen donor. It includes staged/interleaved/own-loss controls and a capable four-path nonlinear single. This proposal changes label-conditioned message values and query visibility; concurrency alone is not a methodological difference worth promotion.
+- **Native update preservation is a limited training statement.** It requires unchanged buffers/RNG/sample/optimizer semantics. It is not a theorem that preserving that path improves generalization. Hidden drift, sparse label reach, heterophilous neighbors, class imbalance and wrong-confidence amplification can defeat the correction.
+- **Identical private functions can remain identical.** Different ordinary private starts may acquire different label attention, but useful alternatives are unproved. Four correction outputs with poorer member competence do not establish an ensemble benefit.
+- **Known block routing and shared late paths remain ancestry.** The saved collaborative/shallow ensemble/Ensemble++ scopes prevent a claim that stopping selected gradients or sharing a feature trunk is itself new.
+- **No broad task claim survives.** The specific label-only corrector is inactive on nodes with no visible neighboring anchors and on completely unlabeled unseen graphs. Heterogeneous/inductive/link-prediction roles are unspecified and are not silently imported.
+
+No other initializer, graph mask, diversity loss, RL policy or router is promoted by this pass. Canonical records, current families and paper scores remain unchanged.
