@@ -1,22 +1,22 @@
 # GNNM post-submission research
 
-We are developing a learnable graph ensemble with shared learned weights and private member paths. The objective is better predictions than capable single models and ordinary independent ensembles. Original paper scores are unchanged. A new methodological advantage and fresh manuscript acceptance remain unestablished.
+We are developing an ensemble for better graph predictions with shared learned weights and private member paths. Original paper scores remain unchanged. A new methodological advantage and fresh manuscript acceptance remain unestablished.
 
-The completed 24-fit WikiCS study found better member competence from unit factors plus contrastive training, but insufficient complementary correct decisions. It trails the ordinary ensemble81.63% versus82.04% on the population that selected the checkpoints. The completed 12-bundle classifier diagnostic found no useful gain from unrestricted final heads. That branch is closed without optimizer tuning.
+The complete Wiki24 comparison identifies insufficient complementary correct predictions. A complete final-head diagnostic supplied no useful gain. The complete Context9 target experiment now also fails its unchanged continuation gate: route-specific targets tie or trail their matched control. Preserve these negative results and avoid reopening them through tuning.
 
-Full Context9, Wiki12 and Mol18 families continue with their fixed three-seed comparisons and complete training budgets. Outcomes remain closed until each whole family finishes. Context9 tests different persistent class-compatible targets. Wiki12 attributes alignment versus residual repulsion. Mol18 tests internal loss placement on official molecular scaffold splits.
+Full published SupCon3 training is complete. Read it with the original component controls after the old10-plus-new2 Wiki12 union closes. Mol18 remains active with seven of eighteen complete 100-epoch runs. Its original primary candidate and whole-family readout remain unchanged.
 
-A private-local-attention source is prepared as an inactive hypothesis about pre-classifier evidence selection. It has no measured utility or novelty. Strong same-operation single/untied controls and unused confirmation are required before a shared-ensemble advantage can be claimed. Small program fixtures are code evidence only.
+A source-only graph-relation credit proposal is being prepared. It is untrained, has no measured benefit, and needs attribution, capable ordinary references and unused confirmation.
 
 - [Current execution and decisions](RESEARCH_STATE.md)
 - [Concise public status](PUBLIC_STATUS.md)
-- [Representative experiment standard](representative_scientific_continuation_root_20261008_v2/RESEARCH_STANDARD.md)
-- [Independent full-family interpretation](context9_representative_family_preread_independent_assessment_20261008_v1.md)
+- [Complete graph-context result](context9_whole_family_collection_execution_root_20261008_v1/compact/REPORT.md)
+- [Fresh independent result assessment](context9_closed_result_independent_assessment_20261008_v1.md)
+- [Representative experiment requirements](canonical_SupCon_and_attention_integration_root_20261008_v1/REPRESENTATIVE_EXPERIMENT_STANDARD.md)
 - [Complete classifier diagnostic](direct12_result_synthesis_root_20261008_v1/REPORT.md)
 - [Public complete training CLI](portable_context_steering_public_interface_20261008_v1/README.md)
-- [Applicable efficient-ensemble control](representative_scientific_continuation_root_20261008_v2/EFFICIENT_CONTROL_DECISION.md)
 - [Preserved decisions, results and failures](research_ledger.json)
 - [Canonical base literature memory](literature_memory/index_v72/LITERATURE_INDEX.json)
 - [Current literature supplement](literature_memory/CURRENT_SUPPLEMENT.json)
 
-Raw datasets, representations and checkpoints stay on the authorized servers. Original historical notes and failed directions remain preserved in Git and the ledger.
+Raw datasets, representations and checkpoints stay on authorized servers. Earlier notes and failed directions remain preserved in Git and the ledger.

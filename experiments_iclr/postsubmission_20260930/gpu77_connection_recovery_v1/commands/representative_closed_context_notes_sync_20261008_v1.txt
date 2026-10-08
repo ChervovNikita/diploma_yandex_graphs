@@ -1,0 +1,46 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B -c 'from pathlib import Path
+import socket,subprocess,hashlib,json,datetime,os
+R=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');P=R/'"'"'experiments_iclr/postsubmission_20260930'"'"';A=P/'"'"'publication/representative_closed_context_notes_sync_20261008_v1'"'"'
+old='"'"'dbfc14d43be39525f8041fb4be5b504fa7a9e78c'"'"';target='"'"'0389ea678623c894428305e237d7534511fde25c'"'"';branch='"'"'codex/postsubmission-research-20260930'"'"'
+assert Path.cwd()==R and socket.gethostname()=='"'"'peptide'"'"'
+assert subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid'"'"','"'"'--format=csv,noheader'"'"'],text=True).splitlines()==['"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"']
+def git(*args,input=None,check=True,env=None):
+ r=subprocess.run(['"'"'git'"'"',*args],cwd=R,input=input,capture_output=True,timeout=45,env=env)
+ if check:r.check_returncode()
+ return r
+get=lambda *args:git(*args).stdout
+assert get('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==old and get('"'"'branch'"'"','"'"'--show-current'"'"').decode().strip()==branch
+assert not get('"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"') and not get('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+env=dict(os.environ,GIT_TERMINAL_PROMPT='"'"'0'"'"',GIT_SSH_COMMAND='"'"'ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o UpdateHostKeys=no'"'"')
+git('"'"'fetch'"'"','"'"'--no-tags'"'"','"'"'origin'"'"','"'"'refs/heads/'"'"'+branch+'"'"':refs/remotes/origin/'"'"'+branch,env=env)
+assert get('"'"'rev-parse'"'"','"'"'refs/remotes/origin/'"'"'+branch).decode().strip()==target
+git('"'"'merge-base'"'"','"'"'--is-ancestor'"'"',old,target)
+tracked=set(get('"'"'ls-files'"'"','"'"'-z'"'"').split(b'"'"'\0'"'"'));rows=[]
+for line in get('"'"'ls-tree'"'"','"'"'-r'"'"','"'"'-z'"'"','"'"'--full-tree'"'"',target).split(b'"'"'\0'"'"'):
+ if not line:continue
+ meta,bpath=line.split(b'"'"'\t'"'"',1);mode,kind,oid=meta.decode().split();path=os.fsdecode(bpath);f=R/path
+ if bpath in tracked or not os.path.lexists(f):continue
+ assert path.startswith('"'"'experiments_iclr/postsubmission_20260930/'"'"') and mode in ('"'"'100644'"'"','"'"'100755'"'"') and kind=='"'"'blob'"'"'
+ assert f.is_file() and not f.is_symlink() and f.stat().st_size<2000000
+ assert not any(q.is_symlink() for q in list(f.parents)[:len(Path(path).parts)-1])
+ data=f.read_bytes();actual=hashlib.sha1(b'"'"'blob '"'"'+str(len(data)).encode()+b'"'"'\0'"'"'+data).hexdigest()
+ assert actual==oid,'"'"'Incoming source differs from active local source: '"'"'+path
+ rows.append(dict(path=path,mode=mode,blob=oid,sha256=hashlib.sha256(data).hexdigest()))
+result=dict(UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),head_before=old,target=target,identical_collisions=len(rows),scientific_jobs_changed=False)
+try:
+ if rows:
+  payload=b'"'"''"'"'.join(x['"'"'mode'"'"'].encode()+b'"'"' '"'"'+x['"'"'blob'"'"'].encode()+b'"'"'\t'"'"'+os.fsencode(x['"'"'path'"'"'])+b'"'"'\0'"'"' for x in rows)
+  git('"'"'update-index'"'"','"'"'--add'"'"','"'"'-z'"'"','"'"'--index-info'"'"',input=payload)
+ git('"'"'merge'"'"','"'"'--ff-only'"'"',target)
+ assert get('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==target and not get('"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"') and not get('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+ result.update(complete=True,head_after=target,tracked_clean=True)
+except Exception as error:
+ result.update(complete=False,error=str(error),head_after=get('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip())
+ if result['"'"'head_after'"'"']==old and rows:git('"'"'update-index'"'"','"'"'--force-remove'"'"','"'"'-z'"'"','"'"'--stdin'"'"',input=b'"'"''"'"'.join(os.fsencode(x['"'"'path'"'"'])+b'"'"'\0'"'"' for x in rows))
+ raise
+finally:
+ A.mkdir(parents=True,exist_ok=True)
+ f=A/'"'"'GPU77_SYNC_RESULT.json'"'"'
+ with f.open('"'"'x'"'"') as h:json.dump(result,h,indent=2);h.write('"'"'\n'"'"')
+ print(json.dumps(result))
+'

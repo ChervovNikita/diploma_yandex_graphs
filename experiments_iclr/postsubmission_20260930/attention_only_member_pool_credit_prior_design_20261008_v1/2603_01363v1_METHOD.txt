@@ -1,0 +1,119 @@
+
+
+2 The Fed-GAME Framework
+
+2.1 Problem Formulation
+
+[S2.SS1.p1]
+
+[S2.SS1.p1.1] The goal of this paper is personalized time-series forecasting for N clients in federated setting. Each client i\in\{1,\cdots,N\}
+possesses a local private dataset D_{i}=\{(\textbf{X}_{i},\textbf{Y}_{i})\} ,
+where \textbf{X}_{i}=\{X_{i}^{t+1},\cdots,X_{i}^{t+h}\} represents the historical sequence of length h ,
+and \textbf{Y}_{i}=\{y_{i}^{t+h+1},\cdots,y_{i}^{t+h+p}\} is the p -step corresponding future sequence to be predicted.
+The forecast series of p -steps of i -th client is denoted as \hat{\textbf{Y}}^{p}_{i}=\{\hat{y}_{i}^{t+h+1},\cdots,\hat{y}_{i}^{t+h+p}\} .
+Due to data heterogeneity, instead of learning a single global model, Fed-GAME aims to learn a unique set of model parameters \bm{w}_{i} for each client. The objective is to minimize the aggregated loss over all clients: \min_{\bm{w}}\sum_{i\in N}\lambda_{i}f_{i}(\bm{w};\mathcal{D}_{i}) ,
+where N denotes the number of clients, f_{i}(\cdot) is the forecasting loss for client i , \lambda_{i} reflects the dataset weight, \bm{w} is the model parameters to be optimized.
+
+2.2 Fed-Game Framework
+
+[S2.SS2.p1]
+
+[S2.SS2.p1.1] To realize personalized time-series forecasting,
+we propose Fed-GAME. Fed-GAME involves the following steps, each labeled by stage number in Fig. 1 for clarity:
+
+[S2.F1]
+Figure 1: The Framework of Fed-GAME
+
+[S2.SS2.p2]
+
+[S2.SS2.p2.1] (1) Client-Side Update:
+Each client i maintains its own persistent private model ( M_{A} ) with parameters w^{\tau}_{A,i}
+and a local copy of the shared global model ( M_{B} ) with parameters w^{\tau}_{B} in round \tau .
+After fine-tuning M_{A} on its local data in round \tau , client i computes the parameter difference relative to the global model:
+\Delta^{\tau}_{i}=w^{\tau}_{A,i}-w^{\tau}_{B} .
+The client then uploads \Delta^{\tau}_{i} to the server.
+
+[S2.SS2.p3]
+
+[S2.SS2.p3.1] (2) Server-Side Aggregation:
+On the server, these difference are used for two purposes:
+i. Global consensus update:
+To maintain a shared knowledge base, the server averages client \Delta^{\tau}_{i} and applies them to the global model:
+\overline{\Delta}_{d}^{\tau}=\frac{1}{N}\sum_{i}\Delta^{\tau}_{i} ,
+w^{\tau+1}_{B}=w^{\tau}_{B}+\eta\cdot\overline{\Delta}^{\tau}_{d} . Here, \eta is the server learning rate controlling the step size of the global update.
+ii. Personalized aggregation:
+For communication efficiency, only selective components of \Delta_{i}^{\tau} (denoted as \Delta_{u,i}^{\tau} ) are utilized for personalized aggregation. Here, we restrict to select the final MLP layers, as they are widely recognized to capture high-level transferable features, whereas lower layers remain client-specific.
+Then, each client’s selective difference \Delta^{\tau}_{u,i} is encoded by a shared Encoder (constructed by Linear layer) into a low-dimensional embedding \mathbf{e}^{\tau}_{i}=\textit{Encoder}(\Delta^{\tau}_{u,i})
+to stabilize training and reduce dimensionality for efficient attention computation.
+These embeddings are then fed into a GAME aggregator, where shared experts model inter-client relevance and personalized gates adaptively weight them. The resulting scores {w_{ij}^{\tau}} serve as aggregation weights for M_{A} update, yielding the personalized update \Delta_{i}^{\text{pers},\tau} as:
+
+[S2.E1]
+
+\Delta_{i}^{\text{pers},\tau}=w_{self}\cdot\Delta_{u,i}^{\tau}+(1-w_{self})\sum_{j\neq i}w^{\tau}_{ij}\cdot\Delta_{u,j}^{\tau},
+
+(1)
+
+[S2.SS2.p3.2] where w_{self} controls the balance between a client’s local updates and the aggregated knowledge from its peers. This corresponds to graph-based message passing on the client interaction graph, where edges encode similarity in final-layer updates. The computation of the graph attention weights \{w^{\tau}_{ij}\} is detailed in Section 2.3.
+
+[S2.SS2.p4]
+
+[S2.SS2.p4.1] (3) Client Fine-tuning: Each client applies the personalized \Delta^{pers,\tau}_{i} and fine-tunes on local data:
+
+[S2.E2]
+
+w_{A,i}^{\tau+1}=\text{FineTune}(w_{A,i}^{\tau’})=\text{FineTune}(w_{A,i}^{\tau}+\gamma\cdot\Delta_{i}^{\text{pers},\tau}),
+
+(2)
+
+[S2.SS2.p4.2] \gamma denotes the learning rate controlling the step size of the personalized update.
+After fine-tuning, the next-round \Delta_{i}^{\tau+1} is computed as \Delta_{i}^{\tau+1}=w_{A,i}^{\tau+1}-w_{B}^{\tau+1} for next round upload.
+
+2.3 GAME Aggregator for Aggregation Weights
+
+[S2.SS3.p1]
+
+[S2.SS3.p1.1] The core of our server-side personalization is a learnable Mixture-of-Experts (MoE) aggregator. In each round (superscript
+\tau omitted for clarity), we construct a fully connected implicit graph where each uploaded update \Delta_{u,i}
+is treated as a node. Its low-dimensional embedding \textbf{e}_{i} serves as the dynamic node feature, while the raw update \Delta_{u,i} is propagated as the message.
+Unlike approaches with fixed adjacency matrices, our aggregator learns personalized graph attention coefficients \{w_{ij}\}_{j\neq i} , which adaptively weight messages (raw update \Delta_{u,i} ) for each client. This personalized attention mechanism is realized through two components: shared scoring experts, which capture inter-client relevance, and personalized gating modules, which adaptively weight expert outputs for each client.
+
+[S2.SS3.p2]
+
+[S2.SS3.p2.1] (1) Shared Scoring Experts: We employ M shared scoring experts \{E_{k}\}^{M}_{k=1} (construct by linear networks). The role of these experts is to evaluate the relevance of neighbor node j ’s message to a target client i . The scalar score s_{ijk} is calculated as:
+s_{ijk}=E_{k}([\bm{e}_{j},\bm{e}_{i}]) . This score represents the assessment of a specific expert regarding the relevance between each pair of clients.
+
+[S2.SS3.p3]
+
+[S2.SS3.p3.1] (2) Personalized Noisy Top- k Gating:
+Each client i is equipped with a personalized gate G_{i} , which assigns combination weights over experts. The gate generates logits H_{i}(e_{i})=(e_{i}\cdot w_{gi})+\text{SN}(\text{softplus}((e_{i}\cdot w_{\text{noise}i}))) , where w_{gi} and w_{\text{noise}i} are learnable parameters, SN adds Gaussian noise for exploration, and \text{softplus}(z)=\log(1+e^{z}) . Applying Top- k selection followed by softmax produces a sparse weight vector: c_{i}=G_{i}(e_{i})=\text{Softmax}(\text{Top-}k(H_{i}(e_{i}),k)) , which combines expert scores into a single relevance value: v_{ij}=c_{i}^{\top}s_{ij},s_{ij}=[s_{ij1},\dots,s_{ijM}] . Graph attention coefficients are then obtained via temperature-scaled softmax: w_{ij}=\exp(v_{ij}/T)/\sum_{l\neq i}\exp(v_{il}/T) , where T is the temperature. Thus, w_{ij} defines the edge weights of a dynamic, client-centric graph for each round, computed via weighted message passing in Eq. (1); w_{ij} can also be interpreted as personalized weight. details can be found in [15].
+
+[Thmremark1]
+Remark 1
+
+[Thmremark1.p1]
+
+[Thmremark1.p1.1] Compared with standard graph attention aggregators (e.g., GAT), Fed-GAME eliminates reliance on static topology and adopts a MoE paradigm, decomposing the single attention function into multiple shared experts and personalized routers, enabling both multi-expert relationship modeling and client-specific aggregation strategies.
+
+2.4 Training Objectives
+
+[S2.SS4.p1]
+
+[S2.SS4.p1.1] The Fed-GAME framework employs a decoupled, two-level optimization strategy.
+Client-Side: Each client
+i optimizes its private model M_{A} by minimizing a local objective function, which combines the forecasting loss on its local data with a proximal term from FedProx [2] to regularize local training and mitigate drift from the global model M_{B} . The local training of client i is formulated as: \min_{w_{A}}\left(\mathcal{L}_{\text{task}}^{i}(w_{A})+\frac{\mu}{2}\left|w_{A}-w_{B}\right|_{2}^{2}\right) .
+Server-Side: The server trains its learnable aggregation module (Encoder and MoE) using a similarity-based meta-loss L_{meta} ,
+which is defined as a weighted combination of a Mean Squared Error (L2) loss and a cosine dissimilarity loss:
+
+[S2.EGx1]
+
+\displaystyle\mathcal{L}_{\text{meta}}^{i}(w_{\text{enc}},w_{\text{moe}})=
+\displaystyle\alpha\left|\Delta^{pers}_{i}-\Delta_{u,i}\right|_{2}^{2}
+
+\displaystyle+\beta\left(1-\frac{\Delta^{pers}_{i}\Delta_{u,i}}{|\Delta_{i}^{pers}||\Delta_{u,i}|}\right)
+
+(3)
+
+[S2.SS4.p1.2] where \alpha and \beta are balancing hyperparameters, w_{\text{enc}} and w_{\text{moe}} denote the parameters of the Encoder and MoE.
+This meta-loss encourages the MoE to generate personalized updates that align with clients’ own raw parameter difference, improving personalization while maintaining global consistency.
+
+
