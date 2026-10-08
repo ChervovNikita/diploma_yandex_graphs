@@ -1,0 +1,3 @@
+Scientific source77c7343 is verified pushed and actually training on the authorized singleton allocation. First seed reached50/1100 full five-bank updates at23:26UTC. Parent/child birth identities and exact release are retained in the activation folder. No partial scores are opened. Prior P0 decision, original paper scores, gate coefficients and inactive two-hop design remain unchanged.
+
+A stale inherited completed-row descriptor says required_arm_count=4. Actual stage ARMS, completed bank receipts and the exact full15 barrier require five arms. Preserve the original descriptor; use the actual roster/endpoint set for reconstruction and readout. This descriptive issue does not justify altering the immutable live source or restarting training.
