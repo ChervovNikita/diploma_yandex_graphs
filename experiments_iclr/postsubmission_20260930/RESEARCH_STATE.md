@@ -1,6 +1,6 @@
 # Current GNNM research state
 
-Updated 8 October 2026. Allocation progress verified 15:57 UTC. Graph progress last verified 14:21 UTC; the later SSH observation failed before authentication. **Goal active and unmet:** no verified methodological extension outperforming capable singles and ordinary ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. Published base for this update: `0f50f22ec3dd43cad1c10e936054e43029a750e1`. Earlier decisions, results and failures remain in Git and `research_ledger.json`.
+Updated 8 October 2026. Allocation progress verified 16:31 UTC. Graph progress last verified 14:21 UTC; the later SSH observation failed before authentication. **Goal active and unmet:** no verified methodological extension outperforming capable singles and ordinary ensembles, and no fresh manuscript acceptance. Original five-dataset paper scores remain unchanged. Published base for this update: `0f50f22ec3dd43cad1c10e936054e43029a750e1`. Earlier decisions, results and failures remain in Git and `research_ledger.json`.
 
 ## Completed contrastive comparison
 
@@ -20,7 +20,7 @@ Evidence: `Wiki12_SupCon15_union_collection_execution_root_20261008_v1/compact/`
 
 | Study | Actual owner | Last verified state | Next numerical opening |
 | --- | --- | --- | --- |
-| Mol18, one-GPU allocation | 523400 / 6019318952 | 9/18 fits complete; P_7203 at 45/100 epochs, 15:57 UTC; ten fits completed | After the complete eighteen-fit roster, retaining failures |
+| Mol18, one-GPU allocation | 523400 / 6019318952 | 9/18 fits complete; P_7203 at73/100 epochs,16:31 UTC; ten fits completed | After the complete eighteen-fit roster, retaining failures |
 | Graph-relation full12, 18.77 | 3713404 / 1760762180 | Both lanes admitted; 1/12 fits complete; 6101_allJ at 86/1100 and 6203_alphaF at 641/1100, 14:21 UTC | After all twelve new endpoints and the now-complete original twelve-fit union |
 
 The first6101 control is complete. Current children were verified live: 3738864 / 1761859089 (6101_allJ) and 3727602 / 1761283669 (6203_alphaF). Seed 6307 remains queued behind 6101 on GPU1. Never restart owners after interrupted transport. Detached training continues when the paired Mac is switched off. Latest graph snapshot: `representative_full_family_progress_root_20261008_1421_v1/`; allocation snapshot: `representative_full_family_progress_root_20261008_1600_v1/`. Later graph monitoring failed before SSH authentication; no scientific process was restarted. Their observation times differ.
@@ -54,7 +54,7 @@ Earlier complete Wiki24 showed slightly stronger average unit-factor contrastive
 
 ## Literature and next decision
 
-Canonical scoped memory is `literature_memory/CURRENT_SUPPLEMENT.json`, now supplement v25. The prior v23 update added two bounded method reads: an officially listed ICML 2026 molecular ensemble-consensus comparator, and a 2025 multiscale graph-ensemble preprint. GRAND/GraphMix consistency ancestry is already established. The low-label consensus recipe is not a faithful full-label MolHIV comparator. Official VALID/TEST molecule inputs must not become unlabeled TRAIN graphs. No new fit, author-code audit, proof certification or whole-paper credit follows from this search. Processed raw bodies were hash-verified and offloaded to the authorized allocation.
+Canonical scoped memory is `literature_memory/CURRENT_SUPPLEMENT.json`, now supplement v26. The prior v23 update added two bounded method reads: an officially listed ICML 2026 molecular ensemble-consensus comparator, and a 2025 multiscale graph-ensemble preprint. GRAND/GraphMix consistency ancestry is already established. The low-label consensus recipe is not a faithful full-label MolHIV comparator. Official VALID/TEST molecule inputs must not become unlabeled TRAIN graphs. No new fit, author-code audit, proof certification or whole-paper credit follows from this search. Processed raw bodies were hash-verified and offloaded to the authorized allocation.
 
 The whole15 follow-up retains one conditional standard control: independent native GAT local-scorer starts crossed with own/relation feedback after the complete new12 result. It addresses the measured decision redundancy. It is established initialization practice, not a novel initializer, and is not yet admitted. No generic initializer/coefficient grid or duplicate teacher-training pipeline is proposed.
 
@@ -90,3 +90,13 @@ Seven-GPU access is MacLink forwarding only; scientific evidence from the earlie
 ### Disabled label-only core preparation
 
 `label_only_private_corrector_core_source_20261008_v1/` now supplies the four-route operator, detached native input interface, common query mask, conditional value scaling, own-CE update and mean-probability serving. The complete core and three exact factor primitives were source-inspected in `label_only_private_corrector_core_root_source_review_20261008_v1/`. This provides no numerical validation or accuracy claim. A separate agent is preparing native integration; running graph12 and Mol18 sources and gates remain unchanged.
+
+## Concrete label-correction first screen
+
+The native integration, four-bank driver, four-head joint single and same-backbone untied correction control are source implemented. Frozen seeds are6101/6203/6307; every native block trains1100epochs. The co-primary comparisons are against the joint single and untied correction bank; one-head single is secondary. These are not full ordinary GNN ensembles. The exact four-bank seed table supersedes the older one-bank constructor offset for this screen only. All original running sources and scores remain unchanged.
+
+The primary UniMP/PGL implementation locator and bounded original arxiv masking/operator scope are resolved. Its stronger v2helpers/runtime remain incomplete. No new paper-identity/full-paper credit or published numeric results are adopted. See `unimp_author_code_reference_scope_20261008_v1/`.
+
+The authorized allocation already holds the identical official SAFE WikiCS input. CPU role conversion created complete TRAIN/development NPZs inside the repo, with no dataset download or Mac array copy. Structural reach is2762of5274development nodes; expected visible-anchor coverage among masked TRAIN queries is39.405%. No candidate scores or development truths were scored. Whole-population gates remain fixed.
+
+An exact four-update CUDA engineering release is authorized; execution and runtime qualification are pending. It exercises the full graph, both native phases, coherent restoration and unscored reconstruction. It is not a short scientific fit, selected checkpoint or1100schedule verification. Full scientific launch remains disabled pending runtime evidence and owned representative release.

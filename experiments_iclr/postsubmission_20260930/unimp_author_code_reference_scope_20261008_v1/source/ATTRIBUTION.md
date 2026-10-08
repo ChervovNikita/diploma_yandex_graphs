@@ -1,0 +1,1 @@
+Pinned reference source from PaddlePaddle/PGL, commit 6dbb47c4559352ea1b1e327ee0039c47095583af. Source files remain unmodified except local README filename case. Original source URLs and exact content hashes are recorded in the parent retrieval receipts. Apache2.0 license is included. No execution or scientific baseline fidelity is implied by custody.
