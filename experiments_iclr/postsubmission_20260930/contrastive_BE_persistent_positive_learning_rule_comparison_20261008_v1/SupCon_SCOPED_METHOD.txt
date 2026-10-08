@@ -1,0 +1,169 @@
+===PDFPAGE4===
+two stage training and discards the contrastive head. Lastly, the scale of experiments in Kamnitsas
+et. al. is much smaller than in this work. Merging the ﬁndings of our paper and CCLP is a promising
+direction for semi-supervised learning research.
+3 Method
+Our method is structurally similar to that used in [48, 3] for self-supervised contrastive learning,
+with modiﬁcations for supervised classiﬁcation. Given an input batch of data, we ﬁrst apply data
+augmentation twice to obtain two copies of the batch. Both copies are forward propagated through
+the encoder network to obtain a 2048-dimensional normalized embedding. During training, this
+representation is further propagated through a projection network that is discarded at inference time.
+The supervised contrastive loss is computed on the outputs of the projection network. To use the
+trained model for classiﬁcation, we train a linear classiﬁer on top of the frozen representations using
+a cross-entropy loss. Fig. 1 in the Supplementary material provides a visual explanation.
+3.1 Representation Learning Framework
+The main components of our framework are:
+• Data Augmentation module,Aug(·). For each input sample, x, we generate two random augmen-
+tations, ˜x = Aug(x), each of which represents a different view of the data and contains some
+subset of the information in the original sample. Sec. 4 gives details of the augmentations.
+• Encoder Network,Enc(·), which maps x to a representation vector, r =Enc(x)∈R DE . Both
+augmented samples are separately input to the same encoder, resulting in a pair of representation
+vectors. r is normalized to the unit hypersphere in RDE (DE = 2048 in all our experiments in
+the paper). Consistent with the ﬁndings of [42, 52], our analysis and experiments show that this
+normalization improves top-1 accuracy.
+• Projection Network, Proj (·), which maps r to a vector z = Proj (r)∈R DP . We instantiate
+Proj (·) as either a multi-layer perceptron [14] with a single hidden layer of size 2048 and output
+vector of sizeDP = 128 or just a single linear layer of size DP = 128; we leave to future work
+the investigation of optimalProj (·) architectures. We again normalize the output of this network
+to lie on the unit hypersphere, which enables using an inner product to measure distances in the
+projection space. As in self-supervised contrastive learning [48, 3], we discardProj (·) at the end
+of contrastive training. As a result, our inference-time models contain exactly the same number of
+parameters as a cross-entropy model using the same encoder,Enc(·).
+3.2 Contrastive Loss Functions
+Given this framework, we now look at the family of contrastive losses, starting from the self-
+supervised domain and analyzing the options for adapting it to the supervised domain, showing that
+one formulation is superior. For a set of N randomly sampled sample/label pairs,{xk, yk}k=1...N ,
+the corresponding batch used for training consists of 2N pairs,{˜xℓ, ˜yℓ}ℓ=1...2N , where ˜x2k and
+˜x2k−1 are two random augmentations (a.k.a., “views”) of xk (k = 1...N) and ˜y2k−1 = ˜y2k = yk.
+For the remainder of this paper, we will refer to a set of N samples as a “batch” and the set of 2N
+augmented samples as a “multiviewed batch”.
+3.2.1 Self-Supervised Contrastive Loss
+Within a multiviewed batch, let i∈ I≡{ 1...2N} be the index of an arbitrary augmented sample,
+and let j(i) be the index of the other augmented sample originating from the same source sample.
+In self-supervised contrastive learning (e.g., [3, 48, 18, 22]), the loss takes the following form.
+Lself =
+∑
+i∈I
+Lself
+i =−
+∑
+i∈I
+log exp
+(
+zi•zj(i)/τ
+)
+∑
+a∈A(i)
+exp (zi•za/τ ) (1)
+Here, zℓ = Proj (Enc(˜xℓ))∈R DP , the•symbol denotes the inner (dot) product, τ ∈R + is a
+scalar temperature parameter, and A(i)≡ I\{i}. The index i is called the anchor, index j(i) is
+called the positive, and the other 2(N− 1) indices ({k∈ A(i)\{j(i)}) are called the negatives.
+4
+
+===PDFPAGE5===
+Note that for each anchori, there is 1 positive pair and 2N− 2 negative pairs. The denominator has
+a total of 2N− 1 terms (the positive and negatives).
+3.2.2 Supervised Contrastive Losses
+For supervised learning, the contrastive loss in Eq. 1 is incapable of handling the case where, due to
+the presence of labels, more than one sample is known to belong to the same class. Generalization
+to an arbitrary numbers of positives, though, leads to a choice between multiple possible functions.
+Eqs. 2 and 3 present the two most straightforward ways to generalize Eq. 1 to incorporate supervi-
+sion.
+Lsup
+out =
+∑
+i∈I
+Lsup
+out,i =
+∑
+i∈I
+−1
+|P (i)|
+∑
+p∈P (i)
+log exp (zi•zp/τ )∑
+a∈A(i)
+exp (zi•za/τ ) (2)
+Lsup
+in =
+∑
+i∈I
+Lsup
+in,i =
+∑
+i∈I
+− log
+
+
+
+1
+|P (i)|
+∑
+p∈P (i)
+exp (zi•zp/τ )∑
+a∈A(i)
+exp (zi•za/τ )
+
+
+
+(3)
+Here,P (i)≡{ p∈ A(i) : ˜yp = ˜yi} is the set of indices of all positives in the multiviewed batch
+distinct fromi, and|P (i)| is its cardinality. In Eq. 2, the summation over positives is locatedoutside
+of the log (Lsup
+out ) while in Eq. 3, the summation is located inside of the log (Lsup
+in ). Both losses have
+the following desirable properties:
+• Generalization to an arbitrary number of positives. The major structural change of Eqs. 2
+and 3 over Eq. 1 is that now, for any anchor, all positives in a multiviewed batch (i.e., the
+augmentation-based sample as well as any of the remaining samples with the same label) con-
+tribute to the numerator. For randomly-generated batches whose size is large with respect to the
+number of classes, multiple additional terms will be present (on average, N/C, where C is the
+number of classes). The supervised losses encourage the encoder to give closely aligned represen-
+tations to all entries from the same class, resulting in a more robust clustering of the representation
+space than that generated from Eq. 1, as is supported by our experiments in Sec. 4.
+• Contrastive power increases with more negatives. Eqs. 2 and 3 both preserve the summation
+over negatives in the contrastive denominator of Eq. 1. This form is largely motivated by noise
+contrastive estimation and N-pair losses [13, 45], wherein the ability to discriminate between
+signal and noise (negatives) is improved by adding more examples of negatives. This property is
+important for representation learning via self-supervised contrastive learning, with many papers
+showing increased performance with increasing number of negatives [18, 15, 48, 3].
+• Intrinsic ability to perform hard positive/negative mining. When used with normalized rep-
+resentations, the loss in Eq. 1 induces a gradient structure that gives rise to implicit hard posi-
+tive/negative mining. The gradient contributions from hard positives/negatives (i.e., ones against
+which continuing to contrast the anchorgreatly beneﬁts the encoder) are large while those foreasy
+positives/negatives (i.e., ones against which continuing to contrast the anchor onlyweakly beneﬁts
+the encoder) are small. Furthermore, for hard positives, the effect increases (asymptotically) as
+the number of negatives does. Eqs. 2 and 3 both preserve this useful property and generalize it
+to all positives. This implicit property allows the contrastive loss to sidestep the need for explicit
+hard mining, which is a delicate but critical part of many losses, such as triplet loss [42]. We note
+that this implicit property applies to both supervised and self-supervised contrastive losses, but our
+derivation is the ﬁrst to clearly show this property. We provide a full derivation of this property
+from the loss gradient in the Supplementary material.
+Loss Top-1
+Lsup
+out 78.7%
+Lsup
+in 67.4%
+Table 1: ImageNet Top-1 classiﬁcation
+accuracy for supervised contrastive
+losses on ResNet-50 for a batch size of
+6144.
+The two loss formulations are not, however, equivalent. Be-
+cause log is a concave function, Jensen’s Inequality [23] im-
+plies thatLsup
+in ≤L sup
+out . One would thus expect Lsup
+out to be
+the superior supervised loss function (since it upper-bounds
+Lsup
+in ). This conclusion is also supported analytically. Table 1
+compares the ImageNet [7] top-1 classiﬁcation accuracy using
+Lsup
+out andLsup
+in for different batch sizes (N) on the ResNet-50
+[17] architecture. The Lsup
+out supervised loss achieves signiﬁ-
+cantly higher performance thanLsup
+in . We conjecture that this is due to the gradient ofLsup
+in having
+5

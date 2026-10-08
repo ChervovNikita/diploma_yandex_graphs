@@ -36,7 +36,9 @@ At 00:49 UTC on 8 October, both 18.77 GPUs were training the original twelve-fit
 
 MA-GCL supplies published ancestry for shared graph transformation weights under different propagation schedules. The inspected author-linked preprint uses same-observation positives and serves a single architecture. This scoped distinction does not establish novelty or accepted-body equivalence. Saved conclusions are in literature supplement v18.
 
-The [direct twelve-bundle diagnostic source](experiments_iclr/postsubmission_20260930/Wiki24_direct12_head_refit_source_20261008_v2/PROTOCOL.txt) is prepared and independently approved for scientific semantics. It preserves selected states, uses matched training objectives and reports actual correct alternatives and errors. Backend qualification and complete execution remain pending. The three original single/ordinary seed references have distinct checkpoints and selected modes. No score was recalculated.
+**The complete classifier diagnostic gave no useful extra-head gain.** Twelve matched full-data fits used all580 TRAIN and5274 development nodes from three distinct seeded banks. Unrestricted and factorized BE heads both reached80.57% mean accuracy under the fixed refit, below untouched unit+contrast81.63%. Paired differences were0, minus1 and plus1node. New correct alternatives and common-rival pooled repairs were identical. Six finite endpoints did not meet the declared gradient tolerance and remain visible. This branch is closed without further tuning. [Complete result](experiments_iclr/postsubmission_20260930/direct12_result_synthesis_root_20261008_v1/REPORT.md) · [Independent assessment](experiments_iclr/postsubmission_20260930/Wiki24_direct12_closed_result_independent_assessment_20261008_v1/ASSESSMENT.md).
+
+Research continues on learning and aggregating different graph evidence before the classifier. Existing full context-target, attribution and molecular studies retain their frozen recipes and controls. Private local attention scoring remains an inactive, attributed hypothesis. No new end-to-end superiority or methodological novelty is established.
 
 ## Original method
 
