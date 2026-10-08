@@ -1,0 +1,125 @@
+--- label_only_private_corrector_core_source_20261008_v1/core.py
++++ query_conditioned_value_gate_full15_callable_source_20261009_v1/core.py
+@@ -5,6 +5,7 @@
+ interface; no dataset, checkpoint, native capture or selected-stage integration.
+ """
+ import ast
++import importlib.util
+ from contextlib import contextmanager
+ from dataclasses import dataclass
+ import hashlib
+@@ -20,7 +21,8 @@
+ MEMBERS = 4
+ ATTENTION_WIDTH = 64
+ LABEL_WIDTH = 64
+-EXECUTION_MODE = 'common_query_one_hop_label_only_detached_native_core_v1'
++EXECUTION_MODE = 'query_conditioned_dense_label_value_detached_native_core_v1'
++GATE_HELPER_SHA = '46e70016760aefbca612f261d87e418ce55abe1921cee9c3e9ed7700d95de7b8'
+ 
+ 
+ def require(condition, message):
+@@ -87,12 +89,23 @@
+     return namespace, ast_sha
+ 
+ 
++def _value_gate_helpers():
++    path = Path(__file__).resolve().parent / 'query_value_gate_hook.py'
++    require(sha(path) == GATE_HELPER_SHA, 'Exact frozen gate/value-input helper required')
++    name = '_query_value_gated_helpers_v1'
++    spec = importlib.util.spec_from_file_location(name, path)
++    value = importlib.util.module_from_spec(spec); sys.modules[name] = value
++    spec.loader.exec_module(value)
++    return value
++
++
+ def _core_type(torch, factors):
++    gates = _value_gate_helpers()
+     nn = torch.nn
+ 
+     class LabelOnlyCorrectorCore(nn.Module):
+         def __init__(self, nodes, features, classes, edge_index, train_ids, train_labels,
+-                     initializer_seed, mask_seed, factor_ast_sha):
++                     initializer_seed, mask_seed, factor_ast_sha, erase_value_class_identity=False):
+             super().__init__()
+             self.nodes, self.features, self.classes = nodes, features, classes
+             self.initializer_seed, self.mask_seed = initializer_seed, mask_seed
+@@ -109,6 +122,10 @@
+                                                           dtype=torch.float32), MEMBERS)
+             self.output = factors['FactorLinear'](nn.Linear(LABEL_WIDTH, classes, bias=False,
+                                                            dtype=torch.float32), MEMBERS)
++            self.query_value_gate = gates.make_query_value_gate(
++                torch=torch, later_execution_authorized=True)
++            self.erase_value_class_identity = erase_value_class_identity
++            self._fixed_value_erasure_policy = erase_value_class_identity
+             # Established Rademacher first-factor diversity; only Q/K input
+             # factors differ. Every s and the V/O input factors start at one.
+             factors['initialize_first_factor'](self.query, initializer_seed + 900001)
+@@ -147,6 +164,8 @@
+             require(tuple(value._version for value in
+                 (self.edge_source, self.edge_target, self.train_ids, self.train_labels)) == self._role_versions,
+                 'Fixed graph/TRAIN role tensors changed; fresh independently bound core required')
++            require(self.erase_value_class_identity is self._fixed_value_erasure_policy,
++                    'Permanent value-identity policy cannot change between train/serve calls')
+ 
+         def _finite_state(self):
+             require(all(bool(torch.isfinite(parameter).all()) for parameter in self.parameters()),
+@@ -231,13 +250,19 @@
+                 values = H.new_zeros((self.nodes, LABEL_WIDTH))
+                 # The only value input is permitted TRAIN-label embedding.
+                 # There are no cached full-label fields, raw-H values, biases,
+-                # nonlinear post-aggregation maps or additional propagation.
+-                permitted = self.label_embedding(self.train_labels[visible_positions])
++                # additive feature values or additional propagation. The dense
++                # message is receiver-gated only after the aggregation.
++                permitted = gates.lookup_permitted_label_embedding(
++                    self.label_embedding, visible_count=len(visible_positions),
++                    visible_labels=(None if self.erase_value_class_identity else
++                                    self.train_labels[visible_positions]),
++                    erase_class_identity=self.erase_value_class_identity)
+                 values.index_copy_(0, visible_ids, self.value(permitted) * scale)
+                 self.counters['route_label_value_fields_built'] += 1
+                 require(bool(torch.isfinite(values).all()), 'Finite permitted label values required')
+                 message = H.new_zeros((len(queries), LABEL_WIDTH))
+                 message.index_add_(0, row, alpha[:, None] * values[source])
++                message = self.query_value_gate(message, H[queries])
+                 delta = self.output(message)
+                 require(bool(torch.isfinite(delta).all()), 'Finite label-only correction required')
+                 legal = torch.zeros(self.nodes, dtype=torch.bool, device=H.device)
+@@ -346,6 +371,10 @@
+                 duplicate_nonself_edge_records='Preserved with original multiplicity/order',
+                 initializer_seed=self.initializer_seed, mask_seed=self.mask_seed,
+                 initializer='Shared native Linear/Embedding reset under isolated CPU RNG; Q/K r Rademacher at seed+900001/+900003; all s,V/O r ones; output shared W zero',
++                query_conditioned_values=True, query_gate_shared_across_routes=True,
++                query_gate_formula='2*sigmoid(A*stopgrad(H_query)+b)', query_gate_parameters=32832,
++                value_identity_erased=self.erase_value_class_identity,
++                owned_parameter_count=sum(p.numel() for p in self.parameters()),
+                 correction_gradients_into_external_H_or_base=False, own_corrected_CE=True,
+                 pooled_training_objective=False, prediction_or_loss_unbiased=False,
+                 native_capture_or_trajectory_or_selector_integration_implemented=False,
+@@ -356,7 +385,7 @@
+ 
+ def make_core(*, nodes, feature_width, classes, edge_index, train_ids, train_labels,
+               initializer_seed, mask_seed, device='cpu', public_root=None,
+-              later_execution_authorized=False):
++              later_execution_authorized=False, erase_value_class_identity=False):
+     """Honest external-capture core factory; default refuses before torch import."""
+     require(later_execution_authorized is True, 'Disabled source prototype; later separate adoption required')
+     require(all(type(value) is int for value in
+@@ -364,6 +393,8 @@
+             and nodes > 1 and feature_width > 0 and classes > 1
+             and 0 <= initializer_seed < 2**63 and 0 <= mask_seed < 2**63,
+             'Explicit positive shape integers and isolated initializer/mask seeds required')
++    require(feature_width == 512 and classes == 10 and type(erase_value_class_identity) is bool,
++            'Frozen 512D/10class gate task and permanent explicit value policy required')
+     import torch
+     requested_device = torch.device(device)
+     require(requested_device.type in ('cpu', 'cuda'), 'Declared CPU or CUDA core device required')
+@@ -388,7 +419,7 @@
+     # CUDA random draw, numpy/Python random draw or native stream access exists.
+     with _isolated_constructor_rng(torch, initializer_seed):
+         core = core_type(nodes, feature_width, classes, edge_index.cpu(), train_ids.cpu(),
+-                         train_labels.cpu(), initializer_seed, mask_seed, ast_sha)
++                         train_labels.cpu(), initializer_seed, mask_seed, ast_sha, erase_value_class_identity)
+         core = core.to(device=requested_device, dtype=torch.float32)
+         core.optimizer = torch.optim.Adam(core.parameters(), lr=.001, eps=1e-8, weight_decay=0.)
+     core._record_role_versions()

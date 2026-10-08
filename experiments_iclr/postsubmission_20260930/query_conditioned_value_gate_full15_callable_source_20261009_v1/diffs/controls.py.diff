@@ -1,0 +1,124 @@
+--- label_only_same_operation_controls_source_20261008_v1/controls.py
++++ query_conditioned_value_gate_full15_callable_source_20261009_v1/controls.py
+@@ -2,13 +2,13 @@
+ import copy
+ import hashlib
+ import importlib.util
++import json
+ import math
+ from pathlib import Path
+ import sys
+ 
+-CORE_DIRECTORY = 'label_only_private_corrector_core_source_20261008_v1'
+-CORE_MANIFEST_SHA = '5311420414866ad7159185fd12d4e14cac3e935f36bc4f6b2c8786e03c669dd9'
+-CORE_SHA = '41e0165829d091e73ec08a7520f5a830cb4fb37006a27d26684cb2ad2b8d675d'
++CORE_DIRECTORY = 'query_conditioned_value_gate_full15_callable_source_20261009_v1'
++CORE_SHA = '760d8a676c45239e21ee3b34ad23ace1fac1f38b8901051271306d982a8a55c8'
+ WIDTH = 64
+ 
+ 
+@@ -42,9 +42,14 @@
+ 
+ def _load_core(core_root):
+     root = Path(core_root).resolve(strict=True)
+-    require(_sha(root / 'MANIFEST.json') == CORE_MANIFEST_SHA and _sha(root / 'core.py') == CORE_SHA,
+-            'Exact reviewed immutable core dependency required')
+-    name = '_label_only_same_operation_reviewed_core_v1'
++    require(root == Path(__file__).resolve().parent, 'Only this localized successor core is allowed')
++    seal = json.loads((root / 'SEAL.json').read_text())
++    require(seal['execution_enabled'] is False and seal['runtime_qualified'] is False
++            and _sha(root / 'MANIFEST.json') == seal['manifest_sha256'], 'Exact disabled successor seal')
++    row = next(r for r in json.loads((root / 'MANIFEST.json').read_text())['files'] if r['path'] == 'core.py')
++    require(_sha(root / 'core.py') == row['sha256'] == CORE_SHA
++            and (root / 'core.py').stat().st_size == row['bytes'], 'Exact localized gated core')
++    name = '_query_value_gated_control_core_v1'
+     spec = importlib.util.spec_from_file_location(name, root / 'core.py')
+     module = importlib.util.module_from_spec(spec); sys.modules[name] = module
+     spec.loader.exec_module(module)
+@@ -53,6 +58,7 @@
+ 
+ def _control_type(torch, core):
+     nn = torch.nn
++    gates = core._value_gate_helpers()
+     # These inherited mask/role/edge methods are the reviewed operation. The
+     # candidate constructor, factor maps, numerical factory and update are unused.
+     Base = core._core_type(torch, {})
+@@ -62,6 +68,8 @@
+                      initializer_seeds, mask_seed, context_identity, backbone_ids, selection_policy):
+             nn.Module.__init__(self)
+             self.nodes, self.features, self.classes = nodes, features, classes
++            self.erase_value_class_identity = False
++            self._fixed_value_erasure_policy = False
+             self.mode = mode; self.attention_heads = len(initializer_seeds)
+             self.members = 1 if mode == 'multihead_single4' else self.attention_heads
+             self.initializer_seeds, self.mask_seed = initializer_seeds, mask_seed
+@@ -81,7 +89,13 @@
+                         with torch.no_grad():
+                             maps['output'].weight.zero_()
+                     route = nn.ModuleDict(maps)
++                    if mode == 'shared_backbone_untied_correctors4':
++                        route['query_value_gate'] = gates.make_query_value_gate(
++                            torch=torch, later_execution_authorized=True)
+                 self.routes.append(route)
++            if mode != 'shared_backbone_untied_correctors4':
++                self.query_value_gate = gates.make_query_value_gate(
++                    torch=torch, later_execution_authorized=True)
+             if mode == 'multihead_single4':
+                 with core._isolated_constructor_rng(torch, initializer_seeds[0] + 700001):
+                     self.joint_output = nn.Linear(4 * WIDTH, classes, bias=False, dtype=torch.float32)
+@@ -165,6 +179,9 @@
+             require(bool(torch.isfinite(values).all()), 'Finite visible-label-only values')
+             message = H.new_zeros((len(queries), WIDTH))
+             message.index_add_(0, row, alpha[:, None] * values[source])
++            gate = (route['query_value_gate'] if self.mode == 'shared_backbone_untied_correctors4'
++                    else self.query_value_gate)
++            message = gate(message, H[queries])
+             require(bool(torch.isfinite(message).all()), 'Finite label-only message')
+             legal = torch.zeros(self.nodes, dtype=torch.bool, device=H.device); legal[visible_ids] = True
+             count = torch.zeros(len(queries), dtype=torch.long, device=H.device)
+@@ -335,13 +352,16 @@
+                 observed_nonself_edges=int(self.edge_source.numel()),
+                 initializer_seeds=self.initializer_seeds, mask_seed=self.mask_seed,
+                 attention_width=WIDTH, label_width=WIDTH, ordinary_head_parameter_formula='128*F+128*C+4096',
+-                learned_parameter_formula='4*(128*F+128*C+4096)' if self.mode == 'multihead_single4'
+-                    else str(self.members) + '*(128*F+128*C+4096)',
++                learned_parameter_formula='4*(128*F+128*C+4096)+64*(F+1)' if self.mode == 'multihead_single4'
++                    else str(self.members) + '*(128*F+128*C+4096)' + ('+4*64*(F+1)' if self.mode == 'shared_backbone_untied_correctors4' else '+64*(F+1)'),
+                 owned_parameter_count=sum(p.numel() for p in self.parameters()),
+-                shared_corrector_parameters=False, independent_native_backbones_required=self.mode == 'ordinary_independent4',
++                shared_corrector_parameters=self.mode == 'multihead_single4', independent_native_backbones_required=self.mode == 'ordinary_independent4',
+                 backbone_ids=self.backbone_ids, context_identity=dict(self.context_identity),
+                 selection_policy=dict(self.selection_policy), backward_own_CE_scale=self.backward_loss_scale,
+                 Adam=dict(lr=.001, eps=1e-8, weight_decay=0.), corrector_optimizer_count=len(self.optimizers),
++                query_conditioned_values=True, value_identity_erased=False,
++                query_gate_shared_across_routes=self.mode != 'shared_backbone_untied_correctors4',
++                query_gate_parameters=(4 if self.mode == 'shared_backbone_untied_correctors4' else 1)*32832,
+                 correction_gradients_into_H_or_base=False, all_neighbor_denominator=True,
+                 no_raw_H_values=True, mean_probability_serving=True,
+                 runtime_qualified=False, baseline_competence_confirmed=False, complete_cell_ready=False,
+@@ -357,7 +377,7 @@
+                   device='cpu', core_root=None, later_execution_authorized=False):
+     """Default refuses before torch/dependency import; source controls only."""
+     require(later_execution_authorized is True, 'Disabled control source; separate later adoption required')
+-    count = {'one_path': 1, 'ordinary_independent4': 4, 'shared_backbone_untied_correctors4': 4, 'multihead_single4': 4}.get(mode)
++    count = {'one_path': 1, 'shared_backbone_untied_correctors4': 4, 'multihead_single4': 4}.get(mode)
+     require(count is not None and all(type(x) is int for x in (nodes, feature_width, classes, mask_seed))
+         and nodes > 1 and feature_width > 0 and classes > 1 and 0 <= mask_seed < 2**63,
+         'Explicit valid mode/shapes/private mask seed')
+@@ -379,6 +399,7 @@
+                                                       else 'each_own_corrected_predictor')
+         and selection_policy.get('role') == 'VALID' and isinstance(selection_policy.get('metric_name'), str)
+         and bool(selection_policy['metric_name']), 'Explicit per-member independent native+corrector selection policy')
++    require(feature_width == 512 and classes == 10, 'Frozen 512D/10class gated task required')
+     core = _load_core(core_root or Path(__file__).resolve().parent.parent / CORE_DIRECTORY)
+     import torch
+     target = torch.device(device)
+@@ -393,7 +414,7 @@
+         and int(train_labels.min()) >= 0 and int(train_labels.max()) < classes, 'Only complete permitted TRAIN IDs/labels')
+     obj = _control_type(torch, core)(mode, nodes, feature_width, classes, edge_index.cpu(), train_ids.cpu(), train_labels.cpu(),
+         initializer_seeds, mask_seed, context_identity, backbone_ids, selection_policy).to(target, dtype=torch.float32)
+-    obj.optimizers = [torch.optim.Adam(obj.parameters(), lr=.001, eps=1e-8, weight_decay=0.)] if mode == 'multihead_single4' else [
++    obj.optimizers = [torch.optim.Adam(obj.parameters(), lr=.001, eps=1e-8, weight_decay=0.)] if mode in ('multihead_single4', 'one_path') else [
+         torch.optim.Adam(route.parameters(), lr=.001, eps=1e-8, weight_decay=0.) for route in obj.routes]
+     obj.optimizer = OptimizerBank(obj.optimizers, mode)
+     obj._record_role_versions()

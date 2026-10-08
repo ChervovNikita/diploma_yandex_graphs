@@ -1,0 +1,41 @@
+--- P0_REFERENCE_ONLY/label_only_private_corrector_core_source_20261008_v1/core.py
++++ FUTURE_NEW_RELEASE_ONLY/core.py
+@@ -13,6 +13,7 @@
+ from pathlib import Path
+ import random
+ import sys
++from query_value_gate_hook import lookup_permitted_label_embedding
+ 
+ PUBLIC_NAME = 'portable_internal_be_public_interface_20261007_v2'
+ PUBLIC_MANIFEST_SHA = '190940ca9f8141ac45f739d064cb1ef76aaf1965ba8c91adb544ad8e38fef724'
+@@ -232,12 +233,17 @@
+                 # The only value input is permitted TRAIN-label embedding.
+                 # There are no cached full-label fields, raw-H values, biases,
+                 # nonlinear post-aggregation maps or additional propagation.
+-                permitted = self.label_embedding(self.train_labels[visible_positions])
++                permitted = lookup_permitted_label_embedding(
++                    self.label_embedding, visible_count=len(visible_positions),
++                    visible_labels=(None if self.erase_value_class_identity else
++                                    self.train_labels[visible_positions]),
++                    erase_class_identity=self.erase_value_class_identity)
+                 values.index_copy_(0, visible_ids, self.value(permitted) * scale)
+                 self.counters['route_label_value_fields_built'] += 1
+                 require(bool(torch.isfinite(values).all()), 'Finite permitted label values required')
+                 message = H.new_zeros((len(queries), LABEL_WIDTH))
+                 message.index_add_(0, row, alpha[:, None] * values[source])
++                message = self.query_value_gate(message, H[queries])
+                 delta = self.output(message)
+                 require(bool(torch.isfinite(delta).all()), 'Finite label-only correction required')
+                 legal = torch.zeros(self.nodes, dtype=torch.bool, device=H.device)
+--- P0_REFERENCE_ONLY/label_only_same_operation_controls_source_20261008_v1/controls.py
++++ FUTURE_NEW_RELEASE_ONLY/controls.py
+@@ -165,6 +165,9 @@
+             require(bool(torch.isfinite(values).all()), 'Finite visible-label-only values')
+             message = H.new_zeros((len(queries), WIDTH))
+             message.index_add_(0, row, alpha[:, None] * values[source])
++            gate = (route['query_value_gate'] if self.mode == 'shared_backbone_untied_correctors4'
++                    else self.query_value_gate)
++            message = gate(message, H[queries])
+             require(bool(torch.isfinite(message).all()), 'Finite label-only message')
+             legal = torch.zeros(self.nodes, dtype=torch.bool, device=H.device); legal[visible_ids] = True
+             count = torch.zeros(len(queries), dtype=torch.long, device=H.device)
