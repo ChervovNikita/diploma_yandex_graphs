@@ -1,124 +1,65 @@
 # Current GNNM research state
 
-Updated 8 October 2026. Graph progress verified 18:25 UTC; new allocation correction screen verified 18:24 UTC. Executable source `7ea03c95c7791251b2461fd98bbe125582314ae0` is pushed and synchronized. **Goal active and unmet:** no verified methodological extension outperforming capable singles and ordinary ensembles, and no fresh manuscript acceptance. Original five-dataset scores remain unchanged. Earlier decisions, results and failures remain in Git and `research_ledger.json`.
+Updated at 22:05 UTC on 8 October 2026 (9 October in Moscow). **The goal remains active and unmet:** no new methodological extension has demonstrated superiority to capable single models and ordinary independent ensembles, and no fresh manuscript acceptance has been established. Original paper scores are unchanged. Complete history, failures and unsuccessful hypotheses remain in Git and `research_ledger.json`.
 
-## Completed contrastive comparison
+## Current hypotheses and live training
 
-All original twelve WikiCS fits and the three canonical SupCon fits are complete. The original owner completed ten fits and failed resource admission before the final two started. A separate continuation ran exactly those two unused releases. Its explicit old10 + new2 union preserves the original failed closure and paid wait.
-
-All fifteen selected states were reevaluated once on the same 5,274 development nodes. Collection completed 60 member calls in 78.83 seconds, with zero training, backward calls, optimizer construction, reselection, calibration or TEST scoring. The actual collector exited cleanly and released its CUDA resources. Raw arrays remain on 18.77.
-
-The primary combined alignment/repulsion minus plain accuracy differences are -0.512, -0.550 and +0.853 percentage points at seeds 6101, 6203 and 6307. Mean -0.0695 points; descriptive paired df2 interval [-2.055, +1.916]. Repairs versus introduced errors are 161/188, 103/132 and 128/83. The fixed recipe does not demonstrate an accuracy gain.
-
-Alignment-only, residual-only and canonical SupCon average -0.2465, -0.0190 and -0.1959 points versus plain. The prospective SupCon minus alignment-only contrast averages +0.0506 points, with mixed accuracy effects and substantial probability-score harms in seed 6203. Every seed, selected epoch and harm remains retained. No favorable component replaces the primary result.
-
-Members predict the same class on 98.123–99.583% of development nodes across all fifteen states. Pooling rescues zero nodes that every member gets wrong. Almost every all-member-wrong node has a strict common wrong rival. An ideal member chooser has only 5–28 extra correct nodes available relative to the served pool. The own-risk/pool-risk Jensen gap is tiny in fourteen states. This establishes practical decision redundancy, not hidden-state equality, successful latent repulsion or a training-trajectory mechanism.
-
-Evidence: `Wiki12_SupCon15_union_collection_execution_root_20261008_v1/compact/`. Fresh aggregate assessment: `Wiki12_SupCon15_closed_result_independent_assessment_20261008_v1.md`. Author interpretation: `Wiki15_functional_diversity_analysis_20261008_v1/`. These are not manuscript acceptance or independent inference reproduction. Selected local/global stages differ; the complete recipe is compared, rather than an equal-stage causal intervention. Original checkpoint selection remains unchanged.
-
-## Active representative training
-
-| Study | Actual owner | Last verified state | Next numerical opening |
+| Study | Verified live handles | Complete work | Next comparison |
 | --- | --- | --- | --- |
-| Mol18, one-GPU allocation | 523400 / 6019318952 | 11/18 fits complete; G_7203 at 36/100 epochs, 17:51 UTC | After the complete eighteen-fit roster, retaining failures |
-| Graph-relation full12, 18.77 | 3713404 / 1760762180 | 3/12 fits complete; 6101_phiJ at 435/1100 and 6203_allJ at 971/1100, 18:25 UTC | After all twelve new endpoints and the now-complete original twelve-fit union |
+| Molecular ensemble feedback, allocation | Parent 523400/birth6019318952; independent4 worker 537607/birth6030036890 | 13/18 fits; independent4_7307 at96/100 epochs,22:02 UTC | Open all18 only after the fixed roster closes. Candidate I, mixture0.5 remain fixed. |
+| Private graph attention,18.77 | Parent3713404/birth1760762180; relationJ workers3785030/birth1764073877 and3794365/birth1764681745 | 6/12 fits; seed6101 relationJ634/1100, seed6203 relationJ15/1100,22:03 UTC | Open all12 together with the complete original12 control union. |
+| Frozen-native label posterior, allocation | No scientific owner launched yet | Full-input engineering passed:4 discarded updates across all4banks, no development scores | Publish/review the owned complete3seed/12bank launcher, then train the frozen recipe. |
 
-The original 18.77 owner 3713404 / birth 1760762180 remains alive. Current children 3767130 / birth 1762957188 (6101_phiJ) and 3755228 / birth 1762399293 (6203_allJ) were verified live. Seed 6307 remains queued behind 6101 on GPU1. Detached training continued through transport loss; no jobs were restarted. Latest authenticated snapshots are `restored_gpu77_and_allocation_observation_20261008T175103Z/`.
+Fresh observations are in `live_progress_root_20261009T2203Z/` and `gpu77_connection_recovery_v1/commands/graph_progress_root_20261009T2203Z/RECEIPT.json`. A transport failure never restarts a scientific job. Other users' processes remain untouched.
 
-### Graph attention and ensemble feedback
+### Private graph attention
 
-All four methods share the same private-attention architecture, unit dense-factor initialization and full WikiCS task: 11,701 nodes, 442,907 ordered edges, 580 TRAIN labels, width 512, seven local and two global layers, two stochastic views and 1,100 epochs. Three paired seeds remain fixed on one physical GPU per seed.
+The backbone is existing Polynormer, with four separate hidden-state paths and shared large learned transformations. Small local attention scorer banks and existing global query/key BatchEnsemble factors are private. Each method uses the same architecture, initialization, full WikiCS split0, width512, seven local/two global layers, two stochastic views,1100epochs and three paired seeds.
 
-- alphaF: every parameter learns the ordinary mean member loss F.
-- allJ: every parameter learns J, an equal mixture of F and the probability-average ensemble loss.
-- phiJ: internal dense BE factors learn J; other parameters learn F.
-- relationJ: private local scorers and tied global query/key factors learn J; other parameters learn F.
+The comparison changes the gradient recipients. alphaF uses mean individual cross entropy everywhere. allJ uses an equal mixture of individual loss and probability-average ensemble loss everywhere. phiJ applies the mixture to internal dense factors. relationJ applies it to private local scorers and tied global query/key factors; shared transformations retain individual supervision. relationJ minus alphaF is the frozen primary contrast; allJ/phiJ are attribution controls.
 
-The primary contrast is relationJ minus alphaF. The unchanged screen requires positive accuracy in all three seeds, mean at least 0.2 percentage points, no worse mean pooled NLL, and limited mean/worst member degradation. If allJ or phiJ matches the candidate, a claim for the particular recipient placement is unsupported. Capable single/ordinary ensemble references, view/objective controls and unused confirmation are still required for superiority.
+The unchanged continuation rule requires positive accuracy signs in all3seeds, mean gain at least0.2percentage points, nonworsening pooled NLL and member-competence safeguards. The recipient group combines local and global parameters, so the study cannot attribute a gain specifically to local edges. Native local GATv1's static-ranking restriction remains. The own/pool mixture, private attention and gradient allocation have established ancestry; no new attention operator, novel risk or competence guarantee is claimed.
 
-The relation group combines fourteen local scorer banks and four tied Q/K factor tensors. phiJ overlaps it in the four Q/K tensors; this does not isolate local versus global attention. The local scorer retains GATv1's static ranking restriction. The actual probability-average CE gradient is responsibility-weighted own-label supervision. Equal correct-class probabilities give equal F/J logit gradients even if wrong-class distributions differ. It supplies no explicit common-wrong-rival repulsion or competence guarantee.
-
-Source: `graph_relation_private_credit_source_20261008_v2/`. Interpretation: `graph_relation_private_credit_benefit_boundary_20261008_v1/NOTE.md`. Private graph attention supplies a distinct empirical hypothesis, not an established novel risk or attention operation. No new12 partial comparative predictions have been opened.
-
-The same-source GPU0 engineering qualification completed once after exact original-control cleanup. The existing family consumed its added lane0 binding; consumed lane1 bytes stayed fixed. Both qualifications used eight discarded complete TRAIN updates, not benchmark fits. The queue's first scheduling-deadline blocker and the pre-execution command syntax failures remain preserved. No host namespace or mount manipulation was introduced.
+Source: `graph_relation_private_credit_source_20261008_v2/`. Benefit limits and an inactive projected-step safeguard: `graph_relation_private_credit_benefit_boundary_20261008_v1/NOTE.md` and `graph_relation_member_competence_projection_design_20261008_v1/NOTE.md`. The projection is not implemented or admitted.
 
 ### Molecular ensemble feedback
 
-Mol18 uses all 32,901 official TRAIN and 4,113 development graphs, three paired seeds and 100 epochs. Six conditions are single, ordinary independently selected four, O, I, P and G. Candidate I and mixture strength 0.5 remain fixed: shared features and boundaries learn member supervision; internal factors also receive ensemble feedback. O/P/G isolate the allocation. No candidate switch or partial comparative readout is authorized. The slow G_7101 fit completed normally in 25,763.69 seconds; coexecution costs do not measure intrinsic speed.
+Mol18 covers all32901official TRAIN and4113development graphs,3paired seeds and100epochs. Six conditions are single, genuinely ordinary independently selected4, O,I,P,G. Candidate I sends ensemble feedback to internal factors while shared features/boundaries learn member supervision. The coefficient0.5, entire roster and complete-family opening remain fixed. Coexecution durations are recorded and do not measure intrinsic speed. No new partial outcome has been opened.
 
-## Other closed branches
+### Staged label posterior
 
-Context9 is closed negative after all nine full WikiCS fits. ROUTE minus COMMON averages -0.03160 percentage points; correct-member coverage falls in every pair and introduced errors offset repairs. Its original Stage1 gate fails. Conditional Stage2 is unadmitted; do not reopen this scalar graph-target branch with coefficient tuning. Complete evidence and the independent aggregate assessment remain saved.
+The earlier additive label-correction screen is complete negative. The new staged recipe addresses weak correction learning and preserves a competent native predictor: restore an authentic own-selected native state, freeze it, capture representations/logits once, and train masked-label posteriors on permitted TRAIN labels. Prediction uses the fixed0.2native/0.8label-posterior mixture where one-hop anchor support exists, with exact native fallback elsewhere. No TEST labels enter any role. Four routes are compared with a capable nonlinear joint4head single, untied label routes on the same frozen backbone, and one path. Untied label routes are explicitly **not** an ordinary independent GNN ensemble.
 
-Earlier complete Wiki24 showed slightly stronger average unit-factor contrastive members but poorer complementary correctness: shared pooling 81.6332% versus ordinary pooling 82.0440% on selected development. The fixed degree/class analysis did not isolate the problem to low-degree nodes. The direct twelve-bundle classifier diagnostic is closed negative. These findings remain context, without a fresh superiority or novelty claim.
+The code is sealed at manifest `ab2be08e841293e95d23d2098c128e0c989087e6a6215101474ce00a2ea0a3e8`. Full-input qualification passed in11.31seconds, with2,258,632,704bytes peak reserved GPU and1,221,582,848bytes peak RSS. It checks masks, frozen native parameters, optimizer ownership, learned restore and cached reconstruction, but computes no development quality. Creation-time disabled seal remains unchanged; root qualification is separate. Selected-state serving reconstruction will be checked after all12scientific endpoints close.
 
-## Literature and next decision
+Scientific ownership is being prepared with serial seeds6101/6203/6307, full1100updates for every arm, no retry/resume and complete-family opening. Predeclared safety bounds are7200active seconds per seed,8GiB owned GPU/RSS caps and12GiB fresh GPU headroom; Mol18 coexecution is allowed. These are resource bounds, not an ETA or reduced training horizon. Same unchanged accuracy/NLL/member pilot gates apply. This consumed split is exploratory, not unused confirmation.
 
-Canonical scoped memory is `literature_memory/CURRENT_SUPPLEMENT.json`, now supplement v26. The prior v23 update added two bounded method reads: an officially listed ICML 2026 molecular ensemble-consensus comparator, and a 2025 multiscale graph-ensemble preprint. GRAND/GraphMix consistency ancestry is already established. The low-label consensus recipe is not a faithful full-label MolHIV comparator. Official VALID/TEST molecule inputs must not become unlabeled TRAIN graphs. No new fit, author-code audit, proof certification or whole-paper credit follows from this search. Processed raw bodies were hash-verified and offloaded to the authorized allocation.
+## Completed evidence that changes the next action
 
-The whole15 follow-up retains one conditional standard control: independent native GAT local-scorer starts crossed with own/relation feedback after the complete new12 result. It addresses the measured decision redundancy. It is established initialization practice, not a novel initializer, and is not yet admitted. No generic initializer/coefficient grid or duplicate teacher-training pipeline is proposed.
+The original label-correction screen finished all3native trajectories and12bank endpoints. Mean development accuracy is81.5194% for shared4,81.4499% for joint single,81.5636% for same-backbone untied4, and81.5763% for one path. Shared4 fails both primary contrasts and NLL safeguards; no promotion.
 
-The closest-prior access pass found matching author-preprint DOI 10.2139/ssrn.4535927 for published DOI 10.1016/j.inffus.2024.102461. Its body remains inaccessible. Shared feature weights, private attention, gradient allocation and accepted-version equivalence remain unknown. The saved access note receives no new paper or method-read credit. No complete-rule novelty or absence certificate exists. Reuse saved reading scopes and conclusions before retrieving papers again.
+A complete24recipe-by3seed Correct-and-Smooth reference selected one common author-autoscale DAD/DAD recipe, correction alpha1 and smoothing alpha0.8,50+50passes, TRAIN anchors only. Native81.5889% becomes81.8797%, with paired gains+0.3223,+0.4551,+0.0948points. This is known-method evidence, not our contribution. It has true zero probabilities on11,9,3nodes and infinite NLL under the declared normalization; no clipping or favorable reselection is added.
 
+Retrospective error analysis reproduces exact selected counts. C&S repairs/harm are39/22,49/25,34/29. It also repairs nodes outside one-hop TRAIN support. Of5274development nodes,2512lack a one-hop TRAIN-labelled neighbour,1733have exactly one visible class, and1029have multiple visible classes. In the one-class native-error cohort, the visible neighbour class equals truth only49/276,62/270,49/266times. Wider label reach is available structure, not proof of useful evidence.
 
-### Additional scoped evidence and conditional direction
+For this bias-free linear label route, a single visible class supplies only a scalar times one fixed class-logit vector. Attention mass can change confidence but not the route's preferred label class before native mixing. This restricted algebra is not an impossibility theorem for the whole ensemble. A query-conditioned dense value gate could escape it, with established GNN-FiLM ancestry and an extra-feature-classifier confound. The gate remains inactive; matched capacity and label-identity-erased controls are required.
 
-Three bounded primary scopes were added, with zero full-paper, author-code or result-reproduction credit: a2026 link-prediction oracle analysis, a2026 random-set node head, and UniMPv5's label/ masked-label operation. Choosing the best existing rank is not a universal upper bound for score fusion. Random-set heads concern uncertainty and do not establish useful member alternatives. UniMP already establishes label inputs/masked targets; C&S and the staged residual family already establish graph corrections/protected bases.
+Evidence: `postfamily_label_information_decision_root_20261008_v1/NOTE.md`, `native_CS_selected_recipe_error_analysis_execution_root_20261008_v1/RESULT.json`, `label_support_capacity_diagnostic_root_20261008_v1/RESULT.json`.
 
-One conditional hypothesis remains: native feature-only learning with four private label-only-value attention correctors, whose correction gradients stop at the backbone. All query labels must be hidden from all route/context fields. A disabled callable corrector core is source-prepared and root-inspected. Full native capture/trainer/restoration/selection integration is implemented and its bounded full-input engineering check passed. The complete three-seed scientific campaign is pending separate root review; no novelty clearance exists. All-observed-nonself-neighbor normalization is fixed, with sparse-anchor dilution and weak correction feedback retained as risks. Same-context capable single/untied, live-gradient, C&S and strong label-aware references are necessary. See `shared_private_label_conditioning_root_decision_20261008_v1.md`.
+## Genuine independent-ensemble reference custody
 
-The minimum reference packet preserves the six completed historical single/ordinary records and distinguishes them from fresh matched controls. Blind transfer of WikiCS's numerical recipe to arxiv is not adopted; new graph baselines need verified dataset-specific competence before unused scoring. A disabled memory-bounded single8 own-CE source now accumulates eight backwards at old parameters then makes one native Adam step. It is source-prepared only, with no runtime or fit claim. A separate saved-source assessment retains PE4 gamma1 as one stronger efficient-ensemble comparator; a naive graph MIMO port is not certified by view counts. These additions do not change any running recipe, gate or score.
+An independent source/metadata audit identified authentic ordinary Wiki24 independent4 banks6101/6203/6307: separate native models, initializations, optimizers, stochastic streams, own cross entropy and own checkpoint/local restoration. These differ from coupled independent4_contrastive and from same-backbone untied label heads.
 
-## Data provenance and evidence limits
+Root revalidated all11checkpoint/closure/export/role bindings on the singleton allocation at22:05UTC. All3selected states are present and byte-exact.18.77 holds metadata copies but is not their payload custodian. No checkpoint was deserialized, numerical outcome recalculated or new fit started. Exact custody is in `wikics_independent4_current_byte_check_root_20261009_v1/RESULT.json`; the original source audit and custodian correction remain separate. These references will not be used to replace label-aware/matched-information controls.
 
-Existing normal77 acquisition records link the exact TRAIN/VALID NPZs to official WikiCS split 0 and all six ordered tensors. Development combines validation and stopping masks; the official test role is disjoint. The result packet has a separate historical provenance addendum. Raw public TEST labels were loaded during official acquisition and omitted from the safe trainer payload. No TEST scoring or test-based selection occurred. This was linkage of existing evidence, not fresh remote raw-data revalidation or recalculation of scores.
+## Other closed branches and literature memory
 
-Checkpoint selection and these readouts use the same development population. Three optimizer seeds on one graph are not independent graphs; nodes and members are not independent model replicates. Intervals are descriptive. No source review, qualification, saved arithmetic check or promising selected-development pilot constitutes manuscript acceptance.
+Complete Wiki24 recorded stronger average unit-factor contrastive members but poorer complementary correctness: shared pool81.6332% versus ordinary pool82.0440% on selected development. Context9 is closed negative, ROUTE minus COMMON mean-0.03160points. Direct12 final-head diagnostics supplied no useful gain. Complete original12 plus3canonical SupCon readouts show no supported contrastive accuracy gain: combined alignment/repulsion minus plain mean-0.0695points. Members agree on98.123–99.583% of decisions; pooled-only rescues are zero. These findings concern decision redundancy, not identical embeddings or an inferred training mechanism.
 
-Paper reviewers start fresh through the requested skill, receive immutable paper/evidence without author history or a requested verdict, and every review is preserved. A genuine clear acceptance and supported methodological superiority remain required.
+Canonical literature pointer is `literature_memory/CURRENT_SUPPLEMENT.json`, supplement28. The new follow-up expands one existing GOODIE appendix algorithm scope and one pinned bounded author-code scope; it adds zero new paper identities or full-paper/code-audit credit. In those inspected paths, GOODIE retains TRAIN anchors, joint feature gradients, combined-classifier CE and learned embedding aggregation. That bounded difference from our staged recipe is not novelty clearance. The query-value assessment reuses saved GNN-FiLM conclusions, without new read credit. Closest inaccessible graph-ensemble bodies remain unresolved.
 
-## Authorized routes
+## Publication and completion requirements
 
-Local project root: `/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930`.
+Allocation committed source at start of this continuation is3e3d037ee82418e9b1fc7a169deee03f63be497b; last verified push a26825f5853ec60671743ae2f33ee21a1a1bd08e;18.77 is still0dbc3c8b7df690c1c69d41bc7237f6a10294e8af. New diagnostics, qualification, literature decisions, custody checks and owner preparation are pending reviewed publication. Safe source synchronization must preserve consumed running files and jobs.
 
-Allocation science: `anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222`, host `anogena-2-0`, sole GPU `GPU-44039938-fd82-41d2-fefd-de71514e2fac`. Repository: `/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs`.
-
-18.77 science: `shmelev@192.168.18.77`, host `peptide`, GPUs `GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998` and `GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced`. Repository: `/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git`.
-
-Seven-GPU access is MacLink forwarding only; scientific evidence from the earlier wrong allocation stays excluded. Use normal host execution and existing environments. Incidental runtime caches are permitted. Keep deliberate file/data/checkpoint operations inside authorized project roots. No sudo, host mount/namespace changes, PDF compilation, Desktop writes, unrelated-data access, credential recording or GENLINK citation. The research goal and heartbeat remain active.
-
-### Disabled label-only core preparation
-
-`label_only_private_corrector_core_source_20261008_v1/` now supplies the four-route operator, detached native input interface, common query mask, conditional value scaling, own-CE update and mean-probability serving. The complete core and three exact factor primitives were source-inspected in `label_only_private_corrector_core_root_source_review_20261008_v1/`. That dated source review provided no runtime or accuracy claim. The subsequent native integration and four-bank full-input engineering pass are documented below; running graph12 and Mol18 sources and gates remain unchanged.
-
-## Concrete label-correction first screen
-
-The native integration, four-bank driver, four-head joint single and same-backbone untied correction control are source implemented. Frozen seeds are6101/6203/6307; every native block trains1100epochs. The co-primary comparisons are against the joint single and untied correction bank; one-head single is secondary. These are not full ordinary GNN ensembles. The exact four-bank seed table supersedes the older one-bank constructor offset for this screen only. All original running sources and scores remain unchanged.
-
-The primary UniMP/PGL implementation locator and bounded original arxiv masking/operator scope are resolved. Its stronger v2helpers/runtime remain incomplete. No new paper-identity/full-paper credit or published numeric results are adopted. See `unimp_author_code_reference_scope_20261008_v1/`.
-
-The authorized allocation already holds the identical official SAFE WikiCS input. CPU role conversion created complete TRAIN/development NPZs inside the repo, with no dataset download or Mac array copy. Structural reach is2762of5274development nodes; expected visible-anchor coverage among masked TRAIN queries is39.405%. No candidate scores or development truths were scored. Whole-population gates remain fixed.
-
-The exact four-update CUDA engineering release completed with all checks passed and both owned processes absent. It exercises the full graph, both native phases, coherent restoration and unscored reconstruction. It is not a short scientific fit, selected checkpoint or1100schedule verification. Runtime engineering evidence is adopted in `label_only_four_bank_full_input_cuda_engineering_adoption_root_20261008_v1/`; full scientific launch remains disabled pending root review of the owned representative release.
-
-## First scientific launch and narrow implementation repair
-
-The source-reviewed three-seed campaign was committed as `3ce6fae0c381093a2de54804e924e7237902ba75`, pushed and synchronized to both servers. Its first allocation worker completed one full update/evaluation, then failed serializing the training trace: native `loss`, `own_mean`, and `auxiliary` are detached scalar tensors. Parent 533583 / birth 6029258572 and worker 533589 / birth 6029258595 were reaped and are absent. Peak allocated CUDA memory was 18.13 GB. No partial comparison or checkpoint was opened. Evidence is in `label_only_four_bank_first_screen_activation_root_20261008_v1/FAILED_REMOTE_RECEIPTS/`.
-
-A new full-family output may use a narrowly reviewed successor converting those trace scalars to Python values. Original numerical method, selection, seeds, controls and gates remain fixed. The failed v1 family is retained and contributes no result.
-
-## Serialization-repaired full screen is active
-
-The v2 family launched at 18:23 UTC after exact publication and preflight. Parent 533819 / birth 6029309094 and worker 533825 / birth 6029309117 were live at 18:24 UTC with 24 complete native/all-bank update/evaluation events. Source and release are retained in `label_only_four_bank_first_screen_activation_root_20261008_v2/`. One seed is active at a time, alongside Mol18. Seeds 6101/6203/6307 and all four arms must complete 1,100 epochs before comparisons open.
-
-The sole numerical-program diff converts three detached native scalar losses to Python values in the JSON trace. Exact predecessor equality holds after restoring that trace expression. All method, selection and primary-gate code remains unchanged; failed v1 evidence stays excluded from successful-family aggregation. No repeated CUDA qualification or score inspection was used.
-
-## Complete first seed and ready analysis/reference sources
-
-Seed 6101 completed all 1,100 native/all-bank updates and evaluation events, then exited cleanly in 1,850.85 seconds. The original owner remains live; seed 6203 at 352/1100 was observed at 19:03 UTC, with its child 534921 / birth 6029494265 alive. No partial scores/checkpoints were opened. Mol18 remains live with 11 completed fits and G_7203 at78/100.
-
-The post-family prediction collector is source-reviewed but disabled. It requires all three seeds/all 12 coherent selected states, obtains native and corrected outputs from one shared forward per state, preserves full-population comparisons and exact selection/correction decompositions, and keeps raw arrays on the server. Its constructors/Adam restoration and every serving operation are charged. Source: `label_only_four_bank_post_family_prediction_collector_source_20261008_v1/`.
-
-Authentic feature-only native-own-best and TRAIN-only C&S helpers are also source-reviewed but numerically unqualified. The prospective reference budget is 24 configurations / 72 seed-config records, including smoothing-only as advised by cached author code. It selects one common recipe by complete development accuracy, never TEST or favorable cohorts. Source and protocol: `native_own_best_train_only_cs_source_20261008_v1/` and `native_own_best_train_only_cs_reference_protocol_20261008_v1/`. Neither a WikiCS author preset nor comparator competence/result is claimed.
-
-One-forward native reuse is a real property of the new architecture; measured timing remains absent. Exact class-value folding is a later standard engineering possibility, saved separately. Quality remains primary; no folding/timing work can rescue a failed screen. Genuine independent GNN4, end-to-end UniMP and unused confirmation remain required for stronger claims.
+A positive pilot still requires published competitive comparators, competent singles/ordinary independent ensembles, appropriate capacity/view/objective/information controls, unused split/task confirmation and uncertainty. Papers/reviewers will receive supported claims only. Fresh paper reviewers use the supplied skill, immutable complete evidence, no author history and no requested verdict. No PDF compilation, sudo, GENLINK or scientific use of the relay allocation is authorized.

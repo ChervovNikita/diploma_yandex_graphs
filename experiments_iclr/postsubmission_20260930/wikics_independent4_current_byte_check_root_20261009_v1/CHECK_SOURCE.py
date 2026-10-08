@@ -1,0 +1,16 @@
+from pathlib import Path
+import hashlib,json,socket,subprocess,datetime
+R=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');P=R/'experiments_iclr/postsubmission_20260930'
+assert Path.cwd()==R and socket.gethostname()=='anogena-2-0'
+assert subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+rows=[{'bytes': 120712074, 'path': 'learnable_internal_be_WikiCS_scientific_family_execution_root_20261007_v1/fits/outputs/independent4_6101/selected.pt', 'sha256': '1271cd3f545157f7a4bd69632477eea65d346ab4aaae1df8ef5ecd98c88cb9c1'}, {'bytes': 120712074, 'path': 'learnable_internal_be_WikiCS_scientific_family_execution_root_20261007_v1/fits/outputs/independent4_6203/selected.pt', 'sha256': '9b9217e63688a6be5ec5b7a1dbeddad617eb2f66e916b1e01e926d927bb9a202'}, {'bytes': 120712074, 'path': 'learnable_internal_be_WikiCS_scientific_family_execution_root_20261007_v1/fits/outputs/independent4_6307/selected.pt', 'sha256': '6c9ab8a44061b7fcf2dc25aed4f45440f18facbad55fccdee5f1bcb325958f23'}, {'bytes': 7540, 'path': 'closed_wiki24_graph_error_profile_execution_root_20261008_v1/INPUTS.json', 'sha256': 'e362ab597ef4e1a86e1da7c178b53c83faf342ad43f9559013aed21b662a1f68'}, {'bytes': 613128, 'path': 'Wiki24_analysis_after_closure_execution_root_20261007_v1/extraction/METADATA_EXPORT.json', 'sha256': '10eaf6063dad0f8389c1990f0ecefddfd9962bd0f58ac0dbbec7e23266b33b53'}, {'bytes': 61432, 'path': 'learnable_internal_be_WikiCS_scientific_family_execution_root_20261007_v1/FAMILY_CLOSURE.json', 'sha256': 'b473420fef644f723439785efd4a61a71e46d88b33d23806a1a47c8d11983b18'}, {'bytes': 449, 'path': 'learnable_internal_be_WikiCS_scientific_family_execution_root_20261007_v1/OWNER.json', 'sha256': 'd2a4a2bb6e1a615fc74cefbdf7637779df7744886789a67c5b3ce6c94ef9d658'}, {'bytes': 1144, 'path': 'learnable_internal_be_safe_role_export_execution_20261007_v1/outputs/wikics/ROLE_MANIFEST.json', 'sha256': 'b4769a68123433fc498b6abfafbcc3190f104749eafd72b34384e70dd41ff6aa'}, {'bytes': 21137972, 'path': 'learnable_internal_be_safe_role_export_execution_20261007_v1/outputs/wikics/train.npz', 'sha256': 'dce6c4a982027604dad198533352d397c5d1b7a0a6d6fa4868468c872457f9e2'}, {'bytes': 84878, 'path': 'learnable_internal_be_safe_role_export_execution_20261007_v1/outputs/wikics/valid.npz', 'sha256': '99114cb1d50b876e9cdb2d4a1c116e217f0a8aa2583a2561d0491461c0c0ec48'}, {'bytes': 4252, 'path': 'wikics_official_acquisition_gpu77_root_20261007_v1/PREPARATION_RECORD.json', 'sha256': 'bf8a9a43ed7beda2d2a4167bef60d7aa1205fcf214426c06d93550c6f306ae0e'}]
+out=[]
+for row in rows:
+ f=P/row['path'];assert f.resolve().is_relative_to(P) and not f.is_symlink()
+ if not f.is_file():out.append(dict(path=row['path'],available=False));continue
+ h=hashlib.sha256()
+ with f.open('rb') as z:
+  for block in iter(lambda:z.read(1048576),b''):h.update(block)
+ value=dict(path=row['path'],available=True,bytes=f.stat().st_size,sha256=h.hexdigest())
+ value['exact']=value['bytes']==row['bytes'] and value['sha256']==row['sha256'];out.append(value)
+print(json.dumps(dict(UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),rows=out,all_exact=all(x.get('exact',False) for x in out),scientific_payload_deserialized=False,scientific_fits=0,quality_scores_read=False)))

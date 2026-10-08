@@ -1,0 +1,13 @@
+# Wiki24 custodian clarification
+
+9 October 2026. The sealed original `wikics_independent4_existing_source_custody_20261009_v1` report is preserved unchanged. This note resolves its unspecified custodian and points to root’s subsequent byte-only revalidation.
+
+The original Wiki24 ordinary independent4 state files belong to the **authorized singleton allocation**, hostname `anogena-2-0`, accessed through SSH route `anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru`. Repository: `/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs`; phase: `experiments_iclr/postsubmission_20260930`. The original source pins the sole physical GPU `GPU-44039938-fd82-41d2-fefd-de71514e2fac` and existing interpreter `<phase>/native_ncn_runtime_20261005_v1/.venv/bin/python`.
+
+This is established by original `learnable_internal_be_contrastive_multitask_suite_20261007_v4/runtime.py:11`, original `learnable_internal_be_WikiCS_scientific_family_activation_20261007_v1/STAGE_AND_LAUNCH.py:3` and `LAUNCH_OWNER.json` (which explicitly records `GPU77access:false`), plus root’s fresh successful transport receipt identifying the exact route. An18.77 copy of INPUTS/preparation metadata does not establish payload custody there. Root’s failed18.77 locator check is preserved separately; no native fit is needed to remedy a wrong custodian assumption.
+
+Root’s `wikics_independent4_current_byte_check_root_20261009_v1/RESULT.json` records UTC `2026-10-08T22:05:14.070196+00:00`: all11 exact bindings available, including all3 `selected.pt` banks, original FAMILY_CLOSURE/OWNER/METADATA_EXPORT and exact role payloads/manifest. It explicitly records `scientific_payload_deserialized:false`, `quality_scores_read:false`, `scientific_fits:0`. Therefore the earlier report’s pending **current final-bank availability/byte validation** is now satisfied at that recorded root observation on the singleton host. Separate own-file source-time hash authority remains as described in the original report.
+
+Root preserves the initial working-directory assertion failure in `TRANSPORT.json`; corrected-cwd `TRANSPORT_v2.json` returned0. This note does not rerun the check or certify future state availability. No checkpoint or dataset was opened by this reviewer. Seven-GPU relay authorization is not scientific authorization; wrong-seven-GPU-allocation evidence remains excluded.
+
+Read boundary: a narrow regex search of saved historical allocation-observation JSON unexpectedly emitted embedded previously opened Wiki24 result text. Those numerical values were not used for this custody conclusion; current graph-relation12/Mol18 outcomes were not opened. Subsequent inspection used only exact source and bytecheck metadata locators.
