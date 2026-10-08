@@ -1,14 +1,14 @@
 # Current GNNM research state
 
-Updated at 22:12 UTC on 8 October 2026 (9 October in Moscow). **The goal remains active and unmet:** no new methodological extension has demonstrated superiority to capable single models and ordinary independent ensembles, and no fresh manuscript acceptance has been established. Original paper scores are unchanged. Complete history, failures and unsuccessful hypotheses remain in Git and `research_ledger.json`.
+Updated at 22:42 UTC on 8 October 2026 (9 October in Moscow). **The goal remains active and unmet:** no new methodological extension has demonstrated superiority to capable single models and ordinary independent ensembles, and no fresh manuscript acceptance has been established. Original paper scores are unchanged. Complete history, failures and unsuccessful hypotheses remain in Git and `research_ledger.json`.
 
 ## Current hypotheses and live training
 
 | Study | Verified live handles | Complete work | Next comparison |
 | --- | --- | --- | --- |
-| Molecular ensemble feedback, allocation | Parent 523400/birth6019318952; independent4 worker 537607/birth6030036890 | 13/18 fits; independent4_7307 at96/100 epochs,22:02 UTC | Open all18 only after the fixed roster closes. Candidate I, mixture0.5 remain fixed. |
-| Private graph attention,18.77 | Parent3713404/birth1760762180; relationJ workers3785030/birth1764073877 and3794365/birth1764681745 | 6/12 fits; seed6101 relationJ634/1100, seed6203 relationJ15/1100,22:03 UTC | Open all12 together with the complete original12 control union. |
-| Frozen-native label posterior, allocation | Parent538255/birth6030676690; worker538261/birth6030676711 verified live | First seed27/1100 updates at22:12 UTC; no native training | Open all12 only after all3seed blocks close, then check selected serving. |
+| Molecular ensemble feedback, allocation | Parent 523400/birth6019318952; O worker538091/birth6030643880 | 14/18 fits; O_7307 at11/100 epochs,22:29 UTC | Open all18 only after the fixed roster closes. Candidate I, mixture0.5 remain fixed. |
+| Private graph attention,18.77 | Parent3713404/birth1760762180; relationJ workers3785030/birth1764073877 and3794365/birth1764681745 | 6/12 fits; seed6101 relationJ785/1100, seed6203 relationJ182/1100,22:29 UTC | Open all12 together with the complete original12 control union. |
+| Frozen-native label posterior, allocation | Parent538255/birth6030676690; worker539100/birth6030806520 verified live | Two full seed blocks closed; seed6307 at963/1100updates,22:42 UTC; no native training | Open all12 only after all3seed blocks close, then check selected serving. |
 
 Fresh observations are in `live_progress_root_20261009T2203Z/` and `gpu77_connection_recovery_v1/commands/graph_progress_root_20261009T2203Z/RECEIPT.json`. A transport failure never restarts a scientific job. Other users' processes remain untouched.
 
@@ -63,3 +63,9 @@ Canonical literature pointer is `literature_memory/CURRENT_SUPPLEMENT.json`, sup
 Scientific execution source4bcae2cca71835b70fe8479d52e31738739361c6 is committed, pushed and synchronized to18.77; both-server sync preserved active scientific files and jobs. This publication includes the diagnostics, qualification, literature decisions, reference custody and owner source. The owned staged family is live; its launch/observation records are retained separately. Both supporting agents encountered provider capacity failures; root completed and reviewed the concrete owner source without repeating numerical qualification.
 
 A positive pilot still requires published competitive comparators, competent singles/ordinary independent ensembles, appropriate capacity/view/objective/information controls, unused split/task confirmation and uncertainty. Papers/reviewers will receive supported claims only. Fresh paper reviewers use the supplied skill, immutable complete evidence, no author history and no requested verdict. No PDF compilation, sudo, GENLINK or scientific use of the relay allocation is authorized.
+
+## Prepared complete-family analysis
+
+Independent source review and direct fixes are adopted for `staged_posterior_complete_readout_source_20261009_v1/` and the fixed secondary C&S v2 control. Analysis requires original owner/launch/EXIT joins and actual owned process/group/CUDA absence as well as all12endpoint hashes. It reconstructs all12selected states, retains practical-tolerance discrepancies without reselection, stores server-only predictions and reports repairs/harm and illustrative conditional three-seed intervals. The known CS06 control receives the same fixed0.2native/0.8normalized-CS serving map on its full propagation support; raw known C&S scores and primary gates remain unchanged. Both routines are unexecuted until complete closure.
+
+A separate query-conditioned dense value-gate design/prototype is being prepared with a capable joint single, four completely untied correction gates, one-path secondary and label-identity-erased shared4. It has established GNN-FiLM ancestry and an explicit feature-classifier confound. It is not implemented as a complete campaign or admitted for training, and cannot rescue the running linear P0 screen.
