@@ -6,9 +6,9 @@ We are developing graph ensembles for better predictions with shared learned wei
 
 | Direction | Task/backbone | Actual state |
 |---|---|---|
-| Query/key attention | WikiCS/Polynormer |33/36 complete at19:22UTC; remaining77 workers live. Complete panel before outcomes.|
+| Query/key attention | WikiCS/Polynormer |All36 groups complete. Comparative prediction collection/analysis pending.|
 | Private graph propagation | Tolokers/Neural Sheaf Diffusion |All21 closed. Both recipes fail. Centering partly repairs members but provides little complementary ranking.|
-| Ensemble training credit | MolHIV/GINE and WikiCS/Polynormer |Molecular roster closed17complete/1failed, original reader separately enabled. Attention-credit controller remains live.|
+| Ensemble training credit | MolHIV/GINE and WikiCS/Polynormer |Molecular roster closed17complete/1failed, original reader separately enabled. Attention-credit12 complete; comparative analysis pending.|
 | Assigned source supply | IMDB/SeHGNN |All cohorts closed. Candidate trails both independent references by about1.15 micro-F1 points and changes no deployed decisions versus own-only. Fixed recipe closed negative.|
 
 [Complete IMDB interpretation](imdb_complete_error_source_dose_interpretation_20261009_v1/INTERPRETATION.md) and [complete geometry diagnosis](private_sheaf_post_all21_scientific_readout_20261009_v1/INTERPRETATION.md) preserve every paired result, member, source/error pattern and cost.

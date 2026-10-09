@@ -1,0 +1,294 @@
+[
+  {
+    "tag": "p",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "tag": "h1",
+    "text": "CorDA: Context-Oriented Decomposition Adaptation of Large Language Models"
+  },
+  {
+    "tag": "p",
+    "text": "Parameter-efficient fine-tuning (PEFT) has emerged as a promising technique to enable efficient fine-tuning of large language models (LLMs) with largely reduced trainable parameters. However, current PEFT methods build adapters without considering the context of downstream task to learn, or the context of important knowledge to maintain. As a result, there is often a performance gap compared to full-parameter finetuning, and meanwhile the finetuned model suffers from catastrophic forgetting of the pre-trained world knowledge. In this paper, we propose CorDA , a C ontext- or iented D ecomposition A daptation method that builds learnable adapters from weight decomposition oriented by the context of downstream task or world knowledge. Concretely, we collect a few data samples, and perform singular value decomposition for each linear layer of a pre-trained LLM multiplied by the covariance matrix of the input activation using these samples. The inverse of the covariance matrix is multiplied with the decomposed components to reconstruct the original weights. By doing so, the context of the representative samples is captured through deciding the factorizing orientation. Our method enables two options, the knowledge-preserved adaptation and the instruction-previewed adaptation . For the former, we use question-answering samples to obtain the covariance matrices, and use the decomposed components with the smallest r r singular values to initialize a learnable adapter, with the others frozen such that the world knowledge is better preserved. For the latter, we use the instruction data from the finetuning task, such as math or coding, to orientate the decomposition and train the largest r r components that capture the main characteristics of the task to learn. We conduct extensive experiments on Math, Code, and Instruction Following tasks. Our knowledge-preserved adaptation not only achieves better performance than LoRA on finetuning tasks, but also mitigates the forgetting of world knowledge. Our instruction-previewed adaptation is able to further enhance the finetuning performance, surpassing full-parameter finetuning and the state-of-the-art PEFT methods such as LoRA, DoRA, and PiSSA."
+  },
+  {
+    "tag": "h2",
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "text": "Large language models (LLMs) have shown remarkable abilities in a wide range of challenging tasks, including questing-answering [ 11 , 47 ] , common sense reasoning [ 6 ] , and instruction following [ 80 ] . While being powerful, LLMs demand exorbitant computation and memory cost when finetuning the whole model on downstream tasks due to the huge model capacity. To enable resource-friendly adaptation on downstream tasks, parameter-efficient fine-tuning (PEFT) methods are proposed to largely reduce the number of trainable parameters, by only finetuning the newly added adapters [ 20 , 21 , 17 ] or tokens [ 31 , 33 , 49 ] , with the original pre-trained weights frozen."
+  },
+  {
+    "tag": "p",
+    "text": "Among these PEFT methods, LoRA [ 21 ] is increasingly attractive because it is able to keep the model architecture unchanged after finetuning so does not induce extra burden in inference. LoRA suggests that the weight change in finetuning presents a low rank structure, and employs low-rank matrices with a low hidden dimension to approximate the adaptation [ 21 ] . Following studies introduce adaptive low rank choice among different layers [ 73 , 55 , 70 ] , decouple the learning of magnitude and direction [ 38 ] , combine LoRA with pruning or quantization [ 10 , 61 , 34 , 72 ] , and further reduce the number of trainable parameters [ 26 , 51 ] . However, existing studies build learnable adapters without considering any data context. As a result, the initialized adapter may not be the optimal choice for one downstream task to learn. Moreover, even if PEFT methods only train a small number of parameters, the finetuned model will still suffer from catastrophic forgetting, losing much of the world knowledge contained in the pre-trained LLM [ 13 , 57 , 78 ] ."
+  },
+  {
+    "tag": "p",
+    "text": "To this end, we propose a new PEFT method CorDA , based on C ontext- or iented D ecomposition A daptation. It adopts the same low-rank design as LoRA [ 21 ] , namely introducing two low rank matrices for each linear layer as a learnable adapter, but associates the context of world knowledge or finetuning task with the process of building these adapters. First, we randomly collect a few data samples and assume that they contain representative context of the corresponding task. For example, the question from a question-answering dataset well indicates the ability of preserving the corresponding knowledge, and the query to write a code carries the context of the coding task. We feed these samples into a pre-trained LLM, and obtain the covariance matrix of the input activation of each linear layer, i.e., C = X ​ X T ∈ ℝ d i ​ n × d i ​ n C=XX^{T}\\in\\mathbb{R}^{d_{in}\\times d_{in}} , where X X is the input of this layer. We then perform singular value decomposition (SVD) for the weight W ∈ ℝ d o ​ u ​ t × d i ​ n W\\in\\mathbb{R}^{d_{out}\\times d_{in}} multiplied by the covariance matrix, i.e., 𝚂𝚅𝙳 ⁡ ( W ​ C ) = U ​ Σ ​ V T \\verb|SVD|(WC)=U\\Sigma V^{T} , where U U and V V are singular vectors and Σ \\Sigma is the diagonal matrix with the singular values arranged in descending order. In this way, the representative context expressed by these covariance matrices is able to direct the factorizing orientation. Finally, the inverse of these covariance matrices is multiplied with the decomposed components to hold the same inference result with the original model at initialization, i.e., W ^ = U ​ Σ ​ V T ​ C − 1 \\hat{W}=U\\Sigma V^{T}C^{-1} , where W ^ \\hat{W} is the weight after decomposition and reconstruction."
+  },
+  {
+    "tag": "p",
+    "text": "Our method supports two optional modes for practitioners, knowledge-preserved adaptation and instruction-previewed adaptation . LLM finetuning on downstream tasks is always accompanied by the damage of world knowledge acquired from massive pre-training data [ 13 ] . Our knowledge-preserved adaptation enables to learn new tasks effectively while keeping world knowledge as sound as possible. In this mode, we use questions from question-answering dataset, such as TriviaQA [ 23 ] and Natural Questions [ 27 , 29 ] , to obtain the covariance matrices whose pattern corresponds to the LLM ability in retrieving knowledge. After SVD with these covariance matrices, we use the components with the smallest r r singular values, i.e., U [ : , − r : ] U_{[:,-r:]} , Σ [ − r : ] \\Sigma_{[-r:]} , and ( V T C − 1 ) [ − r : , : ] (V^{T}C^{-1})_{[-r:,:]} 1 1 1 U [ : , − r : ] U_{[:,-r:]} , Σ [ − r : ] \\Sigma_{[-r:]} , and ( V T C − 1 ) [ − r : , : ] (V^{T}C^{-1})_{[-r:,:]} represent the last r r columns of U U , the last r r diagonal elements of Σ \\Sigma , and the last r r rows of V T ​ C − 1 V^{T}C^{-1} , respectively. U [ : , : r ] U_{[:,:r]} , Σ [ : r ] \\Sigma_{[:r]} , and ( V T C − 1 ) [ : r , : ] (V^{T}C^{-1})_{[:r,:]} represent the first r r columns of U U , the first r r diagonal elements of Σ \\Sigma , and the first r r rows of V T ​ C − 1 V^{T}C^{-1} , respectively. , to initialize a learnable low-rank adapter, and the other components that are key to preserving knowledge are frozen. In some cases, where one may only pursue a high performance on the finetuning task without any interest in maintaining world knowledge, our instruction-previewed adaptation is suggested. In this mode, we use the instruction and response from the finetuning task, e.g. query to write a code and its answer, to produce the covariance matrices. Similarly, the pre-trained weights will be decomposed in an orientation such that the context of the finetuning task dominates the principle singular values and vectors. Therefore, we use the largest r r components, i.e., U [ : , : r ] U_{[:,:r]} , Σ [ : r ] \\Sigma_{[:r]} , and ( V T C − 1 ) [ : r , : ] (V^{T}C^{-1})_{[:r,:]} , to initialize a learnable low-rank adapter, with the other components frozen. The adapter built upon the context of the finetuning task well accommodates the new ability, and thus leads to a better finetuning performance."
+  },
+  {
+    "tag": "p",
+    "text": "Our method brings flexibility in choosing between stronger finetuning performance or more preserved world knowledge, and can be adopted according to the practical demand. Both the two modes are as efficient as LoRA [ 21 ] . After finetuning, the adapter can be merged with the frozen part in the same manner as LoRA. In experiments, CorDA in knowledge-preserved adaptation not only enjoys better finetuning performance than LoRA on Math [ 9 , 66 ] , Code [ 8 , 3 ] , and Instruction Following [ 75 ] , but also largely mitigates the deterioration of performance on world knowledge benchmarks including TriviaQA [ 23 ] , NQ open [ 29 ] , and WebQS [ 4 ] . The instruction-previewed adaptation is able to further strengthen the performance on finetuning tasks, surpassing full-parameter finetuning and the state-of-the-art PEFT methods including LoRA [ 21 ] , DoRA [ 38 ] , and PiSSA [ 43 ] ."
+  },
+  {
+    "tag": "h2",
+    "text": "2 Related Work"
+  },
+  {
+    "tag": "p",
+    "text": "Parameter-Efficient Fine-Tuning. Since large language models (LLMs) have tens and even hundreds of billions of parameters [ 1 , 5 ] , full-parameter finetuning will cause unbearable computation and memory cost. Parameter-efficient fine-tuning (PEFT) is developed to reduce resource consumption by only finetuning a small number of learnable parameters [ 12 , 60 ] . Adapter-based methods introduce additional modules into LLMs and only finetune them during finetuning [ 20 , 17 , 30 , 41 , 45 , 24 ] . Another line of research appends extra soft prompts into the input or hidden layers and only train these learnable vectors [ 31 , 33 , 49 , 79 ] . However, most of these methods change the model architecture or increase the inference burden. Based on the insight that the weight change after finetuning possesses a low rank structure [ 32 , 2 ] , low-rank adaptation (LoRA) [ 21 ] proposes to use two low-rank small matrices as the learnable adapter, without modifying model architecture or bringing inference cost after finetuning. LoRA has inspired a range of variants that employ adaptive low rank in different layers [ 73 , 55 , 70 ] , explore the adapter design [ 38 , 7 , 46 , 74 ] , combine LoRA with pruning [ 72 ] , quantization [ 10 , 61 , 34 ] , and mixture-of-expert [ 37 , 13 ] , and introduce alternative way to initialize the adapter [ 43 ] . Nevertheless, existing PEFT methods rarely consider data context when building the learnable adapter. Data context has been proved to be instrumental in guiding quantization and compression [ 36 , 68 , 28 ] . In our study, we utilize data context for PEFT, building adapters based on context-oriented decomposition to better maintain world knowledge or accommodate new ability."
+  },
+  {
+    "tag": "p",
+    "text": "Knowledge Forgetting. Deep learning models are prone to drastically forgetting the acquired knowledge when adapting to a new task, known as catastrophic forgetting [ 14 , 50 , 25 , 48 , 40 , 65 ] . A series of methods has been proposed to mitigate knowledge forgetting using knowledge distillation [ 35 , 19 ] , rehearsal [ 52 , 64 ] , and dynamic architecture [ 62 ] . In the era of large models [ 58 ] , however, world knowledge is acquired by pre-training on massive data, which could be intractable to re-use in finetuning. The huge model capacity also hinders the feasibility of knowledge distillation and dynamic architecture, especially in the case of continuous finetuning [ 16 , 69 , 53 , 15 , 22 ] . Some studies introduce extra LLaMA layers [ 57 ] or mixture of experts [ 13 ] with the pre-trained layers frozen to strike a balance between keeping world knowledge and learning new tasks. Alternative approaches adopt merging schemes to enable diverse abilities [ 71 , 67 , 78 ] . Different from these studies, our method enables to achieve world knowledge maintaining in the process of parameter-efficient finetuning, without changing model architecture or relying on a post-merging step."
+  },
+  {
+    "tag": "h2",
+    "text": "3 Method"
+  },
+  {
+    "tag": "p",
+    "text": "We review the LoRA method in Sec. 3.1 . We develop our context-oriented decomposition in Sec. 3.2 , which provides the basis of our knowledge-preserved adaptation and instruction-previewed adaptation introduced in Sec. 3.3 and Sec. 3.4 , respectively."
+  },
+  {
+    "tag": "h3",
+    "text": "3.1 Preliminaries on Low-Rank Adaptation"
+  },
+  {
+    "tag": "p",
+    "text": "LoRA suggests that the weight change in LLM finetuning presents a low rank structure, and thus proposes to use the product of two low rank matrices to learn the weight change with the pre-trained weights frozen during finetuning [ 21 ] . Given the pre-trained weight W ∈ ℝ d o ​ u ​ t × d i ​ n W\\in\\mathbb{R}^{d_{out}\\times d_{in}} from an LLM, the weight after finetuning can be formulated as:"
+  },
+  {
+    "tag": "table",
+    "text": "W ∗ = W + Δ ​ W = W + B ​ A , W^{*}=W+\\Delta W=W+{B}{A}, (1)"
+  },
+  {
+    "tag": "p",
+    "text": "where W ∗ W^{*} is the weight after finetuning, Δ ​ W \\Delta W is the weight change, and B ​ A {B}{A} is the low rank decomposition of Δ ​ W \\Delta W into two smaller matrices B ∈ ℝ d o ​ u ​ t × r {B}\\in\\mathbb{R}^{d_{out}\\times r} and A ∈ ℝ r × d i ​ n {A}\\in\\mathbb{R}^{r\\times d_{in}} with an intrinsic rank of r ≪ min ⁡ ( d o ​ u ​ t , d i ​ n ) r\\ll\\min{(d_{out},d_{in})} . In this way, the number of learnable parameters can be largely reduced by freezing the pre-trained weight W W and only finetuning the matrices B B and A A . LoRA adopts the Kaiming initialization [ 18 ] to randomly initialize A A , and B B is initialized as an all-0 matrix such that Δ ​ W = 0 \\Delta W=0 at the start of training to circumvent a deviation from the pre-trained model. After finetuning, the learnable adapter B ​ A BA can be merged into the pre-trained weight W W without changing the original model architecture and introducing extra inference burden."
+  },
+  {
+    "tag": "p",
+    "text": "Despite the success of LoRA-based methods, when building the learnable adapter, existing studies widely ignore the data context from the target ability that users are particularly concerned with."
+  },
+  {
+    "tag": "h3",
+    "text": "3.2 Context-Oriented Decomposition"
+  },
+  {
+    "tag": "p",
+    "text": "Pre-trained large language models are endowed with multi-faced abilities, such as answering the question regarding world knowledge, common sense reasoning, and instruction following. When different kinds of input messages are fed into an LLM, e.g., a question in some domain and a query to solve a math problem, even though they are processed by the same pre-trained weights, different abilities are triggered. The covariance matrix of each layer’s activation will exhibit different outlier patterns as they are responsive to the task triggered to highlight different aspects of the pre-trained weight. Therefore, the covariance matrix is able to capture task context. Inspired by this insight, we leverage the covariance matrix inside LLM to build adapters catering to a certain ability."
+  },
+  {
+    "tag": "p",
+    "text": "The process of our context-oriented decomposition is shown in Figure 1 . First, we randomly collect some samples from the training data of some task with interest, e.g., question answering or Math, and feed these samples into the LLM used to finetune. Denote X ∈ ℝ d i ​ n × B ​ L X\\in\\mathbb{R}^{d_{in}\\times BL} as the input activation of a linear layer where d i ​ n d_{in} is the input dimension, B B is the number of samples we collect, and L L represents the sequence length. We have the covariance matrix C = X ​ X T ∈ ℝ d i ​ n × d i ​ n C=XX^{T}\\in\\mathbb{R}^{d_{in}\\times d_{in}} . We then perform singular value decomposition for the weight multiplied by the covariance matrix as:"
+  },
+  {
+    "tag": "table",
+    "text": "𝚂𝚅𝙳 ⁡ ( W ​ C ) = U ​ Σ ​ V T = ∑ i = 1 R σ i ​ 𝐮 i ​ 𝐯 i T , \\verb|SVD|(WC)=U\\Sigma V^{T}=\\sum_{i=1}^{R}\\sigma_{i}\\mathbf{u}_{i}\\mathbf{v}_{i}^{T}, (2)"
+  },
+  {
+    "tag": "p",
+    "text": "where W ∈ ℝ d o ​ u ​ t × d i ​ n W\\in\\mathbb{R}^{d_{out}\\times d_{in}} is the weight of this linear layer, U ∈ ℝ d o ​ u ​ t × d o ​ u ​ t U\\in\\mathbb{R}^{d_{out}\\times d_{out}} and V ∈ ℝ d i ​ n × d i ​ n V\\in\\mathbb{R}^{d_{in}\\times d_{in}} are orthogonal matrices containing singular vectors 𝐮 i ∈ ℝ d o ​ u ​ t \\mathbf{u}_{i}\\in\\mathbb{R}^{d_{out}} and 𝐯 i ∈ ℝ d i ​ n \\mathbf{v}_{i}\\in\\mathbb{R}^{d_{in}} , Σ ∈ ℝ d o ​ u ​ t × d i ​ n \\Sigma\\in\\mathbb{R}^{d_{out}\\times d_{in}} is a diagonal matrix with singular values σ i \\sigma_{i} on its diagonal arranged in descending order, and R R is the rank (the number of non-zero singular values) of W ​ C WC , i.e., R ≤ min ⁡ { d o ​ u ​ t , d i ​ n } R\\leq\\min\\{d_{out},d_{in}\\} ."
+  },
+  {
+    "tag": "p",
+    "text": "To not change the inference result at the initialization of finetuning, we reconstruct W W by:"
+  },
+  {
+    "tag": "table",
+    "text": "W ^ = 𝚂𝚅𝙳 ⁡ ( W ​ C ) ​ C − 1 = U ​ Σ ​ ( V T ​ C − 1 ) = ∑ i = 1 R σ i ​ 𝐮 i ​ 𝐯 ^ i T , \\hat{W}=\\verb|SVD|(WC)C^{-1}=U\\Sigma(V^{T}C^{-1})=\\sum_{i=1}^{R}\\sigma_{i}\\mathbf{u}_{i}\\mathbf{\\hat{v}}_{i}^{T}, (3)"
+  },
+  {
+    "tag": "p",
+    "text": "where C − 1 C^{-1} denotes the inverse of C C , and 𝐯 ^ i T \\hat{\\mathbf{v}}_{i}^{T} is the i i -th row vector of V T ​ C − 1 V^{T}C^{-1} . In case the covariance matrix C C is not invertible, we adopt a strategy to dynamically add positive values on the diagonal elements of C C to ensure invertible. Concretely, we multiply a positive coefficient with the average value of the diagonal elements of C C , and add it on the diagonal. Then we calculate the ℓ 2 \\ell_{2} distance between C ​ C − 1 CC^{-1} and an identity matrix. If it is higher than a threshold, we double the coefficient and perform this step again, until the distance reaches below the threshold."
+  },
+  {
+    "tag": "p",
+    "text": "After our context-oriented decomposition, the first several components of 𝐮 i \\mathbf{u}_{i} and 𝐯 ^ i \\mathbf{\\hat{v}}_{i} with the largest singular values σ i \\sigma_{i} depict the dominant characteristics of the task associated with C C . We can decide either to maintain these key components to not sacrifice the corresponding ability, or to adapt them for better performance on the task, which leads to our two implementation modes in the following two subsections, respectively."
+  },
+  {
+    "tag": "h3",
+    "text": "3.3 Mode 1: Knowledge-Preserved Adaptation"
+  },
+  {
+    "tag": "p",
+    "text": "We introduce knowledge-preserved adaptation that enables to learn new tasks while maintaining world knowledge. In this mode, we use the question data from question-answering training data, such as TriviaQA [ 23 ] and Natural Questions [ 27 , 29 ] , to obtain the covariance matrices whose pattern corresponds to the knowledge retrieving ability of the LLM. When finetuning on a new task, as shown in Figure 1 , we use the last r r components with the smallest r r singular values in Eq. ( 3 ) to build learnable adapters as:"
+  },
+  {
+    "tag": "table",
+    "text": "W ′ = W − B A , B = U [ : , − r : ] Σ [ − r : ] , A = Σ [ − r : ] ( V T C − 1 ) [ − r : , : ] , W^{\\prime}=W-BA,\\quad B=U_{[:,-r:]}\\sqrt{\\Sigma}_{[-r:]},\\quad A=\\sqrt{\\Sigma}_{[-r:]}(V^{T}C^{-1})_{[-r:,:]}, (4)"
+  },
+  {
+    "tag": "p",
+    "text": "where B ∈ ℝ d o ​ u ​ t × r B\\in\\mathbb{R}^{d_{out}\\times r} and A ∈ ℝ r × d i ​ n A\\in\\mathbb{R}^{r\\times d_{in}} are the initialized matrices in the learnable adapter, B ​ A = ∑ i = R − r + 1 R σ i ​ 𝐮 i ​ 𝐯 ^ i T BA=\\sum_{i=R-r+1}^{R}\\sigma_{i}\\mathbf{u}_{i}\\mathbf{\\hat{v}}_{i}^{T} corresponds to the last r r components in Eq. ( 3 ), Σ [ − r : ] \\sqrt{\\Sigma}_{[-r:]} is a diagonal matrix with the squared root of the smallest r r singular values on the diagonal, and W ′ W^{\\prime} corresponding to the first R − r R-r components in Eq. ( 3 ) is frozen during finetuning. We have W ′ W^{\\prime} as the difference between W W and B ​ A BA instead of summing the first R − r R-r components to avoid the numerical error between W ^ \\hat{W} and W W introduced by the decomposition and inversion operations. After finetuning, the learned matrices B ∗ B^{*} and A ∗ A^{*} can be merged into W ′ W^{\\prime} as W ∗ = W ′ + B ∗ ​ A ∗ W^{*}=W^{\\prime}+B^{*}A^{*} . This mode is featured by preserving world knowledge as the knowledge retrieving ability captured by the principle R − r R-r components is frozen. It is also more effective than a zero-initialized adapter in learning new abilities as verified by our experiments."
+  },
+  {
+    "tag": "h3",
+    "text": "3.4 Mode 2: Instruction-Previewed Adaptation"
+  },
+  {
+    "tag": "p",
+    "text": "In the circumstance that pursuing a higher performance on the finetuning task is the priority, our instruction-previewed adaptation will be favorable. In this mode, we collect instruction and response from the training data used for finetuning, e.g. the query to solve a math problem and its answer shown in Figure 1 as an example. The prompts are fed into the LLM to produce the covariance matrices whose pattern is associated with the task to learn. We use the first r r components with the largest r r singular values in Eq. ( 3 ) to build learnable adapters as:"
+  },
+  {
+    "tag": "table",
+    "text": "W ′ = W − B A , B = U [ : , : r ] Σ [ : r ] , A = Σ [ : r ] ( V T C − 1 ) [ : r , : ] , W^{\\prime}=W-BA,\\quad B=U_{[:,:r]}\\sqrt{\\Sigma}_{[:r]},\\quad A=\\sqrt{\\Sigma}_{[:r]}(V^{T}C^{-1})_{[:r,:]}, (5)"
+  },
+  {
+    "tag": "p",
+    "text": "where B B and A A are the initialized matrices in the learnable adapter, B ​ A = ∑ i = 1 r σ i ​ 𝐮 i ​ 𝐯 ^ i T BA=\\sum_{i=1}^{r}\\sigma_{i}\\mathbf{u}_{i}\\mathbf{\\hat{v}}_{i}^{T} corresponds to the first r r components in Eq. ( 3 ), Σ [ : r ] \\sqrt{\\Sigma}_{[:r]} is the squared root of the largest r r singular values in a diagonal matrix. Similar to knowledge-preserved adaptation, W ′ W^{\\prime} containing the remaining R − r R-r components is frozen during finetuning. This mode enables the initialized adapters to pre-capture the main characteristics of the finetuning task, leading to stronger performance after training. A recently proposed method [ 43 ] also performs SVD and uses the first r r components to initialize an adapter for finetuning. However, their decomposition is agnostic with respect to any data context. Our adapter capturing the task context in advance can well accommodate the new ability and lead to better finetuning performances in our experiments."
+  },
+  {
+    "tag": "h2",
+    "text": "4 Experiments"
+  },
+  {
+    "tag": "p",
+    "text": "In experiments, we finetune the pre-trained large language model LLaMA-2-7b [ 54 ] on Math, Code, and Instruction Following tasks, and also apply our method to the General Language Understanding Evaluation (GLUE) benchmark with RoBERTa base [ 39 ] . The world knowledge is evaluated by the exact match scores (%) on TriviaQA [ 23 ] , NQ open [ 29 ] , and WebQS [ 4 ] . Following the settings in [ 43 ] , the Math ability is trained on MetaMathQA [ 66 ] and tested on GSM8k [ 9 ] and Math [ 66 ] validation sets. Code is trained on CodeFeedback [ 77 ] and tested on HumanEval [ 8 ] and MBPP [ 3 ] . Instruction following is trained on WizardLM-Evol-Instruct [ 59 ] and tested on MTBench [ 76 ] . The complete implementation details are described in Appendix A ."
+  },
+  {
+    "tag": "h3",
+    "text": "4.1 Analysis of the Ability to Capture Context"
+  },
+  {
+    "tag": "p",
+    "text": "We conduct an experiment to demonstrate the ability of our proposed decomposition method in Sec. 3.2 to capture context in its principle components. We use different methods including the Plain SVD, ASVD [ 68 ] , and our Context-Oriented SVD (CO-SVD), to perform full decomposition of the LLaMA-2-7B pre-trained weights in all layers, and then discard the smallest r r singular values and their corresponding left and right singular vectors to reconstruct the weights for testing."
+  },
+  {
+    "tag": "p",
+    "text": "As shown in Figure 2 , as the number of discarded ranks increases, the performances with Plain SVD on both Wikitext-2 [ 44 ] and PTB [ 42 ] are getting worse steeply. ASVD considers data context using activation absolute mean values, and helps to relieve the deterioration compared to Plain SVD. However, when discarding more than 256 ranks, the Perplexity also diverges sharply. In contrast, our method is able to maintain a stable performance very close to the original pre-trained weights even when the smallest 1024 components are discarded. The result indicates that our method is proficient with aggregating context from limited samples (256 Wiki or PTB samples in this example) into the principle components. It also evidences the potential of our method to maintain important knowledge when freezing the principle components and to learn new abilities when adapting these components. The detailed numbers of the experiment in Figure 2 are listed in Table 6 (Appendix B ), where we also test the effect of sample number and dataset choice when collecting the covariance matrices."
+  },
+  {
+    "tag": "h3",
+    "text": "4.2 Knowledge-Preserved Adaptation Results"
+  },
+  {
+    "tag": "table",
+    "text": "Method #Params Trivia QA NQ open WebQS GSM8k Math Avg LLaMA-2-7B - 52.51 14.99 5.86 - - - Full Finetuning 6738M 43.64 3.13 6.35 48.90 7.48 21.90 LoRA [ 21 ] 320M 44.17 1.91 6.64 42.68 5.92 20.26 PiSSA [ 43 ] 320M 39.71 1.02 6.30 51.48 7.60 21.22 CorDA (ours) 320M 44.30 9.36 7.14 44.58 6.92 22.46"
+  },
+  {
+    "tag": "table",
+    "text": "Method #Params Trivia QA NQ open WebQS HumanEval MBPP Avg LLaMA-2-7B - 52.51 14.99 5.86 - - - Full Finetuning 6738M 29.29 8.53 3.44 25.42 25.64 18.46 LoRA [ 21 ] 320M 51.42 9.30 8.46 16.8 21.51 21.50 PiSSA [ 43 ] 320M 47.07 9.16 8.14 19.48 23.84 21.54 CorDA (ours) 320M 50.02 11.72 8.56 18.36 20.91 21.91"
+  },
+  {
+    "tag": "table",
+    "text": "Method #Params Trivia QA NQ open WebQS MTBench Avg LLaMA-2-7B - 52.51 14.99 5.86 - - Full Finetuning 6738M 26.6 8.45 6.84 4.85 11.69 LoRA [ 21 ] 320M 47.46 10.28 7.73 4.60 17.52 PiSSA [ 43 ] 320M 36.76 9.67 5.86 4.92 14.30 CorDA (ours) 320M 50.34 14.43 8.17 5.05 19.50"
+  },
+  {
+    "tag": "p",
+    "text": "We finetune LLaMA-2-7B with full finetuning, LoRA, PiSSA, and our proposed CorDA on Math, Code, and Instruction Following tasks. In the knowledge-preserved adaptation mode, we randomly sample 256 questions from the NQ open training set and collect covariance matrices to initialize the adapters by Eq. ( 4 ). We report the finetuning performance and also the world knowledge performance of the finetuned model to manifest the overall ability of both new task learning and world knowledge maintaining. As shown in Table 1 , after finetuning on Math, all the three compared methods, full finetuning, LoRA, and PiSSA, suffer from drastic performance drop on TriviaQA and NQ open. Especially on NQ open, the ability is almost lost. PiSSA achieves the best accuracies on both GSM8k and Math, but meanwhile has the lowest results on the world knowledge benchmarks among the four methods. As a comparison, our method not only enjoys better finetuning performances than LoRA, but also achieves the best results on the three world knowledge benchmarks."
+  },
+  {
+    "tag": "p",
+    "text": "A similar pattern can be also observed in the finetuning of Code. As shown in Table 1 , full finetuning has the best ability on HumanEval and MBPP, but is the lowest on world knowledge performance. It is understandable that CorDA in knowledge-preserved adaptation is not as advantageous as PiSSA for finetuning performance, because PiSSA uses the largest singular values and their singular vectors as the adapter that dominates the weight update, while we keep them frozen and adapt the smallest components. Nevertheless, our method has the best average score in all the three finetuning tasks. A surprising result is achieved by our method in instruction following in Table 1 , where CorDA surpasses all the three compared methods in both world knowledge performance and the new ability evaluated by MTBench. The world knowledge on NQ open is almost intact (14.43%) compared to the original performance (14.99%) before finetuning. These results reveal that our knowledge-preserved adaptation is an effective way to mitigate world knowledge forgetting and improve the overall ability."
+  },
+  {
+    "tag": "h3",
+    "text": "4.3 Instruction-Previewed Adaptation Results"
+  },
+  {
+    "tag": "p",
+    "text": "When the goal is to learn the target task as much as possible without concerning the loss of world knowledge, CorDA in the instruction-previewed adaptation mode satisfies this demand as it is able to further strengthen the finetuning performance. In this mode, we randomly sample instruction and response from the training data to collect the covariance matrices, and adopt the largest r r components to initialize the adapters by Eq. ( 5 ). We compare our method with full finetuning, LoRA, DoRA, and PiSSA in the same three tasks, Math, Code, and Instruction Following. Compared with the knowledge-preserved adaptation in Table 1 , CorDA in the instruction-previewed adaptation mode largely improves the finetuning performance on the five benchmarks, as shown in Table 2 . Concretely, our method achieves the best performance on GSM8k, Math, MTBench, and the average score. Compared with PiSSA that adopts a similar adapter design but with no data context, our method has better results on all the five benchmarks. The training loss curves on Math are shown in Figure 3 , where CorDA converges at a lower loss than LoRA and PiSSA in both r = 128 r=128 and r = 32 r=32 . Only CorDA exhibits an obvious lower loss than full finetuning when r = 128 r=128 . These results corroborate the benefits of data context to the initialized adapter, i.e., the pre-captured task characteristic is able to accommodate the new ability and lead to a better performance."
+  },
+  {
+    "tag": "table",
+    "text": "Method #Params GSM8k Math HumanEval MBPP MTBench Avg Full Finetuning 6738M 48.9 7.48 25.42 25.64 4.85 22.46 LoRA [ 21 ] 320M 42.68 5.92 16.80 21.51 4.60 18.30 DoRA [ 38 ] 321M 41.77 6.20 16.86 21.60 4.48 18.18 PiSSA [ 43 ] 320M 51.48 7.60 19.48 23.84 4.92 21.46 CorDA (ours) 320M 53.90 8.52 21.03 24.15 5.15 22.55"
+  },
+  {
+    "tag": "table",
+    "text": "Method #Params SST-2 MRPC CoLA QNLI RTE STS-B Avg Full Finetuning 125M 93.81 88.48 59.56 92.07 74.01 90.49 83.07 LoRA [ 21 ] 21M 94.15 82.84 54.24 92.48 64.26 88.58 79.43 DoRA [ 38 ] 21M 93.58 83.58 51.93 92.59 64.98 88.71 79.23 CorDA (ours) 21M 93.12 89.71 59.60 91.49 76.17 90.17 83.38"
+  },
+  {
+    "tag": "p",
+    "text": "We also apply our method to the General Language Understanding Evaluation (GLUE) benchmark [ 56 ] by finetuning the RoBERTa base model [ 39 ] . We adopt LoRA, DoRA, and our method with a rank of 128 128 for all linear layers in the model except the classification head. For our method, we sample train data from each of the tasks to initialize adapters in the instruction-previewed mode and finetune the corresponding task. As shown in Table 3 , our method achieves the best performance on the MRPC, CoLA, and RTE tasks, and the highest average score."
+  },
+  {
+    "tag": "h3",
+    "text": "4.4 Discussions"
+  },
+  {
+    "tag": "p",
+    "text": "Ablations. We ablate the data choice used to produce covariance matrices and the adapter building manner in Table 4 . The first row corresponds to the implementation of PiSSA that uses the largest r r singular values and their singular vectors as the initialized adapter by plain SVD. If we use the smallest r r components by plain SVD to build adapters, there is no apparent improvement in world knowledge benchmarks. This implies that the plain SVD cannot precisely capture world knowledge related ability into the principle components and thus freezing them does not help to mitigate knowledge forgetting. When our context-oriented decomposition (CO-SVD) is adopted with Wikitext-2, which is not closely correlated with question answering, the performance on world knowledge is much improved. When the context collected by the covariance matrix is from question answering data, i.e., TriviaQA or NQ open, the world knowledge performance is further improved by a significant margin, and the average score is also enhanced as a result. Therefore, data context is important to orientate the decomposition process such that the characteristics of the ability concerned can be better aggregated into the principle components for maintaining or adapting. As shown in Table 5 , similar to TriviaQA and NQ open in the knowledge-preserved adaptation, collecting context from different data sources belonging to the same category, namely WizardLM-Evol-Instruct and Alpaca, also results in close performance in the instruction-previewed adaptation. It is noteworthy that CorDA with Alpaca on MTBench (5.06) is still the highest among the compared baselines in Table 2 ."
+  },
+  {
+    "tag": "p",
+    "text": "Limitations. The two adaptation modes developed in this paper highlight different aspects in usage. However, the knowledge-preserved mode, while being adept at maintaining world knowledge, is naturally not advantageous on finetuning performance compared with the instruction-previewed mode. How to develop an initialization strategy [ 63 ] for adapters combining the merits of the two modes to maximize both objectives deserves future exploration."
+  },
+  {
+    "tag": "table",
+    "text": "Method Context Adapter Trivia QA NQ open WebQS GSM8k Math Avg Plain SVD † none largest r r 39.71 ±0.26 1.02 ±0.23 6.30 ±0.39 51.48 ±0.34 7.60 ±0.18 21.22 Plain SVD none smallest r r 39.94 ±0.17 4.21 ±0.41 6.25 ±0.17 43.29 ±0.37 5.96 ±0.13 19.93 CO-SVD Wikitext-2 smallest r r 42.93 ±0.13 7.20 ±0.15 6.40 ±0.27 42.99 ±0.34 5.80 ±0.09 21.06 CO-SVD Trivia QA smallest r r 44.59 ±0.34 8.86 ±0.20 7.53 ±0.14 44.81 ±0.28 6.84 ±0.16 22.53 CO-SVD NQ open smallest r r 44.30 ±0.22 9.36 ±0.16 7.14 ±0.26 44.58 ±0.33 6.92 ±0.13 22.46"
+  },
+  {
+    "tag": "table",
+    "text": "Method Context MTBench CorDA (ours) WizardLM-Evol-Instruct 5.15 CorDA (ours) Alpaca 5.06"
+  },
+  {
+    "tag": "h2",
+    "text": "5 Conclusion"
+  },
+  {
+    "tag": "p",
+    "text": "In this paper, we propose a new parameter-efficient fine-tuning method, named context-oriented decomposition adaptation (CorDA). It performs singular value decomposition for pre-trained weights oriented by the covariance matrix that captures the context of the task concerned, and aggregates the context into the principle components for maintaining or adapting. Accordingly, our method is able to support two implementation modes, the knowledge-preserved adaptation to mitigate world knowledge forgetting and the instruction-previewed adaptation for better finetuning performance. In experiments, our knowledge-preserved adaptation not only achieves better finetuning performance than LoRA, but also maintains the world knowledge well, leading to the best average scores on three finetuning tasks. Our instruction-previewed adaptation is able to further enhance the finetuning performance, surpassing the state-of-the-art parameter-efficient fine-tuning methods DoRA and PiSSA."
+  },
+  {
+    "tag": "h2",
+    "text": "References"
+  },
+  {
+    "tag": "h2",
+    "text": "Appendix A Appendix: Implementation Details"
+  },
+  {
+    "tag": "h3",
+    "text": "A.1 Fientuning on Math, Code, and Instruction Following"
+  },
+  {
+    "tag": "p",
+    "text": "For finetuning tasks on Math, Code, and Instruction Following, we adopt the same training setting as PiSSA [ 43 ] . Concretely, optimization is performed with the AdamW optimizer, a batch size of 128, and a learning rate of 2e-5. We employ cosine annealing schedules with a warmup ratio of 0.03 and do not apply weight decay. Training is conducted exclusively on the first 100,000 conversations from the dataset for one epoch, with loss computation solely based on the response. Our experiments are executed on the NVIDIA A100-SXM4(40/80GB) GPUs. Publicly available platforms are utilized for the evaluation of world knowledge (TriviaQA, NQ open, and Web QS) 2 2 2 https://github.com/EleutherAI/lm-evaluation-harness , Code (HumanEval and MBPP) 3 3 3 https://github.com/bigcode-project/bigcode-evaluation-harness , and Instruction Following (MTBench) 4 4 4 https://github.com/lm-sys/FastChat ."
+  },
+  {
+    "tag": "h3",
+    "text": "A.2 GLUE Benchmark"
+  },
+  {
+    "tag": "p",
+    "text": "To ensure fair comparison across Full Finetuning, LoRA, DoRA, and CorDA in the GLUE benchmark, we implement all methods under the same training and evaluation settings. The AdamW optimizer is used with a batch size of 32 and a learning rate of 4e-5 for 3 epochs, following a linear learning rate schedule. The max token length is set as 128. The rank of LoRA, DoRA, and our CorDA is 128. For covariance matrix collection of CorDA, we concatenate the representative content of each training sample to form a text sequence. From this sequence, 256 text segments, each containing 256 tokens, are randomly sampled. The selected content for each task is as follows: MRPC, RTE, and STS-B using “sentence1”, CoLA and SST-2 using “sentence”, and QNLI using “question”. All methods are trained on a single NVIDIA A100-SXM4(40/80GB) GPU."
+  },
+  {
+    "tag": "table",
+    "text": "Test Data Method discarded ranks 0 16 32 64 128 256 512 1024 Wikitext-2 Plain SVD 5.47 6.32 7.31 9.89 18.03 18.5 25.42 73.92 ASVD [ 68 ] (with 256 Wiki samples) 5.47 6.08 6.67 7.86 8.71 9.92 12.37 20.34 CO-SVD (with 32 Wiki samples) 5.47 5.48 5.48 5.49 5.52 5.58 5.79 6.62 CO-SVD (with 256 Wiki samples) 5.47 5.48 5.48 5.48 5.5 5.54 5.69 6.35 CO-SVD (with 256 PTB samples) 5.47 5.49 5.5 5.52 5.57 5.74 6.25 8.69 PTB Plain SVD 20.82 35.25 33.42 37.46 55.47 70.25 98.6 763.44 ASVD [ 68 ] (with 256 PTB samples) 20.84 33.42 32.05 31.67 35.36 40.23 51.28 93.42 CO-SVD (with 32 PTB samples) 20.75 20.75 20.76 20.78 20.83 20.91 21.17 22.68 CO-SVD (with 256 PTB samples) 20.88 20.88 20.88 20.89 20.91 20.94 21.14 22.28 CO-SVD (with 256 Wiki samples) 20.34 20.34 20.32 20.41 20.59 21.25 22.94 29.69"
+  },
+  {
+    "tag": "h2",
+    "text": "Appendix B Appendix: More Results"
+  },
+  {
+    "tag": "p",
+    "text": "Table 6 lists the detailed numbers and more results of the experiment in Figure 2 . It is shown that the number of sampled data only has a very limited impact. When the smallest 1024 ranks are discarded, using 32 samples is slightly worse than 256 samples in both Wikitext-2 and PTB. It implies that a small number of samples is enough to capture context into the principle components. Besides, collecting samples from the same dataset as the one used to test is able to attain a better performance after discarding a large number of ranks. For example, when discarding the smallest 1024 ranks, CO-SVD (with 256 Wiki samples) is better than CO-SVD (with 256 PTB samples) on Wikitext-2 (6.35 v.s. 8.69), and CO-SVD (with 256 PTB samples) is better than CO-SVD (with 256 Wiki samples) on PTB (22.28 v.s. 29.69). This also reveals that precisely capturing the data context in our decomposition is crucial for better maintaining the task characteristics into the principle components, and explains why our method is superior to the PEFT methods without considering data context."
+  },
+  {
+    "tag": "h2",
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "tag": "p",
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "tag": "p",
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "tag": "p",
+    "text": "Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "tag": "p",
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions ."
+  }
+]
