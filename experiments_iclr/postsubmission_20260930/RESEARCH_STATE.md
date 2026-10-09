@@ -1,5 +1,17 @@
 # Current GNNM research state
 
+## Latest verified update — 9 October 2026, 16:42 UTC
+
+Supersedes stale runtime entries below. Actual full-data IMDB independent4 qualification passed119.84s inclusive with8 real own updates, both variants, fresh4 state restoration and factual pooling; no quality scoring. Initial8.15s pre-data missing-review-metadata failure performed0 native updates/0CUDA; it and its cost remain preserved. Compressed M4 same-opportunity qualifier passed83.26s with accepted correction (predecessor631.21s), exact state restoration, no comparative quality. See ledger entry IMDB_actual_independent4_qualification_and_paired24_reference_training_20261009_root_v1 and qualification bindings3017787d…/2b615ecc… .
+
+The prospective24-body reference family started16:36:25UTC: owner578224/birth6037304572; worker578226/birth6037304578, boot24c315a7-3c08-471f-b550-b9a3e1faf75d. Both verified live16:42UTC; first plain-native committee complete, all6 committees required before quality/competence assessment. Sealed entry70bc1d… delegates existing driver; pilot4350d… uses three frozen pairs, both independent variants, native200/patience50 own selection. No native-five subset, fitted teacher reuse, candidate tuning or TEST access. Shared18 source fits await real reference competence, frozen quality/uncertainty plan and separate release; source entry is being prepared.
+
+Centered geometry3 now runs under owner576849/birth6037023042 and worker576853/birth6037023053, verified live16:41UTC. Original18 clean completion plus all centered3 and actual closure are required before comparison. Q/K30/36 (12+10+8) with both77 children live16:38UTC. MolHIV last exact state16complete + P_7307 timeout + finalG outstanding remains stale; refresh before reporting newer progress.
+
+New literature: scoped HOPE2601.05537v1 and CoR2604.14246v2 methods, two primary scopes/zero full-paper reads, preserved under recent_semantic_expert_counterfactual_baseline_scope_20261009_v1. Marginal-utility derivative collision and explicit pool-credit/COMMON/uncoupled/U-D falsifiers are saved under conditional_semantic_expert_marginal_utility_scope_20261009_v1. No novelty/superiority/acceptance established.
+
+Latest verified pushed allocation head881ce362a8a150b63ac8ba1c9c49b70b14393bdb.77 last sync40b4a4…; next safe fast-forward pending. Scientific raw artifacts remain server-only. No original paper score changed.
+
 ## Latest verified update — 9 October 2026, 15:42 UTC
 
 Supersedes stale runtime entries below. Q/K attention28/36 complete (12+8+8); both77 workers live. Geometry original18 COMPLETE.json complete=true; both original handles absent. Centered3 remains pending and all21 are required before comparison. MolHIV16 complete, control P_7307 failed at its active time limit (exit -15), G_7307 outstanding; family owner live. Preserve failed control, never silently reduce the frozen family. Relation-credit77 owner live, without refreshed cell/child state in this observation. No comparative quality opened.

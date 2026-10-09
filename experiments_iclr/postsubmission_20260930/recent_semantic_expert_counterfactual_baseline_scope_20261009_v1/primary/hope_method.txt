@@ -1,0 +1,79 @@
+2 Methodology
+In this section, we first formulate the problem and the limitations of standard projections. We then detail the HOPE architecture, focusing on the prototype routing mechanism and orthogonal constraint. Finally, we provide a theoretical analysis of the routing properties and a comprehensive complexity analysis.
+2.1 Preliminaries and Motivation
+Let \mathcal{G}=(\mathcal{V},\mathcal{E}) denote a heterogeneous graph. We assume a backbone encoder \mathcal{F} maps each node v to a set of semantic-specific embeddings \mathcal{H}_{v}=\{\mathbf{h}_{v}^{\Phi_{1}},\dots,\mathbf{h}_{v}^{\Phi_{M}}\} , where \mathbf{h}_{v}^{\Phi_{m}}\in\mathbb{R}^{d} corresponds to the m -th meta-path view.
+The Fixed Linear Projection Bottleneck.
+We define the bottleneck as a compound limitation inherent in standard HGNN decoders, arising from the mismatch between rigid model architectures and the dynamic nature of heterogeneous data. It manifests in two aspects:
+•
+Fixed Capacity Constraint. Existing heads enforce a uniform computational budget (e.g., a fixed k -expert routing or dense aggregation) across all nodes. This ignores the long-tail distribution of node semantics, causing information loss for semantic-rich “hub” nodes (under-fitting) and introducing noise for sparse “tail” nodes (over-smoothing).
+•
+Linear Separability Assumption. The reliance on a global linear projection implicitly assumes that complex node embeddings are linearly separable. This fails to capture the severe contextual polysemy and distribution shifts, limiting the model’s ability to resolve non-linear decision boundaries in the latent space.
+2.2 Overview of HOPE Framework
+[image: Refer to caption]
+Figure 1: The structure of HOPE.
+To overcome the limitations of linear projections, we propose HOPE (Heterogeneous-aware Orthogonal Prototype Experts).
+As shown in Figure 1, HOPE is a plug-and-play neural projection framework that transforms the traditional decoding layer into a MoE system. It accepts representations from any HGNN backbone and refines them to handle inherent long-tail distributions. Instead of strict load balancing, HOPE employs a **prototype routing mechanism**, selecting experts based on semantic similarity to learnable prototypes to naturally adapt to data skewness. Furthermore, an **elastic capacity mechanism** dynamically adjusts the number of active experts based on feature quality under a global budget.
+Architecturally, the projection is decoupled into two independent pathways:
+1. Shared Pathway. Captures stable, universal structural patterns across the graph.
+2. Dynamic Pathway. Sparsely activated to handle instance-specific semantic nuances.
+To prevent redundancy and mode collapse, we enforce strict orthogonality among dynamic experts. By replacing standard prediction heads, HOPE effectively unlocks the backbone’s potential in modeling complex heterogeneity with minimal computational overhead.
+2.3 Input and Context Encoding
+Given a heterogeneous graph \mathcal{G}=(\mathcal{V},\mathcal{E}) and a set of predefined meta-paths \mathcal{M}=\{\Phi_{1},\Phi_{2},\dots,\Phi_{M}\} , we assume a backbone encoder \mathcal{F}_{\theta} produces a set of semantic-specific embeddings for each node v
+\mathcal{H}_{v}=\{\mathbf{h}_{v}^{\Phi_{1}},\mathbf{h}_{v}^{\Phi_{2}},\dots,\mathbf{h}_{v}^{\Phi_{M}}\},
+(1)
+where \mathbf{h}_{v}^{\Phi_{m}}\in\mathbb{R}^{d} captures the node semantics under the m -th meta-path view.
+To provide a holistic view for the global stability analysis, we also construct a concatenated representation
+\mathbf{h}_{v}^{\text{all}}=\text{Concat}(\mathbf{h}_{v}^{\Phi_{1}},\dots,\mathbf{h}_{v}^{\Phi_{M}})\in\mathbb{R}^{M\cdot d}.
+(2)
+2.4 Hybrid Expert Mechanism
+HOPE employs a hybrid architecture where experts are explicitly aligned with meta-path views to balance global structural stability and local semantic selection.
+2.4.1 Shared Pathway
+To capture cross-view dependencies and universal patterns by observing the complete semantic context simultaneously.
+We deploy a shared expert S . The input to this pathway is the concatenated feature vector \mathbf{h}_{v}^{\text{all}} . The stability representation \mathbf{z}_{v}^{(s)} is computed as
+\mathbf{z}_{v}^{(s)}=S(\mathbf{h}_{v}^{\text{all}}),
+(3)
+where S is a Multilayer Perceptron (MLP). By processing the full spectrum of meta-paths, the shared expert ensure that the model retains a comprehensive understanding of the node’s global context.
+2.4.2 Dynamic Pathway
+To adaptively select and refine the most discriminative meta-path views for each specific node instance.
+Distinct from generic MoEs, we design the dynamic expert bank to strictly correspond to the meta-path set. We instantiate M dynamic experts \{D_{1},\dots,D_{M}\} , where the m -th expert D_{m} is dedicated to processing the specific feature \mathbf{h}_{v}^{\Phi_{m}} .
+Semantic-Aware Gating. Each expert D_{m} is associated with a learnable prototype \mathbf{p}_{m}\in\mathbb{R}^{d} , representing the ideal semantic signature for that meta-path view.
+Instead of a global routing competition, the activation of expert m is determined by the alignment between its specific input \mathbf{h}_{v}^{\Phi_{m}} and its prototype \mathbf{p}_{m} . The relevance score is
+s_{v,m}=\frac{(\mathbf{h}_{v}^{\Phi_{m}})^{\top}\mathbf{p}_{m}}{\|\mathbf{h}_{v}^{\Phi_{m}}\|_{2}\|\mathbf{p}_{m}\|_{2}}.
+(4)
+Elastic Capacity Selection.
+To balance elastic computational resource allocation while preventing expert collapse, we propose a hybrid expert selection mechanism. This mechanism addresses the conflict between signal noise interference and tail node loss in traditional routing strategies through three distinct levels of constraints:
+•
+Quality Criterion ( \mathcal{C}_{Qual} ) — Noise Rejection.
+To ensure experts only process high-confidence samples and avoid interference from irrelevant signals during feature learning, we set a hard threshold \delta , considering only nodes with semantic alignment s_{v,m}>\delta . This constitutes the primary filtering barrier.
+•
+Stability Criterion ( \mathcal{C}_{Stab} ) — Tail Preservation.
+Targeting “long-tail” nodes with weak feature representations that are easily filtered out by thresholds (i.e., hard samples), the expert enforces the inclusion of the Top- K best-matching nodes in the batch (as a lower bound) to prevent them from becoming unassigned “orphan nodes” and causing information loss. This provides a survival guarantee mechanism.
+•
+Capacity Criterion ( \mathcal{C}_{Cap} ) — Load Control.
+Constrained by the computational budget, to prevent specific experts from overloading and to maintain system efficiency, we ultimately retain only the highest-scoring Top- C nodes (as an upper bound) from the union of the above two criteria. This achieves memory-friendly elastic truncation.
+Formally, the selection mask M_{v,m}\in\{0,1\} is defined as
+M_{v,m}=\begin{cases}1&\text{if }v\in\operatorname{Top-{\it C}}(\Omega_{m})\\
+0&\text{otherwise}\end{cases},
+(5)
+where \Omega_{m}=\mathcal{S}_{Qual}^{(m)}\cup\mathcal{S}_{Stab}^{(m)} denotes the candidate pool, \mathcal{S}_{Qual}^{(m)}=\{u\mid s_{u,m}>\delta\} represents the high-confidence node set filtered by semantic alignment, and \mathcal{S}_{Stab}^{(m)}=\operatorname{Top-{\it K}}(\mathbf{s}_{:,m}) is the mandatory set of the top- K best-matching nodes serving as a stability guarantee.
+Gated Aggregation.
+For the selected node-expert pairs, we compute a gating weight using a Sigmoid function with temperature \tau as
+g_{v,m}=\sigma(s_{v,m}/\tau)\cdot M_{v,m},
+(6)
+where \tau is a trainable parameter.
+The dynamic representation \mathbf{z}_{v}^{(d)} is the sparse weighted sum of activated experts
+\mathbf{z}_{v}^{(d)}=\sum_{m=1}^{M}g_{v,m}\cdot D_{m}(\text{LayerNorm}(\mathbf{h}_{v}^{\Phi_{m}})).
+(7)
+2.4.3 Adaptive Fusion
+The final node representation \mathbf{z}_{v} fuses the global context from the shared pathway and the selected semantics from the dynamic pathway via a projection matrix \mathbf{W}_{\text{fusion}} as
+\mathbf{z}_{v}=\mathbf{W}_{\text{fusion}}\big[\mathbf{z}_{v}^{(s)}\mathbin{\|}\mathbf{z}_{v}^{(d)}\big]+\mathbf{b}.
+(8)
+2.5 Orthogonality Constraint
+To ensure that different meta-path experts represent distinct semantic directions.
+Even though experts are tied to different meta-paths, their prototypes should remain distinct to prevent semantic overlap. We enforce orthogonality on the prototype matrix \mathbf{P}=[\mathbf{p}_{1},\dots,\mathbf{p}_{M}] as
+\mathcal{L}_{\text{o}}=\|\mathbf{P}^{\top}\mathbf{P}-\mathbf{I}\|_{F}^{2}=\sum_{i\neq j}\left(\frac{\mathbf{p}_{i}^{\top}\mathbf{p}_{j}}{\|\mathbf{p}_{i}\|_{2}\|\mathbf{p}_{j}\|_{2}}\right)^{2}.
+(9)
+The total objective function is:
+\mathcal{L}=\mathcal{L}_{t}+\lambda\mathcal{L}_{\text{ortho}},
+(10)
+where \mathcal{L}_{t} denotes the target loss of downstream tasks.

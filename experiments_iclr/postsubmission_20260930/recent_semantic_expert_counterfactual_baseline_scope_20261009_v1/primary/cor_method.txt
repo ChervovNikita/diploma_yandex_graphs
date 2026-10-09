@@ -1,0 +1,61 @@
+3 Methodology
+In this section, we present the Counterfactual Routing (CoR) framework. We first formalize the standard Sparse Mixture-of-Experts (MoE) architecture. We then detail our two-phase approach: an offline causal analysis to identify critical components (Figure 1), and an online inference strategy based on compute-preserving expert redistribution (Figure 2).
+[image: Refer to caption]
+Figure 2: Schematic of Compute-Preserving Expert Redistribution. CoR dynamically reallocates budget based on layer sensitivity. (a) Knowledge-Lean Layer: reduce active experts to save budget. (b) Knowledge-Dense Layer: expand budget and fuse CEI to awaken dormant experts. The total activation count remains constant (budget-neutral).
+3.1 Preliminaries
+We consider a Transformer-based MoE model with L layers. Let \mathbf{h}_{l-1}^{(t)}\in\mathbb{R}^{d} denote the hidden state of the t -th token at layer l-1 . The l -th MoE layer consists of N expert networks \{E_{l,i}\}_{i=1}^{N} , where each expert is typically a Feed-Forward Network (FFN).
+Gating Mechanism. A router (or gating network) G_{l} determines the contribution of each expert. It typically applies a linear projection followed by a Softmax function:
+G_{l}(\mathbf{h}_{l-1}^{(t)})=\text{Softmax}(\mathbf{h}_{l-1}^{(t)}\mathbf{W}_{g})
+(1)
+where \mathbf{W}_{g}\in\mathbb{R}^{d\times N} is the learnable routing weight matrix.
+Let g_{l,i}^{(t)} denote the gating probability for the i -th expert. To ensure sparsity and computational efficiency, standard MoE employs a Top- k selection strategy. The set of active indices for token t is defined as \mathcal{A}_{l}^{(t)}=\text{Top-}k(\{g_{l,i}^{(t)}\}_{i=1}^{N}) , where k\ll N .
+Sparse Output. The output of the MoE layer, \mathbf{h}_{l}^{(t)} , is the weighted sum of the activated experts’ outputs plus the residual connection:
+\mathbf{h}_{l}^{(t)}=\mathbf{h}_{l-1}^{(t)}+\sum_{i\in\mathcal{A}_{l}^{(t)}}g_{l,i}^{(t)}\cdot E_{l,i}(\mathbf{h}_{l-1}^{(t)})
+(2)
+3.2 Offline Causal Analysis
+Standard routing mechanisms often fail to capture long-tail knowledge due to spurious correlations learned during training. To rectify this, we perform a comprehensive offline analysis on a calibration dataset to pinpoint where factual knowledge resides (Layer-wise analysis) and which experts are causally necessary (Expert-wise analysis).
+3.2.1 Token Stratification
+To disentangle knowledge-intensive reasoning from generic syntactic processing, we stratify tokens based on model uncertainty. By performing a forward pass on a calibration dataset (e.g., C4 (Dodge et al., 2021)) using the Original model \mathcal{M} , we compute the token-level negative log-likelihood (NLL) loss \ell^{(t)} . We define two contrastive subsets based on percentile thresholds: the hard sample set \mathcal{D}_{\text{hard}}=\{t\mid\ell^{(t)}>\tau_{\text{high}}\} representing long-tail knowledge, and the easy sample set \mathcal{D}_{\text{easy}}=\{t\mid\ell^{(t)}<\tau_{\text{low}}\} representing common syntax.
+3.2.2 Layer-wise analysis
+Standard MoEs allocate a uniform computational budget across all layers. However, we hypothesize that factual knowledge is concentrated in specific deep layers. To locate these layers, we employ Layer-wise Perturbation Analysis.
+Crucially, raw perturbation scores are often biased by the “Error Cascading” effect: a small perturbation in shallow layers undergoes successive amplifications through the network’s depth (via matrix multiplications and non-linearities), resulting in a spuriously high loss deviation even for semantically insensitive layers. To eliminate this structural bias and isolate true knowledge dependency, we propose Contrastive Sensitivity Normalization.
+Raw Sensitivity Calculation. For a specific layer l , we apply a uniform multiplicative perturbation \delta to its output \mathbf{O}_{l}^{(t)} while keeping other layers frozen. We calculate the expected loss degradation for both hard and easy subsets separately:
+S_{l}(\mathcal{D})=\frac{1}{|\mathcal{D}|}\sum_{t\in\mathcal{D}}\left[\ell(\mathcal{M}(\tilde{\mathbf{O}}_{l}^{(t)}))-\ell^{(t)}\right]
+(3)
+where \tilde{\mathbf{O}}_{l}^{(t)}=(1+\delta)\odot\mathbf{O}_{l}^{(t)} and \mathcal{D}\in\{\mathcal{D}_{\text{hard}},\mathcal{D}_{\text{easy}}\} . Intuitively, S_{l}(\mathcal{D}_{\text{easy}}) captures the layer’s inherent structural amplification factor, as easy tokens primarily rely on syntax processing rather than deep knowledge retrieval.
+Relative Knowledge Intensity (RKI). To decouple the knowledge component from structural noise, we define the final layer score R_{l} as the ratio of hard-to-easy sensitivity:
+R_{l}=\frac{S_{l}(\mathcal{D}_{\text{hard}})}{S_{l}(\mathcal{D}_{\text{easy}})+\epsilon}
+(4)
+A high R_{l} indicates that layer l is disproportionately critical for hard tokens compared to easy ones, signifying a Knowledge-Intensive Layer. This score will guide our Layer-wise analysis budget reallocation. We provide a rigorous theoretical derivation demonstrating how R_{l} cancels out structural depth bias in Appendix A.1.
+3.2.3 Expert-wise analysis
+Within knowledge-intensive layers, the router may still assign low gating scores to certain experts for specific input tokens, even though these experts prove critical when activated on other hard tokens. We term such contextually suppressed experts as “dormant” and propose Counterfactual Expert Impact (CEI), a causal metric that quantifies an expert’s aggregated causal value across the calibration set via virtual ablation.
+Specifically, for a target expert e in layer l , we first isolate the subset of hard tokens where this expert was originally activated by the Top- k mechanism, denoted as \mathcal{T}_{l,e}=\{t\in\mathcal{D}_{\text{hard}}\mid e\in\mathcal{A}_{l}^{(t)}\} . To quantify the causal contribution of expert e , we construct a locally counterfactual scenario by explicitly ablating it from the network. To ensure a valid probability distribution during this intervention, the original gating probability mass of expert e is redistributed proportionally among the remaining experts to form a surrogate distribution \tilde{g} :
+\tilde{g}_{l,j}^{(t)}=\begin{cases}0&\text{if }j=e\\
+\frac{g_{l,j}^{(t)}}{\sum_{m\neq e}g_{l,m}^{(t)}}&\text{if }j\neq e\end{cases}
+(5)
+We then compute the counterfactual loss \tilde{\ell}_{(l,-e)}^{(t)} using this ablated routing configuration.
+The marginal causal effect of expert e on token t is defined as the performance degradation (loss increase) caused by its removal, termed the “Rescue Gain”:
+\Delta\ell_{l,e}^{(t)}=\tilde{\ell}_{(l,-e)}^{(t)}-\ell^{(t)}
+(6)
+A positive \Delta\ell_{l,e}^{(t)} implies that expert e possesses unique knowledge required for token t that cannot be compensated by other generalist experts. Finally, the global CEI score for expert e is derived by aggregating the expected causal effect across all relevant hard tokens:
+\text{CEI}_{l,e}=\mathbb{E}_{t\in\mathcal{T}_{l,e}}\left[\Delta\ell_{l,e}^{(t)}\right]
+(7)
+This metric effectively disentangles an expert’s necessity from its popularity (gating frequency), highlighting experts that are critical for correctness despite low routing confidence. Since CEI aggregates causal impact across calibration tokens, an expert with high CEI may still receive a low router score on a new input due to context shift—precisely the “dormant” scenario where CoR intervenes.
+3.3 Compute-Preserving Inference
+During the inference phase, we dynamically adjust the routing strategy based on the pre-computed layer sensitivity \{R_{l}\} and expert criticality \{\text{CEI}_{l,e}\} . Our approach operates on the principle of compute-preserving expert redistribution, ensuring that the total computational cost remains constant while maximizing factual accuracy. The inference process is depicted in Figure 2.
+Adaptive Budgeting via Reallocation.
+Instead of a uniform Top- k across all layers, we reallocate the total computational budget K_{\text{total}}=L\times k_{\text{baseline}} across layers proportional to their Relative Knowledge Intensity R_{l} . The number of active experts k_{l} for layer l is calculated as:
+k_{l}=\text{Round}\left(K_{\text{total}}\cdot\frac{R_{l}}{\sum_{j=1}^{L}R_{j}}\right)
+(8)
+This strategy allocates more experts to deep, knowledge-intensive layers to enhance reasoning capabilities, while pruning activations in shallow, syntax-dominant layers.11
+1
+Here, k denotes the fixed number of active experts employed in the standard Top- k routing baseline. Crucially, the constraint \sum k_{l}\approx K_{\text{total}} ensures that the overall FLOPs count remains equivalent to the standard baseline.
+[image: Refer to caption]
+Figure 3: Illustration of Causal-Guided Expert Awakening.
+This diagram visualizes the fusion mechanism in Eq. 9. The Standard Router (left) suppresses the critical expert (Expert 3) due to frequency bias. CoR injects the Causal Impact (right) as a prior, boosting the fused score to “awaken” the dormant specialist.
+Awakening Routing via Context-Prior Fusion.
+Once the layer-wise budget k_{l} is determined, we rely on a hybrid mechanism to select specific experts. Relying solely on the static CEI score would ignore the dynamic context of the current input token (e.g., syntax structure), potentially harming general fluency. Conversely, relying solely on the original router G_{l}(x) leads to the dormant expert problem.
+Therefore, we select the Top- k_{l} experts by fusing the dynamic context with the causal prior, as illustrated in Figure 3. The final selection score for expert i in layer l is defined as:
+\text{Score}_{l,i}(x)=\underbrace{G_{l}(x)_{i}}_{\text{Context}}+\lambda\cdot\underbrace{\text{CEI}_{l,i}}_{\text{Prior}}
+(9)
+where \lambda is a hyperparameter controlling the intervention strength. Note that to align the scales, we apply Min-Max Normalization to the raw \text{CEI}_{l} scores within each layer before fusion. This formulation acts as a causal rectification: for general tokens, the high magnitude of G_{l}(x) dominates, preserving the model’s linguistic capabilities; for hard knowledge tokens where the router is uncertain, the high CEI acts as a bias term to “awaken” the specialist expert.

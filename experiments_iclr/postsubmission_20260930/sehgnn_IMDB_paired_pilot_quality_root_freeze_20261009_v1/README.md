@@ -1,0 +1,7 @@
+# Fixed IMDB pilot quality criteria
+
+Frozen by root before any shared-candidate fit or outcome. The three-pair development study remains exploratory. The two genuine independent ensembles must each be beaten by at least0.5 micro-F1 percentage points on average, with positive direction in at least two pairs and no pair worse by more than1 point. The candidate must also beat the three exact role-matched native singles under the same rule; all five source-single results remain visible and none are pooled into a reference ensemble.
+
+Inspect full-input members, every label, probability quality and all controls. Native micro-F1 uses the fixed strict0.5 threshold. Mean BCE must not deteriorate, macro-F1 must not fall more than1 point, and no label may lose more than2 points on average. Every candidate member must stay within3 micro-F1 points of its role-matched native single. Relative to paired own-only sharing, mean member quality may decline at most0.25 points and mean worst-member quality at most0.5 points; preserve every pair and the complete error analysis.
+
+These margins are prospective practical judgments for deciding whether to invest in unused-outcome confirmation. They are not powered tests, literature performance thresholds, acceptance criteria or a claim that the method already works. Full qualification proves executable behavior; actual accuracy competence and both ensemble comparisons still require completed reference and shared families. The fixed source-study recipe and original paper scores are unchanged.
