@@ -28,3 +28,9 @@ Completed Wiki24, Context9, staged posterior, query-value, link and earlier comp
 - [Current scoped literature supplement](literature_memory/CURRENT_SUPPLEMENT.json)
 - [Representative experiment requirements](canonical_SupCon_and_attention_integration_root_20261008_v1/REPRESENTATIVE_EXPERIMENT_STANDARD.md)
 - [Complete current training interface](portable_context_steering_public_interface_20261008_v1/README.md)
+
+## Molecular readout completed — 2026-10-09T19:50:32.659550+00:00
+
+All17 available original selected endpoints restored and served successfully once, with1947/1947 member calls and no collection errors. The failed P_7307 is retained and never served. Candidate I loses ROC-AUC to independent4 by[-1.954,-3.564,-2.542] percentage points, mean-2.687, and to single by[-0.135,-2.050,-1.133], mean-1.106. I-O mean-0.219 points is mixed across seeds. I-P/P-G retain an unavailable third pair and no mean. The original reader deliberately returns nonzero and whole-family formal success remains unavailable. Root does not advance this fixed candidate from its complete negative practical contrasts. No rescue tuning or best-policy substitution.
+
+Member ranking is weaker in all three pairs and realized pooling gain is smaller than independently. Common-inversion repairs coexist with offsetting full-population harms. BCE improves versus independent4, while ROC-AUC/AP lose and Brier worsens. These metrics do not support a universal calibration or graph-specialization claim. [Complete interpretation](molhiv_complete_candidate_failed_control_interpretation_20261009_v1/INTERPRETATION.md). Original and readout costs remain separately bound, without summing nested scopes.

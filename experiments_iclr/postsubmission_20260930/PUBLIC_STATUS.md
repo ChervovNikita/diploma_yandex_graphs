@@ -22,3 +22,9 @@ The saved random-function-prior assessment finds cancellation and competence ris
 Latest verified GitHub/18.77 head is f18cd3b4. Allocation has the additional committed activation a33070b8 awaiting push. This update and complete small reports await publication. Raw datasets, checkpoints and predictions stay on authorized servers.
 
 [Complete IMDB interpretation](imdb_complete_error_source_dose_interpretation_20261009_v1/INTERPRETATION.md) · [Current state](RESEARCH_STATE.md) · [Ledger](research_ledger.json)
+
+## Molecular readout completed — 2026-10-09T19:50:32.659550+00:00
+
+All17 available original selected endpoints restored and served successfully once, with1947/1947 member calls and no collection errors. The failed P_7307 is retained and never served. Candidate I loses ROC-AUC to independent4 by[-1.954,-3.564,-2.542] percentage points, mean-2.687, and to single by[-0.135,-2.050,-1.133], mean-1.106. I-O mean-0.219 points is mixed across seeds. I-P/P-G retain an unavailable third pair and no mean. The original reader deliberately returns nonzero and whole-family formal success remains unavailable. Root does not advance this fixed candidate from its complete negative practical contrasts. No rescue tuning or best-policy substitution.
+
+Member ranking is weaker in all three pairs and realized pooling gain is smaller than independently. Common-inversion repairs coexist with offsetting full-population harms. BCE improves versus independent4, while ROC-AUC/AP lose and Brier worsens. These metrics do not support a universal calibration or graph-specialization claim. [Complete interpretation](molhiv_complete_candidate_failed_control_interpretation_20261009_v1/INTERPRETATION.md). Original and readout costs remain separately bound, without summing nested scopes.
