@@ -1,0 +1,11 @@
+# Complete36 server-only NumPy assembly handoff
+
+Both normal77 phase2 jobs were observed once using owned process metadata and compact counters: actual child exit0/direct reap, parent/child groups absent, complete27/27 calls and zero TRAIN/backward/Adam. Root then separately attested all three phase2 owners through unchanged V2 and ran the exact compact-only harvest. All original selected-state calls total108; no source math or17 contrasts changed.
+
+A new predictions-only inventory contains allocation12 prediction and3 cohort NPZ archives,22,264,458 bytes. Root successfully streamed these once using the reviewed per-file guarded PTY binary pipe. Neither Mac created a disk raw payload. The abandoned6.3GB checkpoint stream remains failed/preserved and was not resumed; no foreign checkpoint was copied. Stream full started/exited timestamps, inclusive wall and CPU cost are unavailable/null, never invented0.
+
+The preparation then SHA-checked all45 archives on normal77 (36 predictions+9 cohorts,66,793,374 bytes) without array/cohort decoding or scores. Normal77 retains its24 prediction banks and6 cohorts; allocation12+3 are exact-staged at unchanged relative paths. ALL36_ARCHIVE_CUSTODY.json binds originals, staged bytes and actual transfer proof/cost. All actual terminal/collection/COST metadata and custody are exact-staged on77.
+
+The concrete ASSEMBLY_RELEASE_DISABLED.json and EXTERNAL_SUPERVISION_DISABLED.json bind all actual evidence and choose normal77's pinned NumPy1.26.4 runtime. All approval flags remain false. SUPERVISE_NUMPY_ASSEMBLY.py is a literal adaptation of the earlier relation shim over unchanged finite run_fit and ownership_helpers: one pure NumPy child, CUDA hidden, ownedGPU0, RSS8GiB, output4GiB,3600active+15cleanup, actual direct-wait EXIT/cost and parent OSexit unknown. No new owner framework or scientific/review policy is added. Root adopts and launches assembly.
+
+Two excluded local metadata-command preparation failures are preserved; they failed before remote work and were corrected using proper stream-result parsing and transport-only command packing. No inference or raw transfer was retried by this agent. No array decoding, results analysis, candidate scoring, numerical assembly or Git mutation occurred in this preparation. READY_ASSEMBLY_ROOT_HANDOFF.json is the root handoff index.

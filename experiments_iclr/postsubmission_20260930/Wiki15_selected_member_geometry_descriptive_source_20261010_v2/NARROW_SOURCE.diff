@@ -1,0 +1,94 @@
+--- Wiki15_selected_member_geometry_descriptive_source_20261010_v1/aggregate.py
++++ Wiki15_selected_member_geometry_descriptive_source_20261010_v2/aggregate.py
+@@ -16,6 +16,26 @@
+ import subprocess
+ import sys
+ import time
++
++
++def atomic_json(path, value, replace=True):
++    """A killed writer leaves the previous complete JSON and its rows intact."""
++    temporary = path.with_name(path.name + '.tmp')
++    if not replace:
++        assert not path.exists()
++    with temporary.open('x') as stream:
++        json.dump(value, stream, indent=2, allow_nan=False)
++        stream.write('\n')
++        stream.flush()
++        os.fsync(stream.fileno())
++    if not replace:
++        assert not path.exists()
++    os.replace(temporary, path)
++    directory = os.open(path.parent, os.O_RDONLY)
++    try:
++        os.fsync(directory)
++    finally:
++        os.close(directory)
+ 
+ 
+ def geometry(np, h, labels):
+@@ -103,13 +123,32 @@
+     os.environ['CUDA_VISIBLE_DEVICES'] = ''
+     os.environ['OMP_NUM_THREADS'] = os.environ['MKL_NUM_THREADS'] = '2'
+     os.environ['OPENBLAS_NUM_THREADS'] = os.environ['NUMEXPR_NUM_THREADS'] = '2'
+-    import numpy as np
+-    import torch
+-    assert np.__version__ == '1.26.4' and str(torch.__version__) == '2.1.2+cu118'
+-    torch.set_num_threads(2)
+-    torch.set_num_interop_threads(1)
+     rows = []
++    completed_count = 0
++    progress_path = args.output.with_name(args.output.name + '.progress.json')
++    assert not progress_path.exists() and not progress_path.with_name(progress_path.name + '.tmp').exists()
++    source_binding, config_binding = gate.binding(Path(__file__)), gate.binding(args.config)
++
++    def persist_progress(status, current_cell=None, failure=None):
++        usage = resource.getrusage(resource.RUSAGE_SELF)
++        atomic_json(progress_path, dict(
++            schema='Wiki15-selected-member-geometry-descriptive-progress-v2', status=status,
++            UTC=datetime.now(timezone.utc).isoformat(), source=source_binding, config=config_binding,
++            completed_cells=rows[:completed_count], completed_cell_count=completed_count,
++            expected_cell_count=15, current_cell=current_cell, failure=failure,
++            comparable_complete_roster=status == 'complete' and completed_count == 15,
++            wall_seconds=time.monotonic() - began, CPU_user_seconds=usage.ru_utime,
++            CPU_system_seconds=usage.ru_stime, peak_RSS_bytes=usage.ru_maxrss * 1024,
++            resource_scope='Worker process through this publication; external owner retains terminal costs',
++            automatic_retry=False, training=False, model_forwards=0, fits=0, scores_recomputed=False))
++
++    persist_progress('before_numerical_imports')
+     try:
++        import numpy as np
++        import torch
++        assert np.__version__ == '1.26.4' and str(torch.__version__) == '2.1.2+cu118'
++        torch.set_num_threads(2)
++        torch.set_num_interop_threads(1)
+         for record in inputs['cells']:
+             assert time.monotonic() - began < 90, 'Fixed CPU aggregate wall budget exceeded'
+             with np.load(gate.bound(record['raw_archive']), allow_pickle=False) as package:
+@@ -167,6 +206,8 @@
+                              native_metric_head_null_energy_fraction_by_member=null_fractions,
+                              class_contrast_head_rank_by_member=ranks, **descriptive))
+             gate.bound(record['selected_checkpoint'])
++            completed_count = len(rows)
++            persist_progress('cell_complete', current_cell=record['cell'])
+             del h, z, labels, ids, residual, visible, reconstructed, error, magnitude, margins, all_margins
+         deltas = []
+         by = {(row['seed'], row['condition']): row for row in rows}
+@@ -194,14 +235,14 @@
+                       failure=dict(type=type(error).__name__, message=str(error)), completed_cells=rows,
+                       comparable_complete_roster=False, automatic_retry=False,
+                       wall_seconds=time.monotonic() - began)
++        persist_progress('retained_failure', failure=result['failure'])
+         raise
+     finally:
+         usage = resource.getrusage(resource.RUSAGE_SELF)
+         result.update(CPU_user_seconds=usage.ru_utime, CPU_system_seconds=usage.ru_stime,
+                       peak_RSS_bytes=usage.ru_maxrss * 1024)
+-        with args.output.open('x') as stream:
+-            json.dump(result, stream, indent=2, allow_nan=False)
+-            stream.write('\n')
++        atomic_json(args.output, result, replace=False)
++        persist_progress(result['status'])
+ 
+ 
+ if __name__ == '__main__':

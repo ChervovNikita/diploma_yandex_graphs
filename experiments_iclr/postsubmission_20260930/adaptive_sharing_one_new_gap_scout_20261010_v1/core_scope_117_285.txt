@@ -1,0 +1,169 @@
+3. Preliminaries
+
+Node-level Graph Contrastive Learning.
+
+In the domain of graph contrastive learning, traditional node-level GCL, as exemplified by GRACE (Zhu et al., 2020), focuses on maximizing alignment between node embeddings derived from two different augmented views of input graph [FORMULA \mathcal{G}=\{\mathbf{X},\mathbf{A}\}] , where [FORMULA \mathbf{X}\in\mathbb{R}^{N\times F}] represents raw node features and [FORMULA \mathbf{A}\in\{0,1\}^{N\times N}] is the adjacency matrix. Two augmented views of [FORMULA \mathcal{G}] , [FORMULA \widetilde{\mathcal{G}}_{A}=\{\mathbf{X}_{A},\mathbf{A}_{A}\}] and [FORMULA \widetilde{\mathcal{G}}_{B}=\{\mathbf{X}_{B},\mathbf{A}_{B}\}] , are generated via augmentations [FORMULA \tau_{1}] and [FORMULA \tau_{2}] , affecting both node features and graph structure. Node embeddings for these augmented graphs are often obtained through a shared encoder [FORMULA f_{E}(\cdot)] and a projection head [FORMULA f_{D}(\cdot)] . Specifically, for [FORMULA \widetilde{\mathcal{G}}_{A}] , the node embedding matrix [FORMULA \mathbf{H}_{A}=f_{E}(\mathbf{X}_{A},\mathbf{A}_{A})] and projected node embedding [FORMULA \mathbf{U}=f_{D}(\mathbf{H}_{A})] . Similarly, for [FORMULA \widetilde{\mathcal{G}}_{B}] , [FORMULA \mathbf{H}_{B}=f_{E}(\mathbf{X}_{B},\mathbf{A}_{B})] and [FORMULA \mathbf{V}=f_{D}(\mathbf{H}_{B})] . The contrastive objective encourages the model to distinguish between positive samples, i.e., pairs of embeddings [FORMULA \boldsymbol{u}_{i}\in\mathbf{U}] and [FORMULA \boldsymbol{v}_{i}\in\mathbf{V}] corresponding to the [FORMULA i] -th node in two views, and negative samples, which encompass all other nodes within and across these views. The pairwise objective function [FORMULA \ell\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)] as detailed in Eq. (1), employing cosine similarity [FORMULA \theta(\cdot,\cdot)] as a measure of alignment, adjusted by temperature parameter [FORMULA T]  (Chen et al., 2020).
+
+(1)
+
+ [FORMULA \small\begin{split}\ell(\boldsymbol{u}_{i},\boldsymbol{v}_{i})=\log\Bigg(e^{\theta(\boldsymbol{u}_{i},\boldsymbol{v}_{i})/T}/\Bigg(\underbrace{e^{\theta(\boldsymbol{u}_{i},\boldsymbol{v}_{i})/T}}_{\text{positive pair}}+\\
+\underbrace{\sum_{k=1}^{N}\mathbf{1}_{[k\neq i]}e^{\theta(\boldsymbol{u}_{i},\boldsymbol{v}_{k})/T}}_{\text{inter-view negative pairs}}+\underbrace{\sum_{k=1}^{N}\mathbf{1}_{[k\neq i]}e^{\theta(\boldsymbol{u}_{i},\boldsymbol{u}_{k})/T}}_{\text{intra-view negative pairs}}\Bigg)\Bigg)\end{split}] 
+
+where [FORMULA \mathbf{1}_{[k\neq i]}] is an indicator function. And the overall contrastive loss averages over all positive pairs within the graph:
+
+(2)
+
+ [FORMULA \small\mathcal{L}_{\text{contrast}}=-\frac{1}{2N}\sum_{i=1}^{N}\left[\ell\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)+\ell\left(\boldsymbol{v}_{i},\boldsymbol{u}_{i}\right)\right]] 
+
+Masked Feature Reconstruction.
+
+In this work, we focus on masked feature reconstruction proposed by GraphMAE (Hou et al., 2022) with scaled cosine error (SCE) since mean squared error (MSE) could suffer from the issues of sensitivity and low selectivity (Hou et al., 2022). Consider a subset of nodes in [FORMULA \mathcal{G}=\{\mathbf{X},\mathbf{A}\}] , denoted as [FORMULA \widetilde{\mathcal{V}}\subset V] , whose features are selectively masked by a learnable token [FORMULA [\text{MASK}]] , resulting in a corrupted feature representation [FORMULA \widetilde{\mathbf{X}}] . This corrupted graph, represented as [FORMULA (\widetilde{\mathbf{X}},\mathbf{A})] , is then fed into the encoder [FORMULA f_{E}(\cdot)] to generate node representations [FORMULA \mathbf{H}=f_{E}(\widetilde{\mathbf{X}},\mathbf{A})] . Subsequently, the decoder [FORMULA f_{D}(\cdot)] processes [FORMULA \mathbf{H}] to predict the masked features, resulting in the output [FORMULA \mathbf{Z}] . The reconstruction objective [FORMULA \mathcal{L}_{\text{rec}}] aims to minimize the cosine similarity between the raw and predicted features for nodes in [FORMULA \widetilde{\mathcal{V}}] :
+
+(3)
+
+ [FORMULA \small\mathcal{L}_{\text{rec }}=\frac{1}{|\widetilde{\mathcal{V}}|}\sum_{v_{i}\in\widetilde{\mathcal{V}}}\left(1-\frac{\boldsymbol{x}_{i}^{\top}\boldsymbol{z}_{i}}{\|\boldsymbol{x}_{i}\|\cdot\|\boldsymbol{z}_{i}\|}\right)^{\gamma}] 
+
+where [FORMULA \boldsymbol{x}_{i}] is the raw feature of node [FORMULA v_{i}] , [FORMULA \boldsymbol{z}_{i}] is the predicted feature the node obtained through the decoder [FORMULA f_{D}] with [FORMULA \mathbf{Z}=f_{D}(\mathbf{H})] , and [FORMULA \gamma\geq 1] is a scaling factor.
+
+4. Proposed Method
+
+In this section, we present our theoretical insight into the relationship between MFR and node-level GCL, demonstrating how their objectives converge under certain conditions despite their distinct approaches. Building on their mathematical compatibility, we propose Contrastive Masked Node Reconstruction (CORE), a framework that integrates contrastive learning into masked feature reconstruction to leverage the strengths of both approaches.
+
+4.1. Theoretical Connection between MFR and Node-level GCL
+
+This section examines the relationship between masked feature reconstruction (MFR) and node-level graph contrastive learning (GCL), revealing their theoretical compatibility despite their distinct operational mechanisms.
+
+Definition 4.0 (Convergence Conditions).
+
+Define a set of conditions [FORMULA C] as follows. (i) The temperature parameter [FORMULA T] approaches zero ( [FORMULA T\rightarrow 0] ). (ii) The augmentation set only includes two operations, [FORMULA \tau=\{\text{Masking},\text{No-Operation}\}] , with each applied separately to generate two distinct views, where ‘Masking’ randomly masks certain node features, and ‘No-Operation’ leaves the node features unchanged, and a set of anchor nodes are exclusively formed by the set of masked nodes [FORMULA \widetilde{V}] . (iii) The anchor nodes [FORMULA \widetilde{V}] in the ‘No-Operation’ view can be reconstructed with fidelity approaching the theoretical maximum, i.e., [FORMULA \mathbf{X}^{\prime}_{\widetilde{V}}\rightarrow\mathbf{X}_{\widetilde{V}}] , where the similarity between the decoder’s output [FORMULA \mathbf{X}^{\prime}_{\widetilde{V}}] and their original raw features [FORMULA \mathbf{X}_{\widetilde{V}}] approaches the ideal score, indicating a near-identical reconstruction.∎
+
+Theorem 4.2 (Convergence of MFR and GCL Objectives).
+
+Under conditions [FORMULA C] in Def. 4.1, the objectives of MFR and node-level GCL converge:
+ [FORMULA \mathcal{L}_{\text{contrast}}=\mathcal{L}_{\text{rec}}] ,
+where [FORMULA \mathcal{L}_{\text{contrast}}] and [FORMULA \mathcal{L}_{\text{rec}}] are defined in Eqs. (2) and (3), respectively.
+∎
+
+Sketch.
+
+We establish the convergence between MFR and node-level GCL objectives through a detailed three-step analysis:
+
+Step 1: Analysis of contrastive loss under limiting temperature.
+With the condition [FORMULA T\rightarrow 0] , we begin by establishing that for any masked node [FORMULA v_{i}] , the similarity between its positive pair [FORMULA \theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)] exceeds that of any negative pair [FORMULA \theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)]  (Zhu et al., 2020), where [FORMULA \boldsymbol{w}\in Neg_{i}] represents a node within the set of negative samples for [FORMULA v_{i}] :
+
+(4)
+
+ [FORMULA \theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)
+
+As [FORMULA T] approaches zero, this similarity difference is exponentially amplified in the contrastive objective. Specifically, we can analyze the ratio of the exponential terms:
+
+(5)
+
+ [FORMULA \lim_{T\rightarrow 0}\frac{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)}/{T}}}{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)}/{T}}}=\lim_{T\rightarrow 0}e^{\left({\theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)}-\theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)\right)/{T}}=0] 
+
+Since the exponent [FORMULA {\theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)}-\theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)] is negative and divided by a value approaching zero, the entire expression approaches zero. This means that the contribution from negative pairs becomes negligible compared to the positive pair when [FORMULA T] is very small.
+
+Step 2: Reformulation and simplification of the pairwise objective.
+We now analyze how this limiting behavior affects the pairwise objective function from Eq. (1). By taking the logarithm of the softmax expression, we get:
+
+(6)
+
+ [FORMULA \displaystyle\max\ell\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)] 
+ [FORMULA \displaystyle=\max\lim_{T\rightarrow 0}\log\left(\frac{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)}/{T}}}{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)}/{T}}+\sum_{\boldsymbol{w}\in Neg_{i}}e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)}/{T}}}\right)] 
+
+ [FORMULA \displaystyle=\max\lim_{T\rightarrow 0}\log\left(\frac{1}{1+\sum_{\boldsymbol{w}\in Neg_{i}}\frac{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)}/{T}}}{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)}/{T}}}}\right)] 
+
+ [FORMULA \displaystyle=\min\lim_{T\rightarrow 0}\log\left(1+\sum_{\boldsymbol{w}\in Neg_{i}}\frac{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{w}\right)}/{T}}}{e^{{\theta\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)}/{T}}}\right)] 
+
+Since each term in the summation approaches zero as shown in Step 1, the summation also approaches zero. Therefore, maximizing the pairwise objective becomes equivalent to minimizing [FORMULA \log(1+0)=0] , which is a constant. This means that the optimization effectively becomes unconstrained by the negative samples, and the objective simplifies to:
+
+(7)
+
+ [FORMULA \max\ell\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)\equiv\max\theta(\boldsymbol{u}_{i},\boldsymbol{v}_{i})] 
+
+Thus, under the condition [FORMULA T\rightarrow 0] , maximizing the contrastive objective becomes equivalent to directly maximizing the cosine similarity between the positive pairs, effectively ignoring the negative samples.
+
+Step 3: Connecting GCL and MFR under the specified augmentation set.
+Given the augmentation set [FORMULA \tau] , we can now establish a concrete mapping between the GCL and MFR frameworks:
+
+• 
+
+For [FORMULA \widetilde{\mathcal{G}}_{A}] (the graph view with ‘No-Operation’ augmentation): The node embeddings [FORMULA \boldsymbol{u}_{i}] correspond to the [FORMULA i] -th node embedding from [FORMULA \mathbf{X}^{\prime}=f_{D}(f_{E}(\mathbf{X},\mathbf{A}))] , which are the reconstructed features of the original graph.
+
+• 
+
+For [FORMULA \widetilde{\mathcal{G}}_{B}] (the graph view with ‘Masking’ augmentation): The node embeddings [FORMULA \boldsymbol{v}_{i}] correspond to [FORMULA \boldsymbol{z}_{i}] from [FORMULA \mathbf{Z}=f_{D}(f_{E}(\widetilde{\mathbf{X}},\mathbf{A}))] , which are the reconstructed features of the masked graph.
+
+Under this mapping, the contrastive loss for masked nodes becomes:
+
+(8)
+
+ [FORMULA \displaystyle\mathcal{L}_{\text{contrast}}] 
+ [FORMULA \displaystyle=-\frac{1}{|\widetilde{\mathcal{V}}|}\sum_{v_{i}\in\widetilde{\mathcal{V}}}\ell\left(\boldsymbol{u}_{i},\boldsymbol{v}_{i}\right)] 
+
+ [FORMULA \displaystyle=\frac{1}{|\widetilde{\mathcal{V}}|}\sum_{v_{i}\in\widetilde{\mathcal{V}}}\left(1-\frac{\boldsymbol{x}^{\prime}_{i}\cdot\boldsymbol{z}_{i}}{\|\boldsymbol{x}^{\prime}_{i}\|\cdot\|\boldsymbol{z}_{i}\|}\right)] 
+
+When comparing with the MFR loss in Eq. (3) (with [FORMULA \gamma=1] for simplicity), we can express both objectives in a parallel form:
+
+(9)
+
+ [FORMULA \mathcal{L}_{\text{rec}}=1-\theta(\mathbf{X}_{\widetilde{V}},\mathbf{Z}_{\widetilde{V}})] 
+
+(10)
+
+ [FORMULA \mathcal{L}_{\text{contrast}}=1-\theta(\mathbf{X}^{\prime}_{\widetilde{V}},\mathbf{Z}_{\widetilde{V}})] 
+
+Here, [FORMULA \mathbf{X}_{\widetilde{V}}] represents the original features of the masked nodes, [FORMULA \mathbf{X}^{\prime}_{\widetilde{V}}] represents the reconstructed features of the masked nodes from the unmasked graph, and [FORMULA \mathbf{Z}_{\widetilde{V}}] represents the reconstructed features of the masked nodes from the masked graph.
+
+The key observation is that when condition (iii) in Definition 4.1 is satisfied, i.e., when [FORMULA \mathbf{X}^{\prime}_{\widetilde{V}}\rightarrow\mathbf{X}_{\widetilde{V}}] (when the encoder-decoder can perfectly reconstruct the features of unmasked nodes), we have:
+
+(11)
+
+ [FORMULA \lim_{\mathbf{X}^{\prime}_{\widetilde{V}}\rightarrow\mathbf{X}_{\widetilde{V}}}{\mathcal{L}_{\text{contrast}}}=\mathcal{L}_{\text{rec}}] 
+
+This equivalence underscores a convergence between contrastive and reconstruction loss functions under ideal conditions of feature reconstruction.
+∎
+
+The theoretical result reveals two key insights: (1) Implicit Nature of MFR: The theorem demonstrates that MFR implicitly operates as a node-level contrastive learning method without explicit negative samples (equivalent to setting near-zero temperature). While this enables effective feature reconstruction, it may limit the ability of the model to learn discriminative representations that distinguish between different nodes. (2). Compatible Objectives: Despite their difference, where GCL focuses on relative sample positioning in the latent space and MFR focuses on accurate feature reconstruction, their objectives can align under certain conditions. This alignment suggests that these methods are not fundamentally incompatible but rather synergistic, motivating their integration to leverage both discriminative and reconstructive capabilities.
+
+These insights inspire our framework design: rather than operating at the theoretical limit where [FORMULA T\rightarrow 0] , we maintain a standard temperature while introducing negative samples into the MFR process. This approach preserves the strengths of both methods, MFR’s ability to capture node features and GCL’s discriminative power, leading to more robust graph representations.
+
+It is important to note that while our theoretical analysis relies on the conditions in Definition 4.1, particularly [FORMULA T\rightarrow 0] and the perfect reconstruction requirement, these represent idealized theoretical conditions that facilitate mathematical analysis rather than practical implementation constraints. The value of this theoretical result lies in revealing the fundamental connection between two seemingly distinct approaches, providing conceptual justification for their integration. In practice, as we will show in our experiments (Fig. 2), operating at very low temperatures actually degrades performance, reinforcing that our framework’s strength comes from deliberately moving away from the theoretical limit to leverage the complementary benefits of both approaches.
+
+4.2. Contrastive Masked Feature Reconstruction
+
+Figure 1. Overview of the CORE framework.
+(For clarity, we only show one anchor node here; the pairwise objective
+is applied across all masked nodes in the graph.)
+
+Building upon the theoretical insights outlined in Sect.4.1, we introduce our Contrastive Masked Feature Reconstruction (CORE), a novel graph SSL framework motivated by the idea of integrating the generative mechanism of MFR with the contrastive approach of GCL. By leveraging masked nodes as both positive and negative samples within the same framework, CORE reduces the reliance on complex augmentations, thereby enhancing the model’s ability to capture intrinsic graph structures while boosting the performance of masked feature reconstruction. A key feature of our framework lies in its ability to seamlessly integrate with any existing MFR framework, including the state-of-the-art GraphMAE and its successors, while preserving their specific techniques that encompass both the node masking process and the encoder-decoder architecture, as shown in Fig. 1(a).
+
+Design choices. To materialize our CORE framework, we detail two pivotal design choices that underpin our approach. These elements collectively contribute to the robustness of CORE, facilitating a synergistic integration of contrastive learning while preserving the fundamental aspects of MFR.
+
+1) Masked node-based positive sampling.
+Conventional contrastive methods often use all nodes as anchor points (Zhu et al., 2020; Thakoor et al., 2022). This is equivalent to form positive pairs between the predictions of all nodes (outputs from the encoder-decoder architecture) and their raw features in the MFR framework. However, forming positive pairs on unmasked nodes might discourage the encoder from leveraging contextual information to reconstruct the nodes, thereby diminishing the overall efficacy in capturing relevant information from neighboring nodes (Xie et al., 2022). Therefore, we form the positive pairs exclusively on the masked nodes to encourage the encoder to prioritize contextual information over the node’s own features. In our framework, each positive pair consists of the reconstruction for a masked node alongside its raw, unmasked features [FORMULA (\boldsymbol{z}_{i},\boldsymbol{x}_{i})] as depicted in Fig. 1(b). It refines the contrastive learning process, ensuring a focused engagement with the original objective of masked feature reconstruction.
+
+2) Masked node-based negative sampling. Diverging from other contrastive methods (Zhu et al., 2020; Zhu et al., 2021) that treat all other nodes as negative samples, our second design choice, depicted in Fig. 1(c), exclusively selecting negative samples from the set of masked nodes, [FORMULA \widetilde{\mathcal{V}}] , to form negative pair [FORMULA (\boldsymbol{z}_{i},\boldsymbol{z}_{k})] for [FORMULA v_{i}] . This strategy has two following advantages. (i) Enhanced feature reconstruction: Masked nodes, which are distinct in their raw features, become indistinguishable once masked, especially when masked with the same learnable token as typically employed (Hou et al., 2022; Hou et al., 2023). This characteristic makes them ideal negative samples, as differentiating these nodes requires the model to deeply understand and reconstruct their raw features. (ii) Context-rich representation learning: Encouraging differentiation among the masked nodes pushes the model to learn robust representations that accurately reflect a node’s neighborhood and its contextual information, making the reconstructed features not just precise but contextually rich, reflecting the intricate relationships within the graph structure.
+
+Outline of CORE.
+Our framework begins with node masking, depicted in Fig. 1(a), where a subset of nodes [FORMULA \widetilde{V}] in the input graph [FORMULA \mathcal{G}=\{\mathbf{X},\mathbf{A}\}] is selectively masked, creating a masked graph view [FORMULA \widetilde{\mathcal{G}}_{B}(\widetilde{\mathbf{X}},\mathbf{A})] .
+ [FORMULA \widetilde{\mathcal{G}}_{B}] is subsequently processed by an encoder-decoder architecture, where the encoder produces latent representations of the nodes and the decoder reconstructs the masked nodes to [FORMULA \mathbf{Z}_{\widetilde{V}}] .
+In alignment with our masked node-based positive sampling strategy as shown in Fig. 1(b), we form the positive pairs composed of the reconstructed features [FORMULA \mathbf{Z}_{\widetilde{V}}] of the masked nodes and their corresponding raw features [FORMULA \mathbf{X}_{\widetilde{V}}] for each node in the set [FORMULA \widetilde{V}] .
+Then, as shown in Fig. 1(c), our masked node-based negative sampling strategy randomly selects [FORMULA |\mathcal{M}_{i}|] negative samples solely from the masked nodes for each anchor node, where [FORMULA \mathcal{M}_{i}\subseteq\widetilde{\mathcal{V}}\setminus\{v_{i}\}] and [FORMULA |\mathcal{M}_{i}|\ll|\widetilde{\mathcal{V}}|] , providing diverse and varied negative examples for the model. Note that each subset [FORMULA \mathcal{M}_{i}] has an identical, predetermined size across all nodes. Finally, we amplify the similarity between each positive pair while distinguishing the reconstructed features from the selected negative samples.
+
+Loss formulation. Having outlined our designs revolving around masked node-based positive sampling and masked node-based negative sampling, we now formalize the loss. Following the notations defined in Sect. 3, where [FORMULA \boldsymbol{z}_{i}] denotes the reconstructed feature vector for masked node [FORMULA v_{i}] and [FORMULA \boldsymbol{x}_{i}] represents its raw features, we present the proposed pairwise objective below:
+
+(12)
+
+ [FORMULA \small\begin{split}\ell\left(\boldsymbol{z}_{i},\boldsymbol{x}_{i}\right)=\log\Bigg(e^{\theta\left(\boldsymbol{z}_{i},\boldsymbol{x}_{i}\right)/T}/\Bigg(\underbrace{e^{\theta\left(\boldsymbol{z}_{i},\boldsymbol{x}_{i}\right)/T}}_{\text{positive pair}}+\\
+\underbrace{\sum_{k=1}^{|\mathcal{M}_{i}|}\mathbf{1}_{[k\neq i]}e^{\theta\left(\boldsymbol{z}_{i},\boldsymbol{z}_{k}\right)/T}}_{\text{negative pairs}}\Bigg)\Bigg),\forall v_{i}\in\widetilde{V}\text{ and }\mathcal{M}_{i}\subseteq\widetilde{\mathcal{V}}.\end{split}] 
+
+The essence of this loss lies in its dual objectives. Firstly, to maximize the agreement between the positive pair, i.e., the reconstructed and raw features of the masked node ( [FORMULA \boldsymbol{z}_{i}] and [FORMULA \boldsymbol{x}_{i}] ) as in the original masked feature reconstruction. Secondly, to ensure each node’s representation is distinct from those of other nodes ( [FORMULA \boldsymbol{z}_{i}] and [FORMULA \boldsymbol{z}_{k}] ), we leverage negative samples drawn exclusively from the masked nodes. This focused approach ensures that the learning process is highly specific to the task of reconstructing masked nodes, leading to more robust and discriminative node representations.
+
+The pairwise objective will be further aggregated across all masked nodes, leading to the overall objective as follows.
+
+(13)
+
+ [FORMULA \mathcal{L}=-\frac{1}{|\widetilde{V}|}\sum_{i=1}^{|\widetilde{V}|}\ell\left(\boldsymbol{z}_{i},\boldsymbol{x}_{i}\right)] 
+
+By focusing on masked nodes and utilizing them as both positive and negative samples, CORE enhances masked feature reconstruction in a way that not only preserves the effectiveness of feature restoration but also improves the model’s ability to capture intrinsic graph structures. This integration of generative methods with contrastive techniques leverages the strengths of both approaches, effectively addressing challenges such as the potential neglect of contextual information in feature reconstruction and the complexities of data augmentation. As a result, CORE offers a more robust and efficient approach to self-supervised graph learning.

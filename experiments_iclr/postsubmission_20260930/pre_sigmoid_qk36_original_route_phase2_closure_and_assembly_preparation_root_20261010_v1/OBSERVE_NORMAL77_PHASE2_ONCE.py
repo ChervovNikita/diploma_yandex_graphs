@@ -1,0 +1,33 @@
+import datetime,hashlib,importlib.util,json,pathlib,resource,socket,sys,time
+DATA=json.loads('{"activation_root": "pre_sigmoid_qk36_original_route_phase2_activation_root_20261010_v1", "custody": {"bytes": 26064, "path": "query_value_gate_scientific_owner_source_20261009_v1/owned.py", "sha256": "6917eabafd6a00260fcbc482891a0da706e7aab476cb37299aa07a1740502ddd"}, "hostname": "peptide", "parents": {"gpu77_8ced": {"boot_id": "2de86898-2942-402c-a7a5-29f64e4688d1", "group": 4037668, "pid": 4037668, "session": 4037668, "start_ticks": 1773750160}, "gpu77_a998": {"boot_id": "2de86898-2942-402c-a7a5-29f64e4688d1", "group": 4037664, "pid": 4037664, "session": 4037664, "start_ticks": 1773750153}}, "phase": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/experiments_iclr/postsubmission_20260930", "repository": "/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git", "scope": "pre_sigmoid_qk36_original_route_phase2_closure_and_assembly_preparation_root_20261010_v1", "source_collector": {"bytes": 15169, "path": "pre_sigmoid_qk36_original_route_selected_collection_source_20261010_v2/collect_route.py", "sha256": "9f6a16a4040f9f1dc22a9143da2fba45dd5ae5c024596829e4a6b1911bf745e3"}, "supervision_root": "pre_sigmoid_qk36_original_route_phase2_supervision_root_20261010_v1"}');R=pathlib.Path(DATA['repository']);P=pathlib.Path(DATA['phase']);assert pathlib.Path.cwd().resolve()==R and socket.gethostname()==DATA['hostname']
+start=time.monotonic();u=resource.getrusage(resource.RUSAGE_SELF)
+def bind(p):
+ h=hashlib.sha256()
+ with p.open('rb') as stream:
+  for b in iter(lambda:stream.read(1048576),b''):h.update(b)
+ return dict(path=str(p.relative_to(P)),bytes=p.stat().st_size,sha256=h.hexdigest())
+def read(p):return json.loads(p.read_text())
+p=P/DATA['custody']['path'];assert bind(p)==DATA['custody'];spec=importlib.util.spec_from_file_location('_existing_owned_metadata',p);custody=importlib.util.module_from_spec(spec);spec.loader.exec_module(custody)
+cuda=[pid for pid,_ in custody.gpu_rows()]
+result=dict(schema='qk36-normal77-once-owned-phase2-metadata-observation-v1',complete=False,UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),hostname=socket.gethostname(),routes={},numerical_imports=False,numerical_launch=False,cohort_or_array_decoding=False,scientific_scores_read=False,unrelated_process_or_file_inspection=False,Git_mutation=False,failure=None)
+try:
+ for rid,parent in DATA['parents'].items():
+  root=P/DATA['supervision_root']/rid;owner=read(root/'PARENT_OWNER.json');witness=read(root/'PROCESS_WITNESS.json');assert custody.same(owner['parent_identity'],parent) and custody.same(witness['parent_identity'],parent);assert witness['source_program']==DATA['source_collector']
+  child=witness['child_identity'];assert child['boot_id']==parent['boot_id'];release=P/DATA['activation_root']/rid/'RELEASE.json';assert bind(release)==witness['release']
+  current_parent=custody.identity(parent['pid']);current_child=custody.identity(child['pid']);groups=[dict(saved=p,current_members=custody.members(p)) for p in (parent,child)]
+  output=P/read(release)['output_directory'];cost_path=output/'compact/COST.json';cost=read(cost_path) if cost_path.is_file() else None
+  counters=None if cost is None else {k:cost[k] for k in ['status','maximum_member_forwards','attempted_member_forwards','completed_member_forwards','checkpoint_deserialization_attempts','checkpoint_file_bytes_submitted_to_deserializer','optimizer_construction_attempts','optimizer_constructions','Session_factory_attempts','Session_factory_completions','TRAIN_updates','backward_calls','Adam_steps','optimizer_history_restores','training_RNG_history_restores','raw_archive_load_attempts','raw_archive_bytes_submitted_to_decoder','peak_CUDA_allocated_bytes','peak_CUDA_reserved_bytes','outer_owner_exit_cleanup_and_compact_mirroring_cost'] if k in cost}
+  exit_path=root/'CHILD.EXIT.json';actual=read(exit_path) if exit_path.is_file() else None;finish_path=root/'PARENT_FINISH.json';finish=read(finish_path) if finish_path.is_file() else None
+  if actual is not None:assert custody.same(actual['child'],child)
+  file_hashes={str(p.relative_to(P)):bind(p) for p in [root/'LAUNCH.json',root/'PARENT_OWNER.json',root/'PROCESS_WITNESS.json',exit_path,finish_path,cost_path,output/'compact/COLLECTION.json',output/'compact/NATIVE_TIED_COHORTS.json'] if p.is_file()}
+  known=[parent]+(actual['witnessed_owned_members'] if actual is not None else [child]);identity_observations=[dict(saved=p,current=custody.identity(p['pid'])) for p in known]
+  absent=all(not custody.same(o['current'],o['saved']) for o in identity_observations) and all(o['current_members']==[] for o in groups) and not ({p['pid'] for p in known}&set(cuda))
+  closed=actual is not None and finish is not None and actual['reaped'] and actual['actual_direct_wait_observed'] and actual['exit_code']==0 and actual['group_absent'] and actual['no_owned_CUDA'] and actual['reason'] is None and actual['error'] is None and actual['cleanup_error'] is None and finish['error'] is None and finish['cleanup_error'] is None and absent and cost is not None and cost['status']=='complete' and cost['attempted_member_forwards']==cost['completed_member_forwards']==27
+  result['routes'][rid]=dict(parent_identity=parent,child_identity=child,current_parent=current_parent,current_child=current_child,identity_observations=identity_observations,group_observations=groups,current_CUDA_pids=cuda,own_saved_tree_absent=absent,actual_owned_terminal_observed=actual is not None and finish is not None and actual['reaped'] and type(actual['exit_code']) is int and absent,clean_complete_twenty_seven_call_phase2_observed=closed,root_attestation_not_run_by_this_observer=True,metadata_counters=counters,actual_child_exit=actual,parent_finish=finish,file_bindings=file_hashes,release=bind(release),cohort_or_array_decoding=False,scientific_scores_read=False)
+ result['complete']=True
+except BaseException as error:result['failure']=dict(type=type(error).__name__,message=str(error));raise
+finally:
+ assert not any(n in sys.modules for n in ['torch','numpy','torch_geometric','torch_sparse','torch_scatter','ogb']);e=resource.getrusage(resource.RUSAGE_SELF);result.update(metadata_seconds=time.monotonic()-start,CPU_user_seconds=e.ru_utime-u.ru_utime,CPU_system_seconds=e.ru_stime-u.ru_stime,RSS_process_lifetime_peak_bytes=e.ru_maxrss*1024)
+ p=P/DATA['scope']/'NORMAL77_ONCE_OWNED_PHASE2_OBSERVATION.json';p.parent.mkdir(parents=True,exist_ok=True)
+ with p.open('x') as stream:stream.write(json.dumps(result,indent=2,sort_keys=True)+'\n')
+ print(json.dumps(dict(receipt=bind(p),metadata=result),sort_keys=True))
