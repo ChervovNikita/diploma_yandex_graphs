@@ -1,5 +1,15 @@
 # Current GNNM research state
 
+## Complete scientific result — 9 October 2026, 18:10 UTC
+
+The full Tolokers geometry comparison closed all21 records, with exact parent/worker/groups/CUDA absence and clean reaped exit0 verified before outcomes. The unchanged audited CPU reader completed in12.51seconds. Both fixed recipes fail all their joint quality checks. Vanilla pool-minus-independent AUROC deltas are[-.012885,-.029476,-.012588], mean-.018316; centered deltas[-.008631,-.005889,-.012541], mean-.009020. Mean VALID NLL deteriorates for both. Fixed member0 contrasts also fail; all three pairs and descriptive intervals remain visible.
+
+Vanilla members show learning deficits at all3seeds. Centering repairs much of own-member quality at two seeds, but its paths provide only5/12/6 uniquely correct rows versus63/68/53 independently. Centered within-bank rank disagreement is0.397–0.940%, versus5.844–9.421% independently, and its mean-pooling AUROC benefit above its own member mean is negligible. A large pooling-conversion failure is not the main centered explanation. Prediction diagnostics do not identify the cause as sharing, capacity, priors or geometry.
+
+Root records both fixed recipes negative and does not advance either. No coefficient, threshold or favorable-seed rescue is admitted. Current source-specific/attention studies remain the priority because they test useful functional evidence differences. Existing tied-path/capacity controls remain necessary for causal claims, not an established new accuracy direction. Exact reports, all90 member/pool rows, histories, error/rank/confidence patterns, costs and custody are in private_sheaf_post_all21_scientific_readout_20261009_v1; ROOT_DECISION.json records the next action. Original paper scores remain unchanged. Goal remains active and unmet.
+
+The first IMDB reader source review found concrete pre-outcome blockers: native served metric aliases, entry/ownership/cost linkage before arrays, and a resident-artifact rather than transfer contract. The minimal resident-artifact V2 successor is now source-reviewed for publication; analysis formulas remain byte-identical and execution is disabled until complete shared18 closure. The supplied paper-review process has not issued a new manuscript verdict.
+
 ## Current refresh — 9 October 2026, 17:39 UTC
 
 The preceding goal turn was a verified wait: exact shared IMDB and centered geometry workers were live. This refresh verifies them again, with shared18 now two complete fits. No comparative shared outcome is opened. All 24 reference body fits remain complete and adopted; the fixed quality criteria and original paper scores are unchanged.

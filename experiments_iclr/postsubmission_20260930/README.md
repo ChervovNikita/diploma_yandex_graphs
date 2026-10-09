@@ -9,9 +9,11 @@ Each member makes a complete prediction using shared large weight matrices and i
 | Direction | Task and backbone | Current evaluation |
 | --- | --- | --- |
 | Different attention patterns | WikiCS, Polynormer | Four query/key operators in singles, shared-four models and genuine independent-four ensembles;30/36 cells completed at the latest observation. |
-| Different graph propagation | Tolokers, Neural Sheaf Diffusion |15 initial physical fits completed; three fixed centered-factor-prior fits are running. Full comparison awaits all21 result records. |
+| Different graph propagation | Tolokers, Neural Sheaf Diffusion | All 21 records completed. Both fixed recipes fail; centered member learning improves at two seeds but supplies little complementary ranking. Full negative results are preserved. |
 | Ensemble feedback into private factors | MolHIV, GINE; WikiCS, Polynormer | Full-data comparisons of where the ensemble prediction objective affects learning. Every failed control remains recorded. |
 | Complementary relation information | HGB IMDB, SeHGNN | All 24 genuine reference body fits completed; the fixed 18 shared-source fits are running, with two complete at the latest observation. Members are trained to contribute actor, director or keyword information to their committee. |
+
+The [complete geometry diagnosis](private_sheaf_post_all21_scientific_readout_20261009_v1/INTERPRETATION.md) records every paired contrast, member, error/rank pattern and cost. Neither fixed geometry recipe advances.
 
 The IMDB source-learning integration and genuine four-body qualification passed on the full input. These checks establish executable updates and checkpoint restoration. Predictive benefit still requires the complete comparisons. The [quality plan](sehgnn_IMDB_paired_pilot_quality_root_freeze_20261009_v1/README.md) fixes micro-F1, strong references, member competence, uncertainty and error analysis before shared-candidate training. The [recent literature notes](recent_semantic_expert_counterfactual_baseline_scope_20261009_v1/PAPER_CONCLUSIONS.json) preserve the inspected HOPE and CoR methods and their limits.
 
