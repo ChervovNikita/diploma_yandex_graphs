@@ -1,15 +1,11 @@
-# Post-submission research status — 8 October 2026
+# Post-submission research status — 9 October 2026
 
-No new accuracy advantage or fresh manuscript acceptance is established. Original paper scores are unchanged.
+No new accuracy advantage, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged.
 
-18.77 is authenticated again. Its original graph-attention owner remained live through the connection loss. At 18:25 UTC, 3 of 12 fits were complete; seed 6101 phiJ was at 435/1100 and seed 6203 allJ at 971/1100. Both GPUs were fully utilized. No job was restarted or partial comparison opened. The allocation's Mol18 study remains active; its last separate 17:51 observation showed 11 of 18 fits complete.
+The frozen-native query-value gate comparison has completed all15 endpoints across3seeds and all selected states reconstructed. C4 accuracy81.63949% ties the matched joint single, trails same-backbone untied4 at81.64581%, and exceeds permanently erased labels by only0.00632points. Both primary checks and useful-label-identity qualification fail. Preserve this result and close the fixed recipe.
 
-The new label-only correction screen launched on the allocation at 18:23 UTC alongside Mol18. At 18:24 it had completed 24 full epochs of its first seed. The fixed three-seed campaign trains one native trajectory per seed for shared four-route correctors, a joint four-head single, four untied correctors and a secondary one-path control. Every seed runs 1,100 epochs. The untied correctors share the native backbone; they are not an ordinary four-GNN ensemble. Results stay closed until the full family completes.
+Mol18 is14/18 complete at00:28UTC, O_7307 at82/100. Relation12 is7/12 at00:29UTC;6203_relationJ866/1100 and6307_alphaF412/1100, with both18.77 GPUs100%. These families remain unopened until complete. No job was restarted.
 
-The first launch failed writing three native scalar tensors to JSON after one epoch. That failure and its costs are preserved. The reviewed successor changes only trace serialization; training, selection and gates are unchanged. Full-input engineering passed previously, with no accuracy conclusion. Latest executable source `7ea03c95c7791251b2461fd98bbe125582314ae0` is verified pushed and synchronized on both servers.
+We are extending existing backbones. The current graph-attention backbone is Polynormer; our extension supplies shared large weights, private factors and parameter-specific learning rules. The completed query gate acts after label-message aggregation over a frozen native representation. A separate compact Q/K adapter is under source preparation and is not yet a tested method.
 
-The completed fifteen-state WikiCS contrastive comparison remains negative for the fixed recipe: combined alignment/repulsion averages −0.0695 percentage points versus plain, and SupCon −0.1959 points. Decision unanimity is 98.1–99.6%; no pooled-only rescues were found. This is decision redundancy, not demonstrated hidden-state collapse.
-
-[Current state](RESEARCH_STATE.md) · [Complete comparison](Wiki12_SupCon15_union_collection_execution_root_20261008_v1/compact/REPORT.md) · [New screen](label_only_private_corrector_four_bank_first_screen_source_20261008_v2/README.md) · [Preserved decisions](research_ledger.json)
-
-At 19:03 UTC the first complete correction seed had exited cleanly after all 1,100updates (31 minutes), and the second was at 352/1100. A disabled whole-family collector and authentic native-own-best/TRAIN-only C&S adapters are source-reviewed. A fixed 24-configuration C&S/smoothing reference budget is saved before any candidate outcomes open. No quality result or new acceptance is established.
+[Current state](RESEARCH_STATE.md) · [Complete gate decision](query_value_gate_complete_decision_root_20261009_v1/NOTE.md) · [Preserved decisions](research_ledger.json)

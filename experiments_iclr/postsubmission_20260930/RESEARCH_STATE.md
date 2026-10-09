@@ -1,15 +1,15 @@
 # Current GNNM research state
 
-Updated after the 23:12 UTC observations on 8 October 2026 (9 October in Moscow). **The goal remains active and unmet:** no new methodological extension has demonstrated superiority to capable single models and ordinary independent ensembles, and no fresh manuscript acceptance has been established. Original paper scores are unchanged. Complete history, failures and unsuccessful hypotheses remain in Git and `research_ledger.json`.
+Updated after the complete gated15 readout and the 00:28–00:29 UTC observations on 9 October 2026. **The goal remains active and unmet:** no new methodological extension has demonstrated superiority to capable single models and ordinary independent ensembles, and no fresh manuscript acceptance has been established. Original paper scores are unchanged. Complete history, failures and unsuccessful hypotheses remain in Git and `research_ledger.json`.
 
 ## Current hypotheses and live training
 
 | Study | Verified live handles | Complete work | Next comparison |
 | --- | --- | --- | --- |
-| Molecular ensemble feedback, allocation | Parent523400/birth6019318952 alive at23:44UTC | 14/18 fits; O_7307 at57/100 epochs | Open all18 after fixed clean closure; I and mixture0.5 remain fixed. |
-| Private graph attention,18.77 | Parent3713404/birth1760762180 alive at23:44UTC; both GPUs100% | 7/12 fits;6203_relationJ608/1100;6307_alphaF135/1100 | Open all12 with original complete control union. |
+| Molecular ensemble feedback, allocation | Parent523400/birth6019318952 alive at00:28UTC | 14/18 fits; O_7307 at82/100 epochs | Open all18 after fixed clean closure; I and mixture0.5 remain fixed. |
+| Private graph attention,18.77 | Parent3713404/birth1760762180 alive at00:29UTC; both GPUs100% | 7/12 fits;6203_relationJ866/1100;6307_alphaF412/1100 | Open all12 with original complete control union. |
 | Frozen-native label posterior P0, allocation | Owned workers exited cleanly | All 3 seed blocks and 12 endpoints completed 1100 updates; all 12 selected states reconstructed | Closed negative: both co-primary gates fail; retain the fixed recipe and all failed contrasts. |
-| Query-conditioned value gate, allocation | Owned parent and all children absent at00:16:56UTC | All15 endpoints/all3seeds finished1100updates; clean closure verified | Once-only reconstruction/collector next; no comparison opened yet. |
+| Query-conditioned value gate, allocation | Owned parent and all children absent at00:16:56UTC | All15 endpoints/all3seeds finished1100updates; clean closure verified | Closed negative: all15 reconstructed; both primary gates and label-identity qualification fail. |
 
 Mol18 and relation12 observations are in `live_mol_relation_progress_root_20261009T2317Z/ALLOCATION_RESULT.json` and `gpu77_connection_recovery_v1/commands/graph_progress_root_20261009T2317Z/RECEIPT.json`; their authoritative observation time is 23:12 UTC. No partial scores were opened. Earlier observations remain preserved. A transport failure never restarts a scientific job. Other users' processes remain untouched.
 
@@ -49,7 +49,7 @@ The fixed secondary 20% native / 80% normalized-C&S serving adaptation averages 
 
 Retrospective error analysis reproduces exact selected counts. C&S repairs/harm are39/22,49/25,34/29. It also repairs nodes outside one-hop TRAIN support. Of5274development nodes,2512lack a one-hop TRAIN-labelled neighbour,1733have exactly one visible class, and1029have multiple visible classes. In the one-class native-error cohort, the visible neighbour class equals truth only49/276,62/270,49/266times. Wider label reach is available structure, not proof of useful evidence.
 
-For this bias-free linear label route, a single visible class supplies only a scalar times one fixed class-logit vector. Attention mass can change confidence but not the route's preferred label class before native mixing. This restricted algebra is not an impossibility theorem for the whole ensemble. A query-conditioned dense value gate could escape it, with established GNN-FiLM ancestry and an extra-feature-classifier confound. The gate15 source passed its four-update engineering qualification; the full15 scientific comparison remains unexecuted, with matched capacity and label-identity-erased controls fixed.
+For this bias-free linear label route, a single visible class supplies only a scalar times one fixed class-logit vector. Attention mass can change confidence but not the route's preferred label class before native mixing. This restricted algebra is not an impossibility theorem for the whole ensemble. A query-conditioned dense value gate could escape it, with established GNN-FiLM ancestry and an extra-feature-classifier confound. The gate15 source passed its four-update engineering qualification; the completed full15 comparison now fails both primary checks and label-identity qualification. Matched controls and the permanent erasure intervention were retained.
 
 Evidence: `postfamily_label_information_decision_root_20261008_v1/NOTE.md`, `native_CS_selected_recipe_error_analysis_execution_root_20261008_v1/RESULT.json`, `label_support_capacity_diagnostic_root_20261008_v1/RESULT.json`.
 
@@ -63,7 +63,7 @@ Root revalidated all11checkpoint/closure/export/role bindings on the singleton a
 
 Complete Wiki24 recorded stronger average unit-factor contrastive members but poorer complementary correctness: shared pool81.6332% versus ordinary pool82.0440% on selected development. Context9 is closed negative, ROUTE minus COMMON mean-0.03160points. Direct12 final-head diagnostics supplied no useful gain. Complete original12 plus3canonical SupCon readouts show no supported contrastive accuracy gain: combined alignment/repulsion minus plain mean-0.0695points. Members agree on98.123–99.583% of decisions; pooled-only rescues are zero. These findings concern decision redundancy, not identical embeddings or an inferred training mechanism.
 
-Canonical literature pointer is `literature_memory/CURRENT_SUPPLEMENT.json`, supplement28. The new follow-up expands one existing GOODIE appendix algorithm scope and one pinned bounded author-code scope; it adds zero new paper identities or full-paper/code-audit credit. In those inspected paths, GOODIE retains TRAIN anchors, joint feature gradients, combined-classifier CE and learned embedding aggregation. That bounded difference from our staged recipe is not novelty clearance. The query-value assessment reuses saved GNN-FiLM conclusions, without new read credit. Closest inaccessible graph-ensemble bodies remain unresolved.
+Canonical literature pointer is `literature_memory/CURRENT_SUPPLEMENT.json`, supplement29. The new follow-up expands one existing GOODIE appendix algorithm scope and one pinned bounded author-code scope; it adds zero new paper identities or full-paper/code-audit credit. In those inspected paths, GOODIE retains TRAIN anchors, joint feature gradients, combined-classifier CE and learned embedding aggregation. That bounded difference from our staged recipe is not novelty clearance. The query-value assessment reuses saved GNN-FiLM conclusions, without new read credit. Closest inaccessible graph-ensemble bodies remain unresolved.
 
 ## Publication and completion requirements
 
@@ -88,3 +88,11 @@ All15 gate endpoints closed at full1100 updates and owned processes are absent. 
 Supplement29 records seven bounded method scopes and a DVERGE expansion, zero full-paper reads or adopted public results. Competence stacking and gradient/attention repulsion supply existing ancestry. Compact pre-sigmoid Q/K splitting is a separate inactive operator panel with established untied-attention/BE/adapter ancestry and source-correct bias placement. Its fixed-core reversibility/negative-mode facts prove no whole-GNN incapacity or quality benefit. The operator requires F-only matched controls, competent full Q/K and same-operator single/independent references before stronger claims.
 
 Latest verified push and both-server sync is `a9143073c0f0bd0e09e8a8384b457d0652bece06`, at23:35:30UTC. This readout/literature batch awaits its own commit/push/sync. Prior snapshots and all failed decisions stay retained.
+
+## Latest complete gate15 decision
+
+All15 selected states reconstructed in25.15seconds with zero native calls. C4 accuracy81.63949% ties the matched joint single and one-path, trails untied4 at81.64581%, and exceeds erased C4 at81.63317% by only0.00632points. Both primary gates and erased qualification fail; pooled-only rescues are zero in all3seeds. Close this fixed recipe without retuning. Full decision: `query_value_gate_complete_decision_root_20261009_v1/NOTE.md`. Raw arrays remain server-only.
+
+At00:28UTC Mol18 remained14/18 complete, O_7307 at82/100. At00:29UTC relation12 remained7/12,6203_relationJ866/1100 and6307_alphaF412/1100; both77 GPUs100%. No partial comparisons were opened. Latest local analysis source commit is `a675ffbb5be59de55018bd4eb694207c7717f1e4`; latest verified remote push/both-server sync remains `a9143073c0f0bd0e09e8a8384b457d0652bece06` pending this result publication.
+
+A separate agent is preparing a compact inactive source adapter and representative protocol for the previously assessed pre-sigmoid Q/K panel. No new operator fit is launched and no novelty clearance or expected accuracy benefit follows. Existing architecture integrations remain specific to their verified backbone.

@@ -1,12 +1,5 @@
 # GNNM: shared propagation in graph ensembles
 
-## Research update — 9 October 2026
-
-The full three-seed/five-condition query-value gate comparison is closed negative. All15 selected states reconstructed. Shared4 development accuracy81.63949% ties the matched joint single, trails untied same-backbone routes, and fails the useful-label-identity qualification. No new accuracy advantage, methodological novelty or fresh manuscript acceptance is established. Original paper scores are unchanged.
-
-Mol18 and the private graph-attention comparison on18.77 are still running under complete-family rules; comparative outcomes remain unopened. Source, all successful/unsuccessful results and decisions are preserved in the [research directory](experiments_iclr/postsubmission_20260930/README.md). The compact Q/K adapter remains in source preparation.
-
-
 ## Current research — 9 October 2026
 
 We are developing four prediction paths that share learned graph-layer weights. The goal is stronger predictions than capable single models and ordinary independent ensembles. Original paper scores remain unchanged. No new accuracy advantage, methodological novelty or fresh manuscript acceptance is established.
