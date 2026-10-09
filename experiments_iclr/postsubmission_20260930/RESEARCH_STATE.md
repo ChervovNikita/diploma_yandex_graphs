@@ -1,6 +1,6 @@
 # Current GNNM research state
 
-Updated 9 October 2026 at 10:20 UTC. Goal active and unmet: no new accuracy advantage over competent singles and genuine independent ensembles, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged. Historical decisions, unsuccessful results and costs remain in research_ledger.json.
+Updated 9 October 2026 at 10:25 UTC. Goal active and unmet: no new accuracy advantage over competent singles and genuine independent ensembles, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged. Historical decisions, unsuccessful results and costs remain in research_ledger.json.
 
 ## Current scientific hypotheses
 
@@ -17,7 +17,7 @@ Updated 9 October 2026 at 10:20 UTC. Goal active and unmet: no new accuracy adva
 | Q/K 18.77 8ced | Owner3819585, birth1766266049; worker3903045, birth1768984529, live10:14 UTC | 5/12 complete; independent active-reversible running | Same complete36 rule |
 | Molecular ensemble feedback, allocation | Owner523400, birth6019318952, live10:13 UTC; metric-free progress10:17 UTC | 16/18 complete; P_7307 at41/100, G_7307 pending | Complete18 and actual terminal custody |
 | Private attention credit, 18.77 | Owner3713404, birth1760762180, live10:14 UTC | Latest exact cell progress remains9/12 at08:10 UTC; no inference from owner presence | Complete12 with exact required controls |
-| Geometry scientific18, allocation | Reviewed activation prepared; not launched at this update | Three vanilla shared fits, twelve fresh independent bodies, three pools | Both original18 and centered3, all21 before any comparison |
+| Geometry scientific18, allocation | Parent563273/birth6035067559 and worker563276/birth6035067565 live10:25 UTC | First shared fit9epochs complete; full plan3shared/12independent/3pools | Both original18 and centered3, all21 before any comparison |
 
 Allocation route, hostname and GPU UUID were reverified. Both18.77 GPUs were100% utilized; the allocation was99%. Other users' jobs and host settings remain untouched. Evidence: scientific_runtime_observation_root_20261009_v1/RECEIPT.json and MOL_RECEIPT_v2.json; gpu77_connection_recovery_v1/commands/scientific_training_observation_20261009_root01/RECEIPT.json. No partial comparative scores were opened.
 
@@ -45,6 +45,6 @@ The frozen query-value gate15 failed its co-primary checks and is closed without
 
 ## Provenance and review
 
-Last verified GitHub push:544663b95f39550dcb0aaea0ae429dfa43435a7c at08:33 UTC; same18.77 fast-forward08:36 UTC. Allocation HEAD684bd7188956b522e8940ddbe9974af71c60c057 was reverified10:13 UTC. The new reviewed activation, centered source and closed evidence await publication.
+Last verified GitHub push:544663b95f39550dcb0aaea0ae429dfa43435a7c at08:33 UTC; same18.77 fast-forward08:36 UTC. Allocation HEAD684bd7188956b522e8940ddbe9974af71c60c057 was reverified10:13 UTC. Geometry source/scope/activation and closed evidence committed as2bfcdf5933e9ad376bda3a7f42a009b1a6cb0d1f before its10:23 UTC launch. Centered numerical qualifier and two further inactive sources are now ready for publication.
 
 Fresh paper reviewers use the supplied skill with immutable evidence, fresh context and no requested verdict. Stronger matched controls, paired uncertainty, more splits and unused confirmation are required before a manuscript superiority claim. No sudo, PDF compilation, GENLINK, Desktop writes, unrelated-data access, or scientific use of the seven-GPU relay. Normal host execution and incidental caches are allowed; deliberate outputs stay in authorized repositories.

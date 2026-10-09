@@ -1,0 +1,71 @@
+--- private_sheaf_geometry_only_core_train_valid_source_20261009_v2/shared_fit.py
++++ private_sheaf_live_action_initialization_source_20261009_v1/shared_fit_initialized.py
+@@ -3,6 +3,7 @@
+ import resource
+ import time
+ from bank import make_bank
++import live_action_init
+ from support import replay_materiality, require, sha, topology_bytes
+ 
+ 
+@@ -61,7 +62,11 @@
+     return own_nll
+ 
+ 
+-def fit(np, torch, roc_auc_score, old, common, helpers, placement, adapter, cfg, config, data, role_meta, identity, output, seed):
++def fit(np, torch, roc_auc_score, old, common, helpers, placement, adapter, cfg, config, data, role_meta, identity, output, seed, initialization=None):
++    if initialization is None or not live_action_init.authorize(initialization.get('execute', False), initialization.get('authorization')):
++        return dict(kind='shared_fit', status='inactive', model_or_data_access=False)
++    init_policy = live_action_init.policy()
++    require(cfg == init_policy['optimizer'] and config == init_policy['configuration'] and seed in init_policy['seeds'], 'Exact inactive initialization template')
+     folder = output / 'shared' / ('seed'+str(seed))
+     folder.mkdir(parents=True, exist_ok=False)
+     started, usage0 = time.perf_counter(), resource.getrusage(resource.RUSAGE_SELF)
+@@ -97,7 +102,23 @@
+             native_saved_transport_payload_bytes=4*args['layers']*role_meta['support_counts']['canonical_undirected']*args['d']**2*data['x'].element_size(),
+             actual_directed_support=role_meta['support_counts']['canonical_directed'], original_constructors_per_fresh_bank=1,
+             factor_weight_decay=cfg['sheaf_decay'], shared_map_weight_decay=cfg['sheaf_decay'], shared_other_weight_decay=cfg['weight_decay'])
+-        for epoch in range(1, cfg['max_epochs']+1):
++        init_info = live_action_init.restore_branch(np, torch, old, helpers, model, opt, initialization, seed,
++            execute=True, authorization=initialization['authorization'])
++        warm_selected = initialization['warm']['selected_before_init']
++        require(initialization['warm']['epoch'] == 100 and initialization['warm']['seed'] == seed, 'One epoch100 common warm state')
++        best_key, best_epoch = old.selector(warm_selected['scores'], warm_selected['epoch']), warm_selected['epoch']
++        tick = time.perf_counter()
++        saved = dict(warm_selected, identity=identity, common_warm_identity=initialization['warm']['identity'], initializer_arm=init_info['arm'])
++        temporary = checkpoint.with_suffix('.tmp')
++        torch.save(saved, temporary); temporary.replace(checkpoint)
++        checkpoint_seconds += time.perf_counter()-tick
++        del saved
++        record.update(initialization=init_info, common_warm_epoch=100, continuation_epochs_required=400,
++            candidate_screen_cost=initialization['screen_cost'], common_warm_cost=initialization['warm_cost'],
++            shared_setup_allocation='one fourth per arm; standalone whole warm/screen also reported',
++            patience_truncation_enabled=False, source_utility_established=False)
++        persist()
++        for epoch in range(101, 501):
+             stage = 'train_epoch_'+str(epoch)
+             record['last_attempted_epoch'] = epoch; persist()
+             tick = time.perf_counter()
+@@ -128,7 +149,10 @@
+                 stale_epochs=stale, train_seconds=train_seconds, validation_seconds=validation_seconds, context_regularizer=0.0))
+             record.update(epochs_completed=epoch, selected_epoch=best_epoch, checkpoint_write_seconds=checkpoint_seconds)
+             persist(); del pooled, member_logp
+-            if stale >= cfg['patience']: break
++            # This prospectively fixed comparison completes all400 continuation epochs.
++            # The inherited patience200 is a logged diagnostic, not an early-stop gate.
++        require(record['epochs_completed'] == 500, 'Exactly400 additional native epochs completed')
++        record['initializer_effect_selected'] = best_epoch > 100
+         stage = 'fresh_selected_state_reconstruction'
+         del model, opt
+         model = opt = None
+@@ -169,7 +193,9 @@
+             model_parameter_buffer_state_exact=True, optimizer_state_exact=True, selected_training_streams_exact=True,
+             checkpoint_sha256=sha(checkpoint), checkpoint_bytes=checkpoint.stat().st_size,
+             reported_state='fresh original four-path bank, selected state, probability-mean serving',
+-            output_bitwise_requirement=False, original_constructors_total=2)
++            output_bitwise_requirement=False, original_constructors_total=2,
++            initializer_effect_selected=best_epoch > 100, continuation_epochs_completed=400,
++            shared_setup_constructors_reported_separately=True)
+     except Exception as error:
+         record.update(status='failed', failure=common.failure_record(error, stage))
+         common.append_jsonl(output / 'FAILURES.jsonl', record)

@@ -2,7 +2,7 @@
 
 No new accuracy advantage, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged.
 
-The shared-geometry implementation passed its full-graph, memory-bounded engineering check with exact model/optimizer/RNG reconstruction and finite serving. This permits the prepared scientific comparison; it supplies no accuracy claim. The earlier oversized four-tape reference failure and its costs remain preserved.
+The shared-geometry implementation passed its full-graph, memory-bounded engineering check with exact model/optimizer/RNG reconstruction and finite serving. The scientific comparison launched10:23 UTC and its first shared fit had completed9epochs at10:25 UTC; this supplies no accuracy claim. The earlier oversized four-tape reference failure and its costs remain preserved.
 
 Before any scientific fit, we fixed two shared recipes: original zero-centered factor decay and an attributed identity-centered, mean-normalized prior. Both use the same competent native Neural Sheaf Diffusion backbone, complete Tolokers graph, full TRAIN/VALID roles, fresh paired seeds and genuine independently optimized controls. Original18 runs first, then centered3; all21 records must close before comparative scores are opened. No coefficient grid or best-of-two primary relabeling is permitted.
 
