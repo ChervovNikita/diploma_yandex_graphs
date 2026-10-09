@@ -1,5 +1,19 @@
 # Current GNNM research state
 
+## Current refresh — 9 October 2026, 17:39 UTC
+
+The preceding goal turn was a verified wait: exact shared IMDB and centered geometry workers were live. This refresh verifies them again, with shared18 now two complete fits. No comparative shared outcome is opened. All 24 reference body fits remain complete and adopted; the fixed quality criteria and original paper scores are unchanged.
+
+Q/K is 30/36 complete (allocation 12, 18.77 lanes 10 and 8), with both 18.77 workers freshly verified. Geometry centered3 has exact owner 576849/birth6037023042 and worker 576853/birth6037023053 live; all21 remains required. MolHIV has 16 complete, retained P_7307 timeout and final G_7307 at epoch30/100; owner523400 is live. 18.77 is accessible and its scientific jobs remain intact. A reused local observation identity collided before transport; the original receipt is preserved and a fresh timestamped observation succeeded. No scientific retry occurred.
+
+The source-entry agent is preparing the complete IMDB quality/error readout by reusing existing analysis functions. The literature agent is investigating member competence and shared-gradient conflict, consulting saved conclusions first. Neither task reads partial outcomes or launches new scientific fits. Evidence: `active_science_followup_root_20261009_v1/SUMMARY.json` and its exact transport receipts. Latest verified allocation/GitHub head6d7c3b2; 18.77 head40b4a4. Publication of current notes and safe sync are pending. Goal remains unmet.
+
+## Latest actual execution — 9 October 2026, 17:29 UTC
+
+The24 genuine IMDB reference body fits and6 committees completed with clean exit0 at17:09:29UTC (1983.55s inclusive). Actual parent/worker/group/CUDA closure was checked before reading quality. Plain native VALID micro-F1 mean0.691744827; same-factor mean0.691846672. Constants based only on TRAIN prevalence score0.3866–0.4065 micro-F1; all-positive constants0.5101–0.5355; all references learn beyond them and their BCE. Native five and all reference qualities are adopted as competent matched sources, without a SOTA or GNNM-gain claim. Exact reference ROOT_REPORT SHAafac0213… and native5 COHORT SHA606d0c4… are retained in completed metadata/readout receipts.
+
+Shared18 actual family started17:26:47UTC. Owner580152/birth6037606742, worker580154/birth6037606748, boot24c315a7-3c08-471f-b550-b9a3e1faf75d; both freshly verified live17:29UTC. Source/pushed commit6d7c3b2e65c44378bd78740a577b1e3d5895bacc. This is the real fixed six-arm/three-role comparison, fresh shared prototypes and actual ten own warm updates, first correction15/cadence5, native200/patience50. Bound prior quality-freeze SHA0e0583e7… requires useful deployed micro-F1 gains versus both genuine ensembles and role-matched singles, actual own-member strength and full uncertainty/error checks. Selected model, dose/acceptance or positiveU cannot substitute for deployed quality. No shared outcome opened; all18 plus closure required. Goal remains active and unmet.
+
 ## Latest verified update — 9 October 2026, 16:42 UTC
 
 Supersedes stale runtime entries below. Actual full-data IMDB independent4 qualification passed119.84s inclusive with8 real own updates, both variants, fresh4 state restoration and factual pooling; no quality scoring. Initial8.15s pre-data missing-review-metadata failure performed0 native updates/0CUDA; it and its cost remain preserved. Compressed M4 same-opportunity qualifier passed83.26s with accepted correction (predecessor631.21s), exact state restoration, no comparative quality. See ledger entry IMDB_actual_independent4_qualification_and_paired24_reference_training_20261009_root_v1 and qualification bindings3017787d…/2b615ecc… .
