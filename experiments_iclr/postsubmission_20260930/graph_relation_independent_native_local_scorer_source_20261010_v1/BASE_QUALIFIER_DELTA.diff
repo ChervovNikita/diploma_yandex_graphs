@@ -1,0 +1,106 @@
+--- graph_relation_private_credit_source_20261008_v2/qualify.py
++++ graph_relation_independent_native_local_scorer_source_20261010_v1/qualify.py
+@@ -11,8 +11,11 @@
+ import socket
+ import sys
+ import time
+-from permissions import POLICIES, metadata as permission_metadata, require
+-from train import HERE, PHASE, bound, dependencies, make_session, phase_path, read, sha
++from train import HERE, PHASE, POLICIES, bound, dependencies, make_session, phase_path, read, sha, require, admission
++
++
++def permission_metadata(session):
++    return sys.modules["permissions"].metadata(session)
+ 
+ 
+ def main():
+@@ -22,6 +25,9 @@
+     args = parser.parse_args()
+     require(sha(args.release) == args.release_sha256, 'Exact separate qualification release')
+     release = read(args.release)
++    admission(release, qualification=True, release_path=args.release)
++    require(release['schema'] == 'independent-native-local-scorer-qualification-release-v1'
++        and release['VALID_scores_read'] is False, 'Exact disabled engineering-only release')
+     require(release.get('enabled') is True and release.get('root_qualification_authorized') is True
+             and release.get('source_review_approved') is True, 'Qualification is inactive/unreviewed')
+     require(release['source_manifest_sha256'] == sha(HERE / 'SOURCE_MANIFEST.json')
+@@ -34,8 +40,11 @@
+     train_path, valid_path = bound(release['train']), bound(release['valid'])
+     native = bound(release['polynormer']); output = phase_path(release['output'])
+     require(not output.exists(), 'Fresh engineering output; no retry')
+-    output.mkdir(parents=True, exist_ok=False); os.umask(0o077)
++    require(output.parent.is_dir() and not output.is_relative_to(HERE), 'Fresh separate engineering scope')
++    output.mkdir(exist_ok=False); os.umask(0o077)
+     began = time.monotonic(); rows = []; session = None
++    counts = dict(Session_factory_attempts=0, Session_factory_completions=0, TRAIN_update_attempts=0,
++        TRAIN_update_completions=0, Adam_step_attempts=0, Adam_step_completions=0)
+     try:
+         import torch
+         torch.cuda.set_device(0)
+@@ -52,10 +61,22 @@
+         for policy in POLICIES:
+             for global_stage in (False, True):
+                 started = time.monotonic(); torch.cuda.reset_peak_memory_stats(0)
++                counts['Session_factory_attempts'] += 1
+                 session = make_session(public, constructor, replay, pool, pins,
+                     policy, release['seed'], 'cuda:0', native)
++                counts['Session_factory_completions'] += 1
+                 session.model.set_global(global_stage)
+                 require(session.steps == 0 and not session.optimizers[0].state, 'Fresh state and Adam for each stage')
++                require(session.independent_native_start['before_original_Adam'] is True
++                    and session.independent_native_start['generated_rows'] == 56
++                    and session.independent_native_start['default_CPU_CUDA_RNG_unchanged'] is True,
++                    'Exact independently drawn rows with untouched default RNG')
++                for member, stream in enumerate(session.streams):
++                    with torch.random.fork_rng(devices=[0]):
++                        torch.manual_seed(release['seed'] + 1009 * member + 300001)
++                        torch.cuda.manual_seed(release['seed'] + 1009 * member + 300001)
++                        require(torch.equal(stream['cpu'], torch.get_rng_state())
++                            and torch.equal(stream['cuda'], torch.cuda.get_rng_state(0)), 'Original member dropout stream bytes')
+                 batches = data.train_batches('wikics', train, 1, release['seed'], session.device)
+                 batch, labels = next(batches)
+                 try:
+@@ -95,10 +116,15 @@
+                     observation.update(groups=group_rows, inactive_gradient_names=inactive,
+                         versions_unchanged_before_Adam=True, independent_gradient_equivalence_claimed=False)
+                     actual_calls[0] += 1
+-                    return original_step(*positional, **keyword)
++                    counts['Adam_step_attempts'] += 1
++                    value = original_step(*positional, **keyword)
++                    counts['Adam_step_completions'] += 1
++                    return value
+ 
+                 optimizer.step = observed_step
++                counts['TRAIN_update_attempts'] += 1
+                 session.train_step(batch, labels)
++                counts['TRAIN_update_completions'] += 1
+                 optimizer.step = original_step
+                 expected = dict(shadow_member_forwards=8, replay_member_forwards=8,
+                     output_cotangent_collections=2, member_reverse_collections=16,
+@@ -111,13 +137,14 @@
+                     complete=True, fullgraph_nodes=11701, TRAIN_labels=580,
+                     gradients=observation, work=dict(session.execution_totals),
+                     peak_CUDA_reserved_bytes=peak, elapsed_seconds=time.monotonic() - started,
+-                    parameter_partition=permission_metadata(session), VALID_metrics_read=False))
++                    parameter_partition=permission_metadata(session), initializer=session.independent_native_start,
++                    VALID_metrics_read=False))
+                 (output / 'PROGRESS.json').write_text(json.dumps(dict(rows=rows, quality_scores_read=False), indent=2) + '\n')
+                 del batch, labels, session
+                 session = None
+         result = dict(complete=True, source_manifest_sha256=release['source_manifest_sha256'],
+             policies=list(POLICIES), stages=['native_local', 'native_global'], source_static_only=False,
+-            rows=rows, real_complete_TRAIN_updates=8, native_models_constructed=8,
++            rows=rows, actual_counts=counts, real_complete_TRAIN_updates=4, native_models_constructed=4,
+             fabricated_graph_or_numerical_fixture_used=False,
+             VALID_scores_read=False, TEST_access=False, scientific_training_fits=0,
+             new_method_utility_or_gradient_equivalence_claimed=False, inclusive_seconds=time.monotonic() - began,
+@@ -125,7 +152,8 @@
+         (output / 'QUALIFIED.json').write_text(json.dumps(result, indent=2) + '\n')
+     except BaseException as error:
+         (output / 'FAILURE.json').write_text(json.dumps(dict(complete=False, error_type=type(error).__name__,
+-            error=str(error), completed_engineering_updates=len(rows), rows=rows,
++            error=str(error), completed_engineering_check_rows=len(rows), actual_counts=counts, rows=rows,
++            current_actual_work=dict(session.execution_totals) if session is not None else None,
+             seconds=time.monotonic() - began, automatic_retry=False, scientific_fits=0), indent=2) + '\n')
+         raise
+ 
