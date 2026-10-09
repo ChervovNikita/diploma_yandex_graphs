@@ -1,5 +1,13 @@
 # Current GNNM research state
 
+## Latest verified update — 9 October 2026, 15:42 UTC
+
+Supersedes stale runtime entries below. Q/K attention28/36 complete (12+8+8); both77 workers live. Geometry original18 COMPLETE.json complete=true; both original handles absent. Centered3 remains pending and all21 are required before comparison. MolHIV16 complete, control P_7307 failed at its active time limit (exit -15), G_7307 outstanding; family owner live. Preserve failed control, never silently reduce the frozen family. Relation-credit77 owner live, without refreshed cell/child state in this observation. No comparative quality opened.
+
+Native SeHGNN IMDB five-seed reference clean completion and actual readout: development micro-F1 mean0.691739416, sampleSD0.012650373; five native singles, not independent4. Full-data shared-four integration completed with accepted private correction and exact owned-state reconstruction; no comparative quality scored. Source-supply six-arm pilot and genuine independent controls await final review/qualification. HelperV2 accelerates projection engineering; it supplies no quality/novelty evidence.
+
+Verified GitHub push6619edbce859e8f387fb572368e8d0de0cd97dd1 and77 fast-forward15:31UTC. Runtime receipts: scientific_runtime_observation_root_20261009_v1/FOLLOWUP_20261009_1543_TRANSPORT.json, MOL_GEOMETRY_FOLLOWUP_20261009_1543_TRANSPORT.json, gpu77_connection_recovery_v1/commands/scientific_training_observation_20261009_root05/RECEIPT.json. Completed IMDB readout and qualification metadata are retained locally without downloading checkpoints/logits/datasets.
+
 Updated 9 October 2026 at 13:02 UTC. Goal active and unmet: no new accuracy advantage over competent singles and genuine independent ensembles, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged. Historical decisions, unsuccessful results and costs remain in research_ledger.json.
 
 ## Current scientific hypotheses

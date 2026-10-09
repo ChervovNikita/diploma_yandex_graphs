@@ -1,4 +1,12 @@
-# Post-submission research status — 9 October 2026, 13:55 UTC
+# Post-submission research status — 9 October 2026, 15:42 UTC
+
+Latest verified update supersedes the earlier paragraphs below. Q/K attention is28/36 complete (allocation12;77 lanes8/8), with both77 workers live. Geometry original18 reports complete=true and both original owners are absent; centered3 remains pending before comparison. MolHIV has16 completed fits, failed control P_7307 (retained active timeout, exit -15), and final G_7307 outstanding; family owner remains live. The graph-relation credit family owner is also live; its child/count was not refreshed here. No comparative quality was opened by these observations.
+
+Native SeHGNN IMDB five-seed singles have completed: development micro-F1 mean0.691739416, sampleSD0.012650373. They are not an independent-four bank or a GNNM advantage. The full-input shared-four source-learning integration passed real own-update/private-correction/checkpoint reconstruction, without comparative accuracy scoring. The six-arm source-supply pilot and genuine independent controls remain under preparation. GitHub and77 are synchronized to6619edbce859e8f387fb572368e8d0de0cd97dd1;77 fast-forward succeeded15:31UTC.
+
+Fresh runtime receipts: scientific_runtime_observation_root_20261009_v1/FOLLOWUP_20261009_1543_TRANSPORT.json, MOL_GEOMETRY_FOLLOWUP_20261009_1543_TRANSPORT.json; gpu77_connection_recovery_v1/commands/scientific_training_observation_20261009_root05/RECEIPT.json.
+
+## Earlier status, retained for history
 
 Goal active. No new accuracy advantage over competent independent ensembles, novelty clearance or fresh manuscript acceptance is established.
 
