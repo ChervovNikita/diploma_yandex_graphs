@@ -1,13 +1,13 @@
 # Post-submission research status — 9 October 2026
 
-No new accuracy advantage, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged.
+Goal active. No new accuracy advantage over competent independent ensembles, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged.
 
-The shared-geometry implementation passed its full-graph, memory-bounded engineering check with exact model/optimizer/RNG reconstruction and finite serving. The scientific comparison launched10:23 UTC and its first shared fit had completed9epochs at10:25 UTC; this supplies no accuracy claim. The earlier oversized four-tape reference failure and its costs remain preserved.
+The new full-graph geometry comparison is training fresh paired shared and independently optimized models. At11:40UTC the first shared fit completed464epochs, its first independent reference completed382epochs, and the next independent body was active. Original18 finishes before the three fixed identity-centered-prior banks; all21must close before comparative scores are opened.
 
-Before any scientific fit, we fixed two shared recipes: original zero-centered factor decay and an attributed identity-centered, mean-normalized prior. Both use the same competent native Neural Sheaf Diffusion backbone, complete Tolokers graph, full TRAIN/VALID roles, fresh paired seeds and genuine independently optimized controls. Original18 runs first, then centered3; all21 records must close before comparative scores are opened. No coefficient grid or best-of-two primary relabeling is permitted.
+The identity-centered change passed its full-graph update/state/serving check. The stronger authentic Bayesian sheaf comparator also passed and is now training all3seeds; its first fit was422/500epochs at11:40UTC. The older weak comparator and all failed startup/resource work remain recorded. Engineering checks do not establish model quality.
 
-The full WikiCS attention comparison is20/36 endpoints complete at10:13–10:14 UTC, with exact owners verified live across the allocation and both18.77 GPUs. Mol18 is16/18; its active P_7307 fit is41/100epochs at10:17 UTC. These studies remain unopened. Other users' jobs and host settings remain unchanged.
+Q/K allocation is11/12complete at11:30UTC, with its exact owner live. The two18.77 Q/K lanes remain incomplete at their last observation; comparative36scores stay unopened. Molecular18is16/18;P_7307was46/100epochs at11:30UTC. No jobs were restarted from an observation failure, and other users' jobs/settings are unchanged.
 
-The authentic Bayesian sheaf L2 comparator completed all3 fits but remains weak on this configuration; it will not support a headline superiority claim. One fixed richer authentic configuration is being prepared. A separate inactive initialization design tests whether selecting actual graph-action diversity improves competent complementary predictions beyond equal-cost random/output-response choices.
+Inactive new work develops relation-specific training signals with explicit competence/anti-gaming checks and matched augmentation/independent controls. A separate metadata-only recommendation identifies typed multilabel IMDB and scaffold-split molecular regression as possible complementary confirmation tasks, with strong public references. These are proposals; no new data or TEST was opened.
 
-[Current state](RESEARCH_STATE.md) · [Prospective two-recipe scope](private_sheaf_two_recipe_scientific_scope_root_20261009_v1/SCOPE.json) · [Preserved decisions](research_ledger.json)
+GitHub push verified through2e913233at10:53UTC;18.77sync verified through0fc698beat10:33UTC. [Current state](RESEARCH_STATE.md) · [Frozen scientific scope](private_sheaf_two_recipe_scientific_scope_root_20261009_v1/SCOPE.json) · [Full research ledger](research_ledger.json)

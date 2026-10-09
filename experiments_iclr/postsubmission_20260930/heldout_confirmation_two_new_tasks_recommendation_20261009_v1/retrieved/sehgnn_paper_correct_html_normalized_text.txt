@@ -1,0 +1,925 @@
+0001 Simple and Efficient Heterogeneous Graph Neural Network
+0002 Report GitHub Issue
+0003 ×
+0004 Title:
+0005 Content selection saved. Describe the issue below:
+0006 Description:
+0007 Submit without GitHub
+0008 Submit in GitHub
+0009 arXiv is now an independent nonprofit!
+0010 Learn more
+0011 ×
+0012 Back to arXiv
+0013 Why HTML?
+0014 Report Issue
+0015 Back to Abstract
+0016 Download PDF
+0017 Abstract
+0018 Introduction
+0019 Preliminaries
+0020 Related Work
+0021 Motivation
+0022 Methodology
+0023 Simplified Neighbor Aggregation
+0024 Multi-layer Feature Projection
+0025 Transformer-based Semantic Fusion
+0026 Experiment
+0027 Results on HGB Benchmark
+0028 Results on Ogbn-mag
+0029 Time Analysis
+0030 Conclusion
+0031 Acknowledgments
+0032 References
+0033 A Appendix
+0034 Observation in HGB models
+0035 Framework of existing metapath-based methods
+0036 Experiment settings
+0037 Further analysis of time complexity
+0038 License: arXiv.org perpetual non-exclusive license
+0039 arXiv:2207.02547v3 [cs.LG] 01 Sep 2023
+0040 Simple and Efficient Heterogeneous Graph Neural Network
+0041 Xiaocheng Yang
+0042 Mingyu Yan
+0043 Note: Corresponding author.
+0044 Shirui Pan
+0045 Xiaochun Ye
+0046 Dongrui Fan
+0047 Abstract
+0048 Heterogeneous graph neural networks (HGNNs) have powerful capability to embed rich structural and semantic information of a heterogeneous graph into node representations.
+0049 Existing HGNNs inherit many mechanisms from graph neural networks (GNNs) designed for homogeneous graphs, especially the attention mechanism and the multi-layer structure.
+0050 These mechanisms bring excessive complexity,
+0051 but seldom work studies whether they are really effective on heterogeneous graphs.
+0052 In this paper, we conduct an in-depth and detailed study of these mechanisms and
+0053 proposes Simple and Efficient Heterogeneous Graph Neural Network (SeHGNN).
+0054 To easily capture structural information, SeHGNN pre-computes the neighbor aggregation using a light-weight mean aggregator, which reduces complexity by removing overused neighbor attention and avoiding repeated neighbor aggregation in every training epoch.
+0055 To better utilize semantic information, SeHGNN adopts the single-layer structure with long metapaths to extend the receptive field, as well as a transformer-based semantic fusion module to fuse features from different metapaths.
+0056 As a result, SeHGNN exhibits the characteristics of a simple network structure, high prediction accuracy, and fast training speed. Extensive experiments on five real-world heterogeneous graphs demonstrate SeHGNN’s superiority over the state-of-the-arts on both accuracy and training speed.
+0057 1 State Key Lab of Processors, Institute for Computing Technology, Chinese Academy of Sciences, China
+0058 2 School of Information and Communication Technology, Griffith University, Australia
+0059 3 School of Computer Science and Technology, University of Chinese Academy of Sciences, China
+0060 {yangxiaocheng, yanmingyu}@ict.ac.cn, s.pan@griffith.edu.au, {yexiaochun, fandr}@ict.ac.cn
+0061 Introduction
+0062 Recent years witness explosive growth in graph neural networks (GNNs) in pursuit of performance improvement of graph representation learning (Wu et al. 2020; Liu et al. 2022b; Lin et al. 2022). GNNs are primarily designed for homogeneous graphs associated with a single type of nodes and edges, following a neighborhood aggregation scheme to capture structural information of a graph, where the representation of each node is computed by recursively aggregating the features of neighbor nodes (Kipf and Welling 2017).
+0063 However, GNNs are insufficient to deal with the heterogeneous graph which possesses rich semantic information in addition to structural information (Shi et al. 2016). Many real-world data in complex systems are naturally represented as heterogeneous graphs, where multiple types of entities and relations among them are embodied by various types of nodes and edges, respectively. For example, as shown in Figure 1, the citation network ACM includes several types of nodes: Paper (P), Author (A), and Subject (S), as well as many relations with different semantic meanings, such as Author→writes\xrightarrow{\rm writes}Paper, Paper→cites\xrightarrow{\rm cites}Paper, Paper→belongs​to\xrightarrow{\rm belongs~to}Subject.
+0064 These relations can be composited with each other to form high-level semantic relations, which are represented as metapaths (Sun et al. 2011; Sun and Han 2012).
+0065 For example, the 2-hop metapath Author-Paper-Author (APA) represents the co-author relationship,
+0066 while the 4-hop metapath Author-Paper-Subject-Paper-Author (APSPA) describes that the two authors have been engaged in the research of the same subject.
+0067 Heterogeneous graphs contain more comprehensive information and rich semantics and require specifically designed models.
+0068 Various heterogeneous graph neural networks (HGNNs) have been proposed to capture semantic information, achieving great performance in heterogeneous graph representation learning (Dong et al. 2020; Yang et al. 2020; Wang et al. 2020; Zheng et al. 2022; Yan et al. 2022).
+0069 Therefore, HGNNs are at the heart of a broad range of applications such as social network analysis (Liu et al. 2018), recommendation (Fan et al. 2019; Niu et al. 2020), and knowledge graph inference (Bansal et al. 2019; Vashishth et al. 2020; Wang et al. 2021a).
+0070 Figure 1 depicts the two main categories of HGNNs.
+0071 Metapath-based methods (Schlichtkrull et al. 2018; Zhang et al. 2019; Wang et al. 2019; Fu et al. 2020) capture the structural information of the same semantic first and then fuse different semantic information. These models first aggregate neighbor features at the scope of each metapath to generate semantic vectors, and then fuse these semantic vectors to generate the final embedding vector.
+0072 Metapath-free methods (Zhu et al. 2019; Hong et al. 2020; Hu et al. 2020b; Lv et al. 2021) capture structural and semantic information simultaneously. These models aggregate messages from a node’s local neighborhood like traditional GNNs, but use extra modules (e.g. attentions) to embed semantic information such as node types and edge types into propagated messages.
+0073 Figure 1: The general architectures of metapath-based methods and metapath-free methods on heterogeneous graphs.
+0074 Existing HGNNs inherit many mechanisms from GNNs over homogeneous graphs, especially the attention mechanism and the multi-layer structure, as illustrated in Figure 1, but seldom work studies whether these mechanisms are really effective on heterogeneous graphs.
+0075 Moreover, the hierarchy attention calculation in the multi-layer network and repeated neighbor aggregation in every epoch bring excessive complexity and computation. For example, the neighbor aggregation process with attention modules takes more than 85% of total time in the metapath-based model HAN (Wang et al. 2019) and the metapath-free model HGB (Lv et al. 2021), which has become the speed bottleneck for the application of HGNNs on larger-scale heterogeneous graphs.
+0076 This paper provides an in-depth and detailed study of these mechanisms and yields two findings: (1) semantic attention is essential while neighbor attention is not necessary, (2) models with a single-layer structure and long metapaths outperform those with multi-layers and short metapaths. These findings imply that neighbor attention and multi-layer structure not only introduce unnecessary complexity, but also hinder models to from achieving better performance.
+0077 To this end, we propose a novel metapath-based method named SeHGNN. SeHGNN employs the mean aggregator (Hamilton, Ying, and Leskovec 2017) to simplify neighbor aggregation, adopts a single-layer structure with long metapaths to extend the receptive field, and utilizes a transformer-based semantic fusion module to learn mutual attentions between semantic pairs. Additionally, as the simplified neighbor aggregation in SeHGNN is parameter-free and only involves linear operations, it earns the opportunity to execute the neighbor aggregation in the pre-processing step only once. As a result, SeHGNN not only demonstrates better performance but also avoids the need of repeated neighbor aggregation in every training epoch, leading to significant improvements in training speed.
+0078 We conduct experiments on four widely-used datasets from HGB benchmark (Lv et al. 2021) and a large-scale dataset from OGB challenge (Hu et al. 2020a). Results show that SeHGNN achieves superior performance over the state-of-the-arts for node classification on heterogeneous graphs.
+0079 The contributions of this work are summarized as follows:
+0080 •
+0081 We conduct an in-depth study about the attention mechanism and the network structure in HGNNs and obtain two important findings, which reveal the needlessness of neighbor attention and the superiority of utilizing the single-layer structure and long metapaths.
+0082 •
+0083 Motivated by the findings above, we propose a simple and effective HGNN architecture SeHGNN.
+0084 To easily capture structural information, SeHGNN pre-computes the neighbor aggregation in the pre-processing step using a light-weight mean aggregator, which removes the overused neighbor attention and avoids repeated neighbor aggregation in every training epoch.
+0085 To better utilize semantic information, SeHGNN adopts the single-layer structure with long metapaths to extend the receptive field, as well as a transformer-based semantic fusion module to fuse features from different metapaths.
+0086 •
+0087 Experiments on five widely-used datasets demonstrate the superiority of SeHGNN over the state-of-the-arts, i.e., high prediction accuracy and fast training speed.
+0088 Preliminaries
+0089 Definition 1 Heterogeneous graphs.
+0090 A heterogeneous graph is defined as G={V,E,𝒯v,𝒯e}G=\{V,E,\mathcal{T}^{v},\mathcal{T}^{e}\}, where VV is the set of nodes with a node type mapping function ϕ:V→𝒯v\phi:V\rightarrow\mathcal{T}^{v}, and EE is the set of edges with an edge type mapping function ψ:E→𝒯e\psi:E\rightarrow\mathcal{T}^{e}.
+0091 Each node vi∈Vv_{i}{\in}V is attached with a node type ci=ϕ⁡(vi)∈𝒯vc_{i}{=}\phi(v_{i}){\in}\mathcal{T}^{v}. Each edge et←s∈Ee_{t\leftarrow s}{\in}E\,(et​se_{ts} for short) is attached with a relation rct←cs=ψ⁡(et​s)∈𝒯er_{c_{t}\leftarrow c_{s}}{=}\psi(e_{ts}){\in}\mathcal{T}^{e} (rct​csr_{c_{t}c_{s}} for short), pointing from the source node ss to the target node tt.
+0092 When |𝒯v|=|𝒯e|=1|\mathcal{T}^{v}|{=}|\mathcal{T}^{e}|{=}1, the graph degenerates into homogeneous.
+0093 The graph structure of GG can be represented by a series of adjacency matrices {Ar:r∈𝒯e}\{A_{r}:r\in\mathcal{T}^{e}\}. For each relation rct​cs∈𝒯er_{c_{t}c_{s}}{\in}\mathcal{T}^{e}, Act​cs∈ℝ|Vct|×|Vcs|A_{c_{t}c_{s}}{\in}\mathbb{R}^{|V^{c_{t}}|\times|V^{c_{s}}|} is the corresponding adjacency matrix where the nonzero values indicate positions of edges Ect​csE^{c_{t}c_{s}} of the current relation.
+0094 Definition 2 Metapaths.
+0095 A metapath defines a composite relation of several edge types, represented as 𝒫≜c1←c2←…←cl\mathcal{P}\triangleq c_{1}\leftarrow c_{2}\leftarrow\ldots\leftarrow c_{l} (𝒫=c1​c2​…​cl\mathcal{P}=c_{1}c_{2}\ldots c_{l} for short).
+0096 Given the metapath 𝒫\mathcal{P}, a metapath instance pp is a node sequence following the schema defined by 𝒫\mathcal{P}, represented as p(v1,vl)={v1,e12,v2,…,vl−1,e(l−1)​l,vl:vi∈Vci,ei⁡(i+1)∈Eci​ci+1}p(v_{1},v_{l})=\{v_{1},\,e_{12},\,v_{2},\,\ldots,\,v_{l-1},\,e_{(l-1)l},\,v_{l}:v_{i}\in V^{c_{i}},\,e_{i(i+1)}\in E^{c_{i}c_{i+1}}\}. In particular, p⁡(v1,vl)p(v_{1},v_{l}) indicates the relationship of (l−1)(l{-}1)-hop neighborhood where v1v_{1} is the target node and vlv_{l} is one of v1v_{1}’s metapath-based neighbors.
+0097 Given a metapath 𝒫\mathcal{P} with the node types of its two ends as c1,clc_{1},c_{l}, a metapath neighbor graph G𝒫={Vc1​⋃Vcl,E𝒫}G^{\mathcal{P}}=\{V^{c_{1}}\bigcup V^{c_{l}},E^{\mathcal{P}}\} can be constructed out of GG, where an edge ei​j∈E𝒫,ϕ⁡(i)=c1,ϕ⁡(j)=cle_{ij}\in E^{\mathcal{P}},\phi(i)=c_{1},\phi(j)=c_{l} exists in G𝒫G^{\mathcal{P}} if and only if there is an metapath instance p⁡(vi,vj)p(v_{i},v_{j}) of 𝒫\mathcal{P} in GG.
+0098 Related Work
+0099 For homogeneous graphs, GNNs are widely used to learn node representation from the graph structure. The pioneer GCN (Kipf and Welling 2017) proposes a multi-layer network following a layer-wise propagation rule, where the lt​hl^{th} layer learns an embedding vector hv(l+1)h_{v}^{(l+1)} by aggregating features {hu(l):u∈𝒩v}\{h_{u}^{(l)}:u\in\mathcal{N}_{v}\} from the local 1-hop neighbor set 𝒩v\mathcal{N}_{v} for each node v∈Vv\in V.
+0100 GraphSAGE (Hamilton, Ying, and Leskovec 2017) improves the scalability for large graphs by introducing mini-batch training and neighbor sampling (Liu et al. 2022a).
+0101 GAT (Veličković et al. 2018) introduces the attention mechanism to encourage the model to focus on the most important part of neighbors.
+0102 SGC (Wu et al. 2019) removes nonlinearities between consecutive graph convolutional layers,
+0103 which brings great acceleration and does not impact model effects.
+0104 Heterogeneous graphs contain rich semantics besides structural information, revealed by multiple types of nodes and edges. According to the way to deal with different semantics, HGNNs are categorized into metapath-based and metapath-free methods.
+0105 Metapath-based HGNNs first aggregate neighbor features of the same semantic and then fuse different semantics.
+0106 RGCN (Schlichtkrull et al. 2018) is the first to separate 1-hop neighbor aggregation according to edge types.
+0107 HetGNN (Zhang et al. 2019) takes use of neighbors of different hops. It uses random walks to collect neighbors of different distances and then aggregates neighbors of the same node type.
+0108 HAN (Wang et al. 2019) utilizes metapaths to distinguish different semantics. It aggregates structural information with neighbor attention in each metapath neighbor graph in the neighbor aggregation step, and then fuses outputs from different subgraphs with semantic attention for each node in the semantic fusion step.
+0109 MAGNN (Fu et al. 2020) further leverages all nodes in a metapath instance rather than only the nodes of the two endpoints.
+0110 Metapath-free HGNNs aggregate messages from neighbors of all node types simultaneously within the local 1-hop neighborhood like GNNs, but using additional modules such as attentions to embed semantic information such as node types and edge types into propagated messages.
+0111 RSHN (Zhu et al. 2019) builds the coarsened line graph to obtain the global embedding representation of different edge types, and then it uses the combination of neighbor features and edge-type embeddings for feature aggregation in each layer.
+0112 HetSANN (Hong et al. 2020) uses a multi-layer GAT network with type-specific score functions to generate attentions for different relations.
+0113 HGT (Hu et al. 2020b) proposes a novel heterogeneous mutual attention mechanism based on Transformer (Vaswani et al. 2017), using type-specific trainable parameters for different types of nodes and edges.
+0114 HGB (Lv et al. 2021) takes the multi-layer GAT network as the backbone and incorporates both node features and learnable edge-type embeddings to generate attention values.
+0115 DBLP
+0116 ACM
+0117 macro-f1
+0118 micro-f1
+0119 macro-f1
+0120 micro-f1
+0121 HAN
+0122 92.59
+0123 93.06
+0124 90.30
+0125 90.15
+0126 HAN*
+0127 92.75
+0128 93.23
+0129 90.61
+0130 90.48
+0131 HAN†
+0132 92.19
+0133 92.66
+0134 89.78
+0135 89.67
+0136 HGB
+0137 94.15
+0138 94.53
+0139 93.09
+0140 93.03
+0141 HGB*
+0142 94.20
+0143 94.58
+0144 93.11
+0145 93.05
+0146 HGB†
+0147 93.77
+0148 94.15
+0149 92.32
+0150 92.27
+0151 Table 1: Experiments to analyze the effects of two kinds of attentions. * means removing neighbor attention and †\dagger means removing semantic attention.
+0152 DBLP
+0153 ACM
+0154 network
+0155 macro-f1
+0156 micro-f1
+0157 macro-f1
+0158 micro-f1
+0159 (1,)
+0160 79.43
+0161 80.16
+0162 89.81
+0163 90.03
+0164 (1,1)
+0165 85.06
+0166 86.69
+0167 90.79
+0168 90.87
+0169 (2,)
+0170 88.18
+0171 88.83
+0172 91.64
+0173 91.67
+0174 (1,1,1)
+0175 88.38
+0176 89.37
+0177 87.95
+0178 88.84
+0179 (3,)
+0180 93.33
+0181 93.72
+0182 92.67
+0183 92.64
+0184 (1,1,1,1)
+0185 89.55
+0186 90.44
+0187 88.62
+0188 88.93
+0189 (2,2)
+0190 91.88
+0191 92.35
+0192 92.57
+0193 92.53
+0194 (4)
+0195 93.60
+0196 94.02
+0197 92.82
+0198 92.79
+0199 Table 2: Experiments to analyze the effects of different combinations of the number of layers and the maximum metapath hop. e.g., the structure (1,1,1) means a three-layer network with all metapaths no more than 1 hop in each layer.
+0200 Except for the above two main categories of HGNNs, SGC-based work such as NARS (Yu et al. 2020), SAGN (Sun, Gu, and Hu 2021), and GAMLP (Zhang et al. 2022) also show impressive results on heterogeneous graphs, but they aggregate features of all types of nodes together without explicitly distinguishing different semantics.
+0201 Motivation
+0202 Figure 2: The architecture of SeHGNN compared to previous metapath-based methods. The example is based on ACM dataset with node types author (A), paper (P), and subject (S). This figure exhibits aggregation of 0-hop metapath P (the target node itself), 1-hop metapaths PA, PS, and 2-hop metapaths PAP, PSP.
+0203 Existing HGNNs inherit many mechanisms from GNNs without analysis of their effects.
+0204 In this section, we conduct an in-depth and detailed study of widely-used mechanisms, i.e. the attention mechanism and the multi-layer structure for HGNNs. Through experiments, we obtain two important findings that guide us in designing the architecture of SeHGNN. All results presented in this section are the average of 20 runs with different data partitions to mitigate the influence of random noise.
+0205 Study on attentions.
+0206 HGNNs use multiple attentions, as shown in Figure 1, which are calculated using distinct modules or parameters. These attentions can be classified into two types: neighbor attention within neighbors of the same relation and semantic attention among different relations. Metapath-based methods like HAN incorporate two attentions in the neighbor aggregation step and the semantic fusion step, respectively. Metapath-free methods like HGB compute attentions of 1-hop neighbors with relation-specific embeddings. While distinguishing between the two types of attention in metapath-free methods can be challenging, we can perform additional calculations to eliminate the influence of either attention. Specifically, for the attentions values of each node’s neighbors, we can average them within each relation which equals removing neighbor attention, or normalize them within each relation so that each relation contributes equally to final results to remove semantic attention.
+0207 Re-implement experiments on HGB reveal that a well-trained HGB model tends to assign similar attention values within each relation, leading us to investigate the necessity of different attentions. We conduct experiments on HAN and HGB, where * means removing neighbor attention and † means removing semantic attention. Results in Table 1 indicate that models without semantic attention exhibit a decrease of model effects, while models without neighbor attention do not, from which we obtain the first finding.
+0208 Finding 1: Semantic attention is essential, while neighbor attention is not necessary. This finding is reasonable, as semantic attention is able to weigh the importance of different semantics. And for neighbor attention, various SGC-based work (Wu et al. 2019; Rossi et al. 2020; Zhang et al. 2022) has demonstrated that simple mean aggregation can be just as effective as aggregation with attention modules.
+0209 Study on multi-layer structure.
+0210 Without neighbor attention, metapath-free methods have an equivalent form that first averages features of neighbors within each relation and then fuses outputs of different relations. Therefore, they can be converted to metapath-based methods with a multi-layer structure and only 1-hop metapaths in each layer. So, in the following experiments, we focus on the influence of number of layers and metapaths in metapath-based methods.
+0211 We conduct experiments on HAN using a list of numbers to represent the structure of each variant. For instance, on the ACM dataset, the structure (1,1,1,1) represents a four-layer network with 1-hop metapaths PA, PS in each layer, and (4) represent a single-layer network with all metapaths no more than 4-hop, such as PA, PS, PAP, PSP, PAPAP, PSPSP and so on. These lists also exhibit the sizes of receptive field. For example, structures (1,1,1,1), (2,2), (4) have the same receptive field size, which involves 4-hop neighbors.
+0212 Based on the results shown in Table 2, we conclude the second finding.
+0213 Finding 2: Models with a single-layer structure and long metapaths outperform those with multi-layers and short metapaths. As shown in Table 2, models with a single-layer and long metapaths achieve better performance under the same size of the receptive field.
+0214 We attribute this to the fact that multi-layer networks fuse semantics per layer, making it difficult to distinguish high-level semantics. For instance, in a model with the structure (4), the utilization of multi-hop metapaths allow us to distinguish between high-level semantics, such as being written by the same author (PAP) or familiar authors (PAPAP), whereas these distinctions are unavailable in a four-layer network (1,1,1,1) as all intermediate vectors between two consecutive layers represent mixtures of different semantics.
+0215 Moreover, increasing the maximum metapath length enhances the model’s performance by introducing more metapaths with different semantics.
+0216 Proposal of SeHGNN.
+0217 Motivated by the two findings, on one hand, we can avoid redundant neighbor attention by employing mean aggregation at the scope of each metapath without sacrificing model effects; on the other hand, we can simplify the network structure using a single layer, but use more and longer metapaths to expand the receptive field and achieve better performance. Furthermore, as the neighbor aggregation part without the attention module involves only linear operations and no trainable parameters, it endows an opportunity to execute neighbor aggregation in the pre-processing step only once rather than in every training epoch, which significantly reduces the training time. Overall, these optimizations simplify the network structure and make it more efficient, which are the key points of SeHGNN.
+0218 Methodology
+0219 This section formally proposes Simple and Efficient Heterogeneous Neural Network (SeHGNN).
+0220 SeHGNN’s architecture is illustrated in Figure 2 and includes three primary components: simplified neighbor aggregation, multi-layer feature projection, and transformer-based semantic fusion.
+0221 Figure 2 also highlights the distinction between SeHGNN and other metapath-based HGNNs, i.e., SeHGNN pre-computes the neighbor aggregation in the pre-processing step, thereby avoiding the excessive complexity of repeated neighbor aggregation in every training epoch.
+0222 Algorithm 1 outlines the overall training process.
+0223 Simplified Neighbor Aggregation
+0224 The simplified neighbor aggregation is executed only once in the pre-processing step and generates a list of feature matrices M={X𝒫:𝒫∈ΦX}M=\{X^{\mathcal{P}}:\mathcal{P}\in\Phi_{X}\} of different semantics for the set ΦX\Phi_{X} of all given metapaths.
+0225 Generally, for each node viv_{i}, it employs the mean aggregation to aggregate features from metapath-based neighbors for each given metapath, and outputs a list of semantic feature vectors, denoted as
+0226 mi={𝐳i𝒫=1‖S𝒫‖​∑p⁡(i,j)∈S𝒫𝐱j:𝒫∈ΦX},m_{i}=\{\mathbf{z}^{\mathcal{P}}_{i}=\frac{1}{||S^{\mathcal{P}}||}\sum_{p(i,j)\in S_{\mathcal{P}}}\mathbf{x}_{j}:\mathcal{P}\in\Phi_{X}\},
+0227 where S𝒫S^{\mathcal{P}} is the set of all metapath instances corresponding to metapath 𝒫\mathcal{P} and p⁡(i,j)p(i,j) represents one metapath instance with the target node ii and the source node jj.
+0228 We propose a new method to simplify the collection of metapath-based neighbors.
+0229 Existing metapath-based methods like HAN build metapath neighbor graphs that enumerate all metapath-based neighbors for each metapath, which brings a high overhead as the number of metapath instances grows exponentially with the length of the metapath. Inspired by the layer-wise propagation of GCN, we calculate the final contribution weight of each node to targets using the multiplication of adjacency matrices. Specifically, let Xc={x0cT;x1cT;X^{c}=\{{x_{0}^{c}}^{T};{x_{1}^{c}}^{T}; …;x‖Vc‖−1cT}∈ℝ‖Vc‖×dc\ldots;{x_{||V^{c}||-1}^{c}}^{T}\}\in\mathbb{R}^{||V^{c}||\times d^{c}} be the raw feature matrix of all nodes belonging to type cc, where
+0230 dcd^{c} is the feature dimension, and then the simplified neighbor aggregation process can be expressed as
+0231 X𝒫=A^c,c1​A^c1,c2​…​A^cl−1,cl​Xcl,X^{\mathcal{P}}=\hat{A}_{c,c_{1}}\hat{A}_{c_{1},c_{2}}\ldots\hat{A}_{c_{l-1},c_{l}}X^{c_{l}},
+0232 where 𝒫=c​c1​c2​…​cl\mathcal{P}=cc_{1}c_{2}\ldots c_{l} is a ll-hop metapath, and A^ci,ci+1\hat{A}_{c_{i},c_{i+1}} is the row-normalized form of adjacency matrix Aci,ci+1A_{c_{i},c_{i+1}} between node type cic_{i} and ci+1c_{i+1}.
+0233 Please note that, the aggregation results of short metapaths can be used as intermediate values for long metapaths.
+0234 For example, given two metapaths PAP and PPAP for the ACM dataset, we can calculate XP​A​PX^{PAP} first and then calculate XP​P​A​P=A^P​P​XP​A​PX^{PPAP}=\hat{A}_{PP}X^{PAP}.
+0235 Algorithm 1 The overall training process of SeHGNN
+0236 Input: Raw feature matrices {Xci:ci∈𝒯v}\{X^{c_{i}}:c_{i}\in\mathcal{T}^{v}\}; the raw label matrix YY; metapath sets ΦX\Phi_{X} for features and ΦY\Phi_{Y} for labels
+0237 Parameter: MLP𝒫i{\rm MLP}_{\mathcal{P}_{i}} for feature projection; WQW_{Q}, WKW_{K}, WVW_{V}, β\beta for semantic fusion; MLP{\rm MLP} for downstream tasks
+0238 Output: Node classification results Pred{\rm Pred} for target type cc
+0239 1:
+0240 % Neighbor aggregation
+0241 2:
+0242 Calculate aggregation of raw features for each 𝒫∈ΦX\mathcal{P}\in\Phi_{X} X𝒫=A^c,c1​…​A^cl−1​cl​Xcl,𝒫=c​c1​…​cl−1​clX^{\mathcal{P}}{=}\hat{A}_{c,c_{1}}\ldots\hat{A}_{c_{l{-}1}c_{l}}X^{c_{l}},\,\,\,\,\mathcal{P}{=}cc_{1}\ldots c_{l{-}1}c_{l}
+0243 3:
+0244 Calculate aggregation of labels for each 𝒫∈ΦY\mathcal{P}\in\Phi_{Y} Y𝒫=rm​_​diag​(A^c,c1​…​A^cl−1​c)​Y,𝒫=c​c1​…​cl−1​cY^{\mathcal{P}}{=}{\rm rm\_diag}(\hat{A}_{c,c_{1}}\ldots\hat{A}_{c_{l{-}1}c})Y,\,\,\,\,\mathcal{P}{=}cc_{1}\ldots c_{l{-}1}c
+0245 4:
+0246 Collect all semantic matrices M={X𝒫:𝒫∈ΦX}​⋃{Y𝒫:𝒫∈ΦY}M=\{X^{\mathcal{P}}:\mathcal{P}\in\Phi_{X}\}\bigcup\{Y^{\mathcal{P}}:\mathcal{P}\in\Phi_{Y}\}
+0247 5:
+0248 for each​epoch{\rm each\,epoch} do
+0249 6:
+0250 % Feature projection
+0251 7:
+0252 H′𝒫i=MLP𝒫i​(M𝒫i),M𝒫i∈M{H^{\prime}}^{\mathcal{P}_{i}}={\rm MLP}_{\mathcal{P}_{i}}(M^{\mathcal{P}_{i}}),\,\,M^{\mathcal{P}_{i}}\in M
+0253 8:
+0254 % Semantic fusion
+0255 9:
+0256 Q𝒫i=WQ​H′𝒫i,K𝒫i=WK​H′𝒫i,V𝒫i=WV​H′𝒫iQ^{\mathcal{P}_{i}}{=}W_{Q}{H^{\prime}}^{\mathcal{P}_{i}},\,K^{\mathcal{P}_{i}}{=}W_{K}{H^{\prime}}^{\mathcal{P}_{i}},\,V^{\mathcal{P}_{i}}{=}W_{V}{H^{\prime}}^{\mathcal{P}_{i}}
+0257 10:
+0258 αi​j=exp⁡(Q𝒫i⋅K𝒫jT)∑texp⁡(Q𝒫i⋅K𝒫tT)\alpha_{ij}=\frac{\exp{(Q^{\mathcal{P}_{i}}\cdot{K^{\mathcal{P}_{j}}}^{T}})}{\sum_{t}\exp{(Q^{\mathcal{P}_{i}}\cdot{K^{\mathcal{P}_{t}}}^{T})}}
+0259 11:
+0260 H𝒫i=β​∑jαi​j​V𝒫i+H′𝒫iH^{\mathcal{P}_{i}}=\beta\sum_{j}\alpha_{ij}V^{\mathcal{P}_{i}}+{H^{\prime}}^{\mathcal{P}_{i}}
+0261 12:
+0262 Hc=concatenate⁡([H𝒫1​‖H𝒫2‖​…])H^{c}={\rm concatenate}([H^{\mathcal{P}_{1}}||H^{\mathcal{P}_{2}}||\ldots])
+0263 13:
+0264 % Downstream tasks
+0265 14:
+0266 Pred=MLP⁡(Hc){\rm Pred}={\rm MLP}(H^{c})
+0267 15:
+0268 Calculate loss function ℒ=−∑iyilnpredi\mathcal{L}=-\sum_{i}y_{i}\ln pred_{i}, do back-propagation and update network parameters
+0269 16:
+0270 end for
+0271 17:
+0272 return Pred{\rm Pred}
+0273 Besides, previous (Wang and Leskovec 2020; Wang et al. 2021b; Shi et al. 2021) research has demonstrated that incorporating labels as additional inputs can improve model performance. To capitalize on this, similar to the aggregation of raw features, we represent labels in the one-hot format and propagate them across various metapaths.
+0274 This process generates a series of matrices {Y𝒫:𝒫∈ΦY}\{Y^{\mathcal{P}}:\mathcal{P}\in\Phi_{Y}\} that reflect the label distribution of corresponding metapath neighbor graphs.
+0275 Please note that the two endpoints of any metapath 𝒫∈ΦY\mathcal{P}\in\Phi_{Y} should be the target node type cc in the node classification task.
+0276 Given a metapath 𝒫=c​c1​c2​…​cl−1​c∈ΦY\mathcal{P}=cc_{1}c_{2}\ldots c_{l-1}c\in\Phi_{Y},
+0277 the label propagation process can be represented as
+0278 Y𝒫=rm​_​diag​(A^𝒫)​Yc,A^𝒫=A^c,c1​A^c1,c2​…​A^cl−1,c,Y^{\mathcal{P}}={\rm rm\_diag}(\hat{A}^{\mathcal{P}})Y^{c},\,\hat{A}^{\mathcal{P}}=\hat{A}_{c,c_{1}}\hat{A}_{c_{1},c_{2}}\ldots\hat{A}_{c_{l-1},c},
+0279 where YcY^{c} is the raw label matrix. In the matrix YcY^{c}, rows corresponding to nodes in the training set take the values of one-hot format labels, while other rows are filled with 0. To avoid label leakage, we prevent each node from receiving the ground truth label information of itself, by removing the diagonal values in the results of multiplication of adjacency matrices. The label propagation also executes in the neighbor aggregation step and produces semantic matrices as extra inputs for later training.
+0280 DBLP
+0281 IMDB
+0282 ACM
+0283 Freebase
+0284 macro-f1
+0285 micro-f1
+0286 macro-f1
+0287 micro-f1
+0288 macro-f1
+0289 micro-f1
+0290 macro-f1
+0291 micro-f1
+0292 1st
+0293 RGCN
+0294 91.52±0.50
+0295 92.07±0.50
+0296 58.85±0.26
+0297 62.05±0.15
+0298 91.55±0.74
+0299 91.41±0.75
+0300 46.78±0.77
+0301 58.33±1.57
+0302 HetGNN
+0303 91.76±0.43
+0304 92.33±0.41
+0305 48.25±0.67
+0306 51.16±0.65
+0307 85.91±0.25
+0308 86.05±0.25
+0309 -
+0310 -
+0311 HAN
+0312 91.67±0.49
+0313 92.05±0.62
+0314 57.74±0.96
+0315 64.63±0.58
+0316 90.89±0.43
+0317 90.79±0.43
+0318 21.31±1.68
+0319 54.77±1.40
+0320 MAGNN
+0321 93.28±0.51
+0322 93.76±0.45
+0323 56.49±3.20
+0324 64.67±1.67
+0325 90.88±0.64
+0326 90.77±0.65
+0327 -
+0328 -
+0329 2nd
+0330 RSHN
+0331 93.34±0.58
+0332 93.81±0.55
+0333 59.85±3.21
+0334 64.22±1.03
+0335 90.50±1.51
+0336 90.32±1.54
+0337 -
+0338 -
+0339 HetSANN
+0340 78.55±2.42
+0341 80.56±1.50
+0342 49.47±1.21
+0343 57.68±0.44
+0344 90.02±0.35
+0345 89.91±0.37
+0346 -
+0347 -
+0348 HGT
+0349 93.01±0.23
+0350 93.49±0.25
+0351 63.00±1.19
+0352 67.20±0.57
+0353 91.12±0.76
+0354 91.00±0.76
+0355 29.28±2.52
+0356 60.51±1.16
+0357 HGB
+0358 94.01±0.24
+0359 94.46±0.22
+0360 63.53±1.36
+0361 67.36±0.57
+0362 93.42±0.44
+0363 93.35±0.45
+0364 47.72±1.48
+0365 66.29±0.45
+0366 3rd
+0367 SeHGNN
+0368 95.06±0.17
+0369 95.42±0.17
+0370 67.11±0.25
+0371 69.17±0.43
+0372 94.05±0.35
+0373 93.98±0.36
+0374 51.87±0.86
+0375 65.08±0.66
+0376 4th
+0377 Variant#1
+0378 93.61±0.51
+0379 94.08±0.48
+0380 64.48±0.45
+0381 66.58±0.42
+0382 93.06±0.18
+0383 92.98±0.18
+0384 33.23±1.39
+0385 57.60±1.17
+0386 Variant#2
+0387 94.66±0.27
+0388 95.01±0.24
+0389 65.27±0.60
+0390 66.68±0.52
+0391 93.46±0.43
+0392 93.38±0.44
+0393 46.82±1.12
+0394 64.08±1.43
+0395 Variant#3
+0396 94.86±0.14
+0397 95.24±0.13
+0398 66.63±0.34
+0399 68.21±0.32
+0400 93.95±0.48
+0401 93.87±0.50
+0402 50.71±0.44
+0403 63.41±0.47
+0404 Variant#4
+0405 94.52±0.05
+0406 94.93±0.06
+0407 64.99±0.54
+0408 66.65±0.50
+0409 93.88±0.63
+0410 93.80±0.64
+0411 50.30±0.23
+0412 64.53±0.38
+0413 Table 3: Experiment results on the four datasets from HGB benchmark, where “-” means that the models run out of memory.
+0414 Multi-layer Feature Projection
+0415 The feature projection step projects semantic vectors into the same data space, as semantic vectors of different metapaths may have different dimensions or lie in various data spaces. Generally, it defines a semantic-specific transformation matrix W𝒫W^{\mathcal{P}} for each metapath 𝒫\mathcal{P} and calculates H′𝒫=W𝒫​X𝒫{H^{\prime}}^{\mathcal{P}}=W^{\mathcal{P}}X^{\mathcal{P}}.
+0416 For better representation power, we use a multi-layer perception block MLP𝒫\rm{MLP}_{\mathcal{P}} for each metapath 𝒫\mathcal{P} with a normalization layer, a nonlinear layer, and a dropout layer between two consecutive linear layers. Then, this process can be expressed as
+0417 H′𝒫=MLP𝒫​(X𝒫).{H^{\prime}}^{\mathcal{P}}=\rm{MLP}_{\mathcal{P}}(X^{\mathcal{P}}).
+0418 Transformer-based Semantic Fusion
+0419 The semantic fusion step fuses semantic feature vectors and generates the final embedding vector for each node. Rather than using a simple weighted sum format, we propose a transformer (Vaswani et al. 2017) -based semantic fusion module to further explore the mutual relationship between each pair of semantics.
+0420 The transformer-based semantic fusion module is designed to learn the mutual attention between pairs of semantic vectors, given the pre-defined metapath list Φ={𝒫1,…,𝒫K}\Phi=\{\mathcal{P}_{1},\ldots,\mathcal{P}_{K}\} and projected semantic vectors {h′𝒫1,…,h′𝒫K}\{{h^{\prime}}^{\mathcal{P}_{1}},\ldots,{h^{\prime}}^{\mathcal{P}_{K}}\} for each node.
+0421 For each semantic vector h′𝒫i{h^{\prime}}^{\mathcal{P}_{i}}, the module maps this vector into a query vector q𝒫iq^{\mathcal{P}_{i}}, a key vector k𝒫ik^{\mathcal{P}_{i}}, and a value vector v𝒫iv^{\mathcal{P}_{i}}. The mutual attention weight α(𝒫i,𝒫j)\alpha_{(\mathcal{P}_{i},\mathcal{P}_{j})} is the dot product result of the query vector q𝒫iq^{\mathcal{P}_{i}} and the key vector k𝒫jk^{\mathcal{P}_{j}} after a softmax normalization. The output vector h𝒫ih^{\mathcal{P}_{i}} of current semantic 𝒫i\mathcal{P}_{i} is the weighted sum of all value vectors v𝒫jv^{\mathcal{P}_{j}} plus a residual connection. The process of semantic fusion can be presented as
+0422 q𝒫i=WQ​h′𝒫i,k𝒫i=WK​h′𝒫i,v𝒫i=WV​h′𝒫i,𝒫i∈Φ,q^{\mathcal{P}_{i}}=W_{Q}{h^{\prime}}^{\mathcal{P}_{i}},\,k^{\mathcal{P}_{i}}=W_{K}{h^{\prime}}^{\mathcal{P}_{i}},\,v^{\mathcal{P}_{i}}=W_{V}{h^{\prime}}^{\mathcal{P}_{i}},\,\,\mathcal{P}_{i}\in\Phi,
+0423 α(𝒫i,𝒫j)=exp⁡(q𝒫i⋅k𝒫jT)∑𝒫t∈Φexp⁡(q𝒫i⋅k𝒫tT),\alpha_{(\mathcal{P}_{i},\mathcal{P}_{j})}=\frac{\exp{(q^{\mathcal{P}_{i}}\cdot{k^{\mathcal{P}_{j}}}^{T})}}{\sum_{\mathcal{P}_{t}\in\Phi}\exp{(q^{\mathcal{P}_{i}}\cdot{k^{\mathcal{P}_{t}}}^{T})}},
+0424 h𝒫i=β​∑𝒫j∈Φα(𝒫i,𝒫j)​v𝒫j+h′𝒫i,h^{\mathcal{P}_{i}}=\beta\sum_{\mathcal{P}_{j}\in\Phi}\alpha_{(\mathcal{P}_{i},\mathcal{P}_{j})}\,v^{\mathcal{P}_{j}}+{h^{\prime}}^{\mathcal{P}_{i}},
+0425 where WQ,WK,WV,βW_{Q},W_{K},W_{V},\beta are trainable parameters shared across all metapaths.
+0426 The final embedding vector of each node is the concatenation of all those output vectors. For downstream tasks like the node classification, another MLP is used to generate prediction results, which can be expressed as
+0427 Pred=MLP⁡([h𝒫1​||h𝒫2|​|…||​h𝒫|Φ|]).{\rm Pred}={\rm MLP}([h^{\mathcal{P}_{1}}||h^{\mathcal{P}_{2}}||\ldots||h^{\mathcal{P}_{|\Phi|}}]).
+0428 Experiment
+0429 Experiments are conducted on four widely-used heterogeneous graphs including DBLP, ACM, IMDB, and Freebase from HGB benchmark (Lv et al. 2021), as well as a large-scale dataset ogbn-mag from OGB challenge (Hu et al. 2021). The details about all experiment settings and the network configurations are recorded in Appendix11
+0430 1
+0431 Appendix can be found at https://arxiv.org/abs/2207.02547. Codes are available at https://github.com/ICT-GIMLab/SeHGNN..
+0432 Results on HGB Benchmark
+0433 Table 3 presents the performance of SeHGNN on four datasets compared to several baselines in HGB benchmark, including four metapath-based methods (1st block) and four metapath-free methods (2nd block).
+0434 Results demonstrate the effectiveness of SeHGNN as it achieves the best performance over all these baselines but the second best for micro-f1 accuracy on the Freebase dataset.
+0435 Additionally, we conduct comprehensive ablation studies to validate the two findings in the Motivation section and to determine the importance of other modules. The 4th block of Table 3 shows the results of four variants of SeHGNN.
+0436 Variant#1 utilizes GAT for each metapath in the neighbor aggregation step like HAN. Variant#2 uses a two-layer structure, where each layer has independent neighbor aggregation and semantic fusion steps, but the maximum hop of metapaths in each layer is half of that in SeHGNN to ensure that SeHGNN and its Variant#2 have the same size of receptive field. The performance gap between SeHGNN and its two variants proves that the two findings also apply for SeHGNN.
+0437 Variant#3 does not include labels as extra inputs, and Variant#4 replaces the transformer-based semantic fusion with the weighted sum fusion like HAN. Notably, although inferior to SeHGNN, Variant#3 has already outperformed most baselines except the micro-f1 on the Freebase dataset. These results show that the utilization of label propagation and transformer-based fusion improves model performance.
+0438 Methods
+0439 Validation accuracy
+0440 Test accuracy
+0441 RGCN
+0442 48.35±0.36
+0443 47.37±0.48
+0444 HGT
+0445 49.89±0.47
+0446 49.27±0.61
+0447 NARS
+0448 51.85±0.08
+0449 50.88±0.12
+0450 SAGN
+0451 52.25±0.30
+0452 51.17±0.32
+0453 GAMLP
+0454 53.23±0.23
+0455 51.63±0.22
+0456 HGT+emb
+0457 51.24±0.46
+0458 49.82±0.13
+0459 NARS+emb
+0460 53.72±0.09
+0461 52.40±0.16
+0462 GAMLP+emb
+0463 55.48±0.08
+0464 53.96±0.18
+0465 SAGN+emb+ms
+0466 55.91±0.17
+0467 54.40±0.15
+0468 GAMLP+emb+ms
+0469 57.02±0.41
+0470 55.90±0.27
+0471 SeHGNN
+0472 55.95±0.11
+0473 53.99±0.18
+0474 SeHGNN+emb
+0475 56.56±0.07
+0476 54.78±0.17
+0477 SeHGNN+ms
+0478 58.70±0.08
+0479 56.71±0.14
+0480 SeHGNN+emb+ms
+0481 59.17±0.09
+0482 57.19±0.12
+0483 Table 4: Experiment results on ogbn-mag compared with methods on the OGB leaderboard, where “emb” means using extra embeddings and “ms” means multi-stage training.
+0484 Results on Ogbn-mag
+0485 The ogbn-mag dataset presents two extra challenges: (1) some types of nodes lack raw features, (2) target type nodes are split according to years, causing training nodes and test nodes to have different data distribution. Existing methods usually address these challenges by (1) generating extra embeddings (abbreviated as emb) using unsupervised representation learning algorithms like ComplEx (Trouillon et al. 2016) and (2) utilizing multi-stage learning (abbreviated as ms), which selects test nodes with confident predictions in last training stage, adds these nodes to the training set and re-trains the model in the new stage (Li, Han, and Wu 2018; Sun, Lin, and Zhu 2020; Yang et al. 2021). To provide a comprehensive comparison, we compare results with or without these tricks. For methods without emb, we use randomly initialized raw feature vectors.
+0486 Table 4 displays the results on the large-scale dataset ogbn-mag compared with baselines on the OGB leaderboard. Results show that SeHGNN outperforms other methods under the same condition. It is worth noting that SeHGNN with randomly initialized features even outperforms others with well-trained embeddings from additional representation learning algorithms, which reflects that SeHGNN learns more information from the graph structure.
+0487 Time Analysis
+0488 Firstly, we theoretically analyze the time complexity of SeHGNN compared to HAN and HGB as Table 5 shows. We assume a one-layer structure with kk metapaths for SeHGNN and HAN, and ll-layer structure for HGB. The maximum hop of metapaths is also ll to ensure the same size of receptive field. The number of target type nodes22
+0489 2
+0490 For concise comparison, we only consider the complexity of linear projection for target type nodes on methods HAN and HGB. Please refer to Appendix for details. is nn and the dimension of input and hidden vectors is dd. The average number of neighbors in metapath neighbor graphs on HAN and involved neighbors during multi-layer aggregation on HGB are e1,e2e_{1},e_{2}, respectively. Please note that both e1e_{1} and e2e_{2} grow exponentially with the length of metapaths and layer number ll. For the above five datasets we use tens of metapaths at most, but each node averagely aggregates information from thousands of neighbors for l≥3l\geq 3. Generally, we have e1≫k2,e2≫k2e_{1}\gg k^{2},e_{2}\gg k^{2}, so the theoretical complexity of SeHGNN is much lower than that of HAN and HGB.
+0491 To validate our theoretical analysis, we conduct experiments to compare the time consumption of SeHGNN with previous HGNNs. Figure 3 shows achieving micro-f1 scores relative to the average time consumption of each training epoch for these models, which reflects the superiority of SeHGNN on both the training speed and the model effect.
+0492 Feature
+0493 projection
+0494 Neighbor
+0495 aggregation
+0496 Semantic
+0497 fusion
+0498 Total
+0499 SeHGNN
+0500 O⁡(n​k​d2)\,\,O(nkd^{2})
+0501 –
+0502 O⁡(n⁡(k​d2+k2​d))O(n(kd^{2}{+}k^{2}d))
+0503 O⁡(n​d​(k2+k​d))\,\,O(nd(k^{2}{+}kd))
+0504 HAN
+0505 O⁡(n​d2)O(nd^{2})
+0506 O⁡(n​k​e1​d)O(nke_{1}d)
+0507 O⁡(n​k​d2)O(nkd^{2})
+0508 O⁡(n​d​(k​e1+k​d))O(nd(ke_{1}{+}kd))
+0509 HGB
+0510 O⁡(n​l​d2)O(nld^{2})
+0511 O⁡(n​e2​d)O(ne_{2}d)
+0512 O⁡(n​d​(e2+l​d))O(nd(e_{2}{+}ld))
+0513 Table 5: Time complexity of SeHGNN, HAN and HGB.
+0514 Figure 3: Micro-f1 scores and time consumption of different HGNNs on DBLP dataset. Numbers below model names exhibit the ratio of time consumption relative to SeHGNN. e.g., “6x” below RGCN means RGCN costs 6 times of time.
+0515 Conclusion
+0516 This paper proposes a novel approach called SeHGNN for heterogeneous graph representation learning, which is based on two key findings about attention utilization and network structure.
+0517 SeHGNN adopts a light-weight mean aggregator to pre-compute neighbor aggregation, which effectively captures structural information while avoiding overused neighbor attention and repeated neighbor aggregation.
+0518 Moreover, SeHGNN utilizes a single-layer structure with long metapaths to extend the receptive field and a transformer-based semantic fusion module to better utilize semantic information, resulting in significant improvements in model effectiveness.
+0519 Experiments on five commonly used datasets demonstrate that SeHGNN outperforms state-of-the-art methods in terms of both accuracy and training speed.
+0520 Acknowledgments
+0521 This work was supported by the National Natural Science Foundation of China (Grant No. 61732018, 61872335, and 62202451), Austrian-Chinese Cooperative R&D Project (FFG and CAS) (Grant No. 171111KYSB20200002), CAS Project for Young Scientists in Basic Research (Grant No. YSBR-029), and CAS Project for Youth Innovation Promotion Association.
+0522 References
+0523 Bansal et al. (2019)
+0524 Bansal, T.; Juan, D.-C.; Ravi, S.; and McCallum, A. 2019.
+0525 A2N: Attending to neighbors for knowledge graph inference.
+0526 In Proceedings of the 57th annual meeting of the association
+0527 for computational linguistics, 4387–4392.
+0528 Dong et al. (2020)
+0529 Dong, Y.; Hu, Z.; Wang, K.; Sun, Y.; and Tang, J. 2020.
+0530 Heterogeneous Network Representation Learning.
+0531 In IJCAI, volume 20, 4861–4867.
+0532 Fan et al. (2019)
+0533 Fan, S.; Zhu, J.; Han, X.; Shi, C.; Hu, L.; Ma, B.; and Li, Y. 2019.
+0534 Metapath-guided heterogeneous graph neural network for intent
+0535 recommendation.
+0536 In Proceedings of the 25th ACM SIGKDD international conference
+0537 on knowledge discovery & data mining, 2478–2486.
+0538 Fu et al. (2020)
+0539 Fu, X.; Zhang, J.; Meng, Z.; and King, I. 2020.
+0540 Magnn: Metapath aggregated graph neural network for heterogeneous
+0541 graph embedding.
+0542 In Proceedings of The Web Conference 2020, 2331–2341.
+0543 Hamilton, Ying, and Leskovec (2017)
+0544 Hamilton, W.; Ying, Z.; and Leskovec, J. 2017.
+0545 Inductive representation learning on large graphs.
+0546 Advances in neural information processing systems, 30.
+0547 Hong et al. (2020)
+0548 Hong, H.; Guo, H.; Lin, Y.; Yang, X.; Li, Z.; and Ye, J. 2020.
+0549 An attention-based graph neural network for heterogeneous structural
+0550 learning.
+0551 In Proceedings of the AAAI Conference on Artificial
+0552 Intelligence, volume 34, 4132–4139.
+0553 Hu et al. (2021)
+0554 Hu, W.; Fey, M.; Ren, H.; Nakata, M.; Dong, Y.; and Leskovec, J. 2021.
+0555 OGB-LSC: A Large-Scale Challenge for Machine Learning on Graphs.
+0556 In Vanschoren, J.; and Yeung, S., eds., Proceedings of the
+0557 Neural Information Processing Systems Track on Datasets and Benchmarks,
+0558 volume 1.
+0559 Hu et al. (2020a)
+0560 Hu, W.; Fey, M.; Zitnik, M.; Dong, Y.; Ren, H.; Liu, B.; Catasta, M.; and
+0561 Leskovec, J. 2020a.
+0562 Open graph benchmark: Datasets for machine learning on graphs.
+0563 Advances in neural information processing systems, 33:
+0564 22118–22133.
+0565 Hu et al. (2020b)
+0566 Hu, Z.; Dong, Y.; Wang, K.; and Sun, Y. 2020b.
+0567 Heterogeneous graph transformer.
+0568 In Proceedings of The Web Conference 2020, 2704–2710.
+0569 Kingma and Ba (2015)
+0570 Kingma, D. P.; and Ba, J. 2015.
+0571 Adam: A Method for Stochastic Optimization.
+0572 In Bengio, Y.; and LeCun, Y., eds., International Conference on
+0573 Learning Representations, ICLR 2015.
+0574 Kipf and Welling (2017)
+0575 Kipf, T. N.; and Welling, M. 2017.
+0576 Semi-Supervised Classification with Graph Convolutional Networks.
+0577 In International Conference on Learning Representations, ICLR
+0578 2017.
+0579 Li, Han, and Wu (2018)
+0580 Li, Q.; Han, Z.; and Wu, X.-M. 2018.
+0581 Deeper insights into graph convolutional networks for semi-supervised
+0582 learning.
+0583 In Thirty-Second AAAI conference on artificial intelligence.
+0584 Lin et al. (2022)
+0585 Lin, H.; Yan, M.; Ye, X.; Fan, D.; Pan, S.; Chen, W.; and Xie, Y. 2022.
+0586 A Comprehensive Survey on Distributed Training of Graph Neural
+0587 Networks.
+0588 arXiv preprint arXiv:2211.05368.
+0589 Liu et al. (2022a)
+0590 Liu, X.; Yan, M.; Deng, L.; Li, G.; Ye, X.; and Fan, D. 2022a.
+0591 Sampling Methods for Efficient Training of Graph Convolutional
+0592 Networks: A Survey.
+0593 IEEE/CAA Journal of Automatica Sinica, 9(2): 205–234.
+0594 Liu et al. (2022b)
+0595 Liu, X.; Yan, M.; Deng, L.; Li, G.; Ye, X.; Fan, D.; Pan, S.; and Xie, Y.
+0596 2022b.
+0597 Survey on Graph Neural Network Acceleration: An Algorithmic
+0598 Perspective.
+0599 In Raedt, L. D., ed., Proceedings of the Thirty-First
+0600 International Joint Conference on Artificial Intelligence, IJCAI-22,
+0601 5521–5529.
+0602 Liu et al. (2018)
+0603 Liu, Z.; Chen, C.; Yang, X.; Zhou, J.; Li, X.; and Song, L. 2018.
+0604 Heterogeneous graph neural networks for malicious account detection.
+0605 In Proceedings of the 27th ACM international conference on
+0606 information and knowledge management, 2077–2085.
+0607 Lv et al. (2021)
+0608 Lv, Q.; Ding, M.; Liu, Q.; Chen, Y.; Feng, W.; He, S.; Zhou, C.; Jiang, J.;
+0609 Dong, Y.; and Tang, J. 2021.
+0610 Are we really making much progress? Revisiting, benchmarking and
+0611 refining heterogeneous graph neural networks.
+0612 In Proceedings of the 27th ACM SIGKDD Conference on Knowledge
+0613 Discovery & Data Mining, 1150–1160.
+0614 Niu et al. (2020)
+0615 Niu, X.; Li, B.; Li, C.; Xiao, R.; Sun, H.; Deng, H.; and Chen, Z. 2020.
+0616 A dual heterogeneous graph attention network to improve long-tail
+0617 performance for shop search in e-commerce.
+0618 In Proceedings of the 26th ACM SIGKDD International Conference
+0619 on Knowledge Discovery & Data Mining, 3405–3415.
+0620 Rossi et al. (2020)
+0621 Rossi, E.; Frasca, F.; Chamberlain, B.; Eynard, D.; Bronstein, M.; and Monti,
+0622 F. 2020.
+0623 Sign: Scalable inception graph neural networks.
+0624 arXiv preprint arXiv:2004.11198.
+0625 Schlichtkrull et al. (2018)
+0626 Schlichtkrull, M.; Kipf, T. N.; Bloem, P.; Berg, R. v. d.; Titov, I.; and
+0627 Welling, M. 2018.
+0628 Modeling relational data with graph convolutional networks.
+0629 In European semantic web conference, 593–607. Springer.
+0630 Shi et al. (2016)
+0631 Shi, C.; Li, Y.; Zhang, J.; Sun, Y.; and Philip, S. Y. 2016.
+0632 A survey of heterogeneous information network analysis.
+0633 IEEE Transactions on Knowledge and Data Engineering, 29(1):
+0634 17–37.
+0635 Shi et al. (2021)
+0636 Shi, Y.; Huang, Z.; Feng, S.; Zhong, H.; Wang, W.; and Sun, Y. 2021.
+0637 Masked Label Prediction: Unified Message Passing Model for
+0638 Semi-Supervised Classification.
+0639 In Zhou, Z.-H., ed., Proceedings of the Thirtieth International
+0640 Joint Conference on Artificial Intelligence, IJCAI-21, 1548–1554.
+0641 Sun, Gu, and Hu (2021)
+0642 Sun, C.; Gu, H.; and Hu, J. 2021.
+0643 Scalable and adaptive graph neural networks with self-label-enhanced
+0644 training.
+0645 arXiv preprint arXiv:2104.09376.
+0646 Sun, Lin, and Zhu (2020)
+0647 Sun, K.; Lin, Z.; and Zhu, Z. 2020.
+0648 Multi-stage self-supervised learning for graph convolutional networks
+0649 on graphs with few labeled nodes.
+0650 In Proceedings of the AAAI Conference on Artificial
+0651 Intelligence, volume 34, 5892–5899.
+0652 Sun and Han (2012)
+0653 Sun, Y.; and Han, J. 2012.
+0654 Mining heterogeneous information networks: principles and
+0655 methodologies.
+0656 Synthesis Lectures on Data Mining and Knowledge Discovery,
+0657 3(2): 1–159.
+0658 Sun et al. (2011)
+0659 Sun, Y.; Han, J.; Yan, X.; Yu, P. S.; and Wu, T. 2011.
+0660 Pathsim: Meta path-based top-k similarity search in heterogeneous
+0661 information networks.
+0662 Proceedings of the VLDB Endowment, 4(11): 992–1003.
+0663 Trouillon et al. (2016)
+0664 Trouillon, T.; Welbl, J.; Riedel, S.; Gaussier, É.; and Bouchard, G. 2016.
+0665 Complex embeddings for simple link prediction.
+0666 In International conference on machine learning, 2071–2080.
+0667 PMLR.
+0668 Vashishth et al. (2020)
+0669 Vashishth, S.; Sanyal, S.; Nitin, V.; and Talukdar, P. 2020.
+0670 Composition-based Multi-Relational Graph Convolutional Networks.
+0671 In International Conference on Learning Representations.
+0672 Vaswani et al. (2017)
+0673 Vaswani, A.; Shazeer, N.; Parmar, N.; Uszkoreit, J.; Jones, L.; Gomez, A. N.;
+0674 Kaiser, Ł.; and Polosukhin, I. 2017.
+0675 Attention is all you need.
+0676 Advances in neural information processing systems, 30.
+0677 Veličković et al. (2018)
+0678 Veličković, P.; Cucurull, G.; Casanova, A.; Romero, A.; Liò,
+0679 P.; and Bengio, Y. 2018.
+0680 Graph Attention Networks.
+0681 International Conference on Learning Representations, ICLR
+0682 2018.
+0683 Wang and Leskovec (2020)
+0684 Wang, H.; and Leskovec, J. 2020.
+0685 Unifying graph convolutional neural networks and label propagation.
+0686 arXiv preprint arXiv:2002.06755.
+0687 Wang et al. (2021a)
+0688 Wang, S.; Wei, X.; Nogueira dos Santos, C. N.; Wang, Z.; Nallapati, R.; Arnold,
+0689 A.; Xiang, B.; Yu, P. S.; and Cruz, I. F. 2021a.
+0690 Mixed-curvature multi-relational graph neural network for knowledge
+0691 graph completion.
+0692 In Proceedings of the Web Conference 2021, 1761–1771.
+0693 Wang et al. (2020)
+0694 Wang, X.; Bo, D.; Shi, C.; Fan, S.; Ye, Y.; and Yu, P. S. 2020.
+0695 A survey on heterogeneous graph embedding: methods, techniques,
+0696 applications and sources.
+0697 arXiv preprint arXiv:2011.14867.
+0698 Wang et al. (2019)
+0699 Wang, X.; Ji, H.; Shi, C.; Wang, B.; Ye, Y.; Cui, P.; and Yu, P. S. 2019.
+0700 Heterogeneous graph attention network.
+0701 In The world wide web conference, 2022–2032.
+0702 Wang et al. (2021b)
+0703 Wang, Y.; Jin, J.; Zhang, W.; Yu, Y.; Zhang, Z.; and Wipf, D.
+0704 2021b.
+0705 Bag of tricks of semi-supervised classification with graph neural
+0706 networks.
+0707 arXiv preprint arXiv:2103.13355.
+0708 Wu et al. (2019)
+0709 Wu, F.; Souza, A.; Zhang, T.; Fifty, C.; Yu, T.; and Weinberger, K. 2019.
+0710 Simplifying graph convolutional networks.
+0711 In International conference on machine learning, 6861–6871.
+0712 PMLR.
+0713 Wu et al. (2020)
+0714 Wu, Z.; Pan, S.; Chen, F.; Long, G.; Zhang, C.; and Philip, S. Y. 2020.
+0715 A comprehensive survey on graph neural networks.
+0716 IEEE transactions on neural networks and learning systems,
+0717 32(1): 4–24.
+0718 Yan et al. (2022)
+0719 Yan, M.; Zou, M.; Yang, X.; Li, W.; Ye, X.; Fan, D.; and Xie, Y. 2022.
+0720 Characterizing and Understanding HGNNs on GPUs.
+0721 IEEE Computer Architecture Letters, 21(2): 69–72.
+0722 Yang et al. (2020)
+0723 Yang, C.; Xiao, Y.; Zhang, Y.; Sun, Y.; and Han, J. 2020.
+0724 Heterogeneous network representation learning: A unified framework
+0725 with survey and benchmark.
+0726 IEEE Transactions on Knowledge and Data Engineering.
+0727 Yang et al. (2021)
+0728 Yang, H.; Yan, X.; Dai, X.; Chen, Y.; and Cheng, J. 2021.
+0729 Self-enhanced gnn: Improving graph neural networks using model
+0730 outputs.
+0731 In 2021 International Joint Conference on Neural Networks
+0732 (IJCNN), 1–8. IEEE.
+0733 Yu et al. (2020)
+0734 Yu, L.; Shen, J.; Li, J.; and Lerer, A. 2020.
+0735 Scalable graph neural networks for heterogeneous graphs.
+0736 arXiv preprint arXiv:2011.09679.
+0737 Zhang et al. (2019)
+0738 Zhang, C.; Song, D.; Huang, C.; Swami, A.; and Chawla, N. V. 2019.
+0739 Heterogeneous graph neural network.
+0740 In Proceedings of the 25th ACM SIGKDD International Conference
+0741 on Knowledge Discovery & Data Mining, 793–803.
+0742 Zhang et al. (2022)
+0743 Zhang, W.; Yin, Z.; Sheng, Z.; Li, Y.; Ouyang, W.; Li, X.; Tao, Y.; Yang, Z.;
+0744 and Cui, B. 2022.
+0745 Graph Attention Multi-Layer Perceptron.
+0746 In Proceedings of the 28th ACM SIGKDD Conference on Knowledge
+0747 Discovery and Data Mining, KDD ’22, 4560–4570.
+0748 ISBN 9781450393850.
+0749 Zheng et al. (2022)
+0750 Zheng, X.; Liu, Y.; Pan, S.; Zhang, M.; Jin, D.; and Yu, P. S. 2022.
+0751 Graph Neural Networks for Graphs with Heterophily: A Survey.
+0752 arXiv preprint arXiv:2202.07082.
+0753 Zhu et al. (2019)
+0754 Zhu, S.; Zhou, C.; Pan, S.; Zhu, X.; and Wang, B. 2019.
+0755 Relation structure-aware heterogeneous graph neural network.
+0756 In 2019 IEEE international conference on data mining (ICDM),
+0757 1534–1539. IEEE.
+0758 Appendix A Appendix
+0759 Observation in HGB models
+0760 The metapath-free method HGB (Lv et al. 2021) calculates the attention value over each edge using the concatenation of node embeddings of the two endpoints and the edge-type embedding, presented as
+0761 αi​j=exp⁡(LeakyReLU⁡(𝐚T​[𝐖𝐡i​‖𝐖𝐡j‖​𝐖r​𝐫i​j]))∑k∈𝒩iexp⁡(LeakyReLU⁡(𝐚T​[𝐖𝐡i​‖𝐖𝐡k‖​𝐖r​𝐫i​k])).\alpha_{ij}=\frac{{\rm exp}({\rm LeakyReLU}(\mathbf{a}^{T}[\mathbf{Wh}_{i}||\mathbf{Wh}_{j}||\mathbf{W}_{r}\mathbf{r}_{ij}]))}{\sum_{k\in\mathcal{N}_{i}}{\rm exp}({\rm LeakyReLU}(\mathbf{a}^{T}[\mathbf{Wh}_{i}||\mathbf{Wh}_{k}||\mathbf{W}_{r}\mathbf{r}_{ik}]))}.
+0762 Figure 4: (a) An illustration of the observation that HGB tends to assign similar attention values within each relation for each target node. (b) The box plot of standard deviations of attention values for different relations in HGB.
+0763 RGCN
+0764 HetGNN
+0765 HAN
+0766 MAGNN
+0767 Feature
+0768 projection
+0769 hvr=Wψ⁡(r)​xv\textbf{h}_{v}^{r}=W^{\psi(r)}\textbf{x}_{v}
+0770 hv′=Bi​-​LSTMϕ⁡(v)​(xv)\textbf{h}^{\prime}_{v}={\rm Bi\raisebox{0.0pt}{-}LSTM}^{\phi(v)}(\textbf{x}_{v})
+0771 hv′=Wϕ⁡(v)​xv\textbf{h}^{\prime}_{v}=W^{\phi(v)}\textbf{x}_{v}
+0772 Neighbor
+0773 aggregation
+0774 zvr=1|𝒩vr|​∑u∈𝒩vrhur\textbf{z}_{v}^{r}=\frac{1}{|\mathcal{N}_{v}^{r}|}\sum_{u\in\mathcal{N}_{v}^{r}}\textbf{h}^{r}_{u}
+0775 zvt=Bi​-​LSTM​({hu′:u∈𝒩vt})\textbf{z}_{v}^{t}={\rm Bi\raisebox{0.0pt}{-}LSTM}(\{\textbf{h}^{\prime}_{u}:u\in\mathcal{N}_{v}^{t}\})
+0776 γv,u𝒫=σ(a𝒫T⋅[hv′||hu′])\gamma^{\mathcal{P}}_{v,u}=\sigma(\textbf{a}^{T}_{\mathcal{P}}\cdot[\textbf{h}^{\prime}_{v}||\textbf{h}^{\prime}_{u}])
+0777 hp⁡(v,u)′=Encoder⁡(p⁡(v,u))\textbf{h}^{\prime}_{p(v,u)}={\rm Encoder}(p(v,u))
+0778 γv,u𝒫=σ(a𝒫T⋅[hv′||hp⁡(v,u)′])\gamma^{\mathcal{P}}_{v,u}=\sigma(\textbf{a}^{T}_{\mathcal{P}}\cdot[\textbf{h}^{\prime}_{v}||\textbf{h}^{\prime}_{p(v,u)}])
+0779 αv,u𝒫=exp⁡(γv,u𝒫)∑k∈𝒩v𝒫exp⁡(γv,k𝒫),zv𝒫=σ⁡(∑k∈𝒩v𝒫αv,k𝒫​hp⁡(v,k)′)\alpha^{\mathcal{P}}_{v,u}=\frac{\exp(\gamma^{\mathcal{P}}_{v,u})}{\sum_{k\in\mathcal{N}^{\mathcal{P}}_{v}}\exp(\gamma^{\mathcal{P}}_{v,k})},\,\,\textbf{z}^{\mathcal{P}}_{v}=\sigma(\sum_{k\in\mathcal{N}^{\mathcal{P}}_{v}}\alpha^{\mathcal{P}}_{v,k}\textbf{h}^{\prime}_{p(v,k)})
+0780 Semantic
+0781 fusion
+0782 hv=∑rzvr+W0​xv\textbf{h}_{v}=\sum_{r}\textbf{z}_{v}^{r}+W_{0}\textbf{x}_{v}
+0783 αvt=exp(LeakyReLU(aT[zvt||h′v]))∑kexp(LeakyReLU(aT[zvk||h′v]))\alpha_{v}^{t}=\frac{\exp{({\rm LeakyReLU}(\textbf{a}^{T}[\textbf{z}_{v}^{t}||\textbf{h}^{\prime}_{v}]))}}{\sum_{k}\exp{({\rm LeakyReLU}(\textbf{a}^{T}[\textbf{z}_{v}^{k}||\textbf{h}^{\prime}_{v}]))}}
+0784 hv=αv​hv′+∑tαvt​zvt\textbf{h}_{v}=\alpha_{v}\textbf{h}^{\prime}_{v}+\sum_{t}\alpha_{v}^{t}\textbf{z}^{t}_{v}
+0785 w𝒫=1‖Vϕ⁡(v)‖​∑k∈Vϕ⁡(v)qT⋅tanh⁡(Wzk𝒫+b)w_{\mathcal{P}}=\frac{1}{||V^{\phi(v)}||}\sum_{k\in V^{\phi(v)}}\textbf{q}^{T}\cdot\tanh(\textbf{W}\textbf{z}_{k}^{\mathcal{P}}+\textbf{b})
+0786 β𝒫i=exp⁡(wPi)∑𝒫jexp⁡(wPj),hv=∑𝒫iβ𝒫i​zv𝒫i\beta_{\mathcal{P}_{i}}=\frac{\exp(w_{P_{i}})}{\sum_{\mathcal{P}_{j}}\exp(w_{P_{j}})},\,\,\textbf{h}_{v}=\sum_{\mathcal{P}_{i}}\beta_{\mathcal{P}_{i}}\textbf{z}^{\mathcal{P}_{i}}_{v}
+0787 Table 6: The unified framework of existing metapath-based HGNNs.
+0788 In our re-implemention experiments of HGB, we find that the attention values are mainly dominated by the edge-type embeddings. This is revealed from the observation that attention values within each relation are similar, while those among different relations ary significantly. Figure 4 (a) depicts this observation and Figure 4 (b) shows the statistics of standard deviations of attention values within each relation and among all relations for each target node on the ACM dataset.
+0789 This observation motivates us to investigate the necessity of neighbor attention within each relation and semantic attention among different relations in HGNNs.
+0790 Framework of existing metapath-based methods
+0791 For each layer of existing metapath-based methods, the calculation can be divided into three primary steps, feature projection, neighbor aggregation, and semantic fusion, as presented in Table 6. The feature projection step aims to map raw feature vectors of different types of nodes into the same data space, usually presented as one linear projection layer. Then the neighbor aggregation step aggregates feature vectors of neighbors for each semantic scope, e.g., for each relation (can be viewed as 1-hop metapath) in RGCN, for each node type in HetGNN, or for each metapath in HAN and MAGNN. Finally, the semantic aggregation step fuses those semantic vectors across all semantics and outputs the final embedding for each node.
+0792 After removing neighbor attention, since both the one-layer feature projection and neighbor aggregation contain no nonlinear functions, the order of the two steps can be exchanged. Further, as the neighbor aggregation step does not involve any trainable parameters, it can be put ahead in the pre-processing step, and its results are shared across all training epochs.
+0793 In later experiments, we find a multi-layer block for feature projection can further enhance the performance. Therefore, SeHGNN employs an MLP block rather than a single linear layer for each metapath in the feature projection step.
+0794 Experiment settings
+0795 The evaluation of SeHGNN involves four medium-scale datasets from HGB benchmark (Lv et al. 2021) and a large-scale dataset ogbn-mag33
+0796 3
+0797 https://ogb.stanford.edu/docs/nodeprop/#ogbn-mag from the OGB challenge (Hu et al. 2021). The statistics of these heterogeneous graphs are summarized in Table 7.
+0798 For the medium-scale datasets, we follow the dataset configuration requirements of the HGB benchmark. Specifically, the target type nodes are split with 30% for local training and 70% for online test, where labels of test nodes are not made public and researchers have to submit their predictions to the website of HGB benchmark for online evaluation. For local training, we randomly split the 30% nodes into 24% for training for 6% for validation. We compare our results with the baseline scores reported in the HGB paper, and all scores are the average of 5 different local data partitions. For the ogbn-mag dataset, we follows the official data partition where papers published before 2018, in 2018, and since 2019 are nodes for training, validation, and test, respectively. We compare our results with the scores on the OGB leaderboard, and all scores are the average of 10 separate trainings.
+0799 Dataset
+0800 #Nodes
+0801 #Node
+0802 types
+0803 #Edges
+0804 #Classes
+0805 DBLP
+0806 26,128
+0807 4
+0808 239,566
+0809 4
+0810 ACM
+0811 10,942
+0812 4
+0813 547,872
+0814 3
+0815 IMDB
+0816 21,420
+0817 4
+0818 86,642
+0819 5
+0820 Freebase
+0821 180,098
+0822 8
+0823 1,057,688
+0824 7
+0825 Ogbn-mag
+0826 1,939,743
+0827 4
+0828 21,111,007
+0829 349
+0830 Table 7: The statistics of datasets used in this paper.
+0831 Feature propagation
+0832 Label Propagation
+0833 Max Hop
+0834 #Metapaths
+0835 Max Hop
+0836 #Metapaths
+0837 DBLP
+0838 2
+0839 5
+0840 4
+0841 4
+0842 IMDB
+0843 4
+0844 25
+0845 4
+0846 12
+0847 ACM
+0848 4
+0849 41
+0850 3
+0851 9
+0852 Freebase
+0853 2
+0854 73
+0855 3
+0856 9
+0857 Ogbn-mag
+0858 2
+0859 10
+0860 2
+0861 5
+0862 Table 8: The maximum hops and numbers of metapaths for raw feature propagation and label propagation.
+0863 We adopt a simple metapath selection method where we preset the maximum hop and use all available metapaths no more than this maximum hop. We test different combinations of maximum hops for raw feature propagation and label propagation and the final choices are listed in Figure 8.
+0864 For all experiments, SeHGNN adopts a two-layer MLP for each metapath in the feature projection step, where the dimension of hidden vectors is 512. In the transformer-based fusion module, the dimension of query and key vectors are 1/4 of hidden vectors, the dimension of value vectors equals that of hidden vectors, and the number of heads is 1.
+0865 SeHGNN is optimized with Adam (Kingma and Ba 2015) during training. The learning rate is 0.0003 and the weight decay is 0.0001 for the Freebase dataset, and the learning rate is 0.001 and the weight decay is 0 for others.
+0866 Further analysis of time complexity
+0867 Feature
+0868 projection
+0869 Neighbor
+0870 aggregation
+0871 Semantic
+0872 fusion
+0873 HAN
+0874 O⁡((n+m)​d2)O((n{+}m)d^{2})
+0875 O⁡(n​k​e1​d+(n+m)​k​d)O(nke_{1}d{+}(n{+}m)kd)
+0876 O⁡(n​k​d2)O(nkd^{2})
+0877 HGB
+0878 O⁡((n+m)​l​d2)O((n{+}m)ld^{2})
+0879 O⁡(n​e2​d+(n+m)​l​d)O(ne_{2}d{+}(n{+}m)ld)
+0880 Table 9: Revised time complexity on HAN and HGB with consideration of nodes of all types.
+0881 The computation complexity of HAN and HGB methods is challenging to estimate as it encompasses various node types and the reuse of projected neighbor node features in the neighbor aggregation step. To make a straightforward comparison, Table 5 includes the complexity of linear projection for target type nodes in HAN and HGB but omits that of nodes of other types. As illustrated in Table 9, we add the computation complexity of nodes of other types assuming the number of these nodes involved in one training batch to be mm. These additions include the linear projection in the feature projection step and the calculation of neighbor attentions in the neighbor aggregation step.
+0882 When training in full-batch mode, nn and mm represent the total number of target type nodes and other type nodes in the heterogeneous graph, respectively. If nn and mm are comparable, i.e., O⁡(n)=O⁡(m)O(n)=O(m), then results in Table 9 can be reduced to those in Table 5.
+0883 However, for mini-batch training, mm can be significantly larger than nn for each training batch. In the case of a small batch size nn and almost no reusable projected neighbor node features, mm increases exponentially with the metapath length or number of layers (i.e., O⁡(m)=O⁡(n​k​e1)O(m)=O(nke_{1}) for HAN and O⁡(m)=O⁡(n​e2)O(m)=O(ne_{2}) for HGB). In this scenario, the computation complexity results on HAN and HGB in Table 5 show a significant under-estimation.
+0884 In contrast, estimating the computation complexity of SeHGNN is much simpler. Because the neighbor aggregation is calculated in the pre-processing step, eliminating the involvement of nodes of other types in each training batch.
+0885 Experimental support, please
+0886 view the build logs
+0887 for errors. Generated by
+0888 L
+0889 A
+0890 T
+0891 E
+0892 xml
+0893 .
+0894 Instructions for reporting errors
+0895 We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+0896 support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+0897 methods listed below:
+0898 Click the "Report Issue" (
+0899 ) button, located in the page header.
+0900 Tip: You can select the relevant text first, to include it in your report.
+0901 Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+0902 may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+0903 should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+0904 all.
+0905 Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+0906 We gratefully acknowledge support from
+0907 our major funders,
+0908 member institutions, ,
+0909 and all contributors.
+0910 About
+0911 ·
+0912 Help
+0913 ·
+0914 Contact
+0915 ·
+0916 Subscribe
+0917 ·
+0918 Copyright
+0919 ·
+0920 Privacy
+0921 ·
+0922 Accessibility
+0923 ·
+0924 Operational Status (opens in new tab)
+0925 Major funding support from

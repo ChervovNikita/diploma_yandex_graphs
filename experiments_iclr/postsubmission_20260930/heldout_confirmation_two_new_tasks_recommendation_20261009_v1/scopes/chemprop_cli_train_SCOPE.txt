@@ -1,0 +1,189 @@
+0194     parser.add_argument(
+0195         "--ensemble-size",
+0196         type=int,
+0197         default=1,
+0198         help="Number of models in ensemble for each splitting of data",
+0199     )
+0200 
+0201     mp_args = parser.add_argument_group("message passing")
+0202     mp_args.add_argument(
+0203         "--message-hidden-dim",
+0204         type=int,
+0205         default=[300],
+0206         nargs="+",
+0207         help="Hidden dimension of the messages (specify multiple values to customize multicomponent encoders separately)",
+0208     )
+0209     mp_args.add_argument(
+0210         "--message-bias", action="store_true", help="Add bias to the message passing layers"
+0211     )
+0212     mp_args.add_argument(
+0213         "--depth",
+0214         type=int,
+0215         default=[3],
+0216         nargs="+",
+0217         help="Number of message passing steps (specify multiple values to customize multicomponent encoders separately)",
+0218     )
+0219     mp_args.add_argument(
+0220         "--undirected",
+0221         action="store_true",
+0222         help="Pass messages on undirected bonds/edges (always sum the two relevant bond vectors)",
+0223     )
+0224     mp_args.add_argument(
+0225         "--dropout",
+0226         type=float,
+0227         default=0.0,
+0228         help="Dropout probability in message passing/FFN layers",
+0229     )
+0230     mp_args.add_argument(
+0231         "--mpn-shared",
+0232         action="store_true",
+0233         help="Whether to use the same message passing neural network for all input molecules (only relevant if ``number_of_molecules`` > 1)",
+0234     )
+0235     mp_args.add_argument(
+0236         "--aggregation",
+0237         "--agg",
+0238         default="norm",
+0239         action=LookupAction(AggregationRegistry),
+0240         help="Aggregation mode to use during graph predictor",
+0241     )
+0242     mp_args.add_argument(
+0243         "--aggregation-norm",
+0244         type=float,
+0245         default=100,
+0246         help="Normalization factor by which to divide summed up atomic features for ``norm`` aggregation",
+0247     )
+0248     mp_args.add_argument(
+0249         "--atom-messages", action="store_true", help="Pass messages on atoms rather than bonds."
+
+0292     ffn_args = parser.add_argument_group("FFN args")
+0293     ffn_args.add_argument(
+0294         "--ffn-hidden-dim",
+0295         type=int,
+0296         nargs="+",
+0297         default=[300],
+0298         help="Hidden dimension(s) in the FFN top model. A single value is applied to all layers; multiple values specify per-layer widths (must match --ffn-num-layers)",
+0299     )
+0300     ffn_args.add_argument(
+0301         "--ffn-num-layers",
+0302         type=int,
+0303         default=1,
+0304         help="Number of hidden layers in FFN top model (v2 semantics, differs from v1)",
+0305     )
+
+0439     train_data_args.add_argument(
+0440         "--splits-column",
+0441         help="Name of the column in the input CSV file containing 'train', 'val', or 'test' for each row.",
+0442     )
+
+0493     train_args.add_argument(
+0494         "--tracking-metric",
+0495         default="val_loss",
+0496         help="The metric to track for early stopping, checkpointing, and hyperparameter optimization. Defaults to the criterion used during training. When training on two or three of molecule, atom, and bond targets, and not tracking the default ('val_loss'), you must append '-mol', '-atom', or '-bond' to the metric name to specify which individual metric to track. For example, 'val_loss-bond' will track the criterion value of the bond predictions and 'rmse-atom' will track the RMSE of the atom predictions.",
+0497     )
+0498     train_args.add_argument(
+0499         "--show-individual-scores",
+0500         action="store_true",
+0501         help="Show all scores for individual targets, not just average, at the end.",
+0502     )
+0503     train_args.add_argument(
+0504         "--task-weights",
+0505         nargs="+",
+0506         type=float,
+0507         help="Weights to apply for whole tasks in the loss function",
+0508     )
+0509     train_args.add_argument(
+0510         "--warmup-epochs",
+0511         type=int,
+0512         default=2,
+0513         help="Number of epochs during which learning rate increases linearly from ``init_lr`` to ``max_lr`` (afterwards, learning rate decreases exponentially from ``max_lr`` to ``final_lr``)",
+0514     )
+0515 
+0516     train_args.add_argument("--init-lr", type=float, default=1e-4, help="Initial learning rate.")
+0517     train_args.add_argument("--max-lr", type=float, default=1e-3, help="Maximum learning rate.")
+0518     train_args.add_argument("--final-lr", type=float, default=1e-4, help="Final learning rate.")
+0519     train_args.add_argument("--epochs", type=int, default=50, help="Number of epochs to train over")
+0520     train_args.add_argument(
+0521         "--patience",
+0522         type=int,
+0523         default=None,
+0524         help="Number of epochs to wait for improvement before early stopping",
+0525     )
+0526     train_args.add_argument(
+0527         "--min-delta",
+0528         type=float,
+0529         default=0.0,
+0530         help="Minimum change in the monitored quantity to qualify as an improvement",
+0531     )
+0532     train_args.add_argument(
+0533         "--grad-clip",
+0534         type=float,
+0535         help="Passed directly to the lightning trainer which controls grad clipping (see the ``Trainer()`` docstring for details)",
+0536     )
+0537     train_args.add_argument(
+0538         "--class-balance",
+
+1930         checkpointing = ModelCheckpoint(
+1931             checkpoint_dir / "checkpoints",
+1932             checkpoint_filename,
+1933             tracking_metric,
+1934             mode=monitor_mode,
+1935             save_last=True,
+1936             auto_insert_metric_name=False,
+1937         )
+1938 
+1939         if args.epochs != -1:
+1940             patience = args.patience if args.patience is not None else args.epochs
+1941             early_stopping = EarlyStopping(
+1942                 tracking_metric, patience=patience, mode=monitor_mode, min_delta=args.min_delta
+1943             )
+1944             callbacks = [checkpointing, early_stopping]
+1945         else:
+1946             callbacks = [checkpointing]
+1947 
+1948         trainer = pl.Trainer(
+1949             logger=trainer_logger,
+1950             enable_progress_bar=True,
+1951             accelerator=args.accelerator,
+1952             devices=args.devices,
+1953             max_epochs=args.epochs,
+1954             callbacks=callbacks,
+1955             gradient_clip_val=args.grad_clip,
+1956             deterministic=deterministic,
+1957         )
+1958         trainer.fit(model, train_loader, val_loader)
+1959 
+
+2295             input_transforms = normalize_inputs(train_dset, val_dset, args)
+2296 
+2297             if "regression" in args.task_type:
+2298                 if isinstance(train_dset, MolAtomBondDataset):
+2299                     output_transform = []
+2300                     for kind, cols in zip(
+2301                         ["mol", "atom", "bond"],
+2302                         [
+2303                             args.mol_target_columns,
+2304                             args.atom_target_columns,
+2305                             args.bond_target_columns,
+2306                         ],
+2307                     ):
+2308                         if cols is not None:
+2309                             output_scaler = train_dset.normalize_targets(kind)
+2310                             if val_dset is not None:
+2311                                 val_dset.normalize_targets(kind, output_scaler)
+2312                             logger.info(
+2313                                 f"Train data ({kind}): mean = {output_scaler.mean_} | std = {output_scaler.scale_}"
+2314                             )
+2315                             output_transform.append(
+2316                                 UnscaleTransform.from_standard_scaler(output_scaler)
+2317                             )
+2318                         else:
+2319                             output_transform.append(None)
+2320                 else:
+2321                     output_scaler = train_dset.normalize_targets()
+2322                     if val_dset is not None:
+2323                         val_dset.normalize_targets(output_scaler)
+2324                     logger.info(
+2325                         f"Train data: mean = {output_scaler.mean_} | std = {output_scaler.scale_}"
+2326                     )
+2327                     output_transform = UnscaleTransform.from_standard_scaler(output_scaler)
+2328 

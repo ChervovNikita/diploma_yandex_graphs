@@ -1,0 +1,88 @@
+0060     return evaluator.eval(input_dict)
+0061 
+0062 
+0063 def main():
+0064     # Training settings
+0065     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
+0066     parser.add_argument('--device', type=int, default=0,
+0067                         help='which gpu to use if any (default: 0)')
+0068     parser.add_argument('--gnn', type=str, default='gin-virtual',
+0069                         help='GNN gin, gin-virtual, or gcn, or gcn-virtual (default: gin-virtual)')
+0070     parser.add_argument('--drop_ratio', type=float, default=0.5,
+0071                         help='dropout ratio (default: 0.5)')
+0072     parser.add_argument('--num_layer', type=int, default=5,
+0073                         help='number of GNN message passing layers (default: 5)')
+0074     parser.add_argument('--emb_dim', type=int, default=300,
+0075                         help='dimensionality of hidden units in GNNs (default: 300)')
+0076     parser.add_argument('--batch_size', type=int, default=32,
+0077                         help='input batch size for training (default: 32)')
+0078     parser.add_argument('--epochs', type=int, default=100,
+0079                         help='number of epochs to train (default: 100)')
+0080     parser.add_argument('--num_workers', type=int, default=0,
+0081                         help='number of workers (default: 0)')
+0082     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
+0083                         help='dataset name (default: ogbg-molhiv)')
+0084 
+0085     parser.add_argument('--feature', type=str, default="full",
+0086                         help='full feature or simple feature')
+0087     parser.add_argument('--filename', type=str, default="",
+0088                         help='filename to output result (default: )')
+
+0104     split_idx = dataset.get_idx_split()
+0105 
+0106     ### automatic evaluator. takes dataset name as input
+0107     evaluator = Evaluator(args.dataset)
+0108 
+0109     train_loader = DataLoader(dataset[split_idx["train"]], batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
+0110     valid_loader = DataLoader(dataset[split_idx["valid"]], batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
+0111     test_loader = DataLoader(dataset[split_idx["test"]], batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
+0112 
+0113     if args.gnn == 'gin':
+0114         model = GNN(gnn_type = 'gin', num_tasks = dataset.num_tasks, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = False).to(device)
+0115     elif args.gnn == 'gin-virtual':
+0116         model = GNN(gnn_type = 'gin', num_tasks = dataset.num_tasks, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = True).to(device)
+0117     elif args.gnn == 'gcn':
+0118         model = GNN(gnn_type = 'gcn', num_tasks = dataset.num_tasks, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = False).to(device)
+0119     elif args.gnn == 'gcn-virtual':
+0120         model = GNN(gnn_type = 'gcn', num_tasks = dataset.num_tasks, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = True).to(device)
+0121     else:
+0122         raise ValueError('Invalid GNN type')
+0123 
+0124     optimizer = optim.Adam(model.parameters(), lr=0.001)
+0125 
+0126     valid_curve = []
+0127     test_curve = []
+0128     train_curve = []
+
+0130     for epoch in range(1, args.epochs + 1):
+0131         print("=====Epoch {}".format(epoch))
+0132         print('Training...')
+0133         train(model, device, train_loader, optimizer, dataset.task_type)
+0134 
+0135         print('Evaluating...')
+0136         train_perf = eval(model, device, train_loader, evaluator)
+0137         valid_perf = eval(model, device, valid_loader, evaluator)
+0138         test_perf = eval(model, device, test_loader, evaluator)
+0139 
+0140         print({'Train': train_perf, 'Validation': valid_perf, 'Test': test_perf})
+0141 
+0142         train_curve.append(train_perf[dataset.eval_metric])
+0143         valid_curve.append(valid_perf[dataset.eval_metric])
+0144         test_curve.append(test_perf[dataset.eval_metric])
+0145 
+0146     if 'classification' in dataset.task_type:
+0147         best_val_epoch = np.argmax(np.array(valid_curve))
+0148         best_train = max(train_curve)
+0149     else:
+0150         best_val_epoch = np.argmin(np.array(valid_curve))
+0151         best_train = min(train_curve)
+0152 
+0153     print('Finished training!')
+0154     print('Best validation score: {}'.format(valid_curve[best_val_epoch]))
+0155     print('Test score: {}'.format(test_curve[best_val_epoch]))
+0156 
+0157     if not args.filename == '':
+0158         torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch], 'Train': train_curve[best_val_epoch], 'BestTrain': best_train}, args.filename)
+0159 
+0160 
+0161 if __name__ == "__main__":

@@ -1,0 +1,96 @@
+0141 def check_acc(preds_dict, condition, init_labels, train_nid, val_nid, test_nid, show_test=True, loss_type='ce'):
+0142     mask_train, mask_val, mask_test = [], [], []
+0143     remove_label_keys = []
+0144     k = list(preds_dict.keys())[0]
+0145     v = preds_dict[k]
+0146     if loss_type == 'ce':
+0147         na, nb, nc = len(train_nid), len(val_nid), len(test_nid)
+0148     elif loss_type == 'bce':
+0149         na, nb, nc = len(train_nid) * v.size(1), len(val_nid) * v.size(1), len(test_nid) * v.size(1)
+0150 
+0151     for k, v in preds_dict.items():
+0152         if loss_type == 'ce':
+0153             pred = v.argmax(1)
+0154         elif loss_type == 'bce':
+0155             pred = (v > 0).int()
+0156 
+0157         a, b, c = pred[train_nid] == init_labels[train_nid], \
+0158                   pred[val_nid] == init_labels[val_nid], \
+0159                   pred[test_nid] == init_labels[test_nid]
+0160         ra, rb, rc = a.sum() / na, b.sum() / nb, c.sum() / nc
+0161 
+0162         if loss_type == 'ce':
+0163             vv = torch.log(v / (v.sum(1, keepdim=True) + 1e-6) + 1e-6)
+0164             la, lb, lc = F.nll_loss(vv[train_nid], init_labels[train_nid]), \
+0165                          F.nll_loss(vv[val_nid], init_labels[val_nid]), \
+0166                          F.nll_loss(vv[test_nid], init_labels[test_nid])
+0167         else:
+0168             vv = (v / 2. + 0.5).clamp(1e-6, 1-1e-6)
+0169             la, lb, lc = F.binary_cross_entropy(vv[train_nid], init_labels[train_nid].float()), \
+0170                          F.binary_cross_entropy(vv[val_nid], init_labels[val_nid].float()), \
+0171                          F.binary_cross_entropy(vv[test_nid], init_labels[test_nid].float())
+0172         if condition(ra, rb, rc, k):
+0173             mask_train.append(a)
+0174             mask_val.append(b)
+0175             mask_test.append(c)
+0176         else:
+0177             remove_label_keys.append(k)
+0178         if show_test:
+
+0250 
+0251     idx_shift = np.zeros(len(dl.nodes['count'])+1, dtype=np.int32)
+0252     for i in range(len(dl.nodes['count'])):
+0253         idx_shift[i+1] = idx_shift[i] + dl.nodes['count'][i]
+0254 
+0255     # === labels ===
+0256     num_classes = dl.labels_train['num_classes']
+0257     init_labels = np.zeros((dl.nodes['count'][0], num_classes), dtype=int)
+0258 
+0259     trainval_nid = np.nonzero(dl.labels_train['mask'])[0]
+0260     test_nid = np.nonzero(dl.labels_test['mask'])[0]
+0261 
+0262     init_labels[trainval_nid] = dl.labels_train['data'][trainval_nid]
+0263     init_labels[test_nid] = dl.labels_test['data'][test_nid]
+0264     if args.dataset != 'IMDB':
+0265         init_labels = init_labels.argmax(axis=1)
+0266     init_labels = torch.LongTensor(init_labels)
+0267 
+
+0331     elif args.dataset == 'IMDB':
+0332         # A --- M* --- D
+0333         #       |
+0334         #       K
+0335         # movie    : [4932, 3489]
+0336         # director : [2393, 3341]
+0337         # actor    : [6124, 3341]
+0338         # keywords : None
+0339         M, D, A, K = features_list
+0340         MD, DM, MA, AM, MK, KM = adjs
+0341         assert torch.all(DM.storage.col() == MD.t().storage.col())
+0342         assert torch.all(AM.storage.col() == MA.t().storage.col())
+0343         assert torch.all(KM.storage.col() == MK.t().storage.col())
+0344 
+0345         assert torch.all(MD.storage.rowcount() == 1) # each movie has single director
+0346 
+0347         new_edges = {}
+0348         ntypes = set()
+0349         etypes = [ # src->tgt
+0350             ('D', 'D-M', 'M'),
+
+0456         adjs = {'AP': AP, 'PA': PA, 'PT': PT, 'PV': PV, 'TP': TP, 'VP': VP}
+0457     elif args.dataset == 'ACM':
+0458         adjs = {'PP': PP, 'PA': PA, 'AP': AP, 'PC': PC, 'CP': CP}
+0459     elif args.dataset == 'IMDB':
+0460         adjs = {'MD': MD, 'DM': DM, 'MA': MA, 'AM': AM, 'MK': MK, 'KM': KM}
+0461     elif args.dataset == 'Freebase':
+0462         new_adjs = {}
+0463         for rtype, adj in adjs.items():
+0464             dtype, stype = rtype
+0465             if dtype != stype:
+0466                 new_name = f'{stype}{dtype}'
+0467                 assert new_name not in adjs
+0468                 new_adjs[new_name] = adj.t()
+0469         adjs.update(new_adjs)
+0470     else:
+0471         assert 0
+0472 
