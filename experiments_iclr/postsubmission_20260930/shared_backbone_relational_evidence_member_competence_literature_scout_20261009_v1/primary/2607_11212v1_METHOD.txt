@@ -1,0 +1,175 @@
+3 Problem Setting and Information Boundary
+Let G=(V,E,X) be a graph with n=|V| nodes, normalized homogeneous edge
+set E , feature matrix X\in\mathbb{R}^{n\times d} , and binary labels
+y_{i}\in\{0,1\} . For outer split s , the node memberships are
+\mathcal{T}_{s} , \mathcal{V}_{s} , and \mathcal{Q}_{s} for training,
+validation, and test. The three sets are disjoint within a split.
+All methods receive the same node features, normalized adjacency, and split
+indices. Training labels y_{j} for j\in\mathcal{T}_{s} may train a classifier
+or construct evidence. Validation labels may select a candidate, checkpoint,
+mixture, and decision threshold. Test labels are available only to the final
+metric evaluator.
+3.1 Relational evidence as provenance-typed knowledge
+We distinguish three information types. Attribute knowledge
+K_{X}=(X,E) is available without labels and may be used by every split.
+Training-derived relational knowledge K_{R}^{(s)} consists of statistics whose
+label sources belong exclusively to \mathcal{T}_{s} . Decision knowledge
+K_{D}^{(s)} consists of validation scores, the selected candidate, and its
+threshold; it may control routing but may not alter K_{R}^{(s)} . Test labels
+belong only to the evaluator and to none of these knowledge objects.
+This typing makes the validity condition compositional. A representation is
+admissible for split s only if each label-dependent component can be traced
+to K_{R}^{(s)} and each adaptive choice can be traced to K_{D}^{(s)} . The
+following contract instantiates that condition for neighborhood evidence.
+3.2 Label-access contract
+For node i , the eligible labeled neighborhood is
+\widetilde{\mathcal{N}}_{s}(i)=\{j\in\mathcal{N}(i)\cap\mathcal{T}_{s}:j\neq i\}.
+(1)
+The j\neq i condition is mandatory even when i is a training node and the
+normalized graph contains a self-loop. Validation and test nodes can contribute
+their raw attributes and structural position in the transductive graph, but
+their labels cannot contribute to evidence.
+If the training prevalence is estimated automatically, a training node
+receives a leave-one-out prevalence:
+\pi_{s,-i}=\frac{\sum_{j\in\mathcal{T}_{s}}y_{j}-y_{i}}{|\mathcal{T}_{s}|-1},\qquad i\in\mathcal{T}_{s},
+(2)
+whereas validation and test nodes use the complete training prevalence
+\pi_{s} . This prevents a node’s target from entering its own evidence through
+the smoothing prior.
+3.3 Prediction and review-budget objectives
+Each method produces a fraud probability p_{i} . A threshold \tau_{s} is
+selected on \mathcal{V}_{s} by maximizing validation Macro-F1 and is frozen
+before test inference. At review fraction b=0.05 , the review set consists of
+the top \lceil b|\mathcal{Q}_{s}|\rceil test probabilities. We report its
+precision and recall, together with AUPRC, Macro-F1, AUROC, Brier score, and
+ECE.
+4 PREF-Gate: Evidence Construction and Decision Fusion
+4.1 Graph normalization
+Each released graph is converted to a homogeneous representation. For every
+edge (u,v) , the reverse edge (v,u) is added; duplicates are removed in a
+deterministic lexical order; and one self-loop is inserted per node. Missing
+feature values are mapped to zero, with infinite values clipped to finite
+sentinels. The same normalized graph is passed to every independent method and
+to external adapters that require homogeneous adjacency.
+Let
+\overline{x}_{i}=\frac{1}{|\mathcal{N}(i)|}\sum_{j\in\mathcal{N}(i)}x_{j}
+(3)
+denote the incoming one-hop feature mean, with a zero vector for an empty
+neighborhood. Because the normalized graph includes self-loops, the operator
+has a stable value for every node.
+4.2 Label-free context expert
+The label-free context vector is
+z_{i}^{(C)}=\left[x_{i}\,\|\,\overline{x}_{i}\,\|\,|x_{i}-\overline{x}_{i}|\,\|\,\log(1+\deg(i))\,\|\,\mathbb{I}[\deg(i)>0]\right].
+(4)
+It captures three complementary views: the node itself, the average local
+context, and the magnitude of disagreement between the two. The final two
+terms expose neighborhood scale and availability.
+A histogram gradient-boosting classifier f_{C} is fit on
+\{(z_{i}^{(C)},y_{i}):i\in\mathcal{T}_{s}\} . The fixed configuration uses 180
+iterations, learning rate 0.05, 31 maximum leaf nodes, L_{2} regularization
+1.0, balanced class weighting, and random state s+303 . Its validation and
+test probabilities are denoted p_{i}^{(C)} .
+4.3 Training-label-only neighbor risk
+For eligible support
+m_{i}=|\widetilde{\mathcal{N}}_{s}(i)|,\qquad k_{i}=\sum_{j\in\widetilde{\mathcal{N}}_{s}(i)}y_{j},
+(5)
+the raw neighborhood risk is
+r_{i}=\begin{cases}k_{i}/m_{i},&m_{i}>0,\\
+\pi_{s,-i},&m_{i}=0,\ i\in\mathcal{T}_{s},\\
+\pi_{s},&m_{i}=0,\ i\notin\mathcal{T}_{s}.\end{cases}
+(6)
+A separately reported smoothed risk is
+\widetilde{r}_{i}=\frac{k_{i}+\alpha\pi_{i}}{m_{i}+\beta},\qquad\alpha=1,\quad\beta=2,
+(7)
+where \pi_{i} is the applicable self-excluded or complete training prevalence.
+Neither validation nor test labels enter k_{i} , m_{i} , or \pi_{i} .
+4.4 Empirical-Bayes evidence
+The concentration \kappa_{s} is estimated from supported training nodes. Let
+q_{i}=k_{i}/m_{i} for i\in\mathcal{T}_{s} with m_{i}>0 . A
+support-weighted mean and variance are computed, and the expected binomial
+sampling noise is subtracted. The resulting method-of-moments concentration is
+clipped to [2,100] ; when fewer than two supported training nodes exist, the
+fallback concentration is 12.
+For node-specific prior shapes
+a_{i}=\kappa_{s}\pi_{i},\qquad b_{i}=\kappa_{s}(1-\pi_{i}),
+(8)
+the posterior summaries are
+\displaystyle\mu_{i}
+\displaystyle=\frac{k_{i}+a_{i}}{m_{i}+a_{i}+b_{i}},
+(9)
+\displaystyle\sigma_{i}^{2}
+\displaystyle=\frac{(k_{i}+a_{i})(m_{i}-k_{i}+b_{i})}{(m_{i}+a_{i}+b_{i})^{2}(m_{i}+a_{i}+b_{i}+1)}.
+(10)
+The evidence vector is
+e_{i}=\left[r_{i},\mu_{i},\sigma_{i}^{2},\log(1+m_{i}),\mathbb{I}[m_{i}>0],r_{i}-\mu_{i},\pi_{i}\right].
+(11)
+The displacement r_{i}-\mu_{i} records how strongly the posterior pulls the raw
+rate toward the training prior.
+4.5 Evidence context expert
+The evidence expert receives
+z_{i}^{(E)}=[z_{i}^{(C)}\|e_{i}].
+(12)
+An Extra-Trees classifier f_{E} with 200 trees, minimum leaf size 10, balanced
+class weights, and random state s+404 is trained on \mathcal{T}_{s} . Its
+probability is p_{i}^{(E)} . The model is deliberately different from f_{C} so
+that the evidence path can learn non-linear interactions among raw risk,
+support, and posterior uncertainty.
+4.6 Finite validation-adaptive gate
+The pre-specified candidate family is
+\mathcal{P}=\left\{p^{(C)},p^{(E)},wp^{(C)}+(1-w)p^{(E)}:w\in\{0.25,0.50,0.75\}\right\}.
+(13)
+There are exactly five candidates. For each candidate c , validation
+Macro-F1 determines a candidate-specific threshold \tau_{c} . The gate score is
+S_{c}=\frac{1}{2}\operatorname{MacroF1}_{\mathcal{V}_{s}}(c,\tau_{c})+\frac{1}{2}\operatorname{AUPRC}_{\mathcal{V}_{s}}(c).
+(14)
+Candidates are ordered by S_{c} , then validation AUPRC, validation Macro-F1,
+and finally candidate name. The selected candidate c_{s}^{\star} and threshold
+\tau_{s}^{\star} are frozen before either expert is asked for test
+probabilities.
+Algorithm 1 Validation-adaptive PREF-Gate inference
+1:
+Graph G , features X , split
+(\mathcal{T}_{s},\mathcal{V}_{s},\mathcal{Q}_{s})
+2:
+Build z^{(C)} from X and adjacency only
+3:
+Build e from labels in \mathcal{T}_{s} with self-exclusion
+4:
+Fit f_{C} on z^{(C)}_{\mathcal{T}_{s}} and f_{E} on
+[z^{(C)}\|e]_{\mathcal{T}_{s}}
+5:
+Materialize validation probabilities for the two experts
+6:
+Enumerate the five candidates in Eq. (13)
+7:
+for each validation candidate c do
+8:
+Select \tau_{c} by validation Macro-F1
+9:
+Compute S_{c} using Eq. (14)
+10:
+end for
+11:
+Freeze c_{s}^{\star}=\arg\max_{c}S_{c} and \tau_{s}^{\star}
+12:
+Materialize only the required test expert probabilities
+13:
+return selected test probabilities and frozen threshold
+4.7 Why the gate is conservative
+The earlier full gate included structural, raw risk, empirical-Bayes risk,
+context, and evidence experts plus every pairwise mixture at three weights.
+With five base experts this produced 35 candidates. Maximizing over many
+correlated validation scores creates a multiple-comparison effect: an
+insignificant validation fluctuation can change the chosen model. The reduced
+gate asks a narrower mechanism question and avoids unrelated weak candidates.
+This design also permits an interpretable fallback. If evidence is not
+supported, p^{(C)} remains a valid final model rather than an emergency
+exception. If evidence improves validation, a pre-specified mixture can be
+selected. The fallback is therefore part of PREF-Gate’s method definition.
+4.8 Complexity
+Constructing one-hop means and evidence is O(|E|d+|E|) with sparse
+aggregation. The context design matrix has dimension 3d+2 ; the evidence
+matrix adds seven columns. The finite gate evaluates five vectors over the
+validation set, O(5|\mathcal{V}_{s}|) , and has no trainable parameters. Memory
+is dominated by the graph and feature matrices. The method avoids dense
+n\times n adjacency construction.

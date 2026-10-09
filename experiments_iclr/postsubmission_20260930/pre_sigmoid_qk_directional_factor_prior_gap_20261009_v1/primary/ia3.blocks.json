@@ -1,0 +1,704 @@
+[
+  {
+    "index": 0,
+    "tag": "h5",
+    "id": "modal-title",
+    "text": "Report GitHub Issue"
+  },
+  {
+    "index": 1,
+    "tag": "h1",
+    "id": null,
+    "text": "Few-Shot Parameter-Efficient Fine-Tuning is Better and Cheaper than In-Context Learning"
+  },
+  {
+    "index": 2,
+    "tag": "h6",
+    "id": null,
+    "text": "Abstract"
+  },
+  {
+    "index": 3,
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Few-shot in-context learning (ICL) enables pre-trained language models to perform a previously-unseen task without any gradient-based training by feeding a small number of training examples as part of the input. ICL incurs substantial computational, memory, and storage costs because it involves processing all of the training examples every time a prediction is made. Parameter-efficient fine-tuning (e.g. adapter modules, prompt tuning, sparse update methods, etc.) offers an alternative paradigm where a small set of parameters are trained to enable a model to perform the new task. In this paper, we rigorously compare few-shot ICL and parameter-efficient fine-tuning and demonstrate that the latter offers better accuracy as well as dramatically lower computational costs. Along the way, we introduce a new parameter-efficient fine-tuning method called (IA)3 that scales activations by learned vectors, attaining stronger performance while only introducing a relatively tiny amount of new parameters. We also propose a simple recipe based on the T0 model [1] called T-Few that can be applied to new tasks without task-specific tuning or modifications. We validate the effectiveness of T-Few on completely unseen tasks by applying it to the RAFT benchmark [2], attaining super-human performance for the first time and outperforming the state-of-the-art by 6% absolute. All of the code used in our experiments is publicly available.11 1 https://github.com/r-three/t-few"
+  },
+  {
+    "index": 4,
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "index": 5,
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Pre-trained language models have become a cornerstone of natural language processing, thanks to the fact that they can dramatically improve data efficiency on tasks of interest \u2013 i.e., using a pre-trained language model for initialization often produces better results with less labeled data. A historically common approach has been to use the pre-trained model\u2019s parameters for initialization before performing gradient-based fine-tuning on a downstream task of interest. While fine-tuning has produced many state-of-the-art results [1], it results in a model that is specialized for a single task with an entirely new set of parameter values, which can become impractical when fine-tuning a model on many downstream tasks."
+  },
+  {
+    "index": 6,
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "An alternative approach popularized by [3, 4] is in-context learning (ICL), which induces a model to perform a downstream task by inputting prompted examples. Few-shot prompting is the process of converting a small collection of input-target pairs into (typically) human-understandable instructions and examples [3, 4], along with a single unlabeled example for which a prediction is desired. Notably, ICL requires no gradient-based training and therefore allows a single model to immediately perform a wide variety of tasks. Performing ICL therefore solely relies on the capabilities that a model learned during pre-training. These characteristics have led to a great deal of recent interest in ICL methods [5, 6, 7, 8, 9, 10]."
+  },
+  {
+    "index": 7,
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "Despite the practical benefits of in-context learning, it has several major drawbacks. First, the fact that the model has to process all prompted input-target pairs every time it makes a prediction incurs significant compute costs. Second, in-context learning typically produces inferior performance compared to fine-tuning [4]. Finally, the exact formatting of the prompt (including the wording [11] and ordering of examples [12]) can have significant and unpredictable impact on the model\u2019s performance, far beyond inter-run variation observed when performing fine-tuning. Recent work has also demonstrated that ICL can perform well even when provided with incorrect labels, raising questions as to how much learning is taking place at all [9]."
+  },
+  {
+    "index": 8,
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "An additional paradigm for enabling a model to perform a new task with minimal updates is parameter-efficient fine-tuning (PEFT), where a pre-trained model is fine-tuned while only updating or adding a small number of parameters rather than all of the model\u2019s parameters. Recent methods have shown that it is possible to match the performance of fine-tuning the full model while only updating or adding a small fraction (e.g. 0.01%) of the full model\u2019s parameters [13, 14]. Furthermore, certain PEFT methods allow mixed-task batches where different examples in a batch are processed differently [14], making both PEFT and ICL viable approaches for multitask models."
+  },
+  {
+    "index": 9,
+    "tag": "p",
+    "id": "S1.p5.1",
+    "text": "While the benefits of PEFT begin to address some of the shortcomings of fine-tuning (when compared to ICL), there has been relatively little focus on whether PEFT methods work well when very little labeled data is available. Our primary goal in this paper is to close this gap by proposing a recipe \u2013 i.e., a model, a PEFT method, and a fixed set of hyperparameters \u2013 that attains strong performance on novel, unseen tasks while only updating a tiny fraction of the model\u2019s parameters. Specifically, we base our approach on the T0 model [1], a variant of T5 [15] that has been fine-tuned on a multitask mixture of prompted datasets. To improve performance on classification and multiple-choice tasks, we add unlikelihood [16, 17] and length normalization-based [4] loss terms. In addition, we develop a PEFT method called (IA)3 that multiplies intermediate activations by learned vectors. (IA)3 attains stronger performance than full-model fine-tuning while only updating a tiny fraction of model parameters. Finally, we demonstrate the benefits of pre-training the (IA)3 parameters before fine-tuning [18, 19]. Our overall recipe, which we dub \u201cT-Few\u201d, attains significantly stronger performance than ICL (even against 16\\times 16\u00d716\\times larger models) and outperforms humans for the first time on the real-world few-shot learning benchmark RAFT [2] while requiring dramatically less compute and allowing for mixed-task batches during inference. To facilitate the use of T-Few on new problems as well as future research on PEFT, we release our code.1"
+  },
+  {
+    "index": 10,
+    "tag": "p",
+    "id": "S1.p6.1",
+    "text": "After providing background on ICL and PEFT in the following section, we discuss the design of T-Few in section 3. In section 4, we present experiments comparing T-Few to strong ICL baselines. Finally, we discuss related work and ideas for future work in sections 5 and 6."
+  },
+  {
+    "index": 11,
+    "tag": "h2",
+    "id": null,
+    "text": "2 Background"
+  },
+  {
+    "index": 12,
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "In this section, we provide a brief overview of in-context learning and parameter-efficient fine-tuning, with a focus on characterizing the costs of each method. Specifically, we focus on the computation, memory, and on-disk storage costs of generating a prediction for an unlabeled example. The real-world costs can vary somewhat depending on implementation and hardware, so we characterize costs in terms of FLOPs for computation and and bytes for memory and storage, respectively."
+  },
+  {
+    "index": 13,
+    "tag": "h3",
+    "id": null,
+    "text": "2.1 Few-shot in-context learning"
+  },
+  {
+    "index": 14,
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "In-context learning (ICL), introduced and popularized by Radford et al. [3] and Brown et al. [4], aims to induce a model to perform a task by feeding in concatenated and prompted input-target examples (called \u201cshots\u201d) along with an unlabeled query example. Taking the cycled letter task from Brown et al. [4] as an example, a 4-shot input or context would be \u201cPlease unscramble the letters into a word, and write that word: asinoc = casino, yfrogg = froggy, plesim = simple, iggestb = biggest, astedro =\u201d, for which the desired output would be \u201croasted\u201d. ICL induces an autoregressive language model to perform this task by feeding in the context and sampling from the model. For classification tasks, each label is associated with a string (e.g. \u201cpositive\u201d and \u201cnegative\u201d for sentiment analysis) and a label is assigned by choosing the label string that the model assigns the highest probability to. For multiple-choice tasks (e.g. choosing between N NN possible answers to a question), the model\u2019s prediction is similarly determined by determining which choice is assigned the highest probability."
+  },
+  {
+    "index": 15,
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "The primary advantage of ICL is that it enables a single model to perform many tasks immediately without fine-tuning individual per-task models. This also enables mixed-task batches, where different examples in a batch of data can correspond to different tasks by using different contexts in the input. ICL is also typically performed with only a limited number of labeled examples \u2013 called few-shot learning \u2013 making it a data-efficient way of enabling a model to perform a task."
+  },
+  {
+    "index": 16,
+    "tag": "p",
+    "id": "S2.SS1.p3.1",
+    "text": "Despite these advantages, ICL comes with significant practical drawbacks: First, the need for the model to process labeled examples in the context before it makes each prediction dramatically increases the computational cost compared to processing the unlabeled example alone. Specifically, ignoring the quadratic complexity of self-attention operations in Transformer language models (which are typically small compared to the costs of the rest of the model [20]), processing the k kk training examples for k kk-shot ICL increases the computational cost by approximately k+1 k+1k+1 times compared to processing the unlabeled example alone. Memory costs similarly scale approximately linearly with k kk, though during inference the memory costs are typically dominated by storing the model\u2019s parameters. Separately, there is a small amount of on-disk storage required for storing the in-context examples for a given task. For example, storing 32 3232 examples for a task where the prompted input and target for each example is 512 512512 tokens long would require about 66 6666 kilobytes of storage on disk ( 32 3232 examples \\times\\;512 \u00d7 512\\times\\;512 tokens \\times\\;32 \u00d7 32\\times\\;32 bits)."
+  },
+  {
+    "index": 17,
+    "tag": "p",
+    "id": "S2.SS1.p4.1",
+    "text": "Beyond the aforementioned costs, it has been found that ICL has unintuitive behavior. For example, Zhao et al. [12] showed that the ordering of examples in the context heavily influences the model\u2019s predictions. Min et al. [9] showed that ICL can still perform well even if the labels of the in-context examples are swapped (i.e. made incorrect), which raises questions about whether ICL is really \u201clearning\u201d from the labeled examples or not."
+  },
+  {
+    "index": 18,
+    "tag": "p",
+    "id": "S2.SS1.p5.1",
+    "text": "Various approaches have been proposed to mitigate these issues. One way to lower the computational costs of ICL is to exploit the fact that decoder-only Transformer language models have a causal masking pattern, so the model\u2019s activations for the context do not change when the unlabeled example changes. However, computing self-attention for the unlabeled input requires using the keys and values from the context, requiring them to be cached. In an extreme case, 32 3232-shot ICL with 512 512512 input and target tokens per in-context example would result in over 144 gigabytes of cached key and value vectors for the GPT-3 model ( 32 3232 examples \\times\\;512 \u00d7 512\\times\\;512 tokens \\times\\;96 \u00d7 96\\times\\;96 layers \\times\\;12288\\;\\mathrm{d_{model}}\\times 32 \u00d7 12288\u200bdmodel\u00d732\\times\\;12288\\;\\mathrm{d_{model}}\\times 32 bits each for the key and value vectors). Storing these cached values on disk would therefore incur nontrivial storage costs. Separately, Min et al. [21] proposed ensemble ICL, where instead of using the output probability from concatenating the k kk training examples, the output probabilities of the model on each training example (i.e. 1 11-shot ICL for each of the k kk examples) are multiplied together. This lowers the memory cost by a factor of k/2 k/2k/2 but increases the computational cost by a factor of 2 22. In terms of task performance, Min et al. [21] find that ensemble ICL outperforms the standard concatenative variant."
+  },
+  {
+    "index": 19,
+    "tag": "h3",
+    "id": null,
+    "text": "2.2 Parameter-efficient fine-tuning"
+  },
+  {
+    "index": 20,
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "While standard fine-tuning updates all parameters of the pre-trained model, it has been demonstrated that it is possible to instead update or add a relatively small number of parameters during fine-tuning. Early methods proposed adding adapters [22, 23, 24], which are small feed-forward networks inserted between the layers in the pre-trained model whose parameters are updated during fine-tuning while the remainder of the pre-trained model is left fixed. Since then, various sophisticated PEFT methods have been proposed, including methods that choose a sparse subset of parameters to train [25, 26], produce low-rank updates [13], perform optimization in a lower-dimensional subspace [27], add low-rank adapters using hypercomplex multiplication [28], and more. Relatedly, prompt tuning [14] concatenates learned continuous embeddings to the model\u2019s input to induce it to perform a task and can be seen as a PEFT method [29]. State-of-the-art PEFT methods can match the performance of fine-tuning all of the model\u2019s parameters while updating only a tiny fraction (e.g. 0.01%) of the model\u2019s parameters."
+  },
+  {
+    "index": 21,
+    "tag": "p",
+    "id": "S2.SS2.p2.1",
+    "text": "A primary advantage of PEFT is that it drastically reduces the storage requirements for fine-tuned models. In addition, certain PEFT methods straightforwardly allow mixed-task batches \u2013 for example, prompt tuning enables a single model to perform many tasks simply by concatenating different prompt embeddings to each example in the batch [14]. On the other hand, other PEFT methods such as those that use sparse or low-rank updates do not make mixed-task batches convenient because they require a different set of parameters for each task. Separately, different PEFT methods increase the computation and memory required to perform inference by different amounts. For example, adapters effectively add additional (small) layers to the model, resulting in small but non-negligible increases in computational costs and memory. An additional cost incurred by PEFT is the cost of fine-tuning itself, which must be performed once and is then amortized as the model is used for inference. However, we will demonstrate that the increase in computation cost incurred by PEFT methods for fine-tuning and during inference is a small proportion of the inference cost required for ICL. Additionally, we will show that PEFT can be dramatically more computationally efficient during inference while achieving better accuracy than ICL."
+  },
+  {
+    "index": 22,
+    "tag": "h2",
+    "id": null,
+    "text": "3 Designing the T-Few Recipe"
+  },
+  {
+    "index": 23,
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "Given that PEFT allows a model to be adapted to a new task with relatively small storage requirements and computational cost, we argue that PEFT presents a promising alternative to ICL. Our goal is therefore to develop a recipe that allows a model to attain high accuracy on new tasks with limited labeled examples while allowing mixed-task batches during inference and incurring minimal computational and storage costs. By recipe, we mean a specific model and hyperparameter setting that provides strong performance on any new task without manual tuning or per-task adjustments. In this way, we can ensure that our approach is a realistic option in few-shot settings where limited labeled data is available for evaluation [30, 31]."
+  },
+  {
+    "index": 24,
+    "tag": "h3",
+    "id": null,
+    "text": "3.1 Model and Datasets"
+  },
+  {
+    "index": 25,
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "As a first step, we must choose a pre-trained model. Ideally, the model should attain high performance on new tasks after fine-tuning on a limited number of labeled examples. In preliminary experiments applying PEFT methods to different pre-trained models, we attained the best performance with T0 [1]. T0 is based on T5 [15], an encoder-decoder Transformer model [32] that was pre-trained via a masked language modeling objective [33] on a large corpus of unlabeled text data. T0 was created by fine-tuning T5 on a multitask mixture of datasets in order to enable zero-shot generalization, i.e. the ability to perform tasks without any additional gradient-based training. Examples in the datasets used to train T0 were prompted by applying the prompt templates from the Public Pool of Prompts (P3 [34]), which convert each example in each dataset to a prompted text-to-text format where each label corresponds to a different string. For brevity, we omit a detailed description of T0 and T5; interested readers can refer to Sanh et al. [1] and Raffel et al. [15]. T0 was released in three billion and eleven billion parameter variants, referred to as \u201cT0-3B\u201d and simply \u201cT0\u201d respectively. In this section (where our goal is to design the T-Few recipe through extensive experimentation), we use T0-3B to reduce computational costs. For all models and experiments, we use Hugging Face Transformers [35]."
+  },
+  {
+    "index": 26,
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "text": "While T0 was designed for zero-shot generalization, we will demonstrate that it also attains strong performance after fine-tuning with only a few labeled examples. To test T0\u2019s generalization, Sanh et al. [1] chose a set of tasks (and corresponding datasets) to hold out from the multitask training mixture \u2013 specifically, sentence completion (COPA [36], H-SWAG [37], and Story Cloze [38] datasets), natural language inference (ANLI [39], CB [40], and RTE [41]), coreference resolution (WSC [42] and Winogrande [43]), and word sense disambiguation (WiC [44]). Evaluation of generalization capabilities can then be straightforwardly done by measuring performance on these held-out datasets. We also will later test T-Few\u2019s abilities in the RAFT benchmark [2] in section 4.3, a collection of unseen \u201creal-world\u201d few-shot tasks with no validation set and a held-out test set."
+  },
+  {
+    "index": 27,
+    "tag": "p",
+    "id": "S3.SS1.p3.1",
+    "text": "To ease comparison, we use the same number of few-shot training examples for each dataset as Brown et al. [4], which varies from 20 to 70. Unfortunately, the few-shot dataset subsets used by Brown et al. [4] have not been publicly disclosed. To allow for a more robust comparison, we therefore constructed five few-shot datasets by sampling subsets with different seeds and report the median and interquartile range. We prompt examples from each dataset using the prompt templates from P3 Bach et al. [34], using a randomly-sampled prompt template for each example at each step. Unless otherwise stated, we train our model for 1K steps with a batch size of 8 and report performance at the end of training."
+  },
+  {
+    "index": 28,
+    "tag": "p",
+    "id": "S3.SS1.p4.1",
+    "text": "For evaluation, we use \u201crank classification\u201d, where the model\u2019s log-probabilities for all possible label strings are ranked and the model\u2019s prediction is considered correct if the highest-ranked choice is the correct answer. Rank classification evaluation is compatible with both classification and multiple-choice tasks. Since model performance can vary significantly depending on the prompt template used, we report the median accuracy across all prompt templates from P3 and across few-shot data subsets for each dataset. For all tasks and datasets, we report the accuracy on the test set or validation set in the event that the test labels are not public (e.g. on all SuperGLUE tasks). In the main text, we report median accuracy across the nine datasets mentioned above. Detailed results on each individual dataset are reported in the appendices."
+  },
+  {
+    "index": 29,
+    "tag": "h3",
+    "id": null,
+    "text": "3.2 Unlikelihood Training and Length Normalization"
+  },
+  {
+    "index": 30,
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "Before investigating PEFT methods, we first explore two additional loss terms to improve the performance of few-shot fine-tuning of language models. Language models are normally trained with cross-entropy loss:"
+  },
+  {
+    "index": 31,
+    "tag": "table",
+    "id": "S3.E1",
+    "text": "L_{\\mathrm{LM}}=-\\frac{1}{T}\\sum_{t=1}^{T}\\log p(y_{t}|\\mathbf{x},y_{<t}) LLM=\u22121T\u2211t=1Tlogp(yt|\ud835\udc31,y<t)L_{\\mathrm{LM}}=-\\frac{1}{T}\\sum_{t=1}^{T}\\log p(y_{t}|\\mathbf{x},y_{<t}) (1)"
+  },
+  {
+    "index": 32,
+    "tag": "p",
+    "id": "S3.SS2.p1.2",
+    "text": "where the model is trained to increase the probability of the correct target sequence \\mathbf{y}=(y_{1},y_{2},\\dots,y_{T}) \ud835\udc32=(y1,y2,\u2026,yT)\\mathbf{y}=(y_{1},y_{2},\\dots,y_{T}) given the input sequence \\mathbf{x} \ud835\udc31\\mathbf{x}."
+  },
+  {
+    "index": 33,
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "text": "For evaluation, we use rank classification (described in section 3.1) which depends on both the probability that the model assigns to the correct choice as well as the probabilities assigned by the model to the incorrect choices. To account for this during training, we consider adding an unlikelihood loss [16, 17]:"
+  },
+  {
+    "index": 34,
+    "tag": "table",
+    "id": "S3.E2",
+    "text": "L_{\\mathrm{UL}}=-\\frac{\\sum_{n=1}^{N}\\sum_{t=1}^{T^{(n)}}\\log(1-p(\\hat{y}^{(n)}_{i}|\\mathbf{x},\\hat{y}^{(n)}_{<t}))}{\\sum_{n=1}^{N}T^{(n)}} LUL=\u2212\u2211n=1N\u2211t=1T(n)log\u2061(1\u2212p\u2061(y^i(n)|\ud835\udc31,y^<t(n)))\u2211n=1NT(n)L_{\\mathrm{UL}}=-\\frac{\\sum_{n=1}^{N}\\sum_{t=1}^{T^{(n)}}\\log(1-p(\\hat{y}^{(n)}_{i}|\\mathbf{x},\\hat{y}^{(n)}_{<t}))}{\\sum_{n=1}^{N}T^{(n)}} (2)"
+  },
+  {
+    "index": 35,
+    "tag": "p",
+    "id": "S3.SS2.p2.2",
+    "text": "which discourages the model from predicting tokens from incorrect target sequences, where \\mathbf{\\hat{y}}^{(n)}=(\\hat{y}_{1},\\hat{y}_{2},\\dots,\\hat{y}_{T^{(n)}}) \ud835\udc32^(n)=(y^1,y^2,\u2026,y^T(n))\\mathbf{\\hat{y}}^{(n)}=(\\hat{y}_{1},\\hat{y}_{2},\\dots,\\hat{y}_{T^{(n)}}) is the n nn-th of N NN incorrect target sequences. We hypothesize that adding L_{\\mathrm{UL}} LULL_{\\mathrm{UL}} will improve results on rank classification because the model will be trained to assign lower probabilities to incorrect choices, thereby improving the chance that the correct choice is ranked highest."
+  },
+  {
+    "index": 36,
+    "tag": "p",
+    "id": "S3.SS2.p3.1",
+    "text": "The possible target sequences for a given training example can have significantly different lengths, especially in multiple-choice tasks. Ranking each choice based on probability can therefore \u201cfavor\u201d shorter choices because the model\u2019s assigned probability to each token is \\leq 1 \u22641\\leq 1. To rectify this, we consider using length normalization when performing rank classification, which divides the model\u2019s score on each possible answer choice by the number of tokens in the choice (as used in GPT-3 [4]). When using length normalization during evaluation, we introduce an additional loss term during training that more closely reflects length-normalized evaluation: First, we compute the length-normalized log probability of a given output sequence as:"
+  },
+  {
+    "index": 37,
+    "tag": "table",
+    "id": "S3.E3",
+    "text": "\\beta(\\mathbf{x},\\mathbf{y})=\\frac{1}{T}\\sum_{t=1}^{T}\\log p(y_{t}|\\mathbf{x},y_{<t}) \u03b2\u2061(\ud835\udc31,\ud835\udc32)=1T\u200b\u2211t=1Tlog\u2061p\u2061(yt|\ud835\udc31,y<t)\\beta(\\mathbf{x},\\mathbf{y})=\\frac{1}{T}\\sum_{t=1}^{T}\\log p(y_{t}|\\mathbf{x},y_{<t}) (3)"
+  },
+  {
+    "index": 38,
+    "tag": "p",
+    "id": "S3.SS2.p3.2",
+    "text": "Then, we maximize the length-normalized log probability of the correct answer choice via a standard \\mathrm{softmax} softmax\\mathrm{softmax} cross-entropy loss:"
+  },
+  {
+    "index": 39,
+    "tag": "table",
+    "id": "S3.E4",
+    "text": "L_{\\mathrm{LN}}=-\\log\\frac{\\exp(\\beta(\\mathbf{x},\\mathbf{y}))}{\\exp(\\beta(\\mathbf{x},\\mathbf{y}))+\\sum_{n=1}^{N}\\exp(\\beta(\\mathbf{x},\\mathbf{\\hat{y}}^{(n)}))} LLN=\u2212log\u2061exp\u2061(\u03b2\u2061(\ud835\udc31,\ud835\udc32))exp\u2061(\u03b2\u2061(\ud835\udc31,\ud835\udc32))+\u2211n=1Nexp\u2061(\u03b2\u2061(\ud835\udc31,\ud835\udc32^(n)))L_{\\mathrm{LN}}=-\\log\\frac{\\exp(\\beta(\\mathbf{x},\\mathbf{y}))}{\\exp(\\beta(\\mathbf{x},\\mathbf{y}))+\\sum_{n=1}^{N}\\exp(\\beta(\\mathbf{x},\\mathbf{\\hat{y}}^{(n)}))} (4)"
+  },
+  {
+    "index": 40,
+    "tag": "p",
+    "id": "S3.SS2.p3.3",
+    "text": "When training a model with L_{\\mathrm{LM}} LLML_{\\mathrm{LM}}, L_{\\mathrm{UL}} LULL_{\\mathrm{UL}}, and L_{\\mathrm{LN}} LLNL_{\\mathrm{LN}}, we simply sum them. This avoids introducing any hyperparameters that would be problematic to tune in the few-shot setting (where realistically-sized validation sets are tiny by necessity [30, 31])."
+  },
+  {
+    "index": 41,
+    "tag": "p",
+    "id": "S3.SS2.p4.1",
+    "text": "We report the results of fine-tuning all of T0-3B\u2019s parameters with and without length normalization on all datasets in appendix C. We find that adding L_{\\mathrm{LN}} LLNL_{\\mathrm{LN}} improves the accuracy from 60.7% to 62.71% and including both L_{\\mathrm{UL}} LULL_{\\mathrm{UL}} and L_{\\mathrm{LN}} LLNL_{\\mathrm{LN}} provides a further improvement to 63.3%. Since these loss terms improve performance without introducing any additional hyperparameters, we include them in our recipe and use them in all following experiments."
+  },
+  {
+    "index": 42,
+    "tag": "h3",
+    "id": null,
+    "text": "3.3 Parameter-efficient fine-tuning with (IA)3"
+  },
+  {
+    "index": 43,
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "text": "In order to compare favorably to few-shot ICL, we need a PEFT method that has the following properties: First, it must add or update as few parameters as possible to avoid incurring storage and memory costs. Second, it should achieve strong accuracy after few-shot training on new tasks. Finally, it must allow for mixed-task batches, since that is a capability of ICL. In order to easily enable mixed-task batches, a PEFT method should ideally not modify the model itself. Otherwise, each example in a batch would effectively need to be processed by a different model or computational graph. A more convenient alternative is provided by methods that directly modify the activations of the model since this can be done independently and cheaply to each example in the batch according to which task the example corresponds to. Prompt tuning and prefix tuning methods [14, 45] work by concatenating learned vectors to activation or embedding sequences and are therefore examples of activation-modifying PEFT methods that allow for mixed-task batches. However, as we will discuss later, we were unable to attain reasonable accuracy with prompt tuning and found that the more performant PEFT methods did not allow for mixed-task batches. We therefore developed a new PEFT method that meets our desiderata."
+  },
+  {
+    "index": 44,
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "text": "As an alternative, we explored element-wise multiplication (i.e. rescaling) of the model\u2019s activations against a learned vector. Specifically, we consider adaptation of the form l\\odot x l\u2299xl\\odot x where l\\in\\mathbb{R}^{d} l\u2208\u211ddl\\in\\mathbb{R}^{d} is a learned task-specific vector, \\odot \u2299\\odot represents element-wise multiplication, and x\\in\\mathbb{R}^{T\\times d} x\u2208\u211dT\u00d7dx\\in\\mathbb{R}^{T\\times d} is a length- T TT sequence of activations. We use \u201cbroadcasting notation\u201d [46] so that the (i,j)^{\\mathrm{th}} (i,j)th(i,j)^{\\mathrm{th}} entry of l\\odot x l\u2299xl\\odot x is l_{j}x_{i,j} lj\u200bxi,jl_{j}x_{i,j}. In preliminary experiments, we found it was not necessary to introduce a learned rescaling vector for each set of activations in the Transformer model. Instead, we found it was sufficient to introduce rescaling vectors on the keys and values in self-attention and encoder-decoder attention mechanisms and on the intermediate activation of the position-wise feed-forward networks. Specifically, using the notation from Vaswani et al. [32], we introduce three learned vectors l_{\\mathrm{k}}\\in\\mathbb{R}^{d_{\\mathrm{k}}},l_{\\mathrm{v}}\\in\\mathbb{R}^{d_{\\mathrm{v}}} lk\u2208\u211ddk,lv\u2208\u211ddvl_{\\mathrm{k}}\\in\\mathbb{R}^{d_{\\mathrm{k}}},l_{\\mathrm{v}}\\in\\mathbb{R}^{d_{\\mathrm{v}}}, and l_{\\mathrm{ff}}\\in\\mathbb{R}^{d_{\\mathrm{ff}}} lff\u2208\u211ddffl_{\\mathrm{ff}}\\in\\mathbb{R}^{d_{\\mathrm{ff}}}, which are introduced into the attention mechanisms as:"
+  },
+  {
+    "index": 45,
+    "tag": "table",
+    "id": "S3.Ex1",
+    "text": "\\mathrm{softmax}\\mathopen{}\\left(\\frac{Q(l_{\\mathrm{k}}\\odot K^{T})}{\\sqrt{d_{k}}}\\right)(l_{\\mathrm{v}}\\odot V) softmax(Q\u2061(lk\u2299KT)dk)(lv\u2299V)\\mathrm{softmax}\\mathopen{}\\left(\\frac{Q(l_{\\mathrm{k}}\\odot K^{T})}{\\sqrt{d_{k}}}\\right)(l_{\\mathrm{v}}\\odot V)"
+  },
+  {
+    "index": 46,
+    "tag": "p",
+    "id": "S3.SS3.p2.2",
+    "text": "and in the position-wise feed-forward networks as (l_{\\mathrm{ff}}\\odot\\gamma(W_{1}x))W_{2} (lff\u2299\u03b3\u2061(W1\u200bx))\u200bW2(l_{\\mathrm{ff}}\\odot\\gamma(W_{1}x))W_{2}, where \\gamma \u03b3\\gamma is the feed-forward network nonlinearity. We introduce a separate set of l_{\\mathrm{k}},l_{\\mathrm{v}} lk,lvl_{\\mathrm{k}},l_{\\mathrm{v}}, and l_{\\mathrm{ff}} lffl_{\\mathrm{ff}} vectors in each Transformer layer block. This adds a total of L(d_{k}+d_{v}+d_{\\mathrm{ff}}) L\u2061(dk+dv+dff)L(d_{k}+d_{v}+d_{\\mathrm{ff}}) new parameters for a L LL-layer-block Transformer encoder and L(2d_{k}+2d_{v}+d_{\\mathrm{ff}}) L\u2061(2\u200bdk+2\u200bdv+dff)L(2d_{k}+2d_{v}+d_{\\mathrm{ff}}) (with factors of 2 accounting for the presence of both self-attention and encoder-decoder attention) for a L LL-layer-block decoder. l_{\\mathrm{k}},l_{\\mathrm{v}} lk,lvl_{\\mathrm{k}},l_{\\mathrm{v}}, and l_{\\mathrm{ff}} lffl_{\\mathrm{ff}} are all initialized with ones so that the overall function computed by the model does not change when they are added. We refer to our method as (IA)3, which stands for \u201cInfused Adapter by Inhibiting and Amplifying Inner Activations\u201d."
+  },
+  {
+    "index": 47,
+    "tag": "p",
+    "id": "S3.SS3.p3.1",
+    "text": "(IA)3 makes mixed-task batches possible because each sequence of activations in the batch can be separately and cheaply multiplied by its associated learned task vector. We also note that, in the event that a model will only be used on a single task, the modifications introduced by (IA)3 can also be applied to weight matrices permanently so that no elementwise multiplication is required and the model\u2019s architecture remains unchanged. This is thanks to the fact that the element-wise multiplications performed in (IA)3 always co-occur with a matrix multiplication, and l\\odot Wx=(l\\odot W)x l\u2299W\u200bx=(l\u2299W)\u200bxl\\odot Wx=(l\\odot W)x. In this case, our method incurs no additional computational cost compared to the original model."
+  },
+  {
+    "index": 48,
+    "tag": "p",
+    "id": "S3.SS3.p4.1",
+    "text": "To validate (IA)3, we compare it to a large variety of existing adaptation methods in our setting of fine-tuning T0-3B on few-shot datasets from held-out tasks. Specifically, we compare against eight strong baseline methods: BitFit [47] which updates only the bias parameters; Adapters [23] which introduce task-specific layers after the self-attention and position-wise feed-forward networks; Compacter and Compacter++ [28] which improve upon adapters by using low-rank matrices and hypercomplex multiplication; prompt tuning [14] which learns task-specific prompt embeddings that are concatenated to the model\u2019s input; FISH Mask [26] which chooses a subset of parameters to update based on their approximate Fisher information; Intrinsic SAID [27] which performs optimization in a low-dimensional subspace; and LoRA [13] which assigns low-rank updates to parameter matrices. Additionally, we include the simple baselines of full-model fine-tuning and updating only the layer normalization parameters. For certain methods that allow changing the number of parameters updated or added, we report results for different parameter budgets: 0.2% and 0.02% sparsity for FISH Mask, 10 and 100 learned prompt vectors for prompt tuning, and 20,000- or 500,000-dimensional subspaces for Intrinsic SAID."
+  },
+  {
+    "index": 49,
+    "tag": "p",
+    "id": "S3.SS3.p5.1",
+    "text": "The results are shown in fig. 2, with detailed per-dataset results in appendix D. We find that (IA)3 is the only method that attains higher accuracy than the full-model-fine-tuning baseline. While other PEFT methods (e.g. Intrinsic SAID and prompt tuning) update or introduce fewer parameters, (IA)3 performs considerably better. Our results and setting differ with some past work on the PEFT methods we compare against. Mahabadi et al. [28] report that Compacter and Compacter++ outperform full-model fine-tuning, including in the few-shot setting. Lester et al. [14] found that prompt tuning could match full-model fine-tuning, and in subsequent work Wei et al. [48] found that prompt tuning performed well when applied to a multitask fine-tuned model in the few-shot setting. In both cases, we experimented with various hyperparameter choices to try to match past results. We hypothesize the disagreement comes from us using a different model and different datasets. For prompt tuning specifically, we noticed that the validation set performance could fluctuate wildly over the course of training, hinting at possible optimization issues."
+  },
+  {
+    "index": 50,
+    "tag": "h3",
+    "id": null,
+    "text": "3.4 Pre-training (IA)3"
+  },
+  {
+    "index": 51,
+    "tag": "p",
+    "id": "S3.SS4.p1.1",
+    "text": "In recent work, Gu et al. [18], Vu et al. [19] showed that pre-training the prompt embeddings in prompt tuning can improve performance when fine-tuning on downstream few-shot tasks. For pre-training, Gu et al. [18] use a suite of self-supervised tasks applied to unlabeled text data, and Vu et al. [19] consider using embeddings from a separate task or multitask mixture. We follow Vu et al. [19] and simply pre-train the new parameters introduced by (IA)3 on the same multitask mixture used to train T0. We pre-train for 100,000 steps with a batch size of 16 before fine-tuning the (IA)3 parameters on each individual downstream dataset. A full comparison of accuracy with and without pre-training (IA)3 is detailed in E. We find that pre-training improves fine-tuned accuracy from 64.6 to 65.8 and therefore add it to our recipe."
+  },
+  {
+    "index": 52,
+    "tag": "h3",
+    "id": null,
+    "text": "3.5 Combining the ingredients"
+  },
+  {
+    "index": 53,
+    "tag": "p",
+    "id": "S3.SS5.p1.1",
+    "text": "To summarize the above results, the T-Few recipe is defined as follows: We use the T0 model as a backbone. We add (IA)3 for downstream task adaptation and use parameters initialized from pre-training (IA)3 on the same multitask mixture used for T0. As an objective, we use the sum of a standard language modeling loss L_{\\mathrm{LM}} LLML_{\\mathrm{LM}}, an unlikelihood loss L_{\\mathrm{UL}} LULL_{\\mathrm{UL}} for incorrect choices, and a length-normalized loss L_{\\mathrm{LN}} LLNL_{\\mathrm{LN}}. We train for 1,000 steps with a batch size of 8 sequences using the Adafactor optimizer [49] with a learning rate of 3e^{-3} 3\u200be\u221233e^{-3} and a linear decay schedule with a 60-step warmup. We apply prompt templates to downstream datasets during training and inference to convert each example into an instructive text-to-text format. Importantly, we apply this recipe to every downstream dataset in exactly the same way without per-dataset hyperparameter tuning or modifications. This makes the recipe a realistic option for few-shot learning settings where validation sets are tiny by definition [30, 31]."
+  },
+  {
+    "index": 54,
+    "tag": "h2",
+    "id": null,
+    "text": "4 Outperforming ICL with T-Few"
+  },
+  {
+    "index": 55,
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "Having designed and established the T-Few recipe on the T0-3B model, we now apply it to T0 (with eleven billion parameters) and compare performance to strong few-shot ICL methods. We do not make any modifications to the T-Few recipe to account for the change in model size."
+  },
+  {
+    "index": 56,
+    "tag": "h3",
+    "id": null,
+    "text": "4.1 Performance on T0 asks"
+  },
+  {
+    "index": 57,
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "First, we evaluate T-Few on the datasets that were held out from T0\u2019s training mixture, comparing to:"
+  },
+  {
+    "index": 58,
+    "tag": "h4",
+    "id": null,
+    "text": "T0."
+  },
+  {
+    "index": 59,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p1.1",
+    "text": "To measure the improvement in performance conferred through parameter-efficient few-shot learning, we compare to zero-shot evaluation using T0 itself. In preliminary experiments, we found that T0 was not able to perform few-shot in-context learning \u2013 performance actually decreased as we increased the number of in-context examples. This is likely because of the zero-shot format used during multitask prompted fine-tuning and corroborates a recent finding by [10]."
+  },
+  {
+    "index": 60,
+    "tag": "h4",
+    "id": null,
+    "text": "T5+LM."
+  },
+  {
+    "index": 61,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px2.p1.1",
+    "text": "Since T0 is unable to perform in-context learning on its own, we also compare to T5+LM, the next-step-prediction language model upon which T0 is based. Specifically, we use the LM-adapted variant of T5.1.1.xxl released by Lester et al. [14], which has the same architecture and number of parameters as T0. Due to memory constraints and because of its improved performance, we use ensemble ICL for T5+LM [6]. Specifically, we perform one-shot ICL using each example in the training set individually and average the predictions for a given query example."
+  },
+  {
+    "index": 62,
+    "tag": "h4",
+    "id": null,
+    "text": "GPT-3."
+  },
+  {
+    "index": 63,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px3.p1.1",
+    "text": "For a strong ICL baseline, we consider models in the GPT-3 family [4]. Specifically, we compare to the 6.7, 13, and 175 billion parameter variants of GPT-3. Because these models have not been publicly released, we report numbers directly from Brown et al. [4]. While GPT-3 is available through the commercial OpenAI API, re-running evaluation through the API would be more than an order of magnitude more expensive than running all of the experiments performed for this paper."
+  },
+  {
+    "index": 64,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px3.p2.1",
+    "text": "The accuracy on the held-out T0 datasets (described in section 3.1) is shown in table 1 and fig. 3, with per-dataset results reported in appendix F. We find that T-Few outperforms all other methods by a substantial margin. Notably, T-Few achieves a 6% higher accuracy than few-shot ICL with GPT-3 175B despite being about 16\\times 16\u00d716\\times smaller and outperforms the smaller GPT-3 variants by an even larger margin. T-Few also attains significantly higher accuracy than its sibling models, outperforming both zero-shot learning with T0 and few-shot ICL with T5+LM."
+  },
+  {
+    "index": 65,
+    "tag": "h3",
+    "id": null,
+    "text": "4.2 Comparing computational costs"
+  },
+  {
+    "index": 66,
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "Having established that T-Few significantly outperforms ICL-based models, we now compare the relative costs of each few-shot learning approach. For simplicity, we use the FLOPs-per-token estimates for Transformer-based language models introduced by Kaplan et al. [20]. Specifically, we estimate that a decoder-only Transformer (e.g. the GPT series) with N NN parameters uses 2N 2\u200bN2N FLOPs per token for inference and 6N 6\u200bN6N FLOPs per token for training. Encoder-decoder models like T0 and T5 (where the encoder and decoder have the same number of layers and layer sizes) only process each token with either the encoder or decoder (each having roughly half the parameters of the full model), so the FLOPs per token estimates are halved to N NN and 3N 3\u200bN3N FLOPs per token for inference and training. We note that FLOPs are not a direct measurement of real-world computational cost because latency, power usage, and other costs can vary significantly depending on hardware and other factors [52]. However, we focus on FLOPs because it is a hardware-independent metric that closely with real-world costs the hardware setup used for running the different methods we consider would likely vary significantly across methods. We summarize the costs in table 1 and discuss them below. For all estimates, we use the median number of shots (41) across the datasets we consider. Rank evaluation and our unlikelihood loss both require processing every possible output choice to attain a prediction for an unlabeled example. The median combined tokenized sequence length for the input and all possible targets is 103 for the datasets we consider. For in-context examples processed for few-shot ICL, only the correct target is required, producing a median sequence length of 98. Assuming that key and value vectors are cached, processing a single example with ICL therefore involves processing 41\\times 98+103 41\u00d798+10341\\times 98+103 tokens. A summary of our cost estimates is provided in table 1."
+  },
+  {
+    "index": 67,
+    "tag": "h4",
+    "id": null,
+    "text": "Inference cost."
+  },
+  {
+    "index": 68,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p1.1",
+    "text": "Beyond improved accuracy, the primary advantage of avoiding few-shot ICL is dramatically lower inference costs. Processing a single input and all target choices with T-Few requires 11{\\text{e}}9\\times 103=1.1{\\text{e}}12 11\u200be\u200b9\u00d7103=1.1\u200be\u200b1211{\\text{e}}9\\times 103=1.1{\\text{e}}12 FLOPs, whereas few-shot ICL with GPT-3 175B requires 2\\times 175{\\text{e}}9\\times(41\\times 98+103)=1.4{\\text{e}}15 2\u00d7175\u200be\u200b9\u00d7(41\u00d798+103)=1.4\u200be\u200b152\\times 175{\\text{e}}9\\times(41\\times 98+103)=1.4{\\text{e}}15 FLOPs \u2013 more than 3 orders of magnitude more. Inference costs with ICL using the smaller GPT-3 variants are also dramatically higher than the inference cost of T-Few. As discussed in section 2.1, caching the key and value vectors when the same set of in-context examples is to be reused can reduce the computational cost of ICL. However, this would only result in an approximately 41\\times 41\u00d741\\times reduction, which is not nearly enough to make any of the GPT-3 ICL costs as low as T-Few."
+  },
+  {
+    "index": 69,
+    "tag": "h4",
+    "id": null,
+    "text": "Training cost."
+  },
+  {
+    "index": 70,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px2.p1.1",
+    "text": "Since T-Few is the only method that involves updating parameters, it is the only method that incurs a training cost. Training an eleven billion parameter encoder-decoder model for 1,000 steps with a batch size of 8 length-103 sequences requires approximately 3\\times 11{\\text{e}}9\\times 1,000\\times 8\\times 103=2.7{\\text{e}}16 3\u00d711\u200be\u200b9\u00d71,000\u00d78\u00d7103=2.7\u200be\u200b163\\times 11{\\text{e}}9\\times 1,000\\times 8\\times 103=2.7{\\text{e}}16 FLOPs. While not insignificant, this is only about 20 times larger than the FLOPs required to process a single example with few-shot in-context learning using GPT-3 175B. In other words, training T-Few costs as much as using GPT-3 175B to process 20 examples with few-shot in-context learning. We also found that fine-tuning T0 with T-Few on a single dataset only takes about a half an hour on a single NVIDIA A100 GPU. As of writing, this would cost about $17 USD using Microsoft Azure.11 1 https://docs.microsoft.com/en-us/azure/virtual-machines/ndm-a100-v4-series"
+  },
+  {
+    "index": 71,
+    "tag": "h4",
+    "id": null,
+    "text": "Storage cost."
+  },
+  {
+    "index": 72,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px3.p1.1",
+    "text": "T-Few also incurs the largest storage cost. When stored as single-precision floats, the parameters added by (IA)3 take up 4.2 MB of space on disk. In contrast, ICL methods only require storing the tokenized in-context examples (typically stored as 32-bit integers), resulting in a smaller 41\\times 98\\times 32\\text{ bits}=16\\text{ kB} 41\u00d798\u00d732\u200b bits=16\u200b kB41\\times 98\\times 32\\text{ bits}=16\\text{ kB} disk space requirement. However, we note that 4.2 MB is dwarfed by the on-disk size of the model checkpoints themselves \u2013 storing the (IA)3 adaptation vectors for 10,000 tasks would take about as much space as the T0 checkpoint (41.5 GB)."
+  },
+  {
+    "index": 73,
+    "tag": "h4",
+    "id": null,
+    "text": "Memory usage."
+  },
+  {
+    "index": 74,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px4.p1.1",
+    "text": "During inference, the primary memory cost is incurred by the model\u2019s parameters. The only model smaller than T0 (used by T-Few) is GPT-3 6.7B; otherwise, T-Few will incur a lower memory cost during inference. Additional memory costs are incurred when training T-Few due to the need to cache intermediate activations for backpropagation and for the gradient accumulator variables in Adafactor. However, as mentioned above, it is possible to use the T-Few recipe on a single 80GB A100 GPU."
+  },
+  {
+    "index": 75,
+    "tag": "h3",
+    "id": null,
+    "text": "4.3 Performance on Real-world Few-shot Tasks (RAFT)"
+  },
+  {
+    "index": 76,
+    "tag": "p",
+    "id": "S4.SS3.p1.1",
+    "text": "So far, we have evaluated performance on a collection of datasets that were not explicitly designed for benchmarking few-shot learning. To better evaluate T-Few\u2019s performance in the real world, we evaluated our approach on the RAFT benchmark [2]. RAFT consists of 11 \u201ceconomically valuable\u201d tasks that aim to mirror real-world applications. Importantly, each RAFT datasets has only 50 training examples with no validation set and a (larger) test set with no public labels, so it is impossible to \u201ccheat\u201d by tuning on an unrealistically-large validation set or by peeking at the test set [31, 30]. We apply T-Few to RAFT by using the standard prompts released alongside the dataset. The accuracy of the current top-5 methods is shown in table 2, with further details provided in appendix H. T-Few attains a state-of-the-art accuracy of 75.8% and outperforms the human baseline (73.5% accuracy) for the first time. The next-best model (from Schick and Sch\u00fctze [50]) achieves 6% lower accuracy and GPT-3 175B attains only 62.7%. These results validate that T-Few can be readily applied as-is to novel real-world tasks to attain strong performance."
+  },
+  {
+    "index": 77,
+    "tag": "h3",
+    "id": null,
+    "text": "4.4 Ablation experiments"
+  },
+  {
+    "index": 78,
+    "tag": "p",
+    "id": "S4.SS4.p1.1",
+    "text": "Given that our T-Few design experiments were on T0-3B, we perform a final ablation of some of the ingredients of T-Few on T0. We experiment with omitting the step of pre-training (IA)3 and removing unlikelihood training and length normalization Detailed results are shown in appendix G. We confirm that each of the ingredients provides a boost in accuracy: Removing pre-training decreases accuracy by 1.6%, and removing both pre-training and our additional loss terms reduces accuracy by an additional 2.5%."
+  },
+  {
+    "index": 79,
+    "tag": "h2",
+    "id": null,
+    "text": "5 Related Work"
+  },
+  {
+    "index": 80,
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "Currently, prompt tuning is one of the most parameter-efficient methods for large language models [45, 14, 53]. Liu et al. [54] introduce several tricks to improve prompt tuning, An et al. [55] tune prompts along with input embeddings for boost in performance, and Chen et al. [56] improve prompt embeddings through continued pre-training. Given optimization difficulties when training prompt embeddings, Diao et al. [57] recently used black-box optimization to train prompt embeddings without requiring gradients. Several works have analyzed prompt tuning from the perspective of interpretability Khashabi et al. [58] and its similarity to other PEFT methods He et al. [29]. Prompt tuning has been applied to various applications for NLP including continual learning [59], model robustness [60, 61], summarization [62], machine translation [63], co-training [64], probing language models [65, 65], inverse prompting [66], and transfer learning [67]. He et al. [68] recently proposed the use of a hypernetwork to predict prompts for new tasks (rather than training the prompt parameters with gradient descent). Prompt tuning and other PEFT methods have also been explored outside of the context of language models (e.g. vision [22, 69] and vision-and-language models [26])."
+  },
+  {
+    "index": 81,
+    "tag": "p",
+    "id": "S5.p2.1",
+    "text": "Separately, various studies have considered few-shot full-model fine-tuning with discrete prompts [70]. Recent work has analyzed training with discrete prompts, demonstrating a boost in performance with prompting when training on various numbers of examples [71], finding that models perform similarly when trained on good and bad prompts [11], and exploring which prompts work well for few-shot and full-shot setting [72]. There have also been efforts to develop methods that find performant discrete prompts [73, 74] and training prompts using methods similar to prompt tuning [75]."
+  },
+  {
+    "index": 82,
+    "tag": "p",
+    "id": "S5.p3.1",
+    "text": "There has also been a great deal of work on improving ICL. Chen et al. [5], Min et al. [6] use ICL for meta-learning to perform few-shot learning on new tasks. Lampinen et al. [7] show ICL can improve when explanations are provided and [8] use ICL with text retrieved from the web for open-domain question-answering. Meanwhile, Min et al. [9] analyze how ICL works and show that ICL can still perform well when incorrect labels are provided for the in-context examples."
+  },
+  {
+    "index": 83,
+    "tag": "p",
+    "id": "S5.p4.1",
+    "text": "With the advent of large language models with billions of parameters, there has been a great deal of recent interest in PEFT methods. A small amount of recent work has also begun to explore the compatibility of PEFT methods in the few-shot setting. Mahabadi et al. [28] found that PEFT can outperform standard fine-tuning in the low-resource setting. In concurrent work, Mahabadi et al. [76] compare PEFT to the use of discrete prompts (e.g. PET [70]) during few-shot fine-tuning and find that PEFT compares favorably. Also concurrently, Moosavi et al. [77] propose a framework for introducing adapters whose architecture and design vary from task to task and demonstrate improved results in few-shot settings. Gu et al. [18] and Vu et al. [19] both explored how pre-training prompt tuning parameters can improve when limited labeled data is available."
+  },
+  {
+    "index": 84,
+    "tag": "h2",
+    "id": null,
+    "text": "6 Conclusion"
+  },
+  {
+    "index": 85,
+    "tag": "p",
+    "id": "S6.p1.1",
+    "text": "We introduced T-Few, a parameter-efficient few-shot learning recipe that attains higher accuracy than few-shot in-context learning at a lower computational cost. T-Few uses (IA)3, a new parameter-efficient fine-tuning method that rescales inner activations with learned vectors. Using (IA)3 produces better performance than fine-tuning the full model while only introducing a tiny amount of additional parameters. T-Few also uses two additional loss terms that encourage the model to output lower probabilities for incorrect choices and account for the length of different answer choices. When applying T-Few as-is (with no task-specific hyperparameter tuning or other changes) to the RAFT benchmark, we attained super-human performance for the first time and outperformed prior submissions by a large margin. Through detailed characterization of computational costs, we found that T-Few uses over 1,000 \\times \u00d7\\times fewer FLOPs during inference than few-shot in-context learning with GPT-3 and only requires 30 minutes to train on a single NVIDIA A100 GPU. We hope our results provide a new perspective on how best to perform few-shot learning with large language models."
+  },
+  {
+    "index": 86,
+    "tag": "h2",
+    "id": null,
+    "text": "Acknowledgments and Disclosure of Funding"
+  },
+  {
+    "index": 87,
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "text": "We thank Brian Lester and Noah Constant for helpful discussion on debugging prompt tuning and Rabeeh Karimi Mahabadi for help with Compacter and Intrinsic SAID. We also thank Stella Biderman and the Google TPU Research Cloud who provided valuable computational resources to support this work. This work was supported by NSF-AI Engage Institute DRL-2112635."
+  },
+  {
+    "index": 88,
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "index": 89,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A Compute Description"
+  },
+  {
+    "index": 90,
+    "tag": "p",
+    "id": "A1.p1.1",
+    "text": "All T0-3B models were trained on 48GB A6000s. Training T0-3B with different PEFT methods took about an hour to train, except for Intrinsic SAID and FishMask which each took about two hours to train. Pre-training (IA)3 took 1 day on 4 A6000s. All T0 T\u200b0T0-sized models were trained 80GB A100s from DataCrunch 22 2 https://cloud.datacrunch.io/ and took about half an hour to train each. Pre-training (IA)3 took about 1 day on 4 A100s."
+  },
+  {
+    "index": 91,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix B Dataset licenses"
+  },
+  {
+    "index": 92,
+    "tag": "p",
+    "id": "A2.p1.1",
+    "text": "ANLI, WiC, WSC is licensed under a Creative Commons License. Winogrande is licnsed under an Apache license. COPA is under a BSD-2 Clause license. We could not find the license of RTE and CB but they are part of SuperGLUE which mentions the datasets are allowed for use in research context."
+  },
+  {
+    "index": 93,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix C Full Unlikelihood Training and Length Normalization Results"
+  },
+  {
+    "index": 94,
+    "tag": "p",
+    "id": "A3.p1.1",
+    "text": "Table 3 shows the full results with unlikelihood training and length normalization."
+  },
+  {
+    "index": 95,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix D Full PEFT Results"
+  },
+  {
+    "index": 96,
+    "tag": "p",
+    "id": "A4.p1.1",
+    "text": "We compare against the following PEFT methods, using a linear decay with warmup scheduler with a warm-up ratio of 0.06 0.060.06 and the Adafactor optimizer [49]. Table 4 shows the full per-dataset results of all PEFT methods we considered."
+  },
+  {
+    "index": 97,
+    "tag": "p",
+    "id": "A4.I1.ix1.p1.1",
+    "text": "We train for 300 steps with a learning rate of 3e^{-4} 3\u200be\u221243e^{-4}."
+  },
+  {
+    "index": 98,
+    "tag": "p",
+    "id": "A4.I1.ix2.p1.1",
+    "text": "We train for 300 steps with a learning rate of 3e^{-4} 3\u200be\u221243e^{-4}."
+  },
+  {
+    "index": 99,
+    "tag": "p",
+    "id": "A4.I1.ix3.p1.1",
+    "text": "We train for 300 steps with a learning rate of 3e^{-4} 3\u200be\u221243e^{-4}."
+  },
+  {
+    "index": 100,
+    "tag": "p",
+    "id": "A4.I1.ix4.p1.1",
+    "text": "We use a reduction factor of 32 3232, ReLU nonlinearity, and residual connections. We train for 500 steps with a learning rate of 3e^{-3} 3\u200be\u221233e^{-3}."
+  },
+  {
+    "index": 101,
+    "tag": "p",
+    "id": "A4.I1.ix5.p1.1",
+    "text": "We train for 500 steps with a learning rate of 3e^{-3} 3\u200be\u221233e^{-3} and hyper complex division factor of 4 (n=4) (n=4)(n=4)."
+  },
+  {
+    "index": 102,
+    "tag": "p",
+    "id": "A4.I1.ix6.p1.1",
+    "text": "We train for 500 steps with a learning rate of 3e^{-3} 3\u200be\u221233e^{-3} and hyper complex division factor of 4 (n=4) (n=4)(n=4)."
+  },
+  {
+    "index": 103,
+    "tag": "p",
+    "id": "A4.I1.ix7.p1.1",
+    "text": "We train for 1K steps with a learning rate of 3e^{-1} 3\u200be\u221213e^{-1} and use 10 and 100 prompt embeddings."
+  },
+  {
+    "index": 104,
+    "tag": "p",
+    "id": "A4.I1.ix8.p1.1",
+    "text": "The Fisher is first computed on the training examples and we keep 0.2\\% 0.2%0.2\\% or 0.02\\% 0.02%0.02\\% of the parameters. Then, these parameters are trained for 1500 steps with a learning rate of 3e^{-4} 3\u200be\u221243e^{-4}."
+  },
+  {
+    "index": 105,
+    "tag": "p",
+    "id": "A4.I1.ix9.p1.1",
+    "text": "We train for 3K steps with a learning rate of 3e^{-2} 3\u200be\u221223e^{-2}"
+  },
+  {
+    "index": 106,
+    "tag": "p",
+    "id": "A4.I1.ix10.p1.1",
+    "text": "We use a rank of 4 44 with initialization scale of 0.01 0.010.01 and update all the attention and feedforward module. We train for 1K steps with a learning rate of 3e^{-3} 3\u200be\u221233e^{-3}."
+  },
+  {
+    "index": 107,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix E Full Pre-training Results"
+  },
+  {
+    "index": 108,
+    "tag": "p",
+    "id": "A5.p1.1",
+    "text": "Table 5 shows the per-dataset results for of pre-training (IA)3."
+  },
+  {
+    "index": 109,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix F Full Main Results"
+  },
+  {
+    "index": 110,
+    "tag": "p",
+    "id": "A6.p1.1",
+    "text": "Table 6 shows the per-dataset results for all few-shot"
+  },
+  {
+    "index": 111,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix G Full Ablation Results"
+  },
+  {
+    "index": 112,
+    "tag": "p",
+    "id": "A7.p1.1",
+    "text": "Table 7 shows the T-Few ablation results."
+  },
+  {
+    "index": 113,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix H RAFT Experiment Details"
+  },
+  {
+    "index": 114,
+    "tag": "p",
+    "id": "A8.p1.1",
+    "text": "RAFT consists of 11 tasks: Ade Corpus V2, Banking 77, NeurIps Impact Statement Risks, One Stop English, Overruling, Systematic Review Inclusion, Tai Safety Research, Terms of Service, Tweet Eval Hate, and Twitter Complaints. We use the T-Few recipe on all datasets without putting the labels into the input string except Banking 77. Since Banking 77 has 77 classes which causes memory issues for unlikelihood training, we turn off unlikelihood training for Banking 77. We also feed in all the labels as part of the input string for Banking 77 since there were some labels never seen during training and clean the labels by replacing \".\" with \",\"."
+  },
+  {
+    "index": 115,
+    "tag": "p",
+    "id": "A8.p2.1",
+    "text": "Per-dataset results of T-Few and the other top-5 methods on RAFT are shown in table 8."
+  },
+  {
+    "index": 116,
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  }
+]
