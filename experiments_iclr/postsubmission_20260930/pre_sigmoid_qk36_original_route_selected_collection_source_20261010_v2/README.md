@@ -1,0 +1,45 @@
+# Q/K36 original-route selected collection V2 — disabled
+
+10 October 2026. A thin practical successor to immutable selected-readout V2. All releases/custody templates remain disabled. Source preparation has read only source/metadata and performed source/hash/AST checks. No checkpoints, arrays, actual outcomes, numerical providers, runtime, GPU or servers were opened. Original sources, selected states, scores, recipes, freezes and seals remain intact.
+
+## Original resident states, complete36 custody
+
+Each original qualified route serves only its own seed's12 groups: four fixed operators × single/shared `be_init`/genuine independent4. This is36 member calls per route,108 over the complete panel. There is no checkpoint transfer or new route assignment. The full11701-node graph and5274 consumed development population are unchanged; the subset is of banks, never nodes or labels. Actual original hardware/providers are retained and checked before numerical loading.
+
+`gate_route.consume(release_path, release_sha256)` still runs the unchanged metadata-only whole36 union validator and fresh all-route training custody checks. A root-bound resident-state receipt retains all36 exact endpoint hashes, original qualification/cost metadata and the failed central checkpoint streaming attempt/cost. The unchanged lane work validator and selected/own/trace byte checks run on the current route's12 original cells only. Foreign24 checkpoints remain on their original routes. The lexical original namespace helper is unchanged; no alias, link, receipt rewrite or foreign absolute-path resolution is used.
+
+All three original absence receipts and foreign compact metadata must be available as exact bound files on each route. Templates specify explicit expected schemas. They do not acquire or stage anything. Root owns actual observations, authenticated receipts and complete original costs; the program's global custody proof is receipt-based, while local12 selected bytes are checked directly.
+
+## Two-phase release
+
+`collect_route.run(release_path, release_sha256)` retains the existing practical CLI shape.
+
+1. `collection_phase=native_baselines`: collect only the current seed's native_tied single/shared/independent4 banks, exactly9 member calls on success. Write the local3 cohort receipt and complete12-slot collection with candidates untouched. Retain all failures, partials and costs. The baseline receipt binds the final phase1 collection; the actual terminal receipt additionally binds final cost and wait/reap/group/CUDA absence evidence.
+2. Root freezes all nine native bank cohorts globally, binding each route's phase1 collection/cohort/cost/actual terminal receipts. `GLOBAL_BASELINE_FREEZE_TEMPLATE_DISABLED.json` describes this barrier. A failed native baseline prevents every candidate phase.
+3. `collection_phase=candidates`: the source validates that global barrier **before any numerical import or candidate call**, verifies local native archive bytes without decoding, inherits baseline rows/cohorts without re-serving them, and makes only the remaining27 member calls on success. A distinct fresh output retains the candidate arrays, all12 collection slots and prior baseline provenance. Baseline inheritance is persisted before runtime setup, so early candidate failures retain completed baseline custody.
+
+There are no fits, backwards, Adam steps, optimizer/training RNG history restores, reselection, recalibration, retry or resume. The unchanged selected-state hooks preserve actual saved local/global modes, coherent saved dropout streams and independently selected own banks. A successful route makes12 factory completions and48 fresh Adam constructions across the two phases; both generations remain charged, with zero steps. Per-phase counters and current-phase cell costs exclude prior baseline costs from double counting. All external owner/cleanup/mirroring costs remain separately required and never silently zero.
+
+`collection_hooks.py`, `readout36.py` and `namespace.py` are byte-identical to sealed selected-readout V2. The unchanged variable-member collector supplies complete logits, probability means, stable NLL, native cohorts/rivals, atomic partial/raw persistence and failure/finally handling. No numerical collector or statistical formula is reimplemented here. Route collection deliberately defers comparative analysis.
+
+## Later raw-only assembly
+
+`assemble_readout.run(release_path, release_sha256)` is separately disabled. After all route phase2 slots and actual owner/cost custody are retained, root may stream exact raw archive bytes server-to-server into a fresh server-only scope. **No Mac raw copies.** No selected checkpoints are transferred. `ARCHIVE_CUSTODY_TEMPLATE_DISABLED.json` distinguishes original and staged archive bindings and retains transfer failures/bytes/costs. Successful raw prediction archives and all nine cohort archives must match their original SHA256 and byte counts; partial banks are never analyzed as complete.
+
+Assembly reads no model state and makes zero member calls. It uses the unchanged `readout36.configure`/analysis code over a complete36-slot collection, retaining unavailable/failed cells and original route/provider provenance. All17 ordered contrasts, both frozen operator co-primaries, sharing bounds, mandatory same-family full-Q/K comparisons, all three paired values, member metrics, cohorts/rivals and original quality rule remain unchanged. No new scientific gate or survivor-only interval is introduced. The source verifies server runtime, bound NumPy provider and the existing finite external owner/cost boundary; root records actual terminal and compact-mirroring costs.
+
+`check_static.py` parses/compiles source and verifies original hashes, unchanged numerical files, disabled templates, population/call wiring and custody order. It imports no entry point and runs no numeric fixture. The source is prepared for review, not numerically qualified or execution-authorized.
+
+## Focused V2 terminal repair (QRC1)
+
+Immutable original-route V1 remains unchanged. V2 adds one shared stdlib `phase_terminal` validator used by the global phase1 barrier and complete36 assembly. `collect_route.py` is byte-identical to V1. Numerical hooks/readout/namespace remain byte-identical to the sealed selected reader V2. Collection call budgets, population, restore behavior, all17 contrasts, co-primary/sharing/full-QK rules and original per-bank availability remain unchanged.
+
+Terminal custody must bind the exact current phase collector program, the enabled original root phase release from final COST, original collection/cost paths, witnessed boot-bound parent/child identities and actual child argv. PID/birth/group/session/boot define identity; mutable state/ppid observations are not identity predicates. A separate byte-bound process witness records actual source/release/argv and the concrete parent/child relationship. A byte-bound owned-absence receipt records actual observations for that parent and every witnessed child-tree member, both groups and owned CUDA rows using the existing reviewed custody program.
+
+The actual direct child EXIT receipt must contain a concrete integer exit code, reaped child identity, witnessed owned members and measured original combined active/cleanup/admission/resource fields. `cleanup_cost_and_failures` binds that same unmodified existing EXIT file, retaining reason/signals/error fields; no separated cleanup duration is invented. Detached parent OS exit stays null and direct wait false. An actually observed parent exit may be reported only with its own bound direct exit/reap receipt.
+
+Phase1 requires complete successful baseline collection/COST, nine actual calls, concrete child exit0, clean original group/CUDA closure, no termination/error and measured costs within the original admitted envelope. This is required on all three routes before candidates and is rechecked before later assembly.
+
+Phase2 accepts honestly retained nonzero child exits/failure fields once real direct reap and current owned absence are established. Assembly preserves the original bank statuses and raw bytes and records exact terminal/release/process/exit/cleanup custody plus `phase_owner_succeeded`. A failed owner is not called successful. Overall collection status discloses retained phase2 owner failures. Existing unavailable slots remain unavailable; no complete bank is discarded by a new whole-phase veto and no survivor-only mean or interval is introduced. Root explicitly confirmed this fixed availability policy.
+
+Both disabled supervision templates now use exactly24GiB, matching every original route's immutable admission. Collection and assembly metadata gates admit no larger GPU envelope. The witness/absence templates are false and terminal/program/release/identity/exit bindings remain unresolved until actual root execution. Source preparation performed no collector/gate/owner, numerical fixture, provider, checkpoint/archive/outcome or remote execution.

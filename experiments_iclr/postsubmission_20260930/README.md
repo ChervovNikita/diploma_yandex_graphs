@@ -1,36 +1,32 @@
 # GNNM post-submission research
 
-We are developing graph ensembles for better predictions with shared learned weights and private routes. Original paper scores remain unchanged. A new accuracy advantage, methodological novelty and fresh manuscript acceptance remain unestablished.
+We are studying how shared-backbone graph ensembles can improve predictive quality. Original paper scores remain unchanged. A defensible new methodological advantage, unused confirmation and fresh manuscript acceptance remain unmet.
 
-## Current scientific comparisons
+## Current evidence and work
 
 | Direction | Task/backbone | Actual state |
 |---|---|---|
-| Query/key attention | WikiCS/Polynormer |All36 groups complete. Comparative prediction collection/analysis pending.|
-| Private graph propagation | Tolokers/Neural Sheaf Diffusion |All21 closed. Both recipes fail. Centering partly repairs members but provides little complementary ranking.|
-| Ensemble training credit | MolHIV/GINE and WikiCS/Polynormer |Molecular roster closed17complete/1failed, original reader separately enabled. Attention-credit12 complete; comparative analysis pending.|
-| Assigned source supply | IMDB/SeHGNN |All cohorts closed. Candidate trails both independent references by about1.15 micro-F1 points and changes no deployed decisions versus own-only. Fixed recipe closed negative.|
+| Query/key steering | WikiCS/Polynormer | All36 fresh groups complete. Original-route selected prediction collection is being prepared; comparative outcomes remain unopened. |
+| Ensemble credit for private attention | WikiCS/Polynormer | All12 fits and18-bank selected readout complete. Frozen primary/placement both fail; relation credit changes accuracy−0.095pp versus member supervision. |
+| Class alignment and route embedding contrast | WikiCS/Polynormer | Complete15-state comparison shows no stable gain; combined-minus-plain mean−0.070pp. |
+| Assigned graph-source supply | IMDB/SeHGNN | Complete negative: candidate trails independent4 by1.151micro-F1pp and changes no deployed decisions versus own-only. |
+| Private propagation and internal ensemble credit | Tolokers/Neural Sheaf Diffusion; MolHIV/GINE | Complete fixed recipes do not improve the practical independent references. Failures and costs remain retained. |
 
-[Complete IMDB interpretation](imdb_complete_error_source_dose_interpretation_20261009_v1/INTERPRETATION.md) and [complete geometry diagnosis](private_sheaf_post_all21_scientific_readout_20261009_v1/INTERPRETATION.md) preserve every paired result, member, source/error pattern and cost.
+The [complete attention interpretation](relation18_completed_scientific_decision_root_20261010_v1/INTERPRETATION.md) separates individual competence from complementary predictions. Attention-credit members remain almost unanimous and offer little pooling lift. Historical independent members have much broader any-correct coverage; provider/selector differences remain disclosed. This does not identify a latent or gradient cause.
 
-## Next source implementation
+## Next mechanisms
 
-[Proper source-context training](joint_source_predictive_innovation_design_20261009_v1/METHOD.md) gives factual/ablated proper supervision and positive source-restoration credit to private routes. An additive rank-one foundation is compared with multiplicative BE and genuine independent ensembles. Existing augmentation, GNCL, LoRA and TabLoRA ancestry is explicit. Root admitted source implementation only. No new training, quality advantage or novelty claim follows.
+A standard independently drawn private local-scorer start control is in source preparation. It tests copied starts while preserving the shared native weights and full task; it is known initialization practice. The pending Q/K comparison may supply a stronger direction before any new fit is admitted.
 
-## Preserved history
+The [wrong-class prediction contrast assessment](P_internal_BE_wrong_class_prediction_contrast_assessment_20261010_v1/METHOD_ASSESSMENT.md) retains ADP/CDLG ancestry and class-bias shortcuts. Output-visible contrast alone does not establish graph specialization or novelty.
 
-Completed Wiki24, Context9, staged posterior, query-value, link and earlier comparisons remain in the ledger with their failures and limits. No favorable subset, checkpoint, dose or threshold rescue is promoted. Raw datasets, checkpoints and prediction arrays stay on authorized research servers.
+The implemented additive/source-restoration method passed engineering qualification, but scientific fits are paused because its absent-peer training committee differs from the full-input serving committee. [Mechanistic critique](joint_source_credit_mechanistic_assessment_20261010_v1/MECHANISTIC_CRITIQUE.md). Typed-contributor covariance initialization is deferred: native SeHGNN already preserves its typed inputs through residual attention and concatenation.
+
+## Evidence and history
 
 - [Current execution and decisions](RESEARCH_STATE.md)
-- [Concise public status](PUBLIC_STATUS.md)
-- [Complete research ledger](research_ledger.json)
-- [Canonical literature memory](literature_memory/index_v72/LITERATURE_INDEX.json)
-- [Current scoped literature supplement](literature_memory/CURRENT_SUPPLEMENT.json)
+- [Research ledger](research_ledger.json)
+- [Canonical literature memory](literature_memory/index_v72/LITERATURE_INDEX.json) and [scoped supplement](literature_memory/CURRENT_SUPPLEMENT.json)
 - [Representative experiment requirements](canonical_SupCon_and_attention_integration_root_20261008_v1/REPRESENTATIVE_EXPERIMENT_STANDARD.md)
-- [Complete current training interface](portable_context_steering_public_interface_20261008_v1/README.md)
 
-## Molecular readout completed — 2026-10-09T19:50:32.659550+00:00
-
-All17 available original selected endpoints restored and served successfully once, with1947/1947 member calls and no collection errors. The failed P_7307 is retained and never served. Candidate I loses ROC-AUC to independent4 by[-1.954,-3.564,-2.542] percentage points, mean-2.687, and to single by[-0.135,-2.050,-1.133], mean-1.106. I-O mean-0.219 points is mixed across seeds. I-P/P-G retain an unavailable third pair and no mean. The original reader deliberately returns nonzero and whole-family formal success remains unavailable. Root does not advance this fixed candidate from its complete negative practical contrasts. No rescue tuning or best-policy substitution.
-
-Member ranking is weaker in all three pairs and realized pooling gain is smaller than independently. Common-inversion repairs coexist with offsetting full-population harms. BCE improves versus independent4, while ROC-AUC/AP lose and Brier worsens. These metrics do not support a universal calibration or graph-specialization claim. [Complete interpretation](molhiv_complete_candidate_failed_control_interpretation_20261009_v1/INTERPRETATION.md). Original and readout costs remain separately bound, without summing nested scopes.
+All declared outcomes, failures, costs and decisions are preserved. Raw datasets, selected checkpoints and prediction arrays remain on authorized research servers. Source review and engineering qualification provide no manuscript acceptance or accuracy verdict.
