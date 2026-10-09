@@ -1,0 +1,63 @@
+# Private edge transport with shared feature weights
+
+9 October 2026. **No new matrix-transport or ensemble principle is established.** One scientifically useful unresolved conjunction remains: can independently learned, edge-conditioned message transports preserve different useful relational evidence under shared large feature weights, improve member competence, and repair common errors better than a capable same-information joint single and genuine independent encoders? This is an attributed architecture/sharing question, not a novelty claim or admitted experiment.
+
+The complete root gate15 summary was the only project outcome read. Its failed continuation and label-identity checks, with zero pooled-only rescues, motivate looking beyond a frozen correction module. They do not diagnose representation collapse, oversmoothing or missing edge geometry in a from-scratch model. Saved CoGNN, private typed-path, FiLM/HGT, graph-filter and nonbacktracking conclusions were consulted first. Saved Neural Sheaf Diffusion (NSD) passages already establish learned edge coordinate transport; the new sources below sharpen both a competent implementation family and the required falsification.
+
+| New primary technical scope | Reusable finding and limit |
+|---|---|
+| [Deep Neural Sheaf Diffusion, 2605.19021v1](https://arxiv.org/html/2605.19021v1#S3), complete §3 and AppendixA restriction builders | DNSD uses sheaf adjacency rather than a disagreement-only Laplacian input, stalkwise LayerNorm, tanh, and node/stalk gates. Separate source/target builders turn concatenated endpoint states into d×d incidence maps. This provides a recent from-scratch graph encoder family. Its adjacency, depth-stability and sign-drift explanations are source claims; no universal guarantee, numerical performance or native implementation equivalence was verified. |
+| [Benchmarking Sheaf Neural Networks for Inductive Tasks, 2608.02558v1](https://arxiv.org/html/2608.02558v1#S4), §§2.2–2.4 and complete §4 | Edgewise message passing avoids assembling an nd×nd sheaf Laplacian. Matrix transport and attention weights are separate components; general, orthogonal and diagonal maps, residuals, normalization, FFNs and edge-feature conditioning are explicit. Modern surrounding components must be matched. Cost still includes edge map prediction/application and, where used, block-degree normalization. No result table or preferred winning recipe was read. |
+| [Learned, Relied Upon, or Necessary?, 2607.25387v2](https://arxiv.org/html/2607.25387v2#S3), §§3.1–3.3, §5.1, AppendicesD/E.2 | Moving learned maps or damaging one fixed checkpoint does not establish task value after retraining. It specifies paired incidence-map reassignment, layer-shared full maps, and parameter-matched node adapters. Fixed reassignment allows adaptation; continually resampled reassignment also changes stochastic training and gradients. Its resampled control averages eight logits for evaluation, unlike deterministic controls; that serving/compute difference cannot be inherited silently. Incidental §5.1 anchor scores were exposed, not adopted. |
+| [Mitigating Over-squashing without Rewiring, 2610.04157v1](https://arxiv.org/html/2610.04157v1#S3), complete §3 and AppendixC | FlatNSD learns one orthogonal frame per node; edge transport is F_vᵀF_u and the Laplacian is conjugate to the ordinary graph Laplacian. The authors explicitly describe FlatNSD as a restricted empirical tool rather than a new architecture. Its resistance/Jacobian theorems and performance were not read or adopted. A pure frame change is therefore an essential boundary for the proposed interpretation. |
+
+These are verified versioned arXiv sources; peer-reviewed publication and accepted-body equivalence are unverified. Four bounded method/setup scopes were read. Discovery also exposed ESNN's geometric-transport abstract; it is excluded from this candidate because no Euclidean geometric input is supplied by the present task. No ESNN method credit is assigned.
+
+## Exact candidate and causal hypothesis
+
+Use node states H_(m,v)∈R^(d×f), c=df. Keep the large feature/FFN matrices and two endpoint-to-map matrices B_src,B_tgt∈R^(2c×d²) shared and live. For edge e=(u→v), define z_(m,e)=[vec H_(m,u) || vec H_(m,v)] and
+
+`F_(bullet,m,e)=reshape_(d×d) tanh(((z_(m,e)*r_(bullet,m)) B_(bullet,shared))*s_(bullet,m)+b_(bullet,shared))`,
+
+where bullet is src or tgt; r has 2c entries and s has d² entries. The shared bias stays outside s. The private parameters are ordinary BE input/output factors for the two restriction builders, plus existing private predictor factors/heads. Retain persistent private states. Native DNSD-style transport uses
+
+`P_(m,u→v)=F_(tgt,m,e)ᵀ F_(src,m,e)`
+
+before summing incoming messages, with the chosen native normalization, self path, residual and gating preserved. All weights learn from scratch with the ordinary mean own-member CE; serving is the fixed mean of member probabilities. No teacher, correctness router, output reweighting or new diversity loss is introduced. A fixed ordinary BE initialization and a competent native recipe must be qualified before any study.
+
+The mechanism acts at an information boundary: if an incompatible neighbor feature is averaged into a shared message before private heads see it, downstream heads cannot separate contributions that the aggregate has already aliased. Endpoint-conditioned matrix transport can change the coordinate contribution of that neighbor before the sum. Different private transports may retain different useful paths while shared feature weights learn common representations. This is a hypothesis about competence and common errors, not evidence that the current trained backbone actually suffers this loss. Native attention, FiLM or a competent joint predictor may already supply all useful capacity.
+
+All ingredients collide with prior work. NSD/DNSD already learn endpoint-conditioned matrix relations; SAN separates matrix transport from neighbor weighting; FiLM/HGT supply receiver/relation-conditioned incoming value transformations; BE supplies shared matrices/private factors; CoGNN supplies learned communication support. Copying or factorizing these operators by member is an adaptation. No inspected source establishes the complete proposed sharing/ordinary-pool conjunction, but this bounded absence is not a priority claim.
+
+## What would count as private relational geometry
+
+Different map parameters alone are insufficient. A graph-independent conjugation `P'_(u→v)=D_m P_(u→v) D_m^(-1)` can be a common basis change. More generally, node-frame transforms `P'_(u→v)=C_v^(-1) P_(u→v) C_u` are gauges of the transport operator. Flat bundles with `P_(u→v)=O_vᵀO_u` have identity closed-walk products. Such changes may affect a tied nonlinear implementation, but cannot by themselves establish a new relation view or indispensable geometry.
+
+The proposed general incidence maps must depend on the actual ordered endpoint states/allowed edge attributes and vary across incidences, rather than reduce to one matrix per member/layer or one removable frame per node. That parameterization permits edge-dependent actions, but does not guarantee that training uses them beyond a gauge or scalar reweighting. The BE restriction can also make the private family too weak; full independently learned map builders are the competent reference.
+
+A concrete non-gauge intervention operates on **paired** source/target incidence maps: reassign complete pairs between label-blind matched edges, recompute the native normalization, and verify that closed-walk products of the effective transport blocks change in eigenvalues/traces. Under the node-frame gauge above, a product around a closed walk changes by similarity, so those quantities are invariant. An arbitrary shuffle need not change them; check rather than assume it does.
+
+For illustration, three transports λI, λI, diag(α,β), with α≠β, have closed-walk product λ²diag(α,β), which cannot be conjugate to λ³I. This is a symbolic operator witness, not a claim about realized candidate maps, actual graph cycles, a classification gain or a new theorem. On acyclic support this loop test is unavailable. Degree/self blocks, scalarization and predictor-visible directions also matter. A changed loop spectrum establishes an operator difference; matched retraining must establish useful task value.
+
+## One representative falsification study
+
+Use one prospectively fixed heterophilous task, **Roman-Empire with its complete official split policy**, as a challenging transport reference setting. The recent replacement source names this setting in its arXiv abstract; it is therefore a literature-informed challenge, not an independent confirmation selected before that source was seen. Acquire no data or results for this packet. Freeze one competent DNSD/modern sheaf recipe, stalk size, depth and initialization before any future fit; no controller/map-family/strength grid is proposed.
+
+Compare four complete families with the same raw graph/features/labels and selection opportunities:
+
+1. **Private edge transport:** the shared-large-weight ensemble specified above.
+2. **Relational replacement control:** the same shared ensemble with one trainable source/target map per member/layer on every edge, reallocating the removed endpoint-builder budget to node-only residual capacity. This is the recent Layer-Shared-C idea applied to the same sharing boundary; scalar attention, root routes and modern components must remain capable.
+3. **Same-information joint single:** one model with the identical multiple transport paths/states and a capable joint nonlinear readout, trained with ordinary task CE. A one-path head on a compressed shared embedding is inadequate.
+4. **Genuine independent ensemble:** separately initialized and trained complete encoders with the same full endpoint-conditioned transport operation; no shared fitted representation or large weight tensors. Include the competent native full-map encoder as its single-model anchor.
+
+A paired-map intervention on the selected complete predictors is a secondary geometry diagnostic. If used for task-value attribution, retrain the matched assignment-breaking family; a fixed-checkpoint shuffle cannot settle replacement. Preserve its stochastic serving and counted work explicitly instead of comparing multi-draw inference to one deterministic forward without accounting.
+
+The decisive outcome is unperturbed full-task accuracy/NLL, mean/worst member competence, common wrong-competitor margins, and actual pool rescues/harms. Freeze any common-error cohort from the reference before candidate outcomes and also report the whole population. Stop if extra repairs are canceled by harm, competence drops, the capacity replacement or joint single matches, genuine independent encoders explain the gain at the declared resource budget, or edge assignment is replaceable after retraining. Learned-map distance or non-gauge loop differences alone cannot pass this study.
+
+## Feasibility and disposition
+
+The fast restriction factors add `2M(2c+d²)` parameters per layer; the shared builders store `2(2c+1)d²`. For c=64,d=4,M=4, those counts are 1,152 fast factors and 4,128 shared builder parameters per layer, before the backbone/head parameters. These are illustrative arithmetic, not a selected recipe or resource qualification. Larger stalks can make the map builders dominate feature-map storage; small d can be too restrictive. Neither choice can be rescued by an unreported search.
+
+Sharing stored builders does not remove M evaluations on distinct states. Map prediction costs O(ME c d²), induced matrix products O(ME d³), and message transport O(ME d²f), plus normalization/backward. Materialized paired maps cost O(ME d²) memory; edgewise processing avoids a huge assembled Laplacian but does not make those costs free. No speedup or memory admission is claimed.
+
+**Retain only this inactive private-geometry/sharing conjunction.** The graph operator and private-factor mechanisms are already established. Its useful unresolved content is whether actual endpoint-specific transport, beyond removable frames and extra node capacity, yields competent complementary correct predictions while large trainable maps remain shared. If the capable joint single or ordinary independent ensemble settles the same errors, report a standard transport-encoder benefit and close the ensemble-specific claim. Primary bytes, exact scopes, reused ancestry, complete-root-summary custody and hashes are saved alongside this report. No experiment or source preparation follows from it.

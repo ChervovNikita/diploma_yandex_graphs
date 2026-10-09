@@ -1,0 +1,63 @@
+--- portable_internal_be_public_interface_20261007_v2/train.py
++++ fresh_owned_qk_driver/train.py
+@@ -6,6 +6,7 @@
+ import random
+ import time
+ from portable import Session, recipe
++from operator_adapter import OPERATORS, KINDS, install
+ from data_interface import load_train_valid, train_batches, validation_batches, _sha
+ 
+ 
+@@ -66,7 +67,9 @@
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--task', choices=('wikics', 'collab', 'molhiv'), required=True)
+-    parser.add_argument('--arm', required=True)
++    parser.add_argument('--arm', choices=KINDS, required=True)
++    parser.add_argument('--operator', choices=OPERATORS, required=True)
++    parser.add_argument('--operator-authorized', action='store_true')
+     parser.add_argument('--seed', type=int, default=6101)
+     parser.add_argument('--device', default='cpu')
+     parser.add_argument('--train', type=Path, required=True, help='Complete numeric TRAIN NPZ')
+@@ -76,6 +79,8 @@
+     parser.add_argument('--ncn-model', type=Path)
+     parser.add_argument('--ncn-utils', type=Path)
+     args = parser.parse_args(); started = time.monotonic(); trace = []; session = None
++    if not args.operator_authorized or args.task != 'wikics':
++        raise ValueError('Inactive WikiCS Q/K pilot; separate root qualification and release required')
+     args.output.mkdir(parents=True, exist_ok=False)
+     try:
+         # Load evaluator providers before Session seeds its trajectory, as in
+@@ -88,12 +93,14 @@
+         train, valid, origin = load_train_valid(args.task, args.train, args.valid)
+         session = Session(args.task, args.arm, args.seed, args.device,
+                           args.polynormer, args.ncn_model, args.ncn_utils)
++        install(session, operator=args.operator, later_execution_authorized=True)
+         torch = session.torch; ordinary_independent = args.arm == 'independent4'
+         run = {'task': args.task, 'arm': args.arm, 'seed': args.seed, 'device': str(session.device),
+                'data': origin, 'core': session.core_provenance, 'native': session.native_provenance,
+                'torch': str(torch.__version__), 'numpy': session.np.__version__,
+                'author_execution_equivalence_claimed': False, 'TEST_scoring': False,
+-               'driver_sha256': _sha(__file__), 'exact_resume_supported': False}
++               'driver_sha256': _sha(__file__), 'operator_adapter': dict(session.operator_binding),
++               'exact_resume_supported': False}
+         json_write(args.output / 'RUN.json', run)
+         best = best_local = -float('inf')
+         own_best = [-float('inf')] * session.model.members
+@@ -152,11 +159,14 @@
+             'seed': args.seed, 'epochs': config['training']['epochs'], 'steps': session.steps,
+             'selected_sha256': _sha(args.output / 'selected.pt'), 'TEST_scoring': False,
+             'seconds': time.monotonic() - started, 'parameter_counts': session.core['factors'].factor_counts(session.model),
+-            'author_execution_equivalence_claimed': False, 'exact_resume_supported': False})
++            'author_execution_equivalence_claimed': False, 'exact_resume_supported': False,
++            'operator_adapter': dict(session.operator_binding), 'operator_work': dict(session.operator_work)})
+     except BaseException as error:
+         json_write(args.output / 'FAILURE.json', {'complete': False, 'error_type': type(error).__name__,
+             'error': str(error), 'epochs_completed': len(trace), 'steps': session.steps if session else 0,
+-            'seconds': time.monotonic() - started, 'automatic_retry': False})
++            'seconds': time.monotonic() - started, 'automatic_retry': False,
++            'operator_adapter': dict(session.operator_binding) if session and hasattr(session, 'operator_binding') else None,
++            'operator_work': dict(session.operator_work) if session and hasattr(session, 'operator_work') else None})
+         raise
+     print(json.dumps({'complete': True, 'task': args.task, 'arm': args.arm, 'output': str(args.output)}))
+ 
