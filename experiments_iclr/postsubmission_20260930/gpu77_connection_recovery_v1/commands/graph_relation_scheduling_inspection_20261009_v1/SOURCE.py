@@ -1,0 +1,12 @@
+from pathlib import Path
+import socket,subprocess,json,datetime
+R=Path('/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git');P=R/'experiments_iclr/postsubmission_20260930';A=P/'graph_relation_private_credit_full12_activation_root_20261008_v1';D=P/'graph_relation_private_credit_full12_owner_execution_root_20261008_v1'
+assert socket.gethostname()=='peptide' and subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()==['GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998','GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced']
+s=Path('/proc/3713404/stat').read_text();v=s[s.rfind(')')+2:].split();assert int(v[19])==1760762180
+out={'UTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'parent':{'pid':3713404,'birth':int(v[19]),'state':v[0]},'scores_read':False}
+for name in ('LANE_0_SCHEDULING.json','LANE_1_SCHEDULING.json'):
+ f=D/name
+ if f.exists():out[name]=json.loads(f.read_text())
+out['owner_log']=(A/'owner.log').read_text()[-3500:]
+out['GPU']=subprocess.check_output(['nvidia-smi','--query-gpu=uuid,memory.free,memory.total','--format=csv,noheader'],text=True)
+print(json.dumps(out))

@@ -1,0 +1,334 @@
+{
+  "files": [
+    {
+      "passages": [
+        {
+          "end": 115,
+          "start": 1,
+          "text": "# Copyright 2022 Twitter, Inc.\n# Modifications 2024 Patrick Gillespie\n# SPDX-License-Identifier: Apache-2.0\n\nimport torch\nimport torch.nn.functional as F\nimport torch_sparse\n\nfrom torch import nn\nfrom torch_geometric.utils import degree\nfrom torch_geometric.nn.conv import GCNConv\nfrom models.sheaf_base import SheafDiffusion\nfrom models import bayes_laplacian_builders as lb\nfrom models.bayes_sheaf_models import BayesConcatSheafLearner, BayesConcatSheafLearnerVariant, EdgeWeightLearner\nfrom models.bayes_kl import KLDivergence\n\n\nclass BayesDiagSheafDiffusion(SheafDiffusion):\n\n    def __init__(self, edge_index, args):\n        super(BayesDiagSheafDiffusion, self).__init__(edge_index, args)\n        assert args['d'] > 0\n\n        self.kldiv = KLDivergence('normal')\n\n        self.lin_right_weights = nn.ModuleList()\n        self.lin_left_weights = nn.ModuleList()\n\n        self.batch_norms = nn.ModuleList()\n        if self.right_weights:\n            for i in range(self.layers):\n                self.lin_right_weights.append(nn.Linear(self.hidden_channels, self.hidden_channels, bias=False))\n                nn.init.orthogonal_(self.lin_right_weights[-1].weight.data)\n        if self.left_weights:\n            for i in range(self.layers):\n                self.lin_left_weights.append(nn.Linear(self.final_d, self.final_d, bias=False))\n                nn.init.eye_(self.lin_left_weights[-1].weight.data)\n\n        if self.sparse_learner:\n            self.sheaf_learner = BayesConcatSheafLearnerVariant(\n                self.final_d, self.hidden_channels, mean_size=self.d, var_size=self.d)\n        else:\n            self.sheaf_learner = BayesConcatSheafLearner(\n                self.hidden_dim, mean_size=self.d, var_size=self.d)\n        self.laplacian_builder = lb.BayesDiagLaplacianBuilder(\n            self.graph_size, edge_index, d=self.d, normalised=self.normalised,\n            deg_normalised=self.deg_normalised, add_hp=self.add_hp, add_lp=self.add_lp)\n\n        self.epsilons = nn.ParameterList()\n        for i in range(self.layers):\n            self.epsilons.append(nn.Parameter(torch.zeros((self.final_d, 1))))\n\n        self.lin1 = nn.Linear(self.input_dim, self.hidden_dim)\n        if self.second_linear:\n            self.lin12 = nn.Linear(self.hidden_dim, self.hidden_dim)\n        self.lin2 = nn.Linear(self.hidden_dim, self.output_dim)\n\n    def forward(self, x):\n        x = F.dropout(x, p=self.input_dropout, training=self.training)\n        x = self.lin1(x)\n        if self.use_act:\n            x = F.elu(x)\n        x = F.dropout(x, p=self.dropout, training=self.training)\n\n        if self.second_linear:\n            x = self.lin12(x)\n        x = x.view(self.graph_size * self.final_d, -1)\n\n        x_maps = x\n        mean_params, log_var_params = self.sheaf_learner(x_maps.reshape(self.graph_size, -1), self.edge_index)\n        mean_params = torch.tanh(mean_params)\n        log_var_params = -F.elu(-log_var_params)\n        std_params = torch.exp(log_var_params)\n\n        kl = self.kldiv(mean_params, log_var_params)\n\n        Ls = []\n        for layer in range(self.layers):\n            L, trans_maps = self.laplacian_builder(mean_params, std_params)\n            Ls.append(L)\n\n        x0 = x\n        for layer in range(self.layers):\n            x = F.dropout(x, p=self.dropout, training=self.training)\n\n            if self.left_weights:\n                x = x.t().reshape(-1, self.final_d)\n                x = self.lin_left_weights[layer](x)\n                x = x.reshape(-1, self.graph_size * self.final_d).t()\n\n            if self.right_weights:\n                x = self.lin_right_weights[layer](x)\n\n            x = torch_sparse.spmm(Ls[layer][0], Ls[layer][1], x.size(0), x.size(0), x)\n\n            if self.use_act:\n                x = F.elu(x)\n\n            coeff = (1 + torch.tanh(self.epsilons[layer]).tile(self.graph_size, 1))\n            x0 = coeff * x0 - x\n            x = x0\n\n        x = x.reshape(self.graph_size, -1)\n        x = self.lin2(x)\n        return F.log_softmax(x, dim=1), kl\n\n\nclass BayesBundleSheafDiffusion(SheafDiffusion):\n\n    def __init__(self, edge_index, args):\n        super(BayesBundleSheafDiffusion, self).__init__(edge_index, args)\n        assert args['d'] > 1\n        assert not self.deg_normalised\n\n        self.kldiv = KLDivergence('cayley', self.d)"
+        },
+        {
+          "end": 223,
+          "start": 118,
+          "text": "        self.lin_left_weights = nn.ModuleList()\n\n        self.batch_norms = nn.ModuleList()\n        if self.right_weights:\n            for i in range(self.layers):\n                self.lin_right_weights.append(nn.Linear(self.hidden_channels, self.hidden_channels, bias=False))\n                nn.init.orthogonal_(self.lin_right_weights[-1].weight.data)\n        if self.left_weights:\n            for i in range(self.layers):\n                self.lin_left_weights.append(nn.Linear(self.final_d, self.final_d, bias=False))\n                nn.init.eye_(self.lin_left_weights[-1].weight.data)\n\n        if self.sparse_learner:\n            self.sheaf_learner = BayesConcatSheafLearnerVariant(\n                self.final_d, self.hidden_channels, mean_size=self.get_param_size(), var_size=1)\n        else:\n            self.sheaf_learner = BayesConcatSheafLearner(\n                self.hidden_dim, mean_size=self.get_param_size(), var_size=1)\n            \n        if self.use_edge_weights:\n            self.weight_learner = EdgeWeightLearner(self.hidden_dim, edge_index)\n\n        self.laplacian_builder = lb.BayesNormConnectionLaplacianBuilder(\n            self.graph_size, edge_index, d=self.d, add_hp=self.add_hp,\n            add_lp=self.add_lp, orth_map=self.orth_trans)\n\n        self.epsilons = nn.ParameterList()\n        for i in range(self.layers):\n            self.epsilons.append(nn.Parameter(torch.zeros((self.final_d, 1))))\n\n        self.lin1 = nn.Linear(self.input_dim, self.hidden_dim)\n        if self.second_linear:\n            self.lin12 = nn.Linear(self.hidden_dim, self.hidden_dim)\n        self.lin2 = nn.Linear(self.hidden_dim, self.output_dim)\n\n        maps_input_dim = self.input_dim + 1 if self.sheaf_use_deg else self.input_dim\n        self.lin_maps = nn.Linear(maps_input_dim, self.hidden_dim)\n\n    def get_param_size(self):\n        return self.d * (self.d - 1) // 2\n\n    def left_right_linear(self, x, left, right):\n        if self.left_weights:\n            x = x.t().reshape(-1, self.final_d)\n            x = left(x)\n            x = x.reshape(-1, self.graph_size * self.final_d).t()\n\n        if self.right_weights:\n            x = right(x)\n\n        return x\n\n    def update_edge_index(self, edge_index):\n        super().update_edge_index(edge_index)\n        for weight_learner in self.weight_learners:\n            weight_learner.update_edge_index(edge_index)\n\n    def forward(self, x):\n\n        # Construct the sheaf Laplacians\n        x_maps = x\n        if self.sheaf_use_deg:\n            deg = degree(self.edge_index[0], self.graph_size)\n            x_maps = torch.concat((x_maps, deg.unsqueeze(-1)), dim=-1)\n\n        x_maps = F.elu(self.lin_maps(x_maps))\n        mean_params, var_params = self.sheaf_learner(x_maps, self.edge_index)\n        mean_params = torch.tanh(mean_params)\n        var_params = torch.sigmoid(var_params) * (1 - 0.05) + (0.05 / 2)  # bound away from 0 and 1 for stability\n        edge_weights = self.weight_learner(x_maps, self.edge_index) if self.use_edge_weights else None\n\n        kl = self.kldiv(None, var_params)\n\n        Ls = []\n        for layer in range(self.layers):\n            L, trans_maps = self.laplacian_builder(mean_params, var_params, edge_weights)\n            Ls.append(L)\n\n        # Pass data through network\n        x = F.dropout(x, p=self.input_dropout, training=self.training)\n        x = self.lin1(x)\n        if self.use_act:\n            x = F.elu(x)\n        x = F.dropout(x, p=self.dropout, training=self.training)\n        if self.second_linear:\n            x = self.lin12(x)\n        x = x.view(self.graph_size * self.final_d, -1)\n\n        x0, L = x, None\n        for layer in range(self.layers):\n\n            x = F.dropout(x, p=self.dropout, training=self.training)\n            x = self.left_right_linear(x, self.lin_left_weights[layer], self.lin_right_weights[layer])\n\n            # Use the adjacency matrix rather than the diagonal\n            x = torch_sparse.spmm(Ls[layer][0], Ls[layer][1], x.size(0), x.size(0), x)\n            if self.use_act:\n                x = F.elu(x)\n\n            x0 = (1 + torch.tanh(self.epsilons[layer]).tile(self.graph_size, 1)) * x0 - x\n            x = x0\n\n        x = x.reshape(self.graph_size, -1)\n        x = self.lin2(x)\n        return F.log_softmax(x, dim=1), kl\n"
+        },
+        {
+          "end": 322,
+          "start": 226,
+          "text": "\n    def __init__(self, edge_index, args):\n        super(BayesGeneralSheafDiffusion, self).__init__(edge_index, args)\n        assert args['d'] > 1\n\n        self.kldiv = KLDivergence('normal')\n\n        self.lin_right_weights = nn.ModuleList()\n        self.lin_left_weights = nn.ModuleList()\n\n        if self.right_weights:\n            for i in range(self.layers):\n                self.lin_right_weights.append(nn.Linear(self.hidden_channels, self.hidden_channels, bias=False))\n                nn.init.orthogonal_(self.lin_right_weights[-1].weight.data)\n        if self.left_weights:\n            for i in range(self.layers):\n                self.lin_left_weights.append(nn.Linear(self.final_d, self.final_d, bias=False))\n                nn.init.eye_(self.lin_left_weights[-1].weight.data)\n\n        if self.sparse_learner:\n            self.sheaf_learner = BayesConcatSheafLearnerVariant(self.final_d,\n                self.hidden_channels, mean_size=self.d**2, var_size=self.d**2)\n        else:\n            self.sheaf_learner = BayesConcatSheafLearner(\n                self.hidden_dim, mean_size=self.d**2, var_size=self.d**2)\n\n        self.laplacian_builder = lb.BayesGeneralLaplacianBuilder(\n            self.graph_size, edge_index, d=self.d, add_lp=self.add_lp, add_hp=self.add_hp,\n            normalised=self.normalised, deg_normalised=self.deg_normalised)\n\n        self.epsilons = nn.ParameterList()\n        for i in range(self.layers):\n            self.epsilons.append(nn.Parameter(torch.zeros((self.final_d, 1))))\n\n        self.lin1 = nn.Linear(self.input_dim, self.hidden_dim)\n        if self.second_linear:\n            self.lin12 = nn.Linear(self.hidden_dim, self.hidden_dim)\n        self.lin2 = nn.Linear(self.hidden_dim, self.output_dim)\n\n    def left_right_linear(self, x, left, right):\n        if self.left_weights:\n            x = x.t().reshape(-1, self.final_d)\n            x = left(x)\n            x = x.reshape(-1, self.graph_size * self.final_d).t()\n\n        if self.right_weights:\n            x = right(x)\n\n        return x\n\n    def forward(self, x):\n        x = F.dropout(x, p=self.input_dropout, training=self.training)\n        x = self.lin1(x)\n        if self.use_act:\n            x = F.elu(x)\n        x = F.dropout(x, p=self.dropout, training=self.training)\n\n        if self.second_linear:\n            x = self.lin12(x)\n        x = x.view(self.graph_size * self.final_d, -1)\n\n        x_maps = x\n        mean_params, log_var_params = self.sheaf_learner(x_maps.reshape(self.graph_size, -1), self.edge_index)\n        mean_params = torch.tanh(mean_params)\n        log_var_params = -F.elu(-log_var_params)\n        std_params = torch.exp(log_var_params)\n\n        kl = self.kldiv(mean_params, log_var_params)\n\n        Ls = []\n        for layer in range(self.layers):\n            L, trans_maps = self.laplacian_builder(mean_params, std_params)\n            Ls.append(L)\n\n        x0 = x\n        for layer in range(self.layers):\n\n            x = F.dropout(x, p=self.dropout, training=self.training)\n            x = self.left_right_linear(x, self.lin_left_weights[layer], self.lin_right_weights[layer])\n\n            # Use the adjacency matrix rather than the diagonal\n            x = torch_sparse.spmm(Ls[layer][0], Ls[layer][1], x.size(0), x.size(0), x)\n            if self.use_act:\n                x = F.elu(x)\n\n            x0 = (1 + torch.tanh(self.epsilons[layer]).tile(self.graph_size, 1)) * x0 - x\n            x = x0\n\n        # To detect the numerical instabilities of SVD.\n        assert torch.all(torch.isfinite(x))\n\n        x = x.reshape(self.graph_size, -1)\n        x = self.lin2(x)\n        return F.log_softmax(x, dim=1), kl\n\n\nclass GCN(SheafDiffusion):"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          115
+        ],
+        [
+          118,
+          223
+        ],
+        [
+          226,
+          322
+        ]
+      ],
+      "source": {
+        "bytes": 14544,
+        "path": "author_source/models/bayes_disc_models.py",
+        "sha256": "fa3fce84f9a6d48362d0b17fc659cd82244e023767b2a5e5675d7e6fa02b03e9"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 100,
+          "start": 1,
+          "text": "# Copyright 2022 Twitter, Inc.\n# Modifications 2024 Patrick Gillespie\n# SPDX-License-Identifier: Apache-2.0\n\nimport torch\nimport torch.nn.functional as F\nimport numpy as np\n\nfrom typing import Tuple\nfrom abc import abstractmethod\nfrom torch import nn\nfrom lib import laplace as lap\n\n\nclass SheafLearner(nn.Module):\n    \"\"\"Base model that learns a sheaf from the features and the graph structure.\"\"\"\n    def __init__(self):\n        super(SheafLearner, self).__init__()\n        self.L = None\n\n    @abstractmethod\n    def forward(self, x, edge_index):\n        raise NotImplementedError()\n\n    def set_L(self, weights):\n        self.L = weights.clone().detach()\n\n\nclass BayesConcatSheafLearner(SheafLearner):\n    \"\"\"Learns a sheaf distribution parameters (mean & variance) by concatenating the local node features\n    and passing them through respective linear layers.\"\"\"\n\n    def __init__(self, in_channels: int, mean_size: int, var_size: int):\n        super(BayesConcatSheafLearner, self).__init__()\n\n        self.lin_mean = torch.nn.Linear(in_channels*2, mean_size, bias=False)\n        self.lin_var = torch.nn.Linear(in_channels*2, var_size, bias=False)\n\n    def forward(self, x, edge_index):\n        row, col = edge_index\n        x_row = torch.index_select(x, dim=0, index=row)\n        x_col = torch.index_select(x, dim=0, index=col)\n        maps_mean = self.lin_mean(torch.cat([x_row, x_col], dim=1))\n        maps_var = self.lin_var(torch.cat([x_row, x_col], dim=1))\n\n        return maps_mean, maps_var\n\n\nclass BayesConcatSheafLearnerVariant(SheafLearner):\n    \"\"\"Learns a sheaf by concatenating the local node features and passing them through a linear layer.\"\"\"\n\n    def __init__(self, d: int, hidden_channels: int, mean_size: int, var_size: int):\n        super(BayesConcatSheafLearnerVariant, self).__init__()\n\n        self.mean_size = mean_size\n        self.var_size = var_size\n        self.d = d\n        self.hidden_channels = hidden_channels\n        self.lin_mean = torch.nn.Linear(hidden_channels * 2, mean_size, bias=False)\n        self.lin_var = torch.nn.Linear(hidden_channels * 2, var_size, bias=False)\n\n    def forward(self, x, edge_index):\n        row, col = edge_index\n\n        x_row = torch.index_select(x, dim=0, index=row)\n        x_col = torch.index_select(x, dim=0, index=col)\n        x_cat = torch.cat([x_row, x_col], dim=-1)\n        x_cat = x_cat.reshape(-1, self.d, self.hidden_channels * 2).sum(dim=1)\n\n        mean_maps = self.lin_mean(x_cat).view(-1, self.mean_size)\n        var_maps = self.lin_var(x_cat).view(-1, self.var_size)\n\n        return mean_maps, var_maps\n\n\nclass EdgeWeightLearner(SheafLearner):\n    \"\"\"Learns a sheaf by concatenating the local node features and passing them through a linear layer + activation.\"\"\"\n\n    def __init__(self, in_channels: int, edge_index):\n        super(EdgeWeightLearner, self).__init__()\n        self.in_channels = in_channels\n        self.linear1 = torch.nn.Linear(in_channels*2, 1, bias=False)\n        self.full_left_right_idx, _ = lap.compute_left_right_map_index(edge_index, full_matrix=True)\n\n    def forward(self, x, edge_index):\n        _, full_right_idx = self.full_left_right_idx\n\n        row, col = edge_index\n        x_row = torch.index_select(x, dim=0, index=row)\n        x_col = torch.index_select(x, dim=0, index=col)\n        weights = self.linear1(torch.cat([x_row, x_col], dim=1))\n        weights = torch.sigmoid(weights)\n\n        edge_weights = weights * torch.index_select(weights, index=full_right_idx, dim=0)\n        return edge_weights\n\n    def update_edge_index(self, edge_index):\n        self.full_left_right_idx, _ = lap.compute_left_right_map_index(edge_index, full_matrix=True)\n\n"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          100
+        ]
+      ],
+      "source": {
+        "bytes": 3676,
+        "path": "author_source/models/bayes_sheaf_models.py",
+        "sha256": "5d8caccb79518d86e524e9a444caf582a1bcdbd1f23e0e30baf789a9417f3d72"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 60,
+          "start": 1,
+          "text": "import torch\nfrom scipy.stats import special_ortho_group\n\n\nclass KLDivergence(torch.nn.Module):\n    def __init__(self, distribution, dim=None):\n        super(KLDivergence, self).__init__()\n\n        self.dim = dim\n        self.dist = distribution\n\n    def cayley_pdf(self, P, n, kappa):\n\n        constant = (1 - kappa ** 2) ** (n * (n - 1) // 2)\n        I = torch.eye(n, device=kappa.device).view(1, n, n).tile(P.size(0), 1, 1)\n        det = torch.linalg.det(P - kappa.unsqueeze(-1) * I) ** (n - 1)\n\n        return constant / det\n\n    def cayley_transform(self, A):\n        \"\"\"If A is skew symmetric, return special orthogonal matrix Q.\n        Since this version of the Cayley transform is an involution,\n        can also take as input a special orthogonal matrix and return a skew symmetric\"\"\"\n        Id = torch.eye(self.dim, dtype=A.dtype, device=A.device)\n        Q = torch.linalg.solve(torch.add(Id, A, alpha=1.0), torch.add(Id, A, alpha=-1.0))\n        return Q\n\n    def forward(self, param1, param2):\n\n        if self.dist == 'normal':\n\n            mean, log_var = param1, param2\n            inner = -(log_var - mean**2 - torch.exp(log_var) + 1) / 2\n            kl = inner.sum(dim=1).mean(dim=0)\n\n            return kl\n\n        elif self.dist == 'cayley':\n            kappas = (1 - param2) / (param2 + 1)\n\n            if self.dim == 2:\n                kl = (-torch.log(1 - kappas**2)).mean()\n                return kl\n\n            elif self.dim == 3:\n                kl = (-torch.log(1 - kappas ** 2) - 2 * torch.log(1 - kappas) - 2 * kappas).mean()\n                return kl\n\n            else:\n                gammas = param2.view(param2.size(0), 1, 1)\n                so_uniform_samples = torch.tensor(\n                    special_ortho_group.rvs(dim=self.dim, size=kappas.size(0)),\n                    device=kappas.device, dtype=torch.float)\n                cayley_samples = self.cayley_transform(gammas * self.cayley_transform(so_uniform_samples))\n                densities = self.cayley_pdf(cayley_samples, self.dim, kappas)\n                kl = torch.log(densities).mean()\n                return kl\n\n        else:\n            raise ValueError(f\"Unsupported distribution {self.dist}\")"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          60
+        ]
+      ],
+      "source": {
+        "bytes": 2199,
+        "path": "author_source/models/bayes_kl.py",
+        "sha256": "70f958776f7f08c8bd917a5fd0c4bc2e7ebdaa19dd4b1cd8b62e24d29454714c"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 61,
+          "start": 1,
+          "text": "# Copyright 2022 Twitter, Inc.\n# Modifications 2024 Patrick Gillespie\n# SPDX-License-Identifier: Apache-2.0\n\nimport torch\nimport lib.laplace as lap\n\nfrom torch import nn\nfrom torch_scatter import scatter_add\nfrom torch_geometric.utils import degree\nfrom models.orthogonal_v2 import Orthogonal\nfrom scipy.stats import special_ortho_group\n\n\nclass LaplacianBuilder(nn.Module):\n\n    def __init__(self, size, edge_index, d, normalised=False, deg_normalised=False, add_hp=False, add_lp=False,\n                 augmented=True):\n        super(LaplacianBuilder, self).__init__()\n        assert not (normalised and deg_normalised)\n\n        self.d = d\n        self.final_d = d\n        if add_hp:\n            self.final_d += 1\n        if add_lp:\n            self.final_d += 1\n        self.size = size\n        self.edges = edge_index.size(1) // 2\n        self.edge_index = edge_index\n        self.normalised = normalised\n        self.deg_normalised = deg_normalised\n        self.device = edge_index.device\n        self.add_hp = add_hp\n        self.add_lp = add_lp\n        self.augmented = augmented\n\n        # Preprocess the sparse indices required to compute the Sheaf Laplacian.\n        self.full_left_right_idx, _ = lap.compute_left_right_map_index(edge_index, full_matrix=True)\n        self.left_right_idx, self.vertex_tril_idx = lap.compute_left_right_map_index(edge_index)\n        if self.add_lp or self.add_hp:\n            self.fixed_diag_indices, self.fixed_tril_indices = lap.compute_fixed_diag_laplacian_indices(\n                size, self.vertex_tril_idx, self.d, self.final_d)\n        self.deg = degree(self.edge_index[0], num_nodes=self.size)\n\n    def get_fixed_maps(self, size, dtype):\n        assert self.add_lp or self.add_hp\n\n        fixed_diag, fixed_non_diag = [], []\n        if self.add_lp:\n            fixed_diag.append(self.deg.view(-1, 1))\n            fixed_non_diag.append(torch.ones(size=(size, 1), device=self.device, dtype=dtype))\n        if self.add_hp:\n            fixed_diag.append(self.deg.view(-1, 1))\n            fixed_non_diag.append(-torch.ones(size=(size, 1), device=self.device, dtype=dtype))\n\n        fixed_diag = torch.cat(fixed_diag, dim=1)\n        fixed_non_diag = torch.cat(fixed_non_diag, dim=1)\n\n        assert self.fixed_tril_indices.size(1) == fixed_non_diag.numel()\n        assert self.fixed_diag_indices.size(1) == fixed_diag.numel()"
+        },
+        {
+          "end": 188,
+          "start": 145,
+          "text": "        assert maps.size(1) == self.d\n\n        left_idx, right_idx = self.left_right_idx\n        tril_row, tril_col = self.vertex_tril_idx\n        row, _ = self.edge_index\n\n        # Compute the un-normalised Laplacian entries.\n        left_maps = torch.index_select(maps, index=left_idx, dim=0)\n        right_maps = torch.index_select(maps, index=right_idx, dim=0)\n\n        tril_maps = -left_maps * right_maps\n        saved_tril_maps = tril_maps.detach().clone()\n        diag_maps = scatter_add(maps**2, row, dim=0, dim_size=self.size)\n\n        # Normalise the entries if the normalised Laplacian is used.\n        diag_maps, tril_maps = self.normalise(diag_maps, tril_maps, tril_row, tril_col)\n        tril_indices, diag_indices = self.tril_indices, self.diag_indices\n        tril_maps, diag_maps = tril_maps.view(-1), diag_maps.view(-1)\n\n        # Append fixed diagonal values in the non-learnable dimensions.\n        (diag_indices, diag_maps), (tril_indices, tril_maps) = self.append_fixed_maps(\n            len(left_maps), diag_indices, diag_maps, tril_indices, tril_maps)\n\n        # Add the upper triangular part\n        triu_indices = torch.empty_like(tril_indices)\n        triu_indices[0], triu_indices[1] = tril_indices[1], tril_indices[0]\n        non_diag_indices, non_diag_values = lap.mergesp(tril_indices, tril_maps, triu_indices, tril_maps)\n\n        # Merge diagonal and non-diagonal\n        edge_index, weights = lap.mergesp(non_diag_indices, non_diag_values, diag_indices, diag_maps)\n\n        return (edge_index, weights), saved_tril_maps\n\n\nclass BayesNormConnectionLaplacianBuilder(LaplacianBuilder):\n    \"\"\"Learns a Sheaf Laplacian with special orthogonal restriction maps\"\"\"\n\n    def __init__(self, size, edge_index, d, add_hp=False, add_lp=False, orth_map=None, augmented=True):\n        super(BayesNormConnectionLaplacianBuilder, self).__init__(\n            size, edge_index, d, add_hp=add_hp, add_lp=add_lp, normalised=True, augmented=augmented)\n        self.orth_transform = Orthogonal(d=self.d, orthogonal_map=orth_map)\n        self.orth_map = orth_map\n        # self.cayley = Orthogonal(d=self.d, orthogonal_map='cayley')\n        self.random_so = special_ortho_group(self.d)"
+        },
+        {
+          "end": 281,
+          "start": 224,
+          "text": "    def cayley_transform(self, A):\n        # If A is skew symmetric, return special orthogonal matrix Q.\n        # Since this version of the Cayley transform is an involution,\n        # can also take as input a special orthogonal matrix and return a skew symmetric\n        Id = torch.eye(self.d, dtype=A.dtype, device=A.device)\n        Q = torch.linalg.solve(torch.add(Id, A, alpha=1.0), torch.add(Id, A, alpha=-1.0))\n        return Q\n\n    def forward(self, mean_params, var_params, edge_weights=None):\n        if edge_weights is not None:\n            assert edge_weights.size(1) == 1\n        assert len(mean_params.size()) == 2\n        assert mean_params.size(1) == self.d * (self.d - 1) // 2\n        assert var_params.size(1) == 1\n\n        _, full_right_idx = self.full_left_right_idx\n        left_idx, right_idx = self.left_right_idx\n        tril_row, tril_col = self.vertex_tril_idx\n        tril_indices, diag_indices = self.tril_indices, self.diag_indices\n        row, _ = self.edge_index\n\n        # Convert the parameters to orthogonal matrices.\n        rso = torch.tensor(self.random_so.rvs(size=mean_params.size(0)), device=mean_params.device, dtype=torch.float)\n        var_maps = self.cayley_transform(var_params.view(var_params.size(0), 1, 1) * self.cayley_transform(rso))\n        mean_maps = self.orth_transform(mean_params)\n        maps = torch.bmm(var_maps, mean_maps)\n\n        if edge_weights is None:\n            diag_maps = self.deg.unsqueeze(-1)\n        else:\n            diag_maps = scatter_add(edge_weights ** 2, row, dim=0, dim_size=self.size)\n            maps = maps * edge_weights.unsqueeze(-1)\n\n        # Compute the transport maps.\n        left_maps = torch.index_select(maps, index=left_idx, dim=0)\n        right_maps = torch.index_select(maps, index=right_idx, dim=0)\n        tril_maps = -torch.bmm(torch.transpose(left_maps, -1, -2), right_maps)\n        saved_tril_maps = tril_maps.detach().clone()\n\n        # Normalise the entries if the normalised Laplacian is used.\n        diag_maps, tril_maps = self.scalar_normalise(diag_maps, tril_maps, tril_row, tril_col)\n        tril_maps, diag_maps = tril_maps.view(-1), diag_maps.expand(-1, self.d).reshape(-1)\n\n        # Append fixed diagonal values in the non-learnable dimensions.\n        (diag_indices, diag_maps), (tril_indices, tril_maps) = self.append_fixed_maps(\n            len(left_maps), diag_indices, diag_maps, tril_indices, tril_maps)\n\n        # Add the upper triangular part\n        triu_indices = torch.empty_like(tril_indices)\n        triu_indices[0], triu_indices[1] = tril_indices[1], tril_indices[0]\n        non_diag_indices, non_diag_values = lap.mergesp(tril_indices, tril_maps, triu_indices, tril_maps)\n\n        # Merge diagonal and non-diagonal\n        edge_index, weights = lap.mergesp(non_diag_indices, non_diag_values, diag_indices, diag_maps)\n\n        return (edge_index, weights), saved_tril_maps\n\n"
+        },
+        {
+          "end": 362,
+          "start": 285,
+          "text": "    def __init__(self, size, edge_index, d, normalised=False, deg_normalised=False,\n                 add_hp=False, add_lp=False, augmented=True):\n        super(BayesGeneralLaplacianBuilder, self).__init__(\n            size, edge_index, d, normalised=normalised, deg_normalised=deg_normalised,\n            add_hp=add_hp, add_lp=add_lp, augmented=augmented)\n\n        # Preprocess the sparse indices required to compute the Sheaf Laplacian.\n        self.diag_indices, self.tril_indices = lap.compute_learnable_laplacian_indices(\n            size, self.vertex_tril_idx, self.d, self.final_d)\n\n    def normalise(self, diag_maps, non_diag_maps, tril_row, tril_col):\n        if self.normalised:\n            # Normalise the entries if the normalised Laplacian is used.\n            if self.training:\n                # During training, we perturb the matrices to ensure they have different singular values.\n                # Without this, the gradients of batched_sym_matrix_pow, which uses SVD are non-finite.\n                eps = torch.FloatTensor(self.d).uniform_(-0.001, 0.001).to(device=self.device)\n            else:\n                eps = torch.zeros(self.d, device=self.device)\n\n            to_be_inv_diag_maps = diag_maps + torch.diag(1. + eps).unsqueeze(0) if self.augmented else diag_maps\n            d_sqrt_inv = lap.batched_sym_matrix_pow(to_be_inv_diag_maps, -0.5)\n            assert torch.all(torch.isfinite(d_sqrt_inv))\n            left_norm = d_sqrt_inv[tril_row]\n            right_norm = d_sqrt_inv[tril_col]\n            non_diag_maps = (left_norm @ non_diag_maps @ right_norm).clamp(min=-1, max=1)\n            diag_maps = (d_sqrt_inv @ diag_maps @ d_sqrt_inv).clamp(min=-1, max=1)\n            assert torch.all(torch.isfinite(non_diag_maps))\n            assert torch.all(torch.isfinite(diag_maps))\n        elif self.deg_normalised:\n            # These are general d x d maps so we need to divide by 1 / sqrt(deg * d), their maximum possible norm.\n            deg_sqrt_inv = (self.deg * self.d + 1).pow(-1/2) if self.augmented else (self.deg * self.d + 1).pow(-1/2)\n            deg_sqrt_inv = deg_sqrt_inv.view(-1, 1, 1)\n            left_norm = deg_sqrt_inv[tril_row]\n            right_norm = deg_sqrt_inv[tril_col]\n            non_diag_maps = left_norm * non_diag_maps * right_norm\n            diag_maps = deg_sqrt_inv * diag_maps * deg_sqrt_inv\n        return diag_maps, non_diag_maps\n\n    def forward(self, mean_params, std_params):\n\n        err = torch.normal(0, 1, size=mean_params.size(), dtype=torch.float, device=std_params.device)\n        maps = mean_params + (std_params * err)\n        maps = maps.reshape(maps.size(0), self.d, self.d)\n\n        left_idx, right_idx = self.left_right_idx\n        tril_row, tril_col = self.vertex_tril_idx\n        tril_indices, diag_indices = self.tril_indices, self.diag_indices\n        row, _ = self.edge_index\n\n        # Compute transport maps.\n        assert torch.all(torch.isfinite(maps))\n        left_maps = torch.index_select(maps, index=left_idx, dim=0)\n        right_maps = torch.index_select(maps, index=right_idx, dim=0)\n\n        tril_maps = -torch.bmm(torch.transpose(left_maps, dim0=-1, dim1=-2), right_maps)\n        saved_tril_maps = tril_maps.detach().clone()\n        diag_maps = torch.bmm(torch.transpose(maps, dim0=-1, dim1=-2), maps)\n        diag_maps = scatter_add(diag_maps, row, dim=0, dim_size=self.size)\n\n        # Normalise the transport maps.\n        diag_maps, tril_maps = self.normalise(diag_maps, tril_maps, tril_row, tril_col)\n        diag_maps, tril_maps = diag_maps.view(-1), tril_maps.view(-1)\n\n        # Append fixed diagonal values in the non-learnable dimensions.\n        (diag_indices, diag_maps), (tril_indices, tril_maps) = self.append_fixed_maps(\n            len(left_maps), diag_indices, diag_maps, tril_indices, tril_maps)\n\n        # Add the upper triangular part.\n        triu_indices = torch.empty_like(tril_indices)\n        triu_indices[0], triu_indices[1] = tril_indices[1], tril_indices[0]\n        non_diag_indices, non_diag_values = lap.mergesp(tril_indices, tril_maps, triu_indices, tril_maps)\n\n        # Merge diagonal and non-diagonal\n        edge_index, weights = lap.mergesp(non_diag_indices, non_diag_values, diag_indices, diag_maps)\n\n        return (edge_index, weights), saved_tril_maps\n"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          61
+        ],
+        [
+          145,
+          188
+        ],
+        [
+          224,
+          281
+        ],
+        [
+          285,
+          362
+        ]
+      ],
+      "source": {
+        "bytes": 17122,
+        "path": "author_source/models/bayes_laplacian_builders.py",
+        "sha256": "17650a2816786ea1c4e38a58a4ffad42963448ca30ea73fa3959d2d71dfdc8d8"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 66,
+          "start": 1,
+          "text": "# Copyright 2022 Twitter, Inc.\n# SPDX-License-Identifier: Apache-2.0\n\nimport torch\nfrom torch import nn\n\n\nclass SheafDiffusion(nn.Module):\n    \"\"\"Base class for sheaf diffusion models.\"\"\"\n\n    def __init__(self, edge_index, args):\n        super(SheafDiffusion, self).__init__()\n\n        assert args['d'] > 0\n        self.d = args['d']\n        self.edge_index = edge_index\n        self.add_lp = args['add_lp']\n        self.add_hp = args['add_hp']\n\n        self.final_d = self.d\n        if self.add_hp:\n            self.final_d += 1\n        if self.add_lp:\n            self.final_d += 1\n\n        self.hidden_dim = args['hidden_channels'] * self.final_d\n        self.device = args['device']\n        self.graph_size = args['graph_size']\n        self.layers = args['layers']\n        self.normalised = args['normalised']\n        self.deg_normalised = args['deg_normalised']\n        self.nonlinear = not args['linear']\n        self.input_dropout = args['input_dropout']\n        self.dropout = args['dropout']\n        self.left_weights = args['left_weights']\n        self.right_weights = args['right_weights']\n        self.sparse_learner = args['sparse_learner']\n        self.use_act = args['use_act']\n        self.input_dim = args['input_dim']\n        self.hidden_channels = args['hidden_channels']\n        self.output_dim = args['output_dim']\n        self.layers = args['layers']\n        self.sheaf_act = args['sheaf_act']\n        self.second_linear = args['second_linear']\n        self.orth_trans = args['orth']\n        self.use_edge_weights = args['edge_weights']\n        self.sheaf_use_deg = args['sheaf_use_deg']\n        self.t = args['max_t']\n        self.time_range = torch.tensor([0.0, self.t], device=self.device)\n        self.laplacian_builder = None\n\n    def update_edge_index(self, edge_index):\n        assert edge_index.max() <= self.graph_size\n        self.edge_index = edge_index\n        self.laplacian_builder = self.laplacian_builder.create_with_new_edge_index(edge_index)\n\n    def grouped_parameters(self):\n        sheaf_learners, others = [], []\n        for name, param in self.named_parameters():\n            if \"sheaf_learner\" in name:\n                sheaf_learners.append(param)\n            else:\n                others.append(param)\n        assert len(sheaf_learners) > 0\n        assert len(sheaf_learners) + len(others) == len(list(self.parameters()))\n        return sheaf_learners, others"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          66
+        ]
+      ],
+      "source": {
+        "bytes": 2408,
+        "path": "author_source/models/sheaf_base.py",
+        "sha256": "c6bce26b8b1433b8d3d95ea544c431dfb005e9a09c6951e7b89be41e88e275fc"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 80,
+          "start": 1,
+          "text": "# Copyright 2022 Twitter, Inc.\n# Modifications 2024 Patrick Gillespie\n# SPDX-License-Identifier: Apache-2.0\n\nimport math\nimport torch\n\nfrom torch import nn\nfrom torch_householder import torch_householder_orgqr\n\n\nclass Orthogonal(nn.Module):\n    \"\"\"Based on https://pytorch.org/docs/stable/_modules/torch/nn/utils/parametrizations.html#orthogonal\"\"\"\n    def __init__(self, d, orthogonal_map):\n        super().__init__()\n        assert orthogonal_map in [\"matrix_exp\", \"cayley\", \"householder\", \"euler\"]\n        self.d = d\n        self.orthogonal_map = orthogonal_map\n\n    def get_2d_rotation(self, params):\n        # assert params.min() >= -1.0 and params.max() <= 1.0\n        assert params.size(-1) == 1\n        sin = torch.sin(params * 2 * math.pi)\n        cos = torch.cos(params * 2 * math.pi)\n        return torch.cat([cos, -sin,\n                          sin, cos], dim=1).view(-1, 2, 2)\n\n    def get_3d_rotation(self, params):\n        assert params.min() >= -1.0 and params.max() <= 1.0\n        assert params.size(-1) == 3\n\n        alpha = params[:, 0].view(-1, 1) * 2 * math.pi\n        beta = params[:, 1].view(-1, 1) * 2 * math.pi\n        gamma = params[:, 2].view(-1, 1) * 2 * math.pi\n\n        sin_a, cos_a = torch.sin(alpha), torch.cos(alpha)\n        sin_b, cos_b = torch.sin(beta),  torch.cos(beta)\n        sin_g, cos_g = torch.sin(gamma), torch.cos(gamma)\n\n        return torch.cat(\n            [cos_a*cos_b, cos_a*sin_b*sin_g - sin_a*cos_g, cos_a*sin_b*cos_g + sin_a*sin_g,\n             sin_a*cos_b, sin_a*sin_b*sin_g + cos_a*cos_g, sin_a*sin_b*cos_g - cos_a*sin_g,\n             -sin_b, cos_b*sin_g, cos_b*cos_g], dim=1).view(-1, 3, 3)\n\n    def forward(self, params: torch.Tensor) -> torch.Tensor:\n        if self.orthogonal_map != \"euler\":\n            # Construct a lower diagonal matrix where to place the parameters.\n            offset = -1\n            tril_indices = torch.tril_indices(row=self.d, col=self.d, offset=offset, device=params.device)\n            new_params = torch.zeros(\n                (params.size(0), self.d, self.d), dtype=params.dtype, device=params.device)\n            new_params[:, tril_indices[0], tril_indices[1]] = params\n            params = new_params\n\n        if self.orthogonal_map == \"matrix_exp\" or self.orthogonal_map == \"cayley\":\n            # We just need n x k - k(k-1)/2 parameters\n            params = params.tril()\n            A = params - params.transpose(-2, -1)\n            # A is skew-symmetric (or skew-hermitian)\n            if self.orthogonal_map == \"matrix_exp\":\n                Q = torch.matrix_exp(A)\n            elif self.orthogonal_map == \"cayley\":\n                # Computes the Cayley retraction (I+A)^{-1}(I-A)\n                Id = torch.eye(self.d, dtype=A.dtype, device=A.device)\n                Q = torch.linalg.solve(torch.add(Id, A, alpha=1.0), torch.add(Id, A, alpha=-1.0))\n        elif self.orthogonal_map == 'householder':\n            eye = torch.eye(self.d, device=params.device).unsqueeze(0).repeat(params.size(0), 1, 1)\n            A = params.tril(diagonal=-1) + eye\n            Q = torch_householder_orgqr(A)\n            if self.d % 2:\n                Q = -1 * Q\n        elif self.orthogonal_map == 'euler':\n            assert 2 <= self.d <= 3\n            if self.d == 2:\n                Q = self.get_2d_rotation(params)\n            else:\n                Q = self.get_3d_rotation(params)\n        else:\n            raise ValueError(f\"Unsupported transformations {self.orthogonal_map}\")\n        return Q"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          80
+        ]
+      ],
+      "source": {
+        "bytes": 3480,
+        "path": "author_source/models/orthogonal_v2.py",
+        "sha256": "4d63e66f61dc1b496c949d73323527a1c834a86e984ad1f4e4c698408c62104d"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 344,
+          "start": 312,
+          "text": "def compute_left_right_map_index(edge_index, full_matrix=False):\n    \"\"\"Computes indices for lower triangular matrix or full matrix\"\"\"\n    edge_to_idx = dict()\n    for e in range(edge_index.size(1)):\n        source = edge_index[0, e].item()\n        target = edge_index[1, e].item()\n        edge_to_idx[(source, target)] = e\n\n    left_index, right_index = [], []\n    row, col = [], []\n    for e in range(edge_index.size(1)):\n        source = edge_index[0, e].item()\n        target = edge_index[1, e].item()\n        if source < target or full_matrix:\n            left_index.append(e)\n            right_index.append(edge_to_idx[(target, source)])\n\n            row.append(source)\n            col.append(target)\n\n    left_index = torch.tensor(left_index, dtype=torch.long, device=edge_index.device)\n    right_index = torch.tensor(right_index, dtype=torch.long, device=edge_index.device)\n    left_right_index = torch.vstack([left_index, right_index])\n\n    row = torch.tensor(row, dtype=torch.long, device=edge_index.device)\n    col = torch.tensor(col, dtype=torch.long, device=edge_index.device)\n    new_edge_index = torch.vstack([row, col])\n\n    if full_matrix:\n        assert len(left_index) == edge_index.size(1)\n    else:\n        assert len(left_index) == edge_index.size(1) // 2\n"
+        },
+        {
+          "end": 434,
+          "start": 406,
+          "text": "def batched_sym_matrix_pow(matrices: torch.Tensor, p: float) -> torch.Tensor:\n    r\"\"\"\n    Power of a matrix using Eigen Decomposition.\n    Args:\n        matrices: A batch of matrices.\n        p: Power.\n        positive_definite: If positive definite\n    Returns:\n        Power of each matrix in the batch.\n    \"\"\"\n    # vals, vecs = torch.linalg.eigh(matrices)\n    # SVD is much faster than  vals, vecs = torch.linalg.eigh(matrices) for large batches.\n    vecs, vals, _ = torch.linalg.svd(matrices)\n    good = vals > vals.max(-1, True).values * vals.size(-1) * torch.finfo(vals.dtype).eps\n    vals = vals.pow(p).where(good, torch.zeros((), device=matrices.device, dtype=matrices.dtype))\n    matrix_power = (vecs * vals.unsqueeze(-2)) @ torch.transpose(vecs, -2, -1)\n    return matrix_power\n\n\ndef mergesp(index1, value1, index2, value2):\n    \"\"\"Merges two sparse matrices with disjoint indices into one.\"\"\"\n    assert index1.dim() == 2 and index2.dim() == 2\n    assert value1.dim() == 1 and value2.dim() == 1\n    assert index1.size(1) == value1.numel()\n    assert index2.size(1) == value2.numel()\n    assert index1.size(0) == 2 and index2.size(0) == 2\n\n    index = torch.cat([index1, index2], dim=1)\n    val = torch.cat([value1, value2])"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          312,
+          344
+        ],
+        [
+          406,
+          434
+        ]
+      ],
+      "source": {
+        "bytes": 18692,
+        "path": "author_source/lib/laplace.py",
+        "sha256": "cb25f4a8d2bda418edf953377d30ef7cff0705909dabf748e8a9accb77273ea3"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 153,
+          "start": 40,
+          "text": "    optimizer.zero_grad()\n\n    # beta is scalar used to cyclically anneal kl loss term\n    beta = torch.sigmoid(torch.tensor((epoch % 40) / 2 - 10))\n\n    if args['bayes_model']:\n        out, kl = model(data.x)\n        out = out[data.train_mask]\n        nll = F.nll_loss(out, data.y[data.train_mask])\n        if args['use_kl']:\n            loss = nll + beta * kl\n        else:\n            loss = nll\n\n    else:\n        out = model(data.x)[data.train_mask]\n        nll = F.nll_loss(out, data.y[data.train_mask])\n        loss = nll\n\n    loss.backward()\n    optimizer.step()\n    del out\n\n\ndef test(model, data, args):\n    model.eval()\n    with torch.no_grad():\n        if args['bayes_model']:\n            probs_list = []\n            for i in range(args['num_ensemble']):\n                logits, kl = model(data.x)\n                probs_list.append(torch.exp(logits))\n            probs = torch.mean(torch.stack(probs_list), 0, keepdim=True).squeeze(0)\n            logits = torch.log(probs)\n        else:\n            logits = model(data.x)\n            kl = None\n\n        accs, losses, preds = [], [], []\n        for _, mask in data('train_mask', 'val_mask', 'test_mask'):\n            pred = logits[mask].max(1)[1]\n            acc = pred.eq(data.y[mask]).sum().item() / mask.sum().item()\n\n            loss = F.nll_loss(logits[mask], data.y[mask])\n\n            preds.append(pred.detach().cpu())\n            accs.append(acc)\n            losses.append(loss.detach().cpu())\n        return accs, preds, losses, kl\n\n\ndef run_exp(args, dataset, model_cls, fold):\n    data = dataset[0]\n    data = get_fixed_splits(data, args['dataset'], fold, args['permute_masks'])\n    data = data.to(args['device'])\n\n    model = model_cls(data.edge_index, args)\n    model = model.to(args['device'])\n\n    sheaf_learner_params, other_params = model.grouped_parameters()\n    optimizer = torch.optim.Adam([\n        {'params': sheaf_learner_params, 'weight_decay': args['sheaf_decay']},\n        {'params': other_params, 'weight_decay': args['weight_decay']}\n    ], lr=args['lr'])\n\n    epoch = 0\n    best_val_acc = test_acc = 0\n    best_val_loss = float('inf')\n    val_loss_history = []\n    val_acc_history = []\n    best_epoch = 0\n    bad_counter = 0\n\n    for epoch in range(args['epochs']):\n        train(model, optimizer, data, args, epoch)\n\n        [train_acc, val_acc, tmp_test_acc], preds, [\n            train_loss, val_loss, tmp_test_loss], kl = test(model, data, args)\n        if fold == 0:\n            res_dict = {\n                f'fold{fold}_train_acc': train_acc,\n                f'fold{fold}_train_loss': train_loss,\n                f'fold{fold}_val_acc': val_acc,\n                f'fold{fold}_val_loss': val_loss,\n                f'fold{fold}_tmp_test_acc': tmp_test_acc,\n                f'fold{fold}_tmp_test_loss': tmp_test_loss,\n                f'fold{fold}_kl': kl,\n            }\n            wandb.log(res_dict, step=epoch)\n\n        new_best_trigger = val_acc > best_val_acc if args['stop_strategy'] == 'acc' else val_loss < best_val_loss\n        if new_best_trigger:\n            best_val_acc = val_acc\n            best_val_loss = val_loss\n            test_acc = tmp_test_acc\n            best_epoch = epoch\n            bad_counter = 0\n        else:\n            bad_counter += 1\n\n        if bad_counter == args['early_stopping']:\n            break\n\n    print(f\"Fold {fold} | Epochs: {epoch} | Best epoch: {best_epoch}\")\n    print(f\"Test acc: {test_acc:.4f}\")\n    print(f\"Best val acc: {best_val_acc:.4f}\")\n\n    # if \"ODE\" not in args['model']:\n    #     # Debugging for discrete models\n    #     for i in range(len(model.sheaf_learners)):\n    #         L_max = model.sheaf_learners[i].L.detach().max().item()\n    #         L_min = model.sheaf_learners[i].L.detach().min().item()\n    #         L_avg = model.sheaf_learners[i].L.detach().mean().item()\n    #         L_abs_avg = model.sheaf_learners[i].L.detach().abs().mean().item()"
+        },
+        {
+          "end": 239,
+          "start": 178,
+          "text": "        model_cls = GeneralSheafDiffusion\n    elif args.model == 'DiagSheaf':\n        model_cls = DiscreteDiagSheafDiffusion\n    elif args.model == 'BundleSheaf':\n        model_cls = DiscreteBundleSheafDiffusion\n    elif args.model == 'GeneralSheaf':\n        model_cls = DiscreteGeneralSheafDiffusion\n    elif args.model == 'BayesDiagSheaf':\n        model_cls = BayesDiagSheafDiffusion\n    elif args.model == 'BayesBundleSheaf':\n        model_cls = BayesBundleSheafDiffusion\n    elif args.model == 'BayesGeneralSheaf':\n        model_cls = BayesGeneralSheafDiffusion\n    elif args.model == 'GCN':\n        model_cls = GCN\n    else:\n        raise ValueError(f'Unknown model {args.model}')\n\n    dataset = get_dataset(args.dataset)\n    if args.evectors > 0:\n        dataset = append_top_k_evectors(dataset, args.evectors)\n\n    # Add extra arguments\n    args.bayes_model = 'Bayes' in args.model\n    args.sha = sha\n    args.graph_size = dataset[0].x.size(0)\n    args.input_dim = dataset.num_features\n    args.output_dim = dataset.num_classes\n    args.device = torch.device(f'cuda:{args.cuda}' if torch.cuda.is_available() else 'cpu')\n    assert args.normalised or args.deg_normalised\n    if args.sheaf_decay is None:\n        args.sheaf_decay = args.weight_decay\n\n    # Set the seed for everything\n    torch.manual_seed(args.seed)\n    torch.cuda.manual_seed(args.seed)\n    torch.cuda.manual_seed_all(args.seed)\n    np.random.seed(args.seed)\n    random.seed(args.seed)\n\n    results = []\n    print(f\"Running with wandb account: {args.entity}\")\n    print(args)\n    wandb.init(project=\"sheaf\", config=vars(args), entity=args.entity)\n\n    for fold in tqdm(range(args.folds)):\n        test_acc, best_val_acc, keep_running = run_exp(wandb.config, dataset, model_cls, fold)\n        results.append([test_acc, best_val_acc])\n        if not keep_running:\n            break\n\n    test_acc_mean, val_acc_mean = np.mean(results, axis=0) * 100\n    test_acc_std = np.sqrt(np.var(results, axis=0)[0]) * 100\n\n    wandb_results = {'test_acc': test_acc_mean, 'val_acc': val_acc_mean, 'test_acc_std': test_acc_std}\n    wandb.log(wandb_results)\n    wandb.finish()\n\n    model_name = args.model if args.evectors == 0 else f\"{args.model}+LP{args.evectors}\"\n    print(f'{model_name} on {args.dataset} | SHA: {sha}')\n    print(f'Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f} | Val acc: {val_acc_mean:.4f}')\n"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          40,
+          153
+        ],
+        [
+          178,
+          239
+        ]
+      ],
+      "source": {
+        "bytes": 8409,
+        "path": "author_source/exp/run.py",
+        "sha256": "787c731eb14c175437bb3624e8c6db279983ce2df79b8111c5a12e1de2dc7b3b"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 74,
+          "start": 1,
+          "text": "# Copyright 2022 Twitter, Inc.\n# Modifications 2024 Patrick Gillespie\n# SPDX-License-Identifier: Apache-2.0\n\nfrom distutils.util import strtobool\nimport argparse\n\n\ndef str2bool(x):\n    if type(x) == bool:\n        return x\n    elif type(x) == str:\n        return bool(strtobool(x))\n    else:\n        raise ValueError(f'Unrecognised type {type(x)}')\n\n\ndef get_parser():\n    parser = argparse.ArgumentParser()\n    # Optimisation params\n    parser.add_argument('--epochs', type=int, default=1500)\n    parser.add_argument('--lr', type=float, default=0.01)\n    parser.add_argument('--weight_decay', type=float, default=0.0005)\n    parser.add_argument('--sheaf_decay', type=float, default=None)\n    parser.add_argument('--early_stopping', type=int, default=200)\n    parser.add_argument('--min_acc', type=float, default=0.0,\n                        help=\"Minimum test acc on the first fold to continue training.\")\n    parser.add_argument('--stop_strategy', type=str, choices=['loss', 'acc'], default='loss')\n\n    # Model configuration\n    parser.add_argument('--d', type=int, default=2)\n    parser.add_argument('--layers', type=int, default=2)\n    parser.add_argument('--normalised', dest='normalised', type=str2bool, default=True,\n                        help=\"Use a normalised Laplacian\")\n    parser.add_argument('--deg_normalised', dest='deg_normalised', type=str2bool, default=False,\n                        help=\"Use a a degree-normalised Laplacian\")\n    parser.add_argument('--linear', dest='linear', type=str2bool, default=False,\n                        help=\"Whether to learn a new Laplacian at each step.\")\n    parser.add_argument('--hidden_channels', type=int, default=20)\n    parser.add_argument('--input_dropout', type=float, default=0.0)\n    parser.add_argument('--dropout', type=float, default=0.0)\n    parser.add_argument('--left_weights', dest='left_weights', type=str2bool, default=True,\n                        help=\"Applies left linear layer\")\n    parser.add_argument('--right_weights', dest='right_weights', type=str2bool, default=True,\n                        help=\"Applies right linear layer\")\n    parser.add_argument('--add_lp', dest='add_lp', type=str2bool, default=False,\n                        help=\"Adds fixed high pass filter in the restriction maps\")\n    parser.add_argument('--add_hp', dest='add_hp', type=str2bool, default=False,\n                        help=\"Adds fixed low pass filter in the restriction maps\")\n    parser.add_argument('--use_act', dest='use_act', type=str2bool, default=True)\n    parser.add_argument('--second_linear', dest='second_linear', type=str2bool, default=False)\n    parser.add_argument('--orth', type=str, choices=['matrix_exp', 'cayley', 'householder', 'euler'],\n                        default='householder', help=\"Parametrisation to use for the orthogonal group.\")\n    parser.add_argument('--sheaf_act', type=str, default=\"tanh\", help=\"Activation to use in sheaf learner.\")\n    parser.add_argument('--edge_weights', dest='edge_weights', type=str2bool, default=True,\n                        help=\"Learn edge weights for connection Laplacian\")\n    parser.add_argument('--sparse_learner', dest='sparse_learner', type=str2bool, default=False)\n    parser.add_argument('--sheaf_use_deg', dest='sheaf_use_deg', type=str2bool, default=False)\n    parser.add_argument('--use_kl', dest='use_kl', type=str2bool, default=False)\n    parser.add_argument('--num_ensemble', type=int, default=1)\n\n    # Experiment parameters\n    parser.add_argument('--dataset', default='texas')\n    parser.add_argument('--seed', type=int, default=43)\n    parser.add_argument('--cuda', type=int, default=0)\n    parser.add_argument('--folds', type=int, default=10)\n    parser.add_argument('--model', type=str,\n                        choices=['DiagSheaf', 'BundleSheaf', 'GeneralSheaf',\n                                 'BayesDiagSheaf', 'BayesBundleSheaf', 'BayesGeneralSheaf', 'GCN'],\n                        default=None)\n    parser.add_argument('--entity', type=str, default=None)\n    parser.add_argument('--evectors', type=int, default=0, help=\"Number of Laplacian PE eigenvectors to use.\")\n    parser.add_argument('--permute_masks', dest='permute_masks', type=str2bool, default=False,\n                        help=\"Uses val mask for training, test mask fo validation, and train mask for testing\")"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          74
+        ]
+      ],
+      "source": {
+        "bytes": 6269,
+        "path": "author_source/exp/parser.py",
+        "sha256": "c9058a31e93a7a20a187f7a7806d315fef882319bd076e3a942ed02632b50c4d"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 320,
+          "start": 277,
+          "text": "def get_fixed_splits(data, dataset_name, seed, permute_masks):\n    if permute_masks:\n        with np.load(f'splits/{dataset_name}_split_0.6_0.2_{seed}.npz') as splits_file:\n            train_mask = splits_file['val_mask']\n            val_mask = splits_file['test_mask']\n            test_mask = splits_file['train_mask']\n\n    else:\n        with np.load(f'splits/{dataset_name}_split_0.6_0.2_{seed}.npz') as splits_file:\n            train_mask = splits_file['train_mask']\n            val_mask = splits_file['val_mask']\n            test_mask = splits_file['test_mask']\n\n    data.train_mask = torch.tensor(train_mask, dtype=torch.bool)\n    data.val_mask = torch.tensor(val_mask, dtype=torch.bool)\n    data.test_mask = torch.tensor(test_mask, dtype=torch.bool)\n\n    if dataset_name in {'cora', 'citeseer', 'pubmed'}:\n        data.train_mask[data.non_valid_samples] = False\n        data.test_mask[data.non_valid_samples] = False\n        data.val_mask[data.non_valid_samples] = False\n        print(\"Non zero masks\", torch.count_nonzero(data.train_mask + data.val_mask + data.test_mask))\n        print(\"Nodes\", data.x.size(0))\n        print(\"Non valid\", len(data.non_valid_samples))\n    else:\n        assert torch.count_nonzero(data.train_mask + data.val_mask + data.test_mask) == data.x.size(0)\n\n    return data\n\n\ndef get_dataset(name):\n    data_root = osp.join(ROOT_DIR, 'datasets')\n    if name in ['cornell', 'texas', 'wisconsin']:\n        dataset = WebKB(root=data_root, name=name, transform=T.NormalizeFeatures())\n    elif name in ['chameleon', 'squirrel']:\n        dataset = WikipediaNetwork(root=data_root, name=name, transform=T.NormalizeFeatures())\n    elif name == 'film':\n        dataset = Actor(root=data_root, transform=T.NormalizeFeatures())\n    elif name in ['cora', 'citeseer', 'pubmed']:\n        dataset = Planetoid(root=data_root, name=name, transform=T.NormalizeFeatures())\n    else:\n        raise ValueError(f'dataset {name} not supported in dataloader')\n\n    return dataset"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          277,
+          320
+        ]
+      ],
+      "source": {
+        "bytes": 13681,
+        "path": "author_source/utils/heterophilic.py",
+        "sha256": "669443395b12c681278174b48d3457d536e092419b7ed879e995768f52d8f25a"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 47,
+          "start": 1,
+          "text": "program: exp/run.py\nmethod: grid\nmetric:\n  name: val_acc\n  goal: maximize\nparameters:\n  model:\n    distribution: constant\n    value: 'BayesGeneralSheaf'\n  d:\n    distribution: categorical\n    values: [2, 3, 4, 5]\n  dataset:\n    distribution: categorical\n    values: ['cornell', 'texas', 'wisconsin']\n  layers:\n    distribution: categorical\n    values: [2, 3, 4, 5]\n  hidden_channels:\n    distribution: categorical\n    values: [8, 32]\n  dropout:\n    distribution: categorical\n    values: [0.0, 0.3, 0.6]\ncommand:\n  - ${env}\n  - python3\n  - ${program}\n  - ${args}\n  - --epochs=500\n  - --lr=0.01\n  - --add_hp=True\n  - --add_lp=True\n  - --input_dropout=0.0\n  - --early_stopping=200\n  - --folds=10\n  - --left_weights=True\n  - --right_weights=True\n  - --use_act=True\n  - --normalised=True\n  - --edge_weights=True\n  - --use_kl=True\n  - --sheaf_use_deg=False\n  - --permute_masks=True\n  - --num_ensemble=3\n  - --cuda=1\n  - --entity=${ENTITY}"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          47
+        ]
+      ],
+      "source": {
+        "bytes": 932,
+        "path": "author_source/config/webkb_small/bayes_gen_sweep.yml",
+        "sha256": "e98e451e8f7da061a03cede473976c9d4b7816f04e92ef972bfb7ab73ca70b6c"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 46,
+          "start": 1,
+          "text": "program: exp/run.py\nmethod: grid\nmetric:\n  name: val_acc\n  goal: maximize\nparameters:\n  model:\n    distribution: constant\n    value: 'BayesBundleSheaf'\n  d:\n    distribution: categorical\n    values: [2, 3, 4, 5]\n  dataset:\n    distribution: categorical\n    values: ['cornell', 'texas', 'wisconsin']\n  layers:\n    distribution: categorical\n    values: [2, 3, 4, 5]\n  hidden_channels:\n    distribution: categorical\n    values: [8, 32]\n  dropout:\n    distribution: categorical\n    values: [0.0, 0.3, 0.6]\ncommand:\n  - ${env}\n  - python3\n  - ${program}\n  - ${args}\n  - --epochs=500\n  - --lr=0.01\n  - --add_hp=True\n  - --add_lp=True\n  - --input_dropout=0.0\n  - --early_stopping=200\n  - --folds=10\n  - --left_weights=True\n  - --right_weights=True\n  - --use_act=True\n  - --normalised=True\n  - --edge_weights=True\n  - --use_kl=True\n  - --sheaf_use_deg=False\n  - --permute_masks=True\n  - --num_ensemble=3\n  - --entity=${ENTITY}"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          46
+        ]
+      ],
+      "source": {
+        "bytes": 963,
+        "path": "author_source/config/webkb_small/bayes_orth_sweep.yml",
+        "sha256": "2447dea100378e679962c957dfc9d16122de12c05bc5c20842a454dd29e77427"
+      }
+    },
+    {
+      "passages": [
+        {
+          "end": 46,
+          "start": 1,
+          "text": "program: exp/run.py\nmethod: grid\nmetric:\n  name: val_acc\n  goal: maximize\nparameters:\n  model:\n    distribution: constant\n    value: 'BayesDiagSheaf'\n  d:\n    distribution: categorical\n    values: [2, 3, 4, 5]\n  dataset:\n    distribution: categorical\n    values: ['cornell', 'texas', 'wisconsin']\n  layers:\n    distribution: categorical\n    values: [2, 3, 4, 5]\n  hidden_channels:\n    distribution: categorical\n    values: [8, 32]\n  dropout:\n    distribution: categorical\n    values: [0.0, 0.3, 0.6]\ncommand:\n  - ${env}\n  - python3\n  - ${program}\n  - ${args}\n  - --epochs=500\n  - --lr=0.01\n  - --add_hp=True\n  - --add_lp=True\n  - --input_dropout=0.0\n  - --early_stopping=200\n  - --folds=10\n  - --left_weights=True\n  - --right_weights=True\n  - --use_act=True\n  - --normalised=True\n  - --edge_weights=True\n  - --use_kl=True\n  - --sheaf_use_deg=False\n  - --permute_masks=True\n  - --num_ensemble=3\n  - --entity=${ENTITY}"
+        }
+      ],
+      "ranges_inclusive": [
+        [
+          1,
+          46
+        ]
+      ],
+      "source": {
+        "bytes": 961,
+        "path": "author_source/config/webkb_small/bayes_diag_sweep.yml",
+        "sha256": "af59cb0e47242f07c15945a35bd9c10af30b6fcb263d5b9666ea6b57c00af375"
+      }
+    }
+  ],
+  "scope": "Bounded source-text reading only; no source import/model/numerical execution.",
+  "updated_fork_read_scope": [
+    "README/license/environment",
+    "Bayes model std/KL and Cayley ownership diff",
+    "driver train/evaluation/selection/terminal checkpoint and fixed split behavior",
+    "Cora source configuration"
+  ]
+}

@@ -1,0 +1,14 @@
+from pathlib import Path
+import os,json,socket,subprocess,importlib.util,time,random
+R=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs');P=R/'experiments_iclr/postsubmission_20260930';os.chdir(R)
+assert socket.gethostname()=='anogena-2-0' and subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()==['GPU-44039938-fd82-41d2-fefd-de71514e2fac']
+import numpy as np,torch
+sysmod=__import__('sys');sysmod.path.insert(0,str(P/'private_sheaf_dependency_overlay_20261009_v1'))
+def module(path,name):
+ spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
+q=module(P/'private_sheaf_full_input_qualifier_20261009_v1/qualifier.py','_reconstruction_original_qualifier');common,_,_=q.verify_chain();npdata,meta=q.read_train_input(np,common,P/'private_sheaf_train_valid_roles_allocation_root_20261009_v1/roles.npz');data={k:torch.from_numpy(v).to('cuda:0') for k,v in npdata.items()};data['cpu_edge_index']=torch.from_numpy(npdata['edge_index']);adapter=common.load_adapter();placement=q.load_stdlib_helper('_reconstruction_placement',P/'private_sheaf_train_valid_runner_20261009_v1/native_placement.py');protocol=json.loads((P/'private_sheaf_full_input_qualifier_20261009_v1/PROTOCOL.json').read_text());torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False;rows=[]
+for config in protocol['configs']:
+ start=time.monotonic();f=P/'private_sheaf_full_input_qualification_execution_root_20261009_v1'/config['id']/'SELECTED_ENGINEERING_STATE.pt';saved=torch.load(f,map_location='cpu',weights_only=True);args=dict(config['native_args'],graph_size=data['x'].shape[0],input_dim=data['x'].shape[1],output_dim=2,device='cuda:0');model=placement.make_native_placed_factory(torch,adapter,data['cpu_edge_index'],data['edge_index'],args)();model.load_state_dict(saved['state_dict'],strict=True);same=all(torch.equal(v.cpu(),saved['state_dict'][k]) for k,v in model.state_dict().items());random.setstate(saved['python_rng']);n=saved['numpy_rng'];np.random.set_state((n[0],np.asarray(n[1],dtype=np.uint32),n[2],n[3],n[4]));torch.set_rng_state(saved['torch_cpu_rng']);torch.cuda.set_rng_state_all(saved['torch_cuda_rng']);model.eval()
+ with torch.no_grad():logp=model(data['x'])[data['train_index']].cpu()
+ dif=(logp-saved['train_logp']).abs();rows.append(dict(config=config['id'],state_exact=same,max_abs_logp_difference=float(dif.max()),mean_abs_logp_difference=float(dif.mean()),finite=bool(torch.isfinite(logp).all()),seconds=time.monotonic()-start,validation_metrics=False,new_training_updates=0));del model,saved,logp,dif;__import__('gc').collect();torch.cuda.empty_cache()
+print(json.dumps({'rows':rows,'new_training_updates':0,'scientific_metrics_computed':False}))
