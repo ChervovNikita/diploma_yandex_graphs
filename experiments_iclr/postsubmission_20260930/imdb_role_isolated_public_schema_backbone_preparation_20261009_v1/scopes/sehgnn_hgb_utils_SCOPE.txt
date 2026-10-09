@@ -1,0 +1,310 @@
+0028 def set_random_seed(seed=0):
+0029     random.seed(seed)
+0030     np.random.seed(seed)
+0031     torch.manual_seed(seed)
+0032     if torch.cuda.is_available():
+0033         torch.cuda.manual_seed(seed)
+0034 
+0035 
+0036 def evaluator(gt, pred):
+0037     gt = gt.cpu().squeeze()
+0038     pred = pred.cpu().squeeze()
+0039     return f1_score(gt, pred, average='micro'), f1_score(gt, pred, average='macro')
+0040 
+
+0048         pp += nn
+0049     return pp
+0050 
+0051 
+0052 def hg_propagate_feat_dgl(g, tgt_type, num_hops, max_length, extra_metapath, echo=False):
+0053     for hop in range(1, max_length):
+0054         reserve_heads = [ele[:hop] for ele in extra_metapath if len(ele) > hop]
+0055         for etype in g.etypes:
+0056             stype, _, dtype = g.to_canonical_etype(etype)
+0057             # if hop == args.num_hops and dtype != tgt_type: continue
+0058             for k in list(g.nodes[stype].data.keys()):
+0059                 if len(k) == hop:
+0060                     current_dst_name = f'{dtype}{k}'
+0061                     if (hop == num_hops and dtype != tgt_type and k not in reserve_heads) \
+0062                       or (hop > num_hops and k not in reserve_heads):
+0063                         continue
+0064                     if echo: print(k, etype, current_dst_name)
+0065                     g[etype].update_all(
+0066                         fn.copy_u(k, 'm'),
+0067                         fn.mean('m', current_dst_name), etype=etype)
+0068 
+0069         # remove no-use items
+0070         for ntype in g.ntypes:
+0071             if ntype == tgt_type: continue
+0072             removes = []
+0073             for k in g.nodes[ntype].data.keys():
+0074                 if len(k) <= hop:
+0075                     removes.append(k)
+0076             for k in removes:
+0077                 g.nodes[ntype].data.pop(k)
+0078             if echo and len(removes): print('remove', removes)
+
+0087 
+0088 
+0089 def hg_propagate_sparse_pyg(adjs, tgt_types, num_hops, max_length, extra_metapath, prop_feats=False, echo=False, prop_device='cpu'):
+0090     store_device = 'cpu'
+0091     if type(tgt_types) is not list:
+0092         tgt_types = [tgt_types]
+0093 
+0094     label_feats = {k: v.clone() for k, v in adjs.items() if prop_feats or k[-1] in tgt_types} # metapath should start with target type in label propagation
+0095     adjs_g = {k: v.to(prop_device) for k, v in adjs.items()}
+0096 
+0097     for hop in range(2, max_length):
+0098         reserve_heads = [ele[-(hop+1):] for ele in extra_metapath if len(ele) > hop]
+0099         new_adjs = {}
+0100         for rtype_r, adj_r in label_feats.items():
+0101             metapath_types = list(rtype_r)
+0102             if len(metapath_types) == hop:
+0103                 dtype_r, stype_r = metapath_types[0], metapath_types[-1]
+0104                 for rtype_l, adj_l in adjs_g.items():
+0105                     dtype_l, stype_l = rtype_l
+0106                     if stype_l == dtype_r:
+0107                         name = f'{dtype_l}{rtype_r}'
+0108                         if (hop == num_hops and dtype_l not in tgt_types and name not in reserve_heads) \
+0109                           or (hop > num_hops and name not in reserve_heads):
+0110                             continue
+0111                         if name not in new_adjs:
+0112                             if echo: print('Generating ...', name)
+0113                             if prop_device == 'cpu':
+0114                                 new_adjs[name] = adj_l.matmul(adj_r)
+0115                             else:
+0116                                 with torch.no_grad():
+0117                                     new_adjs[name] = adj_l.matmul(adj_r.to(prop_device)).to(store_device)
+0118                         else:
+0119                             if echo: print(f'Warning: {name} already exists')
+0120         label_feats.update(new_adjs)
+0121 
+0122         removes = []
+0123         for k in label_feats.keys():
+0124             metapath_types = list(k)
+0125             if metapath_types[0] in tgt_types: continue  # metapath should end with target type in label propagation
+0126             if len(metapath_types) <= hop:
+0127                 removes.append(k)
+0128         for k in removes:
+0129             label_feats.pop(k)
+0130         if echo and len(removes): print('remove', removes)
+0131         del new_adjs
+0132         gc.collect()
+0133 
+0134     if prop_device != 'cpu':
+0135         del adjs_g
+0136         torch.cuda.empty_cache()
+0137 
+0138     return label_feats
+0139 
+0140 
+
+0141 def check_acc(preds_dict, condition, init_labels, train_nid, val_nid, test_nid, show_test=True, loss_type='ce'):
+0142     mask_train, mask_val, mask_test = [], [], []
+0143     remove_label_keys = []
+0144     k = list(preds_dict.keys())[0]
+0145     v = preds_dict[k]
+0146     if loss_type == 'ce':
+0147         na, nb, nc = len(train_nid), len(val_nid), len(test_nid)
+0148     elif loss_type == 'bce':
+0149         na, nb, nc = len(train_nid) * v.size(1), len(val_nid) * v.size(1), len(test_nid) * v.size(1)
+0150 
+0151     for k, v in preds_dict.items():
+0152         if loss_type == 'ce':
+0153             pred = v.argmax(1)
+0154         elif loss_type == 'bce':
+0155             pred = (v > 0).int()
+0156 
+0157         a, b, c = pred[train_nid] == init_labels[train_nid], \
+0158                   pred[val_nid] == init_labels[val_nid], \
+0159                   pred[test_nid] == init_labels[test_nid]
+0160         ra, rb, rc = a.sum() / na, b.sum() / nb, c.sum() / nc
+0161 
+0162         if loss_type == 'ce':
+0163             vv = torch.log(v / (v.sum(1, keepdim=True) + 1e-6) + 1e-6)
+0164             la, lb, lc = F.nll_loss(vv[train_nid], init_labels[train_nid]), \
+0165                          F.nll_loss(vv[val_nid], init_labels[val_nid]), \
+0166                          F.nll_loss(vv[test_nid], init_labels[test_nid])
+0167         else:
+0168             vv = (v / 2. + 0.5).clamp(1e-6, 1-1e-6)
+0169             la, lb, lc = F.binary_cross_entropy(vv[train_nid], init_labels[train_nid].float()), \
+0170                          F.binary_cross_entropy(vv[val_nid], init_labels[val_nid].float()), \
+0171                          F.binary_cross_entropy(vv[test_nid], init_labels[test_nid].float())
+0172         if condition(ra, rb, rc, k):
+0173             mask_train.append(a)
+0174             mask_val.append(b)
+0175             mask_test.append(c)
+0176         else:
+0177             remove_label_keys.append(k)
+0178         if show_test:
+0179             print(k, ra, rb, rc, la, lb, lc, (ra/rb-1)*100, (ra/rc-1)*100, (1-la/lb)*100, (1-la/lc)*100)
+0180         else:
+0181             print(k, ra, rb, la, lb, (ra/rb-1)*100, (1-la/lb)*100)
+0182     print(set(list(preds_dict.keys())) - set(remove_label_keys))
+0183 
+0184     print((torch.stack(mask_train, dim=0).sum(0) > 0).sum() / na)
+0185     print((torch.stack(mask_val, dim=0).sum(0) > 0).sum() / nb)
+0186     if show_test:
+0187         print((torch.stack(mask_test, dim=0).sum(0) > 0).sum() / nc)
+0188 
+
+0191     model.train()
+0192     device = labels_cuda.device
+0193     total_loss = 0
+0194     iter_num = 0
+0195     y_true, y_pred = [], []
+0196 
+0197     for batch in train_loader:
+0198         # batch = batch.to(device)
+0199         if isinstance(feats, list):
+0200             batch_feats = [x[batch].to(device) for x in feats]
+0201         elif isinstance(feats, dict):
+0202             batch_feats = {k: x[batch].to(device) for k, x in feats.items()}
+0203         else:
+0204             assert 0
+0205         batch_labels_feats = {k: x[batch].to(device) for k, x in label_feats.items()}
+0206         if mask is not None:
+0207             batch_mask = {k: x[batch].to(device) for k, x in mask.items()}
+0208         else:
+0209             batch_mask = None
+0210         batch_y = labels_cuda[batch]
+0211 
+0212         optimizer.zero_grad()
+0213         if scalar is not None:
+0214             with torch.cuda.amp.autocast():
+0215                 output_att = model(batch, batch_feats, batch_labels_feats, batch_mask)
+0216                 loss_train = loss_fcn(output_att, batch_y)
+0217             scalar.scale(loss_train).backward()
+0218             scalar.step(optimizer)
+0219             scalar.update()
+0220         else:
+0221             output_att = model(batch, batch_feats, batch_labels_feats, batch_mask)
+0222             loss_train = loss_fcn(output_att, batch_y)
+0223             loss_train.backward()
+0224             optimizer.step()
+0225 
+0226         y_true.append(batch_y.cpu().to(torch.long))
+0227         if isinstance(loss_fcn, nn.BCEWithLogitsLoss):
+0228             y_pred.append((output_att.data.cpu() > 0.).int())
+0229         else:
+0230             y_pred.append(output_att.argmax(dim=-1, keepdim=True).cpu())
+0231         total_loss += loss_train.item()
+0232         iter_num += 1
+0233     loss = total_loss / iter_num
+0234     acc = evaluator(torch.cat(y_true, dim=0), torch.cat(y_pred, dim=0))
+0235     return loss, acc
+0236 
+0237 
+0238 def load_dataset(args):
+0239     dl = data_loader(f'{args.root}/{args.dataset}')
+0240 
+0241     # use one-hot index vectors for nods with no attributes
+0242     # === feats ===
+0243     features_list = []
+0244     for i in range(len(dl.nodes['count'])):
+0245         th = dl.nodes['attr'][i]
+0246         if th is None:
+0247             features_list.append(torch.eye(dl.nodes['count'][i]))
+0248         else:
+0249             features_list.append(torch.FloatTensor(th))
+0250 
+0251     idx_shift = np.zeros(len(dl.nodes['count'])+1, dtype=np.int32)
+0252     for i in range(len(dl.nodes['count'])):
+0253         idx_shift[i+1] = idx_shift[i] + dl.nodes['count'][i]
+0254 
+0255     # === labels ===
+0256     num_classes = dl.labels_train['num_classes']
+0257     init_labels = np.zeros((dl.nodes['count'][0], num_classes), dtype=int)
+0258 
+0259     trainval_nid = np.nonzero(dl.labels_train['mask'])[0]
+0260     test_nid = np.nonzero(dl.labels_test['mask'])[0]
+0261 
+0262     init_labels[trainval_nid] = dl.labels_train['data'][trainval_nid]
+0263     init_labels[test_nid] = dl.labels_test['data'][test_nid]
+0264     if args.dataset != 'IMDB':
+0265         init_labels = init_labels.argmax(axis=1)
+0266     init_labels = torch.LongTensor(init_labels)
+0267 
+
+0274     for i, (k, v) in enumerate(dl.links['data'].items()):
+0275         v = v.tocoo()
+0276         src_type_idx = np.where(idx_shift > v.col[0])[0][0] - 1
+0277         dst_type_idx = np.where(idx_shift > v.row[0])[0][0] - 1
+0278         row = v.row - idx_shift[dst_type_idx]
+0279         col = v.col - idx_shift[src_type_idx]
+0280         sparse_sizes = (dl.nodes['count'][dst_type_idx], dl.nodes['count'][src_type_idx])
+0281         adj = SparseTensor(row=torch.LongTensor(row), col=torch.LongTensor(col), sparse_sizes=sparse_sizes)
+0282         if args.dataset == 'Freebase':
+0283             name = f'{dst_type_idx}{src_type_idx}'
+0284             assert name not in adjs
+0285             adjs[name] = adj
+0286         else:
+0287             adjs.append(adj)
+0288             print(adj)
+
+0331     elif args.dataset == 'IMDB':
+0332         # A --- M* --- D
+0333         #       |
+0334         #       K
+0335         # movie    : [4932, 3489]
+0336         # director : [2393, 3341]
+0337         # actor    : [6124, 3341]
+0338         # keywords : None
+0339         M, D, A, K = features_list
+0340         MD, DM, MA, AM, MK, KM = adjs
+0341         assert torch.all(DM.storage.col() == MD.t().storage.col())
+0342         assert torch.all(AM.storage.col() == MA.t().storage.col())
+0343         assert torch.all(KM.storage.col() == MK.t().storage.col())
+0344 
+0345         assert torch.all(MD.storage.rowcount() == 1) # each movie has single director
+0346 
+0347         new_edges = {}
+0348         ntypes = set()
+0349         etypes = [ # src->tgt
+0350             ('D', 'D-M', 'M'),
+0351             ('M', 'M-D', 'D'),
+0352             ('A', 'A-M', 'M'),
+0353             ('M', 'M-A', 'A'),
+0354             ('K', 'K-M', 'M'),
+0355             ('M', 'M-K', 'K'),
+0356         ]
+0357         for etype, adj in zip(etypes, adjs):
+0358             stype, rtype, dtype = etype
+0359             dst, src, _ = adj.coo()
+0360             src = src.numpy()
+0361             dst = dst.numpy()
+0362             new_edges[(stype, rtype, dtype)] = (src, dst)
+0363             ntypes.add(stype)
+0364             ntypes.add(dtype)
+0365         g = dgl.heterograph(new_edges)
+0366 
+0367         g.nodes['M'].data['M'] = M
+0368         g.nodes['D'].data['D'] = D
+0369         g.nodes['A'].data['A'] = A
+0370         if args.num_hops > 2 or args.two_layer:
+0371             g.nodes['K'].data['K'] = K
+0372     elif args.dataset == 'ACM':
+0373         # A --- P* --- C
+0374         #       |
+0375         #       K
+0376         # paper     : [3025, 1902]
+0377         # author    : [5959, 1902]
+0378         # conference: [56, 1902]
+0379         # field     : None
+0380         P, A, C, K = features_list
+
+0459     elif args.dataset == 'IMDB':
+0460         adjs = {'MD': MD, 'DM': DM, 'MA': MA, 'AM': AM, 'MK': MK, 'KM': KM}
+0461     elif args.dataset == 'Freebase':
+0462         new_adjs = {}
+0463         for rtype, adj in adjs.items():
+0464             dtype, stype = rtype
+0465             if dtype != stype:
+0466                 new_name = f'{stype}{dtype}'
+0467                 assert new_name not in adjs
+0468                 new_adjs[new_name] = adj.t()
+0469         adjs.update(new_adjs)
+0470     else:
+0471         assert 0
+0472 
+0473     return g, adjs, init_labels, num_classes, dl, trainval_nid, test_nid

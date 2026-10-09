@@ -1,0 +1,58 @@
+# Typed-graph integration contract
+
+## Native architecture and ownership
+
+Use a separately verified contemporary typed-graph architecture and its native factual graph/model/own objective. This helper supplies the source correction; it is not a replacement backbone. Root/source owner must freeze the exact eligible relation-message/transport affine factor sites and their names. A name declaration alone does not prove that a site is a message transform.
+
+Each member must have a complete native path and private state/cache ownership. `verify_ownership` checks every native parameter path, exact common object identity, private object/storage separation and separation from shared/nonsteered weights. The caller's ordinary optimizer must deduplicate common objects. An untied reference declares all native body weights as member-owned/nonsteered and has no shared parameter objects; only the same factor sites receive source credit. There is no claim that this factorized untied bank is identical to an ordinary unfactorized native independent4, which remains a competence reference.
+
+Source VJPs use `autograd.grad(..., declared_private_parameters)` and preserve every parameter `.grad` field. They do not allocate/accumulate source `.grad` credit for shared stems, heads, relation weights or other nonrecipients. Native shared weights remain active in the forward and derivative chain. The source helper never receives an optimizer and cannot update its moments. A finite private correction leaves own-Adam moments unchanged, as declared in the saved split policy.
+
+Real-native qualification must check **actual site/Jacobian dependence**, not merely two forward calls. A factor acting only on the removed channel can have an identically zero probe derivative when that channel is zero and bias is outside its scale. That block then receives positive factual responsibility-weighted CE/BCE alone. `allow_unused` correctly records an absent derivative as zero; it is not evidence of a signed two-term mechanism. Broader private semantic/message sites may retain probe derivatives through remaining channels/nonlinear attention, depending on architecture. Report each eligible block's factual/probe gradient activity and the realized reduction. No nonzero-probe assumption or extra outcome-triggered protocol is introduced.
+
+## Views, queries and native state
+
+For family a, `SourceView` declares removal of exactly a, its required reverse relations and derived paths containing a; other families, all query own features and mandatory native self/projection paths remain. Native graph support, normalization/attention and path/cache construction must be rebuilt correctly. The code checks declaration consistency; it cannot prove that the supplied architecture/view satisfies it.
+
+For recipient m assigned a, every reference peer k uses `train_probe(k,a)`, **not** its own assigned family, and not removal of all families. `source=None` means the genuine all-full-input native graph. `make_credit_plan` requires all M peers under every declared family even for a COMMON assignment. No TRAIN/VALID label defines source families or assignments.
+
+All outputs must contain the same complete ordered TRAIN query rows and native output columns. `target_role='TRAIN'` is required, but actual data-role/query-ID custody is caller-owned and needs binding. No VALID/TEST truth enters reference construction, correction, source selection or finite guards. Heldout full-input selection remains the existing prospectively fixed outer contract.
+
+The callback signature is `native_forward(member, source_or_None, mode, replay_token)`. It must execute the verified original model path, use the corresponding native view, return native score tensors for all TRAIN queries, and restore native mode/RNG/prediction-relevant buffers after each call. Tokens bind the pre-correction parameter/buffer state and each member/view realization. Relation removal may change stochastic draw schedules: cross-view common randomness is not assumed. Reference/replay and pre/post trial reuse each view's exact token.
+
+TRAIN-mode BatchNorm/running statistics, graph caches or other prediction-relevant mutable buffers must be frozen or snapshotted/restored consistently by the qualified callback. The helper tracks learned parameters and `.grad`, not arbitrary buffers/RNG/native graph fields. Additional source calls must not become hidden normalization training. Diagnostics may be retained only if source inspection establishes they do not affect future predictions. No detached diagnostic is substituted for native propagation.
+
+This requirement includes **shared buffers and member-owned buffers**, not only shared Parameters, Adam moments or RNG. Capture the full native post-own state and restore the corresponding old buffer/cache/normalization state before and after every reference, replay and trial call, including each evaluation-mode factual guard. Source-view TRAIN statistics must not leak into an eval guard or subsequent own training. A SeHGNN task block may contain BatchNorm running state; parameter-version checks do not establish preservation of that state. Exact capture/restoration of all such native buffers, relevant graph caches/normalizers and their shared ownership is a required real-native integration check. No SeHGNN model or numerical qualification was performed here.
+
+Per-call restoration must preserve the **current trial private candidate** when a trial is active; it must not load the reference private parameters over the candidate. Shared/nonsteered learned parameters stay at the post-own point throughout. The helper owns temporary private copies/rollback, while the callback restores buffers, graph/normalization state, modes and RNG. Full model-state capture is for custody/reconstruction and qualification of this division of responsibility.
+
+## Explicit score contracts
+
+- `categorical_logits`: native unnormalized class logits and one integer TRAIN class per query; softmax/categorical NLL.
+- `categorical_log_probs`: native normalized class log probabilities; exact native NLL without another softmax. Normalization is checked at the fixed tolerance.
+- `bernoulli_marginal_logits`: native per-label logits and complete hard binary TRAIN outcomes, with the prospective mean-BCE amendment. Per-label sigmoid probabilities are averaged at deployment; labels are never normalized or multiplied before member mixing.
+
+No mode is inferred. Native loss, target semantics, score extraction and reduction need qualification. Input tensors and labels are not loaded by this module.
+
+## Integration sequence for one steering opportunity
+
+1. Run the unchanged declared full-input own/prior Adam update. Preserve its exact active-private displacement and post-own state; do not reset moments. The outer warmup/cadence/horizon/source assignment come from the prospectively fixed protocol, not this helper.
+2. Verify complete parameter ownership. Collect detached no-grad scores: M factual TRAIN-mode, M*G family-removed TRAIN-mode, M factual eval-mode, with all native callbacks restoring the same old prediction state. Construct `OutputKey` entries and corresponding replay tokens.
+3. Call `make_credit_plan` with explicit mode, complete TRAIN targets, full-view binding, verified SourceView declarations and current assignments. It constructs small output-leaf graphs, freezes peer predictions and computes J/risk cotangents; it retains no native model tape. Peer references are cloned to prevent accidental output-buffer alias mutation.
+4. Recompute each key from `plan.replay_keys()` at the same old parameter state, call `accumulate_replay`, and discard its native output before the next path. Multiple VJPs can retain one path's tape until its last VJP; no parameter update occurs between them. Zero-recipient paths are still audited, and the caller must discard their unused graphs too. Shared and nonsteered `.grad` fields remain unchanged.
+5. Call `build_private_direction` with the own-step private displacements. It projects −g onto first-order nonincrease constraints, uses stable norms/finite checks, and normalizes to0.1 times the active own displacement norm. A zero feasible projection/dose is reported as zero, without a trial.
+6. If nonzero, try only the declared scales1,1/2,1/4,1/8 with `try_private_step`, stopping at the first acceptance. It performs **one** trial, not an automatic retry loop. Every finite rejection restores exact old private tensor values and refreshes version stamps. A native contract exception invalidates the plan; unexpected learned-parameter/grad mutation is not hidden as a rejection. Nonfinite native trial scores reject that trial and restore private values. All failed work is charged.
+7. Accept only if aggregate Armijo and per-recipient J decrease/nonincrease, every native factual own NLL, actual all-full probability-pool NLL, assigned-probe own NLL and frozen-peer absent-pool NLL pass. The trial uses frozen pre-correction peers for J/A even though several private recipients move simultaneously. Source-absent all-updated committee quality is a separate measurement.
+8. Resume the unchanged own optimizer. For selected reconstruction, call `serve_full_input`, which explicitly invokes every native member with `source=None` and eval mode; probability means use the explicit score mode. No supplied-source surrogate is served.
+
+`Config(enabled=False)` is the delivered default. Root must qualify the native integration and freeze numerical tolerances before enabling runtime helpers. `guard_atol=0` retains the strict mathematical policy. A numerical roundoff tolerance must not become an undeclared competence budget. Any meaningful risk budget is a separate future hypothesis, not a post-outcome retry.
+
+## Work, reporting and qualification limits
+
+With M4/G3 and three active recipients, reference work is20 native paths; replay audit is11 paths plus multiple VJPs; each trial is11 paths, with at most four trials. General counts are M*(G+2), 2M+K and 2M+K, with K active recipients. The small cone has M+1+2K constraints and the delivered solver supports at most11. Retained source-view caches, score/cotangent arrays, constraint gradients, four model states and all moments remain charged. One live tape is a retention policy, not a measured peak-memory result.
+
+Report per seed: source opportunities; zero projections/doses; each finite rejection and reason; accepted corrections and actual cumulative private dose; J/S/A and factual own/pool risks; actual reference/replay/VJP/trial calls; time/memory/caches; selected epoch and fresh all-full serving. An improvement with no accepted correction cannot be attributed to steering.
+
+Strict finite nonincrease of every full-TRAIN own risk can reject all nonzero changes near a private own-risk local minimum even when the first-order cone allows them. This is the declared safeguard's curvature limitation, not proof that semantic source information or a different budgeted method is impossible. Do not loosen guards, add attempts or change cadence after seeing outcomes. Guards certify only their aggregate TRAIN/reference inequalities, not heldout accuracy, useful source complementarity or future optimizer stability.
+
+The stdlib verification is narrow mathematical evidence. Native autograd/cotangent replay, exact source/view semantics, mode/buffer/RNG preservation, atomically guarded private copies, dtype/memory feasibility and competent native/shared/untied references still require independent source review and runtime qualification before any scientific launch. No actual IMDB schema, dataset, model or outcome was accessed here.
