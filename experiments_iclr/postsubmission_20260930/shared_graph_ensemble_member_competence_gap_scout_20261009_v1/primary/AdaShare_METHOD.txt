@@ -1,0 +1,55 @@
+3 Proposed Method
+Figure 2: Illustration of our proposed approach. AdaShare learns the layer sharing pattern among multiple tasks through predicting a select-or-skip policy decision sampled from the learned task-specific policy distribution (logits). These select-or-skip vectors define which blocks should be executed in different tasks. A block is said to be shared across two tasks if it is being used by both of them or task-specific if it is being used by only one task for predicting the output.
+During training, both policy logits and network parameters are jointly learned using standard back-propagation through Gumbel-Softmax Sampling. We use task-specific losses and policy regularizations (to encourage sparsity and sharing) in training. Best viewed in color.
+Given a set of [MATH K] tasks [MATH \bm{T}=\{\mathcal{T}_{1},\mathcal{T}_{2},\cdots,\mathcal{T}_{K}\}] defined over a dataset, our goal is to seek an adaptive feature sharing mechanism that decides what network layers should be shared across which tasks and what layers should be task-specific in order to improve the accuracy, while taking the resource efficiency into account for scalable multi-task learning.
+Approach Overview.
+Figure 2 illustrates an overview of our proposed approach. Generally, we seek a binary random variable [MATH \mathbf{u}_{l,k}] (a.k.a policy) for each layer [MATH l] and task [MATH \mathcal{T}_{k}] that determines whether the [MATH l] -th layer in a deep neural network is selected to execute or skipped when solving [MATH \mathcal{T}_{k}] to obtain the optimal sharing pattern, yielding the best overall performance over the task set [MATH T] .
+Shortcut connections are widely used in recent network architectures (e.g. ResNet [18], ResNeXt [64], and DenseNet [21]) and achieve strong performance in many recognition tasks.
+These connections make these architectures resilient to removal of layers [59], which benefits our method. In this paper, we consider using ResNets [18] with [MATH L] residual blocks.
+In particular, a residual block is said to be shared across two tasks if it is being used by both of them, or task-specific if it is being used by only one task for predicting the output. In this way, the select-or-skip policy of all blocks and tasks ( [MATH \mathbf{U}=\{\mathbf{u}_{l,k}\}_{l\leq L,k\leq K}] ) determines the adaptive feature sharing mechanism over the given task set [MATH T] .
+As the number of potential configurations for [MATH \mathbf{U}] is [MATH 2^{L\times K}] which grows exponentially with the number of blocks and tasks, it becomes intractable to manually find such a [MATH \mathbf{U}] to get the optimal feature sharing pattern in multi-task learning. Instead of handcrafting this policy,
+we adopt Gumbel-Softmax Sampling [25] to optimize [MATH \mathbf{U}] jointly with the network parameters [MATH W] through standard back-propagation. Moreover, we introduce two policy regularizations to achieve effective knowledge sharing in a compact multi-task network, as well as a curriculum learning strategy to stabilize the optimization in the early stages.
+After the training finishes, we sample the binary decision [MATH u_{l,k}] for each block [MATH l] from [MATH \mathbf{u}_{l,k}] to decide what blocks to select or skip in the task [MATH \mathcal{T}_{k}] . Specifically, with the help of the select-or-skip decisions, we form a novel and non-trivial network architecture for MTL parameter-sharing, and share knowledge at different levels across all tasks in a flexible and efficient way. At test time, when a novel input is presented to the multi-task network, the optimal policy is followed, selectively choosing what blocks to compute for each task.
+Our proposed approach not only encourages positive sharing among tasks via shared blocks but also minimizes negative interference by using task-specific blocks when necessary.
+Learning a Task-Specific Policy.
+In AdaShare, we learn the select-or-skip policy [MATH \mathbf{U}] and network weights [MATH W] jointly through standard back-propagation from our designed loss functions.
+However, each select-or-skip policy [MATH \mathbf{u}_{l,k}] is discrete and non-differentiable and
+this makes direct optimization difficult. Therefore, we adopt Gumbel-Softmax Sampling [25] to resolve this non-differentiability and enable direct optimization of the discrete policy [MATH \mathbf{u}_{l,k}] using back-propagation.
+Gumbel-Softmax Sampling. The Gumbel-Softmax trick [25, 36]
+is a simple and effective way to substitutes the original non-differentiable sample from a discrete distribution with a differentiable sample from a corresponding Gumbel-Softmax distribution.
+We let [MATH \pi_{l,k}=[1-\alpha_{l,k},\alpha_{l,k}]] be the distribution vector of the binary random variable [MATH \mathbf{u}_{l,k}] that we want to optimize, where the logit [MATH \alpha_{l,k}] represents the probability that the [MATH l] -th block is selected to execute in the task [MATH \mathcal{T}_{k}] .
+In Gumbel-Softmax Sampling, instead of directly sampling a select-or-skip decision [MATH u_{l,k}] for the [MATH l] -th block in the task [MATH \mathcal{T}_{k}] from its distribution [MATH \pi_{l,k}] , we generate it as,
+[MATH \displaystyle u_{l,k}=\argmax_{j\in\{0,1\}}\big(\log\pi_{l,k}(j)+G_{l,k}(j)\big),~]
+(1)
+where [MATH G_{l,k}=-\log(-\log U_{l,k})] is a standard Gumbel distribution with [MATH U_{l,k}] sampled from a uniform i.i.d. distribution [MATH \text{Unif}(0,1)] .
+To remove the non-differentiable argmax operation in Eq. 1, the Gumbel Softmax trick relaxes [MATH \text{one-hot}(u_{l,k})\in\{0,1\}^{2}] (the one-hot encoding of [MATH u_{l,k}] ) to [MATH v_{l,k}\in\mathbb{R}^{2}] (the soft select-or-skip decision for the [MATH l] -th block in [MATH \mathcal{T}_{k}] ) with the reparameterization trick [25]:
+[MATH \displaystyle v_{l,k}(j)=\frac{\exp\big((\log\pi_{l,k}(j)+G_{l,k}(j))/\tau\big)}{\sum\limits_{i\in\{0,1\}}\exp\big((\log\pi_{l,k}(i)+G_{l,k}(i))/\tau\big)},~]
+(2)
+where [MATH j\in\{0,1\}] and [MATH \tau] is the temperature of the softmax. Clearly, when [MATH \tau>0] , the Gumbel-Softmax distribution [MATH p_{\tau}(v_{l,k})] is smooth so [MATH \pi_{l,k}] (or [MATH \alpha_{l,k}] ) can be directly optimized by gradient descent, and when [MATH \tau] approaches 0, the soft decision [MATH v_{l,k}] becomes the same as [MATH \text{one-hot}(u_{l,k})] and the corresponding Gumbel-Softmax distribution [MATH p_{\tau}(v_{l,k})] becomes identical to the discrete distribution [MATH \pi_{l,k}] .
+Following [17, 61], we optimize the discrete policy [MATH \mathbf{u}_{l,k},\forall\ l\leq L,k\leq K] at once. During the training, we use the soft task-specific decision [MATH v_{l,k}] given by Eq. 2 in both forward and backward passes [61].
+Also, we set [MATH \tau=5] as the initial value and gradually anneal it down to 0 during the training, as in [17, 61].
+After the learning of the policy distribution, we obtain the discrete task-specific decision [MATH U] by sampling from the learned policy distribution [MATH p(\mathbf{U})] .
+Loss Functions.
+Task-specific losses only optimizes for accuracy without taking efficiency into account.
+However, we prefer to form a compact sub-model for each single task, in which blocks are omitted as much as possible without deteriorating the prediction accuracy.
+To this end, we propose a sparsity regularization [MATH \mathcal{L}_{sparsity}] to enhance the model’s compactness by minimizing the log-likelihood of the probability of a block being executed as
+[MATH \displaystyle\mathcal{L}_{sparsity}=\sum\limits_{l\leq L,k\leq K}\log\alpha_{l,k}.]
+(3)
+Furthermore, we introduce a loss [MATH \mathcal{L}_{sharing}] that encourages residual block sharing across tasks to avoid the whole network being split up by tasks with little knowledge shared among them. Encouraging
+sharing reduces the redundancy of knowledge separately kept in task-specific blocks of related tasks and results in an more efficient sharing scheme that better utilizes residual blocks.
+Specifically, we minimize the weighted sum of [MATH L_{1}] distances between the policy logits of different tasks with an emphasis on encouraging the sharing of bottom blocks which contain low-level knowledge.
+More formally, we define [MATH \mathcal{L}_{sharing}] as
+[MATH \displaystyle\mathcal{L}_{sharing}=\sum\limits_{k_{1},k_{2}\leq K}\sum\limits_{l\leq L}\frac{L-l}{L}|\alpha_{l,k_{1}}-\alpha_{l,k_{2}}|.]
+(4)
+Finally, the overall loss [MATH \mathcal{L}] is defined as
+[MATH \displaystyle\mathcal{L}_{total}=\sum\limits_{k}\lambda_{k}\mathcal{L}_{k}+\lambda_{sp}\mathcal{L}_{sparsity}+\lambda_{sh}\mathcal{L}_{sharing},]
+(5)
+where [MATH \mathcal{L}_{k}] represent the task-specific losses with task weightings [MATH \lambda_{k}] . [MATH \lambda_{sp}] and [MATH \lambda_{sh}] are the balance parameters for [MATH \mathcal{L}_{sparsity}] and [MATH \mathcal{L}_{sharing}] respectively. The
+additional losses push the policy learning to automatically induce resource efficiency while preserving the recognition accuracy of different tasks.
+Training Strategy.
+Following [61, 65], we optimize over the network weights and policy distribution parameters alternately on separate training splits.
+To encourage the better convergence, we “warm up” the network weights by sharing all blocks across tasks (i.e., hard-parameter sharing) for a few epochs to provide a good starting point for the policy learning. Furthermore, instead of optimizing over the whole decision space in the early training stage, we develop a simple yet effective strategy to gradually enlarge the decision space and form a set of learning tasks from easy to hard, inspired by curriculum learning [4]. Specifically, for the [MATH l] -th ( [MATH l<L] ) epoch, we only learn the policy distribution of last [MATH l] blocks. We then gradually learn the distribution parameters of additional blocks as [MATH l] increases and learn the joint distribution for all blocks after [MATH L] epochs.
+After the policy distribution parameters get fully trained, we sample a select-or-skip decision, i.e., feature sharing pattern, from the best policy to form a new network and optimize using the full training set.
+Parameter Complexity.
+Note that unlike [8, 17], we optimize over the logits [MATH A={\alpha_{l,k}}_{l\leq L,k\leq K}] for the overall select-or-skip policy [MATH \mathbf{U}] directly instead of learning a policy network from the semantic task embedding or an image input. As a result, besides the original network, we only occupy [MATH L] additional parameters for any new task, which results in a negligible parameter count increase over the total number of network parameters.
+Our model has also a significantly lower number of parameters (about 50% lower while learning two tasks) compared to the recent deep multi-task learning methods [16, 33]. Therefore, in terms of memory, our model scales very well with more tasks learned together.

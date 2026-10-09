@@ -1,0 +1,32 @@
+/usr/bin/python3 -I -S -B -c '"""Read only exact owned training handles and metric-free endpoint presence."""
+from pathlib import Path
+import datetime,json,socket,subprocess
+R=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"')
+P=R/'"'"'experiments_iclr/postsubmission_20260930'"'"'
+GPUS={'"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"'}
+assert socket.gethostname()=='"'"'peptide'"'"'
+assert set(subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid'"'"','"'"'--format=csv,noheader'"'"'],text=True).splitlines())==GPUS
+def identity(pid,birth):
+ try:s=Path('"'"'/proc'"'"',str(pid),'"'"'stat'"'"').read_text()
+ except FileNotFoundError:return dict(pid=pid,present=False,expected_birth=birth)
+ f=s[s.rfind('"'"')'"'"')+2:].split();assert int(f[19])==birth,'"'"'Reused PID'"'"'
+ return dict(pid=pid,present=True,start_ticks=int(f[19]),group=int(f[2]),session=int(f[3]),state=f[0])
+
+import hashlib,os
+result=[]
+for route in ('"'"'gpu77_a998'"'"','"'"'gpu77_8ced'"'"'):
+ a=P/'"'"'pre_sigmoid_qk_distributed_F_activation_root_20261009_v1'"'"'/route
+ o=P/'"'"'pre_sigmoid_qk_distributed_F_execution_root_20261009_v1'"'"'/route
+ launch=json.loads((a/'"'"'LAUNCH.json'"'"').read_text());h=launch['"'"'parent'"'"'];observed=identity(h['"'"'pid'"'"'],h['"'"'start_ticks'"'"'])
+ row=dict(route=route,parent_observed=observed,closure_present=(o/'"'"'CLOSURE.json'"'"').exists(),attestation_created=False)
+ if not observed['"'"'present'"'"'] and row['"'"'closure_present'"'"']:
+  close=json.loads((o/'"'"'CLOSURE.json'"'"').read_text());row['"'"'complete'"'"']=close['"'"'complete'"'"'];row['"'"'closed_cells'"'"']=len(close['"'"'cells'"'"'])
+  if close['"'"'complete'"'"']:
+   release=a/'"'"'RELEASE.json'"'"';rh=hashlib.sha256(release.read_bytes()).hexdigest();dest=o/'"'"'ABSENCE_RECEIPT.json'"'"'
+   if not dest.exists():
+    z=subprocess.run(['"'"'/usr/bin/python3'"'"','"'"'-I'"'"','"'"'-S'"'"','"'"'-B'"'"','"'"'-c'"'"',"import sys,runpy;from pathlib import Path;p=Path(sys.argv[1]);sys.path.insert(0,str(p.parent));sys.argv=sys.argv[1:];runpy.run_path(str(p),run_name='"'"'__main__'"'"')",str(P/'"'"'pre_sigmoid_qk_route_lane_owner_source_20261009_v2/attest.py'"'"'),'"'"'--release'"'"',str(release),'"'"'--release-sha256'"'"',rh,'"'"'--authorized'"'"'],capture_output=True,text=True,timeout=60)
+    row.update(attestation_created=z.returncode==0,attestation_exit=z.returncode,attestation_stdout=z.stdout,attestation_stderr=z.stderr)
+   if dest.exists():row['"'"'absence_receipt'"'"']=dict(path=str(dest.relative_to(P)),bytes=dest.stat().st_size,sha256=hashlib.sha256(dest.read_bytes()).hexdigest())
+ result.append(row)
+print(json.dumps(dict(UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),routes=result,scores_read=False,new_scientific_fits=0)))
+'
