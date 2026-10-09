@@ -1,0 +1,50 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B -c 'from pathlib import Path
+import subprocess,os,json,hashlib,socket,datetime
+R=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"')
+P=R/'"'"'experiments_iclr/postsubmission_20260930'"'"'
+old='"'"'923a4f146397af2dcb4e078e5135f816beba4005'"'"'
+target='"'"'c9632322396f7c6ea2cde6c494555d1a10702d80'"'"'
+branch='"'"'codex/postsubmission-research-20260930'"'"'
+assert Path.cwd()==R and socket.gethostname()=='"'"'peptide'"'"'
+assert set(subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid'"'"','"'"'--format=csv,noheader'"'"'],text=True).splitlines())=={'"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"'}
+def git(*args,input=None,env=None):
+ r=subprocess.run(['"'"'git'"'"',*args],cwd=R,input=input,capture_output=True,timeout=60,env=env);r.check_returncode();return r.stdout
+assert git('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==old
+assert git('"'"'branch'"'"','"'"'--show-current'"'"').decode().strip()==branch
+assert not git('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+modified=[os.fsdecode(p) for p in git('"'"'diff'"'"','"'"'--name-only'"'"','"'"'-z'"'"').split(b'"'"'\0'"'"') if p]
+for path in modified:assert path.startswith('"'"'experiments_iclr/postsubmission_20260930/'"'"')
+preserved={p:hashlib.sha256((R/p).read_bytes()).hexdigest() for p in modified}
+env=dict(os.environ,GIT_TERMINAL_PROMPT='"'"'0'"'"',GIT_SSH_COMMAND='"'"'ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o UpdateHostKeys=no'"'"')
+git('"'"'fetch'"'"','"'"'--no-tags'"'"','"'"'origin'"'"','"'"'refs/heads/'"'"'+branch+'"'"':refs/remotes/origin/'"'"'+branch,env=env)
+assert git('"'"'rev-parse'"'"','"'"'refs/remotes/origin/'"'"'+branch).decode().strip()==target
+git('"'"'merge-base'"'"','"'"'--is-ancestor'"'"',old,target)
+changed={os.fsdecode(p) for p in git('"'"'diff'"'"','"'"'--name-only'"'"','"'"'-z'"'"',old,target).split(b'"'"'\0'"'"') if p}
+assert not set(modified)&changed,'"'"'Incoming update affects a tracked live file; stop without overwriting'"'"'
+tracked=set(git('"'"'ls-files'"'"','"'"'-z'"'"').split(b'"'"'\0'"'"'));rows=[]
+for line in git('"'"'ls-tree'"'"','"'"'-r'"'"','"'"'-z'"'"','"'"'--full-tree'"'"',target).split(b'"'"'\0'"'"'):
+ if not line:continue
+ meta,bpath=line.split(b'"'"'\t'"'"',1);mode,kind,oid=meta.decode().split();path=os.fsdecode(bpath);f=R/path
+ if bpath in tracked or not os.path.lexists(f):continue
+ assert path.startswith('"'"'experiments_iclr/postsubmission_20260930/'"'"') and mode in ('"'"'100644'"'"','"'"'100755'"'"') and kind=='"'"'blob'"'"'
+ assert f.is_file() and not f.is_symlink() and f.stat().st_size<2000000
+ assert not any(q.is_symlink() for q in list(f.parents)[:len(Path(path).parts)-1])
+ data=f.read_bytes();actual=hashlib.sha1(b'"'"'blob '"'"'+str(len(data)).encode()+b'"'"'\0'"'"'+data).hexdigest()
+ assert actual==oid,'"'"'Incoming untracked file differs: '"'"'+path
+ rows.append(dict(path=path,mode=mode,blob=oid))
+result=dict(UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),head_before=old,target=target,identical_untracked_collisions=len(rows),preserved_tracked_live_hashes=preserved,scientific_jobs_changed=False)
+try:
+ if rows:git('"'"'update-index'"'"','"'"'--add'"'"','"'"'-z'"'"','"'"'--index-info'"'"',input=b'"'"''"'"'.join(x['"'"'mode'"'"'].encode()+b'"'"' '"'"'+x['"'"'blob'"'"'].encode()+b'"'"'\t'"'"'+os.fsencode(x['"'"'path'"'"'])+b'"'"'\0'"'"' for x in rows))
+ git('"'"'merge'"'"','"'"'--ff-only'"'"',target)
+ assert git('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==target and not git('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+ assert {p:hashlib.sha256((R/p).read_bytes()).hexdigest() for p in modified}==preserved
+ result.update(complete=True,head_after=target,live_changes_preserved=True)
+except Exception as error:
+ result.update(complete=False,error=str(error),head_after=git('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip())
+ if result['"'"'head_after'"'"']==old and rows:git('"'"'update-index'"'"','"'"'--force-remove'"'"','"'"'-z'"'"','"'"'--stdin'"'"',input=b'"'"''"'"'.join(os.fsencode(x['"'"'path'"'"'])+b'"'"'\0'"'"' for x in rows))
+ raise
+finally:
+ q=P/'"'"'publication/source_supply_implementation_IMDB_and_reader_audits_20261009_v1'"'"';q.mkdir(parents=True,exist_ok=True)
+ with (q/'"'"'GPU77_SYNC_RESULT.json'"'"').open('"'"'x'"'"') as f:json.dump(result,f,indent=2);f.write('"'"'\n'"'"')
+ print(json.dumps(result))
+'
