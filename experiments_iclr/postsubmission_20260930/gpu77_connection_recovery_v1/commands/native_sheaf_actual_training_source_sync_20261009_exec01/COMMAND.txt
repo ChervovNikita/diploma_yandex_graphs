@@ -1,0 +1,53 @@
+cd /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git && /usr/bin/python3 -I -S -B -c 'from pathlib import Path
+import socket,subprocess,hashlib,json,datetime,os
+R=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');P=R/'"'"'experiments_iclr/postsubmission_20260930'"'"';A=P/'"'"'publication/native_sheaf_actual_training_and_postclosure_readers_20261009_v1'"'"'
+old='"'"'5b74dc4a5890f0538e0cd8bda37b49887c1ea1dc'"'"';target='"'"'c67d4cfc0f331d757f3c9474fe1bf85993348f5d'"'"';branch='"'"'codex/postsubmission-research-20260930'"'"'
+mutable='"'"'experiments_iclr/postsubmission_20260930/graph_relation_private_credit_full12_activation_root_20261008_v1/LANE_ADMISSION_INDEX.json'"'"'
+assert Path.cwd()==R and socket.gethostname()=='"'"'peptide'"'"'
+assert subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid'"'"','"'"'--format=csv,noheader'"'"'],text=True).splitlines()==['"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"']
+def git(*args,input=None,env=None):
+ r=subprocess.run(['"'"'git'"'"',*args],cwd=R,input=input,capture_output=True,timeout=45,env=env);r.check_returncode();return r.stdout
+assert git('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==old and git('"'"'branch'"'"','"'"'--show-current'"'"').decode().strip()==branch
+assert not git('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+status=git('"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"').decode().splitlines()
+assert status in ([],['"'"' M '"'"'+mutable]),'"'"'Unexpected tracked changes; do not overwrite'"'"'
+env=dict(os.environ,GIT_TERMINAL_PROMPT='"'"'0'"'"',GIT_SSH_COMMAND='"'"'ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o UpdateHostKeys=no'"'"')
+git('"'"'fetch'"'"','"'"'--no-tags'"'"','"'"'origin'"'"','"'"'refs/heads/'"'"'+branch+'"'"':refs/remotes/origin/'"'"'+branch,env=env)
+assert git('"'"'rev-parse'"'"','"'"'refs/remotes/origin/'"'"'+branch).decode().strip()==target
+git('"'"'merge-base'"'"','"'"'--is-ancestor'"'"',old,target)
+tracked=set(git('"'"'ls-files'"'"','"'"'-z'"'"').split(b'"'"'\0'"'"'));rows=[];prior_mutable=None
+for line in git('"'"'ls-tree'"'"','"'"'-r'"'"','"'"'-z'"'"','"'"'--full-tree'"'"',target).split(b'"'"'\0'"'"'):
+ if not line:continue
+ meta,bpath=line.split(b'"'"'\t'"'"',1);mode,kind,oid=meta.decode().split();path=os.fsdecode(bpath);f=R/path
+ is_mutable=bool(status) and path==mutable
+ if not is_mutable and (bpath in tracked or not os.path.lexists(f)):continue
+ assert path.startswith('"'"'experiments_iclr/postsubmission_20260930/'"'"') and mode in ('"'"'100644'"'"','"'"'100755'"'"') and kind=='"'"'blob'"'"'
+ assert f.is_file() and not f.is_symlink() and f.stat().st_size<2000000
+ assert not any(q.is_symlink() for q in list(f.parents)[:len(Path(path).parts)-1])
+ data=f.read_bytes();actual=hashlib.sha1(b'"'"'blob '"'"'+str(len(data)).encode()+b'"'"'\0'"'"'+data).hexdigest()
+ assert actual==oid,'"'"'Incoming source differs from active local source: '"'"'+path
+ row=dict(path=path,mode=mode,blob=oid,sha256=hashlib.sha256(data).hexdigest(),tracked_mutable=is_mutable);rows.append(row)
+ if is_mutable:
+  entry=git('"'"'ls-files'"'"','"'"'-s'"'"','"'"'--'"'"',mutable).decode().strip();m,object_id,stage_path=entry.split('"'"' '"'"',2)
+  assert stage_path=='"'"'0\t'"'"'+mutable
+  prior_mutable=dict(path=mutable,mode=m,blob=object_id)
+assert (prior_mutable is not None)==bool(status)
+result=dict(UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),head_before=old,target=target,identical_untracked_collisions=sum(not r['"'"'tracked_mutable'"'"'] for r in rows),consumed_index_worktree_preserved=True,scientific_jobs_changed=False)
+def index_payload(entries):return b'"'"''"'"'.join(x['"'"'mode'"'"'].encode()+b'"'"' '"'"'+x['"'"'blob'"'"'].encode()+b'"'"'\t'"'"'+os.fsencode(x['"'"'path'"'"'])+b'"'"'\0'"'"' for x in entries)
+try:
+ if rows:git('"'"'update-index'"'"','"'"'--add'"'"','"'"'-z'"'"','"'"'--index-info'"'"',input=index_payload(rows))
+ git('"'"'merge'"'"','"'"'--ff-only'"'"',target)
+ assert git('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip()==target and not git('"'"'status'"'"','"'"'--porcelain'"'"','"'"'--untracked-files=no'"'"') and not git('"'"'diff'"'"','"'"'--cached'"'"','"'"'--name-only'"'"')
+ result.update(complete=True,head_after=target,tracked_clean=True)
+except Exception as error:
+ result.update(complete=False,error=str(error),head_after=git('"'"'rev-parse'"'"','"'"'HEAD'"'"').decode().strip())
+ if result['"'"'head_after'"'"']==old and rows:
+  added=[r for r in rows if not r['"'"'tracked_mutable'"'"']]
+  if added:git('"'"'update-index'"'"','"'"'--force-remove'"'"','"'"'-z'"'"','"'"'--stdin'"'"',input=b'"'"''"'"'.join(os.fsencode(x['"'"'path'"'"'])+b'"'"'\0'"'"' for x in added))
+  if prior_mutable:git('"'"'update-index'"'"','"'"'--add'"'"','"'"'-z'"'"','"'"'--index-info'"'"',input=index_payload([prior_mutable]))
+ raise
+finally:
+ A.mkdir(parents=True,exist_ok=True)
+ with (A/'"'"'GPU77_SYNC_RESULT.json'"'"').open('"'"'x'"'"') as h:json.dump(result,h,indent=2);h.write('"'"'\n'"'"')
+ print(json.dumps(result))
+'
