@@ -1,26 +1,24 @@
-# Post-submission research status — 9 October 2026, 18:10 UTC
+# GNNM research status — 9 October 2026, 19:33 UTC
 
-The goal remains active. No new accuracy advantage over competent independent ensembles, novelty clearance or fresh manuscript acceptance is established. Original paper scores remain unchanged.
+The goal remains active and unmet. No new accuracy advantage over competent independent ensembles, novelty clearance or fresh manuscript acceptance is established. Original paper scores are unchanged.
 
-## Current comparisons
+## Complete scientific results
 
-- **IMDB relation specialization, SeHGNN:** all 24 genuine reference body fits and six committees completed cleanly. The 18 shared-source fits started at 17:26 UTC; five were complete and the exact worker was still running at 17:53 UTC. The declared candidate trains members to supply actor, director or keyword information to their peers. All six arms and all three paired roles are required before comparative interpretation.
-- **WikiCS member-specific attention, Polynormer:** 30 of 36 comparisons are complete. The allocation lane has closed; both 18.77 lanes have verified live workers. Singles, shared-four models and genuine independent-four ensembles use matched attention operators.
-- **Tolokers graph propagation, Neural Sheaf Diffusion:** all 21 records completed and were analyzed after actual closure. Both recipes fail the frozen quality rules. The centered version trails the independent pool by 0.90 AUROC percentage points on average, with worse NLL. It improves individual learning at two seeds but produces little complementary ranking; this fixed direction does not advance.
-- **MolHIV ensemble feedback, GINE:** 16 fits are complete. Control P_7307 failed at its active timeout and remains recorded. Final G_7307 is at epoch 36 of the fixed 100 at 17:53 UTC. The complete family remains required; no shortened or replacement fit is started.
+- **IMDB, SeHGNN:** all five native fits,24 genuine reference bodies/six committees and18 shared fits closed before scoring. The fixed assigned-source candidate trails the plain independent ensemble by1.151 micro-F1 percentage points and the same-factor ensemble by1.161 points. It changes no deployed label decision versus shared own-only. Selected source corrections were genuinely accepted in every pair, but useful specialization was not demonstrated. Label3's largest deficit chiefly involves extra false positives in roles1/2. This fixed recipe does not advance.
+- **Tolokers, Neural Sheaf Diffusion:** all21 records closed. Both recipes fail. Centering partly repairs member learning, but trails the independent pool by0.90 AUROC percentage points and supplies little complementary ranking. Neither fixed recipe advances.
 
-## What has been established
+## Remaining analysis and training
 
-The completed IMDB independent references score mean development micro-F1 0.691744827 (plain native) and 0.691846672 (same factors). TRAIN-prevalence constant predictions score 0.3866–0.4065 and all-positive constants 0.5101–0.5355 on the same roles. These references learn useful predictions; they are not GNNM gains or a SOTA claim.
+- **MolHIV, GINE:** the entire18-cell roster is terminal:17 complete100-epoch fits and P_7307 timed out at62epochs. Exact parent/child/group/CUDA absence was verified at19:26UTC. The original reader is adopted for one full serving pass of available endpoints. It retains the failed control, complete three-seed I-versus-independent4/single/O/G descriptions, unavailable I-versus-P/P-versus-G, and whole-family success=false. No refit or partial failed endpoint is used.
+- **WikiCS query/key attention:**33/36 complete at19:22UTC. Two original exact workers remain live on18.77. All36 plus actual closure are required before outcomes.
+- **WikiCS attention training credit:** the original controller remains live on18.77. Its full twelve-cell closure is still required before interpretation.
 
-The IMDB full-input source-learning and genuine independent-four integration checks passed. Faster projection preserves the existing mathematical update and reduced the same witness from 631.21 to 83.26 seconds. This is engineering evidence, not predictive superiority.
+## Next method
 
-The prospective IMDB quality criteria require a mean gain of at least 0.5 micro-F1 percentage points over each genuine independent ensemble and the matched singles, with member competence and probability-quality safeguards. Three development pairs remain exploratory. A passing pilot would justify unused-outcome confirmation, not paper acceptance.
+Source implementation is admitted for a distinct proper source-credit recipe with additive private adapters. It supervises factual and source-ablated predictions and adds positive source-restoration ensemble credit. It removes the direct incentive to worsen absent predictions. Additive adaptation, augmentation and contextual ensemble loss have established ancestry. The new matched comparison and source-specific quality mechanism remain unproven. Runtime and fits are disabled pending source review, full-input qualification and a new prospective freeze.
 
-## Evidence and publication
+The saved random-function-prior assessment finds cancellation and competence risks. It admits no compute. Literature supplement37 adds two bounded primary method scopes and one bounded author-code scope, zero full-paper reads. Saved LoRA/TabLoRA and graph-adapter conclusions are reused without new reading credit.
 
-Latest verified allocation push: `b83ca49cf2a1bca7772cd79caed4a19dfbe80af9`. This complete result and latest notes await publication. 18.77 was last verified on `40b4a4efd4c219e5d7cdc57146df005954a9faf9`; SSH/TCP access now times out from the paired Mac, so safe sync and current job observations are pending. Datasets, checkpoints and member predictions stay on the research servers.
+Latest verified GitHub/18.77 head is f18cd3b4. Allocation has the additional committed activation a33070b8 awaiting push. This update and complete small reports await publication. Raw datasets, checkpoints and predictions stay on authorized servers.
 
-Saved HOPE, CoR and NeuroTrails method scopes and HGEN/GNCL/SAGMM comparisons do not clear novelty. NeuroTrails already offers shared-trunk/private-head training; SAGMM already supplies graph-aware hidden fusion. The negative geometry diagnosis therefore motivates testing useful functional graph differences, not introducing another generic pooling or embedding-distance penalty. The complete-cohort IMDB reader has a reviewed minimal repair for the real metric schema and resident artifacts. Execution remains disabled until all 18 shared fits close. Every failed direction and previous decision remains in the ledger.
-
-[Current state](RESEARCH_STATE.md) · [Full research ledger](research_ledger.json)
+[Complete IMDB interpretation](imdb_complete_error_source_dose_interpretation_20261009_v1/INTERPRETATION.md) · [Current state](RESEARCH_STATE.md) · [Ledger](research_ledger.json)

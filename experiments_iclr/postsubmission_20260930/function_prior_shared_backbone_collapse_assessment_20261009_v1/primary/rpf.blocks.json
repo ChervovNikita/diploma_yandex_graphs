@@ -1,0 +1,1269 @@
+[
+  {
+    "index": 0,
+    "id": null,
+    "tag": "h1",
+    "latex": [],
+    "text": "Randomized Prior Functions for Deep Reinforcement Learning"
+  },
+  {
+    "index": 1,
+    "id": "abstract1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Dealing with uncertainty is essential for efficient reinforcement learning. There is a growing literature on uncertainty estimation for deep learning from fixed datasets, but many of the most popular approaches are poorly-suited to sequential decision problems. Other methods, such as bootstrap sampling, have no mechanism for uncertainty that does not come from the observed data. We highlight why this can be a crucial shortcoming and propose a simple remedy through addition of a randomized untrainable ‘prior’ network to each ensemble member. We prove that this approach is efficient with linear representations, provide simple illustrations of its efficacy with nonlinear representations and show that this approach scales to large-scale problems far better than previous attempts."
+  },
+  {
+    "index": 2,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "1 Introduction"
+  },
+  {
+    "index": 3,
+    "id": "S1.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Deep learning methods have emerged as the state of the art approach for many challenging problems [ 30 , 70 ] . This is due to the statistical flexibility and computational scalability of large and deep neural networks, which allows them to harness the information in large and rich datasets. Deep reinforcement learning combines deep learning with sequential decision making under uncertainty. Here an agent takes actions inside an environment in order to maximize some cumulative reward [ 63 ] . This combination of deep learning with reinforcement learning (RL) has proved remarkably successful [ 67 , 42 , 60 ] ."
+  },
+  {
+    "index": 4,
+    "id": "S1.p2.1",
+    "tag": "p",
+    "latex": [],
+    "text": "At the same time, elementary decision theory shows that the only admissible decision rules are Bayesian [ 12 , 71 ] . Colloquially, this means that any decision rule that is not Bayesian can be improved (or even exploited) by some Bayesian alternative [ 14 ] . Despite this fact, the majority of deep learning research has evolved outside of Bayesian (or even statistical) analysis [ 55 , 32 ] . This disconnect extends to deep RL, where the majority of state of the art algorithms have no concept of uncertainty [ 42 , 41 ] and can fail spectacularly even in simple problems where success requires its consideration [ 40 , 45 ] ."
+  },
+  {
+    "index": 5,
+    "id": "S1.p3.1",
+    "tag": "p",
+    "latex": [],
+    "text": "There is a long history of research in Bayesian neural networks that never quite became mainstream practice [ 37 , 43 ] . Recently, Bayesian deep learning has experienced a resurgence of interest with a myriad of approaches for uncertainty quantification in fixed datasets and also sequential decision problems [ 29 , 11 , 20 , 47 ] . In this paper we highlight the surprising fact that many of these well-cited and popular methods for uncertainty estimation in deep learning can be poor choices for sequential decision problems. We show that this disconnect is more than a technical detail, but a serious shortcoming that can lead to arbitrarily poor performance. We support our claims by a series of simple lemmas for simple environments, together with experimental evidence in more complex settings."
+  },
+  {
+    "index": 6,
+    "id": "S1.p4.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Our approach builds on an alternative method for uncertainty in deep RL inspired by the statistical bootstrap [ 15 ] . This approach trains an ensemble of models, each on perturbed versions of the data. The resulting distribution of the ensemble is used to approximate the uncertainty in the estimate [ 47 ] . Although typically regarded as a frequentist method, bootstrapping gives near-optimal convergence rates when used as an approximate Bayesian posterior [ 19 , 18 ] . However, these ensemble-based approaches to uncertainty quantification approximate a ‘posterior’ without an effective methodology to inject a ‘prior’. This can be a crucial shortcoming in sequential decision problems."
+  },
+  {
+    "index": 7,
+    "id": "S1.p5.1",
+    "tag": "p",
+    "latex": [],
+    "text": "In this paper, we present a simple modification where each member of the ensemble is initialized together with a random but fixed prior function . Predictions in each ensemble member are then taken as the sum of the trainable neural network and its prior function. Learning/optimization is performed so that this sum (network plus prior) minimizes training loss. Therefore, with sufficient network capacity and optimization, the ensemble members will agree at observed data. However, in regions of the space with little or no training data, their predictions will be determined by the generalization of their networks and priors. Surprisingly, we show that this approach is equivalent to exact Bayesian inference for the special case of Gaussian linear models. Following on from this ‘sanity check’, we present a series of simple experiments designed to extend this intuition to deep learning. We show that many of the most popular approaches for uncertainty estimation in deep RL do not pass these sanity checks, and crystallize these shortcomings in a series of lemmas and small examples. We demonstrate that our simple modification can facilitate aspiration in difficult tasks where previous approaches for deep RL fail. We believe that this work presents a simple and practical approach to encoding prior knowledge with deep reinforcement learning."
+  },
+  {
+    "index": 8,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "2 Why do we need a ‘prior’ mechanism for deep RL?"
+  },
+  {
+    "index": 9,
+    "id": "S2.p1.1",
+    "tag": "p",
+    "latex": [
+      "M=(\\mathcal{S},\\mathcal{A},R,P)",
+      "\\mathcal{S}",
+      "\\mathcal{A}",
+      "t",
+      "s_{t}\\in\\mathcal{S}",
+      "a_{t}\\in\\mathcal{A}",
+      "r_{t}\\sim R(s_{t},a_{t})",
+      "s_{t+1}\\sim P(s_{t},a_{t})",
+      "\\pi:\\mathcal{S}\\rightarrow\\mathcal{A}",
+      "\\mathcal{H}_{t}",
+      "t",
+      "\\mathcal{H}_{t}"
+    ],
+    "text": "We model the environment as a Markov decision process M = ( 𝒮 , 𝒜 , R , P ) M=(\\mathcal{S},\\mathcal{A},R,P) [ 10 ] . Here 𝒮 \\mathcal{S} is the state space and 𝒜 \\mathcal{A} is the action space. At each time step t t , the agent observes state s t ∈ 𝒮 s_{t}\\in\\mathcal{S} , takes action a t ∈ 𝒜 a_{t}\\in\\mathcal{A} , receives reward r t ∼ R ⁡ ( s t , a t ) r_{t}\\sim R(s_{t},a_{t}) and transitions to s t + 1 ∼ P ⁡ ( s t , a t ) s_{t+1}\\sim P(s_{t},a_{t}) . A policy π : 𝒮 → 𝒜 \\pi:\\mathcal{S}\\rightarrow\\mathcal{A} maps states to actions and let ℋ t \\mathcal{H}_{t} denote the history of observations before time t t . An RL algorithm maps ℋ t \\mathcal{H}_{t} to a distribution over policies; we assess its quality through the cumulative reward over unknown environments. To perform well, an RL algorithm must learn to optimize its actions, combining both learning and control [ 63 ] . A ‘deep’ RL algorithm uses neural networks for nonlinear function approximation [ 32 , 42 ] ."
+  },
+  {
+    "index": 10,
+    "id": "S2.p2.1",
+    "tag": "p",
+    "latex": [],
+    "text": "The scale and scope of problems that might be approached through deep RL is vast, but there are three key aspects an efficient (and general) agent must address [ 63 ] :"
+  },
+  {
+    "index": 11,
+    "id": "S2.I1.i1.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Generalization : be able to learn from data it collects."
+  },
+  {
+    "index": 12,
+    "id": "S2.I1.i2.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Exploration : prioritize the best experiences to learn from."
+  },
+  {
+    "index": 13,
+    "id": "S2.I1.i3.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Long-term consequences : consider external effects beyond a single time step."
+  },
+  {
+    "index": 14,
+    "id": "S2.p2.2",
+    "tag": "p",
+    "latex": [],
+    "text": "In this paper we focus on the importance of some form of ‘prior’ mechanism for efficient exploration. As a motivating example we consider a sparse reward task where random actions are very unlikely to ever see a reward. If an agent has never seen a reward then it is essential that some other form of aspiration, motivation, drive or curiosity direct its learning. We call this type of drive a ‘prior’ effect, since it does not come from the observed data, but are ambivalent as to whether this effect is philosophically ‘Bayesian’. Agents that do not have this prior drive will be left floundering aimlessly and thus may require exponentially large amounts of data in order to learn even simple problems [ 27 ] ."
+  },
+  {
+    "index": 15,
+    "id": "S2.p3.1",
+    "tag": "p",
+    "latex": [],
+    "text": "To solve a specific task, it can be possible to attain superhuman performance without significant prior mechanism [ 42 , 41 ] . However, if our goal is artificial general intelligence, then it is disconcerting that our best agents can perform very poorly even in simple problems [ 33 , 39 ] . One potentially general approach to decision making is given by the Thompson sampling heuristic 1 1 1 This heuristic is general in the sense that Thompson sampling can be theoretically justified in many of the domains where these other approaches fail [ 1 , 48 , 34 , 58 ] . : ‘randomly take action according to the probability you believe it is the optimal action’ [ 68 ] . In recent years there have been several attempts to apply this heuristic to deep reinforcement learning, each attaining significant outperformance over deep RL baselines on certain tasks [ 20 , 47 , 35 , 11 , 17 ] . In this section we outline crucial shortcomings for the most popular existing approaches to posterior approximation; these outlines will be brief, but more detail can be found in Appendix C . These shortcomings set the scene for Section 3 , where we introduce a simple and practical alternative that passes each of our simple sanity checks: bootstrapped ensembles with randomized prior functions. In Section 4 we demonstrate that this approach scales gracefully to complex domains with deep RL."
+  },
+  {
+    "index": 16,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "2.1 Dropout as posterior approximation"
+  },
+  {
+    "index": 17,
+    "id": "S2.SS1.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "One of the most popular modern approaches to regularization in deep learning is dropout sampling [ 61 ] . During training, dropout applies an independent random Bernoulli mask to the activations and thus guards against excessive co-adaptation of weights. Recent work has sought to understand dropout through a Bayesian lens, highlighting the connection to variational inference and arguing that the resultant dropout distribution approximates a Bayesian posterior [ 20 ] . This narrative has proved popular despite the fact that dropout distribution can be a poor approximation to most reasonable Bayesian posteriors [ 22 , 46 ] :"
+  },
+  {
+    "index": 18,
+    "id": "Thmlemma1.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\mathcal{L}",
+      "\\mathcal{R}",
+      "\\mathcal{D}=\\{(x,y)\\}",
+      "\\theta",
+      "f",
+      "p\\in(0,1)",
+      "W"
+    ],
+    "text": "Consider any loss function ℒ \\mathcal{L} , regularizer ℛ \\mathcal{R} and data 𝒟 = { ( x , y ) } \\mathcal{D}=\\{(x,y)\\} . Let θ \\theta be parameters of any neural network architecture f f trained with dropout rate p ∈ ( 0 , 1 ) p\\in(0,1) and dropout masks W W ,"
+  },
+  {
+    "index": 19,
+    "id": "S2.E1",
+    "tag": "table",
+    "latex": [
+      "\\theta^{*}_{p}\\in\\argmin_{\\theta}\\mathds{E}_{W\\sim{\\rm Ber}(p),(x,y)\\sim\\mathcal{D}}\\left[\\mathcal{L}(x,y\\mid\\theta,W)+\\mathcal{R}(\\theta)\\right]."
+    ],
+    "text": "θ p ∗ ∈ arg ​ min θ 𝔼 W ∼ Ber ⁡ ( p ) , ( x , y ) ∼ 𝒟 [ ℒ ( x , y ∣ θ , W ) + ℛ ( θ ) ] . \\theta^{*}_{p}\\in\\argmin_{\\theta}\\mathds{E}_{W\\sim{\\rm Ber}(p),(x,y)\\sim\\mathcal{D}}\\left[\\mathcal{L}(x,y\\mid\\theta,W)+\\mathcal{R}(\\theta)\\right]. (1)"
+  },
+  {
+    "index": 20,
+    "id": "Thmlemma1.p1.2",
+    "tag": "p",
+    "latex": [
+      "f_{\\theta^{*}_{p},W}",
+      "\\mathcal{D}"
+    ],
+    "text": "Then the dropout distribution f θ p ∗ , W f_{\\theta^{*}_{p},W} is invariant to duplicates of the dataset 𝒟 \\mathcal{D} ."
+  },
+  {
+    "index": 21,
+    "id": "S2.SS1.p2.1",
+    "tag": "p",
+    "latex": [
+      "N\\gg 1"
+    ],
+    "text": "Lemma 1 is somewhat contrived, but highlights a clear shortcoming of dropout as posterior sampling: the dropout rate does not depend on the data. Lemma 1 means no agent employing dropout for posterior approximation can tell the difference between observing a set of data once and observing it N ≫ 1 N\\gg 1 times. This can lead to arbitrarily poor decision making, even when combined with an efficient strategy for exploration [ 45 ] ."
+  },
+  {
+    "index": 22,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "2.2 Variational inference and Bellman error"
+  },
+  {
+    "index": 23,
+    "id": "S2.SS2.p1.1",
+    "tag": "p",
+    "latex": [
+      "Q",
+      "Q(s_{t},a_{t})=\\mathds{E}[r_{t+1}+\\gamma\\max_{\\alpha}Q(s_{t+1},\\alpha)]"
+    ],
+    "text": "Dropout as posterior is motivated by its connection to variational inference (VI) [ 20 ] , and recent work to address Lemma 1 improves the quality of this variational approximation by tuning the dropout rate from data [ 21 ] . 2 2 2 Concrete dropout assymptotically improves the quality of the variational approximation, but provides no guarantees on its rate of convergence or error relative to exact Bayesian inference [ 21 ] . However, there is a deeper problem to this line of research that is common across many works in this field: even given access to an oracle method for exact inference, applying independent inference to the Bellman error does not propagate uncertainty correctly for the value function as a whole [ 44 ] . To estimate the uncertainty in Q Q from the Bellman equation Q ⁡ ( s t , a t ) = 𝔼 ⁡ [ r t + 1 + γ ​ max α ⁡ Q ⁡ ( s t + 1 , α ) ] Q(s_{t},a_{t})=\\mathds{E}[r_{t+1}+\\gamma\\max_{\\alpha}Q(s_{t+1},\\alpha)] it is crucial that the two sides of this equation are not independent random variables. Ignoring this dependence can lead to very bad estimates, even with exact inference."
+  },
+  {
+    "index": 24,
+    "id": "Thmlemma2.p1.1",
+    "tag": "p",
+    "latex": [
+      "Y\\sim N(\\mu_{Y},\\sigma_{Y}^{2})",
+      "X\\sim N(\\mu,\\sigma^{2})"
+    ],
+    "text": "Let Y ∼ N ⁡ ( μ Y , σ Y 2 ) Y\\sim N(\\mu_{Y},\\sigma_{Y}^{2}) be a target value. If we train X ∼ N ⁡ ( μ , σ 2 ) X\\sim N(\\mu,\\sigma^{2}) according to the squared error"
+  },
+  {
+    "index": 25,
+    "id": "S2.E2",
+    "tag": "table",
+    "latex": [
+      "\\mu^{*},\\sigma^{*}\\in\\argmin_{\\mu,\\sigma}\\mathds{E}\\left[(X-Y)^{2}\\right]\\quad\\text{ for }X,Y\\text{independent},"
+    ],
+    "text": "μ ∗ , σ ∗ ∈ arg ​ min μ , σ ⁡ 𝔼 ​ [ ( X − Y ) 2 ] for ​ X , Y ​ independent , \\mu^{*},\\sigma^{*}\\in\\argmin_{\\mu,\\sigma}\\mathds{E}\\left[(X-Y)^{2}\\right]\\quad\\text{ for }X,Y\\text{independent}, (2)"
+  },
+  {
+    "index": 26,
+    "id": "Thmlemma2.p1.2",
+    "tag": "p",
+    "latex": [
+      "\\mu^{*}=\\mu_{Y},\\sigma^{*}=0",
+      "Y",
+      "X"
+    ],
+    "text": "then the solution μ ∗ = μ Y , σ ∗ = 0 \\mu^{*}=\\mu_{Y},\\sigma^{*}=0 propagates zero uncertainty from Y Y to X X ."
+  },
+  {
+    "index": 27,
+    "id": "S2.SS2.p2.1",
+    "tag": "p",
+    "latex": [
+      "s_{1}",
+      "s_{2}",
+      "V(s_{2})=Y\\sim N(\\mu_{Y},\\sigma_{Y}^{2})",
+      "V(s_{1})=X",
+      "s_{1}",
+      "V(s_{1})\\sim N(\\mu_{Y},\\sigma_{Y}^{2})"
+    ],
+    "text": "To understand the significance of Lemma 2 , imagine a deterministic system that transitions from s 1 s_{1} to s 2 s_{2} without reward. Suppose an agent is able to correctly quantify their posterior uncertainty for the value V ⁡ ( s 2 ) = Y ∼ N ⁡ ( μ Y , σ Y 2 ) V(s_{2})=Y\\sim N(\\mu_{Y},\\sigma_{Y}^{2}) . Training V ⁡ ( s 1 ) = X V(s_{1})=X according to ( 2 ) will lead to zero uncertainty estimates at s 1 s_{1} , when in fact V ⁡ ( s 1 ) ∼ N ⁡ ( μ Y , σ Y 2 ) V(s_{1})\\sim N(\\mu_{Y},\\sigma_{Y}^{2}) . This observation may appear simplistic, and may not say much more than ‘do not use the squared loss’ for VI in this setting. However, despite this clear failing ( 2 ) is precisely the loss used by the majority of approaches to VI for RL [ 17 , 35 , 65 , 69 , 20 ] . Note that this failure occurs even without decision making, function approximation and even when the true posterior lies within the variational class."
+  },
+  {
+    "index": 28,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "2.3 ‘Distributional reinforcement learning’"
+  },
+  {
+    "index": 29,
+    "id": "S2.SS3.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "The key ingredient for a Bayesian formulation for sequential decision making is to consider beliefs not simply as a point estimate, but as a distribution . Recently an approach called ‘distributional RL’ has shown great success in improving stability and performance in deep RL benchmark algorithms [ 8 ] . Despite the name, these two ideas are quite distinct. ‘Distributional RL’ replaces a scalar estimate for the value function by a distribution that is trained to minimize a loss against the distribution of data it observes. This distribution of observed data is an orthogonal concept to that of Bayesian uncertainty."
+  },
+  {
+    "index": 30,
+    "id": "S2.SS3.p2.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Figure 1 presents an illustration of these two distributions after observing flips of a coin. As more data is gathered the posterior distribution concentrates around the mean whereas the ‘distributional RL’ estimate approaches that of the generating Bernoulli. Although both approaches might reasonably claim a ‘distributional perspective’ on RL, these two distributions have orthogonal natures and behave quite differently. Conflating one for the other can lead to arbitrarily poor decisions; it is the uncertainty in beliefs (‘epistemic’), not the distributional noise (‘aleatoric’) that is important for exploration [ 27 ] ."
+  },
+  {
+    "index": 31,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "2.4 Count-based uncertainty estimates"
+  },
+  {
+    "index": 32,
+    "id": "S2.SS4.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Another popular method for incentivizing exploration is with a density model or ‘pseudocount’ [ 6 ] . Inspired by the analysis of tabular systems, these models assign a bonus to states and actions that have been visited infrequently according to a density model. This method can perform well, but only when the generalization of the density model is aligned with the task objective. Crucially, this generalization is not learned from the task [ 53 ] ."
+  },
+  {
+    "index": 33,
+    "id": "S2.SS4.p2.1",
+    "tag": "p",
+    "latex": [
+      "r_{t}(x_{t})=x_{t}^{T}\\theta^{*}+\\epsilon_{t}",
+      "\\theta^{*}\\in\\mathds{R}^{d}",
+      "\\epsilon_{t}\\sim N(0,1)",
+      "\\mathds{E}[x^{T}\\theta^{*}]",
+      "x_{t}"
+    ],
+    "text": "Even with an optimal state representation and density, a count-based bonus on states can be poorly suited for efficient exploration. Consider a linear bandit with reward r t ​ ( x t ) = x t T ​ θ ∗ + ϵ t r_{t}(x_{t})=x_{t}^{T}\\theta^{*}+\\epsilon_{t} for some θ ∗ ∈ ℝ d \\theta^{*}\\in\\mathds{R}^{d} and ϵ t ∼ N ⁡ ( 0 , 1 ) \\epsilon_{t}\\sim N(0,1) [ 56 ] . Figure 2 compares the uncertainty in the expected reward 𝔼 ⁡ [ x T ​ θ ∗ ] \\mathds{E}[x^{T}\\theta^{*}] with that obtained by density estimation on the observed x t x_{t} . A bonus based upon the state density does not correlate with the uncertainty over the unknown optimal action. This disconnect can lead to arbitrarily poor decisions [ 49 ] ."
+  },
+  {
+    "index": 34,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "3 Randomized prior functions for deep ensembles"
+  },
+  {
+    "index": 35,
+    "id": "S3.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\theta\\in\\mathds{R}^{d}",
+      "N(\\overline{\\theta},\\lambda I)",
+      "\\mathcal{D}=\\left\\{(x_{i},y_{i})\\right\\}_{i=1}^{n}",
+      "x_{i}\\in\\mathds{R}^{d}",
+      "y_{i}=\\theta^{T}x_{i}+\\epsilon_{i}",
+      "\\epsilon_{i}\\sim N(0,\\sigma^{2})",
+      "\\mathcal{D}",
+      "\\theta"
+    ],
+    "text": "Section 2 motivates the need for effective uncertainty estimates in deep RL. We note that crucial failure cases of several popular approaches can arise even with simple linear models. As a result, we take a moment to review the setting of Bayesian linear regression. Let θ ∈ ℝ d \\theta\\in\\mathds{R}^{d} with prior N ⁡ ( θ ¯ , λ ​ I ) N(\\overline{\\theta},\\lambda I) and data 𝒟 = { ( x i , y i ) } i = 1 n \\mathcal{D}=\\left\\{(x_{i},y_{i})\\right\\}_{i=1}^{n} for x i ∈ ℝ d x_{i}\\in\\mathds{R}^{d} and y i = θ T ​ x i + ϵ i y_{i}=\\theta^{T}x_{i}+\\epsilon_{i} with ϵ i ∼ N ⁡ ( 0 , σ 2 ) \\epsilon_{i}\\sim N(0,\\sigma^{2}) iid. Then, conditioned on 𝒟 \\mathcal{D} , the posterior for θ \\theta is Gaussian:"
+  },
+  {
+    "index": 36,
+    "id": "S3.E3",
+    "tag": "table",
+    "latex": [
+      "\\mathds{E}\\left[\\theta\\mid\\mathcal{D}\\right]=\\left(\\frac{1}{\\sigma^{2}}X^{T}X+\\frac{1}{\\lambda}I\\right)^{-1}\\left(\\frac{1}{\\sigma^{2}}X^{T}y+\\frac{1}{\\lambda}\\overline{\\theta}\\right),\\quad{\\rm Cov}\\left[\\theta\\mid\\mathcal{D}\\right]=\\left(\\frac{1}{\\sigma^{2}}X^{T}X+\\frac{1}{\\lambda}I\\right)^{-1}."
+    ],
+    "text": "𝔼 ⁡ [ θ ∣ 𝒟 ] = ( 1 σ 2 ​ X T ​ X + 1 λ ​ I ) − 1 ​ ( 1 σ 2 ​ X T ​ y + 1 λ ​ θ ¯ ) , Cov ⁡ [ θ ∣ 𝒟 ] = ( 1 σ 2 ​ X T ​ X + 1 λ ​ I ) − 1 . \\mathds{E}\\left[\\theta\\mid\\mathcal{D}\\right]=\\left(\\frac{1}{\\sigma^{2}}X^{T}X+\\frac{1}{\\lambda}I\\right)^{-1}\\left(\\frac{1}{\\sigma^{2}}X^{T}y+\\frac{1}{\\lambda}\\overline{\\theta}\\right),\\quad{\\rm Cov}\\left[\\theta\\mid\\mathcal{D}\\right]=\\left(\\frac{1}{\\sigma^{2}}X^{T}X+\\frac{1}{\\lambda}I\\right)^{-1}. (3)"
+  },
+  {
+    "index": 37,
+    "id": "S3.p1.2",
+    "tag": "p",
+    "latex": [],
+    "text": "Equation ( 3 ) relies on Gaussian conjugacy and linear models, which cannot easily be extended to deep neural networks. The following result shows that we can replace this analytical result with a simple computational procedure."
+  },
+  {
+    "index": 38,
+    "id": "Thmlemma3.p1.1",
+    "tag": "p",
+    "latex": [
+      "f_{\\theta}(x)=x^{T}\\theta",
+      "\\tilde{y}_{i}\\sim N(y_{i},\\sigma^{2})",
+      "\\tilde{\\theta}\\sim N(\\overline{\\theta},\\lambda I)",
+      "\\theta\\mid\\mathcal{D}"
+    ],
+    "text": "Let f θ ​ ( x ) = x T ​ θ f_{\\theta}(x)=x^{T}\\theta , y ~ i ∼ N ⁡ ( y i , σ 2 ) \\tilde{y}_{i}\\sim N(y_{i},\\sigma^{2}) and θ ~ ∼ N ⁡ ( θ ¯ , λ ​ I ) \\tilde{\\theta}\\sim N(\\overline{\\theta},\\lambda I) . Then the either of the following optimization problems generate a sample θ | 𝒟 \\theta\\mid\\mathcal{D} according to ( 3 ):"
+  },
+  {
+    "index": 39,
+    "id": "S3.EGx1",
+    "tag": "table",
+    "latex": [
+      "\\displaystyle\\argmin_{\\theta}\\sum_{i=1}^{n}\\|\\tilde{y}_{i}-f_{\\theta}(x_{i})\\|^{2}_{2}+\\frac{\\sigma^{2}}{\\lambda}\\|\\tilde{\\theta}-\\theta\\|^{2}_{2},",
+      "\\displaystyle\\tilde{\\theta}+\\argmin_{\\theta}\\sum_{i=1}^{n}\\|\\tilde{y}_{i}-\\left(f_{\\tilde{\\theta}}+f_{\\theta}\\right)(x_{i})\\|^{2}_{2}+\\frac{\\sigma^{2}}{\\lambda}\\|\\theta\\|^{2}_{2}."
+    ],
+    "text": "arg ​ min θ ∑ i = 1 n ∥ y ~ i − f θ ( x i ) ∥ 2 2 + σ 2 λ ∥ θ ~ − θ ∥ 2 2 , \\displaystyle\\argmin_{\\theta}\\sum_{i=1}^{n}\\|\\tilde{y}_{i}-f_{\\theta}(x_{i})\\|^{2}_{2}+\\frac{\\sigma^{2}}{\\lambda}\\|\\tilde{\\theta}-\\theta\\|^{2}_{2}, (4) θ ~ + arg ​ min θ ∑ i = 1 n ∥ y ~ i − ( f θ ~ + f θ ) ( x i ) ∥ 2 2 + σ 2 λ ∥ θ ∥ 2 2 . \\displaystyle\\tilde{\\theta}+\\argmin_{\\theta}\\sum_{i=1}^{n}\\|\\tilde{y}_{i}-\\left(f_{\\tilde{\\theta}}+f_{\\theta}\\right)(x_{i})\\|^{2}_{2}+\\frac{\\sigma^{2}}{\\lambda}\\|\\theta\\|^{2}_{2}. (5)"
+  },
+  {
+    "index": 40,
+    "id": "Thmlemma3.p2.1",
+    "tag": "p",
+    "latex": [],
+    "text": "To prove ( 4 ) note that the solution is Gaussian and then match moments; equation ( 5 ) then follows by relabeling [ 49 ] . ∎"
+  },
+  {
+    "index": 41,
+    "id": "S3.p2.1",
+    "tag": "p",
+    "latex": [
+      "f_{\\theta}",
+      "f_{\\theta}",
+      "\\tilde{\\mathcal{D}}=\\{(x_{i},\\tilde{y}_{i})\\}_{i=1}^{n}",
+      "\\epsilon_{t}",
+      "\\tilde{\\theta}",
+      "\\tilde{\\mathcal{D}}",
+      "\\tilde{\\theta}",
+      "f_{\\tilde{\\theta}}",
+      "\\tilde{\\mathcal{D}}"
+    ],
+    "text": "Lemma 3 is revealing since it allows us to view Bayesian regression through a purely computational lens: ‘generate posterior samples by training on noisy versions of the data, together with some random regularization’. Even for nonlinear f θ f_{\\theta} , we can still compute ( 4 ) or ( 5 ). Although the resultant f θ f_{\\theta} will no longer be an exact posterior, at least it passes the ‘sanity check’ in this simple linear setting (unlike the approaches of Section 2 ). We argue this method is quite intuitive: the perturbed data 𝒟 ~ = { ( x i , y ~ i ) } i = 1 n \\tilde{\\mathcal{D}}=\\{(x_{i},\\tilde{y}_{i})\\}_{i=1}^{n} is generated according to the estimated noise process ϵ t \\epsilon_{t} and the sample θ ~ \\tilde{\\theta} is drawn from prior beliefs. Intuitively ( 4 ) says to fit to 𝒟 ~ \\tilde{\\mathcal{D}} and regularize weights to a prior sample of weights θ ~ \\tilde{\\theta} ; ( 5 ) says to generate a prior function f θ ~ f_{\\tilde{\\theta}} and then fit an additive term to noisy data 𝒟 ~ \\tilde{\\mathcal{D}} with regularized complexity."
+  },
+  {
+    "index": 42,
+    "id": "S3.p3.1",
+    "tag": "p",
+    "latex": [],
+    "text": "This paper explores the performance of each of these methods for uncertainty estimation with deep learning. We find empirical support that method ( 5 ) coupled with a randomized prior function significantly outperforms ensemble-based approaches without prior mechanism. We also find that ( 5 ) significantly outperforms ( 4 ) in deep RL. We suggest a major factor in this comes down to the huge dimensionality of neural network weights, whereas the output policy or value is typically far smaller. In this case, it makes sense to enforce prior beliefs in the low dimensional space. Further, the initialization of neural network weights plays an important role in their generalization properties and optimization via stochastic gradient descent (SGD) [ 23 , 38 ] . As such, ( 5 ) may help to decouple the dual roles of initial weights as both ‘prior’ and training initializer. Algorithm 1 describes our approach applied to modern deep learning architectures."
+  },
+  {
+    "index": 43,
+    "id": "alg1",
+    "tag": "figure",
+    "latex": [
+      "\\mathcal{D}\\subseteq\\{(x,y)|x\\in\\mathcal{X},y\\in\\mathcal{Y}\\}",
+      "\\mathcal{L}",
+      "f_{\\theta}:\\mathcal{X}\\rightarrow\\mathcal{Y}",
+      "K\\in\\mathbb{N}",
+      "\\mathcal{P}\\subseteq\\{\\mathds{P}(p)\\mid p:\\mathcal{X}\\rightarrow\\mathcal{Y}\\}",
+      "k=1,..,K",
+      "\\theta_{k}\\sim",
+      "\\mathcal{D}_{k}=\\mathtt{data\\_noise}(\\mathcal{D})",
+      "p_{k}\\sim\\mathcal{P}",
+      "\\nabla_{\\theta\\mid\\theta=\\theta_{k}}\\mathcal{L}(f_{\\theta}+p_{k};\\mathcal{D}_{k})",
+      "\\{f_{\\theta_{k}}+p_{k}\\}_{k=1}^{K}"
+    ],
+    "text": "Algorithm 1 Randomized prior functions for ensemble posterior. 1: Data 𝒟 ⊆ { ( x , y ) | x ∈ 𝒳 , y ∈ 𝒴 } \\mathcal{D}\\subseteq\\{(x,y)|x\\in\\mathcal{X},y\\in\\mathcal{Y}\\} , loss function ℒ \\mathcal{L} , neural model f θ : 𝒳 → 𝒴 f_{\\theta}:\\mathcal{X}\\rightarrow\\mathcal{Y} , Ensemble size K ∈ ℕ K\\in\\mathbb{N} , noise procedure data_noise , distribution over priors 𝒫 ⊆ { ℙ ( p ) ∣ p : 𝒳 → 𝒴 } \\mathcal{P}\\subseteq\\{\\mathds{P}(p)\\mid p:\\mathcal{X}\\rightarrow\\mathcal{Y}\\} . 2: for k = 1 , . . , K k=1,..,K do 3: initialize θ k ∼ \\theta_{k}\\sim Glorot initialization [ 23 ] . 4: form 𝒟 k = 𝚍𝚊𝚝𝚊 ​ _ ​ 𝚗𝚘𝚒𝚜𝚎 ​ ( 𝒟 ) \\mathcal{D}_{k}=\\mathtt{data\\_noise}(\\mathcal{D}) (e.g. Gaussian noise or bootstrap sampling [ 50 ] ). 5: sample prior function p k ∼ 𝒫 p_{k}\\sim\\mathcal{P} . 6: optimize ∇ θ | θ = θ k ℒ ​ ( f θ + p k , 𝒟 k ) \\nabla_{\\theta\\mid\\theta=\\theta_{k}}\\mathcal{L}(f_{\\theta}+p_{k};\\mathcal{D}_{k}) via ADAM [ 28 ] . 7: return ensemble { f θ k + p k } k = 1 K \\{f_{\\theta_{k}}+p_{k}\\}_{k=1}^{K} ."
+  },
+  {
+    "index": 44,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "4 Deep reinforcement learning"
+  },
+  {
+    "index": 45,
+    "id": "S4.p1.1",
+    "tag": "p",
+    "latex": [
+      "K",
+      "\\{Q_{k}\\}_{k=1}^{K}",
+      "\\mathcal{H}_{t}",
+      "p_{k}",
+      "j\\sim{\\rm Unif}([1,..,K])",
+      "Q_{j}",
+      "p_{k}"
+    ],
+    "text": "Algorithm 1 might be applied to model or policy learning approaches, but this paper focuses on value learning. We apply Algorithm 1 to deep Q networks (DQN) [ 42 ] on a series of tasks designed to require good uncertainty estimates. We train an ensemble of K K networks { Q k } k = 1 K \\{Q_{k}\\}_{k=1}^{K} in parallel, each on a perturbed version of the observed data ℋ t \\mathcal{H}_{t} and each with a distinct random, but fixed, prior function p k p_{k} . Each episode, the agent selects j ∼ Unif ( [ 1 , . . , K ] ) j\\sim{\\rm Unif}([1,..,K]) and follows the greedy policy w.r.t. Q j Q_{j} for the duration of the episode. This algorithm is essentially bootstrapped DQN (BootDQN) except for the addition of the prior function p k p_{k} [ 47 ] . We use the statistical bootstrap rather than Gaussian noise ( 5 ) to implement a state-specific variance [ 19 ] ."
+  },
+  {
+    "index": 46,
+    "id": "S4.p2.1",
+    "tag": "p",
+    "latex": [
+      "\\gamma\\in[0,1]",
+      "f_{\\theta}",
+      "p",
+      "\\mathcal{D}=\\{(s_{t},a_{t},r_{t},s^{\\prime}_{t})",
+      "\\gamma"
+    ],
+    "text": "Let γ ∈ [ 0 , 1 ] \\gamma\\in[0,1] be a discount factor that induces a time preference over future rewards. For a neural network family f θ f_{\\theta} , prior function p p , and data 𝒟 = { ( s t , a t , r t , s t ′ ) \\mathcal{D}=\\{(s_{t},a_{t},r_{t},s^{\\prime}_{t}) we define the γ \\gamma -discounted empirical temporal difference (TD) loss,"
+  },
+  {
+    "index": 47,
+    "id": "S4.E6",
+    "tag": "table",
+    "latex": [
+      "\\vskip-2.84526pt\\mathcal{L}_{\\gamma}(\\theta;\\theta^{-},p,\\mathcal{D}):=\\sum_{t\\in\\mathcal{D}}\\left(r_{t}+\\gamma\\max_{a^{\\prime}\\in\\mathcal{A}}\\overbrace{(f_{\\theta^{-}}+p)}^{\\text{target }Q}(s^{\\prime}_{t},a^{\\prime})-\\overbrace{(f_{\\theta}+p)}^{\\text{online }Q}(s_{t},a_{t})\\right)^{2}."
+    ],
+    "text": "ℒ γ ​ ( θ , θ − , p , 𝒟 ) := ∑ t ∈ 𝒟 ( r t + γ ​ max a ′ ∈ 𝒜 ​ ( f θ − + p ) ⏞ target ​ Q ​ ( s t ′ , a ′ ) − ( f θ + p ) ⏞ online ​ Q ​ ( s t , a t ) ) 2 . \\vskip-2.84526pt\\mathcal{L}_{\\gamma}(\\theta;\\theta^{-},p,\\mathcal{D}):=\\sum_{t\\in\\mathcal{D}}\\left(r_{t}+\\gamma\\max_{a^{\\prime}\\in\\mathcal{A}}\\overbrace{(f_{\\theta^{-}}+p)}^{\\text{target }Q}(s^{\\prime}_{t},a^{\\prime})-\\overbrace{(f_{\\theta}+p)}^{\\text{online }Q}(s_{t},a_{t})\\right)^{2}. (6)"
+  },
+  {
+    "index": 48,
+    "id": "S4.p2.2",
+    "tag": "p",
+    "latex": [
+      "\\mathtt{ensemble\\_buffer}",
+      "k=1,..,K"
+    ],
+    "text": "Using this notation, the learning update for BootDQN with prior functions is a simple application of Algorithm 1 , which we outline below. To complete the RL algorithm we implement a 50-50 𝚎𝚗𝚜𝚎𝚖𝚋𝚕𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 \\mathtt{ensemble\\_buffer} , where each transition has a 50% chance of being included in the replay for model k = 1 , . . , K k=1,..,K . For a complete description of BootDQN+prior agent, see Appendix A ."
+  },
+  {
+    "index": 49,
+    "id": "alg2",
+    "tag": "figure",
+    "latex": [
+      "\\mathtt{learn\\_bootstrapped\\_dqn\\_with\\_prior}",
+      "\\theta_{1},..,\\theta_{K}",
+      "p_{1},..,p_{K}",
+      "\\mathcal{L}_{\\gamma}(\\theta\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt;\\theta^{-}\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt,p\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt,\\mathcal{D}\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt)",
+      "\\mathtt{ensemble\\_buffer}",
+      "K",
+      "\\theta_{1},..,\\theta_{K}",
+      "k",
+      "(1,\\ldots,K)",
+      "\\mathcal{D}_{k}\\leftarrow\\mathtt{ensemble\\_buffer[k].sample\\_minibatch()}",
+      "\\nabla_{\\theta\\mid\\theta=\\theta_{k}}\\mathcal{L}(\\theta;\\theta_{k},p_{k},\\mathcal{D}_{k})"
+    ],
+    "text": "Algorithm 2 𝚕𝚎𝚊𝚛𝚗 ​ _ ​ 𝚋𝚘𝚘𝚝𝚜𝚝𝚛𝚊𝚙𝚙𝚎𝚍 ​ _ ​ 𝚍𝚚𝚗 ​ _ ​ 𝚠𝚒𝚝𝚑 ​ _ ​ 𝚙𝚛𝚒𝚘𝚛 \\mathtt{learn\\_bootstrapped\\_dqn\\_with\\_prior} Agent: θ 1 , . . , θ K \\theta_{1},..,\\theta_{K} trainable network parameters p 1 , . . , p K p_{1},..,p_{K} fixed prior functions ℒ γ ( θ = ⋅ ; θ − = ⋅ , p = ⋅ , 𝒟 = ⋅ ) \\mathcal{L}_{\\gamma}(\\theta\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt;\\theta^{-}\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt,p\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt,\\mathcal{D}\\hskip-2.84526pt=\\hskip-1.42262pt\\mathbf{\\cdot}\\hskip 1.42262pt) TD error loss function 𝚎𝚗𝚜𝚎𝚖𝚋𝚕𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 \\mathtt{ensemble\\_buffer} replay buffer of K K -parallel perturbed data Updates: θ 1 , . . , θ K \\theta_{1},..,\\theta_{K} agent value function estimate 1: for k k in ( 1 , … , K ) (1,\\ldots,K) do 2: Data 𝒟 k ← 𝚎𝚗𝚜𝚎𝚖𝚋𝚕𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 ​ [ 𝚔 ] . 𝚜𝚊𝚖𝚙𝚕𝚎 ​ _ ​ 𝚖𝚒𝚗𝚒𝚋𝚊𝚝𝚌𝚑 ​ ( ) \\mathcal{D}_{k}\\leftarrow\\mathtt{ensemble\\_buffer[k].sample\\_minibatch()} 3: optimize ∇ θ | θ = θ k ℒ ​ ( θ , θ k , p k , 𝒟 k ) \\nabla_{\\theta\\mid\\theta=\\theta_{k}}\\mathcal{L}(\\theta;\\theta_{k},p_{k},\\mathcal{D}_{k}) via ADAM [ 28 ] ."
+  },
+  {
+    "index": 50,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "4.1 Does BootDQN+prior address the shortcomings from Section 2 ?"
+  },
+  {
+    "index": 51,
+    "id": "S4.SS1.p1.1",
+    "tag": "p",
+    "latex": [
+      "Q",
+      "K"
+    ],
+    "text": "Algorithm 2 is a simple modification of vanilla Q-learning: rather than maintain a single point estimate for Q Q , we maintain K K estimates in parallel, and rather than regularize each estimate to a single value, each is individually regularized to a distinct random prior function. We show that that this simple and scalable algorithm overcomes the crucial shortcomings that afflict existing methods, as outlined in Section 2 ."
+  },
+  {
+    "index": 52,
+    "id": "S4.I1.ix1.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Posterior concentration (Section 2.1 ): Prior function + noisy data means the ensemble is initially diverse, but concentrates as more data is gathered. For linear-gaussian systems this matches Bayes posterior, bootstrap offers a general, non-parametric approach [ 16 , 18 ] ."
+  },
+  {
+    "index": 53,
+    "id": "S4.I1.ix2.p1.1",
+    "tag": "p",
+    "latex": [
+      "k",
+      "Q"
+    ],
+    "text": "Multi-step uncertainty (Section 2.2 ): Since each network k k trains only on its own target value, BootDQN+prior propagates a temporally-consistent sample of Q Q -value [ 49 ] ."
+  },
+  {
+    "index": 54,
+    "id": "S4.I1.ix3.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Epistemic vs aleatoric (Section 2.3 ): BootDQN+prior optimises the mean TD loss ( 6 ) and does not seek to fit the noise in returns, unlike ‘distributional RL’ [ 7 ] ."
+  },
+  {
+    "index": 55,
+    "id": "S4.I1.ix4.p1.1",
+    "tag": "p",
+    "latex": [
+      "Q"
+    ],
+    "text": "Task-appropriate generalization (Section 2.4 ): We explore according to our uncertainty in the value Q Q , rather than density on state. As such, our generalization naturally occurs in the space of features relevant to the task, rather than pixels or noise [ 6 ] ."
+  },
+  {
+    "index": 56,
+    "id": "S4.I1.ix5.p1.1",
+    "tag": "p",
+    "latex": [
+      "p_{k}",
+      "Q_{k}",
+      "\\tilde{s}",
+      "\\mathds{E}[\\max_{\\alpha}Q_{k}(\\tilde{s},\\alpha)]>0"
+    ],
+    "text": "Intrinsic motivation (comparison to BootDQN without prior): In an environment with zero rewards, a bootstrap ensemble may simply learn to predict zero for all states. The prior p k p_{k} can make this generalization unlikely for Q k Q_{k} at unseen states s ~ \\tilde{s} so 𝔼 ⁡ [ max α ⁡ Q k ​ ( s ~ , α ) ] > 0 \\mathds{E}[\\max_{\\alpha}Q_{k}(\\tilde{s},\\alpha)]>0 ; thus BootDQN+prior seeks novelty even with no observed rewards."
+  },
+  {
+    "index": 57,
+    "id": "S4.SS1.p2.1",
+    "tag": "p",
+    "latex": [
+      "\\tilde{O}(\\sqrt{|\\mathcal{S}||\\mathcal{A}|T})",
+      "K=\\tilde{O}(|\\mathcal{A}|)"
+    ],
+    "text": "Another source of justification comes from the observation that BootDQN+prior is an instance of randomized least-squares value iteration (RLSVI), with regularization via ‘prior function’ for an ensemble of neural networks. RLSVI with linear function approximation and Gaussian noise guarantees a bound on expected regret of O ~ ​ ( | 𝒮 | ​ | 𝒜 | ​ T ) \\tilde{O}(\\sqrt{|\\mathcal{S}||\\mathcal{A}|T}) in the tabular setting [ 49 ] . 3 3 3 Regret measures the shortfall in cumulative rewards compared to that of the optimal policy. Similarly, analysis for the bandit setting establishes that K = O ~ ​ ( | 𝒜 | ) K=\\tilde{O}(|\\mathcal{A}|) models trained online can attain similar performance to full resampling each episode [ 36 ] . Our work in this paper pushes beyond the boundaries of these analyses, which are presented as ‘sanity checks’ that our algorithm is at least sensible in simple settings, rather than a certificate of correctness for more complex ones. The rest of this paper is dedicated to an empirical investigation of our algorithm through computational experiments. Encouragingly, we find that many of the insights born out of simple problems extend to more complex ‘deep RL’ settings and good evidence for the efficacy of our algorithm."
+  },
+  {
+    "index": 58,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "4.2 Computational experiments"
+  },
+  {
+    "index": 59,
+    "id": "S4.SS2.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\mathcal{P}",
+      "Q^{*}"
+    ],
+    "text": "Our experiments focus on a series of environments that require deep exploration together with increasing state complexity [ 27 , 49 ] . In each of our domains, random actions are very unlikely to achieve a reward and exploratory actions may even come at a cost. Any algorithm without prior motivation will have no option but to explore randomly, or worse, eschew exploratory actions completely in the name of premature and sub-optimal exploitation. In our experiments we focus on a tabula rasa setting in which the prior function is drawn as a random neural network. Although our prior distribution 𝒫 \\mathcal{P} could encode task-specific knowledge (e.g. through sampling the true Q ∗ Q^{*} ), we leave this investigation to future work."
+  },
+  {
+    "index": 60,
+    "id": null,
+    "tag": "h4",
+    "latex": [],
+    "text": "4.2.1 Chain environments"
+  },
+  {
+    "index": 61,
+    "id": "S4.SS2.SSS1.p1.1",
+    "tag": "p",
+    "latex": [
+      "N\\in\\mathbb{N}",
+      "W\\sim{\\rm Ber}(0.5)^{N\\times N}",
+      "\\mathcal{S}=\\{0,1\\}^{N\\times N}",
+      "\\mathcal{A}=\\{0,1\\}",
+      "s_{t}\\in\\mathcal{S}",
+      "\\{0,1\\}",
+      "W",
+      "s_{t}",
+      "0.01/N",
+      "1",
+      "N",
+      "0.99",
+      "\\Omega(2^{N})",
+      "2^{N}",
+      "W"
+    ],
+    "text": "We begin our experiments with a family of chain-like environments that highlight the need for deep exploration [ 62 ] . The environments are indexed by problem scale N ∈ ℕ N\\in\\mathbb{N} and action mask W ∼ Ber ​ ( 0.5 ) N × N W\\sim{\\rm Ber}(0.5)^{N\\times N} , with 𝒮 = { 0 , 1 } N × N \\mathcal{S}=\\{0,1\\}^{N\\times N} and 𝒜 = { 0 , 1 } \\mathcal{A}=\\{0,1\\} . The agent begins each episode in the upper left-most state in the grid and deterministically falls one row per time step. The state encodes the agent’s row and column as a one-hot vector s t ∈ 𝒮 s_{t}\\in\\mathcal{S} . The actions { 0 , 1 } \\{0,1\\} move the agent left or right depending on the action mask W W at state s t s_{t} , which remains fixed. The agent incurs a cost of 0.01 / N 0.01/N for moving right in all states except for the right-most, in which the reward is 1 1 . The reward for action left is always zero. An episode ends after N N time steps so that the optimal policy is to move right each step and receive a total return of 0.99 0.99 ; all other policies receive zero or negative return. Crucially, algorithms without deep exploration take Ω ⁡ ( 2 N ) \\Omega(2^{N}) episodes to learn the optimal policy [ 52 ] . 4 4 4 The dashed lines indicate the 2 N 2^{N} dithering lower bound. The action mask W W means this cannot be solved easily by evolution or policy search evolution, unlike previous ‘chain’ examples [ 47 , 54 ] ."
+  },
+  {
+    "index": 62,
+    "id": "S4.SS2.SSS1.p2.1",
+    "tag": "p",
+    "latex": [
+      "N=5,..,60",
+      "500",
+      "K=20",
+      "0.9",
+      "l_{2}",
+      "\\epsilon"
+    ],
+    "text": "Figure 3 presents the average time to learn for N = 5 , . . , 60 N=5,..,60 up to 500 500 K episodes over 5 seeds and ensemble K = 20 K=20 . We say that an agent has learned the optimal policy when the average regret per episode drops below 0.9 0.9 . We compare three variants of BootDQN, depending on their mechanism for ‘prior’ effects. BS is bootstrap without prior mechanism. BSR is bootstrap with l 2 l_{2} regularization on weights per ( 4 ). BSP is bootstrap with additive prior function per ( 5 ). In each case we initialize a random 20-unit MLP; BSR regularizes to these initial weights and BSP trains an additive network. Although all bootstrap methods significantly outperform ϵ \\epsilon -greedy, only BSP successfully scales to large problem sizes."
+  },
+  {
+    "index": 63,
+    "id": "S4.SS2.SSS1.p3.1",
+    "tag": "p",
+    "latex": [
+      "50",
+      "\\beta"
+    ],
+    "text": "Figure 4 presents a more detailed analysis of the sensitivity of our approach to the tuning parameters of different regularization approaches. We repeat the experiments of Figure 3 and examine the size of the largest problem solved before 50 50 K episodes. In each case larger ensembles lead to better performance, but this effect tends to plateau relatively early. Figure 4(a) shows that regularization provides little or no benefit to BSR. Figure 4(b) examines the effect of scaling the randomly initialized MLP by a scalar hyperparameter β \\beta ."
+  },
+  {
+    "index": 64,
+    "id": "S4.SS2.SSS1.p4.1",
+    "tag": "p",
+    "latex": [],
+    "text": "How does BSP solve this exponentially-difficult problem?"
+  },
+  {
+    "index": 65,
+    "id": "S4.SS2.SSS1.p5.1",
+    "tag": "p",
+    "latex": [
+      "2^{N}"
+    ],
+    "text": "At first glance this ‘chain’ problem may seem like an impossible task. Finding the single rewarding policy out of 2 N 2^{N} is not simply a needle-in-a-haystack, but more akin to looking for a piece of hay in a needle-stack! Since every policy apart from the rewarding one is painful, it’s very tempting for an agent to give up and receive reward zero. We now provide some intuition for how BSP is able to consistently and scalably solve such a difficult task."
+  },
+  {
+    "index": 66,
+    "id": "S4.SS2.SSS1.p6.1",
+    "tag": "p",
+    "latex": [
+      "s^{\\prime}",
+      "\\max_{a^{\\prime}}Q_{k}(s^{\\prime},a^{\\prime})",
+      "k",
+      "s^{\\prime}"
+    ],
+    "text": "One way to interpret this result is through analysing BSP with linear function approximation via Lemma 3 . As outlined in Section 4.1 , BSP with linear function approximation satisfies a polynomial regret bound [ 49 ] . Further, this empirical scaling matches that predicted by the regret bound tabular domain [ 51 ] (see Figure 8 ). Here, the prior function plays a crucial role - it provides motivation for the agent to explore even when the observed data has low (or no) reward. Note that it is not necessary the sampled prior function leads to a good policy itself; in fact this is exponentially unlikely according to our initialization scheme. The crucial element is that when a new state s ′ s^{\\prime} is reached there is some ensemble member that estimates max a ′ ⁡ Q k ​ ( s ′ , a ′ ) \\max_{a^{\\prime}}Q_{k}(s^{\\prime},a^{\\prime}) is sufficiently positive to warrant visiting, even if it causes some negative reward along the way. In that case, when network k k is active it will seek out the potentially-informative s ′ s^{\\prime} even if it is multiple timesteps away; this effect is sometimes called deep exploration . We present an accompanying visualization at http://bit.ly/rpf_nips ."
+  },
+  {
+    "index": 67,
+    "id": "S4.SS2.SSS1.p7.1",
+    "tag": "p",
+    "latex": [
+      "Q"
+    ],
+    "text": "However, this connection to linear RLSVI does not inform why BSP should outperform BSR. To account for this, we appeal to the functional dynamics of deep learning architectures (see Section 3 ). In large networks weight decay (per BSR) may be an ineffective mechanism on the output Q Q -values. Instead, training an additive network via SGD (per BSP) may provide a more effective regularization on the output function [ 73 , 38 , 5 ] . We expand on this hypothesis and further details of these experiments in Appendix B.1 . This includes investigation of NoisyNets [ 17 ] and dropout [ 20 ] , which both perform poorly, and a comparison to UCB-based algorithms, which scale much worse than BSP, even with oracle access to state visit counts."
+  },
+  {
+    "index": 68,
+    "id": null,
+    "tag": "h4",
+    "latex": [],
+    "text": "4.2.2 Cartpole swing-up"
+  },
+  {
+    "index": 69,
+    "id": "S4.SS2.SSS2.p1.1",
+    "tag": "p",
+    "latex": [
+      "+1",
+      "\\cos(\\theta)>0.95",
+      "|x|<0.1",
+      "|\\dot{\\theta}|<1",
+      "|\\dot{x}|<1",
+      "0.1",
+      "s_{t}=(\\cos(\\theta_{t}),\\sin(\\theta_{t}),\\dot{\\theta_{t}},x_{t},\\dot{x_{t}})"
+    ],
+    "text": "The experiments of Section 4.2.1 show that the choice of prior mechanism can be absolutely essential for efficient exploration via randomized value functions. However, since the underlying system is a small finite MDP we might observe similar performance through a tabular algorithm. In this section we investigate a classic benchmark problem that necessitates nonlinear function approximation: cartpole [ 63 ] . We modify the classic formulation so that the pole begins hanging down and the agent only receives a reward when the pole is upright, balanced, and centered 5 5 5 We use the DeepMind control suite [ 66 ] with reward + 1 +1 only when cos ⁡ ( θ ) > 0.95 \\cos(\\theta)>0.95 , | x | < 0.1 |x|<0.1 , | θ ˙ | < 1 |\\dot{\\theta}|<1 , and | x ˙ | < 1 |\\dot{x}|<1 . Each episode lasts 1,000 time steps, simulating 10 seconds of interaction. . We also add a cost of 0.1 0.1 for moving the cart. This problem embodies many of the same aspects of 4.2.1 , but since the agent interacts with the environment through state s t = ( cos ⁡ ( θ t ) , sin ⁡ ( θ t ) , θ t ˙ , x t , x t ˙ ) s_{t}=(\\cos(\\theta_{t}),\\sin(\\theta_{t}),\\dot{\\theta_{t}},x_{t},\\dot{x_{t}}) , the agent must also learn nonlinear generalization. Tabular approaches are not practical due to the curse of dimensionality."
+  },
+  {
+    "index": 70,
+    "id": "S4.SS2.SSS2.p2.1",
+    "tag": "p",
+    "latex": [
+      "\\epsilon"
+    ],
+    "text": "Figure 5 compares the performance of DQN with ϵ \\epsilon -greedy, bootstrap without prior (BS), bootstrap with prior networks (BSP) and the state-of-the-art continuous control algorithm D4PG, itself an application of ‘distributional RL’ [ 4 ] . Only BSP learns a performant policy; no other approach ever attains any positive reward. We push experimental details, including hyperparameter analysis, to Appendix B.2 . These results are significant in that they show that our intuitions translate from simple domains to more complex nonlinear settings, although the underlying state is relatively low dimensional. Our next experiments investigate performance in a high dimensional and visually rich domain."
+  },
+  {
+    "index": 71,
+    "id": null,
+    "tag": "h4",
+    "latex": [],
+    "text": "4.2.3 Montezuma’s revenge"
+  },
+  {
+    "index": 72,
+    "id": "S4.SS2.SSS3.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\beta"
+    ],
+    "text": "Our final experiment comes from the Arcade Learning Environment and the canonical sparse reward game, Montezuma’s Revenge [ 9 ] . The agent interacts directly with the pixel values and, even under an optimal policy, there can be hundreds of time steps between rewarding actions. This problem presents a significant exploration challenge in a visually rich environment; many published algorithms are essentially unable to attain any reward here [ 42 , 41 ] . We compare performance against a baseline distributed DQN agent with double Q-learning, prioritized experience replay and dueling networks [ 25 , 24 , 59 , 72 ] . To save computation we follow previous work and use a shared convnet for the ensemble uncertainty [ 47 , 3 ] . Figure 6 presents the results for varying prior scale β \\beta averaged over three seeds. Once again, we see that the prior network can be absolutely critical to successful exploration."
+  },
+  {
+    "index": 73,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "5 Conclusion"
+  },
+  {
+    "index": 74,
+    "id": "S5.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "This paper highlights the importance of uncertainty estimates in deep RL, the need for an effective ‘prior’ mechanism, and its potential benefits towards efficient exploration. We present some alarming shortcomings of existing methods and suggest bootstrapped ensembles with randomized prior functions as a simple, practical alternative. We support our claims through an analysis of this method in the linear setting, together with a series of simple experiments designed to highlight the key issues. Our work leaves several open questions. What kinds of prior functions are appropriate for deep RL? Can they be optimized or ‘meta-learned’? Can we distill the ensemble process to a single network? We hope this work helps to inspire solutions to these problems, and also build connections between the theory of efficient learning and practical algorithms for deep reinforcement learning."
+  },
+  {
+    "index": 75,
+    "id": "S5.p2.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Acknowledgements We would like to thank many people who made important contributions to this paper. This paper can be thought of as a specific type of ‘deep exploration via randomized value functions’, whose line of research has been crucially driven by the contributions of (and conversations with) Benjamin Van Roy, Daniel Russo and Zheng Wen. Further, we would like to acknowledge the many helpful comments and support from Mohammad Gheshlaghi Azar, David Budden, David Silver and Justin Sirignano. Finally, we would like to make a special mention for Hado Van Hasselt, who coined the term ‘hay in a needle-stack’ to describe our experiments from Section 4.2.1 ."
+  },
+  {
+    "index": 76,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "References"
+  },
+  {
+    "index": 77,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "Appendix A Reinforcement learning algorithm"
+  },
+  {
+    "index": 78,
+    "id": "A1.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "In this appendix we fill out the details for the complete pseudocode for the BootDQN+Prior RL agent. Our problem setting matches the description of prior work [ 49 ] ; we reproduce the algorithms and figures in this section for the convenience of our readers. At a high level, our agents interact with the environment through repeated finite episodes as described by Algorithm 3 . To describe an agent, we must simply implement the act , update_buffer and learn_from_buffer methods."
+  },
+  {
+    "index": 79,
+    "id": "alg3",
+    "tag": "figure",
+    "latex": [
+      "\\mathtt{live}",
+      "\\mathtt{act},\\mathtt{update\\_buffer},\\mathtt{learn\\_from\\_buffer}",
+      "\\mathtt{reset},\\mathtt{step}",
+      "=1,2,\\ldots",
+      "\\leftarrow",
+      "\\leftarrow",
+      "\\leftarrow"
+    ],
+    "text": "Algorithm 3 𝚕𝚒𝚟𝚎 \\mathtt{live} Input: agent methods 𝚊𝚌𝚝 , 𝚞𝚙𝚍𝚊𝚝𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 , 𝚕𝚎𝚊𝚛𝚗 ​ _ ​ 𝚏𝚛𝚘𝚖 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 \\mathtt{act},\\mathtt{update\\_buffer},\\mathtt{learn\\_from\\_buffer} environment methods 𝚛𝚎𝚜𝚎𝚝 , 𝚜𝚝𝚎𝚙 \\mathtt{reset},\\mathtt{step} 1: for episode = 1 , 2 , … =1,2,\\ldots do 2: agent.learn_from_buffer() 3: transition ← \\leftarrow environment.reset() 4: while transition.new_state is not null do 5: action ← \\leftarrow agent.act(transition.new_state) 6: transition ← \\leftarrow environment.step(action) 7: agent.update_buffer(transition)"
+  },
+  {
+    "index": 80,
+    "id": "A1.p2.1",
+    "tag": "p",
+    "latex": [
+      "\\mathtt{ensemble\\_buffer}",
+      "K",
+      "o(K)",
+      "K"
+    ],
+    "text": "BootDQN+prior implements an 𝚎𝚗𝚜𝚎𝚖𝚋𝚕𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 \\mathtt{ensemble\\_buffer} that maintains K K buffers in parallel, although this may clearly be implemented in an efficient way that uses o ⁡ ( K ) o(K) memory. Figure 7 provides an illustration of how BootDQN learns and maintains K K estimates of the value function in parallel."
+  },
+  {
+    "index": 81,
+    "id": "A1.p3.1",
+    "tag": "p",
+    "latex": [
+      "\\frac{1}{2}"
+    ],
+    "text": "To implement an online double-or-nothing bootstrap we employ Algorithm 4 , which assigns each transition to each ensemble buffer with probability 1 2 \\frac{1}{2} ."
+  },
+  {
+    "index": 82,
+    "id": "alg4",
+    "tag": "figure",
+    "latex": [
+      "\\mathtt{ensemble\\_buffer.update\\_bootstrap}(\\cdot)",
+      "\\mathtt{transition}",
+      "(s_{t},a_{t},r_{t},s^{\\prime}_{t},t)",
+      "\\mathtt{ensemble\\_buffer}",
+      "K",
+      "k",
+      "(1,\\ldots,K)",
+      "m^{k}_{t}\\sim{\\rm Unif}(\\{0,1\\})=1",
+      "\\mathtt{ensemble\\_buffer[k].enqueue(}(s_{t},a_{t},r_{t},s^{\\prime}_{t},t))"
+    ],
+    "text": "Algorithm 4 𝚎𝚗𝚜𝚎𝚖𝚋𝚕𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 . 𝚞𝚙𝚍𝚊𝚝𝚎 ​ _ ​ 𝚋𝚘𝚘𝚝𝚜𝚝𝚛𝚊𝚙 ​ ( ⋅ ) \\mathtt{ensemble\\_buffer.update\\_bootstrap}(\\cdot) Input: 𝚝𝚛𝚊𝚗𝚜𝚒𝚝𝚒𝚘𝚗 \\mathtt{transition} ( s t , a t , r t , s t ′ , t ) (s_{t},a_{t},r_{t},s^{\\prime}_{t},t) Updates: 𝚎𝚗𝚜𝚎𝚖𝚋𝚕𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 \\mathtt{ensemble\\_buffer} replay buffer of K K -parallel perturbed data 1: for k k in ( 1 , … , K ) (1,\\ldots,K) do 2: if m t k ∼ Unif ⁡ ( { 0 , 1 } ) = 1 m^{k}_{t}\\sim{\\rm Unif}(\\{0,1\\})=1 then 3: 𝚎𝚗𝚜𝚎𝚖𝚋𝚕𝚎 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 ​ [ 𝚔 ] . 𝚎𝚗𝚚𝚞𝚎𝚞𝚎 ⁡ ( ( , , , , , , , , , ) ) \\mathtt{ensemble\\_buffer[k].enqueue(}(s_{t},a_{t},r_{t},s^{\\prime}_{t},t))"
+  },
+  {
+    "index": 83,
+    "id": "A1.p4.1",
+    "tag": "p",
+    "latex": [
+      "\\mathtt{learn\\_from\\_buffer}",
+      "N"
+    ],
+    "text": "Algorithm 2 describes the 𝚕𝚎𝚊𝚛𝚗 ​ _ ​ 𝚏𝚛𝚘𝚖 ​ _ ​ 𝚋𝚞𝚏𝚏𝚎𝚛 \\mathtt{learn\\_from\\_buffer} method for the agent. For our experiments, we sometimes amend Algorithm 3 to learn periodically every N N steps, rather than only at the end of the episode, but we mention this in the text where this is the case. This practice is common for most implementations of DQN and other reinforcement learning algorithms, but it does not play a significant role in our algorithm."
+  },
+  {
+    "index": 84,
+    "id": "A1.p5.1",
+    "tag": "p",
+    "latex": [
+      "\\mathtt{act}",
+      "j\\sim{\\rm Unif}(1,..,K)",
+      "Q_{j}"
+    ],
+    "text": "The final piece to describe BootDQN+prior is the 𝚊𝚌𝚝 \\mathtt{act} method for action selection. We employ a form of approximate Thompson sampling for RL via randomized value functions. Every episode, the agent selects j ∼ Unif ( 1 , . . , K ) j\\sim{\\rm Unif}(1,..,K) and follows the greedy policy for Q j Q_{j} for the duration of the episode."
+  },
+  {
+    "index": 85,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "Appendix B Reinforcement learning experiments"
+  },
+  {
+    "index": 86,
+    "id": "A2.p1.1",
+    "tag": "p",
+    "latex": [
+      "10^{-3}",
+      "128",
+      "\\epsilon",
+      "2000",
+      "\\epsilon_{0}"
+    ],
+    "text": "In this section, we expand on details for the experimental set-up together with some additional results. Unless otherwise stated we use TensorFlow defaults, Adam optimizer with learning rate 10 − 3 10^{-3} and uniform experience replay with batch size 128 128 . For our ϵ \\epsilon -greedy DQN baseline, we anneal epsilon linearly over 2000 2000 episodes and perform hyperparameter sweeps over the initial epsilon ϵ 0 \\epsilon_{0} . All other agents (NoisyNet, Dropout, Ensemble, Bootstrap) use greedy policies according to an appropriate per-episode Thompson sampling."
+  },
+  {
+    "index": 87,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "B.1 Chain environments"
+  },
+  {
+    "index": 88,
+    "id": "A2.SS1.p1.1",
+    "tag": "p",
+    "latex": [
+      "N",
+      "N",
+      "T_{\\rm learn}=2^{N}",
+      "T_{\\rm learn}=\\tilde{O}(N^{3})"
+    ],
+    "text": "Figure 3 shows the time it takes each agent to learn a problem of size N N . Figure 8 reproduces these results but on a log-log scale, which helps to reveal the problem scaling as N N increases. As in Figure 3 , the dashed line corresponds to a dithering lower bound T learn = 2 N T_{\\rm learn}=2^{N} . We also include a solid line with slope equal to three, corresponding to a polynomial growth T learn = O ~ ​ ( N 3 ) T_{\\rm learn}=\\tilde{O}(N^{3}) ."
+  },
+  {
+    "index": 89,
+    "id": "A2.SS1.p2.1",
+    "tag": "p",
+    "latex": [
+      "\\epsilon"
+    ],
+    "text": "In addition to BSP, BSR, BS and ϵ \\epsilon -greedy displayed in Figure 3 , we also ran parameter sweeps for dropout, NoisyNet and a count-based exploration strategy. Figure 9 presents the result for NoisyNet and dropout, each individually tuned up to 50k episodes. Even after tuning dropout rate and sampling frequency (by episode or by timestep) neither dropout nor NoisyNet scale successfuly to large domains."
+  },
+  {
+    "index": 90,
+    "id": "A2.SS1.p3.1",
+    "tag": "p",
+    "latex": [
+      "\\frac{\\beta}{\\sqrt{N_{t}(s)}}",
+      "N(s)",
+      "s",
+      "t",
+      "\\beta"
+    ],
+    "text": "To compare with ‘count-based’ exploration we implement a version of DQN that optimizes the true reward plus a UCB exploration bonus β N t ​ ( s ) \\frac{\\beta}{\\sqrt{N_{t}(s)}} , where N ⁡ ( s ) N(s) is the number of visits to state s s prior to time t t [ 26 , 6 ] . Figure 10 shows that this count-based exploration strategy performs much worse than BSP, even after sweeping over bonus scale β \\beta and even with access to the true state visit-counts. This mirrors the outperformance of PSRL vs UCRL in tabular reinfocement learning. One explanation for this discrepancy comes from the inefficient way UCB-style algorithms propagate uncertainty over many timesteps [ 51 , 44 ] ."
+  },
+  {
+    "index": 91,
+    "id": "A2.SS1.p4.1",
+    "tag": "p",
+    "latex": [],
+    "text": "For all of our algorithms we tune agent hyperparameters by grid search. These were:"
+  },
+  {
+    "index": 92,
+    "id": "A2.I1.i1.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\mathbf{\\epsilon}",
+      "\\epsilon=0.1"
+    ],
+    "text": "ϵ \\mathbf{\\epsilon} -greedy : ϵ = 0.1 \\epsilon=0.1 , linearly annealed to zero."
+  },
+  {
+    "index": 93,
+    "id": "A2.I1.i2.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\beta=10"
+    ],
+    "text": "BSP : prior scale β = 10 \\beta=10 (Figure 4(b) )."
+  },
+  {
+    "index": 94,
+    "id": "A2.I1.i3.p1.1",
+    "tag": "p",
+    "latex": [
+      "l_{2}",
+      "\\lambda=0.1"
+    ],
+    "text": "BSR : l 2 l_{2} regularizer scale λ = 0.1 \\lambda=0.1 (Figure 4(a) )."
+  },
+  {
+    "index": 95,
+    "id": "A2.I1.i4.p1.1",
+    "tag": "p",
+    "latex": [
+      "p_{\\text{keep}}=0.1"
+    ],
+    "text": "Dropout : Resample mask every step with p keep = 0.1 p_{\\text{keep}}=0.1 ."
+  },
+  {
+    "index": 96,
+    "id": "A2.I1.i5.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "NoisyNet : Resample noise every step."
+  },
+  {
+    "index": 97,
+    "id": "A2.I1.i6.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\beta=0.1"
+    ],
+    "text": "UCB : Optimistic bonus β = 0.1 \\beta=0.1 (Figure 10 )."
+  },
+  {
+    "index": 98,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "B.2 Sparse cartpole swing-up"
+  },
+  {
+    "index": 99,
+    "id": "A2.SS2.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\beta",
+      "\\beta",
+      "\\beta"
+    ],
+    "text": "In Section 4.2.2 we presented experiments showing that BSP outperforms benchmark algorithms. Figure 11 presents the sensitivity of BSP sensitivity to the prior scale β \\beta on this domain. Small values of β \\beta prematurely and suboptimally converge to the stationary policy, and so receive zero cumulative reward. Larger values of β \\beta take longer to wash away their prior effect, but we expect them to learn a performant policy eventually. This behaviour mirrors the scaling we saw in the chain environments, which is reassuring."
+  },
+  {
+    "index": 100,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "B.3 Montezuma’s revenge"
+  },
+  {
+    "index": 101,
+    "id": "A2.SS3.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "In our experiments, we use the standard Atari configuration and preprocessing including greyscaling, frame stacking, action repeats, and random no-op starts [ 42 ] , and the same agent hyperparameters as those used in the Ape-X paper [ 25 ] . However, our agent implementation is somewhat different and so our baseline results are not directly comparable across all games."
+  },
+  {
+    "index": 102,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "Appendix C Why do we need a ‘prior’ mechanism for deep RL?"
+  },
+  {
+    "index": 103,
+    "id": "A3.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Section 2 outlines the need for a prior mechanism in deep RL, together with key failure cases for several of the most popular approaches. Due to space limitations we provide only simple illustrations of potential inadequacies of each method and this does not preclude their efficacy on any particular domain. In this appendix we expand on the details provided in Section 2 and provide suggestions for how these approaches might be remedied by future work."
+  },
+  {
+    "index": 104,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "C.1 Dropout as posterior approximation"
+  },
+  {
+    "index": 105,
+    "id": "A3.SS1.p1.1",
+    "tag": "p",
+    "latex": [
+      "d",
+      "Y\\in\\mathds{R}"
+    ],
+    "text": "Previous work has suggested that dropout works as an effective variational approximation to the Bayesian posterior in neural networks, without special consideration for the network architecture [ 20 ] . However, Lemma 1 is a general statement that gives us cause to question the quality of this approximation. In this subsection we dig deeper into an extremely simple estimation problem, a linear network with d d units to estimate the mean of a random variable Y ∈ ℝ Y\\in\\mathds{R} . Even in this simple setting dropout performs poorly as a Bayesian posterior."
+  },
+  {
+    "index": 106,
+    "id": "A3.SS1.p2.1",
+    "tag": "p",
+    "latex": [
+      "f_{\\theta}=\\sum_{i=1}^{d}w_{i}\\theta_{i}",
+      "w_{i}\\sim{\\rm Ber}(p)",
+      "\\mathcal{R}(\\theta)=\\lambda\\|\\theta\\|^{2}",
+      "\\lambda>0",
+      "\\mathcal{D}",
+      "\\overline{y}",
+      "\\theta^{*}_{p}=\\overline{\\theta}\\mathds{1}\\text{ for }\\overline{\\theta}=\\frac{\\overline{y}}{1+p(d-1)+\\frac{\\lambda}{d}}.",
+      "\\mu=\\overline{\\theta}dp",
+      "\\sigma=\\overline{\\theta}\\sqrt{dp(1-p)}"
+    ],
+    "text": "We form predictions f θ = ∑ i = 1 d w i ​ θ i f_{\\theta}=\\sum_{i=1}^{d}w_{i}\\theta_{i} with w i ∼ Ber ⁡ ( p ) w_{i}\\sim{\\rm Ber}(p) , square loss and regularizer ℛ ⁡ ( θ ) = λ ​ ‖ θ ‖ 2 \\mathcal{R}(\\theta)=\\lambda\\|\\theta\\|^{2} for λ > 0 \\lambda>0 . Then for any data 𝒟 \\mathcal{D} with empirical mean y ¯ \\overline{y} , the expected loss solution to ( 1 ) is given by [ 61 ] θ p ∗ = θ ¯ ​ 𝟙 ​ for ​ θ ¯ = y ¯ 1 + p ⁡ ( d − 1 ) + λ d . \\theta^{*}_{p}=\\overline{\\theta}\\mathds{1}\\text{ for }\\overline{\\theta}=\\frac{\\overline{y}}{1+p(d-1)+\\frac{\\lambda}{d}}. 6 6 6 This corrects an errant derivation in [ 46 ] , but maintains the same overall message. The resultant predictive distribution therefore has mean μ = θ ¯ ​ d ​ p \\mu=\\overline{\\theta}dp and standard deviation σ = θ ¯ ​ d ​ p ​ ( 1 − p ) \\sigma=\\overline{\\theta}\\sqrt{dp(1-p)} ."
+  },
+  {
+    "index": 107,
+    "id": "A3.SS1.p3.1",
+    "tag": "p",
+    "latex": [
+      "\\overline{y}",
+      "\\sigma=\\mu\\sqrt{(1-p)/dp}",
+      "\\sigma\\rightarrow 0",
+      "\\mu\\nrightarrow 0",
+      "\\lambda",
+      "\\mu\\rightarrow\\mathds{E}[Y]",
+      "\\sigma\\rightarrow 0"
+    ],
+    "text": "If we are to understand dropout as an approximation to a Bayesian posterior, then we should note that this behavior is unusual. First, the only connection to the data is through the empirical mean y ¯ \\overline{y} ; any possible dataset with the same mean would result in the same ‘posterior’ distribution. Second we note that σ = μ ​ ( 1 − p ) / d ​ p \\sigma=\\mu\\sqrt{(1-p)/dp} . This coupling means it is not possible for σ → 0 \\sigma\\rightarrow 0 and μ ↛ 0 \\mu\\nrightarrow 0 , regardless of λ \\lambda . More typically we would imagine μ → 𝔼 ⁡ [ Y ] \\mu\\rightarrow\\mathds{E}[Y] and σ → 0 \\sigma\\rightarrow 0 according to the Bayesian central limit theorem [ 12 ] ."
+  },
+  {
+    "index": 108,
+    "id": "A3.SS1.p4.1",
+    "tag": "p",
+    "latex": [
+      "\\sim{\\rm Ber}(1/2)",
+      "\\sim{\\rm Ber}(1/2+\\epsilon)",
+      "\\tilde{O}(\\log(T))",
+      "\\dagger"
+    ],
+    "text": "This disconnect is not simply an analytical mistake, but can lead to arbitrarily bad decisions in even the simplest problems. Imagine a simple two-armed bandit problem with one arm’s rewards ∼ Ber ⁡ ( 1 / 2 ) \\sim{\\rm Ber}(1/2) and the other’s ∼ Ber ⁡ ( 1 / 2 + ϵ ) \\sim{\\rm Ber}(1/2+\\epsilon) , and the agent does not know which arm is which a priori. This style of problem is particularly well understood with guarantees that Thompson sampling with more reasonable forms of posterior approximation incur regret O ~ ​ ( log ⁡ ( T ) ) \\tilde{O}(\\log(T)) in this setting [ 2 ] . We refer to this problem as † \\dagger . The following result highlights that dropout as posterior approximation can perform poorly even on this simple domain."
+  },
+  {
+    "index": 109,
+    "id": "Thmlemma4.p1.1",
+    "tag": "p",
+    "latex": [
+      "d",
+      "p",
+      "\\lambda",
+      "\\dagger",
+      "\\Omega(T)."
+    ],
+    "text": "Fix any d d , p p , λ \\lambda and consider the problem of † \\dagger with an agent employing Thompson sampling by dropout for action selection. Then the expected regret is Ω ⁡ ( T ) . \\Omega(T)."
+  },
+  {
+    "index": 110,
+    "id": "Thmlemma4.p2.1",
+    "tag": "p",
+    "latex": [
+      "d",
+      "p",
+      "\\lambda",
+      "\\mathcal{H}_{t}",
+      "P_{1}(s,p,\\lambda,\\mathcal{H}_{t})>\\frac{p^{d}}{2}",
+      "1",
+      "2",
+      "2",
+      "1",
+      "d",
+      "\\mathds{E}\\left[{\\rm Regret}(T)\\right]\\geq\\frac{\\epsilon p^{d}}{2}T",
+      "T"
+    ],
+    "text": "For any d d , p p , λ \\lambda and any observed data ℋ t \\mathcal{H}_{t} , there exists a non-zero probability P 1 ​ ( s , p , λ , ℋ t ) > p d 2 P_{1}(s,p,\\lambda,\\mathcal{H}_{t})>\\frac{p^{d}}{2} of selecting action 1 1 over action action 2 2 . We can see this by imagining all units estimating action 2 2 are set to zero, then there is at least 50% chance of selection action 1 1 . This proves 7 7 7 Note that this lower bound is very conservative and provided only for illustration. A more precise analysis would show poor performance even for large d d . that 𝔼 ⁡ [ Regret ⁡ ( T ) ] ≥ ϵ ​ p d 2 ​ T \\mathds{E}\\left[{\\rm Regret}(T)\\right]\\geq\\frac{\\epsilon p^{d}}{2}T for all T T . ∎"
+  },
+  {
+    "index": 111,
+    "id": "A3.SS1.p5.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Although our analysis of dropout has focused on an exceedingly simple functional form, the key insight that the degree of variability in the posterior distribution does not concentrate with data extends to any neural network architecture. Figure 12 presents the dropout posterior on a simple regression task with a (20,20)-MLP with rectified linear units. We display the predictive distribution under varying amounts of data. The dropout sampling distribution does not converge with increasing amounts of data, whereas the bootstrapped sampling approach behaves much more reasonably. This leads to poor performance in reinforcement learning tasks too, as we saw in Appendix B ."
+  },
+  {
+    "index": 112,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "C.2 Variational inference and Bellman error"
+  },
+  {
+    "index": 113,
+    "id": "A3.SS2.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Lemma 2 highlights that the basic loss most commonly used by variational approximations to the value function are fundamentally ill-suited to the problem at hand [ 35 , 17 ] . In Appendix B we present results of such a variational approach, NoisyNet, to some of our benchmark reinforcement learning tasks. As expected, the algorithm performs poorly even after extensive tuning. At the heart of this issue is a sample-based loss that trains to match the expectation of the target distribution, but does not attempt to match the higher moments of the uncertainty. However, we could imagine an alternative approach that does aim to match the entire resultant distribution, for example via parameterized distribution and cross entropy loss; we leave this to future work."
+  },
+  {
+    "index": 114,
+    "id": "A3.SS2.p2.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Even where variational inference is employed correctly over mutliple timesteps, it may be difficult to encode useful prior knowledge in common variational methods. First, many applications of variational inference (VI) model the distribution over network weights as a product of independent Gaussians [ 11 ] . These models facilitate efficient computation, but can underestimate the uncertainty and may be a poor choice for encoding prior knowledge. Even if one were given a mapping of prior knowledge to weights, the confounding demands of good initialization for SGD training may interfere negatively [ 23 ] . For this reason practical applications of VI to RL typically use very little prior effect, or even no prior regularization at all [ 35 , 17 ] ."
+  },
+  {
+    "index": 115,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "C.3 ‘Distributional reinforcement learning’"
+  },
+  {
+    "index": 116,
+    "id": "A3.SS3.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Unlike the objections of Appendix C.2 , ‘distributional RL’ 8 8 8 Any method for Bayesian RL might reasonably claim to be a distributional perspective on reinforcement learning. For this reason, we use quotation marks when we want to distinguish the specific form of distributional RL popularized by [ 6 ] . does learn a value function estimate through a distributional loss. However, this distribution is a distribution over outcomes and not a distribution over the epistemic uncertainty in the mean beliefs. This distinction between two types of uncertainty, (1.) things that you don’t know and (2.) things that are stochastic, is a delicate one and is important to characterize correctly. Both are discussed under many names:"
+  },
+  {
+    "index": 117,
+    "id": "A3.I1.ix1.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\iff",
+      "\\iff"
+    ],
+    "text": "‘Reducible uncertainty’ ⇔ \\iff ‘epistemic uncertainty’ ⇔ \\iff ‘uncertainty’,"
+  },
+  {
+    "index": 118,
+    "id": "A3.I1.ix2.p1.1",
+    "tag": "p",
+    "latex": [
+      "\\iff",
+      "\\iff"
+    ],
+    "text": "‘Irreducible uncertainty’ ⇔ \\iff ‘aleatoric uncertainty’ ⇔ \\iff ‘risk’."
+  },
+  {
+    "index": 119,
+    "id": "A3.SS3.p1.2",
+    "tag": "p",
+    "latex": [],
+    "text": "Typical decision problems may include elements of both types of uncertainty. Flipping a coin we might want to know both (1.) our posterior beliefs over the probability of heads and (2.) a distribution that categorizes the likely possible outcomes. However, it should be clear that the two concepts are fundamentally distinct. For the purposes of exploration, the Bayesian uncertainty over (1.) should prioritize the acquisition of new knowledge. ‘Distributional RL’ approximates (2.) and its role is not exchangeable with (1.)."
+  },
+  {
+    "index": 120,
+    "id": "Thmlemma5.p1.1",
+    "tag": "p",
+    "latex": [
+      "1",
+      "\\sim{\\rm Ber}(0.5)",
+      "2",
+      "1-\\epsilon",
+      "0<\\epsilon<\\frac{1}{2}",
+      "2"
+    ],
+    "text": "Consider an agent with full information that decides between action 1 1 with reward ∼ Ber ⁡ ( 0.5 ) \\sim{\\rm Ber}(0.5) and action 2 2 with reward 1 − ϵ 1-\\epsilon for 0 < ϵ < 1 2 0<\\epsilon<\\frac{1}{2} . If the agent employs Thompson sampling correctly then it will pick action 2 2 at every step with zero regret. If the agent mistakenly employs Thompson sampling over its ‘distributional value function’ then it will incur"
+  },
+  {
+    "index": 121,
+    "id": "A3.Ex1",
+    "tag": "table",
+    "latex": [
+      "\\mathds{E}\\left[{\\rm Regret}(T)\\right]\\geq\\frac{1}{2}\\left(\\frac{1}{2}-\\epsilon\\right)T."
+    ],
+    "text": "𝔼 ⁡ [ Regret ⁡ ( T ) ] ≥ 1 2 ​ ( 1 2 − ϵ ) ​ T . \\mathds{E}\\left[{\\rm Regret}(T)\\right]\\geq\\frac{1}{2}\\left(\\frac{1}{2}-\\epsilon\\right)T."
+  },
+  {
+    "index": 122,
+    "id": "A3.SS3.p2.1",
+    "tag": "p",
+    "latex": [],
+    "text": "Lemma 5 shows that using the ‘distributional’ value function approximating (2.) can be a poor proxy for the Bayesian uncertainty. However, the Bayesian uncertainty can be a similarly poor proxy for the ‘distributional’ value function. This can be equally damaging, particularly if the agent has some some risk-sensitive utility with respect to cumulative rewards. It is entirely possible to combine both notions of uncertainty in an agent, although for the goal of maximizing expected cumulative it is not entirely clear what is the benefit of modeling (2.). Certainly, ‘distributional’ agents have recently attained strong scores in Atari 2600 benchmarks but it is so far unclear exactly what the source of this outperformance comes from [ 8 , 13 ] . Possible explanations may include more stable gradients, bounded values and the ‘many predictions’ hypothesis [ 64 ] : that learning a distribution may effectively create a series of auxiliary losses. We leave these questions for future work."
+  },
+  {
+    "index": 123,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "C.4 Count-based uncertainty estimates"
+  },
+  {
+    "index": 124,
+    "id": "A3.SS4.p1.1",
+    "tag": "p",
+    "latex": [
+      "p(x)"
+    ],
+    "text": "Count-based approaches to exploration give a bonus to states that have not been visited frequently according to some density measure p ⁡ ( x ) p(x) . These methods have performed well in many sparse reward tasks such as Montezuma’s Revenge, where visiting new states acts as a shaping reward for the true reward [ 6 ] . However, a count-based bonus is generally a poor approach to exploration beyond the tabular setting. To see why this is the case note that the density measure of the states may not correlate well with the agent’s uncertainty over the optimal policy in that state. We can imagine situations both where the state is visually new, but an agent should still know exactly what to do; and also settings that are only delicately different to a common situation but still necessitate exploration of the optimal policy."
+  },
+  {
+    "index": 125,
+    "id": "A3.SS4.p2.1",
+    "tag": "p",
+    "latex": [
+      "r_{t}(x_{t})=x_{t}^{T}\\theta^{*}+\\epsilon_{t}",
+      "\\theta^{*}\\in\\mathds{R}^{d}",
+      "\\epsilon_{t}\\sim N(0,1)",
+      "\\tilde{O}\\left(\\frac{1}{\\epsilon^{d}}\\right)",
+      "\\epsilon",
+      "\\tilde{O}(d)"
+    ],
+    "text": "This disconnect shows up in problems as simple as the linear bandit. 9 9 9 Reward r t ​ ( x t ) = x t T ​ θ ∗ + ϵ t r_{t}(x_{t})=x_{t}^{T}\\theta^{*}+\\epsilon_{t} for some θ ∗ ∈ ℝ d \\theta^{*}\\in\\mathds{R}^{d} and ϵ t ∼ N ⁡ ( 0 , 1 ) \\epsilon_{t}\\sim N(0,1) [ 56 ] . Via a packing argument, an agent with count-based uncertainty will require O ~ ​ ( 1 ϵ d ) \\tilde{O}\\left(\\frac{1}{\\epsilon^{d}}\\right) measurements to cover the space up to radius ϵ \\epsilon . By contrast, an agent that explores this space efficiently can resolve its uncertainty in only O ~ ​ ( d ) \\tilde{O}(d) measurements. Thompson sampling with a linear model naturally recovers this performance [ 57 ] . The fact that this failure can arise even in a linear system, and even when the density can be estimated precisely, suggests that count-based exploration is not in general an effective method for simultaneous exploration with generalization; even if it may be effective at some specific tasks."
+  },
+  {
+    "index": 126,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "C.5 Ensembles without priors"
+  },
+  {
+    "index": 127,
+    "id": "A3.SS5.p1.1",
+    "tag": "p",
+    "latex": [
+      "x_{i}=\\frac{i-5}{5}",
+      "i=0,..,10",
+      "y_{i}=5\\mathds{1}\\{i=10\\}"
+    ],
+    "text": "This paper builds upon a line of research that uses an ensemble of trained models to approximate a posterior distribution. Compared to previous works, our main contribution is to highlight the importance of a ‘prior’ mechanism in ensemble uncertainty. Figure 13 presents an extremely simple example of 1D regression with a (20,20)-MLP and rectified linear units. The data consists of x i = i − 5 5 x_{i}=\\frac{i-5}{5} for i = 0 , . . , 10 i=0,..,10 and y i = 5 𝟙 { i = 10 } y_{i}=5\\mathds{1}\\{i=10\\} ."
+  },
+  {
+    "index": 128,
+    "id": "A3.SS5.p2.1",
+    "tag": "p",
+    "latex": [
+      "x",
+      "x"
+    ],
+    "text": "The results above highlight the drawbacks of naive ensembles. A pure ensemble trained from random initializations fits the data exactly and leads to almost zero uncertainty anywhere in the space [ 31 ] . A bootstrapped ensemble takes the variability of the data into account and thus has a wide predictive uncertainty as x x grows large and positive. However, where the data has target value zero, bootstrapping will always produce a zero target and consequently the ensemble has almost zero predictive uncertainty as x x becomes large and negative [ 47 ] ."
+  },
+  {
+    "index": 129,
+    "id": "A3.SS5.p3.1",
+    "tag": "p",
+    "latex": [
+      "l_{2}"
+    ],
+    "text": "This lack of prior uncertainty can lead to arbitrarily poor decisions, as outlined in [ 50 ] . If an agent has only ever observed zero reward, then no amount of bootstrapping or ensembling will cause it to simulate positive rewards. This issue is easily remedied by the addition of a prior mechanism, either through l 2 l_{2} regularization to initial random weights ( 4 ), or the addition of a fixed additive random ‘prior network’ ( 5 )."
+  },
+  {
+    "index": 130,
+    "id": null,
+    "tag": "h3",
+    "latex": [],
+    "text": "C.6 Summary"
+  },
+  {
+    "index": 131,
+    "id": "A3.SS6.p1.1",
+    "tag": "p",
+    "latex": [],
+    "text": "We summarize the issues raised in Section 2 in Table 1 . This table is meant only as a rough summary and should not be taken as rigorous statement. Roughly speaking, a green tick means success, red cross means failure and a yellow circle means something in between. This paper proposes a combination of bootstrap sampling with prior function as an effective computational approximation to Bayesian inference in deep RL. Although our method is somewhat computationally expensive, since it requires training an ensemble of models instead of one, this computation can be done in parallel and so is amenable to large scale distributed computation."
+  },
+  {
+    "index": 132,
+    "id": null,
+    "tag": "h2",
+    "latex": [],
+    "text": "Instructions for reporting errors"
+  }
+]
