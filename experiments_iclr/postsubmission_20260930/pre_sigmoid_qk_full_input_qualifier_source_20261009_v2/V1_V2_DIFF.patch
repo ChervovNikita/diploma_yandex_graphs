@@ -1,0 +1,223 @@
+--- V1/qualify.py
++++ V2/qualify.py
+@@ -25,7 +25,7 @@
+ KINDS = ('single', 'independent4', 'be_init')
+ ENGINEERING_SEED = 20261091
+ TOLERANCE = 2e-5
+-OUTPUT_NAME = 'pre_sigmoid_qk_full_input_qualification_output_20261009_v1'
++OUTPUT_NAME = 'pre_sigmoid_qk_full_input_qualification_output_20261009_v2'
+ 
+ 
+ def require(value, message):
+@@ -175,15 +175,17 @@
+                 counters['large_QK_projection_calls'] += 1
+                 return q, k
+             attn._operator_qk_pair = types.MethodType(pair, attn)
+-        else:
+-            def projection_hook(_, inputs, output):
+-                require(inputs[0].shape == output.shape == (11701, 512), 'Full native Q/K projection fields')
+-                counters['large_QK_projection_calls'] += 1
+-            for lin in attn.k_lins:
++        # The original class forward calls these key modules even in patched
++        # modes. Candidate patched pairs bypass them and count their one direct
++        # projection above, so reference and candidate events do not double-count.
++        def projection_hook(_, inputs, output):
++            require(inputs[0].shape == output.shape == (11701, 512), 'Full native Q/K projection fields')
++            counters['large_QK_projection_calls'] += 1
++        for lin in attn.k_lins:
++            lin.register_forward_hook(projection_hook)
++        if operator == 'full_qk':
++            for lin in attn.q_lins:
+                 lin.register_forward_hook(projection_hook)
+-            if operator == 'full_qk':
+-                for lin in attn.q_lins:
+-                    lin.register_forward_hook(projection_hook)
+     for optimizer in session.optimizers:
+         original_step = optimizer.step
+         def step(*args, implementation=original_step, **kwargs):
+@@ -194,7 +196,69 @@
+         optimizer.step = step
+ 
+ 
+-def stage(session, batch, labels, name, reference, counters, receipt):
++def same_state_identity(session, batch, receipt):
++    """Original native and candidate forwards on this one current parameter bank."""
++    torch = session.torch
++    parameters = tuple(session.model.parameters())
++    parameter_ids = tuple(id(p) for p in parameters)
++    versions = tuple(p._version for p in parameters)
++    batch_versions = {k:(id(v),v._version) for k,v in batch.items()}
++    before_rng = rng(session)
++    saved = []
++    for model in session.model.models:
++        attn = model.body.global_attn
++        for lin in attn.k_lins:
++            for name in ('delta','gamma'):
++                if hasattr(lin,name):
++                    require(int(torch.count_nonzero(getattr(lin,name))) == 0, 'Extra scales changed before first global use')
++        if session.operator_binding['operator'] == 'full_qk':
++            for query,key in zip(attn.q_lins,attn.k_lins):
++                require(all(torch.equal(dict(query.named_parameters())[name],value)
++                            for name,value in key.named_parameters()), 'Full query copy changed while globally unused')
++    try:
++        for model in session.model.models:
++            attn = model.body.global_attn
++            had_forward = 'forward' in attn.__dict__
++            saved.append((attn,had_forward,attn.__dict__.get('forward'),attn.qk_shared))
++            attn.forward = types.MethodType(type(attn).forward,attn)
++            attn.qk_shared = True
++        with torch.no_grad():
++            native_logits,native_representation = session.forward(batch)
++        require(bool(torch.isfinite(native_logits).all()) and bool(torch.isfinite(native_representation).all()),
++                'Finite same-state original native TRAIN-query reference')
++        reference = native_logits.detach().cpu()
++        del native_logits,native_representation
++    finally:
++        for attn,had_forward,old_forward,old_flag in reversed(saved):
++            if had_forward:
++                attn.forward = old_forward
++            else:
++                delattr(attn,'forward')
++            attn.qk_shared = old_flag
++        require(all(attn.qk_shared == flag and (attn.__dict__.get('forward') is forward if had else 'forward' not in attn.__dict__)
++                    for attn,had,forward,flag in saved), 'Native-reference method/flag restoration failed')
++    require(same_rng(before_rng,session) and tuple(p._version for p in parameters) == versions
++            and tuple(id(p) for p in session.model.parameters()) == parameter_ids
++            and {k:(id(v),v._version) for k,v in batch.items()} == batch_versions,
++            'Native reference changed parameters, inputs, RNG or streams')
++    with torch.no_grad():
++        logits,representation = session.forward(batch)
++    require(bool(torch.isfinite(logits).all()) and bool(torch.isfinite(representation).all()), 'Finite same-state candidate TRAIN-query output')
++    difference = float((logits.detach().cpu().double()-reference.double()).abs().max())
++    del logits,representation,reference
++    require(same_rng(before_rng,session) and tuple(p._version for p in parameters) == versions
++            and tuple(id(p) for p in session.model.parameters()) == parameter_ids
++            and {k:(id(v),v._version) for k,v in batch.items()} == batch_versions,
++            'Candidate identity evaluation changed parameters, inputs, RNG or streams')
++    receipt.update(identity_max_abs_logit_difference=difference,identity_tolerance=TOLERANCE,
++                   identity_reference='Original native GlobalAttn class forward, qk_shared=True, exact same current bank and batch',
++                   native_reference_methods_flags_restored=True,identity_parameter_versions_unchanged=True,
++                   identity_batch_versions_unchanged=True,identity_RNG_and_streams_unchanged=True,
++                   native_reference_member_forwards=session.model.members,candidate_identity_member_forwards=session.model.members)
++    require(difference <= TOLERANCE,'Same-state native pre-update identity tolerance failed')
++
++
++def stage(session, batch, labels, name, counters, receipt):
+     torch = session.torch
+     global_stage = name == 'global'
+     session.model.set_global(global_stage)
+@@ -202,20 +266,10 @@
+     torch.cuda.reset_peak_memory_stats(0)
+     started = time.monotonic()
+     before_counts, before_work = dict(counters), dict(session.operator_work)
+-    before_streams = streams(session)
+     receipt.update(stage=name, started=True, passed=False, VALID_forwards=0, VALID_metrics=0)
+     try:
+         session.model.eval()
+-        with torch.no_grad():
+-            logits, representation = session.forward(batch)
+-        require(bool(torch.isfinite(logits).all()) and bool(torch.isfinite(representation).all()), 'Finite full TRAIN-query identity output')
+-        require(same_streams(before_streams, session.streams, torch), 'Dropout-off identity evaluation changed persistent streams')
+-        identity = logits.detach().cpu()
+-        del logits, representation
+-        difference = 0. if reference is None else float((identity.double() - reference.double()).abs().max())
+-        receipt['identity_max_abs_logit_difference'] = difference
+-        receipt['identity_tolerance'] = TOLERANCE
+-        require(difference <= TOLERANCE, 'Native-tied pre-update identity-start tolerance failed')
++        same_state_identity(session,batch,receipt)
+         coordinates = targets(session)
+         before_values = {k: p.detach().cpu().clone() for k, p in coordinates.items()}
+         result = session.train_step(batch, labels)
+@@ -251,14 +305,13 @@
+                         member_view_backwards=2*session.model.members, Adam_steps=len(session.optimizers))
+         require(work == expected, 'Exact streamed F/Adam counters')
+         observed = {k: counters[k]-before_counts[k] for k in counters}
+-        require(observed['member_forwards_completed'] == observed['member_forward_attempts'] == 3*session.model.members
+-                and observed['observed_Adam_calls'] == len(session.optimizers), 'Identity plus two TRAIN views counted')
+-        projections = 6*session.model.members*(2 if session.operator_binding['operator'] == 'full_qk' else 1) if global_stage else 0
++        require(observed['member_forwards_completed'] == observed['member_forward_attempts'] == 4*session.model.members
++                and observed['observed_Adam_calls'] == len(session.optimizers), 'Same-state native/candidate identities plus two TRAIN views counted')
++        projections = (2*session.model.members + 6*session.model.members*(2 if session.operator_binding['operator'] == 'full_qk' else 1)) if global_stage else 0
+         require(observed['large_QK_projection_calls'] == projections, 'Full-input native Q/K projection event count')
+         pair_calls = 6*session.model.members if global_stage and session.operator_binding['operator'] in ('pre_sigmoid_split','active_reversible_exp') else 0
+         require(observed['global_QK_pair_calls'] == pair_calls, 'Actual patched global Q/K pair event count')
+         receipt.update(streamed_F_work=work, observed_work=observed, finite_parameters_and_Adam=True, passed=True)
+-        return identity
+     finally:
+         receipt['streamed_F_work'] = {k: session.operator_work[k]-before_work[k] for k in before_work}
+         receipt['observed_work'] = {k: counters[k]-before_counts[k] for k in counters}
+@@ -283,6 +336,7 @@
+     require(release['engineering_seed'] == ENGINEERING_SEED and release['operators'] == list(OPERATORS)
+             and release['kinds'] == list(KINDS) and release['updates_per_cell'] == ['local','global']
+             and release['identity_absolute_tolerance'] == TOLERANCE
++            and release['identity_reference'] == 'same_current_bank_native_class_forward'
+             and release['adapter_manifest_sha256'] == ADAPTER_MANIFEST and release['adapter_program_sha256'] == ADAPTER_PROGRAM
+             and release['output_relative'] == OUTPUT_NAME and release['VALID_scoring'] is False
+             and release['TEST_access'] is False and release['scientific_launch_authorized'] is False,
+@@ -301,8 +355,9 @@
+     output = PHASE / OUTPUT_NAME
+     output.mkdir(exist_ok=False)
+     started = time.monotonic()
+-    report = dict(schema='full-input-qk-engineering-qualification-v1', complete=False, scientific_fit=False,
++    report = dict(schema='full-input-qk-engineering-qualification-v2', complete=False, scientific_fit=False,
+                   engineering_seed=ENGINEERING_SEED, root_release=release, runtime=runtime, cells=[],
++                  predecessor_engineering_metadata=pins['provenance_files'],
+                   VALID_metrics=0, VALID_forwards=0, TEST_access=False, old_scientific_artifacts_read=False)
+     try:
+         public = module('_qk_qualification_public', public_root/'portable.py')
+@@ -322,7 +377,6 @@
+         for row in roles.values():
+             require(sha(PHASE/row['path']) == row['sha256'], 'Role changed during loading')
+         report['input_load_resources'] = own_resources(torch)
+-        references = {}
+         for operator in OPERATORS:
+             for kind in KINDS:
+                 cell = dict(operator=operator, kind=kind, seed=ENGINEERING_SEED, passed=False, stages=[])
+@@ -333,7 +387,6 @@
+                                 large_QK_projection_calls=0, observed_Adam_calls=0)
+                 torch.cuda.reset_peak_memory_stats(0)
+                 try:
+-                    require(operator == 'native_tied' or kind in references, 'Native-tied kind reference failed; no unmatched update')
+                     session = public.Session('wikics', kind, ENGINEERING_SEED, 'cuda:0', paths['native'])
+                     originals = [[(lin.weight,lin.bias) for lin in model.body.global_attn.k_lins] for model in session.model.models]
+                     original_count = sum(p.numel() for p in session.model.parameters())
+@@ -346,16 +399,12 @@
+                     cell['operator_binding'] = session.operator_binding
+                     cell['construction_install_resources'] = own_resources(torch)
+                     instrument(session,operator,counters)
+-                    new_references = {}
+                     for name in ('local','global'):
+                         receipt = {}
+                         cell['stages'].append(receipt)
+-                        ref = None if operator == 'native_tied' else references[kind][name]
+-                        new_references[name] = stage(session,batch,labels,name,ref,counters,receipt)
++                        stage(session,batch,labels,name,counters,receipt)
+                     require(session.steps == 2 and not session._operator_failed, 'Two complete disposable engineering updates')
+                     cell.update(passed=True, observed_total_work=dict(counters), streamed_total_work=dict(session.operator_work))
+-                    if operator == 'native_tied':
+-                        references[kind] = new_references
+                 except BaseException as exc:
+                     cell['error'] = dict(type=type(exc).__name__, message=str(exc), traceback=traceback.format_exc())
+                 finally:
+@@ -366,7 +415,7 @@
+                     cell['elapsed_seconds'] = time.monotonic()-cell_started
+                     write(output/(operator+'__'+kind+'.json'), cell)
+                     session = None
+-                    originals = before_rng = new_references = None
++                    originals = before_rng = None
+                     gc.collect()
+                     torch.cuda.empty_cache()  # This process's allocator only.
+                 write(output/'REPORT.json',report)
+@@ -380,9 +429,9 @@
+         if report['complete']:
+             require((report['completed_updates'],report['completed_member_view_forwards'],report['completed_member_view_backwards'],report['completed_Adam_steps'])
+                     == (24,144,144,48), 'Complete qualification field/work totals')
+-            require(report['identity_member_forwards'] == 72 and report['observed_totals'] == dict(
+-                member_forward_attempts=216, member_forwards_completed=216, global_QK_pair_calls=108,
+-                large_QK_projection_calls=270, observed_Adam_calls=48), 'Complete observed full-input field/work totals')
++            require(report['identity_member_forwards'] == 144 and report['observed_totals'] == dict(
++                member_forward_attempts=288, member_forwards_completed=288, global_QK_pair_calls=108,
++                large_QK_projection_calls=342, observed_Adam_calls=48), 'Complete observed full-input field/work totals')
+         report['own_resources_final'] = own_resources(torch)
+     except BaseException as exc:
+         report['complete'] = False
