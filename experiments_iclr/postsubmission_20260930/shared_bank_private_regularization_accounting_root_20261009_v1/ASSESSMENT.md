@@ -1,0 +1,11 @@
+# Regularization accounting for mean-own-loss shared ensembles
+
+This is an objective-accounting note, not a measured cause of the existing member deficit or a new method. It does not modify any frozen or running study.
+
+For M members, the declared core minimizes the mean own NLL. Torch Adam adds coupled weight decay once to every deduplicated parameter. A private factor eta_m therefore receives `(grad own_NLL_m)/M + lambda_fast*eta_m`; a common slow parameter receives the mean member gradient plus its own slow decay. Relative to that member's unscaled own NLL, the private coupled L2 coefficient is M*lambda_fast. This statement concerns the gradient supplied to Adam. It does not assert exact optimizer/trajectory equivalence under loss scaling: Adam epsilon, moments, clipping if introduced, and coupled versus decoupled decay can matter.
+
+The same explicit decay value for all parameters is thus not a per-member regularization match. A future same-factor-parameterization control could use lambda_fast/M while retaining common slow decay, or an explicitly identity-centred factor prior. Both choices are known regularization ideas; neither clears novelty. A whole independent native model has different coordinates and parameter ownership, so this algebra does not supply a universal decay conversion to that model.
+
+The current exploratory recipe retains the prospectively stated native sheaf decay for all private factors. Do not change it after partial outcomes or quietly call it matched to an independent factorized body. If the complete panel reveals weak private paths, inspect their learned factor norms, effective operator responses, TRAIN fit and error intersection before opening a narrowly declared follow-up. Such a follow-up needs a same-parameterization M1/tied-path control and exactly one stated alternative, rather than a decay grid.
+
+A tied four-path training control also distinguishes ensemble specialization from the variance-reduction benefit of averaging four dropout/jitter training views of one predictor. Four complete independent bodies remain the main quality comparator. Any stronger attribution must address both that control and additional parameter capacity. No empirical or manuscript claim follows from this note.
