@@ -1,0 +1,11 @@
+# Root-owned native view qualification
+
+This packet author performs no data/provider/model execution. Qualification follows the successful full-input native reference qualifier and the root's source review. Keep the complete native populations, widths, channels and TRAIN/VALID roles.
+
+1. Reuse the once-loaded native RoleData, StaticContext and seed1 SeedContext. Bind their factual and role identities and the completed native numerical qualifier into a fresh external enabled ViewConfig. Use a fresh cost/receipt folder inside the root's inclusive resource-monitored opportunity.
+2. Call `build_family_views` once to rebuild all three literal raw support removals. Verify final completion and three distinct view bindings. Actual removed sparse/DGL edge counts must be zero in both directions; other raw support digests/counts must match the original. Retained node counts/typed attributes must match the native context.
+3. Verify every view keeps all25+12 keys, full shapes and exact movie-own M. For each family, the twelve dependent feature channels, six dependent label channels and their sparse return products must show genuine native zero/empty outputs. Record the installed DGL/torch_sparse behavior. If the native kernel rejects or mishandles empty supports, preserve failure and stop; do not create a zero replacement or adjust model/channel scope.
+4. Check factual/native caches and current Python/NumPy/Torch streams remain unchanged. The constructor makes no model forward and leaves model/optimizer/scaler ownership to the qualified caller. Its success establishes concrete input-view construction only.
+5. The separately reviewed callback must then qualify one complete TRAIN reference/replay/source opportunity with these actual contexts, using the same recipient view for all peers. Buffer/mode/cache/dropout transaction guards, finite output/VJP/trial rollback, ownership, selected reconstruction and inclusive full-scope costs remain required by the unchanged helper and adapter contracts. No predictor or source-credit claim follows from a successfully constructed zero channel.
+
+No width/channel reduction, synthetic graph substitute, semantic-mask-only probe, extra fitting, TEST access or new supervisor is admitted by this construction packet.
