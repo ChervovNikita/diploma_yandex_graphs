@@ -1,0 +1,17 @@
+# Required real-native qualification and limits
+
+This source packet is inactive. It establishes callable implementation and source accounting only. Numerical providers/model/data were not imported or run; no outcomes/checkpoints/labels/scientific arrays were opened; no server, installation or orchestration action occurred. Root must first establish a credible complete-task native reference and actual provider compatibility, then qualify this exact bank/view/callback assembly before fixing/enabling a representative pilot.
+
+Required actual native checks include:
+
+- M1 unit/native materiality witness for the sealed adapter, with exact native architecture/initialization/placement; no model shrinking or gamma reinitialization.
+- Physical M4 slow/factor/buffer ownership; slow parameters once in own Adam; private parameters disjoint; complete native own AMP step with distinct member dropout/RNG and BatchNorm; scaler overflow/skip handling observed through actual step counts.
+- Complete literal real raw-support source views: both directions removed before native normalization/feature/TRAIN-label propagation, all populations and25+12 keys/shapes retained, M own retained, only TRAIN propagation labels, correct actual role/target identity.
+- Actual FP32 source reference/replay/VJPs/trials with scratch buffers; native backward remains valid after returning/restoring scratch state; no correction call advances BatchNorm, cache, mode, member/master RNG or own Adam/scaler; trial factors survive state restoration. Demonstrate rejected private rollback exactly and accepted private-only value changes, with no broad float tolerance search.
+- Site/row factual and probe derivative activity, preserving structural zeros. Removed first-projection rows can have zero probe Jacobians. Later global LayerNorm/semantic mixing can retain dependence. Native Q/K/V predictor derivatives vanish while semantic gamma is exactly zero initially. Nonzero factors and two forwards do not certify two useful source derivatives.
+- Complete factual FP32 TRAIN/VALID Bernoulli probability serving, strict minimum complete VALID marginal BCE with earliest ties and native patience, exact owned selected bank/Adam/scaler/buffer/RNG reconstruction after shared-slow-alias preflight. Report practical serving drift; do not impose a new output bitwise gate.
+- Dose and cost reporting for zero, rejected and accepted corrections, including view propagation/cache construction; all20 references;11 replays; VJPs; full private-cone projection; finite trials/guards; scratch state; exact Adam comparison; evaluation; selected copy/reconstruction; wall/CPU/GPU time and memory. Three active members can expose292,608 private coordinates;11 risk constraints do not make the unchanged helper's Python full-vector active-set cone cheap. Any mathematically equivalent faster solver needs a separately reviewed successor.
+
+The strict own/pool/probe/absent risk guards can reject every nonzero correction near an own-risk local minimum even when a first-order cone permits a direction. Do not loosen guards after outcomes or infer that a zero/rejected dose proves every source method impossible. No competence, novelty, benefit, training feasibility or scientific conclusion follows from this source audit.
+
+Graph aggregation remains native precomputation. Factors steer the semantic processor over graph-derived channels; this is not learned per-edge transport or live sheaf geometry. Bias, pointwise model capacity and remaining-source explanations remain explicit.
