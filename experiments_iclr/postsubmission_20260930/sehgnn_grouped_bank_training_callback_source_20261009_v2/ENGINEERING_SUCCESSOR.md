@@ -1,0 +1,11 @@
+# Explicit projection-backend successor
+
+The passed v1 full-native M4 witness remains valid and immutable. Root reported that its source scope spent most of its CPU time in repeated full292,608-coordinate active-set dot products. The separately reviewed helper v2 caches the normalized Gram and target products once and enumerates the same bounded active sets in at most11 dimensions. This is an engineering implementation change; no ML novelty or predictive improvement is claimed.
+
+This bank successor loads only the explicitly pinned helper v2, source SHA `302d8b4fa102ffd4ca89166f65f411302590d643e4e75bf732f5f8397178edb8`, with backend `normalized_cached_Gram_active_set_v2` and BACKEND_IDENTITY SHA `366cd11c70687afe5f7afd8bef067bd4eab67a256ac6a78a6cf2de60c4de9062`. Module bytes and projection-function source origin are checked. No old live projection is replaced or patched.
+
+The constructor exposes `session.projection_backend`. Correction reports and selected snapshots record the exact semantic backend metadata; selected restore requires the same metadata. The public BankConfig/BankSession/native callback/train/correct/eval/restore signatures and all actual loss, native model/graph/roles, AMP-own/FP32-source precision, trials, numerical constants, ownership and state mathematics remain unchanged. Old bank/helper/source seals and passed evidence are not rewritten.
+
+The helper review establishes real-arithmetic projection equivalence, not bitwise floating identity. Cached/full feasibility disagreement or negative Gram squared distance fails explicitly, with no clamp, fallback, retolerance or retries. The unchanged helper still checks the actually representable private displacement, strictly negative slope and exact finite trial risks. Bounded synthetic engineering evidence is not a measured native speedup.
+
+The new exact bank/helper/qualifier assembly requires one root-owned complete original qualification on the same allocation/recipe before pilot activation. No provider/model/data/checkpoint/outcome/server or float campaign was run by this integration author. Default enablement and scientific launch remain disabled. Other independently sealed controls may continue using the old bank's unchanged metadata/scratch utilities; that does not use the old projection for shared source corrections.

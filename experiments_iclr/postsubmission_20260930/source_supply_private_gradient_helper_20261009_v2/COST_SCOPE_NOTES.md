@@ -1,0 +1,9 @@
+# Engineering cost scope and limits
+
+`ENGINEERING_VERIFICATION.json` records one successful full-dimension benchmark plus six fixed small equivalence cases and two unchanged finite guards. Its `representative_benchmark.total_cost` includes input generation, projection and analytical output verification. `total_observed_cost` begins at main entry before loading either source module and ends while the receipt dictionary is assembled. These measured windows exclude initial stdlib imports/process startup and final JSON/stdout I/O; they are not claimed to be an all-process accounting receipt.
+
+Projection wall1.300231458s, userCPU1.286304s, systemCPU0.013675s. Timed main wall1.838996125s, userCPU1.797798s, systemCPU0.028235s. Cumulative process RSS peak319,995,904bytes (local macOS ru_maxrss units) is not isolated incremental projection/model memory. The exact Python executable/version/platform and component scopes are in the receipt.
+
+The initial setup-only attempt failed before comparisons or the large benchmark because local Python lacks int.bit_count. `ENGINEERING_SETUP_ATTEMPT.json` preserves that failure; CPU cost was not captured and its tool-reported wall value is not treated as a verified process cost. The fixture was made portable; projection source was unchanged. There was exactly one full-dimension benchmark execution, not a conditioning/tolerance or performance search.
+
+The full-dimensional inputs are dense deterministic Walsh patterns with finite, well-conditioned risk geometry. There is no old full-dimensional run or measured old/new native speedup. Six small frozen-reference comparisons and an exact analytical benchmark solution do not certify all floating conditioning cases or native gradient distributions. This CPU result qualifies only the declared synthetic engineering scope. Complete native replay/VJP/cone/trial/guard/copy/serving time and memory still require the new bank/qualifier source successor and root qualification.

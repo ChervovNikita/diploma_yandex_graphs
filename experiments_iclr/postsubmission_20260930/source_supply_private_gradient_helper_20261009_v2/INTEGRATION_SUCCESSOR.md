@@ -1,0 +1,5 @@
+# Required integration successor custody
+
+Import this exact new helper module from its pinned source directory. A new reviewed bank source must bind this source, manifest, seal and BACKEND_IDENTITY bytes. Bank construction, correction and owned checkpoint identity must record the backend identity. A new qualifier source/release/report must pin the new bank/helper backend and require the already-qualified exact native runtime plus the unchanged raw-view/adapter/seam sources.
+
+Old bank/qualifier/helper seals, loaded modules, successful/failed evidence and running jobs remain immutable. The old qualification cannot qualify this new floating implementation. No runtime substitution/monkey-patch of a frozen helper is supplied. Root owns the external disabled-to-enabled release and a new actual native qualification before scientific use. All score, derivative permissions, risk/dose/Armijo controls, tolerances and precision remain unchanged; only the mathematically equivalent projection backend changes.
