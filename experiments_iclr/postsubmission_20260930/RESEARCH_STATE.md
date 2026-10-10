@@ -98,3 +98,11 @@ CPGNN and GBPN are close priors. The official full AMCE2011 method has now been 
 ## Verified decoder execution and publication
 
 The source/evidence commit `096b52308a55e23673ed0710217775f549752262` was verified on GitHub at 17:43:48 UTC. The frozen 21-bank/30-fit/39-native-body decoder family started at 17:47:10 UTC on the authorized one-GPU route. An independent source review found no material launch blocker; that review certifies no predictive utility or manuscript verdict. [Actual launch](shared_class_decoder_pilot_root_20261010_v1/ACTUAL_LAUNCH_V1.json). Three distinct researchers now handle new-mechanism literature, completed-evidence combinations and the complete decoder reader. No partial predictive result has selected a continuation.
+
+## Complete class decoder closure and next evidence interface
+
+All 30 decoder fits closed successfully at 17:56:05 UTC. The complete 36-bank readout fails both prospective conjunctions. Common graph B reaches 80.716724% versus equipped I4 80.065731%, but P=I reaches 80.729364%; original-shared gain is only 0.145367 pp, and raw NLL deteriorates materially. At decoded-selected states the terminal graph decoder makes eight repairs/one harm, acquires zero new alternatives and repairs zero of 1,917 native common strict-rival readouts. These are conditional terminal facts, not a claim of zero whole-training repairs. Close the exact rule without a rescue grid. [Complete report](shared_class_decoder_complete_reader_20261010_v2/REPORT.md).
+
+Reader V1 failed before output writes on an oversized contrast partition. Reader V2 changes only serialization to fixed ten-key chunks, with numerical/custody/gate functions unchanged. No retraining or new model forward. Full prediction/checkpoint evidence stays server-side; complete compact partitions are local and hashed.
+
+One different source-only direction is admitted: private projected neighborhood-distribution residuals, reusing the saved unexecuted quantile idea and PNA/FSW ancestry. Capable all-signature M1 and genuine I4 references are essential. Operation/control/calibration semantics, actual TRAIN qualification and complete quality gates remain to freeze before training. No novelty or superiority claim is earned. Shared accuracy, calibration and common-error acquisition remain separate.
