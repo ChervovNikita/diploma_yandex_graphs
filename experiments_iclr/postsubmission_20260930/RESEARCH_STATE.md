@@ -6,9 +6,9 @@
 
 The user now accepts improvement for one backbone; SAGE is the priority. This is a prospective scope change, not a change to completed studies' frozen criteria. All 15 neighbourhood-distribution banks/24 fits and 150 scalar calibration fits have closed. Private quartiles add only 0.075844 accuracy points over unchanged shared SAGE; their calibrated NLL harm against richer I4 is 0.022935. The exact rule fails and closes. Whole-procedure repairs differ from fixed-state residual repairs; [complete interpretation](native_neighborhood_distribution_pilot_root_20261010_v1/REPORT.md) preserves both scopes.
 
-The next fixed source tests native SAGE committee CE and within-route SupCon separately and together. Six fresh arms provide 18 banks/27 fits; 15 exact original anchors provide 33 historical selected fits after admission. Known objectives are attributed, with no novelty claim. Actual TRAIN qualification passed all nine disposable units; all 15 original anchors/33 selected fits have been admitted by guarded metadata and byte checks. Scientific training has not yet started. A worthwhile result prioritizes unused whole-pipeline confirmation. No additional GPUs are needed for this screen.
+The next fixed source tests native SAGE committee CE and within-route SupCon separately and together. Six fresh arms provide 18 banks/27 fits; 15 exact original anchors provide 33 historical selected fits after admission. Known objectives are attributed, with no novelty claim. Actual TRAIN qualification passed all nine disposable units; all 15 original anchors/33 selected fits have been admitted by guarded metadata and byte checks. The fixed 27-fit study launched at20:05:59UTC, owner622591/child622593, after verified source push8604a130107319782571f564f7637e4c0ff3345e. All fits and all165 calibration endpoints precede interpretation; no partial quality has been opened. A worthwhile result prioritizes unused whole-pipeline confirmation. No additional GPUs are needed for this screen.
 
-Latest verified publication: `763553fed7770190525b84ae9bb052789c7d459d`, 19:07:44 UTC. Current closure, scope and prospective study records are being published next. Older execution entries below are chronology, superseded by this current summary and their later closure records.
+Latest verified publication: `8604a130107319782571f564f7637e4c0ff3345e`, 20:05:25 UTC. Complete closure, one-backbone scope, qualified source and prospective study records are published. Actual execution receipts and the complete reader are next. Older execution entries below are chronology, superseded by this current summary and their later closure records.
 
 ## Latest complete comparison
 
@@ -140,3 +140,9 @@ The independent strategic reassessment preserves local accuracy and graph-servin
 The supervised-allocation pass found no new operation beyond saved proposals. This is originality/queue triage, not proof of scientific futility: a saved unexecuted proposal is not a falsified experiment, and the actual CMCL recipe does not close every selector-free own/pool-loss rule. An execution-status map is requested before choosing any follow-up. No second fit family is launched. [Bounded assessment](bounded_supervised_member_error_allocation_no_go_20261010_v1/REPORT.md).
 
 Source and full-reader deployment are committed and verified on GitHub at2652d637ab5f632283fc701fda83f5bec12d89f4,19:01:02UTC. The original manuscript scores and TEST remain unchanged; methodological superiority and manuscript acceptance remain unproved.
+
+## Complete native acquisition; full readout pending
+
+All27 native fits closed successfully at20:13:26UTC in446.770001seconds; the20:14:36UTC observation confirmed owner622591 and child622593 absent. The fixed18fresh banks plus15 original anchors await the reviewed complete joined readout and165 equal-policy scalar endpoints. No predictive outcome has been opened or interpreted. Actual acquisition is complete, not an accuracy-success claim.
+
+The complete reader's independent source review found and repaired one frozen-checkpoint custody omission, with v1 and its defect preserved. The reviewed v2 has no remaining material source blocker and will run once after publication; source approval is not predictive evidence. [Reader review](SAGE_GNCL_SupCon_2x2_complete_reader_independent_source_review_20261010_v2/REPORT.md).
