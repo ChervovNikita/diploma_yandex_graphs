@@ -36,3 +36,7 @@ Engineering checks precede full fits. A positive exploratory screen leads to mat
 New mechanisms: adaptive_sharing_novelty_v1. Combinations and capable references: query_value_gate_source_review_20261009. Completed-history synthesis: masked_context_source_audit_20261010. These are research roles, separate from a fresh manuscript reviewer.
 
 After each complete experimental family, update the evidence synthesis before choosing another branch. Revisit the broader synthesis when new results contradict an earlier explanation or reveal complementary repairs. Do not repeatedly reread the same sources without a new scoped question. Save one prospective decision with its predicted benefit, expected harm, closest prior method, decisive control and compute estimate. Confirm promising mechanisms on unused evidence before promoting them to paper claims.
+
+## Resource scheduling amendment
+
+The frozen M1 study was launched concurrently with private-CMCL after a fresh04:22UTC observation found79GiB free on the80GiB allocation and the actual readiness verified sufficient RAM. The earlier after-family schedule was changed before any M1 outcome; source, data, optimization, selection, roster and TEST closure did not change. Both finite32GiB GPU/16GiB RSS budgets fit. Record overlap rather than present acquisition/serving times as isolated speed evidence. The IMDB confidence diagnostic completed on CPU in5.061s and changes no score or model; its broad margins support the existing competence priority.
