@@ -33,7 +33,7 @@ Engineering checks precede full fits. A positive exploratory screen leads to mat
 
 ## Current role assignments and review cadence
 
-New mechanisms: query_value_gate_source_review_20261009. Combinations: private_hop_interface_finalize_20261010. Completed-history synthesis: masked_context_source_audit_20261010. The former new-method agent suffered stream failures. Its files remain preserved. These are research roles, separate from a fresh manuscript reviewer.
+New mechanisms: query_value_gate_source_review_20261009. Combinations: combination_study_reuse_20261010 (replacement after two source-agent stream failures; sealed prior no-go preserved). Completed-history synthesis: masked_context_source_audit_20261010. The former new-method agent suffered stream failures. Its files remain preserved. These are research roles, separate from a fresh manuscript reviewer.
 
 After each complete experimental family, update the evidence synthesis before choosing another branch. Revisit the broader synthesis when new results contradict an earlier explanation or reveal complementary repairs. Do not repeatedly reread the same sources without a new scoped question. Save one prospective decision with its predicted benefit, expected harm, closest prior method, decisive control and compute estimate. Confirm promising mechanisms on unused evidence before promoting them to paper claims.
 
@@ -52,3 +52,7 @@ The frozen M1 study was launched concurrently with private-CMCL after a fresh04:
 ## Decisions after the two new complete studies
 
 The stronger factorized PubMedI4 nearly ties its capable M1accuracy and improves NLL; it acquires competent alternatives but pooling loses many. The typed-context42fit comparison closes the current conditional-label factor recipe below stronger genuineI4references. Both closures trigger the broad history synthesis. Generic cold additive/private LoRA is already in primary literature and in saved project proposals, so it will not be presented as a new family. The fixed private-hop18study now trains; all arms close before any decision. The combination role requires evidence of complementary repairs, not merely combining two names or positive interaction on worse final predictions. The new-method role now searches mechanisms changing graph evidence or acquisition of complementary correct predictions.
+
+## Latest complete-family disposition
+
+Private-hop18 and optimizer-normalization3 are fully closed and compared. Both fail their intended competence role, so no combined fit or extra normalization/hop collector is admitted. Historyv5 retains exact acquisition, coverage loss, serving and harms. The new mechanism uses an existing native Wiki training interface rather than a fresh trainer or owner framework. Root handles finite qualification and source publication; the new-method researcher checks graph information and ancestry, the combination researcher prepares a complete matched experimental interface, and the history researcher checks whether a new proposed remedy has already been tested. Numerical replay tolerances are engineering diagnostics, never scientific utility gates.

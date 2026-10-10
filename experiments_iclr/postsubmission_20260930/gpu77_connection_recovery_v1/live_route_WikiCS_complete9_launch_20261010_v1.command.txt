@@ -1,0 +1,51 @@
+/usr/bin/python3 -I -S -B -c '
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json,os,shutil,socket,subprocess
+assert socket.gethostname()=='"'"'peptide'"'"'
+GPUS=['"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"']
+assert subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid'"'"','"'"'--format=csv,noheader'"'"'],text=True,timeout=10).splitlines()==GPUS
+R=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');P=R/'"'"'experiments_iclr/postsubmission_20260930'"'"';os.chdir(R)
+A=P/'"'"'live_route_WikiCS_complete9_root_activation_20261010_v1'"'"';M=P/'"'"'live_route_WikiCS_complete9_interface_plan_20261010_v3'"'"'
+sha=lambda q:hashlib.sha256(q.read_bytes()).hexdigest()
+def bind(q):return dict(path=str(q.relative_to(P)),bytes=q.stat().st_size,sha256=sha(q))
+def check(row):
+ q=(P/row['"'"'path'"'"']).resolve(strict=True);assert q.is_relative_to(P) and sha(q)==row['"'"'sha256'"'"'];return q
+def save(q,v):
+ q.parent.mkdir(parents=True,exist_ok=True)
+ with q.open('"'"'x'"'"') as f:json.dump(v,f,indent=2);f.write(chr(10))
+assert not (A/'"'"'LAUNCH.json'"'"').exists()
+manifest='"'"'7d50d7839158e9396c79bd4205809351a5c32996afb825176689c812c8b384aa'"'"';assert sha(M/'"'"'MANIFEST.json'"'"')==manifest
+for r in json.loads((M/'"'"'MANIFEST.json'"'"').read_text())['"'"'files'"'"']:
+ q=M/r['"'"'path'"'"'];assert sha(q)==r['"'"'sha256'"'"'] and q.stat().st_size==r['"'"'bytes'"'"']
+pins=json.loads((M/'"'"'SOURCE_BINDINGS.json'"'"').read_text());study=json.loads((M/'"'"'STUDY_PLAN_DISABLED.json'"'"').read_text())
+review=json.loads((A/'"'"'ROOT_REVIEW.json'"'"').read_text());assert review['"'"'approved'"'"'] and review['"'"'adapter_manifest_sha256'"'"']==manifest and review['"'"'owner_program_sha256'"'"']==sha(A/'"'"'invoke_existing_owner.py'"'"')
+criteria=json.loads((A/'"'"'QUALITY_CRITERIA.json'"'"').read_text());assert criteria['"'"'roster'"'"']==study['"'"'roster'"'"'] and criteria['"'"'frozen_before_first_fit'"'"']
+for r in pins['"'"'source_files'"'"']:check(r)
+for key in ('"'"'author_train'"'"','"'"'author_valid'"'"','"'"'native'"'"'):check(pins[key])
+free=int(subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--id='"'"'+GPUS[1],'"'"'--query-gpu=memory.free'"'"','"'"'--format=csv,noheader,nounits'"'"'],text=True,timeout=10).strip())*1024**2
+mem={r.split('"'"':'"'"')[0]:int(r.split('"'"':'"'"')[1].strip().split()[0])*1024 for r in Path('"'"'/proc/meminfo'"'"').read_text().splitlines() if '"'"':'"'"' in r}
+assert free>=72*1024**3 and mem['"'"'MemAvailable'"'"']>=32*1024**3 and shutil.disk_usage(P).free>=6*1024**3
+save(A/'"'"'READINESS.json'"'"',dict(UTC=datetime.now(timezone.utc).isoformat(),GPU_free_bytes=free,MemAvailable_bytes=mem['"'"'MemAvailable'"'"'],normal_host_execution=True,other_jobs_changed=False))
+Q=P/'"'"'live_route_WikiCS_whole_TRAIN_qualification_execution_root_20261010_v4/QUALIFIED.json'"'"';QREL=P/'"'"'live_route_WikiCS_qualification_root_activation_20261010_v4/RELEASE.json'"'"';QS=P/'"'"'live_route_WikiCS_qualification_supervision_root_20261010_v4'"'"'
+assert sha(Q)=='"'"'e6d145af420fb8379d2a13887ec1beab8f602438f2f4b057bd17950cfb726017'"'"';qual=json.loads(Q.read_text());assert qual['"'"'complete'"'"'] and qual['"'"'counts'"'"']['"'"'TRAIN_update_completions'"'"']==6
+terminal=json.loads((QS/'"'"'CHILD_TERMINAL_OBSERVATION.json'"'"').read_text());assert terminal['"'"'actual_direct_wait'"'"'] and terminal['"'"'actual_exit_code'"'"']==0 and terminal['"'"'child_absent'"'"'] and terminal['"'"'child_no_CUDA_rows'"'"']
+qphysical=A/'"'"'QUALIFIER_PHYSICAL_TERMINAL.json'"'"';save(qphysical,dict(UTC=datetime.now(timezone.utc).isoformat(),child_PID=terminal['"'"'identity'"'"']['"'"'PID'"'"'],child_start_ticks=terminal['"'"'identity'"'"']['"'"'start_ticks'"'"'],physical_gpu_uuid=GPUS[1],owned_PID_absent=True,owned_PID_no_CUDA_rows=True,actual_source=bind(QS/'"'"'CHILD_TERMINAL_OBSERVATION.json'"'"')))
+data=A/'"'"'DATA_AUTHORITY.json'"'"';save(data,dict(UTC=datetime.now(timezone.utc).isoformat(),root_authorized_full_TRAIN_VALID=True,TEST_access=False,TRAIN_role_file=pins['"'"'author_train'"'"'],VALID_role_file=pins['"'"'author_valid'"'"'],complete_TRAIN_objects=580,complete_VALID_objects=5274,same_frozen_roles_and_original_strict_reader=True,authority='"'"'Root admits unchanged full public numeric roles already acquired and used by original full native WikiCS studies; immutable reader verifies exact role schemas and sizes. No TEST file or new role projection.'"'"'))
+limits=dict(minimum_fresh_GPU_free_bytes=72*1024**3,resource_wait_seconds=60,telemetry_timeout_seconds=5,poll_interval_seconds=5,owned_tree_RSS_cap_bytes=32*1024**3,owned_tree_GPU_memory_cap_bytes=68*1024**3,own_fit_output_cap_bytes=2*1024**3,combined_child_log_cap_bytes=8*1024**2)
+rows=[];runtime=pins['"'"'runtime'"'"']['"'"'python'"'"'];entry=M/'"'"'study_adapter.py'"'"'
+for row in study['"'"'roster'"'"']:
+ kind,seed=row['"'"'kind'"'"'],row['"'"'seed'"'"'];cell=f'"'"'live_route_{kind}_{seed}_full1100'"'"';release=A/'"'"'releases'"'"'/(cell+'"'"'.json'"'"');ext=A/'"'"'supervision'"'"'/(cell+'"'"'.json'"'"');output='"'"'live_route_WikiCS_full1100_'"'"'+kind+'"'"'_'"'"'+str(seed)+'"'"'_execution_20261010_v1'"'"';assert not (P/output).exists()
+ supervision=dict(enabled=True,root_owns_finite_launch_and_actual_costs=True,existing_run_fit_helper=pins['"'"'run_fit_helper'"'"'],existing_ownership_helper=pins['"'"'ownership_helper'"'"'],physical_gpu_uuid=GPUS[1],entry_program=bind(entry),argv_prefix=[runtime,'"'"'-B'"'"',str(entry)],release_argument_path=str(release),output=output,active_seconds=3600,hard_seconds=3610,cleanup_seconds=10,resource_limits=limits);save(ext,supervision)
+ cfg=json.loads((M/'"'"'CELL_RELEASE_TEMPLATE_DISABLED.json'"'"').read_text());cfg.update(enabled=True,root_execution_authorized=True,source_review_approved=True,native_qualification_approved=True,root_numeric_criteria_frozen=True,root_data_authority_approved=True,existing_owner_binding_approved=True,adapter_manifest_sha256=manifest,kind=kind,seed=seed,physical_gpu_uuid=GPUS[1],output=output,data_authority=bind(data),quality_criteria=bind(A/'"'"'QUALITY_CRITERIA.json'"'"'),external_supervision=bind(ext),qualification_source_manifest=bind(P/'"'"'live_route_wikics_qualification_source_20261010_v5/MANIFEST.json'"'"'),qualification_report=bind(Q),qualification_release=bind(QREL),qualification_report_schema=qual['"'"'schema'"'"'],qualification_release_schema=json.loads(QREL.read_text())['"'"'schema'"'"'],qualification_owner_exit=bind(QS/'"'"'logs/live_route_WikiCS_whole_TRAIN_qualification.EXIT.json'"'"'),qualification_physical_terminal=bind(qphysical));save(release,cfg)
+ argv=[runtime,'"'"'-B'"'"',str(entry),'"'"'--release'"'"',str(release),'"'"'--release-sha256'"'"',sha(release)]
+ rows.append(dict(cell_id=cell,kind=kind,seed=seed,release=bind(release),argv=argv,active_seconds=3600,hard_seconds=3610))
+plan=dict(enabled=True,automatic_retry=False,physical_gpu_uuid=GPUS[1],records=rows,existing_run_fit_helper=pins['"'"'run_fit_helper'"'"'],existing_ownership_helper=pins['"'"'ownership_helper'"'"'],entry_program=bind(entry),adapter_manifest_sha256=manifest,scientific_source_manifest_sha256=pins['"'"'live_manifest'"'"']['"'"'sha256'"'"'],supervision_output='"'"'live_route_WikiCS_complete9_supervision_root_20261010_v1'"'"',resource_limits=limits,phase_hard_seconds=9*3670+30,partial_quality_opening=False)
+pp=A/'"'"'OWNER_PLAN.json'"'"';save(pp,plan)
+with (A/'"'"'parent.stdout.log'"'"').open('"'"'xb'"'"') as out,(A/'"'"'parent.stderr.log'"'"').open('"'"'xb'"'"') as err:
+ process=subprocess.Popen([runtime,'"'"'-B'"'"',str(A/'"'"'invoke_existing_owner.py'"'"'),'"'"'--plan-sha256'"'"',sha(pp)],cwd=R,env=dict(os.environ,PYTHONPATH='"'"''"'"'),stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True)
+ f=Path('"'"'/proc'"'"',str(process.pid),'"'"'stat'"'"').read_text().rsplit('"'"')'"'"',1)[1].split()
+ launch=dict(UTC=datetime.now(timezone.utc).isoformat(),PID=process.pid,start_ticks=int(f[19]),pgid=int(f[2]),sid=int(f[3]),boot_id=Path('"'"'/proc/sys/kernel/random/boot_id'"'"').read_text().strip(),git_base_commit=subprocess.check_output(['"'"'git'"'"','"'"'rev-parse'"'"','"'"'HEAD'"'"'],text=True).strip(),adapter_manifest_sha256=manifest,science_manifest_sha256=pins['"'"'live_manifest'"'"']['"'"'sha256'"'"'],owner_plan=bind(pp),actual_whole_qualification=bind(Q),records=[r['"'"'cell_id'"'"'] for r in rows],fits=9,epochs_each=1100,TEST_access=False,partial_quality_opened=False,other_jobs_changed=False)
+ assert launch['"'"'pgid'"'"']==launch['"'"'sid'"'"']==process.pid;save(A/'"'"'LAUNCH.json'"'"',launch)
+print(json.dumps(launch))
+'
