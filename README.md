@@ -258,9 +258,19 @@ The fixed BUDDY family completed15served cells/24physical fits, selected-checkpo
 
 The completed whole-pattern versus individual-incidence comparison scored64.3066% versus64.0903% validation Hits@50: +0.2164 percentage points in one seed. All100 training streams matched and both1700-update fits, diagnostics, closure and complete-pair reader finished. Pooling the learned completion weights outperformed private completion at the fixed selected states; that adverse mechanism diagnostic is preserved. No serving route is promoted from this inspection. The next prospective source includes pooled J/F training, a capable count-aware single and a no-auxiliary control. It is not an executed experiment or established contribution.
 
-For the latest completed Amazon comparison, queue state and qualification limits, see [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Existing manuscript scores remain unchanged.
+For current completed comparisons, queue state and qualification limits, see [current research status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md). Existing manuscript scores remain unchanged.
 
 
 ## Accuracy-oriented research
 
 The current scientific comparisons and callable code are described above. Full original scores, unsuccessful experiments, costs and literature decisions remain in the [research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). Stronger individual members can still share their mistakes; model comparisons therefore assess both member competence and the final ensemble's errors.
+
+## Research workflow update (10 October 2026)
+
+Three research roles now run alongside experiment coordination. One checks different mechanisms against primary literature. One tests whether ingredients address different prediction failures and develops the required capable references. One revisits complete experimental families and supersedes explanations when new controls change them. Each family closure ends in a scientific decision and a next action. The [workflow](experiments_iclr/postsubmission_20260930/RESEARCH_WORKFLOW.md) fixes this cadence.
+
+The complete factorized-single controls changed the PubMed explanation. Factorized M1 validation accuracy is 90.8168%, compared with 90.9014% shared M4. Both factorized-single recipes outperform the ordinary independent ensemble in each optimizer seed. The old shared-versus-ordinary-ensemble gain therefore does not establish an ensemble-specific improvement. A stronger factorized independent reference is source ready and takes priority.
+
+The [history update](experiments_iclr/postsubmission_20260930/completed_history_supersession_and_decision_update_20261010_v1/REPORT.md) also identifies a limited opportunity for reweighting unchanged outputs. All shared PubMed errors without any correct member have a common strict false rival. A nonnegative mixture of the same probabilities could repair at most 4, 8 and 2 validation cases across the three seeds. Improving those remaining cases requires different member predictions. This bound describes the saved bank and does not establish a new method.
+
+The fixed heterogeneous-context candidate study started on the authorized allocation at 06:00 UTC. Its 18 fits are compared only after the complete 24-body ordinary and same-information independent reference acquisition also closes. The private-specialist-credit and WikiCS initialization/feedback studies remain in progress. No partial result changes their rosters. Original paper scores and TEST closure remain unchanged. Updated [status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) and the ledger distinguish source preparations, running studies and completed predictive evidence.

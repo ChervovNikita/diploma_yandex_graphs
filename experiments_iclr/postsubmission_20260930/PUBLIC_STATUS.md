@@ -14,11 +14,11 @@ A capable factorized single is now an essential comparison for the next ensemble
 
 Three researchers have distinct responsibilities: new shared-backbone mechanisms from primary literature; combinations that address different observed failures; and synthesis of completed experiments across the research history. The synthesis updates after every completed family and revisits broad conclusions after two closures or a finding that changes the leading explanation. Each proposal needs a decisive reference and a result that would refute it.
 
-The private-specialist-credit study remains running on the one-GPU allocation, with 9 of 18 complete at 05:16 UTC. The full family closes before quality is interpreted. It tests attributed CMCL private credit, shared own-loss protection and scaling controls.
+The private-specialist-credit study remains running on the one-GPU allocation, with 15 of 18 complete at 06:06 UTC. The full family closes before quality is interpreted. It tests attributed CMCL private credit, shared own-loss protection and scaling controls.
 
-Five of six WikiCS initializer×feedback fits have closed on 18.77; its last fit was at 596/1100 updates at 05:00 UTC. No new 77 jobs were launched in this update.
+Five of six WikiCS initializer×feedback fits have closed on 18.77; its last fit was at 961 of 1,100 updates at 06:01 UTC. No new 77 jobs were launched in this update.
 
-All eight whole-input engineering paths for genuine ordinary and same-information contextual independent SeHGNN references passed and closed in 102.04 seconds. This verifies new constructors, selected-state replay and four-body assembly. It is setup evidence, not an accuracy result. The full reference acquisition started on allocation at 05:24 UTC: 24 independently fitted bodies and six assembled banks. Its owner and first child are verified live. No partial quality has been inspected. The 18 fixed candidate fits are being prepared separately.
+All eight whole-input engineering paths for genuine ordinary and same-information contextual independent SeHGNN references passed and closed in 102.04 seconds. This verifies new constructors, selected-state replay and four-body assembly. It is setup evidence, not an accuracy result. The full reference acquisition started on allocation at 05:24 UTC: 24 independently fitted bodies and six assembled banks. Its owner and first child are verified live. No partial quality has been inspected. The 18 fixed candidate fits started at 06:00 UTC. At 06:06 UTC one candidate fit and 21 of 24 reference bodies were complete. Both whole families must close before comparison.
 
 ## Error evidence and limits
 
@@ -27,3 +27,7 @@ Stored PubMed and IMDB analyses distinguish weak member predictions from losses 
 Complete M1 interpretation, the three research-role outputs, reviewed sources and README were committed and pushed at105a32781f6a68a20c032c2200de18e764199170; the exact remote ref was verified at05:25 UTC. Actual24 launch evidence and this continuation are being committed separately. No PDF compilation, sudo, GENLINK, unrelated-data access, or scientific execution on the seven-GPU relay.
 
 The new-method role saved a private-only missing-hop supervision proposal, with factual shared training retained and competent same-view factorized-single controls. It remains inactive; view diversification and selective gradient placement have prior ancestry. The combination role retained one starts×private-CMCL design on hold. The full-history synthesis is saved at completed_history_ingredient_interaction_synthesis_20261010_v1/REPORT.md.
+
+The three roles have been renewed with different questions. Complete PubMed error evidence also bounds the gain from reweighting unchanged route predictions: at most 4–8 validation nodes per optimizer seed, because all other shared errors have the same strict wrong rival across every route. This directs new mechanisms toward learning different useful class rankings. The bound applies to this saved bank, not all possible shared ensembles.
+
+Candidate source and the reference plan were committed and pushed at819d537014993732123ec2317ccbf57e141f86d3, with exact remote ref verified at 06:02 UTC.
