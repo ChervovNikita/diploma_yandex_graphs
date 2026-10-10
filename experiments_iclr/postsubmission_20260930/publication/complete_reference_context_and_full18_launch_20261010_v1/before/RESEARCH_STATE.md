@@ -1,0 +1,66 @@
+# Current GNNM research state
+
+10 October 2026. Goal active and unmet. Original paper scores remain unchanged. No new methodological superiority, unused confirmation or fresh manuscript acceptance is established. All experiments, failures, costs, reviews and superseded explanations remain in research_ledger.json and linked evidence. Previous complete state is preserved in publication/closed_CMCL_Wiki_and_hop_qualification_source_20261010_v1/before.
+
+## Complete specialist-credit study
+
+All 18 fixed PubMed fits closed successfully before quality was read. Six conditions used all three seeds9101/9203/9307 on the full19717-node,500-feature,88648-edge graph, TRAIN11829/VALID3942, split190111. The native PolyFormer uses width256, two blocks, eight heads, monomialK2, original Adam groups and full2000/250 selection. TEST stays closed.
+
+| Predictor | Mean selected VALID accuracy (%) | NLL |
+|---|---:|---:|
+| Ordinary shared own_floor |90.977506|.281966|
+| Private CMCL |90.309489|.345505|
+| All-block CMCL |90.656181|.344376|
+| Vanilla CMCL |90.749196|.368313|
+| Private uniform |89.641468|.423597|
+| Private constant credit |90.165738|.353734|
+
+Private CMCL loses accuracy, NLL and macro F1 against own_floor at every seed. Net available-correct count changes are+40/+63/−4, while lost alternatives increase+71/+88/+19. These changes account for31/25/23 fewer correct final decisions. Mean member accuracy falls1.10984points and worst member accuracy2.35921points. More alternatives did not yield a better predictor. Mean+33 is a net coverage cardinality change, not33 exact repairs of baseline errors.
+
+The new private bank has some pooling headroom, but it cannot rescue this recipe against the capable factorized single in every seed. For seed9307, the recorded strict common-rival cohort limits any nonnegative mixture of these unchanged probabilities to3583 correct nodes, below M1-native3585. Immediate shared auxiliary-gradient protection did not preserve future member competence. The exact private-CMCL recipe is closed. All-block is stronger than private credit here. Uniform/constant controls and changed gradient mass prevent assigning all harm causally to the KL term.
+
+Evidence: private_CMCL18_closed_scalar_interpretation_20261010_v1/{REPORT.md,SUMMARY.json}, private_CMCL18_focused_history_decision_20261010_v1/REPORT.md, and three_research_roles_continuation_20261010_v2/fetched/private_CMCL18_closed_scalars_execution_20261010_v1/CLOSED_SCALAR_EVIDENCE.json. The JSON-only extractor took.124249s, with no models, checkpoint arrays, new inference or score changes. All fixed arms and exploratory df2 seed intervals are retained. Checkpoint selection and repeated development comparisons limit these intervals.
+
+## Stronger factorized independent reference is actually training
+
+The complete M1 controls already showed factorized native single90.816844%, factorized four-dropout-loss single90.783020%, sharedM4 90.901404%, ordinary native single89.937426% and ordinary own-selected I4 90.216472%. Both factorized singles exceed ordinaryI4 accuracy at all3seeds. Factor reparameterization, additional coordinates and coordinate-wise Adam remain competing explanations for the earlier shared gain. M1 is not a full M4 parameter match.
+
+A stronger ordinary factorized I4 acquires four disjoint native bodies, four Adams/dropout streams and four own2000/250 raw-logit selectors per seed. All3 old M1-native body0 anchors passed exact original selected-state admission in9.214s. The new four-body full-TRAIN update/fresh four-body restore/replay qualifier passed in9.566s and its owner actually closed. These are setup evidence only.
+
+Nine new full body1–3 fits started at06:18:46UTC from source commit2040fa166e153175e9c418e64b0a412c90a7254d. Owner605580/start6042238677 was live at06:20UTC on boot24c315a7-3c08-471f-b550-b9a3e1faf75d. Fixed stage order is admission→qualification→science9→assembly3→comparison1. Finish every body and assembly before comparison. No automatic restart or silent fresh12 substitution. The complete committee has8335272 parameters versus shared2125647. It is a stronger reference, not a new method or parameter match.
+
+Operational source: pubmed_factorized_I4_reference_source_20261010_v1, manifest14a36fc9ec515245e6b8b4336d4f9f4eee7cc855deaa1d2c54d3929815761f5e. Actual receipts: factorized_I4_reference_root_activation_20261010_v1. Retrospective body0 reuse, same encountered task, capacity/work and selector differences limit causal interpretation. Original scores and TEST closure remain unchanged.
+
+## Heterogeneous context study
+
+Both genuine independent reference families finished at06:11UTC:24 complete body fits and6 own-selected banks, with successful direct wait and actual process/CUDA absence. Their quality stays closed until all18 candidates also finish. Candidate owner603792/start6042126966 and child603796/start6042126978 were live at06:33UTC with7/18complete. Candidate source commit819d537014993732123ec2317ccbf57e141f86d3, same allocation boot. No partial result changed the roster.
+
+Candidates are shared own-pair4, local-mul4, local-add4, global-mul4, contextual single1 and copied-start untied4. SeHGNN retains37channels,width512,five Bernoulli outputs and6factor sites. Three observed-label masses and15balances condition two projections. TRAIN uses complementary half-label contexts. VALID pools both raw context logits before member raw-logit pooling. Genuine ordinary and same-information contextual I4 use4independent starts/own selectors. Generator width32 per private route or independent body differs from single128. These comparisons test information, sharing and adaptation, with known conditional-model ancestry. No novelty follows from setup.
+
+Loader labels are raw multi-hot and development rows have nonempty genre sets. All-five-positive channels zero already implies zero observed mass. Explicit mass exposes a magnitude/normalization field, not newly distinguishing observed-all-negative from unobserved. Row-normalized operators are diagonal-removed without renormalizing. Nonaffine output LayerNorm is identical for shared and genuine I4. Scalar freedoms may vanish, but empirical route collapse and extra information remain unproven. Exact source diagnosis: sehgnn_normalization_and_typed_mass_source_diagnosis_20261010_v1.
+
+## Complete WikiCS native-scorer controls
+
+All6fits on18.77closed with successful original direct waits and actual process/CUDA absence. Selected metrics came from hash-bound original checkpoints and agree with their1100-epoch trace/earliest strict maxima. The CPU metadata read took2.039s. No new inference, selection, score or training occurred.
+
+Independent native scorer starts, ordinary own supervision, reaches81.75958/81.51308/81.56996%, mean81.61421%. Adding relation ensemble-credit reaches81.74061/81.55100/81.56996%, mean81.62053%. J−F is−.018966/+.037920/0points, mean+.006318. The necessary fixed all-positive/.2point gain criterion fails. Relation feedback is closed.
+
+Initializer-only improvement versus copied starts is provisionally+.278094points in the saved aggregate comparison. Original anchor source/recipe/selector/route/endpoint/terminal parity and new NLL/coverage still need full readout before advancing it. Historical independent4 mean82.04399% is contextual and stronger. Known native initialization is not a methodological novelty claim. Do not equate attention-row starts with earlier Rademacher feature signs. Their competence tradeoffs differ.
+
+Evidence: WikiCS_fixed6_focused_history_decision_20261010_v1/REPORT.md and three_research_roles_continuation_20261010_v2/{GPU77_CLOSED6_CUSTODY.json,GPU77_FIXED6_SELECTED_METADATA.json}. No new77training started in this turn. Seven-GPU access remains forwarding only.
+
+## Private graph-hop supervision is the next fixed hypothesis
+
+Existing source teaches route0 with full context and routes1–3 with factual CE plus persistent missing-hop CE. Shared slow weights receive complete factual mean CE. All targets remain truthful classification targets. Every inference route still uses the full graph. Route-specific incomplete inputs keep all three native token slots, their biases and the original graph preprocessing. They do not force intermediate embeddings to zero.
+
+The4fixedM4 conditions are private missing-hop, full-input auxiliary, common incomplete view and all-block missing-hop. Factorized M1 all-view and a genuine factorized I4 are required references. Lambda.5 remains unchanged. This replaces the CMCL ownership/uniform-discouragement mechanism rather than retaining its exact acquired nodes. Private factual weight is2/3 for routes1–3, so competence preservation is a hypothesis. Correct alternatives, final accuracy/NLL, member competence and introduced errors decide usefulness. The full prospective roster is6arms×3seeds with original horizon and factual selector, no extra grid.
+
+Five-condition full-TRAIN numerical qualification source V2 is root reviewed and pending activation. It checks one whole update and fresh factual replay per condition plus same-old-state shared-gradient routing. V1 is preserved. Before any execution, root found and fixed two owner preconditions in V2: initialize the completed-record list and create the engineering folder before progress writes. Numeric method/run.py, finished hooks, masks and lambda are unchanged. Source readiness is not predictive benefit.
+
+## Research loop and publication
+
+The user requested3distinct researchers. New mechanisms: private_hop_interface_finalize_20261010. Combinations/capable references: query_value_gate_source_review_20261009. Complete-history synthesis: masked_context_source_audit_20261010. Each full family triggers a focused decision, and two closures or a changed explanation trigger a broader update. Proposals cite closest primary sources, a falsifier, decisive references and costs.
+
+History updated8superseded explanations, bounded frozen PubMed reweighting to4/8/2cases and distinguished unachieved residual separation from harmful classifier-visible separation. The inactive signs×private-CMCL design is retired after the complete loss. A proposed private pooled-CE ingredient collided with already tested phiJ/relationJ and known GNCL/Jeffares ancestry. No renamed coefficient grid is launched. Fresh Nash-MTL/PathMLP literature notes preserve scoped reads and prior collisions. Private-hop remains a prospective known-ingredient hypothesis.
+
+Sources, literature notes, state and README were pushed at2040fa166e153175e9c418e64b0a412c90a7254d with exact remote ref verified06:18UTC. Current outcomes and actual launch evidence are being committed separately. Deliberate research operations remain in the allowed repositories, ordinary runtime caches permitted, no sudo, host mounts/namespace changes, unrelated data, GENLINK or PDF compilation. Fresh manuscript reviewers will receive immutable completed paper/evidence with no author history or requested verdict. No new manuscript has been promoted from partial evidence.

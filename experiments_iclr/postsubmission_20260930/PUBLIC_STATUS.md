@@ -1,23 +1,23 @@
 # Current scientific status
 
-10 October 2026. Research continues. Original paper scores are unchanged. A new methodological advantage and fresh manuscript acceptance remain unestablished.
+10 October 2026. Goal active and unmet. Original paper scores remain unchanged. No new methodological superiority, unused confirmation or fresh manuscript acceptance is established.
 
-## Latest completed results
+## Completed evidence changes the next experiments
 
-All 18 specialist-credit fits finished. Private CMCL scored90.3095% versus90.9775% ordinary shared training. It lost accuracy and NLL at all 3 seeds. More correct alternatives appeared in two seeds, but members weakened and averaging lost more alternatives. The exact recipe is closed. Full outcomes, intervals and the error explanation are preserved in [the decision](private_CMCL18_focused_history_decision_20261010_v1/REPORT.md).
+The stronger factorized PubMed independent ensemble has finished: 90.8253% mean VALID accuracy and 0.277453 NLL. Its admitted first-body single reaches 90.8168%; ordinary shared training reaches 90.9014%. Paired accuracy differences have mixed signs. The independent bank acquires 99/102/93 correct alternatives on first-body errors but pooling loses 61/69/53 of them. This separates useful acquisition from successful final decisions. [Complete report](factorized_I4_closed_interpretation_20261010_v1/REPORT.md).
 
-All 6 WikiCS native attention-scorer controls also finished on18.77. Relation-feedback credit changed accuracy by only+.0063points on average, with one loss and one tie, and failed its fixed rule. Independently initialized scorers with ordinary supervision scored81.6142%. Their provisional+.2781point improvement over copied starts needs exact anchor admission and NLL/coverage before it can support another study. Known initialization alone is not a new method. [Complete note](WikiCS_fixed6_focused_history_decision_20261010_v1/REPORT.md).
+All 42 heterogeneous context fits also finished. Ordinary shared micro-F1 is 68.4379%; conditional local multiplicative factors reach 68.2796%; genuine ordinary I4 reaches 69.0811%. The current context recipe closes without a supported gain. All fixed arms and uncertainty are retained. [Complete report](typed42_closed_scalar_interpretation_20261010_v1/REPORT.md).
 
-## Running work
+CMCL 18-fit study and WikiCS relation feedback previously closed negatively. Generic cold additive/shared LoRA and several graph-propagation proposals collide with known literature or earlier project proposals. Those limits do not universally reject different competence-preserving methods.
 
-The stronger factorized independent ensemble is training nine new full bodies after three old anchors and the four-body interface passed exact admission/replay checks. Each body has its own full training and checkpoint selection. Compare only after all bodies and three complete committees close. This reference tests whether the earlier shared-model result survives a better ordinary ensemble.
+## Actual running study
 
-The heterogeneous graph references finished all 24 body fits and 6 committees. The 18 candidate fits are still running, with 7 complete at 06:33 UTC. Their quality stays closed until the entire candidate family finishes.
+The qualified fixed private-hop 18-fit study started at 07:19:29 UTC on the authorized one-GPU allocation, source commit a224df311de4c278f6da3705efa53207f766792b. At 07:25:30 UTC, its first own baseline had completed and private_missinghop was training at epoch 120; no failure or partial quality was opened. Six fixed arms × three seeds retain full factual supervision, graph-view controls, original horizons/selectors and capable references. Setup is not prediction evidence. [Source](private_hop_credit_pubmed_fullfit_source_20261010_v1/README.md).
 
-The next fixed hypothesis teaches private routes with different missing-hop graph views while retaining full-label factual supervision. It includes same-view, common-view, all-block and capable factorized-single controls. The numerical entry is reviewed and awaits actual qualification. Its predictions and member competence are unmeasured.
+## Three distinct research roles
 
-## Workflow
+The new-method role checks mechanisms and their closest primary papers. The combination role requires complementary correct predictions and a complete baseline/A/B/A+B comparison. The history role periodically revises the entire evidence map, correcting contradictions and previously closed ideas. Their latest broad review links 49 evidence artifacts and retains 31 outcome entries; these are catalogue entries, not fit totals. [Broad history revision](periodic_completed_history_revision_20261010_v4/REPORT.md) · [Combination decision](combination_closed_evidence_no_go_20261010_v2/REPORT.md) · [Workflow](RESEARCH_WORKFLOW.md).
 
-Three research roles now cover different mechanisms, combinations and complete-history revision. Each completed family ends in a decision and a next action. The history review has already changed the PubMed explanation: factorized singles reproduce most shared gain, while reweighting unchanged shared predictions has little headroom. A proposed pooled-CE combination was already present in earlier tests and will not be repeated under a new name.
+Next priorities are to finish private-hop 18-fit study, admit the existing Wiki initializer's original parity/NLL/coverage, and put unused confirmation before extra ablations if a method survives capable references. A stored-error intersection can later distinguish new graph-view repairs from stronger I4 repairs; it does not train an oracle selector. No renamed coefficient grid is launched.
 
-Source, literature and README were committed/pushed at2040fa166e153175e9c418e64b0a412c90a7254d. This continuation adds completed results and actual launch evidence. TEST remains closed for these new studies. No new training on 18.77 started in this turn, and seven-GPU use remains only forwarding. No sudo, PDF compilation, GENLINK or unrelated-data access.
+TEST stays closed in these studies. No new 18.77 training started in this continuation. Seven-GPU access is forwarding only. Sources, outcomes and actual receipts are being committed and pushed. No sudo, PDF compilation, GENLINK or unrelated-data access.
