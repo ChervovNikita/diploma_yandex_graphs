@@ -12,3 +12,6 @@ Source and evidence publication is ongoing. Latest recorded verified GitHub rece
 
 
 The complete reader and its independent source review are ready for deployment and full-closure execution. This is preparation, not a new accuracy result. The new scoped prior audit identifies PSWE (NeurIPS2021) as direct learned quantile-pooling ancestry. It supports an attributed local/shared placement hypothesis, with no primitive novelty or universal-improvement claim. [Audit](native_neighborhood_distribution_scoped_novelty_audit_20261010_v1/REPORT.md).
+
+
+At19:02:57UTC the running study has10/24fits complete. Its full reader is deployed, reviewed and scheduled to run once automatically after successful fit closure; no partial quality has been inspected. [Strategic assessment](portable_shared_wrapper_strategic_assessment_20261010_v1/REPORT.md) preserves the useful local gains and records where the search overinvested. Known or previously proposed methods remain eligible when a distinct decisive experiment is still untested; their existence is not evidence of futility. Latest verified GitHub head:2652d637ab5f632283fc701fda83f5bec12d89f4 at19:01:02UTC.
