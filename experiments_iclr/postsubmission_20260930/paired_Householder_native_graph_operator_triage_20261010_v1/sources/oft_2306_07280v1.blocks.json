@@ -1,0 +1,945 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "sections": [],
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "sections": [],
+    "text": "Controlling Text-to-Image Diffusion by Orthogonal Finetuning"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "sections": [],
+    "text": "Large text-to-image diffusion models have impressive capabilities in generating photorealistic images from text prompts. How to effectively guide or control these powerful models to perform different downstream tasks becomes an important open problem. To tackle this challenge, we introduce a principled finetuning method \u2013 Orthogonal Finetuning (OFT), for adapting text-to-image diffusion models to downstream tasks. Unlike existing methods, OFT can provably preserve hyperspherical energy which characterizes the pairwise neuron relationship on the unit hypersphere. We find that this property is crucial for preserving the semantic generation ability of text-to-image diffusion models. To improve finetuning stability, we further propose Constrained Orthogonal Finetuning (COFT) which imposes an additional radius constraint to the hypersphere. Specifically, we consider two important finetuning text-to-image tasks: subject-driven generation where the goal is to generate subject-specific images given a few images of a subject and a text prompt, and controllable generation where the goal is to enable the model to take in additional control signals. We empirically show that our OFT framework outperforms existing methods in generation quality and convergence speed."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "S1"
+    ],
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Recent text-to-image diffusion models [53, 45, 50] achieve impressive performance in text-guided control for high-fidelity image generation. Despite strong results, text guidance can still be ambiguous and insufficient to provide fine-grained and accurate control to the generated images. To address this shortcoming, we target two types of text-to-image generation tasks in this paper:"
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i1.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Subject-driven generation [51]: Given just a few images of a subject, the task is to generate images of the same subject in a different context using the guidance of a text prompt."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i2.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Controllable generation [68, 38]: Given an additional control signal (e.g., canny edges, segmentation maps), the task is to generate images following such a control signal and a text prompt."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Both tasks essentially boil down to how to effectively finetune text-to-image diffusion models without losing the pretraining generative performance. We summarize the desiderata for an effective finetuning method as: (1) training efficiency: having fewer trainable parameters and number of training epochs, and (2) generalizability preservation: preserving the high-fidelity and diverse generative performance. To this end, finetuning is typically done either by updating the neuron weights by a small learning rate (e.g., [51]) or by adding a small component with re-parameterized neuron weights (e.g., [22, 68]). Despite simplicity, neither finetuning strategy is able to guarantee the preservation of pretraining generative performance. There is also a lack of principled understanding towards designing a good finetuning strategy and finding suitable hyperparameters such as the number of training epochs. A key difficulty is the lack of a measure for quantifying the preservation of pretrained generative ability. Existing finetuning methods implicitly assume that a smaller Euclidean distance between the finetuned model and the pretrained model indicates better preservation of the pretrained ability. Due to the same reason, finetuning methods typically work with a very small learning rate. While this assumption may occasionally hold, we argue that the Euclidean difference to the pretrained model alone is unable to fully capture the degree of semantic preservation, and therefore a more structural measure to characterize the difference between the finetuned model and the pretrained model can greatly benefit the preservation of pretraining performance as well as finetuning stability."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Inspired by the empirical observation that hyperspherical similarity encodes semantic information well [36, 35, 7], we use hyperspherical energy [32] to characterize the pairwise relational structure among neurons. Hyperspherical energy is defined as the sum of hyperspherical similarity (e.g., cosine similarity) between all pairwise neurons in the same layer, capturing the level of neuron uniformity on the unit hypersphere [34]. We hypothesize that a good finetuned model should have a minimal difference in hyperspherical energy compared to the pretrained model. A naive way is to add a regularizer such that the hyperspherical energy remains the same during the finetuning stage, but there is no guarantee that the hyperspherical energy difference can be well minimized. Therefore, we take advantage of an invariance property of hyperspherical energy \u2013 the pairwise hyperspherical similarity is provably preserved if we apply the same orthogonal transformation for all neurons. Motivated by such an invariance, we propose Orthogonal Finetuning (OFT) which adapts large text-to-image diffusion models to a downstream task without changing its hyperspherical energy. The central idea is to learn a layer-shared orthogonal transformation for neurons such that their pairwise angles are preserved. OFT can also be viewed as adjusting the canonical coordinate system for the neurons in the same layer. By jointly taking into consideration that smaller Euclidean distance between the finetuned model and the pretrained model implies better preservation of pretraining performance, we further propose an OFT variant \u2013 Constrained Orthogonal Finetuning (COFT) which constrains the finetuned model within the hypersphere of a fixed radius centered on the pretrained neurons."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p5.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "The intuition for why orthogonal transformation works for finetuning neurons partially comes from 2D Fourier transform, with which an image can be decomposed as magnitude and phase spectrum. The phase spectrum, which is angular information between input and basis, preserves the major part of semantics. For example, the phase spectrum of an image, along with a random magnitude spectrum, can still reconstruct the original image without losing its semantics. This phenomenon suggests that changing the neuron directions is the key to semantically modifying the generated image (which is the goal of both subject-driven and controllable generation). However, changing neuron directions with a large degree of freedom will inevitably destroy the pretraining generative performance. To constrain the degree of freedom, we propose to preserve the angle between any pair of neurons, largely based on the hypothesis that the angles between neurons are crucial for representing the knowledge of neural networks. With this intuition, it is natural to learn layer-shared orthogonal transformation for neurons in each layer such that the hyperspherical energy stays unchanged."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p6.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "We also draw inspiration from orthogonal over-parameterized training [33] which trains classification neural networks from scratch by orthogonally transforming a randomly initialized neural network. This is because a randomly initialized neural network yields a provably small hyperspherical energy in expectation and the goal of [33] is to keep hyperspherical energy small during training (small energy leads to better generalization in classification [32, 30]). [33] shows that orthogonal transformation is sufficiently flexible to train generalizable neural networks for classification problems. In contrast, we focus on finetuning text-to-image diffusion models for better controllability and stronger downstream generative performance. We emphasize the difference between OFT and [33] in two aspects. First, while [33] is designed to minimize the hyperspherical energy, OFT aims to preserve the same hyperspherical energy as the pretrained model so that the intrinsic pretrained structure will not be destroyed by finetuning. In the case of finetuning diffusion models, minimizing hyperspherical energy could destroy the original semantic structures. Second, OFT seeks to minimize the deviation from the pretrained model, which leads to the constrained variant. In contrast, [33] imposes no such constraints. The key to finetuning is to find a good trade-off between flexibility and stability, and we argue that our OFT framework effectively achieves this goal. Our contributions are listed below:"
+  },
+  {
+    "tag": "p",
+    "id": "S1.I2.i1.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "We propose a novel finetuning method \u2013 Orthogonal Finetuning for guiding text-to-image diffusion models towards better controllability. To further improve stability, we propose a constrained variant which limits the angular deviation from the pretrained model."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I2.i2.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "Compared to existing finetuning methods, OFT performs model finetuning while provably preserving the hyperspherical energy, which we empirically find to be an important measure of the generative semantic preservation of the pretrained model."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I2.i3.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "We apply OFT to two tasks: subject-driven generation and controllable generation. We conduct a comprehensive empirical study and demonstrate significant improvement over prior work in terms of generation quality, convergence speed and finetuning stability. Moreover, OFT achieves better sample efficiency, as it converges well with a much smaller number of training images and epochs."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I2.i4.p1.1",
+    "sections": [
+      "S1"
+    ],
+    "text": "For controllable generation, we introduce a new control consistency metric to evaluate the controllability. This core idea is to estimate the control signal from the generated image and then compare it with the origin control signal. The metric further validates the strong controllability of OFT."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "S2"
+    ],
+    "text": "2 Related Work"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Text-to-image diffusion models. Tremendous progress [53, 45, 50, 16, 39] has been made in text-to-image generation, largely thanks to the rapid development in diffusion-based generative models [20, 56, 55, 12] and vision-language representation learning [57, 37, 44, 61, 29, 28, 1, 54]. GLIDE [39] and Imagen [53] train diffusion models in the pixel space. GLIDE trains the text encoder jointly with a diffusion prior using paired text-image data, while Imagen uses a frozen pretrained text encoder. Stable Diffusion [50] and DALL-E2 [45] train diffusion models in the latent space. Stable Diffusion uses VQ-GAN [14] to learn a visual codebook as its latent space, while DALL-E2 adopts CLIP [44] to construct a joint latent embedding space for representing images and text. Other than diffusion models, generative adversarial networks [48, 67, 65, 27] and autoregressive models [46, 13, 62, 66] have also been studied in text-to-image generation. OFT is inherently a model-agnostic finetuning approach and can be applied to any text-to-image diffusion model."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Subject-driven generation. To prevent subject modification, [2, 39] consider a given mask from users as an additional condition. Inversion methods [8, 12, 45, 15] can be applied to modify the context without changing the subject. [18] can perform local and global editing without input masks. The methods above are unable to well preserve identity-related details of the subject. In Pivotal Tuning [49], a generator is finetuned around an initial inverted latent code with an additional regularization to preserve the identity. Similarly, [41] learns a personalized generative face prior from a collection of a person\u2019s face images. [6] can generate difference variations of an instance, but it may lose the instance-specific details. With a customized token and a few subject images, DreamBooth [51] finetunes the text-to-image diffusion model using a reconstruction loss and a class-specific prior preservation loss. OFT adopts the DreamBooth framework, but instead of performing naive finetuning with a small learning rate, OFT finetunes the model with orthogonal transformations."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p3.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Controllable generation. The task of image-to-image translation can be viewed as a form of controllable generation, and previous methods mostly adopt conditional generative adversarial networks [23, 71, 60, 42, 9]. Diffusion models are also used for image-to-image translation [52, 58, 59]. More recently, ControlNet [68] proposes to control a pretrained diffusion model by finetuning and adapting it to additional control signals and achieves impressive controllable generation performance. Another concurrent and similar work, T2I-Adapter [38], also finetunes a pretrained diffusion model in order to gain stronger controllability for the generated images. Following the same task setting in [68, 38], we apply OFT to finetune pretrained diffusion models, yielding consistently better controllability with fewer training data and less finetuning parameters. More significantly, OFT does not introduce any additional computational overhead during test-time inference."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p4.1",
+    "sections": [
+      "S2"
+    ],
+    "text": "Model finetuning. Finetuning large pretrained models on downstream tasks has been increasingly popular nowadays [11, 3, 17]. As a form of finetuning, adaptation methods (e.g., [22, 21, 43]) are heavily studied in natural language processing. LoRA [22] is the most relevant work to OFT, and it assumes a low-rank structure for the additive weight update during finetuning. In contrast, OFT uses layer-shared orthogonal transformation to update neuron weights in a multiplicative manner, and it provably preserves the pair-wise angles among neurons in the same layer, yielding better stability."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "S3"
+    ],
+    "text": "3 Orthogonal Finetuning"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "3.1 Why Does Orthogonal Transformation Make Sense?"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "We start by discussing why orthogonal transformation is desirable in finetuning text-to-image diffusion models. We decompose this question into two smaller ones: (1) why we want to finetune the angle of neurons (i.e., direction), and (2) why we adopt orthogonal transformation to finetune angles."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "For the first question, we draw inspiration from the empirical observation in [35, 7] that angular feature difference well characterizes the semantic gap. SphereNet [36] shows that training a neural network with all neurons normalized onto a unit hypersphere yields comparable capacity and even better generalizability, implying that the direction of neurons can fully capture the most important information from data. To better demonstrate the importance of neuron angles, we conduct a toy experiment in Figure 2 where we train a standard convolutional autoencoder on some flower images. In the training stage, we use the standard inner product to produce the feature map (z denotes the element output of the convolution kernel \\bm{w} and \\bm{x} is the input in the sliding window). In the testing stage, we compare three ways to generate the feature map: (a) the inner product used in training, (b) the magnitude information, and (c) the angular information. The results in Figure 2 show that the angular information of neurons can almost perfectly recover the input images, while the magnitude of neurons contains no useful information. We emphasize that we do not apply the cosine activation (c) during training, and the training is done only based on inner product. The results imply that the angles (directions) of neurons play the major role in storing the semantic information of the input images. In order to modify the semantic information of images, finetuning the neuron directions will likely be more effective."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p3.1",
+    "sections": [
+      "S3",
+      "S3.SS1"
+    ],
+    "text": "For the second question, the simplest way to finetune direction of neurons is to simultaneously rotate / reflect all the neurons (in the same layer), which naturally brings in orthogonal transformation. It may be more flexible to use some other angular transformation that rotates different neurons with different angles, but we find that orthogonal transformation is a sweet spot between flexibility and regularity. Moreover, [33] shows that orthogonal transformation is sufficiently powerful for learning neural networks. To support our argument, we perform an experiment to demonstrate the effective regularization induced by the orthogonality constraint. We perform the controllable generation experiment using the setting of ControlNet [68], and the results are given in Figure 3. We can observe that our standard OFT performs quite stably and achieves accurate control after the training is finished (epoch 20). In comparison, OFT without the orthogonality constraint fails to generate realistic images and achieve no control effect. The experiment validates the importance of orthogonality in OFT."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "3.2 General Framework"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "The conventional finetuning strategy typically uses gradient descent with a small learning rate to update a model (or certain layers of a model). The small learning rate implicitly encourages a small deviation from the pretrained model, and the standard finetuning essentially aims to train the model while implicitly minimizing \\|\\bm{M}-\\bm{M}^{0}\\| where \\bm{M} is the finetuned model weights and \\bm{M}^{0} is the pretrained model weights. This implicit constraint makes intuitive sense, but it can still be too flexible for finetuning a large model. To address this, LoRA introduces an additional low-rank constraint for the weight update, i.e., \\text{rank}(\\bm{M}-\\bm{M}^{0})=r^{\\prime} where r^{\\prime} is set to be some small number. Different from LoRA, OFT introduces a constraint for the pair-wise neuron similarity: \\|\\text{HE}(\\bm{M})-\\text{HE}(\\bm{M}^{0})\\|=0 where \\text{HE}(\\cdot) denotes hyperspherical energy of a weight matrix. As an illustrative example, we consider a fully connected layer \\bm{W}=\\{\\bm{w}_{1},\\cdots,\\bm{w}_{n}\\}\\in\\mathbb{R}^{d\\times n} where \\bm{w}_{i}\\in\\mathbb{R}^{d} is the i-th neuron (\\bm{W}^{0} is the pretrained weights). The output vector \\bm{z}\\in\\mathbb{R}^{n} of this fully connected layer is computed by \\bm{z}=\\bm{W}^{\\top}\\bm{x} where \\bm{x}\\in\\mathbb{R}^{d} is the input vector. OFT can be interpreted as minimizing the hyperspherical energy difference between the finetuned model and the pretrained model:"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E1",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "\\footnotesize\\min_{\\bm{W}}\\left\\|\\text{HE}(\\bm{W})-\\text{HE}(\\bm{W}^{0})\\right\\|~~\\Leftrightarrow~~\\min_{\\bm{W}}\\bigg\\|\\sum_{i\\neq j}\\|\\hat{\\bm{w}}_{i}-\\hat{\\bm{w}}_{j}\\|^{-1}-\\sum_{i\\neq j}\\|\\hat{\\bm{w}}^{0}_{i}-\\hat{\\bm{w}}^{0}_{j}\\|^{-1}\\bigg\\| (1)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "where \\hat{\\bm{w}}_{i}:=\\bm{w}_{i}/\\|\\bm{w}_{i}\\| denotes the i-th normalized neuron, and the hyperspherical energy of a fully connected layer \\bm{W} is defined as \\text{HE}(\\bm{W}):=\\sum_{i\\neq j}\\|\\hat{\\bm{w}}_{i}-\\hat{\\bm{w}}_{j}\\|^{-1}. One can easily observe that the attainable minimum is zero for Eq. (1). The minimum can be achieved as long as \\bm{W} and \\bm{W}^{0} differ only up to a rotation or reflection, i.e., \\bm{W}=\\bm{R}\\bm{W}^{0} in which \\bm{R}\\in\\mathbb{R}^{d\\times d} is an orthogonal matrix (The determinant 1 or -1 means rotation or reflection, respectively). This is exactly the idea of OFT, that we only need to finetune the neural network by learning layer-shared orthogonal matrices to transform neurons in each layer. Formally, OFT seeks to optimize the orthogonal matrix \\bm{R}\\in\\mathbb{R}^{d\\times d} for a pretrained fully connected layer \\bm{W}^{0}\\in\\mathbb{R}^{d\\times n}, changing the forward pass from \\bm{z}=(\\bm{W}^{0})^{\\top}\\bm{x} to"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E2",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "\\footnotesize\\bm{z}=\\bm{W}^{\\top}\\bm{x}=(\\bm{R}\\cdot\\bm{W}^{0})^{\\top}\\bm{x},~~~\\text{s.t.}~\\bm{R}^{\\top}\\bm{R}=\\bm{R}\\bm{R}^{\\top}=\\bm{I} (2)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.3",
+    "sections": [
+      "S3",
+      "S3.SS2"
+    ],
+    "text": "where \\bm{W} denotes the OFT-finetuned weight matrix and \\bm{I} is an identity matrix. OFT is illustrated in Figure 4. Similar to the zero initialization in LoRA, we need to ensure OFT to finetune the pretrained model exactly from \\bm{W}^{0}. To achieve this, we initialize the orthogonal matrix \\bm{R} to be an identity matrix so that the finetuned model starts with the pretrained weights. To guarantee the orthogonality of the matrix \\bm{R}, we can use differential orthogonalization strategies discussed in [33, 26]. We will discuss how to guarantee the orthogonality in a computationally efficient way."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "3.3 Efficient Orthogonal Parameterization"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "Standard orthogonalization such as Gram-Schmidt method, despite differentiable, is often too expensive to compute in practice [33]. For better efficiency, we adopt Cayley parameterization to generate the orthogonal matrix. Specifically, we construct the orthogonal matrix with \\bm{R}=(\\bm{I}+\\bm{Q})(I-\\bm{Q})^{-1} where \\bm{Q} is a skew-symmetric matrix satisfying \\bm{Q}=-\\bm{Q}^{\\top}. Such an efficiency comes at a small price \u2013 the Cayley parameterization can only produce orthogonal matrices with determinant 1 which belongs to the special orthogonal group. Fortunately, we find that such a limitation does not affect the performance in practice. Even if we use Cayley transform to parameterize the orthogonal matrix, \\bm{R} can still be very parameter-inefficient with a large d. To address this, we propose to represent \\bm{R} with a block-diagonal matrix with r blocks, leading to the following form:"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E3",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "\\footnotesize\\bm{R}=\\text{diag}(\\bm{R}_{1},\\bm{R}_{2},\\cdots,\\bm{R}_{r})=\\begin{bmatrix}\\bm{R}_{1}\\in\\text{O}(\\frac{d}{r})&&\\\\ &\\ddots&\\\\ &&\\bm{R}_{r}\\in\\text{O}(\\frac{d}{r})\\end{bmatrix}\\in\\text{O}(d) (3)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "where \\text{O}(d) denotes the orthogonal group in dimension d, and \\bm{R}\\in\\mathbb{R}^{d\\times d} and \\bm{R}_{i}\\in\\mathbb{R}^{d/r\\times d/r},\\forall i are orthogonal matrices. When r=1, then the block-diagonal orthogonal matrix becomes a standard unconstrained one. For an orthogonal matrix with size d\\times d, the number of parameters is d(d-1)/2, resulting in a complexity of \\mathcal{O}(d^{2}). For an r-block diagonal orthogonal matrix, the number of parameter is d(d/r-1)/2, resulting in a complexity of \\mathcal{O}(d^{2}/r). We can optionally share the block matrix to further reduce the number of parameters, i.e., \\bm{R}_{i}=\\bm{R}_{j},\\forall i\\neq j. This reduces the parameter complexity to \\mathcal{O}(d^{2}/r^{2}). Despite all these strategies to improve parameter efficiency, we note that the resulting matrix \\bm{R} remains orthogonal, so there is no sacrifice in preserving hyperspherical energy."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS3"
+    ],
+    "text": "We discuss how OFT compares to LoRA in terms of parameter efficiency. For LoRA with a low-rank parameter r^{\\prime}, we have its number of trainable parameters as r^{\\prime}(d+n). If we consider both r and r^{\\prime} to be dependent on the neuron dimension d (e.g., r=r^{\\prime}=\\alpha d where 0<\\alpha\\leq 1 is some constant), then the parameter complexity of LoRA becomes \\mathcal{O}(d^{2}+dn) and the parameter complexity of OFT becomes \\mathcal{O}(d). We illustrate the difference in complexity between OFT and LoRA with a concrete example. Suppose we have a weight matrix with size 128\\times 128, LoRA has 2,048 trainable parameters with r^{\\prime}=8, while OFT has 960 trainable parameters with r=8 (no block sharing is applied). We can easily see that OFT yields better or comparable parameter efficiency than LoRA in most cases."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "3.4 Constrained Orthogonal Finetuning"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p1.1",
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "We can further limit the flexibility of original OFT by constraining the finetuned model to be within a small neighborhood of the pretrained model. Specifically, COFT uses the following forward pass:"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E4",
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "\\footnotesize\\bm{z}=\\bm{W}^{\\top}\\bm{x}=(\\bm{R}\\cdot\\bm{W}^{0})^{\\top}\\bm{x},~~~\\text{s.t.}~\\bm{R}^{\\top}\\bm{R}=\\bm{R}\\bm{R}^{\\top}=\\bm{I},~\\left\\lVert\\bm{R}-\\bm{I}\\right\\rVert\\leq\\epsilon (4)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p1.2",
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "which has an orthogonality constraint and an \\epsilon-deviation constraint to an identity matrix. The orthogonality constraint can be achieved with the Cayley parameterization introduced in Section 3.3. However, it is nontrivial to incorporate the \\epsilon-deviation constraint to the Cayley-parameterized orthogonal matrix. To gain more insights on the Cayley transform, we apply the Neumann series to approximate \\bm{R}=(\\bm{I}+\\bm{Q})(I-\\bm{Q})^{-1} as \\bm{R}\\approx\\bm{I}+2\\bm{Q}+\\mathcal{O}(\\bm{Q}^{2}) (under the assumption that the Neumann"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p2.1",
+    "sections": [
+      "S3",
+      "S3.SS4"
+    ],
+    "text": "series converges in the operator norm). Therefore, we can move the constraint \\|\\bm{R}-\\bm{I}\\|\\leq\\epsilon inside the Cayley transform, and the equivalent constraint is \\|\\bm{Q}-\\bm{0}\\|\\leq\\epsilon^{\\prime} where \\bm{0} denotes an all-zero matrix and \\epsilon^{\\prime} is another error hyperparameter (different than \\epsilon). The new constraint on the matrix \\bm{Q} can be easily enforced by projected gradient descent. To achieve identity initialization for the orthogonal matrix \\bm{R}, we initialize \\bm{Q} as an all-zero matrix. COFT can be viewed as a combination of two constraints: minimal hyperspherical energy difference and constrained deviation from the pretrained model. The second constraint is usually implicitly employed by existing finetuning methods. Despite the excellent performance of OFT, we observe that COFT yields even better finetuning stability than OFT due to the deviation constraint."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "S4"
+    ],
+    "text": "4 Intriguing Insights and Discussions"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "OFT is agnostic to different architectures. We can apply OFT to any type of neural network in principle. For Transformers, LoRA is typically applied to the attention weights [22]. To compare fairly to LoRA, we only apply OFT to finetune the attention weights in our experiments. Besides fully connected layers, OFT is also well suited for finetuning convolution layers, because the block-diagonal structure of \\bm{R} has interesting interpretations in convolution layers (unlike LoRA). When we use the same number of blocks as the number of input channels, each block only transforms a unique neuron channel, similar to learning depth-wise convolution kernels [10]. When all the blocks in \\bm{R} are shared, OFT transforms the neurons with an orthogonal matrix shared across channels."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p2.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "Connection between OFT and LoRA. By adding a low-rank matrix, LoRA prevents the information in the pretrained weight matrix from shifting dramatically. In contrast, OFT controls the transform that applies to the pretrained weight matrix to be orthogonal (full-rank), which can also be viewed as preventing the transform to destroy the pretrained information. We can rewrite OFT\u2019s forward pass as \\bm{z}=(\\bm{R}\\bm{W}^{0})^{\\top}\\bm{x}=(\\bm{W}^{0}+(\\bm{R}-\\bm{I})\\bm{W}^{0})^{\\top}\\bm{x} where (\\bm{R}-\\bm{I})\\bm{W}^{0} is analogous to the low-rank weight update in LoRA. Since \\bm{W}^{0} is typically full-rank, OFT also performs low-rank weight update when \\bm{R}-\\bm{I} is low-rank. Similar to LoRA that has a low-rank parameter r^{\\prime}, OFT also has a diagonal block parameter r to reduce the number of trainable parameters."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p3.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "Why OFT converges faster. On one hand, we can see from Figure 2 that the most effective update to modify the semantics is to change neuron directions, which is exactly what OFT is designed for. On the other hand, OFT can be viewed as finetuning neurons on a smooth hypersphere manifold, which yields better optimization landscape. This is also empirically verified in [33]."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p4.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "Why not minimize hyperspherical energy. One of the key difference to [33] is that we do not aim to minimize hyperspherical energy. This is quite different from classification problems where neurons without redundancy are desired. The minimum hyperspherical energy means all neurons are uniformly spaced around the hypersphere. This is not a meaningful objective to finetune a pretrained generative model, since it will likely destroy the pretrained information."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p5.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "Trade-off between flexibility and regularity in finetuning. We discover an underlying trade-off between flexibility and regularity. Standard finetuning is the most flexible method, but it yields poor stability and easily causes model collapse. Being surprisingly simple, OFT finds a good balance between flexibility and regularity by preserving the pairwise neuron angles. The block-diagonal parameterization can also be viewed as a regularization of the orthogonal matrix. Although it limits the finetuning flexibility, it brings additional regularity and finetuning stability. COFT is also another example of limiting the flexibility. Our method sheds new light on designing effective finetuning methods."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p6.1",
+    "sections": [
+      "S4"
+    ],
+    "text": "No additional inference overhead. Unlike DreamBooth and ControlNet, our OFT framework introduces no additional inference overhead to the finetuned model. In the inference stage, we can simply multiply the learned orthogonal matrix \\bm{R} into the pretrained weight matrix \\bm{W}^{0} and obtain an equivalent weight matrix \\bm{W}=\\bm{R}\\bm{W}^{0}. Thus the inference speed is the same as the pretrained model."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "S5"
+    ],
+    "text": "5 Experiments and Results"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "sections": [
+      "S5"
+    ],
+    "text": "General settings. In all the experiments, we use Stable Diffusion v1.5 [50] as our pretrained text-to-image diffusion model. All the compared methods finetune the same pretrained model under the same setting. For fairness, we randomly pick generated images from each method. For subject-driven generation, we generally follow DreamBooth [51]. For controllable generation, we generally follow ControlNet [68] and T2I-Adapter [38]. To ensure a fair comparison to LoRA, we only apply OFT or COFT to the same layer where LoRA is used. More results and details are given in the Appendix."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "5.1 Subject-driven Generation"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "Settings. We use DreamBooth [51] and LoRA [22] as the baselines. All the methods adopt the same loss function as in DreamBooth. For DreamBooth and LoRA, we generally follow the original paper and use the best hyperparameter setup. Detailed setup and more results are in the Appendix."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p2.1",
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "Finetuning stability and convergence. We first evaluate the finetuning stability and the convergence speed for DreamBooth, LoRA, OFT and COFT. Results are given in Figure 1 and Figure 6. We can observe that both COFT and OFT are able to finetune the diffusion model quite stably. After 400 iterations, both DreamBooth and OFT variants achieve good control, while LoRA fails to preserve the subject identity. After 2000 iterations, DreamBooth starts to generate collapsed images, and LoRA fails to generate yellow shirt (and instead generates yellow fur). In contrast, both OFT and COFT achieve stable and consistent control over the generated image. The results validate the stability and convergence speed of our OFT framework in finetuning diffusion models."
+  },
+  {
+    "tag": "table",
+    "id": "S5.T1.3",
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "Method DINO \\uparrow CLIP-I \\uparrow CLIP-T \\uparrow LPIPS \\uparrow Real Images 0.703 0.864 - 0.695 DreamBooth 0.614 0.778 0.239 0.737 LoRA 0.613 0.765 0.237 0.744 COFT 0.630 0.783 0.235 0.744 OFT 0.632 0.785 0.237 0.746"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p3.1",
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "Quantitative comparison. Following [51], we conduct a quantitative comparison to evaluate subject fidelity (DINO [5], CLIP-I [44]), text prompt fidelity (CLIP-T [44]) and sample diversity (LPIPS [69]). CLIP-I computes the average pairwise cosine similarity of CLIP embeddings between generated and real images. DINO is similar to CLIP-I, except that we use ViT S/16 DINO embeddings. CLIP-T is the average cosine similarity of CLIP embeddings between text prompt and generated images. We also evaulate average LPIPS cosine similarity between generated images of the same subject with the same text prompt. Results in Table 1 show that both COFT and OFT outperforms both DreamBooth and LoRA in DINO and CLIP-I metrics by a considerable margin, while achieving slightly better or comparable performance in prompt fidelity and diversity metric. For each method, we repeatedly finetune the model with 30 different random seeds under the same settings to minimize randomness. The results show that our OFT framework not only achieves better convergence and stability, but also yields consistently better final results."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p4.1",
+    "sections": [
+      "S5",
+      "S5.SS1"
+    ],
+    "text": "Qualitative comparison. To have a more intuitive understanding of OFT\u2019s benefits, we show some randomly picked examples for subject-driven generation in Figure 7. For fair comparison, all the examples are generated from the same finetuned model using each method, so no example will be optimized for its results. For each method, we select the model that achieves the best validation CLIP metrics. From the results, we can observe that both OFT and COFT deliver excellent subject preservation, while LoRA often fails to preserve the subject identity (e.g., LoRA completely loses the subject identity in the bowl example). In the meantime, both OFT and COFT have much more accurate control using text prompts, while DreamBooth, despite its preservation of subject identity, often fails to generate the image based on the text prompt (e.g., the first row of the bowl example). The qualitative comparison shows that our OFT framework achieves better controllability and subject preservation at the same time. Moreover, the number of iterations is not sensitive in OFT, so OFT performs well even with a large number of iterations, while neither DreamBooth nor LoRA can."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "5.2 Controllable Generation"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p1.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "Settings. We use ControlNet [68], T2I-Adapter [38] and LoRA [22] as the baselines. We consider three challenging controllable generation tasks: Canny edge to image (C2I) on the COCO dataset [31], segmentation map to image (S2I) on the ADE20K dataset [70] and landmark to face (L2F) on the CelebA-HQ dataset [25, 63]. All the methods are used to finetune Stable Diffusion (SD) on these three datasets for 20 epochs. Detailed setup and more results are in the Appendix."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p2.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "Convergence. We evaluate the convergence speed of ControlNet, T2I-Adapter, LoRA and COFT on the L2F task. We provide both quantitative and qualitative evaluation. Specifically for the evaluation metric, we compute the mean \\ell_{2} distance between control face landmarks and predicted face landmarks. In Figure 8, we plot the face landmark error obtained by the model finetuned with different number of epochs. We can observe that both COFT and OFT achieve significantly faster convergence. It takes 20 epochs for LoRA to converge to the performance of our OFT framework at the 8-th epoch. We note that OFT and COFT use a similar number of trainable parameters to LoRA (much fewer than ControlNet), while being much more efficient to converge than existing methods. On the other hand, the fast convergence of OFT is also validated by the results in Figure 1. The right example in Figure 1 shows that OFT is much more data-efficient than ControlNet and LoRA, since OFT can converge well with only 5% of the ADE20K dataset. For qualitative results, we focus on comparing OFT, COFT and ControlNet, because ControlNet achieves the closest landmark error to ours. Results in Figure 9 show that both OFT and COFT converge stably and the generated face pose is gradually aligned with the control landmarks. In contrast to our stable convergence, the controllability in ControlNet suddenly emerges after the 8-th epoch, which matches the sudden convergence phenomenon in [68]. The convergence stability makes our OFT framework much easier to use in practice, since OFT\u2019s learning behavior is more predictable and continuous. Thus it will be easier to tune OFT\u2019s hyperparameters."
+  },
+  {
+    "tag": "table",
+    "id": "S5.T2.3",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "Task Metric SD ControlNet T2I-Adapter LoRA COFT OFT C2I IoU \\uparrow 0.049 0.189 0.078 0.168 0.195 0.193 F1 \\uparrow 0.093 0.317 0.143 0.286 0.325 0.323 S2I mIoU \\uparrow 7.72 20.88 16.38 22.98 26.92 27.06 mAcc \\uparrow 14.40 30.91 26.31 35.52 40.08 40.09 aAcc \\uparrow 33.61 61.42 51.63 58.03 62.96 62.42 L2F Error \\downarrow 146.19 7.61 23.75 7.68 6.92 7.07"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p3.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "Quantitative comparison. We introduce a consistency metric to evaluate controllable generation. The basic idea is to compute the control signal from the generated image and then compare it with the original control signal. For the C2I task, we compute IoU and F1 score. For the S2I task, we compute mean IoU, mean and overall accuracy. For the L2F task, we compute the mean \\ell_{2} distance between control landmarks and predicted landmarks. Results in Table 2 show that both OFT and COFT yields much stronger and accurate control than the other methods."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p4.1",
+    "sections": [
+      "S5",
+      "S5.SS2"
+    ],
+    "text": "Qualitative comparison. We also qualitatively compare OFT and COFT to ControlNet, T2I-Adapter and LoRA. Results in Figure 10 show that OFT and COFT not only yield high-fidelity and realistic image quality, but also achieve accurate control. In the S2I task, we can see that LoRA completely fails to generate images following the input segmentation map, while ControlNet, OFT and COFT can well control the generated images. In contrast to ControlNet, both OFT and COFT are able to generate high-fidelity images with more vivid details and more reasonable geometric structures with far less model parameters. In the C2I task, both OFT and COFT are able to hallucinate semantically similar images based on a rough Canny edges, while T2I-Adapter and LoRA perform much worse. In the L2F task, our method produces the most accurate pose control for generated images. To conclude, we demonstrate the effectiveness of both OFT and COFT in controllable generation."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Sx1"
+    ],
+    "text": "Acknowledgement"
+  },
+  {
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "sections": [
+      "Sx1"
+    ],
+    "text": "The authors would like to sincerely thank Luigi Gresele, Yandong Wen, Yuliang Xiu and many other colleagues at Max Planck Institute for Intelligent Systems for many helpful suggestions."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "bib"
+    ],
+    "text": "References"
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "sections": [
+      "Pt1"
+    ],
+    "text": "Appendix"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A1"
+    ],
+    "text": "Appendix A Experimental Details"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.1",
+    "sections": [
+      "Pt1",
+      "A1"
+    ],
+    "text": "To verify the effectiveness of our Orthogonal Fine-tuning (OFT) method, we extensively evaluate the performance of our method in two common text-to-image generation tasks: subject-driven generation and controllable generation. More specifically, we use the exact same task setting as ControlNet [68] and Dreambooth [51] and the baseline implementations were sourced from the GitHub repository Diffusers and ControlNet."
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px1.p1.1",
+    "sections": [
+      "Pt1",
+      "A1",
+      "A1.SS0.SSS0.Px1"
+    ],
+    "text": "For training the convolutional autoencoder from Figure 2, we use 1000 random images from the Oxford 102 Flower dataset [40]. For the task of subject-driven generation, we use the official DreamBooth dataset, which consists of 30 subjects from 15 different classes. For each subject, there are several images and 25 different text prompts. For generating the image-control-caption combinations, we use BLIP [29] to automatically caption the images (pre-trained model weight and code for captioning based on the GitHub repository BLIP). Note, although COCO provides captions for the training and validation split, to be consistent with other image-control-caption combinations, we instead use the BLIP-generated captions as text prompts. For the C2I task, we use the whole COCO 2017 dataset [31] with in total of 180K images; we generate canny edge images as the control signal using the same canny edge detector as ControlNet. For the S2I task, we use the semantic segmentation dataset ADE20K [70] with in total of 24K image-segmentation mask pairs. For the L2F dataset, we use the CelebA-HQ dataset with in total of 30K images. Additionally, we demonstrate that OFT also works well in other controllable generation tasks, including depth-to-image (D2I), densepose-to-image (P2I), and sketch-to-image (Sk2I). For the D2I task, we also use the COCO dataset and employ MiDaS [47] to generate depth maps; the pre-trained weights are obtained from the GitHub repository MiDaS. For the P2I task, we use the DeepFashion-MultiModal dataset [24] with in total of 44K clothed human images with the corresponding densepose. For the Sk2I task, we use a subset of the LAION-Aesthetics dataset with approximately 350K images to learn sketch-guided image generation."
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px2.p1.1",
+    "sections": [
+      "Pt1",
+      "A1",
+      "A1.SS0.SSS0.Px2"
+    ],
+    "text": "For training our subject-driven generation diffusion model, we follow the training objective of Dreambooth. More specifically, we use the class-specific prior preservation loss to fine-tune our orthogonal matrices:"
+  },
+  {
+    "tag": "table",
+    "id": "A1.E5",
+    "sections": [
+      "Pt1",
+      "A1",
+      "A1.SS0.SSS0.Px2"
+    ],
+    "text": "\\mathbb{E}_{\\bm{x},\\bm{c},\\bm{\\epsilon},\\bm{\\epsilon}^{\\prime},t}[w_{t}\\|\\hat{\\bm{x}}_{\\theta}(\\alpha_{t}\\bm{x}+\\sigma_{t}\\bm{\\epsilon},\\bm{c})-\\bm{x}\\|^{2}_{2}+\\lambda w_{t^{\\prime}}\\|\\hat{\\bm{x}}_{\\theta}(\\alpha_{t^{\\prime}}\\bm{x}_{\\text{pr}}+\\sigma_{t^{\\prime}}\\bm{\\epsilon}^{\\prime},\\bm{c}_{\\text{pr}})-\\bm{x}_{\\text{pr}}\\|^{2}_{2}], (5)"
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px2.p1.2",
+    "sections": [
+      "Pt1",
+      "A1",
+      "A1.SS0.SSS0.Px2"
+    ],
+    "text": "with \\bm{c}_{\\text{pr}} being the class conditioning vector. For calculating the prior-preservation loss, we additionally need to generate 200 images using the subject\u2019s class prompt. Similar to LoRA, we inject our trainable orthogonal matrices into the attention modules of the stable diffusion model. To be comparable with LoRA, we choose the exact same linear layers as LoRA to affect upon: the linear layers \\bm{W}_{q}, \\bm{W}_{k}, \\bm{W}_{v} and \\bm{W}_{o}. We perform training on 1 Tesla V100-SXM2-32GB GPU using a learning rate of 6\\times 10^{-5}, batch size of 1, and train for approximately 1000 iterations. In the case of COFT, we use \\epsilon=6\\times 10^{-5} to constrain the orthogonal matrices."
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px3.p1.1",
+    "sections": [
+      "Pt1",
+      "A1",
+      "A1.SS0.SSS0.Px3"
+    ],
+    "text": "Apart from injecting the trainable OFT weights into the stable diffusion model, we need to add a small encoding model to stable diffusion to encode the control signal. To be comparable with ControlNet [68], we use the same encoding module, which is a shallow 8-layer convolutional network with Scaled Exponential Linear Unit (SiLU) activation functions. We also the same training objective as ControlNet The control signal is encoded and concatenated once with the input to the stable diffusion U-Net. For the LoRA baseline, we use the same encoding module to encode the control signal. For S2I, L2I and P2I, we fine-tune the model for 20 epochs; for C2I and D2I we fine-tune the model for 10 epochs; for Sk2I we fine-tune the model for 8 epochs. We perform training on 4 NVIDIA A100-SXM4-80GB GPUs using a learning rate of 1\\times 10^{-5}, batch size of 16 for all the tasks (except for L2I). For fine-tuning with COFT, we use \\epsilon=1\\times 10^{-3}."
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px4.p1.1",
+    "sections": [
+      "Pt1",
+      "A1",
+      "A1.SS0.SSS0.Px4"
+    ],
+    "text": "When evaluating the effectiveness of controllable generation, we primarily focus on evaluating the controllability. Using the consistency metrics introduced in the main paper, we can effectively compute the difference between the control signal and the generated image. For the C2I task, we apply the identical canny filter on the generated image to determine a canny image of the predicted image. Both the control signal canny image and the canny image obtained from the generated images are black-and-white images, with pixel values being either 0 or 1. We evaluate the pixel-wise Intersection over Union (IoU) and F1 score between these two canny predictions. For the S2I task, we compute mean IoU, mean and overall accuracy by deploying a pre-trained semantic segmentation model. More specifically, we use the Segformer [64] model, which is trained on ADE20K, to perform semantic segmentation on our generated images. We use the segmentation accuracy as an indication for the overall semantically and structural resemblance of the generated images to the ground truth image. For the L2F task, we compute the mean \\ell_{2} distance between the input control landmarks and the landmarks estimated from generated images using facial landmark detector [4]."
+  },
+  {
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px4.p2.1",
+    "sections": [
+      "Pt1",
+      "A1",
+      "A1.SS0.SSS0.Px4"
+    ],
+    "text": "We also evaluate the generation performance by calculating Fr\u00e9chet Inception Distance (FID) [19], we use the default setting of the GitHub repository pytorch-fid. The FID is a metric quantifying the similarity between two image dataset. It utilizes 2048-dimensional features, which are derived from the final average pooling layer of a pretrained InceptionV3 network trained on ImageNet dataset. A lower FID score indicates a higher similarity between the datasets."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A2"
+    ],
+    "text": "Appendix B Effect of Different Number of Diagonal Blocks"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p1.1",
+    "sections": [
+      "Pt1",
+      "A2"
+    ],
+    "text": "We note that the number of diagonal blocks r is an important hyperparameter that effectively controls the number of trainable parameters. It is necessary to perform a sensitivity study on this hyperparameter. Following the same settings as the main paper, we evaluate how r affects OFT in the S2I task. Results in Table 3 show that smaller r (closer to recovering the standard orthogonal matrix) generally works better than larger r. However, we find that a good trade-off between flexibility and parameter-efficiency indeed exists. Empirically, we find that we can use a much bigger r if the dataset is simple, leading to better parameter-efficiency and faster convergence. In the main paper, we always use r=4 because we find that r=4 works well across datasets and tasks. Note that, in terms of the number of inference parameters, both LoRA and OFT have the exact same number of parameters, which is equal to the number of parameters of the underlying stable diffusion model, while ControlNet has an additional control model with 361M parameters."
+  },
+  {
+    "tag": "table",
+    "id": "A2.T3.3",
+    "sections": [
+      "Pt1",
+      "A2"
+    ],
+    "text": "ControlNet r=2 r=4 r=8 r=16 Trainable Parameters 361.3 M 29.5 M 16.3 M 9.7 M 6.4 M Inference Parameters 1.42 B 1.06 B 1.06 B 1.06 B 1.06 B mIoU \\uparrow 20.88 27.18 27.06 24.09 21.0 mAcc \\uparrow 30.91 39.39 40.09 36.95 32.55 aAcc \\uparrow 61.42 65.24 62.96 60.25 55.5"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A3"
+    ],
+    "text": "Appendix C Improving OFT with Magnitude Re-fitting"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p1.1",
+    "sections": [
+      "Pt1",
+      "A3"
+    ],
+    "text": "Since both OFT and COFT transform neurons with orthogonal matrices and do not affect the magnitude of neurons, their magnitude may be sub-optimal with their updated orientations. To address this issue, we propose a refinement strategy for magnitude re-fitting (MF) using the same set of data in the downstream task. Specifically, MF further refines the magnitude of neurons without changing their directions. MF can be performed in two manners: (1) joint fitting: MF can be used simultaneously with OFT or COFT, and (2) Post-stage fitting: MF can be used after OFT or COFT is finished. An important motivation for MF comes from Figure 2, where we observe that constructing images only with angular information perfectly preserves visual structures, but it also results in a certain degree of color distortion. We hypothesize that this minor color distortion is caused by magnitude loss and fixing this issue can potentially improve the visual quality of generated images."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.1",
+    "sections": [
+      "Pt1",
+      "A3"
+    ],
+    "text": "Notably, MF does not change the hyperspherical energy since it does not change the direction of neurons - all the nice properties of OFT and COFT on hyperspherical energy are still perfectly preserved. Therefore, the advantage of structural preservation is also inherited."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p3.1",
+    "sections": [
+      "Pt1",
+      "A3"
+    ],
+    "text": "To simplify the experiments and validate MF\u2019s effectiveness, we perform post-stage MF on the COFT model and compare the FID between the original validation images and the generated images (using the control signals extracted from validation images). The reason we use FID here is that FID is more sensitive to color distortion, while the consistency metric only measures the structural preservation. Figure 4 shows that MF can indeed improve the FID of COFT and is beneficial to COFT."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p4.1",
+    "sections": [
+      "Pt1",
+      "A3"
+    ],
+    "text": "MF is lightweight and can be implemented easily by simply adding one trainable parameter for each layer we modify; the parameter has the shape of (N\\times 1), with N corresponds to the number of neurons in that specific layer. The performance gain illustrated in Table 4 is achieved by performing Post-stage fitting on a COFT-fine-tuned model for only one additional epoch."
+  },
+  {
+    "tag": "table",
+    "id": "A3.T4.3",
+    "sections": [
+      "Pt1",
+      "A3"
+    ],
+    "text": "SD ControlNet T2I LoRA COFT COFT + MF FID \\downarrow 41.2 30.9 33.1 30.9 30.8 30.2"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A4"
+    ],
+    "text": "Appendix D Applying OFT to Convolution Layers"
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.1",
+    "sections": [
+      "Pt1",
+      "A4"
+    ],
+    "text": "In the original setting [22], LoRA is only applied to the linear layers of the attention modules. To be a fair comparison, we also apply OFT to these weights. However, OFT is not limited to linear layers but can easily be adapted to convolution layers by transforming the convolutional neurons. We highlight the compatibility of OFT and COFT for finetuning convolution layers. More interestingly, sharing the parameters of diagonal blocks in \\bm{R} becomes interpretable in convolution layers. With a suitable setup, orthogonal matrices with sharing diagonal blocks can transform the convolution kernel in a channel-sharing manner (or in a spatial manner), implying that the same orthogonal transformation is applied to all channels. This shares similar intuition with depth-wise convolution."
+  },
+  {
+    "tag": "p",
+    "id": "A4.p2.1",
+    "sections": [
+      "Pt1",
+      "A4"
+    ],
+    "text": "For this ablation experiment, we study the performance of applying OFT to the convolution layers in the ResNet blocks of the stable diffusion model. In this experiment, we use COFT as the baseline method and consider the controllable generation (segmentation to image) as an example. We have both quantitative (Table 5) and qualitative results (Figure 11). We can empirically observe that by only fine-tuning the convolutional layers, we can also achieve some degree of control. By simultaneously fine-tuning both linear and convolutional layers, we achieve a slightly better FID score. Note, for fine-tuning convolutional layers, we let r be equal to the number of channels of convolutional neurons in that layer."
+  },
+  {
+    "tag": "table",
+    "id": "A4.T5.3",
+    "sections": [
+      "Pt1",
+      "A4"
+    ],
+    "text": "COFT (attention) COFT (conv) COFT (extended) FID \\downarrow 30.8 39.8 30.4"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A5"
+    ],
+    "text": "Appendix E Comparison between COFT and OFT"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p1.1",
+    "sections": [
+      "Pt1",
+      "A5"
+    ],
+    "text": "We have already provided many qualitative examples for COFT and OFT in the main paper. One may question the fundamental difference between OFT and COFT. Based on the intuition behind COFT, the deviation constraint is introduced to improve the training stability. We demonstrate the training stability of COFT with a qualitative example in subject-driven generation. Results in Figure 12 and Figure 13 show that, despite being much more stable than existing methods, OFT will eventually generate collapsed images at the 9000-th iteration. In contrast, COFT still produces visually appealing images. We train both OFT and COFT with a learning rate of 1\\times 10^{-5} and constrain COFT with \\epsilon=1\\times 10^{-5}."
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A6"
+    ],
+    "text": "Appendix F More Qualitative Results"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A6",
+      "A6.SS1"
+    ],
+    "text": "F.1 Subject-driven Generation"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A6",
+      "A6.SS2"
+    ],
+    "text": "F.2 Controllable Generation"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A7"
+    ],
+    "text": "Appendix G More Controllable Generation Tasks"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A7",
+      "A7.SS1"
+    ],
+    "text": "G.1 Dense Pose to Human Body"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A7",
+      "A7.SS2"
+    ],
+    "text": "G.2 Sketch to Image"
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A7",
+      "A7.SS3"
+    ],
+    "text": "G.3 Depth to Image"
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A8"
+    ],
+    "text": "Appendix H Failure Cases"
+  },
+  {
+    "tag": "p",
+    "id": "A8.p1.1",
+    "sections": [
+      "Pt1",
+      "A8"
+    ],
+    "text": "We also show a few failure cases of OFT and COFT. Figure 31 gives three failure cases in subject-driven generation. Figure 32 gives three failure cases in controllable generation."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A8",
+      "A8.SS1"
+    ],
+    "text": "H.1 Failure Cases in Subject-driven Generation"
+  },
+  {
+    "tag": "p",
+    "id": "A8.SS1.p1.1",
+    "sections": [
+      "Pt1",
+      "A8",
+      "A8.SS1"
+    ],
+    "text": "In subject-driven generation, OFT and COFT will sometimes fail to ground the text attribute to the intended object. In the cat example, both OFT and COFT will sometimes generate other red objects, instead of generating a red cat."
+  },
+  {
+    "tag": "h4",
+    "id": null,
+    "sections": [
+      "Pt1",
+      "A8",
+      "A8.SS2"
+    ],
+    "text": "H.2 Failure Cases in Controllable Generation"
+  },
+  {
+    "tag": "p",
+    "id": "A8.SS2.p1.1",
+    "sections": [
+      "Pt1",
+      "A8",
+      "A8.SS2"
+    ],
+    "text": "Both OFT and COFT will sometimes hallucinate complicated structural details in a large region with the same semantics. Despite still being visually plausible, these generated images cannot match the original segmentation maps."
+  },
+  {
+    "tag": "p",
+    "id": "A8.SS2.p2.1",
+    "sections": [
+      "Pt1",
+      "A8",
+      "A8.SS2"
+    ],
+    "text": ""
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "sections": [],
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "sections": [],
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "sections": [],
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "sections": [],
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "sections": [],
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]

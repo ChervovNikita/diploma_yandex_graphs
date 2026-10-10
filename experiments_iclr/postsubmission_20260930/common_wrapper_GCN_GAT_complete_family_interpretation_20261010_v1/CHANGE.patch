@@ -1,0 +1,195 @@
+--- common_wrapper_SAGE_complete_family_interpretation_20261010_v1/analysis.py
++++ common_wrapper_GCN_GAT_complete_family_interpretation_20261010_v1/analysis.py
+@@ -1,4 +1,4 @@
+-"""Read-only, post-closure interpretation of the complete selected VALID family."""
++"""Read-only interpretation after both fixed GCN/GAT companion families close."""
+ import argparse
+ import hashlib
+ import itertools
+@@ -10,7 +10,11 @@
+ ARMS = ("ordinary_M1", "ordinary_genuine_I4", "factorized_allmap_M1",
+         "factorized_allmap_genuine_I4", "shared4_unchanged", "separable_equal_size", "exchange")
+ O1, O4, F1, F4, S, D, X = ARMS
+-DECISION_SHA256 = "0d4ffe35cb73b6a840282612e3d94eec87e9130920657e68267ac7e74b3a5b93"
++BINDINGS = {
++    "GCN": {"decision_sha256": "b6a6bcef59c0ca0c3e16c12775a98153b5685782272ada4fa53587ebe7dc4da3",
++            "config_sha256": "aeee4950c3db650ff62c5b225f92c766539e5721e9f9c1dc362dfd149854dea1"},
++    "GAT": {"decision_sha256": "75ad1b2344a21da97b1a4efde666f16f9413a8558de40936e1413b422aa4be60",
++            "config_sha256": "3a5925a2c4b15aa225a98265a5153cb27948919f0ce723bf4203b473871f71d2"}}
+ STATES = ("no_alternative_wrong", "aggregation_only_correct", "alternative_lost", "alternative_served")
+ 
+ 
+@@ -85,26 +89,28 @@
+             "class_harms": [int((harm & (labels == k)).sum()) for k in range(10)]}
+ 
+ 
+-def main():
+-    parser = argparse.ArgumentParser()
+-    parser.add_argument("--output", required=True, help="Closed family directory")
+-    parser.add_argument("--owner-end", required=True)
+-    parser.add_argument("--report", required=True, help="New JSON path; existing files are refused")
+-    args = parser.parse_args()
+-    output, owner_path, report_path = map(Path, (args.output, args.owner_end, args.report))
+-    require(not report_path.exists(), "Report must be a new file")
+-    owner = json.loads(owner_path.read_text())
++def closed_owner(path):
++    owner = json.loads(path.read_text())
+     require(owner.get("exit_code") == 0 and owner.get("timed_out") is False, "Successful finite owner exit required")
+     for field in ("direct_child_wait", "child_pid_absent", "owned_cuda_pid_absent", "complete_family", "scientific_success"):
+         require(owner.get(field) is True, "Owner closure missing: " + field)
+     require(owner.get("TEST_access") is False, "Owner must declare no TEST access")
++    return owner
++
++
++def closed_family(backbone, output, owner_path, owner):
++    bound = BINDINGS[backbone]
+     complete_path, decision_path = output / "COMPLETE_FAMILY.json", owner_path.parent / "DECISION.md"
++    config_path = owner_path.parent / "CONFIG.json"
+     require(owner.get("complete_sha256") == digest(complete_path), "Owner must bind this exact complete report")
+-    require(digest(decision_path) == DECISION_SHA256, "Frozen DECISION.md identity mismatch")
++    require(digest(decision_path) == bound["decision_sha256"], "Frozen backbone DECISION.md identity mismatch")
++    require(digest(config_path) == bound["config_sha256"], "Fixed companion config identity mismatch")
+     complete = json.loads(complete_path.read_text())
+     require(complete.get("complete") is True and complete.get("TEST_access") is False, "Complete no-TEST family required")
+     require(complete.get("groups") == complete.get("expected_groups") == 21 and complete.get("fit_units") == complete.get("expected_fit_units") == 39, "Exact21/39 family required")
+-    cfg = json.loads((output / "CONFIG.json").read_text())
++    cfg = json.loads(config_path.read_text())
++    require(cfg["backbone"] == backbone and json.loads((output / "CONFIG.json").read_text()) == cfg, "Exact configured backbone required")
++    require(complete["config_sha256"] == bound["config_sha256"], "Complete report must bind the fixed config")
+     seeds, rows = cfg["seeds"], complete["results"]
+     require(len(seeds) == len(set(seeds)) == 3 and len(rows) == 21, "Three distinct paired seeds required")
+     index = {(r["seed"], r["arm"]): r for r in rows}
+@@ -115,9 +121,11 @@
+         require([u["member"] for u in r["fits"]] == list(range(members)), "Missing independently selected acquisition unit")
+     operations = {k: sum(u["operation_counts"][k] for r in rows for u in r["fits"]) for k in rows[0]["fits"][0]["operation_counts"]}
+     require(operations == complete["operation_counts"], "Complete operation-count aggregation mismatch")
+-
+-    global np
+-    import numpy as np
++    return dict(backbone=backbone, output=output, owner_path=owner_path, owner=owner, complete_path=complete_path,
++                decision_path=decision_path, complete=complete, cfg=cfg, seeds=seeds, index=index, operations=operations)
++
++
++def selected(output, seeds):
+     arrays, archive_hashes, ids, labels = {}, {}, None, None
+     keys = {"ids", "y", "raw_logits", "probability_mean", "member_errors", "pooled_errors"}
+     for seed in seeds:
+@@ -138,6 +146,14 @@
+             require(np.array_equal(ids, a["ids"]) and np.array_equal(labels, a["y"]), "All21 archives must have identical ordered IDs/labels")
+             require(np.array_equal(a["probability_mean"].argmax(1) != labels, a["pooled_errors"]), "Saved probability decisions and errors disagree")
+             arrays[seed, arm], archive_hashes[str(path)] = a, digest(path)
++    return arrays, archive_hashes, ids, labels
++
++
++def analyze(context, selected_arrays):
++    backbone, output = context["backbone"], context["output"]
++    owner_path, owner, complete_path, complete = (context[k] for k in ("owner_path", "owner", "complete_path", "complete"))
++    seeds, index, operations = (context[k] for k in ("seeds", "index", "operations"))
++    arrays, archive_hashes, ids, labels = selected_arrays
+     scores = {key: score(value) for key, value in arrays.items()}  # All21 identities checked before scoring.
+     groups, aggregates = [], {}
+     for arm in ARMS:
+@@ -146,7 +162,7 @@
+             a = scores[seed, arm]
+             row = {"arm": arm, "seed": seed, **{k: a[k] for k in ("quality", "counts", "classes")},
+                    "selected_steps": [u["selected_step"] for u in index[seed, arm]["fits"]], "costs": index[seed, arm]["costs"],
+-                   "versus": {ref: comparison(a, scores[seed, ref], labels) for ref in (S, D, F4)}}
++                   "versus": {ref: comparison(a, scores[seed, ref], labels) for ref in ((S, D, F4, O4, O1, F1) if arm == S else (S, D, F4))}}
+             groups.append(row)
+             arm_rows.append(row)
+         total = {k: sum(r["counts"][k] for r in arm_rows) for k in arm_rows[0]["counts"]}
+@@ -158,7 +174,7 @@
+                            "inference_parameter_bytes_per_seed": [r["costs"]["inference_parameter_bytes"] for r in arm_rows]}
+ 
+     contrasts = {}
+-    for candidate, reference in ((X, S), (X, D), (X, O4), (X, F4), (X, O1), (X, F1), (S, F4), (F1, O1), (F4, O4)):
++    for candidate, reference in ((X, S), (X, D), (X, O4), (X, F4), (X, O1), (X, F1), (S, F4), (S, O4), (S, O1), (S, F1), (F1, O1), (F4, O4)):
+         a, b = [scores[s, candidate] for s in seeds], [scores[s, reference] for s in seeds]
+         contrasts[candidate + "_minus_" + reference] = {
+             "accuracy_pp": paired(100 * (u["counts"]["pooled_correct"] - v["counts"]["pooled_correct"]) / 5274 for u, v in zip(a, b)),
+@@ -181,6 +197,16 @@
+     development_pass = all(development.values())
+     advantage_pass = development_pass and all(all(v.values()) for v in advantage.values()) and all(singles.values())
+ 
++    baseline_stat = lambda ref, metric: contrasts[S + "_minus_" + ref][metric]
++    baseline_banks = {ref: {"mean_accuracy_gain_at_least_0_2pp": baseline_stat(ref, "accuracy_pp")["mean"] >= .2,
++                            "all_seed_accuracy_nonnegative": baseline_stat(ref, "accuracy_pp")["nonnegative_seed_count"] == 3,
++                            "at_least_two_positive_seed_gains": baseline_stat(ref, "accuracy_pp")["positive_seed_count"] >= 2} for ref in (O4, F4)}
++    baseline_singles = {ref: sum(scores[s, S]["counts"]["pooled_correct"] - scores[s, ref]["counts"]["pooled_correct"] for s in seeds) > 0 for ref in (O1, F1)}
++    baseline_nll = {ref: {"mean_nll_deterioration_at_most_0_02": baseline_stat(ref, "nll")["mean"] <= .02,
++                          "each_seed_nll_deterioration_at_most_0_05": max(baseline_stat(ref, "nll")["seed_deltas"]) <= .05} for ref in (O4, F4)}
++    baseline_accuracy_pass = all(all(v.values()) for v in baseline_banks.values()) and all(baseline_singles.values())
++    baseline_nll_pass = all(all(v.values()) for v in baseline_nll.values())
++
+     complementarity = []
+     for seed in seeds:
+         p = {arm: scores[seed, arm]["P"] for arm in (S, D, X, F4)}
+@@ -193,9 +219,9 @@
+     persistence = {kind: int(np.logical_and.reduce([(~scores[s, S]["P"] & scores[s, X]["P"]) if kind == "exchange_repairs_all_three" else (scores[s, S]["P"] & ~scores[s, X]["P"]) for s in seeds]).sum()) for kind in ("exchange_repairs_all_three", "exchange_harms_all_three")}
+     interaction = {"accuracy_pp": paired(100 * ((scores[s, F4]["counts"]["pooled_correct"] - scores[s, O4]["counts"]["pooled_correct"]) - (scores[s, F1]["counts"]["pooled_correct"] - scores[s, O1]["counts"]["pooled_correct"])) / 5274 for s in seeds),
+                    "negative_nll": paired((scores[s, O4]["quality"]["pooled_nll"] - scores[s, F4]["quality"]["pooled_nll"]) - (scores[s, O1]["quality"]["pooled_nll"] - scores[s, F1]["quality"]["pooled_nll"]) for s in seeds)}
+-    report = {"complete": True, "groups": 21, "fit_units": 39, "TEST_access": False, "seeds": seeds,
++    report = {"complete": True, "backbone": backbone, "companion_configurations": BINDINGS, "groups": 21, "fit_units": 39, "TEST_access": False, "seeds": seeds,
+               "input_bindings": {"analysis_source_sha256": digest(Path(__file__)), "owner_end_sha256": digest(owner_path),
+-                                 "complete_family_sha256": digest(complete_path), "decision_sha256": DECISION_SHA256,
++                                 "complete_family_sha256": digest(complete_path), "decision_sha256": BINDINGS[backbone]["decision_sha256"],
+                                  "training_source_sha256": complete["source_sha256"], "config_sha256": complete["config_sha256"],
+                                  "ordered_VALID_ids_sha256": hashlib.sha256(ids.tobytes()).hexdigest(), "ordered_VALID_labels_sha256": hashlib.sha256(labels.tobytes()).hexdigest(), "selected_archives": archive_hashes},
+               "owner_seconds": owner["seconds"], "cost_overlap": owner["overlap"], "operation_counts": operations,
+@@ -205,20 +231,53 @@
+               "frozen_decision": {"development_criteria": development, "development_advance": development_pass,
+                                   "independent_bank_advantage_criteria": advantage, "positive_mean_against_each_single": singles,
+                                   "desired_ensemble_quality_advantage": advantage_pass,
++                                  "baseline_accuracy_transfer_criteria": baseline_banks,
++                                  "baseline_positive_mean_against_each_single": baseline_singles,
++                                  "baseline_accuracy_transfer": baseline_accuracy_pass,
++                                  "baseline_proper_loss_criteria": baseline_nll,
++                                  "baseline_proper_loss_protection": baseline_nll_pass,
++                                  "baseline_accuracy_with_proper_loss_protection": baseline_accuracy_pass and baseline_nll_pass,
+                                   "single_criterion_interpretation": "Exceed both singles means positive mean paired accuracy, as prospectively clarified by root; every seed delta remains reported."},
+-              "interpretation_limits": ["Encountered development VALID after checkpoint selection; unused confirmation is still required.",
++              "interpretation_limits": ["Both native backbones were prospectively fixed companions; neither outcome selects, drops or retunes the other.",
++                  "Baseline accuracy transfer and proper-loss protection are separately reported; accuracy alone is not general quality improvement.",
++                  "Encountered development VALID after checkpoint selection; unused confirmation is still required.",
+                   "Three paired seeds measure optimization variation on this graph, not uncertainty across graphs/splits.",
+                   "The t interval is descriptive; exact sign-flip minimum p is 0.125 one-sided or 0.25 two-sided. No node-IID or bootstrap replication claim.",
+                   "Numerical decision gates alone do not establish reference competence or learning-curve resolution; root reviews those scopes separately.",
+                   "Coverage is an oracle diagnostic; pooled correctness also includes aggregation-only correct answers.",
+                   "Positive interaction cannot rescue poorer final quality. D/X are alternatives, with no measured D×X or exchange-without-factorization factorial.",
+                   "Costs are observed acquisition/readout scopes; genuine I4 was acquired sequentially, with no isolated four-body serving-memory claim."]}
++    return report
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    for name in ("gcn-output", "gcn-owner-end", "gat-output", "gat-owner-end", "report"):
++        parser.add_argument("--" + name, required=True)
++    args = parser.parse_args()
++    report_path = Path(args.report)
++    require(not report_path.exists(), "Report must be a new file")
++    outputs = {"GCN": Path(args.gcn_output), "GAT": Path(args.gat_output)}
++    owner_paths = {"GCN": Path(args.gcn_owner_end), "GAT": Path(args.gat_owner_end)}
++    require(outputs["GCN"].resolve() != outputs["GAT"].resolve(), "Two distinct companion outputs required")
++    owners = {b: closed_owner(owner_paths[b]) for b in BINDINGS}  # Both successful closures first.
++    contexts = {b: closed_family(b, outputs[b], owner_paths[b], owners[b]) for b in BINDINGS}
++    require({k: v for k, v in contexts["GCN"]["cfg"].items() if k != "backbone"} ==
++            {k: v for k, v in contexts["GAT"]["cfg"].items() if k != "backbone"}, "Companion configs must differ only by backbone")
++    global np
++    import numpy as np
++    payloads = {b: selected(outputs[b], contexts[b]["seeds"]) for b in BINDINGS}
++    require(np.array_equal(payloads["GCN"][2], payloads["GAT"][2]) and np.array_equal(payloads["GCN"][3], payloads["GAT"][3]), "Both companions require the exact same ordered VALID IDs/labels")
++    families = {b: analyze(contexts[b], payloads[b]) for b in BINDINGS}  # All42 identities checked before scoring.
++    report = {"complete": True, "backbones": list(BINDINGS), "groups": 42, "fit_units": 78, "TEST_access": False,
++              "prospective_companion_bindings": BINDINGS, "analysis_source_sha256": digest(Path(__file__)), "families": families,
++              "scope": "Fixed GCN/GAT development transfer on the same encountered WikiCS graph; both outcomes retained, no selected winner or unused confirmation."}
+     report_path.parent.mkdir(parents=True, exist_ok=True)
+     with report_path.open("x") as handle:
+         json.dump(report, handle, indent=2, allow_nan=False)
+         handle.write("\n")
+-    print(json.dumps({"report": str(report_path), "development_advance": development_pass,
+-                      "desired_ensemble_quality_advantage": advantage_pass, "complete": True}))
++    summary = {b: {k: families[b]["frozen_decision"][k] for k in ("development_advance", "desired_ensemble_quality_advantage", "baseline_accuracy_transfer", "baseline_proper_loss_protection", "baseline_accuracy_with_proper_loss_protection")} for b in BINDINGS}
++    print(json.dumps({"report": str(report_path), "complete": True, "families": summary}))
+ 
+ 
+ if __name__ == "__main__":

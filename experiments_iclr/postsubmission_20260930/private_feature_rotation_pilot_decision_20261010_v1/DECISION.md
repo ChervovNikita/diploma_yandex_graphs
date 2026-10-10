@@ -1,0 +1,13 @@
+# Finite private-feature rotation screen
+
+Frozen execution-efficiency decision before any new-operator outcome: use the already complete GAT/SAGE references rather than reacquire them. The provisional90-acquisition design is superseded by24new acquisitions, retaining every scientific comparator.
+
+For each backbone and paired seed7301/7403/7507 acquire four shared-four arms: coherent diagonal baseline; paired Householders at native graph maps; equal-coordinate rank-one LoRA at the same maps; paired Householders at local FFN maps with the same total extra count. Original Rademacher shared, ordinary M1/I4 and factorized M1/I4 come from their complete immutable families. All use original native H128/L2/dropout.2/AdamW.001/wd0/max1000/patience300 and the same TRAIN580/VALID5274 roles. Preserve every acquired and reused result and cost; report fresh versus historical acquisitions separately. No TEST.
+
+Before launch root binds source/config/data/ref hashes, one full-TRAIN integration and complete-reference identities. Acquire both full12-fit families before combined interpretation; no seed/backbone/arm selection from partial quality.
+
+Accuracy is the primary scientific target. Report candidate contrasts against coherent baseline, original shared and both genuine independent banks separately. A transfer clue requires positive mean against all four references in both backbones, at least0.2pp versus coherent and ordinary I4, nonnegative all three paired deltas versus ordinary I4, and at least two positive per backbone. Compare graph-pair against matched LoRA and local placement without claiming these mechanisms identical in tangent freedom or compute.
+
+Report all member accuracies, any-correct coverage, lost alternatives, aggregation-only answers, repairs/harms, classes, proper loss and descriptive paired intervals. A distinct quality-protection flag requires mean member difference versus coherent >=0, each seed >=-.1pp, NLL deterioration <=.02mean/<=.05each seed. A failed protection flag does not erase an accuracy result; it blocks a claim of protected quality. These are exploratory advance decisions, not hypothesis-test guarantees.
+
+Even a transfer pass establishes neither novelty nor generality. Follow it with same-operation competent singles/genuineI4 and cleaner unused graph evidence, prioritizing confirmation over tuning. A failure closes this exact rule in its measured scope; do not rescue it with a coefficient/orientation grid. Orthogonal adapters and private LoRA ensembles are direct ancestry. No independent trained teachers, scalar-gauge treatment, contrastive auxiliary, router or RL is added.
