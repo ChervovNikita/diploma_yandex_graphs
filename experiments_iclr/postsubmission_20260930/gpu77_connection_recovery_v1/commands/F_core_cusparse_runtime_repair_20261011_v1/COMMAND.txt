@@ -1,0 +1,56 @@
+python3 -B -c 'import hashlib,json,os,socket,subprocess,time,traceback
+from pathlib import Path
+expected=['"'"'GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998'"'"','"'"'GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced'"'"']
+assert socket.gethostname()=='"'"'peptide'"'"'
+observed=subprocess.check_output(['"'"'nvidia-smi'"'"','"'"'--query-gpu=uuid'"'"','"'"'--format=csv,noheader'"'"'],text=True).splitlines()
+assert observed==expected
+R=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"')
+E=R/'"'"'.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1'"'"'
+H=R/'"'"'experiments_iclr/postsubmission_20260930/F_core_cusparse_runtime_repair_20261011_v1'"'"'
+assert R.is_dir() and (E/'"'"'bin/python'"'"').is_file()
+H.mkdir(parents=True,exist_ok=False)
+env=dict(os.environ,CUDA_VISIBLE_DEVICES=expected[0],OMP_NUM_THREADS='"'"'2'"'"',MKL_NUM_THREADS='"'"'2'"'"',OPENBLAS_NUM_THREADS='"'"'2'"'"',PYTHONDONTWRITEBYTECODE='"'"'1'"'"',DGLBACKEND='"'"'pytorch'"'"')
+for key in ('"'"'PYTHONPATH'"'"','"'"'PYTHONHOME'"'"','"'"'PIP_EXTRA_INDEX_URL'"'"','"'"'PIP_INDEX_URL'"'"'):env.pop(key,None)
+command=[str(E/'"'"'bin/python'"'"'),'"'"'-B'"'"','"'"'-m'"'"','"'"'pip'"'"','"'"'--isolated'"'"','"'"'--disable-pip-version-check'"'"','"'"'install'"'"','"'"'--no-cache-dir'"'"','"'"'--only-binary=:all:'"'"','"'"'--index-url'"'"','"'"'https://pypi.org/simple'"'"','"'"'nvidia-cusparse-cu11==11.7.5.86'"'"']
+before=time.monotonic()
+try:
+ pip=subprocess.run(command,cwd=R,env=env,capture_output=True,text=True,timeout=90)
+ installation=dict(exit_code=pip.returncode,seconds=time.monotonic()-before,stdout=pip.stdout,stderr=pip.stderr)
+except subprocess.TimeoutExpired as error:
+ def string(value):return value.decode(errors='"'"'replace'"'"') if isinstance(value,bytes) else (value or '"'"''"'"')
+ installation=dict(exit_code=None,timeout_seconds=90,seconds=time.monotonic()-before,stdout=string(error.stdout),stderr=string(error.stderr))
+(H/'"'"'INSTALL_RECEIPT.json'"'"').write_text(json.dumps(installation,indent=2)+'"'"'\n'"'"')
+imports=None
+if installation.get('"'"'exit_code'"'"')==0:
+ probe="""import hashlib,importlib,importlib.metadata as md,json,sys,sysconfig,time,traceback
+from pathlib import Path
+R=Path('"'"'/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git'"'"');E=R/'"'"'.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1'"'"'
+assert Path(sys.executable).absolute().is_relative_to(E)
+sys.path.insert(0,str(R))
+start=time.monotonic();result={'"'"'python_executable'"'"':sys.executable,'"'"'prefix'"'"':sys.prefix,'"'"'python_version'"'"':sys.version,'"'"'scientific_qualification_run'"'"':False,'"'"'TEST_access'"'"':False}
+try:
+ import torch,torch_geometric
+ result['"'"'torch'"'"']=torch.__version__;result['"'"'torch_cuda'"'"']=torch.version.cuda;result['"'"'pyg'"'"']=torch_geometric.__version__
+ lib=Path(sysconfig.get_paths()['"'"'purelib'"'"'])/'"'"'nvidia/cusparse/lib/libcusparse.so.11'"'"'
+ result['"'"'cusparse_library'"'"']={'"'"'path'"'"':str(lib),'"'"'bytes'"'"':lib.stat().st_size,'"'"'sha256'"'"':hashlib.sha256(lib.read_bytes()).hexdigest()}
+ result['"'"'named_imports'"'"']={}
+ for name in ('"'"'models'"'"','"'"'run_base'"'"','"'"'run_common'"'"'):
+  module=importlib.import_module(name);path=Path(module.__file__).resolve();assert path==R/(name+'"'"'.py'"'"')
+  result['"'"'named_imports'"'"'][name]={'"'"'path'"'"':str(path),'"'"'bytes'"'"':path.stat().st_size,'"'"'sha256'"'"':hashlib.sha256(path.read_bytes()).hexdigest()}
+ result['"'"'versions'"'"']={name:md.version(name) for name in ('"'"'nvidia-cusparse-cu11'"'"','"'"'torch'"'"','"'"'torch-geometric'"'"','"'"'dgl'"'"','"'"'numpy'"'"','"'"'scipy'"'"','"'"'scikit-learn'"'"')}
+ result['"'"'imports_ok'"'"']=True
+except Exception as error:result.update(imports_ok=False,error=repr(error),traceback=traceback.format_exc())
+result['"'"'seconds'"'"']=time.monotonic()-start
+print('"'"'NATIVE_IMPORT_JSON='"'"'+json.dumps(result))
+"""
+ before=time.monotonic()
+ try:
+  child=subprocess.run([str(E/'"'"'bin/python'"'"'),'"'"'-B'"'"','"'"'-c'"'"',probe],cwd=R,env=env,capture_output=True,text=True,timeout=20)
+  imports=dict(exit_code=child.returncode,seconds=time.monotonic()-before,stdout=child.stdout,stderr=child.stderr)
+ except subprocess.TimeoutExpired as error:
+  imports=dict(exit_code=None,timeout_seconds=20,seconds=time.monotonic()-before)
+ (H/'"'"'NAMED_IMPORT_RECEIPT.json'"'"').write_text(json.dumps(imports,indent=2)+'"'"'\n'"'"')
+result={'"'"'hostname'"'"':socket.gethostname(),'"'"'gpu_uuids'"'"':observed,'"'"'runtime'"'"':str(E),'"'"'installation'"'"':installation,'"'"'named_import_check'"'"':imports,'"'"'scientific_qualification_run'"'"':False,'"'"'TEST_access'"'"':False}
+(H/'"'"'COMPLETE_REPAIR_ATTEMPT.json'"'"').write_text(json.dumps(result,indent=2)+'"'"'\n'"'"')
+print('"'"'CUSPARSE_REPAIR_JSON='"'"'+json.dumps(result))
+'

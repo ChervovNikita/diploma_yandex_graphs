@@ -1,0 +1,325 @@
+--- native_SAGE_GNCL_SupCon_2x2_source_20261010_v1/run_family.py
++++ native_SAGE_context_positive_exclusion_source_20261010_v1/run_family.py
+@@ -1,4 +1,4 @@
+-"""Prospective native SAGE GNCL x within-route SupCon; existing Family lifecycle."""
++"""Inactive native SAGE fixed-context exclusion; existing Family, root admission."""
+ import argparse
+ import hashlib
+ import importlib.util
+@@ -10,8 +10,13 @@
+ import time
+ from types import SimpleNamespace
+ 
+-ARMS = ("shared4_GNCL", "shared4_own_SupCon", "shared4_GNCL_SupCon",
+-        "ordinary_M1_SupCon", "factorized_M1_SupCon", "genuine_factorized_I4_SupCon")
++ARMS = ("ordinary_M1_context_mixture", "factorized_M1_context_mixture",
++        "genuine_factorized_I4_context_mixture", "shared4_context_private_masked",
++        "shared4_context_pair_mixture_masked", "shared4_context_private_full",
++        "shared4_context_shuffled_masked")
++CONTEXT_MODES = {ARMS[0]: "mixture", ARMS[1]: "mixture", ARMS[2]: "mixture",
++                 ARMS[3]: "private", ARMS[4]: "mixture", ARMS[5]: "private_full",
++                 ARMS[6]: "shuffled_private"}
+ 
+ 
+ def load_source(name, path):
+@@ -43,7 +48,8 @@
+         self.factors = load_source("sage_family_factors", cfg["factors"])
+         self.cfg, self.output = cfg, output
+         self.current, self.completed_units = {"arm": None, "seed": None, "member": None, "update": 0}, 0
+-        source_paths = [__file__, cfg["common_routes"], cfg["factors"]] + [str(Path(cfg["native_repo"]) / name) for name in ("models.py", "run_base.py", "run_common.py")]
++        helper_path = Path(__file__).with_name("context_objective.py")
++        source_paths = [__file__, str(helper_path), cfg["common_routes"], cfg["factors"]] + [str(Path(cfg["native_repo"]) / name) for name in ("models.py", "run_base.py", "run_common.py")]
+         self.source_hashes = {str(Path(path).resolve()): hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in source_paths}
+         self.config_sha256 = config_sha256
+         write_json(output / "SOURCE_HASHES.json", {"config_sha256": config_sha256, "files": self.source_hashes})
+@@ -67,7 +73,7 @@
+         if any(y.min() < 0 or y.max() >= 10 for y in (train_y, valid_y)):
+             raise ValueError("Ten-class role labels required")
+         if any(np.bincount(train_y, minlength=10) < 2):
+-            raise ValueError("SupCon requires at least two TRAIN examples in each of the ten classes")
++            raise ValueError("Context targets require at least two TRAIN examples in each of the ten classes")
+         tensor = lambda a: torch.from_numpy(a).to(self.device)
+         self.train_ids, self.valid_ids, self.valid_y = map(tensor, (train_ids, valid_ids, valid_y))
+         labels = torch.zeros(len(x), dtype=torch.long, device=self.device)
+@@ -77,6 +83,51 @@
+         self.data = SimpleNamespace(x=tensor(x), edge_index=tensor(edges), y=labels, train_mask=mask)
+         self.batch = {"x": self.data.x, "edge_index": self.data.edge_index,
+                       "graph": SimpleNamespace(edge_index=self.data.edge_index)}
++        expected = {"seeds": [7301, 7403, 7507], "backbone": "SAGE", "depth": 2,
++                    "hidden": 128, "dropout": .2, "learning_rate": .001, "weight_decay": 0,
++                    "max_updates": 1000, "patience_updates": 300, "rank": 16,
++                    "member_seed_stride": 1000003, "factor_seed_offset": 2000003,
++                    "dropout_seed_offset": 3000007, "block_seed_offset": 4000037}
++        if any(cfg.get(key, value) != value for key, value in expected.items()):
++            raise ValueError("Exact prospectively fixed native SAGE recipe required; no grid")
++        self.context_objective = load_source("sage_fixed_context_objective", str(helper_path))
++        self.synchronize()
++        prep_start = time.perf_counter()
++        if self.device.type == "cuda":
++            torch.cuda.reset_peak_memory_stats(self.device)
++        target_arrays, preparation = self.context_objective.prepare_targets(np, x, edges, train_ids, train_y)
++        bank_order = np.arange(580, dtype=np.int64)
++        single_order = np.argsort(train_ids, kind="stable")
++        # Native single train_step uses boolean-mask order, unlike bank ids order.
++        self.context_targets = {
++            "bank": self.context_objective.tensor_bank(torch, target_arrays, bank_order, self.device),
++            "single": self.context_objective.tensor_bank(torch, target_arrays, single_order, self.device)}
++        target_file = output / "CONTEXT_TARGETS.npz"
++        np.savez(target_file, train_ids=train_ids, train_y=train_y,
++                 single_order=single_order, **target_arrays)
++        preparation["archive_sha256"] = hashlib.sha256(target_file.read_bytes()).hexdigest()
++        preparation["archive_bytes"] = target_file.stat().st_size
++        preparation["ordered_TRAIN_ids_int64_bytes_sha256"] = hashlib.sha256(train_ids.tobytes(order="C")).hexdigest()
++        preparation["ordered_TRAIN_y_int64_bytes_sha256"] = hashlib.sha256(train_y.tobytes(order="C")).hexdigest()
++        preparation["single_order_int64_bytes_sha256"] = hashlib.sha256(single_order.tobytes(order="C")).hexdigest()
++        preparation["array_hashes"] = {key: {"shape": list(value.shape), "dtype": str(value.dtype),
++            "C_bytes_sha256": hashlib.sha256(value.tobytes(order="C")).hexdigest()} for key, value in target_arrays.items()}
++        preparation["actual_loss_tensor_hashes"] = {
++            order_name: {key: {"shape": list(value.shape), "dtype": str(value.dtype),
++                "C_bytes_sha256": hashlib.sha256(value.detach().cpu().numpy().tobytes(order="C")).hexdigest()}
++                for key, value in tensors.items()} for order_name, tensors in self.context_targets.items()}
++        preparation["torch_version"] = torch.__version__
++        preparation["numpy_version"] = np.__version__
++        preparation["target_loss_dtype"] = "float32; literal row mass multiplies lognormalizer"
++        preparation["same_target_bank_shared_across_all_arms_and_seeds"] = True
++        self.synchronize()
++        preparation["inclusive_preparation_seconds"] = time.perf_counter() - prep_start
++        preparation["process_peak_rss_bytes"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024)
++        preparation["cuda_peak_allocated_bytes"] = torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0
++        preparation["cuda_peak_reserved_bytes"] = torch.cuda.max_memory_reserved(self.device) if self.device.type == "cuda" else 0
++        self.context_preparation = preparation
++        write_json(output / "CONTEXT_TARGETS.json", preparation)
++
+ 
+     def progress(self, member, update):
+         self.current.update(member=member, update=update)
+@@ -158,29 +209,12 @@
+         return (logits[self.data.train_mask].unsqueeze(0),
+                 hidden[self.data.train_mask].unsqueeze(0))
+ 
+-    def within_route_supcon(self, hidden, targets):
+-        torch = self.torch
+-        if hidden.ndim != 3 or hidden.shape[1] != len(targets) or len(targets) != 580:
+-            raise ValueError("Live member-by-all580-TRAIN preclassifier H required")
+-        normalized = self.F.normalize(hidden, p=2, dim=-1, eps=1e-12)
+-        cosine = normalized @ normalized.transpose(-2, -1)
+-        scores = cosine / .2
+-        allowed = ~torch.eye(len(targets), dtype=torch.bool, device=hidden.device)
+-        positives = targets[:, None].eq(targets[None, :]) & allowed
+-        positive_counts = positives.sum(-1)
+-        if (positive_counts == 0).any().item():
+-            raise ValueError("Every TRAIN anchor must have a nonself same-label positive")
+-        log_denominator = torch.logsumexp(scores.masked_fill(~allowed[None], float("-inf")), dim=-1)
+-        mean_positive_score = scores.masked_fill(~positives[None], 0).sum(-1) / positive_counts[None]
+-        route_losses = (log_denominator - mean_positive_score).mean(-1)
+-        return route_losses.mean(), route_losses
+-
+     def probability_pool_ce(self, logits, targets):
+         log_probs = logits.log_softmax(-1)
+         log_pool = self.torch.logsumexp(log_probs, dim=0) - math.log(len(logits))
+         return -log_pool.gather(1, targets[:, None]).mean()
+ 
+-    def fit(self, folder, seed, member, kind, factorized, members, objective="own_only", use_supcon=False):
++    def fit(self, folder, seed, member, kind, factorized, members, context_mode):
+         torch = self.torch
+         folder.mkdir()
+         self.progress(member, 0)
+@@ -191,8 +225,10 @@
+         start = time.perf_counter()
+         model, optimizer, streams = self.make(seed, member, kind, factorized, members)
+         bank, best, stale = members > 1, -1., 0
+-        if objective not in ("own_only", "gncl_half") or (objective == "gncl_half" and not bank):
+-            raise ValueError("GNCL is reserved for the unchanged shared four-route bank")
++        if context_mode not in ("private", "mixture", "private_full", "shuffled_private") or (not bank and context_mode != "mixture"):
++            raise ValueError("Fixed private/shared or fully informed single/I4 objective required")
++        target_bank = self.context_targets["bank" if bank else "single"]
++        context_counts = {}
+         checkpoint = folder / "selected.pt"
+         with (folder / "trace.jsonl").open("w") as trace:
+             for step in range(1, self.cfg.get("max_updates", 1000) + 1):
+@@ -201,24 +237,20 @@
+                 logits, hidden = self.training_outputs(model, streams, bank)
+                 targets = self.data.y[self.train_ids] if bank else self.data.y[self.data.train_mask]
+                 own_ce = self.F.cross_entropy(logits.flatten(0, 1), targets.repeat(members))
+-                pool_ce = None
+-                if objective == "gncl_half":
+-                    pool_ce = self.probability_pool_ce(logits, targets)
+-                    loss = .5 * own_ce + .5 * pool_ce
+-                else:
+-                    loss = own_ce
+-                    if bank:
+-                        with torch.no_grad():
+-                            pool_ce = self.probability_pool_ce(logits, targets)
+-                sc_loss, sc_routes = self.within_route_supcon(hidden, targets) if use_supcon else (None, None)
+-                if use_supcon:
+-                    loss = loss + .05 * sc_loss
++                with torch.no_grad():
++                    pool_ce = self.probability_pool_ce(logits, targets) if bank else None
++                auxiliary, route_losses, pair_losses, paid = self.context_objective.context_auxiliary(
++                    torch, self.F, hidden, target_bank, context_mode)
++                for key, value in paid.items():
++                    context_counts[key] = context_counts.get(key, 0) + value
++                loss = own_ce + .05 * auxiliary
+                 loss.backward()
+                 optimizer.step()
+                 train_loss, train_own_ce = loss.item(), own_ce.item()
+                 train_pool_ce = pool_ce.item() if pool_ce is not None else None
+-                train_supcon = sc_loss.item() if sc_loss is not None else None
+-                train_supcon_routes = sc_routes.detach().tolist() if sc_routes is not None else None
++                train_context = auxiliary.item()
++                train_context_routes = route_losses.detach().tolist()
++                train_context_pairs = pair_losses.detach().tolist()
+                 model.eval()
+                 with torch.no_grad():
+                     metrics = self.metrics(self.logits(model, streams, bank, self.valid_ids))
+@@ -226,14 +258,20 @@
+                 if improved:
+                     best, stale, selected_step = metrics["accuracy"], 0, step
+                     torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(), "streams": streams,
+-                                "step": step, "selection": metrics}, checkpoint)
++                                "step": step, "selection": metrics,
++                                "context_mode": context_mode,
++                                "context_target_archive_sha256": self.context_preparation["archive_sha256"],
++                                "TRAIN_H_order": "train_ids" if bank else "native_boolean_mask"}, checkpoint)
+                 else:
+                     stale += 1
+-                trace.write(json.dumps({"step": step, "learning_objective": objective,
++                trace.write(json.dumps({"step": step, "learning_objective": "own_CE_plus_fixed_context",
++                                        "context_mode": context_mode,
+                                         "train_objective": train_loss, "train_own_ce": train_own_ce,
+-                                        "train_probability_pool_ce": train_pool_ce,
+-                                        "train_supcon": train_supcon, "train_supcon_route_losses": train_supcon_routes,
+-                                        "train_supcon_weighted": .05 * train_supcon if use_supcon else 0.,
++                                        "train_probability_pool_ce_diagnostic": train_pool_ce,
++                                        "train_context_auxiliary": train_context,
++                                        "train_context_route_losses": train_context_routes,
++                                        "train_context_pair_losses": train_context_pairs,
++                                        "train_context_weighted": .05 * train_context,
+                                         "valid": metrics,
+                                         "strict_improvement": improved, "stale_updates": stale}, allow_nan=False) + "\n")
+                 trace.flush()
+@@ -242,10 +280,17 @@
+                     break
+         self.synchronize()
+         acquisition = time.perf_counter() - start
++        restoration_start = time.perf_counter()
+         state = torch.load(checkpoint, map_location="cpu", weights_only=True)
++        if (state["context_mode"] != context_mode
++                or state["context_target_archive_sha256"] != self.context_preparation["archive_sha256"]
++                or state["TRAIN_H_order"] != ("train_ids" if bank else "native_boolean_mask")):
++            raise ValueError("Selected checkpoint target/support/order custody mismatch")
+         model.load_state_dict(state["model"], strict=True)
+         optimizer.load_state_dict(state["optimizer"])
+         streams = state["streams"]
++        self.synchronize()
++        restoration_seconds = time.perf_counter() - restoration_start
+         model.eval()
+         self.synchronize()
+         serving_start = time.perf_counter()
+@@ -255,30 +300,29 @@
+             selected_logits = selected_logits.cpu()
+         self.synchronize()
+         serving = time.perf_counter() - serving_start
+-        costs = {"acquisition_seconds": acquisition, "selected_forward_and_metrics_seconds": serving,
++        costs = {"acquisition_seconds": acquisition, "restoration_seconds": restoration_seconds,
++                 "selected_forward_and_metrics_seconds": serving,
+                  "parameters": sum(p.numel() for p in model.parameters()),
+                  "inference_parameter_bytes": sum(p.numel() * p.element_size() for p in model.parameters()),
+                  "selected_checkpoint_bytes": checkpoint.stat().st_size,
+                  "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024),
+                  "cuda_peak_allocated_bytes": torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0,
+                  "cuda_peak_reserved_bytes": torch.cuda.max_memory_reserved(self.device) if self.device.type == "cuda" else 0}
+-        result = {"member": member, "learning_objective": objective, "within_route_supcon": use_supcon,
+-                  "supcon_coefficient": .05 if use_supcon else 0., "supcon_temperature": .2 if use_supcon else None,
+-                  "preclassifier_width": hidden.shape[-1], "native_factor_dropout_seeds": [self.seeds(seed, member + r) for r in range(members)],
++        result = {"member": member, "learning_objective": "own_CE_plus_fixed_context",
++                  "context_mode": context_mode, "context_coefficient": .05, "context_temperature": .2,
++                  "context_target_archive_sha256": self.context_preparation["archive_sha256"],
++                  "TRAIN_H_order": "train_ids" if bank else "native_boolean_mask",
++                  "preclassifier_width": hidden.shape[-1],
++                  "native_factor_dropout_seeds": [self.seeds(seed, member + r) for r in range(members)],
+                   "selected_step": selected_step, "completed_updates": step, "selection": state["selection"], "restored": restored,
+                   "selected_state": str(checkpoint), "costs": costs,
+-                  "operation_counts": {"updates": step, "backwards": step, "adam_steps": step,
+-                    "train_probability_pool_loss_evaluations": step if bank else 0,
+-                    "train_probability_pool_backward_evaluations": step if objective == "gncl_half" else 0,
+-                    "supcon_batched_gram_calls": step if use_supcon else 0,
+-                    "supcon_route_grams": members * step if use_supcon else 0,
+-                    "supcon_normalized_coordinates": members * 580 * hidden.shape[-1] * step if use_supcon else 0,
+-                    "supcon_cosine_gram_entries": members * 580 * 580 * step if use_supcon else 0,
+-                    "supcon_gram_multiply_accumulates": members * 580 * 580 * hidden.shape[-1] * step if use_supcon else 0,
+-                    "supcon_anchor_rows": members * 580 * step if use_supcon else 0,
+-                    "train_fullgraph_native_trajectories": members * step, "valid_selection_fullgraph_native_trajectories": members * step,
+-                    "selected_valid_fullgraph_native_trajectories": members,
+-                    "native_graph_block_calls": self.cfg.get("depth", 2) * members * (2 * step + 1)}}
++                  "operation_counts": dict(context_counts, updates=step, backwards=step, adam_steps=step,
++                    train_probability_pool_loss_evaluations=step if bank else 0,
++                    train_probability_pool_backward_evaluations=0,
++                    train_fullgraph_native_trajectories=members * step,
++                    valid_selection_fullgraph_native_trajectories=members * step,
++                    selected_valid_fullgraph_native_trajectories=members,
++                    native_graph_block_calls=self.cfg.get("depth", 2) * members * (2 * step + 1))}
+         write_json(folder / "RESULT.json", result)
+         self.completed_units += 1
+         self.progress(member, step)
+@@ -295,14 +339,13 @@
+                 self.current.update(arm=arm, seed=seed)
+                 folder = self.output / f"{arm}_seed{seed}"
+                 folder.mkdir()
+-                genuine = arm == "genuine_factorized_I4_SupCon"
++                genuine = arm == "genuine_factorized_I4_context_mixture"
+                 bank = arm.startswith("shared4_")
+-                factorized = arm != "ordinary_M1_SupCon"
++                factorized = arm != "ordinary_M1_context_mixture"
+                 kind = "baseline"
+-                objective = "gncl_half" if arm in ("shared4_GNCL", "shared4_GNCL_SupCon") else "own_only"
+-                use_supcon = arm != "shared4_GNCL"
++                context_mode = CONTEXT_MODES[arm]
+                 fits = [self.fit(folder / f"member{m}", seed, m, kind, factorized, 4 if bank else 1,
+-                                 objective, use_supcon) for m in range(4 if genuine else 1)]
++                                 context_mode) for m in range(4 if genuine else 1)]
+                 pool_start = time.perf_counter()
+                 logits = torch.cat([x[0] for x in fits])
+                 metrics = self.metrics(logits)
+@@ -322,7 +365,7 @@
+                 write_json(folder / "RESULT.json", result)
+                 results.append(result)
+                 print(json.dumps({"finished": arm, "seed": seed, "selected_steps": [u["selected_step"] for u in units]}), flush=True)
+-        comparisons = []  # Reached only after the whole six-arm × three-seed roster.
++        comparisons = []  # Reached only after the whole seven-arm × three-seed roster.
+         for result in results:
+             seed, arm = result["seed"], result["arm"]
+             candidate = errors[seed, arm]
+@@ -330,24 +373,21 @@
+                            "harms": int((~errors[seed, ref] & candidate).sum())} for ref in ARMS}
+             comparisons.append({"arm": arm, "seed": seed, "versus": versus})
+         counts = {key: sum(unit["operation_counts"][key] for r in results for unit in r["fits"]) for key in results[0]["fits"][0]["operation_counts"]}
+-        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "completion_scope": "fresh six-arm acquisition only",
++        if len(results) != 21 or self.completed_units != 30:
++            raise ValueError("All21 banks/all30 independent optimizer fits must close")
++        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "completion_scope": "fresh seven-arm acquisition only",
+                    "full_comparative_family_complete": False,
+                    "requires_root_admitted_own_only_anchors": {"banks": 15, "selected_fit_records": 33},
+                    "groups": len(results), "fit_units": self.completed_units,
+-                   "expected_groups": 18, "expected_fit_units": 27, "TEST_access": False, "operation_counts": counts,
+-                   "config_sha256": self.config_sha256, "source_sha256": self.source_hashes, "results": results, "comparisons": comparisons,
++                   "expected_groups": 21, "expected_fit_units": 30, "TEST_access": False, "operation_counts": counts,
++                   "config_sha256": self.config_sha256, "source_sha256": self.source_hashes,
++                   "context_preparation_once": self.context_preparation,
++                   "results": results, "comparisons": comparisons,
+                    "cost_scope": "sequential acquisition; selected full-graph forward, metrics, CPU transfer and probability pool; RSS is process lifetime peak; overlap supplied by root"})
+ 
+ 
+ def main():
+-    parser = argparse.ArgumentParser()
+-    parser.add_argument("--config", required=True)
+-    parser.add_argument("--output", required=True)
+-    args = parser.parse_args()
+-    output = Path(args.output)
+-    output.mkdir(parents=True, exist_ok=False)
+-    config_bytes = Path(args.config).read_bytes()
+-    Family(json.loads(config_bytes), output, hashlib.sha256(config_bytes).hexdigest()).run()
++    raise SystemExit("Source-only successor: root qualifies/binds/freezes and invokes Family through its existing owner; no automatic scientific admission")
+ 
+ 
+ if __name__ == "__main__":
