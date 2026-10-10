@@ -1,0 +1,9 @@
+# Closed117 prediction-error diagnosis
+
+One CPU stored-logit read diagnoses27banks from all117closed fits. It preserves original selected scores and makes no model forward or TEST access. The fixed full report is10,275,340bytes and stays on the allocation, SHA256f3306584be0b43ed05fb1c8ac65900dad663441580c4140a35c93bc21b4fed91; all class distributions are retained there. COMPLETE_SUMMARY.json preserves every global fixed statistic, every paired count and all18 signature components. CPU elapsed time was not instrumented; the worker completed within its60second finite bound. No speed claim follows.
+
+The common-strict-rival missing-ranking majority signature fails in every one of18comparisons. Where an independent pool is correct but original shared pool is wrong, a correct shared member is available in about65–69%ofSAGE cases,74–76%ofGCN, and57–69%ofGAT. These are label-informed opportunities, not a trained selection method. They contradict the stronger claim that these errors mainly require acquiring absent correct members.
+
+Wrong-member confidence on the SAGE loss cohorts has medians about.84/.99/.97 acrossseeds, while the served correct-class mass is low. This is an association; it neither proves a calibration cause nor shows that a temperature/router fixes the errors. The original shared contracts have different selected windows than independently selected references. Both confidences and all margins/classes are retained without threshold selection.
+
+The actual private-rotation family reveals a different failure: coherent routes have more competent members but little complementary correctness. Keep both diagnoses. A task-grounded private-differentiation study and a learned-serving literature check can proceed independently, with fixed full-population comparisons and unused confirmation required before claims. No hidden-collapse or gradient-conflict cause is established.

@@ -23,21 +23,20 @@ Prediction diagnostics distinguish weaker members from correct alternatives lost
 - [Whole-family history synthesis](periodic_completed_history_revision_20261010_v6/REPORT.md)
 - [Independent interpretation critique](SAGE_selected_bank_history_critique_20261010_v1/NOTE.md)
 
-## Completed private-feature correction comparison
+## Current running study on 18.77
 
-All24new GAT/SAGE acquisitions closed at13:44:14/13:43:06UTC, exit0. Coherent starts improved mean member accuracy but supplied nearly coincident correctness. Pooling added only0.03318/0.00158accuracy points. None of the graph-pair, rank-one LoRA or local-pair correction rules passed the fixed transfer criteria. Graph-pair trailed ordinary independent4at every seed, with means−0.8090/−0.6447points. The exact recipe closes without another tuning grid. GAT protection flags and SAGE failures remain explicit. [Complete report](private_feature_rotation_pilot_decision_20261010_v1/REPORT.md).
+The separate full Polynormer WikiCS baseline/exchange/separable × three seeds uses the original 1100-epoch trainer and frozen criteria. Owner 4086615, GPU1 UUID GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced. Last authoritative observation at 13:26:39 UTC: six fits complete, baseline seed6307 at epoch775, owner live, no failure. No partial quality is opened. Detached training survives loss of MacLink access. [Activation and observations](live_route_WikiCS_complete9_root_activation_20261010_v1/QUALITY_CRITERIA.json).
 
-A complete stored-logit diagnosis on27banks from117closed fits found a correct shared member on a majority of independent-correct/shared-wrong cases in every backbone/seed/reference comparison, roughly57–76%depending on backbone. This identifies an opportunity for learned aggregation, not a demonstrated selector. Coherent-bank redundancy and original-bank averaging loss remain distinct failures. [Complete diagnosis](common_wrapper117_stored_error_diagnosis_root_20261010_v1/REPORT.md) · [Historyv7](periodic_completed_history_revision_20261010_v7/REPORT.md).
+## Next finite scientific test
 
-## Current study on 18.77
+Prepare coherent shared starts plus small private feature-basis corrections at native graph projections, retaining the original shared weights and trainable diagonal factors. Paired Householder reflections begin as identity with separate equal-valued normals. Task training can change private off-diagonal directions without acquiring independent teachers. This is an attributed operator hypothesis, not a demonstrated cause or new orthogonal-adapter primitive. OFT, BOFT, ETHER and HousE provide direct ancestry. A pair affects one plane, not arbitrary SO(d); its orthogonality does not preserve the norm or calibration of the whole GNN.
 
-At14:32:47UTC the fixed original1100-epoch Polynormer nine-fit family reported all9complete, owner absent and no failure. No partial quality was opened. Complete readout admission is next. Observed costs include concurrent host activity. [Frozen criteria and activation](live_route_WikiCS_complete9_root_activation_20261010_v1/QUALITY_CRITERIA.json).
+Root chooses GAT and SAGE before outcomes. Fresh coherent shared, graph-pair, graph rank-one LoRA, and equal-extra-count local-pair × three seeds means 24 new acquisitions. Reuse the immutable complete ordinary/factorized single/independent-four and original shared references at the same data, native settings and seeds. This avoids66 duplicate acquisitions from the provisional90-fit roster. New source undergoes one necessary full-TRAIN integration, then is frozen and committed before scientific fits. Complete comparative interpretation waits for both new families and all referenced closures. The full-TRAIN integration passed all eight cases with actual direct wait and owned process/CUDA absence. Both detached 12-fit families started at13:34:18UTC on the authorized allocation, GAT owner618534/child618538 and SAGE owner618535/child618539. At13:35:34UTC both had one fit complete and graph-pair training active, with no failure or partial quality read. This is execution progress, not a prediction-quality result.
 
-## Frozen next allocation study
+- [Prior and geometry](paired_Householder_native_graph_operator_triage_20261010_v1/REPORT.md)
+- [Source feasibility](common_wrapper_paired_Householder_source_feasibility_20261010_v1/DESIGN.json)
 
-The fixed class-balanced Bayesian-bootstrap private-gradient screen is ready for publication and one full-TRAIN gradient integration. GAT/SAGE ×3pairedseeds ×coherent/graph-pair/rank-one-LoRA bootstrap arms means18new fits. All unweighted and ordinary/factorized references are reused from closed immutable families. Private parameters receive fixed positive Exp(1)weights, normalized within each TRAIN class, while shared parameters receive full-label unweighted meanownCE. There is one forward, two reverse calls and one unchanged AdamW update. This is generally a nonconservative block field. No primitive novelty is claimed. Both9-fit families must close before interpretation. No bootstrap scientific fit has started as of this status. [Fixed decision](private_class_balanced_bootstrap_pilot_decision_20261010_v1/DECISION.md).
-
-Separately, graph-aware postprediction reliability is source preparation only. StoredVALIDarchives cannot supply full-node neighbor descriptors. Support, equal-label calibration/stacking controls and authorized selected-state export must be fixed before execution. AnyVALIDfusion fit remains encountered development because base checkpoint selection usedVALIDlabels. Unused confirmation is required.
+The scalar reciprocal-factor start remains a known Adam coordinate/rate convention, inactive. Selective pooled training reduces to responsibility-weighted private CE and has no nominated fit. No new calibration, contrastive or optimizer grid accompanies this test.
 
 ## Earlier results and confirmation
 
@@ -53,7 +52,7 @@ WikiCS fixed TEST is not classified as unused because older access remains unrec
 
 ## Execution and publication
 
-Latest verified allocation/GitHub head9d083609c508b0e24c5dc48e0abb0af784745a6b, pushed13:37:13UTC. Complete rotation/diagnosis and frozen bootstrap source are being published next. 18.77retains a7c87fcb for its unchanged completed source. Checkpoints, datasets and logits stay server-side.
+Latest verified allocation/GitHub head debae18f2cb1412c9757381730b71dcd771dcd06, pushed at13:33:49 UTC; 18.77 is safely at a7c87fcb for its unchanged running source. Complete GCN/GAT results, subsequent prior/decision notes and frozen rotation source are published. Actual rotation-start metadata is being published separately. Checkpoints, datasets and logits stay server-side.
 
 Use the literal one-GPU allocation route anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222; verify anogena-2-0 and sole GPU-44039938-fd82-41d2-fefd-de71514e2fac before project operations. 18.77 is shmelev@192.168.18.77, hostname peptide. Seven-GPU access is MacLink relay only. No sudo, PDF compilation, GENLINK, unrelated-data access or host mount/settings changes. Incidental standard caches are allowed.
 
