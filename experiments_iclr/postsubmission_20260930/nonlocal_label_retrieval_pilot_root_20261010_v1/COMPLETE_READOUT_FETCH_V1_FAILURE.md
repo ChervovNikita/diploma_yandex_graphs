@@ -1,0 +1,1 @@
+The first fetch stopped locally before writing any downloaded result: an absolute target was checked against a relative research base. The remote full readout and all training were already complete and remain unchanged. The successor uses the resolved absolute base; it only fetches existing complete artifacts. No scientific or numerical execution is repeated.

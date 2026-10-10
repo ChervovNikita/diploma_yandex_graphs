@@ -1,0 +1,118 @@
+2 Framework
+S2.p1.1 In this section we introduce our CPGNN framework, after presenting the problem setup and important definitions.
+2.1 Preliminaries
+S2.SS1.p1.1 Problem Setup. We focus on the problem of semi-supervised node classification on a simple graph \mathcal{G}=(\mathcal{V},\mathcal{E}) , where \mathcal{V} and \mathcal{E} are the node- and edge-sets respectively, and \mathcal{Y} is the set of possible class labels
+for v\in\mathcal{V} .
+Given a training set \mathcal{T}_{\mathcal{V}}\subset\mathcal{V} with known class labels y_{v} for all v\in\mathcal{T}_{\mathcal{V}} , and (optionally) contextual feature vectors \vec{x}_{v} for v\in\mathcal{V} , we aim to infer the unknown class labels y_{u} for all u\in(\mathcal{V}-\mathcal{T}_{\mathcal{V}}) .
+For subsequent discussions, we use \mathbf{A}\in\{0,1\}^{|\mathcal{V}|\times|\mathcal{V}|} for the adjacency matrix with self-loops removed, \mathbf{y}\in\mathcal{Y}^{|\mathcal{V}|} as the ground-truth class label vector for all nodes, and \mathbf{X}\in\mathbb{R}^{|\mathcal{V}|\times F} for the node feature matrix.
+S2.SS1.p2.1 Definitions. We now introduce two key concepts for modeling the homophily level in the graph with respect to the class labels: (1) homophily ratio, and (2) compatibility matrix.
+Definition 1 (Homophily Ratio h ).
+ThmDefinition1.p1.1 Let \boldsymbol{\mathrm{C}}\in\mathbb{R}^{|\mathcal{Y}|\times|\mathcal{Y}|} where C_{ij}=|\{(u,v):(u,v)\in\mathcal{E}\wedge y_{u}=i\wedge y_{v}=j\}| , \boldsymbol{\mathrm{D}}=\mathrm{diag}(\{C_{ii}:i=1,\ldots,|\mathcal{Y}|\}) , and \boldsymbol{\mathrm{e}}\in\mathbb{R}^{|\mathcal{V}|} be an all-ones vector.
+The homophily ratio is defined as
+h=\frac{\boldsymbol{\mathrm{e}}^{\top}\boldsymbol{\mathrm{D}}\boldsymbol{\mathrm{e}}}{\;\boldsymbol{\mathrm{e}}^{\top}\boldsymbol{\mathrm{C}}\boldsymbol{\mathrm{e}}\;} .
+S2.SS1.p3.1 The homophily ratio h defined above is good for measuring the overall homophily level in the graph. By definition, we have h\in[0,1] : graphs with h closer to 1 tend to have more edges connecting nodes within the same class, or stronger homophily; on the other hand, graphs with h closer to 0 have more edges connecting nodes in different classes, or a stronger heterophily.
+However, the actual homophily level is not necessarily uniform within all parts of the graph. One common case is that the homophily level varies among different pairs of classes, where it is more likely for nodes between some pair of classes to connect than some other pairs. To measure the variability of the homophily level, we define the compatibility matrix \boldsymbol{\mathrm{H}} as Zhu et al. (2020) as follows:
+Definition 2 (Compatibility Matrix \boldsymbol{\mathrm{H}} ).
+ThmDefinition2.p1.1 Let \boldsymbol{\mathrm{Y}}\in\mathbb{R}^{|\mathcal{V}|\times|\mathcal{Y}|} where Y_{vj}=1 if y_{v}=j , and Y_{vj}=0 otherwise. Then, the compatibility matrix \boldsymbol{\mathrm{H}} is defined as:
+S2.E1
+\boldsymbol{\mathrm{H}}=(\boldsymbol{\mathrm{Y}}^{\top}\boldsymbol{\mathrm{A}}\boldsymbol{\mathrm{Y}})\oslash(\boldsymbol{\mathrm{Y}}^{\top}\boldsymbol{\mathrm{A}}\boldsymbol{\mathrm{E}})
+(1)
+ThmDefinition2.p1.2 where \oslash is Hadamard (element-wise) division and
+\boldsymbol{\mathrm{E}} is a |\mathcal{V}|\times|\mathcal{Y}| all-ones matrix.
+S2.SS1.p4.1 In node classification settings, compatibility matrix \boldsymbol{\mathrm{H}} models the (empirical) probability of nodes belonging to each pair of classes to connect.
+More generally, \boldsymbol{\mathrm{H}} can be used to model any discrete attribute;
+in that case, \boldsymbol{\mathrm{H}}_{ij} is the probability that a node with attribute value i connects with a node with value j .
+Modeling \boldsymbol{\mathrm{H}} in GNNs is beneficial for heterophily settings, but calculating the exact \boldsymbol{\mathrm{H}} would require knowledge to the class labels of all nodes in the graph, which violates the semi-supervised node classification setting.
+Therefore, it is not possible to incorporate exact \boldsymbol{\mathrm{H}} into graph neural networks. In the following sections, we propose CPGNN, which is capable of learning \boldsymbol{\mathrm{H}} in an end-to-end way based on a rough initial estimation.
+2.2 Framework Design
+S2.SS2.p1.1 The CPGNN framework consists of two stages:
+(S1) prior belief estimation; and
+(S2) compatibility-guided propagation.
+We visualize the CPGNN framework in Fig. 1.
+S2.SS2.p2.1 (S1) Prior Belief Estimation The goal for the first step is to estimate per node v\in\mathcal{V} a prior belief \mathbf{b}_{v}\in\mathbb{R}^{|\mathcal{Y}|} of its class label y_{v}\in\mathcal{Y} from the node features \mathbf{X} .
+This separate, explicit prior belief estimation stage enables the use of any off-the-shelf neural network classifier as the estimator, and thus can accommodate different types of node features.
+In this work, we consider the following models as the estimators:
+•
+S2.I1.i1.p1.1 MLP, a graph-agnostic multi-layer perceptron. Specifically, the k -th layer of the MLP can be formulated as following:
+S2.E2
+\mathbf{R}^{(k)}=\sigma(\mathbf{R}^{(k-1)}\mathbf{W}^{(k)}),
+(2)
+S2.I1.i1.p1.2 where \mathbf{W}^{(k)} are learnable parameters, and \mathbf{R}^{(0)}=\mathbf{X} . We call our method with MLP-based estimator CPGNN-MLP.
+•
+S2.I1.i2.p1.1 GCN-Cheby (Defferrard, Bresson, and
+Vandergheynst 2016). We instantiate the model using a 2nd-order Chebyshev polynomial, where the k -th layer is parameterized as:
+S2.E3
+\textstyle\mathbf{R}^{(k)}=\sigma\Big(\sum_{i=0}^{2}T_{i}(\tilde{\mathbf{L}})\mathbf{R}^{(k-1)}\mathbf{W}^{(k)}_{i}\Big).
+(3)
+S2.I1.i2.p1.2 \mathbf{W}_{i}^{(k)} are learnable parameters, \mathbf{R}^{(0)}=\mathbf{X} , and T_{i}(\tilde{\mathbf{L}}) is the i -th order of the Chebyshev polynomial of \tilde{\mathbf{L}}=\mathbf{L}-\mathbf{I} defined recursively as:
+S2.Ex1
+T_{i}(\tilde{\mathbf{L}})=2\tilde{\mathbf{L}}T_{i-1}(\tilde{\mathbf{L}})-T_{i-2}(\tilde{\mathbf{L}})
+S2.I1.i2.p1.3 with T_{0}(\tilde{\mathbf{L}})=\mathbf{I} and T_{1}(\tilde{\mathbf{L}})=\tilde{\mathbf{L}}=-\mathbf{D}^{-\frac{1}{2}}\mathbf{A}\mathbf{D}^{-\frac{1}{2}} . We refer to our Cheby-based method as CPGNN-Cheby.
+S2.SS2.p2.2 We note that the performance of CPGNN is affected by the choice of the estimator. It is important to choose an estimator that is not constrained by the homophily assumption (e.g., our above-mentioned choices), so that it does not hinder the performance in heterophilous graphs.
+S2.SS2.p3.1 Denote the output of the final layer of the estimator as \mathbf{R}^{(K)} , then the prior belief \mathbf{B}_{p} of nodes can be given as
+S2.E4
+\mathbf{B}_{p}=\mathrm{softmax}(\mathbf{R}^{(K)})
+(4)
+S2.SS2.p3.2 To facilitate subsequent discussions, we denote the trainable parameters of a general prior belief estimator as \mathbf{\Theta}_{p} , and the prior belief of node v derived by the estimator as \mathcal{B}_{p}(v;\mathbf{\Theta}_{p}) .
+S2.SS2.p4.1 (S2) Compatibility-guided Propagation
+We propagate the prior beliefs of nodes within their neighborhoods using a parameterized, end-to-end trainable compatibility matrix \bar{\mathbf{H}} .
+S2.SS2.p5.1 To propagate the belief vectors through linear formulations,
+following Gatterbauer et al. (2015),
+we first center \mathbf{B}_{p} with
+S2.E5
+\bar{\mathbf{B}}^{(0)}=\mathbf{B}_{p}-\tfrac{1}{|\mathcal{Y}|}
+(5)
+S2.SS2.p5.2 We parameterize the compatibility matrix as \bar{\boldsymbol{\mathrm{H}}}
+to replace the weight matrix \mathbf{W} in traditional GNN models as the end-to-end trainable parameter.
+We formulate each layer as:
+S2.E6
+\bar{\mathbf{B}}^{(k)}=\bar{\mathbf{B}}^{(0)}+\mathbf{A}\bar{\mathbf{B}}^{(k-1)}\bar{\boldsymbol{\mathrm{H}}}
+(6)
+S2.SS2.p5.3 Each layer propagates and updates the current belief per node in its neighborhood.
+After K layers, we have the final belief
+S2.E7
+\mathbf{B}_{f}=\mathrm{softmax}(\bar{\mathbf{B}}^{(K)}).
+(7)
+S2.SS2.p5.4 We similarly denote \mathcal{B}_{f}(v;\bar{\boldsymbol{\mathrm{H}}},\mathbf{\Theta}_{p}) as the final belief for node v , where parameters \mathbf{\Theta}_{p} are from the prior belief estimator.
+2.3 Training Procedure
+Pretraining of Prior Belief Estimator.
+S2.SS3.SSS0.Px1.p1.1 We pretrain the prior belief estimator for \beta_{1} iterations so that \bar{\mathbf{H}} can then be better initialized with informative prior beliefs. Specifically, the pretraining process aims to minimize the loss function
+S2.E8
+\textstyle\mathcal{L}_{p}(\mathbf{\Theta}_{p})=\sum_{v\in\mathcal{T}_{\mathcal{V}}}\mathcal{H}\left(\mathcal{B}_{p}(v;\mathbf{\Theta}_{p}),y_{v}\right)+\lambda_{p}\|{\mathbf{\Theta}_{p}}\|_{2},
+(8)
+S2.SS3.SSS0.Px1.p1.2 where \mathcal{H} corresponds to the cross entropy, and \lambda_{p} is the L2 regularization weight for the prior belief estimator.
+Through an ablation study (App. §D, Fig. 4(c)), we show that pretraining prior belief estimator helps increase the final performance.
+S2.SS3.SSS0.Px1.p2.1 Initialization and Regularization of \,\bar{\mathbf{H}} .
+We empirically found that initializing the parameters \bar{\mathbf{H}} with an estimation of the unknown compatibility matrix \mathbf{H} can lead to better performance (cf. §4.4, Fig. 4(a)). We derive the estimation using node labels in the training set \mathcal{T}_{\mathcal{V}} , and prior belief \mathbf{B}_{p} estimated in Eq. (4) after the pretraining stage. More specifically, denote the training mask matrix \mathbf{M} as:
+S2.E9
+[\mathbf{M}]_{i,:}=\left\{\begin{array}[]{ll}\mathbf{1},\;\text{if }i\in\mathcal{T}_{\mathcal{V}}\\
+\mathbf{0},\;\text{otherwise}\end{array}\right.
+(9)
+S2.SS3.SSS0.Px1.p2.2 and the enhanced belief matrix \tilde{\mathbf{B}} , which makes use of known node labels \mathbf{Y}_{\mathrm{train}}=\mathbf{M}\circ\mathbf{Y} in the training set \mathcal{T}_{\mathcal{V}} , as
+S2.E10
+\tilde{\mathbf{B}}=\mathbf{Y}_{\mathrm{train}}+(1-\mathbf{M})\circ\mathbf{B}_{p}
+(10)
+S2.SS3.SSS0.Px1.p2.3 where \circ is the element-wise product. The estimation \hat{\mathbf{H}} of the unknown compatibility matrix \mathbf{H} is derived as
+S2.E11
+\hat{\mathbf{H}}=\sinkhornknopp\left(\mathbf{Y}_{\mathrm{train}}^{\top}\mathbf{A}\tilde{\mathbf{B}}\right)
+(11)
+S2.SS3.SSS0.Px1.p2.4 where the use of the Sinkhorn and Knopp (1967) algorithm is to ensure that \hat{\mathbf{H}} is doubly stochastic.
+We find that a doubly-stochastic and symmetric initial value for \bar{\mathbf{H}} boosts the training when using multiple propagation layers.
+Thus, we initialize the parameter \bar{\mathbf{H}} as \bar{\mathbf{H}}_{0}=\tfrac{1}{2}(\hat{\mathbf{H}}+\hat{\mathbf{H}}^{\top})-\tfrac{1}{|\mathcal{Y}|} , where \hat{\mathbf{H}} is centered around 0 (similar to \mathbf{B}_{p} ).
+To ensure the rows of \bar{\mathbf{H}} remain centered around 0 throughout the training process, we adopt the following regularization term \Phi(\bar{\boldsymbol{\mathrm{H}}}) for \bar{\mathbf{H}} :
+S2.E12
+\textstyle\Phi(\bar{\boldsymbol{\mathrm{H}}})=\eta\sum_{i}\left|\sum_{j}\bar{\mathbf{H}}_{ij}\right|
+(12)
+S2.SS3.SSS0.Px1.p2.5 where \eta is the regularization weight for \bar{\mathbf{H}} .
+S2.SS3.SSS0.Px1.p3.1 Loss Function for CPGNN Training. Putting everything together, we obtain the loss function for training CPGNN:
+S2.E13
+\mathcal{L}_{f}(\bar{\mathbf{H}},\mathbf{\Theta}_{p})=\sum_{v\in\mathcal{T}_{\mathcal{V}}}\mathcal{H}\left(\mathcal{B}_{f}(v;\bar{\boldsymbol{\mathrm{H}}},\mathbf{\Theta}_{p}),y_{v}\right)+\lambda_{p}\|{\mathbf{\Theta}_{p}}\|_{2}+\Phi(\bar{\boldsymbol{\mathrm{H}}})
+(13)
+S2.SS3.SSS0.Px1.p3.2 The loss function consists of three parts: (1) the cross entropy loss from the CPGNN output; (2) the L2 regularization from the prior belief estimator; and (3) a regularization term that keeps \bar{\mathbf{H}} centered around 0 throughout the training process. The last term is novel for the CPGNN formulation, and helps increase the performance of CPGNN, as we show later through an ablation study (§4.4).
+2.4 Interpretation of Parameters \bar{\boldsymbol{\mathrm{H}}}
+S2.SS4.p1.1 Unlike the hard-to-interpret weight matrix \mathbf{W} in classic GNNs, parameter \bar{\mathbf{H}} in CPGNN can be easily understood: it captures the probability that node pairs in specific classes connect with each other.
+Through an inverse of the initialization process, we can obtain an estimation of the compatibility matrix \hat{\mathbf{H}} after training from learned parameter \bar{\mathbf{H}} as follows:
+S2.E14
+\hat{\mathbf{H}}=\sinkhornknopp(\tfrac{1}{\alpha}\bar{\mathbf{H}}+\tfrac{1}{|\mathcal{Y}|})
+(14)
+S2.SS4.p1.2 where \alpha=\min\{a\geq 1:1\geq\tfrac{1}{a}\bar{\mathbf{H}}+\tfrac{1}{|\mathcal{Y}|}\geq 0\} is a recalibration factor ensuring that the obtained \hat{\mathbf{H}} is a valid stochastic matrix. In §4.5, we provide an example of the estimated \hat{\mathbf{H}} after training, and show the improvements in estimation error compared to the initial estimation by Eq. (11).

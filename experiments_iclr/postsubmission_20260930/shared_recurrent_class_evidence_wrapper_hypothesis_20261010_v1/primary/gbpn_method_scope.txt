@@ -1,0 +1,162 @@
+2 Node Classification as Statistical Inference in a Markov Random Field
+S2.p1.1 Consider an attributed graph G(V,E,\bm{X},\bm{y}) where V is a set n of nodes, E is a set of undirected edges, \bm{X}\in\mathbb{R}^{n\times d} is a matrix whose rows correspond to node features, and \bm{y}\in\{0,\ldots,c-1\}^{n} is a vector of node labels in one of c possible classes.
+We partition the vertices into two disjoint sets L\cup U=V , where L is the training set (labeled) and U is the testing set (unlabeled).
+In the node classification task, we assume access to all node features \{\bm{x}_{i}\}_{i\in V} and the labels on the training nodes \{y_{i}\}_{i\in L} , and the goal is to predict the testing labels \{y_{i}\}_{i\in U} .
+The basic idea of our approach is to define a joint distribution over node features and labels p(\bm{X},\bm{y}) and
+then cast the node classification task as computing the marginal probability p(y_{i}|\bm{X},\bm{y}_{L}) .
+2.1 A Data Generation Process for Node Attributes
+S2.SS1.p1.1 We treat the graph as deterministic but the node attributes randomly as follows:
+\raisebox{-0.9pt}{1}⃝ Jointly sample the node labels p(\bm{y}) ;
+\raisebox{-0.9pt}{2}⃝ Given the node labels \bm{y} , sample the features from p(\bm{X}|\bm{y}) .
+This generation process defines a joint distribution p(\bm{X},\bm{y}) .
+Furthermore, we add the following assumptions.
+•
+S2.I1.i1.p1.1 First, the joint distribution of node labels p(\bm{y}) is a pairwise Markov random field,
+S2.EGx1
+\displaystyle\textstyle p(\bm{y})=\frac{\varphi(\bm{y})}{\sum_{\bm{y}^{\prime}}\varphi(\bm{y}^{\prime})},\quad\varphi(\bm{y})=\prod_{i\in V}h_{i}(y_{i})\prod_{(i,j)\in E}H_{ij}(y_{i},y_{j}),
+(1)
+S2.I1.i1.p1.2 and the coupling-potential on every edge is the same and symmetric, i.e. H_{ij}(y_{i},y_{j})=H_{y_{i},y_{j}}=H_{y_{i},y_{j}} , where \bm{H}\in\mathbb{R}_{+}^{c\times c} .
+This assumption implies each node is directly coupled only with its neighbors, a condition known as the Markov propriety in probabilistic graph models [31].
+•
+S2.I1.i2.p1.1 Second, The conditional distribution p(\bm{X}|\bm{y}) can be factorized as
+S2.EGx2
+\displaystyle\textstyle p(\bm{X}|\bm{y})=\prod_{i\in V}p(\bm{x}_{i}|y_{i})=\prod_{i\in V}f(y_{i};\bm{x}_{i}),
+(2)
+S2.I1.i2.p1.2 which means the features on each node is independently sampled given its label.
+S2.SS1.p1.2 These two assumptions lead to simple and efficient inference algorithms, as we will show next.
+2.2 Node Classification Models Derived through Probabilistic Inference
+S2.SS2.p1.1 Following the generative model defined above, we derive the posterior probability as:
+S2.EGx3
+\displaystyle\textstyle p(\bm{y}|\bm{X})=\frac{p(\bm{X},\bm{y})}{p(\bm{X})}=\frac{p(\bm{y})p(\bm{X}|\bm{y})}{\sum_{\bm{y}^{\prime}}p(\bm{y}^{\prime})p(\bm{X}|\bm{y}^{\prime})}
+\displaystyle\cong\textstyle\prod_{i\in V}f(y_{i};\bm{x}_{i})\ h_{i}(y_{i})\prod_{(i,j)\in E}H_{ij}(y_{i},y_{j})
+(3)
+\displaystyle=\textstyle\prod_{i\in V}g(y_{i};\bm{x}_{i})\prod_{(i,j)\in E}H_{ij}(y_{i},y_{j}),
+(4)
+S2.SS2.p1.2 which is a conditional random field [32], where \cong denotes “equality up to a normalization” [33].
+We directly parametrize this posterior distribution using a symmetric matrix \bm{H} for the coupling-potential, and a neural network function g_{\theta} to map from a node’s features to its self-potential.
+Similar modeling assumptions have been considered in collective classification [17, 34], where the models are trained to maximize the joint likelihood.
+In contrast, our model is trained on the marginal likelihood of individual labels.
+Next, we introduce the inference algorithm for the marginal probability p(y_{i}|\bm{X}) .
+The algorithm only use node features for label prediction, and (once trained) can be used to predict labels in a unseen graph.
+Later, we consider the inference algorithm for p(y_{i}|\bm{X},\bm{y}_{L}) , which gives more accurate predictions in the transductive learning setting.
+S2.SS2.p2.1 Inference.
+Exact inference for the marginal probabilities is intractable on large-scale graphs with cycles [31].
+Therefore, we resort to approximate inference using the loopy belief propagation (BP) algorithm [18].
+In particular, we estimate the marginal probabilities using a two-step algorithm.
+\raisebox{-0.9pt}{1}⃝
+S2.I2.ix1.p1.1 Compute the self-potentials using a multi-layer perceptron (MLP) with parameters \theta ,
+S2.EGx4
+\displaystyle g_{\theta}(y_{i};\bm{x}_{i})=\texttt{Cat}(y_{i}|\texttt{softmax}(\texttt{MLP}_{\theta}(\bm{x}_{i}))).
+(5)
+\raisebox{-0.9pt}{2}⃝
+S2.I2.ix2.p1.1 Run T iterations of belief-propagation,
+S2.EGx5
+\displaystyle\textstyle p_{i}^{(t)}(y_{i})\cong p_{i}^{(0)}(y_{i})\prod_{j\in N(i)}m_{ji}^{(t)}(y_{i}),\quad m_{ji}^{(t)}(y_{i})\cong\sum_{y_{j}}H_{ji}(y_{j},y_{i})\frac{p_{j}^{(t-1)}(y_{j})}{m_{ij}^{(t-1)}(y_{j})},
+(6)
+S2.I2.ix2.p1.2 where t=1,\ldots,T and N(i) are the neighbors of node i .
+The initial condition is given by,
+S2.EGx6
+\displaystyle p_{i}^{(0)}(y_{i})=g(y_{i};\bm{x}_{i}),\quad m_{ji}^{(0)}(y_{j},y_{i})=\nicefrac{{1}}{{c}}.
+(7)
+S2.SS2.p2.2 In other words, we set the initial belief on each node to its self-potential and update it with messages from the neighbors.
+The final belief p_{i}(y_{i})=p_{i}^{(T)}(y_{i}) is used to approximate p(y_{i}|\bm{X}) .
+S2.SS2.p3.1 In practice, for numerical stability, we perform belief-propagation updates in the log-space.
+S2.EGx7
+\displaystyle\textstyle\log p_{i}^{(t)}(y_{i})
+\displaystyle\cong\log p_{i}^{(0)}(y_{i})+\sum_{j\in N(i)}\log m_{ji}^{(t)}(y_{i})\,,
+(8)
+\displaystyle\textstyle\log m_{ji}^{(t)}(y_{i})
+\displaystyle\cong\texttt{LSE}_{y_{j}}\left[\log H_{ji}(y_{j},y_{i})+\log p_{j}^{(t-1)}(y_{j})-\log m_{ij}^{(t-1)}(y_{j})\right],
+(9)
+S2.SS2.p3.2 where LSE stands for the log-sum-exp function: \texttt{LSE}_{y_{j}}\left[f(y_{i},y_{j})\right]=\log\left[\sum_{y_{j}}\exp\left(f(y_{i},y_{j})\right)\right].
+S2.SS2.p4.1 Learning.
+We optimize the model by maximizing the log marginal-likelihood of the training labels,
+S2.EGx8
+\displaystyle\textstyle\theta^{*},\bm{H}^{*}=\arg\max_{\theta,\bm{H}}\sum_{i\in L}\log p(y_{i}|\bm{X})\approx\arg\max_{\theta,\bm{H}}\sum_{i\in L}\log p_{i}(y_{i}).
+(10)
+S2.SS2.p4.2 The gradients with respective to the parameters are computed with auto-differentiation by backpropagating through the BP iterations.
+Since the inference algorithm only uses node features, we can learn the parameters in one graph with abundant labels, and predict for another graph where the labels are difficult to obtain.
+As such, we denote this algorithm as the inductive variant of GBPN, or GBPN-I.
+S2.SS2.p5.1 Direct use of training labels for inference.
+In the transductive learning setting, both the training and testing nodes are from the same graph.
+Therefore, we can directly leverage the training labels during inference.
+From the probabilistic inference perspective, we start with a joint distribution over testing labels by conditioning on both the features and the training labels, i.e.,
+S2.EGx9
+\displaystyle p(\bm{y}_{U}|\bm{X},\bm{y}_{L})\cong\prod_{i\in U}\left[g(y_{i};\bm{x}_{i})\prod_{i\in U,\ j\in L,\ (i,j)\in E}H_{ij}(y_{i},y_{j})\right]\prod_{i,j\in U,\ (i,j)\in E}H_{ij}(y_{i},y_{j}).
+(11)
+S2.SS2.p5.2 This is nothing but another conditional random field defined on the induced subgraph G[U] , where the self-potentials are modified to incorporate the couplings between the training and testing nodes in the original graph.
+Then, similar to the inductive algorithm, we estimate the marginal probabilities by belief propagation.
+To better mimic how we predict the testing labels, during each training step, we randomly select half of the training nodes to be conditioned on, and optimize the log-likelihood loss on the other half.
+We denote this transductive variant of inference and training as GBPN.
+2.3 Comparison with Other Node Classification Methods
+S2.SS3.p1.1 Now that our method is fully specified, we comparing it with existing methods in terms of statistical assumption, model parametrization, training/inference objective and optimization algorithm.
+S2.SS3.p2.1 GNNs [35] independently predict the label on each node using node features in the neighborhood.
+The implicit statistical assumption is that node labels are conditional independent given the features:
+S2.EGx10
+\displaystyle\textstyle p(\bm{y}|\bm{X})=\prod_{i\in V}p(y_{i}|\bm{X})
+(12)
+S2.SS3.p2.2 Therefore, GNNs ignore label correlation and directly parametrize p(y_{i}|\bm{X}) to extract the most information from features.
+In contrast, GBPN models p(\bm{y}|\bm{X}) and uses label correlation for inference.
+S2.SS3.p3.1 RMN [17] is a representative example for collective classification methods [11] that directly maximize the joint likelihood p(\bm{y}|\bm{X}) .
+Those models only work for the inductive setting, where they are first trained on a fully labeled graph and then used to predict node labels in a different graph.
+In comparison, our model can be trained on a partially labeled graph, and it is suitable for both the inductive and transductive setting.
+Moreover, even on a graph that is fully labeled, methods like RMN are historically difficult to train.
+This is because the gradient of the joint likelihood involves a normalization factor and is therefore hard to compute.
+GBPN avoids this problem by differentiating through the belief-propagation iterations with backpropagation.
+S2.SS3.p4.1 Pseudolikelihood EM [34]
+was designed to learn the correlation structure in a partially labeled graph
+by maximizing the evidence lower bound (ELBO) for the joint likelihood of the training labels p(\bm{y}_{L}|\bm{X}) .
+Maximizing the ELBO boils down to directly optimizing two marginal distributions: a variational distribution q_{\theta} and a pseudolikelihood p_{\phi} used to approximate the posterior.
+Therefore, if p_{\phi} and q_{\theta} are neural networks (as in the GMNN model [20]), then the entire model can be trained with auto-differentiation.
+The learned p_{\phi} can leverage training labels during inference, akin to GBPN.
+However, while GMNN models label correlation with neural networks, GBPN explicitly specifies the coupling-potential and is thus more interpretable.
+Moreover, we compare GBPM with GMNN in section 3.1 and find GBPN gives higher prediction accuracies on benchmark datasets.
+Table 1: Summary of node classification methods from the probabilistic inference perspective.
+S2.T1.5.1
+method
+assumption
+model parametrization
+training
+inference
+optimization
+GBPN
+eq. 4
+p(\bm{y}|\bm{X})
+p(y_{i}|\bm{X},\bm{y}_{L})
+p(y_{i}|\bm{X},\bm{y}_{L})
+auto-diff
+GNN
+eq. 12
+p(y_{i}|\bm{X})
+p(y_{i}|\bm{X})
+p(y_{i}|\bm{X})
+auto-diff
+RMN
+eq. 4
+p(\bm{y}|\bm{X})
+p(\bm{y}|\bm{X})
+p(y_{i}|\bm{X},\bm{y}_{L})
+manual-diff
+GMNN
+eq. 4
+p_{\phi}(y_{i}|\bm{X},\bm{y}_{N(i)}),q_{\theta}(y_{i}|\bm{X})
+p(\bm{y}_{L}|\bm{X})
+p(y_{i}|\bm{X},\bm{y}_{L})
+EM (auto-diff)
+2.4 Practical Considerations for Training GBPNs
+Figure 1: Predicted probabilities for low- vs. high-degree nodes.
+S2.SS4.p1.1 One modeling choice we have to make for GBPN is the loss function for training.
+Although the (unweighted) negative log-likelihood loss is often used for training GNNs,
+the same choice for GBPN can lead to sub-optimal performance in practice,
+especially when the degree heterogeneity in a graph is large.
+The reason is that, unlike GNNs, the predictive confidence of GBPN on a node can grow exponentially with the node degree, as shown in fig. 1.
+Therefore, the negative log-likelihood loss associated with mis-classifying a node grows linearly with the node degree.
+This creates a potential misalignment between the loss function and the classification accuracy,
+as classification accuracy is not weighted based on node degree.
+We will demonstrate this misalignment empirically in Section 3.3.
+S2.SS4.p2.1 We employ a straightforward way to align the loss function to the accuracy measure, which is to reweight the marginal likelihood in the loss function eq. 10 as \log p_{i}^{\prime}(y)\cong\alpha_{i}\cdot\log p_{i}(y) .
+Here, \alpha_{i} reduces the influence of high-degree nodes.
+In practice, we find that \alpha_{i}=d(i)^{-1/2} gives consistently better performance than \alpha_{i}=1 (no reweighting), where d(i) is the degree of node i .
+S2.SS4.p3.1 One limitation of GBPN is that it requires storing all the messages between neighbors during training, which costs \mathcal{O}(|E|) per BP step.
+In comparison, GCN [5] and GraphSAGE [6] costs \mathcal{O}(|V|) per layer, and GAT [8] costs \mathcal{O}(|E|) per layer due to edge attention weights.
+To reduce the computational cost on large-scale network, we will introduce a mini-batch training algorithm for GBPN in Section 3.3.

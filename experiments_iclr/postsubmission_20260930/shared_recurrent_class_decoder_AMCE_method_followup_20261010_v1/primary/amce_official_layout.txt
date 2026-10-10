@@ -1,0 +1,483 @@
+                                    Proceedings of the Twenty-Fifth AAAI Conference on Artificial Intelligence
+
+
+
+
+                             Across-Model Collective Ensemble Classiﬁcation
+
+                                             Hoda Eldardiry and Jennifer Neville
+                                                      Computer Science Department
+                                                            Purdue University
+                                                        West Lafayette, IN 47907
+                                                    (hdardiry | neville)@cs.purdue.edu
+
+
+
+                            Abstract                                           Some recent work has addressed the ﬁrst limitation by in-
+     Ensemble classiﬁcation methods that independently                      corporating relational data characteristics directly into the
+     construct component models (e.g., bagging) improve                     ensemble method. Preisach and Schmidt-Thieme (2006) de-
+     accuracy over single models by reducing the error due                  velop voting and stacking methods to combine relational
+     to variance. Some work has been done to extend ensem-                  data with multiple relations. Eldardiry and Neville (2008)
+     ble techniques for classiﬁcation in relational domains                 outline a method for relational resampling that can im-
+     by taking relational data characteristics or multiple link             prove bagging in relational domains. However, these meth-
+     types into account during model construction. How-                     ods were both developed with the conventional goals of en-
+     ever, since these approaches follow the conventional ap-               sembles in mind. To our knowledge, there has been no work
+     proach to ensemble learning, they improve performance                  that has focused on the second limitation—to extend ensem-
+     by reducing the error due to variance in learning. We
+                                                                            ble techniques to focus on reducing additional types of errors
+     note however, that variance in inference can be an ad-
+     ditional source of error in relational methods that use                that can result from relational classiﬁcation techniques.
+     collective classiﬁcation, since inferred values are prop-                 Speciﬁcally, classiﬁcation error can be decomposed into
+     agated during inference. We propose a novel ensem-                     bias, variance, and noise components (Friedman 1997). En-
+     ble mechanism for collective classiﬁcation that reduces                semble methods that independently construct component
+     both learning and inference variance, by incorporating                 models (e.g., bagging) can improve performance by reduc-
+     prediction averaging into the collective inference pro-                ing the error due to variance, while ensemble methods that
+     cess itself. We show that our proposed method signiﬁ-                  dependently construct component models (e.g., boosting)
+     cantly outperforms a straightforward relational ensem-
+                                                                            can improve performance by reducing the error due to both
+     ble baseline on both synthetic and real-world datasets.
+                                                                            bias and variance. We note that previous analysis of ensem-
+                                                                            bles and the manner by which they reduce error has focused
+                        Introduction                                        on i.i.d. models and data.
+Ensemble classiﬁcation methods learn an ensemble of mod-                       In this work, we make the key observation that collective
+els, apply them each for classiﬁcation, then combine the                    classiﬁcation models in statistical relational learning suf-
+models’ predictions to produce more accurate classiﬁca-                     fer from two sources of variance error (Neville and Jensen
+tion decisions than the individual base models constitut-                   2008). Collective classiﬁcation methods (Sen et al. 2008)
+ing the ensemble (Bauer and Kohavi 1999). These meth-                       learn a model of the dependencies in relational graph (e.g.,
+ods were initially developed for classiﬁcation of indepen-                  social network) and then apply the learned model to col-
+dent and identically distributed (i.i.d.) data, but they can be             lectively (i.e., jointly) infer the unknown class labels in the
+directly applied to relational data just by using a relational              graph. The ﬁrst source of variance error for these mod-
+classiﬁer as the base model. This straightforward approach                  els is the typical variance due to learning—as variation in
+can increase prediction accuracy in relational domains, but                 the data used for estimation causes variation in the learned
+only to a limited extent. This is because relational data char-             models. The second source of error is due to variance in
+acteristics (which are often exploited to improve classiﬁca-                inference—since predictions are propagated throughout the
+tion) will be considered only by the base classiﬁer and not                 network during inference, variation due to approximate in-
+the ensemble method itself, thus opportunities to further ex-               ference and variation in labeled test data can both increase
+ploit these characteristics in the ensemble will be ignored.                prediction variance.
+Furthermore, since the typical ensemble methods were ini-                      In this paper, we focus on reducing error due to variance
+tially developed for i.i.d. datasets, their aim is to reduce                and propose a relational ensemble framework that uses a
+errors associated with i.i.d. classiﬁcation models, thus er-                novel form of across-model collective inference for collec-
+rors speciﬁc to relational classiﬁers will not be reduced by a              tive classiﬁcation. Our method propagates inference infor-
+straightforward application of previous methods.                            mation across simultaneous collective inference processes
+Copyright  c 2011, Association for the Advancement of Artiﬁcial            running on the base models of the ensemble to reduce infer-
+Intelligence (www.aaai.org). All rights reserved.                           ence variance. Then the algorithm combines the ﬁnal model
+
+
+
+
+                                                                      343
+Algorithm 1 Relational Learning (RL)                                    Algorithm 3 Collective Ensemble Classiﬁcation (CEC)
+RL(G=(V, E), X, Y )                                                     CEC(F1 , F2 , . . . , Fk , G=(V, E), X,Ỹ , Fk =P (Yi |G, X, Y ))
+ 1: Use G, X, Y to learn a node classiﬁer F for vi ∈ V                   1: for all i in 1 to k do
+ 2: F := P (Yi |Xi , XR YR ) where R = {vj : eij ∈ E}                    2:   Ŷ i = Ỹ ; YT  i
+                                                                                                 =∅
+ 3: return F                                                             3:   for all vj ∈ V s.t. yj ∈   / Ỹ do
+                                                                         4:       Randomly initialize ŷji ; Ŷ i = Ŷ i ∪ ŷji
+Algorithm 2 Collective Classiﬁcation (CC)                                5: repeat
+                                                                         6:   for all i = 1 to k do
+CC(G=(V, E), X,Ỹ , F =P (Yi |G, X, Y ))                                 7:       for all vj ∈ V s.t. yj ∈  / Ỹ do
+ 1: Ŷ = Ỹ ; YT = ∅                                                     8:          ŷjinew = F i : P i (Yj |Xi.j , Xi.R , ŶR       i
+                                                                                                                                        )
+ 2: for all vi ∈ V s.t. yi ∈
+                           / Ỹ do                                                   where R = {vk : ejk ∈ Ei }
+       Randomly initialize ŷi ; Ŷ = Ŷ ∪ ŷi                                          i          k
+ 3:                                                                      9:          ŷjagg = k1 j=1 ŷjinew
+ 4: repeat                                                                                                   i                       i
+ 5:    for all vi ∈ V s.t. yi ∈
+                              / Ỹ do                                   10:          Ŷ i = Ŷ i − {ŷji } + {ŷjagg } ; YT
+                                                                                                                          i    i
+                                                                                                                            = YT ∪ ŷjagg
+                                                                        11: until terminating condition
+ 6:      ŷinew = P (Yi |Xi , XR ŶR ) where R = {vj :
+                                                                        12: for all i = 1 to k do
+         eij ∈ E}
+                                                                        13:   Compute Pi = {Pji : yj ∈       / Ỹ } using YTi
+ 7:      Ŷ = Ŷ − {ŷi } + {ŷinew } ; YT = YT ∪ ŷinew
+                                                                        14: P = ∅
+ 8: until terminating condition
+                                                                        15: for all vj ∈ V do
+ 9: Compute P = {Pi : yi ∈    / Ỹ } using YT                                           k
+10: return P                                                            16:   pj = k1          i
+                                                                                          i=1 pj ; P = P ∪ {pj }
+                                                                        17: return P
+
+
+predictions to reduce learning variance. To the best of our             Collective Classiﬁcation with Multiple Networks
+knowledge, this is the ﬁrst ensemble technique that aims to
+reduce error due to inference variance.                                 For this work, we consider the problem of relational learn-
+                                                                        ing and collective classiﬁcation in domains where a single
+  We evaluate our method using real-world and synthetic
+                                                                        set of objects (i.e., V ) are connected through multiple link
+datasets and show that it outperforms four baseline alter-
+                                                                        graphs (i.e., G1 = (V, E1 ), G2 = (V, E2 ), ...). For exam-
+native solutions, including a straightforward relational en-
+                                                                        ple, in an online social network, a friendship graph connects
+semble approach. The results show that while prediction
+                                                                        users that list each other as friends, a message graph con-
+accuracy is improved using a straightforward ensemble ap-
+                                                                        nects users that communicate via micro-communications,
+proach, our proposed method achieves signiﬁcant additional
+                                                                        and a photo graph connects users that tag one another in
+gains by reducing error due to inference variance.
+                                                                        photos. For these types of networks, and many other rela-
+                                                                        tional domains with different types of relations, each graph
+                Problem Formulation                                     provides complementary information about the same set of
+                                                                        objects and can thus be viewed as different “sources” of link
+Background                                                              information.
+                                                                           Here we consider the task of predicting a single class la-
+The general relational learning and collective classiﬁcation            bel Y (e.g., users political views) over the set of nodes V ,
+problem can be described as follows. Given a fully-labeled              given multiple types of relationships among V —the goal is
+training set composed of a graph Gtr = (Vtr , Etr ) with                to combine the link sources to improve the quality of infer-
+nodes Vtr and edges Etr ; observed features Xtr ; and ob-               ences produced from collective classiﬁcation. There are two
+served class labels Ytr , the relational learning procedure             primary ways to combine the various link sources to improve
+(RL) outlined in Algorithm 1, outputs a model F that can                prediction—either we can combine the sources before learn-
+be used to infer a joint probability distribution over the la-          ing and learn a joint model across all graphs, or we can com-
+bels of Vtr , conditioned on the observed attributes and graph          bine the sources after learning, by learning an ensemble of
+structure in Gtr . Given a partially-labelled test set composed         models, one from each source. As discussed previously, in
+of a graph Gte = (Vte , Ete ) with nodes Vte and edges Ete ;            order to reduce the prediction error due to variance (partic-
+observed features Xte ; and partially-observed class labels             ularly due to collective inference), in this work we focus on
+Ỹte ⊂ Yte , and the model F learned using RL, the collective           the latter. We describe our proposed ensemble method next.
+classiﬁcation procedure (CC) outlined in Algorithm 2, out-
+puts a set of marginal probability distributions P (i.e., pre-             Collective Ensemble Classiﬁcation (CEC)
+dictions) over the labels of nodes Vte . Note that Gtr used for
+RL is different from Gte used for CC. The collective classi-            Ensemble Learning
+ﬁcation pseudocode primarily describes inference based on               Each base model is learned independently from one link
+Gibbs sampling. However, many other approximate infer-                  graph using the RL method outlined in Algorithm 1. The
+ence methods (see e.g., Sen et al. 2008) are quite similar.             resulting models can each be used to infer a joint probability
+
+
+
+
+                                                                  344
+distribution over the labels of the nodes of the training net-                           Experimental Evaluation
+work. This is analogous to learning a set of ensemble mod-
+els by using different feature subsets (Cunningham and Car-                Using real-world and synthetic datasets, we show that CEC
+ney 2000), but in this case link types are treated as features.            signiﬁcantly outperforms a set of alternative methods under
+For the Facebook example, this will correspond to learning                 a variety of conditions. Furthermore, we show that the accu-
+one model from each of the friendship, message exchange,                   racy gains are due to reduction in inference variance.
+and photo-tagging graphs. This method of ensemble learn-
+ing uses the complete set of nodes in the training network for             Datasets
+learning each model, as opposed to bootstrap sampling (El-
+dardiry and Neville 2008) that learns models from subsets of               Our ﬁrst dataset is from the Purdue University Facebook
+a single graph.                                                            dataset. We use three link graphs connecting the same set of
+                                                                           users. The friendship graph has undirected friendship links.
+Ensemble Inference                                                         The wall graph has directed links extracted from users’ in-
+For inference, we propose a novel across-models collec-                    teractions through a public message board on their proﬁle
+tive classiﬁcation method that propagates inferences across                wall page. The photo graph has directed links extracted from
+the models of the ensembles during collective inference.                   users tagging others in their proﬁle photo page. We con-
+We refer to our method as Collective Ensemble Classiﬁca-                   structed four network samples based on membership in Pur-
+tion (CEC) and outline it in Algorithm 3. Given a test net-                due Facebook subnetworks: [Purdue Alum ’07, Purdue ’08,
+work G with partially labeled nodes V , and k base mod-                    Purdue ’09, Purdue ’10]. Within each subnetwork, we con-
+els F1 , F2 , . . . , Fk learned as described above from different         sidered the set of users connected in at least two link graphs
+link sources, the models are applied simultaneously to col-                which resulted in network sizes [921, 827, 1268, 1384] re-
+lectively predict the values of unknown labels (lines 7-10).               spectively. Each user has a boolean class label which indi-
+First, the labels are randomly initialized (lines 1-4). Next,              cates whether their political view is ‘Conservative’. In ad-
+at each collective inference iteration, the model Fi is used               dition, we consider nine node features and two link fea-
+to infer a label for each node v conditioned on the current                tures. The object features record user proﬁle information.
+labels of the neighbors of v (line 8). This corresponds to a               Wall links have one link feature that counts the number of
+typical collective inference iteration. Then instead of using              wall posts exchanged between any two users, while photo
+the prediction from Fi directly for the next round, it is av-              links have one link feature that counts the number of photos
+eraged with the inferences for v made by each other model                  shared between any two users.
+Fj s.t. j = i (line 9). This interleaves the inferences made                 Our second dataset is from the IMDb (Internet Movie
+across the set of ensemble models and pushes the variance                  Database) dataset, which contains movie release informa-
+reduction gains into the collective inference process itself.              tion. We constructed ﬁve link graphs among movies. The
+At the end, the predictions are calculated for each model                  actor graph links movies that share an actor. Similarly, we
+based on the stored prediction values from each collective                 constructed the studio, producer, director, and editor graphs
+inference iteration (lines 12-13). Finally, model outputs are              which link movies that share an entity of the corresponding
+averaged to produce the ﬁnal predictions (lines 15-16). We                 type. We constructed seven samples of US movies based on
+note that the manner in which CEC uses inferences from                     movie release years: [2002, 2003, 2004, 2005, 2006, 2007].
+other models (for the same node) provides more informa-                    Within each subnetwork, we considered the set of movies
+tion to the inference process, which is not available if the               connected in at least one link graph which resulted in net-
+collective inference processes are run independently on each               work sizes [269, 253, 264, 314, 305, 249] respectively. Each
+base model. Since each collective inference process can ex-                movie has a boolean class label which indicates whether the
+perience error due to variance from approximate inference                  movie is a ‘Blockbuster’ (earnings >$60mil; inﬂation ad-
+or from the underlying network structure, the ensemble av-                 justed).
+eraging during inference can reduce these errors before they                  Our third dataset consists of synthetically generated rela-
+propagate throughout the network. This results in signiﬁcant               tional data graphs with the latent group model described in
+reduction of inference variance, which is achieved solely by               the work of Neville and Jensen (2005). The model uses a
+our method.                                                                hidden group structure to generate network data with vary-
+                                                                           ing levels of autocorrelation and linkage. We generated 10
+Complexity                                                                 different link graphs, for the same set of objects, with differ-
+Let the number of component models in the ensemble be                      ent link density structures and link types. Graphs are gener-
+k, and let the complexity of learning using the general RL                 ated with 500 nodes, in groups with an average size of 50.
+algorithm be Cl . Then CEC learning complexity is k ∗ Cl .                 Each node has one binary class label.
+Also, let the complexity of inference using the general CC
+algorithm be Ci . Algorithm 3 loops over CC k times (for k                 Baseline Methods
+models), and aggregates over k predictions within that loop.
+Therefore CEC complexity is k 2 ∗ Ci . Since k is usually a                We consider four baselines methods to compare to re-
+small constant, the efﬁciency of CEC is comparable to col-                 lated work, while controlling for model representation. Each
+lective inference with a single relational model learned using             method uses the RL and CC algorithms for learning and in-
+the RL algorithm.                                                          ference, respectively.
+
+
+
+
+                                                                     345
+Relational Ensemble (RE): The RE baseline uses the                      model (Neville and Jensen 2007). RDNs use pseudolike-
+same ensemble learning procedure of CEC, but applies each               lihood estimation to efﬁciently learn a full joint probabil-
+model independently for inference to produce a set of prob-             ity distribution over the labels of the data graph, and are
+ability estimates for nodes predictions. Then it averages the           typically applied with Gibbs sampling for collective infer-
+resulting set of predictions for each node independently to             ence. We note that we do not have to estimate the full
+get the ﬁnal predictions P . This is used to evaluate the               joint distribution over the test data for accurate inference,
+improvement achieved by our across-model inference ap-                  it is sufﬁcient to accurately estimate the per instance condi-
+proach (since RE uses the same learning and ﬁnal predic-                tional likelihoods, which is easy to do with Gibbs sampling
+tion averaging as CEC), and is intended to show that the in-            (e.g., Neville and Jensen (2007) showed typical empirical
+crease in accuracy of CEC cannot be achieved by a straight-             convergence within 500 Gibbs iterations).
+forward ensemble classiﬁcation that combines different rela-                We use 5 pairs of disjoint training and test sets from the
+tions (e.g., Preisach and Schmidt-Thieme (2006)). The lim-              synthetic data, and 4 pairs from the Facebook and IMDb
+itation of RE is that inference is applied independently on             data. The training and test pairs are constructed to account
+each base model, so the availability of multiple predictions            for variability due to change in time. For the Facebook ex-
+from the ensemble models is only utilized to average the ﬁ-             periments, we train on the two networks closest in date to the
+nal ensemble predictions—after the inference algorithm is               test network (e.g., train on Purdue Alum ’07 and Purdue ’09,
+ﬁnished and inference variance has propagated through the               and test on Purdue ’08). For the IMDb experiments, we train
+graph. Our key insight is that the collective classiﬁcation of-         on the two release year networks preceding the test network
+fers a unique opportunity to jointly utilize information from           (e.g., train on 2003 and 2004, and test on 2005).
+all the models during collective inference.                                 For each experiment, we vary the labeled proportion of
+                                                                        the test set available before inference by randomly choosing
+                                                                        the set of nodes to label for each trial. At each proportion
+Multiple Relations (MR): The MR baseline is a single                    level, the random labeling process is repeated 5 times and 5
+model approach that learns one model from the merged set                rounds of inference are run for each random labeling. Each
+of training graphs, using the multiple relation types as fea-           inference run uses 500 Gibbs samples. We measure the area
+tures in the model. The learned model is applied collectively           under the ROC (AUC) to assess the prediction accuracy of
+to the test graph, producing a single set of predictions. This          each model. The 5 × 5 = 25 trials are repeated for each
+allows us to evaluate the improvement achieved by the re-               training and test pair, and the averages of the 125 AUC mea-
+lational ensemble approach, by comparing to just using a                surements from each approach are reported.
+single model approach that uses the link types as features                  We test the robustness of the methods to missing labels
+for learning. MR is similar to methods we mention in the re-            (in the test set) by varying the proportion of labeled test
+lated work section that combine multiple data sources into a            data at 10% through 90%. For the Facebook dataset, we re-
+single network for learning.                                            port results using 3 link sources: friendship, wall, and photo
+                                                                        graphs. For the IMDB dataset, we use 5 link sources: ac-
+                                                                        tors, studios, producers, directors and editors graphs. For the
+Combined Relations (CR): The CR baseline is another                     synthetic data experiment we use 3 link sources, with high
+single model approach that learns one model from the                    autocorrelation and low link density.
+merged set of training graphs, however this method ignores                  We test the effect of increasing the number of link sources
+the relation types and just uses the single-source (i.e., at-           by generating synthetic data with 1, 3, 6 and 9 sources.
+tribute) features. The model is also applied collectively on a          When there is one source, this corresponds to the SR base-
+single, merged test graph that contains all link source infor-          line. In this evaluation, we report results with 10% labeled
+mation but no link type features, resulting in a single set of          nodes in the test set; high autocorrelation and low link den-
+predictions. We compare to this simple method that does not             sity. Note that the same nodes are labeled across all the link
+consider the various link types to assess any gains achieved            graphs and therefore increasing the number of link graphs
+by considering link types as features in MR.                            does not mean there is more labeled data available, just that
+                                                                        more link information is being considered.
+                                                                            Since collective inference in general, and the RDN specif-
+Single Relation (SR): The SR baseline learns one model
+                                                                        ically, have been shown to exploit relational autocorrelation
+from a single link source and applies the model collectively
+                                                                        and linkage in relational data (Neville and Jensen 2007),
+to the test network from the same source. We learn/evaluate
+                                                                        we investigate the effects of increasing both levels. We var-
+a SR model for each link source separately. Comparing to
+                                                                        ied the autocorrelation level from low to high using 3 link
+this method allows us to assess the intrinsic value of each
+                                                                        graphs, each with low link density and 10% labeled test data.
+relationship in the network when used for classiﬁcation by
+                                                                        Then we varied the linkage level in the data from low to high,
+itself. In the experimental results, we report average perfor-
+                                                                        using 3 sources, each with high autocorrelation and 10% la-
+mance for the set of SR models learned from each link type.
+                                                                        beled test data.
+Experimental Setup                                                      Empirical Results
+We implement each of the above methods using a re-                      The main ﬁnding across all experiments is that CEC consis-
+lational dependency network (RDN) collective inference                  tently and signiﬁcantly outperforms the baselines. To sum-
+
+
+
+
+                                                                  346
+               (a) Facebook                                  (b) IMDb                                  (c) Synthetic
+
+                    Figure 1: AUC on real and synthetic datasets for varying proportions of labeled test data.
+
+
+marize our ﬁndings:                                                                         Autocorrelation      Linkage
+                                                                                 Method     Low     High       Low High
+• CEC has signiﬁcantly higher classiﬁcation accuracy than                        SR         0.51    0.58       0.58 0.630
+  all the baselines.                                                             CR         0.53    0.57       0.57 0.63
+• CEC is the most robust to missing labels (due to its ability                   MR         0.52    0.56       0.56 0.68
+  to best exploit the available label information).                              RE         0.53    0.64       0.64 0.73
+                                                                                 CEC        0.55    0.74       0.74 0.82
+• CEC best utilizes link information from additional
+  sources.                                                                 Table 1: AUCs for varying autocorrelation and linkage.
+• CEC best exploits information due to higher linkage and
+  autocorrelation.
+   Figure 1 shows that as the proportion of labeled nodes
+increases, accuracy increases. CEC is the most robust tech-
+nique to missing labels across all datasets. Moreover, CEC
+signiﬁcantly (p < 0.01) outperforms RE at all label pro-
+portions on the synthetic and Facebook datasets, and on the
+IMDb at labeled proportions through 50%. (We analyze sig-
+niﬁcance using paired t-tests). It is clear that CEC results
+in huge performance gains over other methods with very
+few labeled instances. This is because when there is a lim-                         (a)                            (b)
+ited number of labeled neighbors available, CEC is able to
+                                                                         Figure 2: (a) Performance as the number of link types in-
+best exploit the link information available from the multiple
+                                                                         creases. (b) AUC and inference variance for a hybrid model
+sources to reduce inference error. Although we plot mean SR
+                                                                         that only uses CEC on a limited number of models.
+performance, we note that CEC also outperforms the best SR
+model. Furthermore, CEC is able to improve performance
+even when the SR models do not have similar performance
+(e.g., when some perform poorly).                                        at both low and high levels of autocorrelation and link den-
+   Figure 2(a) shows that the ensemble methods improve                   sity. The performance of SR models improve as autocorre-
+overall model performance as more sources are considered,                lation and link density increase, because RDNs use collec-
+although again CEC achieves signiﬁcantly (p < 0.01) higher               tive inference, which exploits autocorrelation and link den-
+accuracies compared to RE. On the other hand, the perfor-                sity to use predictions of related instances to improve one
+mance of the single model baselines (MR, CR) degrade.                    another. As discussed previously, RE aggregates those im-
+This can be explained by the fact that an ensemble approach              proved predictions and hence improves the overall predic-
+(RE) reduces the learning variance, and that interleaving the            tions accuracy. CEC improves node predictions even further,
+collective inference processes (CEC) reduces the inference               using predictions made by other models simultaneously dur-
+variance on top of that. In contrast, the degradation in perfor-         ing collective inference. Finally, while MR and CR also im-
+mance for the single model baselines can be attributed to the            prove as autocorrelation and link density increase, they are
+increased variance in the learned model due to the increased             not able to achieve the same gains as the ensemble methods.
+number of links and features in the merged graph.                           The difference between CEC and RE is due to the inter-
+   Table 1 shows that the ensemble methods better exploit                mediate averaging of predictions across the models that is
+autocorrelation and link density than the single model base-             used by CEC. We conjecture that this process reduces the
+lines. CEC again signiﬁcantly (p < 0.01) outperforms RE                  error due to inference variance and that the magnitude of
+
+
+
+
+                                                                   347
+the effect is related to the number of models/sources that are          of link information to improve performance (Macskassy
+averaged during the inference process. To investigate this,             2007; Eliassi-Rad et al. 2008). However, once again, these
+we evaluate a hybrid version of RE and CEC—where we                     methods combine this information before learning and in-
+learn an ensemble of 10 models on 10 link sources, but vary             ference. Our MR results are intended to serve as a baseline
+the number of models that are interleaved during the collec-            to compare to this broad class of methods, while control-
+tive inference process. Interleaving 0 models corresponds to            ling for model representation, since the MR models combine
+RE, while interleaving 10 models corresponds to CEC. In                 all the source information before learning a single model.
+between these two extremes, the hybrid model performance                In the future, we plan to evaluate our method in a context
+shows the effect of propagating prediction information dur-             similar to that of Macskassy (2007), which also used addi-
+ing inference. The blue, dashed line in Figure 2(b) shows               tional sources of information, but only for inference since
+a smooth increment in the overall predictive performance as             the model is not learned.
+the proportion of propagated predictions during inference in-              The second category of related work contains meth-
+creases, which illustrates the relationship between CEC and             ods that combine prediction information at the output
+RE. The red, dotted line shows the average inference vari-              level. Preisach and Schmidt-Thieme (2006) learn a separate
+ance measured from the same set of experiments, indicating              logistic regression classiﬁer from each relational source then
+that the accuracy improvement corresponds to a reduction in             combine the classiﬁers using voting and stacking. This is
+inference variance.                                                     similar to our method since it uses an ensemble approach to
+                                                                        combine multiple link sources. However, their method was
+                      Related Work                                      not designed for collective classiﬁcation models, thus the ap-
+Many studies have shown that ensembles of multiple clas-                proach is intended to reduce learning error, not inference er-
+siﬁers can usually achieve higher accuracy than individual              ror. Our RE results are intended to serve as a baseline com-
+classiﬁers (Dietterich 2000). These methods typically as-               parison to this straightforward relational ensemble method.
+sume i.i.d. data and a single information source, but some              The work of Gao et al. (2009) presents a method to maxi-
+work has been done to extend ensemble techniques to struc-              mize consensus among the decisions of multiple supervised
+tured and/or multi-source settings. For example, Blum and               and unsupervised models. The method is similar to our ap-
+Mitchell (1998) propose multi-view learning for i.i.d. data,            proach since it combines predictions from multiple models
+while Ganchev et al. (2008) propose multi-view learning for             and uses label propagation for prediction. However, we note
+structured data. In addition, Eldardiry and Neville (2008) de-          that their label propagation approach is designed to maxi-
+veloped a relational resampling method for bagging in rela-             mize consensus among the model outputs after inference,
+tional domains. However, none of these methods are suit-                rather than during a collective inference process over a rela-
+able for collective classiﬁcation in a multi-source, relational         tional network. In addition, the method is designed primarily
+domain—since they either assume i.i.d. data, multiple struc-            for i.i.d. learners where again, there will be no inference er-
+tured examples, or a single source.                                     ror.
+   There are many machine learning methods that use multi-                 Fast and Jensen (2008) recently showed that stack-
+ple information sources to improve classiﬁcation—by either              ing (Kou and Cohen 2007) improves collective classiﬁca-
+combining data sources (at the input to learning), or by com-           tion models by reducing inference bias. Although this work
+bining predictions (at the output of inference). To the best of         evaluated model performance in single source relational
+our knowledge, our method is the ﬁrst to combine informa-               datasets, it is interesting to note that stacking reduces infer-
+tion during inference instead of after inference.                       ence bias, while our method reduces inference variance. In
+   The ﬁrst category of related work contains methods that              future work, we will explore whether the two can be com-
+combine source information before learning, including work              bined in a larger ensemble framework.
+on integrating multiple networks for label propagation meth-
+ods (Kato, Kashima, and Sugiyama 2008; Tsuda, Shin, and                              Discussion and Conclusion
+Scholkoopf 2005). Since these methods combine multiple                  Ensemble techniques were initially developed for i.i.d. data,
+information sources and exploit the relational structure to             so they are limited to reducing errors associated with i.i.d.
+propagate inferences via label propagation, they may seem               models and fail to reduce additional sources of error asso-
+similar to our work. However, in contrast to our method,                ciated with more powerful models. We note that collective
+these approaches combine the source information before in-              inference methods, which are widely used for classiﬁcation
+ference and focus on label propagation to improve trans-                of relational data, can introduce a signiﬁcant amount of in-
+ductive inference within a single network—the methods do                ference variance due to the use of approximate joint infer-
+not learn complex relational models to generalize to unseen             ence. This has been overlooked by current ensemble meth-
+networks, nor do they combine information across networks               ods that assume exact inference models and focus on the
+during inference.                                                       typical goal of reducing errors due to learning, even if the
+   In statistical relational learning, there are general learn-         methods explicitly considered relational data (Eldardiry and
+ing methods that treat heterogeneous information of multiple            Neville 2008; Preisach and Schmidt-Thieme 2006).
+object and link types as a single information source and use               In this paper, we presented a novel method for applying
+a single model approach for classiﬁcation (see e.g., Getoor             ensembles in collective classiﬁcation contexts with multiple
+and Taskar (2007)). There has also been some work that aug-             link types, which can reduce the error due to inference vari-
+ments the observed relational data with additional ‘sources’            ance (in addition to the reduction in learning variance typ-
+
+
+
+
+                                                                  348
+ically achieved by ensembles). The CEC method takes ad-                                        References
+vantage of an opportunity unique to multi-source relational             Bauer, E., and Kohavi, R. 1999. An empirical comparison
+domains, which is that inferences can be propagated across a            of voting classiﬁcation algorithms: Bagging, boosting, and
+set of collective inference processes running simultaneously            variants. Machine Learning 36.
+on the various link sources. This approach maximizes agree-
+                                                                        Blum, A., and Mitchell, T. 1998. Combining labeled and
+ment between the predictions made by the different models
+                                                                        unlabeled data with co-training. In Proc. of CLT’98.
+and can stop errors due to inference variance from propa-
+gating throughout the network. The experiments show that                Cunningham, P., and Carney, J. 2000. Diversity versus qual-
+CEC results in signiﬁcant performance gains compared to                 ity in classiﬁcation ensembles based on feature selection. In
+more straightforward ensemble and collective classiﬁcation              Machine Learning: ECML 2000, volume 1810, 109–116.
+methods that do not attempt to reduce variance in the collec-           Dietterich, T. 2000. Ensemble methods in machine learning.
+tive inference process.                                                 In Proc. of MCS’00.
+   There are of course, alternative means to reduce variance            Eldardiry, H., and Neville, J. 2008. A resampling technique
+error other than the use of ensembles. For example, increas-            for relational data graphs. In Proc. of SNA-SIGKDD’08.
+ing the training set size can indeed reduce learning variance.
+                                                                        Eliassi-Rad, T.; Gallagher, B.; Tong, H.; and Faloutsos, C.
+However, in relational datasets where instances are not in-
+                                                                        2008. Using ghost edges for classiﬁcation in sparsely la-
+dependent, the effective sample size is often less than the
+                                                                        beled networks. In Proc. of SIGKDD’08.
+number of instances (i.e., nodes). Thus reduction in learn-
+ing variance may require a larger than expected increase in             Fast, A., and Jensen, D. 2008. Why stacked models perform
+sample size. In this case, conventional ensembles offer an              effective collective classiﬁcation. In Proc. of ICDM’08.
+alternative to reducing learning variance. Our proposed ap-             Friedman, J. 1997. On bias, variance, 0/1-loss, and the
+proach decreases both learning and inference variance. In-              curse-of-dimensionality. Data Mining and Knowledge Dis-
+ference variance is a unique characteristic of collective in-           covery 1(1).
+ference models that depends on the interaction between the              Ganchev, K.; Graca, J.; Blitzer, J.; and Taskar, B. 2008.
+network, model, and amount of labeled test data. More train-            Multi-view learning over structured and non-identical out-
+ing data is unlikely to reduce inference variance, since infer-         puts. In Proc. of UAI’08.
+ence variance can occur even when using the true model.
+                                                                        Gao, J.; Liang, F.; Fan, W.; Sun, Y.; and Han, J. 2009. Graph-
+   In this work we proposed CEC to exploit multiple link
+                                                                        based consensus maximization among multiple supervised
+graphs. The assumption of multiple link sources holds in
+                                                                        and unsupervised models. In Proc. of NIPS’09.
+many real scenarios, as even datasets with a single link type
+often contain many implicit link relationships (e.g., interac-          Getoor, L., and Taskar, B., eds. 2007. Introduction to Statis-
+tions over the links).                                                  tical Relational Learning. MIT Press.
+   In future work, we plan to extend our proposed approach              Kato, T.; Kashima, H.; and Sugiyama, M. 2008. Integration
+to single source network settings, using resampling to con-             of multiple networks for robust label propagation. In Proc.
+struct the ensembles. In particular, the relational resampling          of SDM’08.
+method proposed by Eldardiry and Neville (2008) has been                Kou, Z., and Cohen, W. W. 2007. Stacked graphical models
+shown to improve the accuracy of bagging for relational                 for effecient inference for markov random ﬁelds. In Proc. of
+data, by focusing on the reduction of learning variance.                SDM’07.
+Combining this method with our CEC mechanism, which
+                                                                        Macskassy, S. 2007. Improving learning in networked data
+achieved additional reduction of inference variance, will re-
+                                                                        by combining explicit and mined links. In Proc. of AAAI’07.
+sult in a uniﬁed method that can fully reduce errors due to
+variance in both learning and inference. Moreover, using re-            Neville, J., and Jensen, D. 2005. Leveraging relational auto-
+lational resampling instead of separate link structures for             correlation with latent group models. In Proc. of ICDM’05,
+learning will facilitate application in single-source network           322–329.
+settings as well as multiple-source ones.                               Neville, J., and Jensen, D. 2007. Relational dependency
+                                                                        networks. Journal of Machine Learning Research 8:653–
+                   Acknowledgments                                      692.
+We thank Sebastian Moreno and Nguyen Cao for contribut-                 Neville, J., and Jensen, D. 2008. A bias/variance decompo-
+ing to the early setup of the Facebook dataset. This material           sition for models using collective inference. Machine Learn-
+is based in part upon work supported by DARPA, IARPA via                ing Journal.
+AFRL, and NSF under contract numbers NBCH1080005,                       Preisach, C., and Schmidt-Thieme, L. 2006. Relational en-
+FA8650-10-C-7060, and IIS-0916686. The U.S. Govern-                     semble classiﬁcation. In Proc. of ICDM’06.
+ment is authorized to reproduce and distribute reprints for
+                                                                        Sen, P.; Namata, G. M.; Bilgic, M.; Getoor, L.; Gallagher,
+governmental purposes notwithstanding any copyright nota-
+                                                                        B.; and Eliassi-Rad, T. 2008. Collective classiﬁcation in
+tion hereon. The views and conclusions contained herein are
+                                                                        network data. AI Magazine 29(3):93–106.
+those of the authors and should not be interpreted as neces-
+sarily representing the ofﬁcial policies or endorsements ei-            Tsuda, K.; Shin, H.; and Scholkoopf, B. 2005. Fast protein
+ther expressed or implied, of DARPA, IARPA, AFRL, NSF,                  classiﬁcation with multiple networks. Bioinformatics 21.
+or the U.S. Government.
+
+
+
+
+                                                                  349
+
