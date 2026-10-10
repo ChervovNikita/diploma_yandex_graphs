@@ -1,0 +1,954 @@
+[
+  {
+    "i": 0,
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "class": "",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "i": 1,
+    "tag": "h1",
+    "id": null,
+    "class": "ltx_title ltx_title_document",
+    "text": "Momentum Contrast for Unsupervised Visual Representation Learning"
+  },
+  {
+    "i": 2,
+    "tag": "p",
+    "id": "abstract1.1",
+    "class": "ltx_p",
+    "text": "We present Momentum Contrast (MoCo) for unsupervised visual representation learning. From a perspective on contrastive learning [27] as dictionary look-up, we build a dynamic dictionary with a queue and a moving-averaged encoder. This enables building a large and consistent dictionary on-the-fly that facilitates contrastive unsupervised learning. MoCo provides competitive results under the common linear protocol on ImageNet classification. More importantly, the representations learned by MoCo transfer well to downstream tasks. MoCo can outperform its supervised pre-training counterpart in 7 detection/segmentation tasks on PASCAL VOC, COCO, and other datasets, sometimes surpassing it by large margins. This suggests that the gap between unsupervised and supervised representation learning has been largely closed in many vision tasks."
+  },
+  {
+    "i": 3,
+    "tag": "p",
+    "id": "p1.1",
+    "class": "ltx_p",
+    "text": ""
+  },
+  {
+    "i": 4,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "1 Introduction"
+  },
+  {
+    "i": 5,
+    "tag": "p",
+    "id": "S1.p1.1",
+    "class": "ltx_p",
+    "text": "Unsupervised representation learning is highly successful in natural language processing, e.g., as shown by GPT [48, 49] and BERT [10]. But supervised pre-training is still dominant in computer vision, where unsupervised methods generally lag behind. The reason may stem from differences in their respective signal spaces. Language tasks have discrete signal spaces (words, sub-word units, etc.) for building tokenized dictionaries, on which unsupervised learning can be based. Computer vision, in contrast, further concerns dictionary building [52, 7, 5], as the raw signal is in a continuous, high-dimensional space and is not structured for human communication (e.g., unlike words)."
+  },
+  {
+    "i": 6,
+    "tag": "p",
+    "id": "S1.p2.1",
+    "class": "ltx_p",
+    "text": "Several recent studies [59, 44, 34, 64, 33, 54, 2] present promising results on unsupervised visual representation learning using approaches related to the contrastive loss [27]. Though driven by various motivations, these methods can be thought of as building dynamic dictionaries. The \u201ckeys\u201d (tokens) in the dictionary are sampled from data (e.g., images or patches) and are represented by an encoder network. Unsupervised learning trains encoders to perform dictionary look-up: an encoded \u201cquery\u201d should be similar to its matching key and dissimilar to others. Learning is formulated as minimizing a contrastive loss [27]."
+  },
+  {
+    "i": 7,
+    "tag": "p",
+    "id": "S1.p3.1",
+    "class": "ltx_p",
+    "text": "From this perspective, we hypothesize that it is desirable to build dictionaries that are: (i) large and (ii) consistent as they evolve during training. Intuitively, a larger dictionary may better sample the underlying continuous, high-dimensional visual space, while the keys in the dictionary should be represented by the same or similar encoder so that their comparisons to the query are consistent. However, existing methods that use contrastive losses can be limited in one of these two aspects (discussed later in context)."
+  },
+  {
+    "i": 8,
+    "tag": "p",
+    "id": "S1.p4.1",
+    "class": "ltx_p",
+    "text": "We present Momentum Contrast (MoCo) as a way of building large and consistent dictionaries for unsupervised learning with a contrastive loss (Figure 1). We maintain the dictionary as a queue of data samples: the encoded representations of the current mini-batch are enqueued, and the oldest are dequeued. The queue decouples the dictionary size from the mini-batch size, allowing it to be large. Moreover, as the dictionary keys come from the preceding several mini-batches, a slowly progressing key encoder, implemented as a momentum-based moving average of the query encoder, is proposed to maintain consistency."
+  },
+  {
+    "i": 9,
+    "tag": "p",
+    "id": "S1.p5.1",
+    "class": "ltx_p",
+    "text": "MoCo is a mechanism for building dynamic dictionaries for contrastive learning, and can be used with various pretext tasks. In this paper, we follow a simple instance discrimination task [59, 61, 2]: a query matches a key if they are encoded views (e.g., different crops) of the same image. Using this pretext task, MoCo shows competitive results under the common protocol of linear classification in the ImageNet dataset [9]."
+  },
+  {
+    "i": 10,
+    "tag": "p",
+    "id": "S1.p6.1",
+    "class": "ltx_p",
+    "text": "A main purpose of unsupervised learning is to pre-train representations (i.e., features) that can be transferred to downstream tasks by fine-tuning. We show that in 7 downstream tasks related to detection or segmentation, MoCo unsupervised pre-training can surpass its ImageNet supervised counterpart, in some cases by nontrivial margins. In these experiments, we explore MoCo pre-trained on ImageNet or on a one-billion Instagram image set, demonstrating that MoCo can work well in a more real-world, billion-image scale, and relatively uncurated scenario. These results show that MoCo largely closes the gap between unsupervised and supervised representation learning in many computer vision tasks, and can serve as an alternative to ImageNet supervised pre-training in several applications."
+  },
+  {
+    "i": 11,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "2 Related Work"
+  },
+  {
+    "i": 12,
+    "tag": "p",
+    "id": "S2.p1.1",
+    "class": "ltx_p",
+    "text": "Unsupervised/self-supervised11 1 Self-supervised learning is a form of unsupervised learning. Their distinction is informal in the existing literature. In this paper, we use the more classical term of \u201cunsupervised learning\u201d, in the sense of \u201cnot supervised by human-annotated labels\u201d. learning methods generally involve two aspects: pretext tasks and loss functions. The term \u201cpretext\u201d implies that the task being solved is not of genuine interest, but is solved only for the true purpose of learning a good data representation. Loss functions can often be investigated independently of pretext tasks. MoCo focuses on the loss function aspect. Next we discuss related studies with respect to these two aspects."
+  },
+  {
+    "i": 13,
+    "tag": "p",
+    "id": "S2.SS0.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "A common way of defining a loss function is to measure the difference between a model\u2019s prediction and a fixed target, such as reconstructing the input pixels (e.g., auto-encoders) by L1 or L2 losses, or classifying the input into pre-defined categories (e.g., eight positions [11], color bins [62]) by cross-entropy or margin-based losses. Other alternatives, as described next, are also possible."
+  },
+  {
+    "i": 14,
+    "tag": "p",
+    "id": "S2.SS0.SSS0.Px1.p2.1",
+    "class": "ltx_p",
+    "text": "Contrastive losses [27] measure the similarities of sample pairs in a representation space. Instead of matching an input to a fixed target, in contrastive loss formulations the target can vary on-the-fly during training and can be defined in terms of the data representation computed by a network [27]. Contrastive learning is at the core of several recent works on unsupervised learning [59, 44, 34, 64, 33, 54, 2], which we elaborate on later in context (Sec. 3.1)."
+  },
+  {
+    "i": 15,
+    "tag": "p",
+    "id": "S2.SS0.SSS0.Px1.p3.1",
+    "class": "ltx_p",
+    "text": "Adversarial losses [22] measure the difference between probability distributions. It is a widely successful technique for unsupervised data generation. Adversarial methods for representation learning are explored in [13, 14]. There are relations (see [22]) between generative adversarial networks and noise-contrastive estimation (NCE) [26]."
+  },
+  {
+    "i": 16,
+    "tag": "p",
+    "id": "S2.SS0.SSS0.Px2.p1.1",
+    "class": "ltx_p",
+    "text": "A wide range of pretext tasks have been proposed. Examples include recovering the input under some corruption, e.g., denoising auto-encoders [56], context auto-encoders [46], or cross-channel auto-encoders (colorization) [62, 63]. Some pretext tasks form pseudo-labels by, e.g., transformations of a single (\u201cexemplar\u201d) image [15], patch orderings [11, 43], tracking [57] or segmenting objects [45] in videos, or clustering features [3, 4]."
+  },
+  {
+    "i": 17,
+    "tag": "p",
+    "id": "S2.SS0.SSS0.Px3.p1.1",
+    "class": "ltx_p",
+    "text": "Various pretext tasks can be based on some form of contrastive loss functions. The instance discrimination method [59] is related to the exemplar-based task [15] and NCE [26]. The pretext task in contrastive predictive coding (CPC) [44] is a form of context auto-encoding [46], and in contrastive multiview coding (CMC) [54] it is related to colorization [62]."
+  },
+  {
+    "i": 18,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "3 Method"
+  },
+  {
+    "i": 19,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "3.1 Contrastive Learning as Dictionary Look-up"
+  },
+  {
+    "i": 20,
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "Contrastive learning [27], and its recent developments, can be thought of as training an encoder for a dictionary look-up task, as described next."
+  },
+  {
+    "i": 21,
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "Consider an encoded query [MATH q] and a set of encoded samples [MATH \\{k_{0},k_{1},k_{2},...\\}] that are the keys of a dictionary. Assume that there is a single key (denoted as [MATH k_{+}] ) in the dictionary that [MATH q] matches. A contrastive loss [27] is a function whose value is low when [MATH q] is similar to its positive key [MATH k_{+}] and dissimilar to all other keys (considered negative keys for [MATH q] ). With similarity measured by dot product, a form of a contrastive loss function, called InfoNCE [44], is considered in this paper:"
+  },
+  {
+    "i": 22,
+    "tag": "table",
+    "id": "S3.E1",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[MATH \\small\\mathcal{L}_{q}=-\\log\\frac{\\exp(q{\\cdot}k_{+}/\\tau)}{\\sum_{i=0}^{K}\\exp(q{\\cdot}k_{i}/\\tau)}] (1)"
+  },
+  {
+    "i": 23,
+    "tag": "p",
+    "id": "S3.SS1.p2.2",
+    "class": "ltx_p",
+    "text": "where [MATH \\tau] is a temperature hyper-parameter per [59]. The sum is over one positive and [MATH K] negative samples. Intuitively, this loss is the log loss of a [MATH ({K}{+}1)] -way softmax-based classifier that tries to classify [MATH q] as [MATH k_{+}] . Contrastive loss functions can also be based on other forms [27, 57, 59, 34], such as margin-based losses and variants of NCE losses."
+  },
+  {
+    "i": 24,
+    "tag": "p",
+    "id": "S3.SS1.p3.1",
+    "class": "ltx_p",
+    "text": "The contrastive loss serves as an unsupervised objective function for training the encoder networks that represent the queries and keys [27]. In general, the query representation is [MATH q=f_{\\textrm{q}}(x^{q})] where [MATH f_{\\textrm{q}}] is an encoder network and [MATH x^{q}] is a query sample (likewise, [MATH k=f_{\\textrm{k}}(x^{k})] ). Their instantiations depend on the specific pretext task. The input [MATH x^{q}] and [MATH x^{k}] can be images [27, 59, 61], patches [44], or context consisting a set of patches [44]. The networks [MATH f_{\\textrm{q}}] and [MATH f_{\\textrm{k}}] can be identical [27, 57, 61], partially shared [44, 34, 2], or different [54]."
+  },
+  {
+    "i": 25,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "3.2 Momentum Contrast"
+  },
+  {
+    "i": 26,
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "From the above perspective, contrastive learning is a way of building a discrete dictionary on high-dimensional continuous inputs such as images. The dictionary is dynamic in the sense that the keys are randomly sampled, and that the key encoder evolves during training. Our hypothesis is that good features can be learned by a large dictionary that covers a rich set of negative samples, while the encoder for the dictionary keys is kept as consistent as possible despite its evolution. Based on this motivation, we present Momentum Contrast as described next."
+  },
+  {
+    "i": 27,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "At the core of our approach is maintaining the dictionary as a queue of data samples. This allows us to reuse the encoded keys from the immediate preceding mini-batches. The introduction of a queue decouples the dictionary size from the mini-batch size. Our dictionary size can be much larger than a typical mini-batch size, and can be flexibly and independently set as a hyper-parameter."
+  },
+  {
+    "i": 28,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px1.p2.1",
+    "class": "ltx_p",
+    "text": "The samples in the dictionary are progressively replaced. The current mini-batch is enqueued to the dictionary, and the oldest mini-batch in the queue is removed. The dictionary always represents a sampled subset of all data, while the extra computation of maintaining this dictionary is manageable. Moreover, removing the oldest mini-batch can be beneficial, because its encoded keys are the most outdated and thus the least consistent with the newest ones."
+  },
+  {
+    "i": 29,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px2.p1.1",
+    "class": "ltx_p",
+    "text": "Using a queue can make the dictionary large, but it also makes it intractable to update the key encoder by back-propagation (the gradient should propagate to all samples in the queue). A na\u00efve solution is to copy the key encoder [MATH f_{\\textrm{k}}] from the query encoder [MATH f_{\\textrm{q}}] , ignoring this gradient. But this solution yields poor results in experiments (Sec. 4.1). We hypothesize that such failure is caused by the rapidly changing encoder that reduces the key representations\u2019 consistency. We propose a momentum update to address this issue."
+  },
+  {
+    "i": 30,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px2.p2.1",
+    "class": "ltx_p",
+    "text": "Formally, denoting the parameters of [MATH f_{\\textrm{k}}] as [MATH \\theta_{\\textrm{k}}] and those of [MATH f_{\\textrm{q}}] as [MATH \\theta_{\\textrm{q}}] , we update [MATH \\theta_{\\textrm{k}}] by:"
+  },
+  {
+    "i": 31,
+    "tag": "table",
+    "id": "S3.E2",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[MATH \\small\\theta_{\\textrm{k}}\\leftarrow m\\theta_{\\textrm{k}}+(1-m)\\theta_{\\textrm{q}}.] (2)"
+  },
+  {
+    "i": 32,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px2.p2.2",
+    "class": "ltx_p",
+    "text": "Here [MATH m\\in[0,1)] is a momentum coefficient. Only the parameters [MATH \\theta_{\\textrm{q}}] are updated by back-propagation. The momentum update in Eqn.(2) makes [MATH \\theta_{\\textrm{k}}] evolve more smoothly than [MATH \\theta_{\\textrm{q}}] . As a result, though the keys in the queue are encoded by different encoders (in different mini-batches), the difference among these encoders can be made small. In experiments, a relatively large momentum (e.g., [MATH m] [MATH =] 0.999, our default) works much better than a smaller value (e.g., [MATH m] [MATH =] [MATH 0.9] ), suggesting that a slowly evolving key encoder is a core to making use of a queue."
+  },
+  {
+    "i": 33,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px3.p1.1",
+    "class": "ltx_p",
+    "text": "MoCo is a general mechanism for using contrastive losses. We compare it with two existing general mechanisms in Figure 2. They exhibit different properties on the dictionary size and consistency."
+  },
+  {
+    "i": 34,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px3.p2.1",
+    "class": "ltx_p",
+    "text": "The end-to-end update by back-propagation is a natural mechanism (e.g., [27, 44, 34, 61, 2, 33], Figure 2a). It uses samples in the current mini-batch as the dictionary, so the keys are consistently encoded (by the same set of encoder parameters). But the dictionary size is coupled with the mini-batch size, limited by the GPU memory size. It is also challenged by large mini-batch optimization [23]. Some recent methods [44, 34, 2] are based on pretext tasks driven by local positions, where the dictionary size can be made larger by multiple positions. But these pretext tasks may require special network designs such as patchifying the input [44] or customizing the receptive field size [2], which may complicate the transfer of these networks to downstream tasks."
+  },
+  {
+    "i": 35,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px3.p3.1",
+    "class": "ltx_p",
+    "text": "Another mechanism is the memory bank approach proposed by [59] (Figure 2b). A memory bank consists of the representations of all samples in the dataset. The dictionary for each mini-batch is randomly sampled from the memory bank with no back-propagation, so it can support a large dictionary size. However, the representation of a sample in the memory bank was updated when it was last seen, so the sampled keys are essentially about the encoders at multiple different steps all over the past epoch and thus are less consistent. A momentum update is adopted on the memory bank in [59]. Its momentum update is on the representations of the same sample, not the encoder. This momentum update is irrelevant to our method, because MoCo does not keep track of every sample. Moreover, our method is more memory-efficient and can be trained on billion-scale data, which can be intractable for a memory bank."
+  },
+  {
+    "i": 36,
+    "tag": "p",
+    "id": "S3.SS2.SSS0.Px3.p4.1",
+    "class": "ltx_p",
+    "text": "Sec. 4 empirically compares these three mechanisms."
+  },
+  {
+    "i": 37,
+    "tag": "p",
+    "id": "algorithm1.5",
+    "class": "ltx_p ltx_figure_panel",
+    "text": "bmm: batch matrix multiplication; mm: matrix multiplication; cat: concatenation."
+  },
+  {
+    "i": 38,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "3.3 Pretext Task"
+  },
+  {
+    "i": 39,
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "class": "ltx_p",
+    "text": "Contrastive learning can drive a variety of pretext tasks. As the focus of this paper is not on designing a new pretext task, we use a simple one mainly following the instance discrimination task in [59], to which some recent works [61, 2] are related."
+  },
+  {
+    "i": 40,
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "class": "ltx_p",
+    "text": "Following [59], we consider a query and a key as a positive pair if they originate from the same image, and otherwise as a negative sample pair. Following [61, 2], we take two random \u201cviews\u201d of the same image under random data augmentation to form a positive pair. The queries and keys are respectively encoded by their encoders, [MATH f_{\\textrm{q}}] and [MATH f_{\\textrm{k}}] . The encoder can be any convolutional neural network [37]."
+  },
+  {
+    "i": 41,
+    "tag": "p",
+    "id": "S3.SS3.p3.1",
+    "class": "ltx_p",
+    "text": "Algorithm 1 provides the pseudo-code of MoCo for this pretext task. For the current mini-batch, we encode the queries and their corresponding keys, which form the positive sample pairs. The negative samples are from the queue."
+  },
+  {
+    "i": 42,
+    "tag": "p",
+    "id": "S3.SS3.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "We adopt a ResNet [31] as the encoder, whose last fully-connected layer (after global average pooling) has a fixed-dimensional output (128-D [59]). This output vector is normalized by its L2-norm [59]. This is the representation of the query or key. The temperature [MATH \\tau] in Eqn.(1) is set as 0.07 [59]. The data augmentation setting follows [59]: a 224 [MATH \\times] 224-pixel crop is taken from a randomly resized image, and then undergoes random color jittering, random horizontal flip, and random grayscale conversion, all available in PyTorch\u2019s torchvision package."
+  },
+  {
+    "i": 43,
+    "tag": "p",
+    "id": "S3.SS3.SSS0.Px2.p1.1",
+    "class": "ltx_p",
+    "text": "Our encoders [MATH f_{\\textrm{q}}] and [MATH f_{\\textrm{k}}] both have Batch Normalization (BN) [35] as in the standard ResNet [31]. In experiments, we found that using BN prevents the model from learning good representations, as similarly reported in [33] (which avoids using BN). The model appears to \u201ccheat\u201d the pretext task and easily finds a low-loss solution. This is possibly because the intra-batch communication among samples (caused by BN) leaks information."
+  },
+  {
+    "i": 44,
+    "tag": "p",
+    "id": "S3.SS3.SSS0.Px2.p2.1",
+    "class": "ltx_p",
+    "text": "We resolve this problem by shuffling BN. We train with multiple GPUs and perform BN on the samples independently for each GPU (as done in common practice). For the key encoder [MATH f_{\\textrm{k}}] , we shuffle the sample order in the current mini-batch before distributing it among GPUs (and shuffle back after encoding); the sample order of the mini-batch for the query encoder [MATH f_{\\textrm{q}}] is not altered. This ensures the batch statistics used to compute a query and its positive key come from two different subsets. This effectively tackles the cheating issue and allows training to benefit from BN."
+  },
+  {
+    "i": 45,
+    "tag": "p",
+    "id": "S3.SS3.SSS0.Px2.p3.1",
+    "class": "ltx_p",
+    "text": "We use shuffled BN in both our method and its end-to-end ablation counterpart (Figure 2a). It is irrelevant to the memory bank counterpart (Figure 2b), which does not suffer from this issue because the positive keys are from different mini-batches in the past."
+  },
+  {
+    "i": 46,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "4 Experiments"
+  },
+  {
+    "i": 47,
+    "tag": "p",
+    "id": "S4.p1.1",
+    "class": "ltx_p",
+    "text": "We study unsupervised training performed in:"
+  },
+  {
+    "i": 48,
+    "tag": "p",
+    "id": "S4.p2.1",
+    "class": "ltx_p",
+    "text": "ImageNet-1M (IN-1M): This is the ImageNet [9] training set that has [MATH \\scriptstyle\\sim] 1.28 million images in 1000 classes (often called ImageNet-1K; we count the image number instead, as classes are not exploited by unsupervised learning). This dataset is well-balanced in its class distribution, and its images generally contain iconic view of objects."
+  },
+  {
+    "i": 49,
+    "tag": "p",
+    "id": "S4.p3.1",
+    "class": "ltx_p",
+    "text": "Instagram-1B (IG-1B): Following [42], this is a dataset of [MATH \\scriptstyle\\sim] 1 billion (940M) public images from Instagram. The images are from [MATH \\scriptstyle\\sim] 1500 hashtags [42] that are related to the ImageNet categories. This dataset is relatively uncurated comparing to IN-1M, and has a long-tailed, unbalanced distribution of real-world data. This dataset contains both iconic objects and scene-level images."
+  },
+  {
+    "i": 50,
+    "tag": "p",
+    "id": "S4.SS0.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "We use SGD as our optimizer. The SGD weight decay is 0.0001 and the SGD momentum is 0.9. For IN-1M, we use a mini-batch size of 256 ( [MATH N] in Algorithm 1) in 8 GPUs, and an initial learning rate of 0.03. We train for 200 epochs with the learning rate multiplied by 0.1 at 120 and 160 epochs [59], taking [MATH \\scriptstyle\\sim] 72 hours training ResNet-50. For IG-1B, we use a mini-batch size of 1024 in 64 GPUs, and a learning rate of 0.12 which is exponentially decayed by 0.9 [MATH \\times] after every 62.5k iterations (64M images). We train for 1.25M iterations ( [MATH \\scriptstyle\\sim] 1.4 epochs of IG-1B), taking [MATH \\scriptstyle\\sim] 6 days for ResNet-50."
+  },
+  {
+    "i": 51,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "4.1 Linear Classification Protocol"
+  },
+  {
+    "i": 52,
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "We first verify our method by linear classification on frozen features, following a common protocol. In this subsection we perform unsupervised pre-training on IN-1M. Then we freeze the features and train a supervised linear classifier (a fully-connected layer followed by softmax). We train this classifier on the global average pooling features of a ResNet, for 100 epochs. We report top-1 classification accuracy on the ImageNet validation set."
+  },
+  {
+    "i": 53,
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "For this classifier, we perform a grid search and find the optimal initial learning rate is 30 and weight decay is 0 (similarly reported in [54]). These hyper-parameters perform consistently well for all ablation entries presented in this subsection. These hyper-parameter values imply that the feature distributions (e.g., magnitudes) can be substantially different from those of ImageNet supervised training, an issue we will revisit in Sec. 4.2."
+  },
+  {
+    "i": 54,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "We compare the three mechanisms that are illustrated in Figure 2. To focus on the effect of contrastive loss mechanisms, we implement all of them in the same pretext task as described in Sec. 3.3. We also use the same form of InfoNCE as the contrastive loss function, Eqn.(1). As such, the comparison is solely on the three mechanisms."
+  },
+  {
+    "i": 55,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p2.1",
+    "class": "ltx_p",
+    "text": "The results are in Figure 3. Overall, all three mechanisms benefit from a larger [MATH K] . A similar trend has been observed in [59, 54] under the memory bank mechanism, while here we show that this trend is more general and can be seen in all mechanisms. These results support our motivation of building a large dictionary."
+  },
+  {
+    "i": 56,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p3.1",
+    "class": "ltx_p",
+    "text": "The end-to-end mechanism performs similarly to MoCo when [MATH K] is small. However, the dictionary size is limited by the mini-batch size due to the end-to-end requirement. Here the largest mini-batch a high-end machine (8 Volta 32GB GPUs) can afford is 1024. More essentially, large mini-batch training is an open problem [23]: we found it necessary to use the linear learning rate scaling rule [23] here, without which the accuracy drops (by [MATH \\scriptstyle\\sim] 2% with a 1024 mini-batch). But optimizing with a larger mini-batch is harder [23], and it is questionable whether the trend can be extrapolated into a larger [MATH K] even if memory is sufficient."
+  },
+  {
+    "i": 57,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p4.1",
+    "class": "ltx_p",
+    "text": "The memory bank [59] mechanism can support a larger dictionary size. But it is 2.6% worse than MoCo. This is inline with our hypothesis: the keys in the memory bank are from very different encoders all over the past epoch and they are not consistent. Note the memory bank result of 58.0% reflects our improved implementation of [59].22 2 Here 58.0% is with InfoNCE and [MATH K] [MATH =] 65536. We reproduce 54.3% when using NCE and [MATH K] [MATH =] 4096 (the same as [59]), close to 54.0% in [59]."
+  },
+  {
+    "i": 58,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px2.p1.1",
+    "class": "ltx_p",
+    "text": "The table below shows ResNet-50 accuracy with different MoCo momentum values ( [MATH m] in Eqn.(2)) used in pre-training ( [MATH K] [MATH =] 4096 here) :"
+  },
+  {
+    "i": 59,
+    "tag": "table",
+    "id": "S4.SS1.SSS0.Px2.p1.2",
+    "class": "ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle",
+    "text": "momentum [MATH m] 0 0.9 0.99 0.999 0.9999 accuracy (%) fail 55.2 57.8 59.0 58.9"
+  },
+  {
+    "i": 60,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px2.p1.3",
+    "class": "ltx_p",
+    "text": "It performs reasonably well when [MATH m] is in 0.99 [MATH \\scriptstyle\\sim] 0.9999, showing that a slowly progressing (i.e., relatively large momentum) key encoder is beneficial. When [MATH m] is too small (e.g., 0.9), the accuracy drops considerably; at the extreme of no momentum ( [MATH m] is 0), the training loss oscillates and fails to converge. These results support our motivation of building a consistent dictionary."
+  },
+  {
+    "i": 61,
+    "tag": "table",
+    "id": "S4.T1.3",
+    "class": "ltx_tabular ltx_centering ltx_figure_panel ltx_align_middle",
+    "text": "method architecture #params (M) accuracy (%) Exemplar [15] R50w [MATH {3}{\\times}] 211 46.0 [36] RelativePosition [11] R50w [MATH {2}{\\times}] 94 51.4 [36] Jigsaw [43] R50w [MATH {2}{\\times}] 94 44.6 [36] Rotation [17] Rv50w [MATH {4}{\\times}] 86 55.4 [36] Colorization [62] R101\u2217 28 39.6 [12] DeepCluster [3] VGG [51] 15 48.4 [4] BigBiGAN [14] R50 24 56.6 Rv50w [MATH {4}{\\times}] 86 61.3 methods based on contrastive learning follow: InstDisc [59] R50 24 54.0 LocalAgg [64] R50 24 60.2 CPC v1 [44] R101\u2217 28 48.7 CPC v2 [33] R170 [MATH {}^{*}_{\\text{wider}}] 303 65.9 CMC [54] R50 [MATH {}_{\\text{L+ab}}] 47 64.1\u2020 R50w [MATH {2}{\\times}] [MATH {}_{\\text{L+ab}}] 188 68.4\u2020 AMDIM [2] AMDIM [MATH {}_{\\text{small}}] 194 63.5\u2020 AMDIM [MATH {}_{\\text{large}}] 626 68.1\u2020 MoCo R50 24 60.6 RX50 46 63.9 R50w [MATH {2}{\\times}] 94 65.4 R50w [MATH {4}{\\times}] 375 68.6"
+  },
+  {
+    "i": 62,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px3.p1.1",
+    "class": "ltx_p",
+    "text": "Previous unsupervised learning methods can differ substantially in model sizes. For a fair and comprehensive comparison, we report accuracy vs. #parameters33 3 Parameters are of the feature extractor: e.g., we do not count the parameters of conv [MATH {}_{\\text{x}}] if conv [MATH {}_{\\text{x}}] is not included in linear classification. trade-offs. Besides ResNet-50 (R50) [31], we also report its variants that are [MATH {2}{\\times}] and [MATH {4}{\\times}] wider (more channels), following [36].44 4 Our w [MATH {2}{\\times}] and w [MATH {4}{\\times}] models correspond to the \u201c [MATH \\times] 8\u201d and \u201c [MATH \\times] 16\u201d cases in [36], because the standard-sized ResNet is referred to as \u201c [MATH \\times] 4\u201d in [36]. We set [MATH K] [MATH =] 65536 and [MATH m] [MATH =] 0.999. Table 1 is the comparison."
+  },
+  {
+    "i": 63,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px3.p2.1",
+    "class": "ltx_p",
+    "text": "MoCo with R50 performs competitively and achieves 60.6% accuracy, better than all competitors of similar model sizes ( [MATH \\scriptstyle\\sim] 24M). MoCo benefits from larger models and achieves 68.6% accuracy with R50w [MATH {4}{\\times}] ."
+  },
+  {
+    "i": 64,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px3.p3.1",
+    "class": "ltx_p",
+    "text": "There are two existing methods that perform strongly in the accuracy vs. #parameters trade-offs: LocalAgg [64] (60.2%, R50) and CMC [54] (64.1%, a combination of two R50 nets with L+ab inputs). Both methods are based on the memory bank in their contrastive learning. As we show that MoCo improves over the memory bank in ablative comparisons (in Figure 3 and Sec. 4.2), we hope the MoCo mechanism will be complementary to these methods."
+  },
+  {
+    "i": 65,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px3.p4.1",
+    "class": "ltx_p",
+    "text": "Notably, we achieve competitive results using a standard ResNet-50 and require no specific architecture designs, e.g., patchified inputs [44, 33], carefully tailored receptive fields [2], or combining two networks [54]. By using an architecture that is not customized for the pretext task, it is easier to transfer features to a variety of visual tasks and make comparisons, studied next."
+  },
+  {
+    "i": 66,
+    "tag": "table",
+    "id": "S4.T2.sf1.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "pre-train AP [MATH {}_{\\text{50}}] AP AP [MATH {}_{\\text{75}}] random init. 58.0 32.8 32.5 super. IN-1M 81.5 53.6 58.9 MoCo IN-1M 81.1 ( [MATH {-}] 0.4) 53.8 ( [MATH {+}] 0.2) 58.6 ( [MATH {-}] 0.3) MoCo IG-1B 81.6 ( [MATH {+}] 0.1) 54.8 ( [MATH {+}] 1.2) 60.3 ( [MATH {+}] 1.4)"
+  },
+  {
+    "i": 67,
+    "tag": "table",
+    "id": "S4.T2.sf2.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "pre-train AP [MATH {}_{\\text{50}}] AP AP [MATH {}_{\\text{75}}] random init. 52.5 28.1 26.2 super. IN-1M 80.8 52.0 56.5 MoCo IN-1M 81.4 ( [MATH {+}] 0.6) 55.2 ( [MATH {+}] 3.2) 61.2 ( [MATH {+}] 4.7) MoCo IG-1B 82.1 ( [MATH {+}] 1.3) 56.2 ( [MATH {+}] 4.2) 62.3 ( [MATH {+}] 5.8)"
+  },
+  {
+    "i": 68,
+    "tag": "table",
+    "id": "S4.T3.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "R50-dilated-C5 R50-C4 pre-train AP [MATH {}_{\\text{50}}] AP AP [MATH {}_{\\text{75}}] AP [MATH {}_{\\text{50}}] AP AP [MATH {}_{\\text{75}}] end-to-end 77.8 50.1 53.8 79.7 53.0 57.9 memory bank 79.6 51.9 56.3 80.3 53.9 58.9 MoCo 81.1 53.8 58.6 81.4 55.2 61.2"
+  },
+  {
+    "i": 69,
+    "tag": "table",
+    "id": "S4.T4.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "AP [MATH {}_{\\text{50}}] AP AP [MATH {}_{\\text{75}}] pre-train RelPos, by [12] Multi-task [12] Jigsaw, by [24] LocalAgg [64] MoCo MoCo Multi-task [12] MoCo super. IN-1M 74.2 74.2 70.5 74.6 74.4 42.4 44.3 42.7 unsup. IN-1M 66.8 ( [MATH {-}] 7.4) 70.5 ( [MATH {-}] 3.7) 61.4 ( [MATH {-}] 9.1) 69.1 ( [MATH {-}] 5.5) 74.9 ( [MATH {+}] 0.5) 46.6 ( [MATH {+}] 4.2) 43.9 ( [MATH {-}] 0.4) 50.1 ( [MATH {+}] 7.4) unsup. IN-14M - - 69.2 ( [MATH {-}] 1.3) - 75.2 ( [MATH {+}] 0.8) 46.9 ( [MATH {+}] 4.5) - 50.2 ( [MATH {+}] 7.5) unsup. YFCC-100M - - 66.6 ( [MATH {-}] 3.9) - 74.7 ( [MATH {+}] 0.3) 45.9 ( [MATH {+}] 3.5) - 49.0 ( [MATH {+}] 6.3) unsup. IG-1B - - - - 75.6 ( [MATH {+}] 1.2) 47.6 ( [MATH {+}] 5.2) - 51.7 ( [MATH {+}] 9.0)"
+  },
+  {
+    "i": 70,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "4.2 Transferring Features"
+  },
+  {
+    "i": 71,
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "A main goal of unsupervised learning is to learn features that are transferrable. ImageNet supervised pre-training is most influential when serving as the initialization for fine-tuning in downstream tasks (e.g., [19, 18, 41, 50]). Next we compare MoCo with ImageNet supervised pre-training, transferred to various tasks including PASCAL VOC [16], COCO [40], etc. As prerequisites, we discuss two important issues involved [29]: normalization and schedules."
+  },
+  {
+    "i": 72,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "As noted in Sec. 4.1, features produced by unsupervised pre-training can have different distributions compared with ImageNet supervised pre-training. But a system for a downstream task often has hyper-parameters (e.g., learning rates) selected for supervised pre-training. To relieve this problem, we adopt feature normalization during fine-tuning: we fine-tune with BN that is trained (and synchronized across GPUs [47]), instead of freezing it by an affine layer [31]. We also use BN in the newly initialized layers (e.g., FPN [39]), which helps calibrate magnitudes."
+  },
+  {
+    "i": 73,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p2.1",
+    "class": "ltx_p",
+    "text": "We perform normalization when fine-tuning supervised and unsupervised pre-training models. MoCo uses the same hyper-parameters as the ImageNet supervised counterpart."
+  },
+  {
+    "i": 74,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px2.p1.1",
+    "class": "ltx_p",
+    "text": "If the fine-tuning schedule is long enough, training detectors from random initialization can be strong baselines, and can match the ImageNet supervised counterpart on COCO [29]. Our goal is to investigate transferability of features, so our experiments are on controlled schedules, e.g., the 1 [MATH \\times] ( [MATH \\scriptstyle\\sim] 12 epochs) or 2 [MATH \\times] schedules [20] for COCO, in contrast to 6 [MATH \\times] [MATH \\scriptstyle\\sim] 9 [MATH \\times] in [29]. On smaller datasets like VOC, training longer may not catch up [29]."
+  },
+  {
+    "i": 75,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px2.p2.1",
+    "class": "ltx_p",
+    "text": "Nonetheless, in our fine-tuning, MoCo uses the same schedule as the ImageNet supervised counterpart, and random initialization results are provided as references."
+  },
+  {
+    "i": 76,
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px2.p3.1",
+    "class": "ltx_p",
+    "text": "Put together, our fine-tuning uses the same setting as the supervised pre-training counterpart. This may place MoCo at a disadvantage. Even so, MoCo is competitive. Doing so also makes it feasible to present comparisons on multiple datasets/tasks, without extra hyper-parameter search."
+  },
+  {
+    "i": 77,
+    "tag": "h4",
+    "id": null,
+    "class": "ltx_title ltx_title_subsubsection",
+    "text": "4.2.1 PASCAL VOC Object Detection"
+  },
+  {
+    "i": 78,
+    "tag": "p",
+    "id": "S4.SS2.SSS1.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "The detector is Faster R-CNN [50] with a backbone of R50-dilated-C5 or R50-C4 [30] (details in appendix), with BN tuned, implemented in [58]. We fine-tune all layers end-to-end. The image scale is [480, 800] pixels during training and 800 at inference. The same setup is used for all entries, including the supervised pre-training baseline. We evaluate the default VOC metric of AP [MATH {}_{\\text{50}}] (i.e., IoU threshold is 50%) and the more stringent metrics of COCO-style AP and AP [MATH {}_{\\text{75}}] . Evaluation is on the VOC test2007 set."
+  },
+  {
+    "i": 79,
+    "tag": "p",
+    "id": "S4.SS2.SSS1.Px2.p1.1",
+    "class": "ltx_p",
+    "text": "Table 2 shows the results fine-tuned on trainval07+12 ( [MATH \\scriptstyle\\sim] 16.5k images). For R50-dilated-C5 (Table 2a), MoCo pre-trained on IN-1M is comparable to the supervised pre-training counterpart, and MoCo pre-trained on IG-1B surpasses it. For R50-C4 (Table 2b), MoCo with IN-1M or IG-1B is better than the supervised counterpart: up to +1.3 AP [MATH {}_{\\text{50}}] , +4.2 AP, and +5.8 AP [MATH {}_{\\text{75}}] ."
+  },
+  {
+    "i": 80,
+    "tag": "p",
+    "id": "S4.SS2.SSS1.Px2.p2.1",
+    "class": "ltx_p",
+    "text": "Interestingly, the transferring accuracy depends on the detector structure. For the C4 backbone, by default used in existing ResNet-based results [12, 59, 24, 64], the advantage of unsupervised pre-training is larger. The relation between pre-training vs. detector structures has been veiled in the past, and should be a factor under consideration."
+  },
+  {
+    "i": 81,
+    "tag": "p",
+    "id": "S4.SS2.SSS1.Px3.p1.1",
+    "class": "ltx_p",
+    "text": "We point out that these results are partially because we establish solid detection baselines for contrastive learning. To pin-point the gain that is solely contributed by using the MoCo mechanism in contrastive learning, we fine-tune the models pre-trained with the end-to-end or memory bank mechanism, both implemented by us (i.e., the best ones in Figure 3), using the same fine-tuning setting as MoCo."
+  },
+  {
+    "i": 82,
+    "tag": "p",
+    "id": "S4.SS2.SSS1.Px3.p2.1",
+    "class": "ltx_p",
+    "text": "These competitors perform decently (Table 3). Their AP and AP [MATH {}_{\\text{75}}] with the C4 backbone are also higher than the ImageNet supervised counterpart\u2019s, c.f. Table 2b, but other metrics are lower. They are worse than MoCo in all metrics. This shows the benefits of MoCo. In addition, how to train these competitors in larger-scale data is an open question, and they may not benefit from IG-1B."
+  },
+  {
+    "i": 83,
+    "tag": "p",
+    "id": "S4.SS2.SSS1.Px4.p1.1",
+    "class": "ltx_p",
+    "text": "Following the competitors, we fine-tune on trainval2007 ( [MATH \\scriptstyle\\sim] 5k images) using the C4 backbone. The comparison is in Table 4."
+  },
+  {
+    "i": 84,
+    "tag": "p",
+    "id": "S4.SS2.SSS1.Px4.p2.1",
+    "class": "ltx_p",
+    "text": "For the AP [MATH {}_{\\text{50}}] metric, no previous method can catch up with its respective supervised pre-training counterpart. MoCo pre-trained on any of IN-1M, IN-14M (full ImageNet), YFCC-100M [53], and IG-1B can outperform the supervised baseline. Large gains are seen in the more stringent metrics: up to +5.2 AP and +9.0 AP [MATH {}_{\\text{75}}] . These gains are larger than the gains seen in trainval07+12 (Table 2b)."
+  },
+  {
+    "i": 85,
+    "tag": "table",
+    "id": "S4.T5.sf1.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "pre-train AP [MATH {}^{\\text{bb}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{bb}}_{\\text{50}}] AP [MATH {}^{\\text{bb}}_{\\text{75}}] AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] AP [MATH {}^{\\text{mk}}_{\\text{75}}] random init. 31.0 49.5 33.2 28.5 46.8 30.4 super. IN-1M 38.9 59.6 42.7 35.4 56.5 38.1 MoCo IN-1M 38.5 ( [MATH {-}] 0.4) 58.9 ( [MATH {-}] 0.7) 42.0 ( [MATH {-}] 0.7) 35.1 ( [MATH {-}] 0.3) 55.9 ( [MATH {-}] 0.6) 37.7 ( [MATH {-}] 0.4) MoCo IG-1B 38.9 ( [MATH {{+}}] 0.0) 59.4 ( [MATH {-}] 0.2) 42.3 ( [MATH {-}] 0.4) 35.4 ( [MATH {{+}}] 0.0) 56.5 ( [MATH {{+}}] 0.0) 37.9 ( [MATH {-}] 0.2)"
+  },
+  {
+    "i": 86,
+    "tag": "table",
+    "id": "S4.T5.sf2.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "AP [MATH {}^{\\text{bb}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{bb}}_{\\text{50}}] AP [MATH {}^{\\text{bb}}_{\\text{75}}] AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] AP [MATH {}^{\\text{mk}}_{\\text{75}}] 36.7 56.7 40.0 33.7 53.8 35.9 40.6 61.3 44.4 36.8 58.1 39.5 40.8 ( [MATH {+}] 0.2) 61.6 ( [MATH {+}] 0.3) 44.7 ( [MATH {+}] 0.3) 36.9 ( [MATH {+}] 0.1) 58.4 ( [MATH {+}] 0.3) 39.7 ( [MATH {+}] 0.2) 41.1 ( [MATH {+}] 0.5) 61.8 ( [MATH {+}] 0.5) 45.1 ( [MATH {+}] 0.7) 37.4 ( [MATH {+}] 0.6) 59.1 ( [MATH {+}] 1.0) 40.2 ( [MATH {+}] 0.7)"
+  },
+  {
+    "i": 87,
+    "tag": "table",
+    "id": "S4.T5.sf3.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "pre-train AP [MATH {}^{\\text{bb}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{bb}}_{\\text{50}}] AP [MATH {}^{\\text{bb}}_{\\text{75}}] AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] AP [MATH {}^{\\text{mk}}_{\\text{75}}] random init. 26.4 44.0 27.8 29.3 46.9 30.8 super. IN-1M 38.2 58.2 41.2 33.3 54.7 35.2 MoCo IN-1M 38.5 ( [MATH {+}] 0.3) 58.3 ( [MATH {+}] 0.1) 41.6 ( [MATH {+}] 0.4) 33.6 ( [MATH {+}] 0.3) 54.8 ( [MATH {+}] 0.1) 35.6 ( [MATH {+}] 0.4) MoCo IG-1B 39.1 ( [MATH {+}] 0.9) 58.7 ( [MATH {+}] 0.5) 42.2 ( [MATH {+}] 1.0) 34.1 ( [MATH {+}] 0.8) 55.4 ( [MATH {+}] 0.7) 36.4 ( [MATH {+}] 1.2)"
+  },
+  {
+    "i": 88,
+    "tag": "table",
+    "id": "S4.T5.sf4.3",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "AP [MATH {}^{\\text{bb}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{bb}}_{\\text{50}}] AP [MATH {}^{\\text{bb}}_{\\text{75}}] AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] AP [MATH {}^{\\text{mk}}_{\\text{75}}] 35.6 54.6 38.2 31.4 51.5 33.5 40.0 59.9 43.1 34.7 56.5 36.9 40.7 ( [MATH {+}] 0.7) 60.5 ( [MATH {+}] 0.6) 44.1 ( [MATH {+}] 1.0) 35.4 ( [MATH {+}] 0.7) 57.3 ( [MATH {+}] 0.8) 37.6 ( [MATH {+}] 0.7) 41.1 ( [MATH {+}] 1.1) 60.7 ( [MATH {+}] 0.8) 44.8 ( [MATH {+}] 1.7) 35.6 ( [MATH {+}] 0.9) 57.4 ( [MATH {+}] 0.9) 38.1 ( [MATH {+}] 1.2)"
+  },
+  {
+    "i": 89,
+    "tag": "h4",
+    "id": null,
+    "class": "ltx_title ltx_title_subsubsection",
+    "text": "4.2.2 COCO Object Detection and Segmentation"
+  },
+  {
+    "i": 90,
+    "tag": "p",
+    "id": "S4.SS2.SSS2.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "The model is Mask R-CNN [30] with the FPN [39] or C4 backbone, with BN tuned, implemented in [58]. The image scale is in [640, 800] pixels during training and is 800 at inference. We fine-tune all layers end-to-end. We fine-tune on the train2017 set ( [MATH \\scriptstyle\\sim] 118k images) and evaluate on val2017. The schedule is the default 1 [MATH \\times] or 2 [MATH \\times] in [20]."
+  },
+  {
+    "i": 91,
+    "tag": "p",
+    "id": "S4.SS2.SSS2.Px2.p1.1",
+    "class": "ltx_p",
+    "text": "Table 5 shows the results on COCO with the FPN (Table 5a, b) and C4 (Table 5c, d) backbones. With the 1 [MATH \\times] schedule, all models (including the ImageNet supervised counterparts) are heavily under-trained, as indicated by the [MATH \\scriptstyle\\sim] 2 points gaps to the 2 [MATH \\times] schedule cases. With the 2 [MATH \\times] schedule, MoCo is better than its ImageNet supervised counterpart in all metrics in both backbones."
+  },
+  {
+    "i": 92,
+    "tag": "table",
+    "id": "S4.T6.3",
+    "class": "ltx_tabular ltx_figure_panel ltx_guessed_headers ltx_align_middle",
+    "text": "COCO keypoint detection pre-train AP [MATH {}^{\\text{kp}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{kp}}_{\\text{50}}] AP [MATH {}^{\\text{kp}}_{\\text{75}}] random init. 65.9 86.5 71.7 super. IN-1M 65.8 86.9 71.9 MoCo IN-1M 66.8 ( [MATH {+}] 1.0) 87.4 ( [MATH {+}] 0.5) 72.5 ( [MATH {+}] 0.6) MoCo IG-1B 66.9 ( [MATH {+}] 1.1) 87.8 ( [MATH {+}] 0.9) 73.0 ( [MATH {+}] 1.1)"
+  },
+  {
+    "i": 93,
+    "tag": "table",
+    "id": "S4.T6.4",
+    "class": "ltx_tabular ltx_figure_panel ltx_guessed_headers ltx_align_middle",
+    "text": "COCO dense pose estimation pre-train AP [MATH {}^{\\text{dp}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{dp}}_{\\text{50}}] AP [MATH {}^{\\text{dp}}_{\\text{75}}] random init. 39.4 78.5 35.1 super. IN-1M 48.3 85.6 50.6 MoCo IN-1M 50.1 ( [MATH {+}] 1.8) 86.8 ( [MATH {+}] 1.2) 53.9 ( [MATH {+}] 3.3) MoCo IG-1B 50.6 ( [MATH {+}] 2.3) 87.0 ( [MATH {+}] 1.4) 54.3 ( [MATH {+}] 3.7)"
+  },
+  {
+    "i": 94,
+    "tag": "table",
+    "id": "S4.T6.5",
+    "class": "ltx_tabular ltx_figure_panel ltx_guessed_headers ltx_align_middle",
+    "text": "LVIS v0.5 instance segmentation pre-train AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] AP [MATH {}^{\\text{mk}}_{\\text{75}}] random init. 22.5 34.8 23.8 super. IN-1M\u2020 24.4 37.8 25.8 MoCo IN-1M 24.1 ( [MATH {-}] 0.3) 37.4 ( [MATH {-}] 0.4) 25.5 ( [MATH {-}] 0.3) MoCo IG-1B 24.9 ( [MATH {+}] 0.5) 38.2 ( [MATH {+}] 0.4) 26.4 ( [MATH {+}] 0.6)"
+  },
+  {
+    "i": 95,
+    "tag": "table",
+    "id": "S4.T6.6",
+    "class": "ltx_tabular ltx_figure_panel ltx_guessed_headers ltx_align_middle",
+    "text": "Cityscapes instance seg. Semantic seg. (mIoU) pre-train AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] Cityscapes VOC random init. 25.4 51.1 65.3 39.5 super. IN-1M 32.9 59.6 74.6 74.4 MoCo IN-1M 32.3 ( [MATH {-}] 0.6) 59.3 ( [MATH {-}] 0.3) 75.3 ( [MATH {+}] 0.7) 72.5 ( [MATH {-}] 1.9) MoCo IG-1B 32.9 ( [MATH {{+}}] 0.0) 60.3 ( [MATH {+}] 0.7) 75.5 ( [MATH {+}] 0.9) 73.6 ( [MATH {-}] 0.8)"
+  },
+  {
+    "i": 96,
+    "tag": "h4",
+    "id": null,
+    "class": "ltx_title ltx_title_subsubsection",
+    "text": "4.2.3 More Downstream Tasks"
+  },
+  {
+    "i": 97,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.p1.1",
+    "class": "ltx_p",
+    "text": "Table 6 shows more downstream tasks (implementation details in appendix). Overall, MoCo performs competitively with ImageNet supervised pre-training:"
+  },
+  {
+    "i": 98,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.p2.1",
+    "class": "ltx_p",
+    "text": "COCO keypoint detection: supervised pre-training has no clear advantage over random initialization, whereas MoCo outperforms in all metrics."
+  },
+  {
+    "i": 99,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.p3.1",
+    "class": "ltx_p",
+    "text": "COCO dense pose estimation [1]: MoCo substantially outperforms supervised pre-training, e.g., by 3.7 points in AP [MATH {}^{\\text{dp}}_{\\text{75}}] , in this highly localization-sensitive task."
+  },
+  {
+    "i": 100,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.p4.1",
+    "class": "ltx_p",
+    "text": "LVIS v0.5 instance segmentation [25]: this task has [MATH \\scriptstyle\\sim] 1000 long-tailed distributed categories. Specifically in LVIS for the ImageNet supervised baseline, we find fine-tuning with frozen BN (24.4 AP [MATH {}^{\\text{mk}}_{\\text{}}] ) is better than tunable BN (details in appendix). So we compare MoCo with the better supervised pre-training variant in this task. MoCo with IG-1B surpasses it in all metrics."
+  },
+  {
+    "i": 101,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.p5.1",
+    "class": "ltx_p",
+    "text": "Cityscapes instance segmentation [8]: MoCo with IG-1B is on par with its supervised pre-training counterpart in AP [MATH {}^{\\text{mk}}_{\\text{}}] , and is higher in AP [MATH {}^{\\text{mk}}_{\\text{50}}] ."
+  },
+  {
+    "i": 102,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.p6.1",
+    "class": "ltx_p",
+    "text": "Semantic segmentation: On Cityscapes [8], MoCo outperforms its supervised pre-training counterpart by up to 0.9 point. But on VOC semantic segmentation, MoCo is worse by at least 0.8 point, a negative case we have observed."
+  },
+  {
+    "i": 103,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.Px1.p1.1",
+    "class": "ltx_p",
+    "text": "In sum, MoCo can outperform its ImageNet supervised pre-training counterpart in 7 detection or segmentation tasks.55 5 Namely, object detection on VOC/COCO, instance segmentation on COCO/LVIS, keypoint detection on COCO, dense pose on COCO, and semantic segmentation on Cityscapes. Besides, MoCo is on par on Cityscapes instance segmentation, and lags behind on VOC semantic segmentation; we show another comparable case on iNaturalist [55] in appendix. Overall, MoCo has largely closed the gap between unsupervised and supervised representation learning in multiple vision tasks."
+  },
+  {
+    "i": 104,
+    "tag": "p",
+    "id": "S4.SS2.SSS3.Px1.p2.1",
+    "class": "ltx_p",
+    "text": "Remarkably, in all these tasks, MoCo pre-trained on IG-1B is consistently better than MoCo pre-trained on IN-1M. This shows that MoCo can perform well on this large-scale, relatively uncurated dataset. This represents a scenario towards real-world unsupervised learning."
+  },
+  {
+    "i": 105,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "5 Discussion and Conclusion"
+  },
+  {
+    "i": 106,
+    "tag": "p",
+    "id": "S5.p1.1",
+    "class": "ltx_p",
+    "text": "Our method has shown positive results of unsupervised learning in a variety of computer vision tasks and datasets. A few open questions are worth discussing. MoCo\u2019s improvement from IN-1M to IG-1B is consistently noticeable but relatively small, suggesting that the larger-scale data may not be fully exploited. We hope an advanced pretext task will improve this. Beyond the simple instance discrimination task [59], it is possible to adopt MoCo for pretext tasks like masked auto-encoding, e.g., in language [10] and in vision [44]. We hope MoCo will be useful with other pretext tasks that involve contrastive learning."
+  },
+  {
+    "i": 107,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix A Appendix"
+  },
+  {
+    "i": 108,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "A.1 Implementation: Object detection backbones"
+  },
+  {
+    "i": 109,
+    "tag": "p",
+    "id": "A1.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "The R50-dilated-C5 and R50-C4 backbones are similar to those available in Detectron2 [58]: (i) R50-dilated-C5: the backbone includes the ResNet conv [MATH {}_{\\text{5}}] stage with a dilation of 2 and stride 1, followed by a 3 [MATH \\times] 3 convolution (with BN) that reduces dimension to 512. The box prediction head consists of two hidden fully-connected layers. (ii) R50-C4: the backbone ends with the conv [MATH {}_{\\text{4}}] stage, and the box prediction head consists of the conv [MATH {}_{\\text{5}}] stage (including global pooling) followed by a BN layer."
+  },
+  {
+    "i": 110,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "A.2 Implementation: COCO keypoint detection"
+  },
+  {
+    "i": 111,
+    "tag": "p",
+    "id": "A1.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "We use Mask R-CNN (keypoint version) with R50-FPN, implemented in [58], fine-tuned on COCO train2017 and evaluated on val2017. The schedule is 2 [MATH \\times] ."
+  },
+  {
+    "i": 112,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "A.3 Implementation: COCO dense pose estimation"
+  },
+  {
+    "i": 113,
+    "tag": "p",
+    "id": "A1.SS3.p1.1",
+    "class": "ltx_p",
+    "text": "We use DensePose R-CNN [1] with R50-FPN, implemented in [58], fine-tuned on COCO train2017 and evaluated on val2017. The schedule is \u201cs1 [MATH \\times] \u201d."
+  },
+  {
+    "i": 114,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "A.4 Implementation: LVIS instance segmentation"
+  },
+  {
+    "i": 115,
+    "tag": "p",
+    "id": "A1.SS4.p1.1",
+    "class": "ltx_p",
+    "text": "We use Mask R-CNN with R50-FPN, fine-tuned in LVIS [25] train_v0.5 and evaluated in val_v0.5. We follow the baseline in [25] (arXiv v3 Appendix B)."
+  },
+  {
+    "i": 116,
+    "tag": "p",
+    "id": "A1.SS4.p2.1",
+    "class": "ltx_p",
+    "text": "LVIS is a new dataset and model designs on it are to be explored. The following table includes the relevant ablations (all are averages of 5 trials):"
+  },
+  {
+    "i": 117,
+    "tag": "table",
+    "id": "A1.SS4.p2.2",
+    "class": "ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle",
+    "text": "1 [MATH \\times] schedule 2 [MATH \\times] schedule pre-train BN AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] AP [MATH {}^{\\text{mk}}_{\\text{75}}] AP [MATH {}^{\\text{mk}}_{\\text{\\penalty\\ }}] AP [MATH {}^{\\text{mk}}_{\\text{50}}] AP [MATH {}^{\\text{mk}}_{\\text{75}}] super. IN-1M frozen 24.1 37.3 25.4 24.4 37.8 25.8 super. IN-1M tuned 23.5 36.6 24.8 23.2 36.0 24.4 MoCo IN-1M tuned 23.2 36.0 24.7 24.1 37.4 25.5 MoCo IG-1B tuned 24.3 37.4 25.9 24.9 38.2 26.4"
+  },
+  {
+    "i": 118,
+    "tag": "p",
+    "id": "A1.SS4.p2.3",
+    "class": "ltx_p",
+    "text": "A supervised pre-training baseline, end-to-end tuned but with BN frozen, has 24.4 AP [MATH {}^{\\text{mk}}_{\\text{}}] . But tuning BN in this baseline leads to worse results and overfitting (this is unlike on COCO/VOC where tuning BN gives better or comparable accuracy). MoCo has 24.1 AP [MATH {}^{\\text{mk}}_{\\text{}}] with IN-1M and 24.9 AP [MATH {}^{\\text{mk}}_{\\text{}}] with IG-1B, both outperforming the supervised pre-training counterpart under the same tunable BN setting. Under the best individual settings, MoCo can still outperform the supervised pre-training case (24.9 vs. 24.4, as reported in Table 6 in Sec 4.2)."
+  },
+  {
+    "i": 119,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "A.5 Implementation: Semantic segmentation"
+  },
+  {
+    "i": 120,
+    "tag": "p",
+    "id": "A1.SS5.p1.1",
+    "class": "ltx_p",
+    "text": "We use an FCN-based [41] structure. The backbone consists of the convolutional layers in R50, and the 3 [MATH \\times] 3 convolutions in conv5 blocks have dilation 2 and stride 1. This is followed by two extra 3 [MATH \\times] 3 convolutions of 256 channels, with BN and ReLU, and then a 1 [MATH \\times] 1 convolution for per-pixel classification. The total stride is 16 (FCN-16s [41]). We set dilation [MATH =] 6 in the two extra 3 [MATH \\times] 3 convolutions, following the large field-of-view design in [6]."
+  },
+  {
+    "i": 121,
+    "tag": "p",
+    "id": "A1.SS5.p2.1",
+    "class": "ltx_p",
+    "text": "Training is with random scaling (by a ratio in [0.5, 2.0]), cropping, and horizontal flipping. The crop size is 513 on VOC and 769 on Cityscapes [6]. Inference is performed on the original image size. We train with mini-batch size 16 and weight decay 0.0001. Learning rate is 0.003 on VOC and is 0.01 on Cityscapes (multiplied by 0.1 at 70-th and 90-th percentile of training). For VOC, we train on the train_aug2012 set (augmented by [28], 10582 images) for 30k iterations, and evaluate on val2012. For Cityscapes, we train on the train_fine set (2975 images) for 90k iterations, and evaluate on the val set. Results are reported as averages over 5 trials."
+  },
+  {
+    "i": 122,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "A.6 iNaturalist fine-grained classification"
+  },
+  {
+    "i": 123,
+    "tag": "p",
+    "id": "A1.SS6.p1.1",
+    "class": "ltx_p",
+    "text": "In addition to the detection/segmentation experiments in the main paper, we study fine-grained classification on the iNaturalist 2018 dataset [55]. We fine-tune the pre-trained models end-to-end on the train set ( [MATH \\scriptstyle\\sim] 437k images, 8142 classes) and evaluate on the val set. Training follows the typical ResNet implementation in PyTorch with 100 epochs. Fine-tuning has a learning rate of 0.025 (vs. 0.1 from scratch) decreased by 10 at the 70-th and 90-th percentile of training. The following is the R50 result:"
+  },
+  {
+    "i": 124,
+    "tag": "table",
+    "id": "A1.SS6.p1.2",
+    "class": "ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle",
+    "text": "pre-train rand init. super. [MATH {}_{\\text{IN-1M}}] MoCo [MATH {}_{\\text{IN-1M}}] MoCo [MATH {}_{\\text{IG-1B}}] accuracy (%) 61.8 66.1 65.6 65.8"
+  },
+  {
+    "i": 125,
+    "tag": "p",
+    "id": "A1.SS6.p1.3",
+    "class": "ltx_p",
+    "text": "MoCo is [MATH \\scriptstyle\\sim] 4% better than training from random initialization, and is closely comparable with its ImageNet supervised counterpart. This again shows that MoCo unsupervised pre-training is competitive."
+  },
+  {
+    "i": 126,
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "A.7 Fine-tuning in ImageNet"
+  },
+  {
+    "i": 127,
+    "tag": "p",
+    "id": "A1.SS7.p1.1",
+    "class": "ltx_p",
+    "text": "Linear classification on frozen features (Sec. 4.1) is a common protocol of evaluating unsupervised pre-training methods. However, in practice, it is more common to fine-tune the features end-to-end in a downstream task. For completeness, the following table reports end-to-end fine-tuning results for the 1000-class ImageNet classification, compared with training from scratch (fine-tuning uses an initial learning rate of 0.03, vs. 0.1 from scratch):"
+  },
+  {
+    "i": 128,
+    "tag": "table",
+    "id": "A1.SS7.p1.2",
+    "class": "ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle",
+    "text": "pre-train random init. MoCo [MATH {}_{\\text{IG-1B}}] accuracy (%) 76.5 77.3"
+  },
+  {
+    "i": 129,
+    "tag": "p",
+    "id": "A1.SS7.p1.3",
+    "class": "ltx_p",
+    "text": "As here ImageNet is the downstream task, the case of MoCo pre-trained on IN-1M does not represent a real scenario (for reference, we report that its accuracy is 77.0% after fine-tuning). But unsupervised pre-training in the separate, unlabeled dataset of IG-1B represents a typical scenario: in this case, MoCo improves by 0.8%."
+  },
+  {
+    "i": 130,
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_bibliography",
+    "text": "References"
+  },
+  {
+    "i": 131,
+    "tag": "h2",
+    "id": null,
+    "class": "",
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "i": 132,
+    "tag": "p",
+    "id": null,
+    "class": "",
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "i": 133,
+    "tag": "p",
+    "id": null,
+    "class": "",
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "i": 134,
+    "tag": "p",
+    "id": null,
+    "class": "",
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "i": 135,
+    "tag": "p",
+    "id": null,
+    "class": "",
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]
