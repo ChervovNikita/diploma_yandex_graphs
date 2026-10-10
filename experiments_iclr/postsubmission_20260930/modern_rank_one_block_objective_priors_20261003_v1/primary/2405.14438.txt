@@ -1,0 +1,2702 @@
+=== PDF PAGE 1 ===
+LoRA-Ensemble: Efficient Uncertainty Modelling
+for Self-Attention Networks
+Dominik J. Mühlematter∗ dmuehlema@ethz.ch
+Photogrammetry and Remote Sensing, ETH Zurich
+Michelle Halbheer hamich@ethz.ch
+Photogrammetry and Remote Sensing, ETH Zurich
+Alexander Beckeralexander.becker@geod.baug.ethz.ch
+Photogrammetry and Remote Sensing, ETH Zurich
+Dominik Narnhoferdnarnhofer@ethz.ch
+Photogrammetry and Remote Sensing, ETH Zurich
+Helge Aasenhelge.aasen@agroscope.admin.ch
+Earth Observation of Agroecosystems, Agroscope
+Konrad Schindler schindler@ethz.ch
+Photogrammetry and Remote Sensing, ETH Zurich
+Mehmet Ozgur Turkoglu∗ moturkoglu@gmail.com
+Earth Observation of Agroecosystems, Agroscope
+Abstract
+Numerous real-world decisions rely on machine learning algorithms and require calibrated
+uncertainty estimates. However, modern methods often yield overconfident, uncalibrated
+predictions. The dominant approach to quantifying the uncertainty inherent in the model
+is to train an ensemble of separate predictors and measure their empirical variance. In an
+explicit implementation, the ensemble has a high computational cost and memory footprint,
+especially if the base model itself is already large, like modern transformers. This motivates
+effortstodevelopimplicitensemblemethodsthatemulatetheensemblewithoutexplicitlyin-
+stantiating all its members. We introduce LoRA-Ensemble, a parameter-efficient ensembling
+method for self-attention networks. It is based on Low-Rank Adaptation (LoRA), originally
+developed for efficient LLM fine-tuning, and extends it into an implicit ensembling scheme,
+where all ensemble members share the same, pre-trained self-attention network, but have
+individual low-rank matrices for the attention projections. The resulting method not only
+outperforms state-of-the-art implicit techniques like BatchEnsemble, but even matches or
+exceeds the accuracy of an Explicit Ensemble, while at the same time achieving superior
+calibration.
+1 Introduction
+Machine learning models are increasingly applied also in fields where incorrect estimates can have severe
+consequences, e.g., autonomous driving, medical diagnosis, (extreme) weather event prediction, or decision
+support for agriculture. In such applications, well-calibrated predictive uncertainties are crucial to enable
+∗Equal contribution.
+1
+arXiv:2405.14438v5  [cs.LG]  7 Mar 2026
+
+=== PDF PAGE 2 ===
+self-diagnosis. Uncertainty can be separated into two components.Aleatoric uncertainty, a.k.a. irreducible
+noise, is inherent in the data. In contrast,epistemic uncertaintystems from a lack of knowledge about
+certain regions of the input space, due to a lack of training data (Der Kiureghian & Ditlevsen, 2009).
+Quantification of epistemic uncertainty in large machine learning models is non-trivial. Analytical compu-
+tation is usually intractable; thus research has focused on efficient approximations (Graves, 2011; Blundell
+et al., 2015; Welling et al., 2011). To date, probabilistic ensembles remain the best-performing approach
+(Lakshminarayanan et al., 2017). In a naïve implementation, such an ensemble consists of multiple inde-
+pendently trained models. Individual models are interpreted as Monte Carlo samples from the posterior
+weight space and are used to obtain an unbiased estimator of the posterior distribution. To achieve a low
+correlation between ensemble members, one can capitalize on the stochastic nature of the training process
+and start from different initial weights, and/or sample different random batches of data. The basic principle
+is that the predictions of different ensemble members will agree near observed training samples, whereas
+they may vary far away from the training data. Their spread therefore serves as a measure of epistemic
+uncertainty. Empirically, even small ensembles often capture the uncertainty well (in expectation), i.e., they
+are well calibrated.
+An issue with naïve ensembles is that their computational cost and memory footprint grow proportional to
+the number of ensemble members. For smaller models, the added cost and energy use may be acceptable.
+But for modern neural networks with up to several billion parameters, hardware restrictions render the naïve
+approach intractable, in particular, one can no longer hold the entire ensemble in memory. Consequently,
+research has focused on ways to create ensembles implicitly, without requiring multiple copies of the full
+base model (Wen et al., 2020; Wenzel et al., 2020; Huang et al., 2017; Turkoglu et al., 2022). Unfortunately,
+most of these parameter-efficient ensembling techniques are not readily applicable to the newest generation
+of neural networks. Transformer networks (Vaswani et al., 2017) have become popular due to their superior
+ability to capture complex structures in data. However, implicit ensembling schemes tend to underperform
+for transformers, as demonstrated in our experiments, or are architecturally incompatible with them. These
+methods were developed primarily for MLP and CNN architectures and there is no straightforward way to
+port them to transformers due to fundamental differences in computation structure. For instance, FiLM-
+Ensemble (Turkoglu et al., 2022) modulates feature maps through Batch Normalization layers, which are
+absent in standard transformer architectures that rely on Layer Normalization instead (see Appendix R.7
+for details). Similarly, SNGP (Liu et al., 2020) enforces bi-Lipschitz constraints via spectral normaliza-
+tion to ensure distance-aware uncertainty; however, dot-product self-attention has an unbounded Lipschitz
+constant (Kim et al., 2021), violating SNGP’s core theoretical assumptions (see Appendix R.9 for details).
+Several studies have shown that modern neural networks are heavily overparametrized and that their results
+have low intrinsic dimension (Li et al., 2018a; Aghajanyan et al., 2020). This led Hu et al. (2021) to propose
+Low-Rank Adaptations (LoRAs) as a way of fine-tuning Large Language Models (LLMs) for different tasks
+while avoiding the prohibitively large memory and compute requirements of retraining them. It turns out
+that the weight matrices in such models can be factorized to have very low rank, with hardly any loss in
+prediction performance.
+We show that LoRA can also serve as a basis for a novel, parameter-efficient ensemble method tailored to
+the transformer architecture. In line with the trend towards parameter-efficient fine-tuning, our method
+uses a pre-trained transformer model, which is expanded into an implicit ensemble by varying the LoRA
+factorization, while keeping the backbone weights frozen. In this way, our method requires a small number
+of additional parameters to turn an existing transformer model into a diverse ensemble whose performance
+across various tasks is comparable to an Explicit Ensemble. In summary, our contributions are:
+•We introduce LoRA-Ensemble, a parameter-efficient probabilistic ensemble method for self-attention
+networks.
+•LoRA-Ensemble can be readily combined with a wide range of standard pre-trained transformer
+architectures that employ the standard self-attention mechanism: it simply replaces the linear pro-
+jection layers in the attention module with LoRA layers.
+2
+
+=== PDF PAGE 3 ===
+•WeapplyLoRA-Ensembletodifferentclassificationtasks, includingconventionalimagelabeling, skin
+lesion classification in dermatoscopic images, fine-grained image classification, sound classification,
+out-of-distribution (OOD) detection, and language modeling; and demonstrate significant gains in
+accuracy and uncertainty modeling.
+•We demonstrate that LoRA-Ensemble outperforms traditional Explicit Ensembles by fostering
+greater diversity among members, both in their learned functions and in weight space.
+•We conduct extensive empirical analyses of how LoRA rank, initialization scheme, model scale, and
+parameter-sharing strategies impact performance, and we adapt LoRA-Ensemble for convolutional
+neural networks (CNNs) to demonstrate its broad applicability.
+2 LoRA-Ensemble
+The Low-Rank Adaptation (LoRA) technique makes it possible to use a pre-trained model and fine-tune it
+without having to retrain all its parameters. This is particularly beneficial for modern neural networks with
+large parameter spaces. The underlying principle is to freeze the pre-trained model weightsW0∈Rk×dand
+instead constrain the updates to a low-rank decomposition. This can be expressed mathematically as:
+W=W 0 + ∆W=W 0 +B·A.(1)
+HereB∈Rk×randA∈Rr×dare two trainable low-rank matrices, wherer≪min(d,k).Wand∆Ware
+then multiplied by the same inputx, which yields the following modified forward pass:
+h=W 0·x+ ∆W·x=W0·x+B·A·x.(2)
+LoRA applies its low-rank adaptation scheme exclusively to the weight matrices of the self-attention modules
+in a transformer, while leaving the interleaved MLP layers untouched. Concretely, the adapted weights are
+Wq,W k, andWv, which project the input into query, key, and value representations, along withWo, which
+merges the outputs of the attention heads. As in Hu et al. (2021), the projection matrices are treated as
+single units, disregarding their typical partitioning into multiple attention heads. In Appendix G, we provide
+additional ablations on the placement of LoRA layers within the transformer, as well as on ensemble design
+choices, illustrating how these factors impact predictive performance, calibration, and efficiency.
+Although not designed with uncertainty calibration in mind, the LoRA concept fulfills all the requirements
+of an implicit deep ensemble: By modifying the weights of the highly nonlinear self-attention mechanism one
+is able to generate a diverse collection of networks with the same architecture and objective. By learning an
+additive, low-rank update∆W=B·Arather than directly tuning the weight matrices, the expansion into
+a model ensemble adds only a small number of parameters and is efficient. In detail, we start from a single,
+pre-trained model with frozen parametersW0 and expand it with a set of trainable low-rank matrices∆Wi,
+∀i= 1...N. At each transformer block, there now is a different forward pass per ensemble memberi, as
+illustrated in Fig. 1:
+hi =W 0·x+ ∆Wi·x=W0·x+Bi·Ai·x,(3)
+leading toNdifferent predictionsT θi(X)for a given inputX. From those individual predictions, we compute
+the ensemble mean and variance in the standard manner:
+E[Y|X]≈1
+N
+N∑
+i=1
+Tθi(X),Var[Y|X]≈ 1
+N
+N∑
+i=1
+(
+Tθi(X)−E[Y|X]
+)2
+.(4)
+Refer to Appendices K, L, and M, respectively, for implementation, training, and initialization details. We
+publiclyreleasethePyTorchimplementationofLoRA-Ensemble, alongwithpre-trainedweights, onGitHub 1.
+1https://github.com/prs-eth/LoRA-Ensemble
+3
+
+=== PDF PAGE 4 ===
+Figure 1: A schema of a LoRA-Ensemble. The computation structure of the multi-head self-attention
+module (right), and LoRA-Ensemble module (bottom left).Xdenotes the actual input, andxrepresents
+the intermediate input representation.
+3 Experiments
+3.1 Experimental Setup
+We evaluate LoRA-Ensemble across multiple datasets spanning three modalities in terms of predictive ac-
+curacy, uncertainty calibration, and computational efficiency. Unless stated otherwise, reported results
+correspond to the mean over five independent runs with different random initializations, with1·σerror bars.
+For iNaturalist, we report results over three runs due to computational cost.
+We evaluated each method’s predictive performance using classification accuracy and F1 score, and its
+calibration quality through Expected Calibration Error (ECE), Negative Log-Likelihood (NLL), and Brier
+score. The ECE measures how far predicted confidences deviate from observed error rates, i.e., perfect
+calibration occurs when the estimated uncertainties match the actual likelihood of a misclassification. The
+definitions of all metrics are given in Appendix S.
+The primary hyperparameter introduced by our method is the LoRA rank,r, which controls the dimension-
+ality of the low-rank adaptation matrices and thus directly affects both model capacity and computational
+overhead. For each dataset, we specify the selected rank in the corresponding experimental subsection. A
+comprehensive sensitivity analysis of the LoRA rank, together with practical guidelines for its selection, is
+provided in Appendix C.
+3.2 Baselines
+LoRA-Ensemble is evaluated against a range of baselines. As a sanity check, we include a single Vision
+Transformer (ViT) model as well as a ViT model augmented with LoRA in the attention modules. These
+models lack dedicated mechanisms for uncertainty calibration and rely solely on class-conditional likelihoods
+to quantify uncertainty.
+As a gold-standard reference for uncertainty estimation, we compare against an Explicit Ensemble, where the
+full set of weights is independently trained for every member starting from the same pre-trained backbone
+(see Appendix R.2 for details).
+In addition, we evaluate several common implicit approaches: (i) Monte Carlo Dropout (MC Dropout) as
+implemented in (Li et al., 2023), (ii) Batch-Ensemble (Wen et al., 2020), (iii) Snapshot Ensemble (Huang
+et al., 2017), and (iv) Last-layer Ensemble, similar to MIMO (Havasi et al., 2020). Implementation details
+4
+
+=== PDF PAGE 5 ===
+are provided in Appendix R.3, R.4, and R.5. For challenges related to adapting certain implicit methods to
+transformers, we refer to Appendix R.7.
+We also include Epistemic Neural Networks (EpiNet) (Osband et al., 2022), which augment a base net-
+work with a small auxiliary network that takes random epistemic indices as input, enabling ensemble-like
+uncertainty estimation without maintaining multiple full models (see Appendix R.6 for details).
+For the CIFAR-100 experiments, we additionally compare with Spectral-normalized Neural Gaussian Process
+(SNGP) (Liu et al., 2020), an efficient single-model uncertainty estimation method. For HAM10000, we
+includetwo recentadaptationsdesignedtosatisfySNGP’sbi-Lipschitz assumptions intransformers: L2(Kim
+et al., 2021) and LRFormer (Ye et al., 2023) (see Appendix R.9 for details). For the SST-2 experiments, we
+further compare against Bayesian-LoRA (Yang et al., 2024), a method for improving uncertainty calibration
+in fine-tuned large language models.
+3.3 Compute Cost
+LoRA-Ensemble achieves substantial efficiency gains over Explicit Ensembles: with 16 members on the
+CIFAR-100 dataset, it requires approximately 14 times fewer parameters, 9 times less inference memory, and
+delivers over 5 times faster inference (when batch size 1). See Tab. 9 and refer to Appendix A.9 for more
+details. Training time is comparable between the two methods, as LoRA-Ensemble processes all members
+jointly while the Explicit Ensemble trains members sequentially on a single GPU. The primary advantage of
+LoRA-Ensemble lies in its memory efficiency, enabling deployment of large ensembles on resource-constrained
+hardware where Explicit Ensembles would be infeasible. We note that Explicit Ensembles can be parallelized
+acrossmultipleGPUsbydistributingmemberstoseparatedevices; however, thisrequiresproportionallymore
+hardware.
+3.4 CIFAR-100
+As a first sandbox experiment, we perform image classification for the popular, widely used CIFAR-100
+benchmark (Krizhevsky, 2009) (see Appendix A for CIFAR-10 experiments). The dataset consists of 100
+object classes, each with 600 samples, for a total size of 60000 images. From that set, 10000 images are
+designated as test data, with all classes equally distributed between the training and testing portions.
+Quantitative results are summarized in Tab. 1. Reliability diagrams, along with plots depicting classification
+accuracy and ECE as a function of ensemble size, are provided in Appendix A.3. The LoRA rank was set
+to 8 for this experiment.
+LoRA-Ensemble consistently reaches higher accuracy than MC Dropout, and Snapshot Ensemble, with a
+notable edge of approximately 5 percentage points. Last-Layer Ensemble improves calibration but at the cost
+of a substantial accuracy drop, which we attribute to the limited number of trainable parameters. SNGP fails
+to converge on the ViT backbone, reaching only approximately 32% accuracy; we provide a detailed analysis
+in Appendix R.9. EpiNet approaches the accuracy of Explicit Ensemble while its calibration falls short in
+comparison. Despite its conceptual similarity to the LoRA-Ensemble, the Batch-Ensemble is the weakest
+performer among all methods when applied to transformers. Appendix R.3 examines this finding in detail
+and outlines key distinctions between the two approaches. Surprisingly, LoRA-Ensemble also consistently
+surpasses the Explicit Ensemble by about 2 percentage points, apparently a consequence of the fact that
+already a single ViT model, and thus every ensemble member, benefits from the addition of LoRA.
+The LoRA-Ensemble also achieves better-calibrated predictive uncertainties than all implicit ensembling
+methods and the Explicit Ensemble. Interestingly, although a single LoRA network is already very well
+calibrated, forming an ensemble slightly degrades its calibration, an effect not observed for the NLL or
+Brier score (Tab. 1). The reliability diagram in Fig. 5 in the appendix somewhat elucidates this unexpected
+behavior: LoRA-Ensemble is under-confident on CIFAR-100, i.e., its predictions are more accurate than its
+confidence suggests. As noted by (Rahaman & Thiery, 2020), ensembling under-confident models can worsen
+calibration since accuracy grows faster than confidence. While under-confidence may be preferable in safety-
+critical settings, where over-estimating uncertainty is safer than being over-confident, we show in Appendix J
+that simple post-hoc Temperature Scaling effectively corrects this and yields near-perfect calibration.
+5
+
+=== PDF PAGE 6 ===
+Table 1: Model performance on the CIFAR-100 dataset for the compared methods. Ensembles have 16
+members. Best score for each metric inbold, second-best underlined.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network76.6±0.3 76.6±0.3 0.145±0.004 1.181±0.019 0.370±0.004
+Single Net w/ LoRA79.6±0.2 79.4±0.20.014±0.003 0.671 ±0.005 0.286±0.003
+MC Dropout77.1±0.5 77.2±0.4 0.055±0.002 1.138±0.014 0.336±0.005
+Last-layer Ensemble73.4±0.0 73.0±0.0 0.093±0.000 0.978±0.000 0.376±0.000
+Snapshot Ensemble77.0±0.1 77.2±0.2 0.123±0.002 4.416±0.046 1.614±0.007
+SNGP32.2±0.4 30.1±0.4 0.072±0.004 2.744±0.010 0.817±0.002
+ENN (EpiNet)79.7±0.2 79.7±0.2 0.128±0.003 1.016±0.015 0.323±0.005
+Batch-Ensemble68.8±0.1 68.5±0.1 0.102±0.002 1.093±0.002 0.437±0.001
+Explicit Ensemble79.8 ±0.1 79.8 ±0.2 0.100±0.001 0.745±0.003 0.284±0.002
+LoRA-Ensemble82.5±0.182.5±0.1 0.035 ±0.0010.587±0.0010.253±0.000
+Beyond transformers, we also adapt LoRA-Ensemble to convolutional neural networks, evaluating a ResNet-
+18 backbone on CIFAR-100; results are reported in Appendix H.
+3.5 HAM10000 Lesion Classification
+The HAM10000 dataset was proposed for theHuman Against Machine with 10000 training imagesstudy
+(Tschandl et al., 2018). It consists of 10015 dermatoscopic images of pigmented skin lesions, collected
+from different populations. We use a stratified 80/20 split at the image level, without prior near-duplicate
+filtering, patient- or lesion-level grouping. The dataset was initially assembled to compare machine learning
+methods against medical professionals on the task of classifying common pigmented skin lesions. Compared
+to CIFAR-100, this is arguably a more relevant test bed for our method: in the medical domain, uncertainty
+calibration is critical, due to the potentially far-reaching consequences of incorrect diagnoses and treatment
+planning.
+We therefore evaluate the same group of models on this task, focusing on both predictive accuracy and
+calibration. The results are summarized in Tab. 2. The LoRA rank was set to 4 for this experiment. Similar
+to the CIFAR-100 evaluation, LoRA-Ensemble outperforms all other methods by a clear margin, with respect
+to both classification accuracy and calibration.
+The experiments also further support the above discussion of confidence vs. ensemble size (Sec. 3.4). For
+HAM10000, LoRA-Ensemble is slightly over-confident (just like the Explicit Ensemble) and, indeed, its
+calibration error decreases with ensemble size in this case, see Appendix A.4.
+We conducted further experiments on HAM10000 using different backbone architectures (DeiT) with varying
+numbers of parameters. See Tab. 10 in Appendix B. LoRA-Ensemble generalizes smoothly across different
+backbones, and as the number of parameters in the backbone increases, its advantage over the Explicit
+Ensemble becomes more pronounced, in both accuracy and calibration.
+3.6 Large-Scale Fine-Grained Image Classification with iNaturalist.
+To demonstrate that LoRA-Ensemble scales to large, fine-grained, real-world datasets, we apply it to iNat-
+uralist 2017 (Van Horn et al., 2018), comprising 675170 images across 5089 species, an order of magnitude
+larger than CIFAR-100. Severe class imbalance, high intra-class variability, and subtle inter-class differences
+make uncertainty quantification especially challenging due to the difficulty to avoid overconfident errors
+among similar species, and to flag uncertain predictions for rare species. The LoRA rank was set to 64 for
+this experiment.
+As shown in Tab. 3, our LoRA-Ensemble almost matches the Explicit Ensemble in accuracy, while substan-
+tially improving the calibration, using only a fraction of the parameters and compute. This demonstrates
+6
+
+=== PDF PAGE 7 ===
+Table 2: Model performance on the HAM10000 dataset for the compared methods. Ensembles have 16
+members. Best score for each metric inbold, second-best underlined
+.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network84.1±0.3 71.4±0.7 0.139±0.004 1.138±0.040 0.291±0.009
+Single Net w/ LoRA83.2±0.7 70.7±1.3 0.085±0.004 0.569±0.027 0.256±0.011
+LRFormer74.3±1.9 52.1±3.2 0.053 ±0.022 0.737±0.014 0.354±0.011
+L274.1±1.8 50.7±3.9 0.065±0.024 0.766±0.036 0.360±0.021
+MC Dropout83.7±0.4 71.0±0.9 0.099±0.007 0.631±0.023 0.270±0.009
+Snapshot Ensemble84.9±0.3 73.7±0.9 0.058±0.004 0.431 ±0.007 0.217±0.004
+Batch-Ensemble76.8±1.6 58.4±2.8 0.064±0.021 0.651±0.003 0.332±0.002
+Explicit Ensemble85.8 ±0.2 74.6 ±0.4 0.105±0.002 0.536±0.007 0.218±0.002
+LoRA-Ensemble88.0±0.278.3±0.60.037±0.0020.342±0.0030.175±0.002
+that the method scales well and enables reliable uncertainty estimation for large, fine-grained, imbalanced
+datasets. Refer to Appendix F for additional results.
+Table 3: Performance on the iNat 2017 dataset for all compared methods using three different random seeds.
+Ensembles have 4 members. Best score for each metric inbold, second-best underlined.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network42.6±0.2 37.8±0.2 0.293±0.002 1.054±0.001 0.207±0.001
+Single Net w/ LoRA47.7±0.1 43.1±0.1 0.096 ±0.001 0.662±0.001 0.166±0.000
+MC Dropout47.5±0.1 40.3±0.1 0.206±0.002 0.895±0.002 0.172±0.000
+Explicit Ensemble49.6±0.244.6±0.3 0.199±0.002 0.716±0.002 0.165 ±0.000
+LoRA-Ensemble49.3 ±0.1 44.1 ±0.20.045±0.0010.610±0.0000.160±0.000
+3.7 Extension to Additional Modalities: Audio (ESC-50) and Language (SST-2)
+As a further benchmark from a different application domain, we process the ESC-50 environmental sounds
+dataset (Piczak, 2015). It consists of 2000 sound samples, each five seconds long, that represent 50 different
+semantic classes with 40 samples each. To prepare the raw input waveforms for analysis, they are converted
+into 2-dimensional time/frequency spectrograms, see (Gong et al., 2021). These spectrograms form the input
+for Audio Spectrogram Transformer, a state-of-the-art transformer model for sound classification. The LoRA
+rank is set to 16 in this experiment.
+Moreover, we extend our empirical evaluation to the natural language domain using the SST-2 binary
+sentiment classification benchmark (Socher et al., 2013). SST-2 consists of short movie review sentences
+annotated with positive or negative sentiment and is part of the GLUE benchmark (Wang et al., 2018a).
+The standard GLUE split contains 67,349 training samples and 872 validation samples. We use BERT base
+uncased (Devlin et al., 2019) as a backbone, and the LoRA rank is set to 64 in this experiment.
+Results for both datasets are provided in Appendix A.2 and Appendix A.7. These results suggest that the
+benefits of LoRA-Ensemble extend beyond the vision domain: while the Explicit Ensemble retains a slight
+edge in predictive accuracy on both tasks, LoRA-Ensemble remains competitive overall and continues to
+deliver strong calibration, consistent with the trends observed in the image classification experiments.
+3.8 Out-of-Distribution Detection & Dataset Shift Robustness
+For the out-of-distribution (OOD) experiment, models are trained on CIFAR-100 and evaluated on in-
+distribution samples from CIFAR-100 as well as OOD samples from CIFAR-10 or SVHN (Netzer et al.,
+2011), following standard practice (Hendrycks & Gimpel, 2016). Following Sim et al. (2023) and Chen et al.
+7
+
+=== PDF PAGE 8 ===
+Table 4: Model performance on the OOD task. CIFAR-100 is used as the in-distribution dataset and CIFAR-
+10 and SVHN as the out-of-distribution dataset. Ensembles for all methods consist of 16 members. Results
+for Split-Ensemble are taken from (Chen et al., 2024). The best score for each metric is highlighted inbold,
+with the second-best score underlined.
+OOD Dataset CIFAR-10 SVHN
+Method AUROC (↑) AUPRC (↑) FPR 95% TPR (↓) AUROC (↑) AUPRC (↑) FPR 95% TPR (↓)
+Split-Ensemble (Chen et al., 2024)79.281.7 78.5 81.2 69.9 75.0
+Single Network75.6±0.3 71.5±0.4 64.7±1.2 76.4±1.8 86.8±1.0 55.9±3.0
+Single Network with LoRA80.0±0.1 78.0±0.3 57.3±0.8 85.9±0.9 93.1±0.3 49.7±3.0
+MC Dropout56.6±10.3 55.6±9.6 92.2±4.3 52.3±12.4 74.5±8.9 94.8±3.4
+ENN (EpiNet)77.4±0.2 73.8±0.1 63.0±0.9 78.6±0.6 88.0±0.2 50.5±0.4
+Explicit Ensemble79.0±0.1 75.4±0.2 59.7±0.9 74.8±1.3 86.6±0.7 61.0±1.8
+LoRA-Ensemble82.1±0.180.4±0.154.1±0.389.9±0.695.2±0.341.6±1.6
+(2024), we use the maximum softmax probability as the confidence score. Performance is measured using
+AUROC, AUPRC, and FPR 95% TPR.
+Table 4 shows that LoRA-Ensemble achieves superior performance across both settings and metrics, sur-
+passing all baselines, including the recently proposed Split-Ensemble approach (Chen et al., 2024), which
+was specifically designed for OOD detection. Consistent with earlier observations, even a single LoRA model
+outperforms the Explicit Ensemble, highlighting its robustness in OOD scenarios.
+To further assess robustness under distribution shifts, we evaluate on the CIFAR-10/100-C benchmarks
+across varying corruption severities. As detailed in Appendix A.8, LoRA-Ensemble consistently maintains
+superior accuracy and calibration under increasing shift intensity.
+4 Enhanced Diversity in LoRA-Ensemble
+To better understand the behavior of LoRA-Ensemble, we explore the diversity of its members and compare
+it to the Explicit Ensemble. The experiments are run on HAM10000 with 16 ensemble members. Diversity
+is crucial for effective ensembles, as highly correlated members offer little added value (Zhang, 2012). If
+an ensemble contains diverse parameter configurations that equally explain observations, then it will more
+comprehensively capture the epistemic uncertainty (Kendall & Gal, 2017). For empirical evidence, refer to
+Appendix E.
+Following (Fort et al., 2019b), we first assess function space diversity through the predictions of individ-
+ual ensemble members. In Fig. 2, we first compute the disagreement rate on the test set, defined as
+1
+N
+∑N
+n=1 I[Tθi(Xn)̸=Tθj(Xn)], whereTθi(Xn)represents the class label predicted by ensemble memberifor
+inputX n, andIis the indicator function. Next, we construct a probability distribution for each ensemble
+member by aggregating their softmax outputs across all test samples, then compute pairwise Jensen-Shannon
+divergences (JSD). Finally, we use t-SNE (Van der Maaten & Hinton, 2008) to visualize their spread in func-
+tion space (aggregated softmaxes). The analysis reveals that LoRA-Ensemble exhibits significantly higher
+diversity among ensemble members compared to an Explicit Ensemble. I.e., LoRA-Ensemble appears to
+capture a wider range of modes in function space.
+Explicit LoRA Explicit LoRA
+(a) pairwise disagreement rate (b) Jensen-Shannon divergence (c) t-SNE
+Figure 2: Function space analysis of LoRA-Ensemble vs. Explicit Ensemble.
+8
+
+=== PDF PAGE 9 ===
+We further inspect the weight spaces of LoRA-Ensemble and Explicit Ensemble with spectral analysis,
+focusing on the projection matrices within the attention blocks of the ViT (Base-32) model pre-trained on
+ImageNet. We show the analysis for value projection matrices, given their strong association with learned
+representations; details for query and key projection matrices can be found in Appendix D. We employ
+Singular Value Decomposition (SVD) to identify the most significant transformations encoded in the weights,
+following the logic that larger singular values correspond to the most impactful components. As proposed
+by (Shuttleworth et al., 2024), we analyze the similarity between the initial (pre-trained) weights and the
+final trained weights of ensemble members. LoRA-Ensemble and Explicit Ensemble lead to very different
+parameter updates. LoRA-Ensemble introduces new high-ranking singular vectors that are near-orthogonal
+to those in the initial weights, referred to as "intruder dimensions" (Shuttleworth et al., 2024). In contrast,
+Explicit Ensemble members tend to adhere closely to the spectral structure of the initial weights (see Fig. 13
+in Appendix).
+The random initialization of matricesAandBin the LoRA module leads to an intriguing phenomenon:
+the intruder dimensions of different LoRA-Ensemble members are near-orthogonal, as shown by the cosine
+similarities between the highest-ranking singular vectors of different members in Fig. 3 (for details see
+Appendix D). The figure shows similarity values averaged over layers and pairs of members, for rank 4.
+Notably, the highest-ranked singular vectors of distinct members exhibit almost no similarity; in contrast to
+the Explicit Ensemble, where they are highly correlated. The weight-space cosine similarity provides further
+evidence of enhanced diversity. LoRA-Ensemble members exhibit greatly increased diversity in weight space.
+To visualize training trajectories, we apply t-SNE to plot the evolution of the model weights during training.
+LoRA-Ensemble members span a larger part of the loss landscape, indicating diverse learning dynamics.
+In contrast, Explicit Ensemble members remain closer to the initial weights, reflecting reduced diversity.
+Overall, these results suggest LoRA-Ensemble better explores the weight space, and thus the epistemic
+uncertainty.
+Explicit LoRA Explicit LoRA
+(a) cos-similarity of high-ranking singular vectors (b) weight-space cosine similarity (c) training trajectories
+Figure 3: Weight space analysis of LoRA-Ensemble vs. Explicit Ensemble.
+5 Discussion
+Effectiveness of LoRA-Ensemble.Across diverse tasks, our experiments show that LoRA-Ensemble
+matches or surpasses the predictive performance of the state-of-the-art Explicit Ensemble while offering
+superior calibration. Note, though, that there are exceptions to this trend: e.g., on ESC-50, the performance
+of the Explicit Ensemble is comparable, and on SST-2 it retains a small advantage. Adding LoRA to a
+single modelwithout any ensemblingimproves calibration in most experiments beyond that of a 16-member
+Explicit Ensemble. This effect may be linked to the well-documented over-parameterization of modern neural
+networks, which often achieve higher predictive accuracy at the cost of poorer calibration (e.g., Guo et al.,
+2017). By incorporating LoRA while treating all pre-trained weights as constants, we significantly reduce the
+trainable parameter space, potentially favoring better calibration. However, limiting trainable parameters
+alone does not ensure better accuracy or calibration, e.g., many forms of regularization or selective training
+may fall short. We believe that the effectiveness of LoRA-Ensemble stems from its unique learning dynamics,
+which we explore in Sec. 4 and Appendix D. Its members converge to diverse solutions that span a broader
+area of the loss landscape, enabling better exploration of the weight space and more effective estimates of
+epistemic uncertainty. Increasing the number of members in the LoRA-Ensemble enhances predictive power,
+potentially improving accuracy while maintaining good calibration due to the limited number of trainable
+9
+
+=== PDF PAGE 10 ===
+weights. However, if the trainable weights are not limited, e.g. when increasing the LoRA rank too far,
+calibration can worsen, as shown in Fig.11a, Tab.7. This effect aligns with the findings of Shuttleworth
+et al. (2024), which indicate that excessively increasing the rank of LoRA may cause it to lose its unique
+learning dynamics. Furthermore, jointly training the backbone and optimizing all parameters simultaneously
+degrades performance, see Appendix F for details. Conversely, enhancing predictive power by increasing the
+pre-trained weights (while keeping trainable weights constant) further improves the effectiveness of the
+LoRA-Ensemble, see Appendix B. Lastly, the LoRA-Ensemble remains effective even when pre-training is
+not available; see Appendix I for the experiment where it was pre-trained and fine-tuned on the same target
+dataset.
+Comparison to Bayesian LoRA.On the language modeling task (SST-2 sentiment classification), LoRA-
+Ensemble consistently outperforms Bayes-LoRA (Yang et al., 2024) across accuracy, F1, NLL, and Brier
+score, with Bayes-LoRA only achieving a marginally lower ECE. Refer to Tab. 8 and Appendix A.7. This
+result is consistent with previous works, showing that Laplace-based methods improve calibration at the
+expense of predictive accuracy (Deng et al., 2022) or often fall short compared to ensembles (Daxberger
+et al., 2021; Eschenhagen et al., 2021). Notably, in our experiments, LoRA-Ensemble is more than 10x faster
+at inference, demonstrating that it combines strong accuracy, reliable calibration, and efficiency. In contrast,
+the Laplace-based Bayesian method trades accuracy for improved uncertainty estimates while remaining less
+efficient. Refer to Appendix R.8 for more details and discussion.
+Practical Guidance.Our results suggest that the LoRA rank should be kept low unless accuracy saturates,
+as unnecessarily high ranks may degrade calibration. Calibration behavior also varies with ensemble size
+and dataset difficulty: on simpler datasets, increasing ensemble size can induce under-confidence, while on
+harder datasets it improves calibration. In cases of under-confidence, simple post-hoc temperature scaling is
+effective (Appendix J). Practical hyperparameter guidelines are summarized in Appendix C.
+Limitations & Future Work.Despite its memory-efficient design and reduced per-member training
+and inference overhead, our ensembling approach maintains computational complexity similar to that of
+conventional ensembles, since each batch still requires separate forward passes for every member. While
+LoRA-Ensemble is directly applicable to transformers with standard linear attention projections, its behavior
+in the context of more complex variants – such as mixture-of-experts (MoE) models (Jiang et al., 2024) or
+architectures with non-standard attention parameterizations – remains an open question and a promising
+direction for future work. As discussed by Rahaman & Thiery (2020), our work also suggests that in a
+high-parameter regime, deep ensembles may not exhibit the same behavior as they do in a low-parameter
+regime, where they typically improve calibration properties. This type of phase shift in the bias-variance
+trade-off, the so-called Double Descent Phenomenon, has previously been observed for large neural networks
+(Nakkiran et al., 2021). It would be valuable to conduct an in-depth analysis of how deep ensembles behave
+in high-parameter regimes.
+6 Related Work
+Estimation of Epistemic Uncertainty.A lot of work has gone into estimating the epistemic uncertainty
+in Artificial Neural Networks (ANN). As the analytical computation of the posterior in such models is
+generally intractable, methods for approximate Bayesian inference have been proposed. Such methods rely
+on imposing an appropriate prior on the weights and using the likelihood of the training data to get an
+approximate posterior of the weight space.
+The main techniques are, on the one hand, Variational Inference (Graves, 2011; Ranganath et al., 2014),
+which (Blundell et al., 2015) have specialized to neural networks asBayes by Backprop. And on the other
+hand variants of Markov Chain Monte Carlo (MCMC) (Neal, 1996; Chen et al., 2014), including Stochastic
+Gradient Langevin Dynamics (SGLD) (Welling et al., 2011). These, however, are often not able to accurately
+capture high-dimensional and highly non-convex loss landscapes, like the ones usually encountered in deep
+learning (Gustafsson et al., 2019). More recently, Bayesian LoRA methods have been explored, with Yang
+et al. (2024) using a Laplace approximation for improved calibration and Wang et al. (2024) jointly learning
+mean and covariance during fine-tuning. An alternative line of work focuses on single-model uncertainty
+estimation. Spectral-normalized Neural Gaussian Process (SNGP) (Liu et al., 2020) combines spectral
+10
+
+=== PDF PAGE 11 ===
+normalization with a Gaussian Process output layer to achieve distance-aware uncertainty. However, SNGP’s
+bi-Lipschitz assumptions do not hold for transformers, as dot-product self-attention has an unbounded
+Lipschitz constant. To address this, Kim et al. (2021) propose L2 Self-Attention and Ye et al. (2023)
+introduce LRFormer, both designed to satisfy Lipschitz constraints in transformer architectures. Epistemic
+Neural Networks (EpiNet) (Osband et al., 2022) take a different approach by augmenting a base network
+with a small auxiliary network that takes learnable epistemic indices as input, producing diverse predictions
+without maintaining multiple full models.
+Ensembles and Implicit Ensembling.Lakshminarayanan et al. (2017) have proposed a method known
+as deep ensembles. It uses a set of neural networks with identical architecture that are independently and
+randomly initialized, and (as usual) trained with variants of Stochastic Gradient Descent (SGD). While the
+latter introduces further stochasticity, Fort et al. (2019a) have shown that the initialization of the weights
+is more important to explore the admissible weight space. Ensemble members will generally converge to
+different modes of the loss function, such that they can be considered Monte Carlo samples of the posterior
+distribution (Wilson & Izmailov, 2020; Izmailov et al., 2021). While ensembles, in general, yield the best
+results in terms of accuracy and uncertainty calibration, a straightforward implementation suffers from high
+memory and compute requirements, since multiple instances of the full neural network must be trained and
+stored. This can become prohibitive for modern neural networks with many millions, or even billions, of
+parameters.
+Consequently, researchers have attempted to find ways of mimicking the principle of deep ensembles without
+creating several full copies of the base model. (Gal & Ghahramani, 2015) have proposed Monte Carlo
+Dropout, where the posterior is approximated by sampling different dropout patterns at inference time.
+While this is less expensive in terms of memory, performance is often worse. Masksembles (Durasov et al.,
+2020) are a variant that attempts to select suitable dropout masks in order to obtain better uncertainty
+estimates. Snapshot Ensembles (Huang et al., 2017) use cyclic learning rates to steer the learning process
+such that it passes through multiple local minima, which are then stored as ensemble members. This reduces
+the training effort but does not address memory requirements or inference time.
+Particularly relevant for our work are attempts that employ a shared backbone and modify only selected
+layers. (Havasi et al., 2020) follow that strategy, in their case only the first and last layer of a neural
+network are replicated and trained independently to emulate an ensemble. Packed-Ensemble (Laurent et al.,
+2023) leverage grouped convolutions to train lightweight ensembles within a single shared backbone. Batch-
+Ensemble (Wen et al., 2020) is similar to LoRA-Ensemble in that it also uses low-rank matrices to change the
+model parameters. More specifically, shared weight matrices are modulated by element-wise multiplication
+with different rank-1 matrices to achieve the behavior of a deep ensemble while adding only a small number of
+parameters. Wenzel et al. (2020) take this concept further by also ensembling over different hyper-parameter
+settings. Turkoglu et al. (2022) freeze all weights of the base model and instead vary the feature-wise
+linear modulation (FiLM, Li et al., 2018b; Takeda et al., 2021). A related concept was recently introduced
+for LLMs: the Mixtral of Experts model (Jiang et al., 2024) averages over a sparse mixture of experts to
+efficiently generate text.
+Low-Rank Adaptation in Transformer Networks.Low-Rank Adaptation was originally conceived as
+a parameter-efficient way of fine-tuning Large Language Models (LLMs) (Hu et al., 2021). It is based on the
+observation that, while modern neural networks have huge parameter spaces, the solutions they converge
+to have much lower intrinsic dimension (Li et al., 2018b; Aghajanyan et al., 2020). LoRA exploits this
+and Hu et al. (2021) show that even when fine-tuning only low-rank update matrixB·A(sometimes with
+rank as low as one or two), the resulting models are competitive with much more expensive fine-tuning
+schemes. The method quickly became popular and has since also been extended with weight-decomposition
+(Liu et al., 2024). The Low-Rank Adaptation (LoRA) idea has been applied in various fields, notably for
+denoising diffusion models (Luo et al., 2023; Golnari, 2023). As we have shown, the LoRA adaptation
+mechanism naturally lends itself to parameter-efficient ensembling, which we investigate in the context of
+uncertainty calibration, with a primary focus on vision transformers but not limited to them. A similar idea
+has concurrently been explored for fine-tuning LLMs (Wang et al., 2023), yielding promising results in both
+predictive performance and uncertainty estimation.
+11
+
+=== PDF PAGE 12 ===
+7 Conclusion
+We have presented LoRA-Ensemble, a novel, parameter-efficient method for probabilistic learning that is
+tailored to the transformer architecture (and potentially other architectures that make use of the attention
+mechanism). LoRA-Ensemble uses a simple, but efficient trick to turn a single base model into an implicit
+ensemble: the weights of the base model are kept frozen, but are modulated with the Low-Rank Adaptation
+mechanism. By training multiple, stochastically varying instances of the low-rank matrices that define
+the modulation, one obtains a diverse set of ensemble members that share the majority of their weights
+and introduce only minimal overhead through the coefficients of their individual low-rank matrices. Our
+extensive experiments demonstrate that the proposed approach excels in both predictive performance and
+uncertainty calibration. Not only does it surpass other state-of-the-art implicit ensembling methods, but it
+also outperforms Explicit Ensembles on many tasks. This challenges the prevailing notion in the literature
+that Explicit Ensembles represent the upper bound for efficient ensembling methods (Wen et al., 2020).
+8 Broader Impact
+Better-calibrated uncertainty estimates allow users to recognize unreliable model predictions and treat them
+with the necessary caution, thus improving decision-making in high-stakes settings. We point out that
+good calibration on benchmark datasets does not, by itself, guarantee safe or reliable behavior in real-world
+deployment: uncertainty may degrade under distribution shift, so external validation for the intended use
+case is advised before employing any uncertainty estimation method in practice.
+More broadly, as models grow in size, running ensembles of multiple model instances further increases
+computational cost and energy consumption. Efficient ensembling approaches like ours aim to preserve
+ensemble performance while reducing resource usage and the associated environmental impact, contributing
+to a more sustainable “Green AI”.
+References
+Armen Aghajanyan, Sonal Gupta, and Luke Zettlemoyer. Intrinsic dimensionality explains the effectiveness
+of language model fine-tuning. InAnnual Meeting of the Association for Computational Linguistics &
+International Joint Conference on Natural Language Processing, 2020.
+Charles Blundell, Julien Cornebise, Koray Kavukcuoglu, and Daan Wierstra. Weight uncertainty in neural
+networks. InInternational Conference on Machine Learning, 2015.
+Glenn W. Brier. Verification of forecasts expressed in terms of probability.Monthly Weather Review, 78,
+1950.
+Anthony Chen, Huanrui Yang, Yulu Gan, Denis A Gudovskiy, Zhen Dong, Haofan Wang, Tomoyuki Okuno,
+Yohei Nakata, Kurt Keutzer, and Shanghang Zhang. Split-Ensemble: Efficient OOD-aware ensemble via
+task and model splitting. InInternational Conference on Machine Learning, 2024.
+Tianqi Chen, Emily B. Fox, and Carlos Guestrin. Stochastic gradient hamiltonian Monte Carlo. InInter-
+national Conference on Machine Learning, 2014.
+Gaurav Chhablani. bert-base-cased-finetuned-sst2.https://huggingface.co/gchhablani/
+bert-base-cased-finetuned-sst2, 2023. Fine-tuned BERT model on GLUE SST-2 dataset.
+Kevin Clark, Minh-Thang Luong, Quoc V Le, and Christopher D Manning. Electra: Pre-training text
+encoders as discriminators rather than generators. arxiv 2020.ICLR, 2020.
+Ben Conrad. Fine-tuning vision transformers, 2023. URLhttps://github.com/bwconrad/vit-finetune.
+Accessed: 2024-05-20.
+Yin Cui, Menglin Jia, Tsung Yi Lin, Yang Song, and Serge Belongie. Class-balanced loss based on effective
+number of samples. InIEEE Conference on Computer Vision and Pattern Recognition, 2019.
+12
+
+=== PDF PAGE 13 ===
+Jesse Davis and Mark Goadrich. The relationship between precision-recall and ROC curves. InInternational
+Conference on Machine Learning, 2006.
+Erik Daxberger, Agustinus Kristiadi, Alexander Immer, Runa Eschenhagen, Matthias Bauer, and Philipp
+Hennig. Laplace redux-effortless bayesian deep learning.Advances in neural information processing sys-
+tems, 34:20089–20103, 2021.
+Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. ImageNet: A large-scale hierarchical
+image database. InIEEE Conference on Computer Vision and Pattern Recognition, 2009.
+Zhijie Deng, Feng Zhou, and Jun Zhu. Accelerated linearized laplace approximation for bayesian deep
+learning.Advances in Neural Information Processing Systems, 35:2695–2708, 2022.
+Armen Der Kiureghian and Ove Ditlevsen. Aleatory or epistemic? does it matter?Structural Safety, 31(2),
+2009.
+JacobDevlin, Ming-WeiChang, KentonLee, andKristinaToutanova. Bert: Pre-trainingofdeepbidirectional
+transformers for languageunderstanding. InNorth American Chapter of the Association for Computational
+Linguistics, 2019.
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Un-
+terthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil
+Houlsby. An image is worth 16×16 words: Transformers for image recognition at scale. InInternational
+Conference on Learning Representations, 2020.
+Nikita Durasov, Timur Bagautdinov, Pierre Baque, and Pascal Fua. Masksembles for uncertainty estimation.
+InIEEE Computer Society Conference on Computer Vision and Pattern Recognition, 2020.
+Runa Eschenhagen, Erik Daxberger, Philipp Hennig, and Agustinus Kristiadi. Mixtures of laplace approxi-
+mations for improved post-hoc uncertainty in deep learning.arXiv preprint arXiv:2111.03577, 2021.
+Vlad Fomenko, Han Yu, Jongho Lee, Stanley Hsieh, and Weizhu Chen. A note on lora.arXiv preprint
+arXiv:2404.05086, 2024.
+Stanislav Fort, Huiyi Hu, and Balaji Lakshminarayanan. Deep Ensembles: A loss landscape perspective.
+arXiv preprint arXiv:1912.02757, 2019a.
+Stanislav Fort, Huiyi Hu, and Balaji Lakshminarayanan. Deep ensembles: A loss landscape perspective.
+arXiv preprint arXiv:1912.02757, 2019b.
+Yarin Gal and Zoubin Ghahramani. Dropout as a bayesian approximation: Representing model uncertainty
+in deep learning. InInternational Conference on Machine Learning, 2015.
+Jort F. Gemmeke, Daniel P.W. Ellis, Dylan Freedman, Aren Jansen, Wade Lawrence, R. Channing Moore,
+Manoj Plakal, and Marvin Ritter. Audio Set: An ontology and human-labeled dataset for audio events.
+InIEEE International Conference on Acoustics, Speech and Signal Processing, 2017.
+Xavier Glorot and Yoshua Bengio. Understanding the difficulty of training deep feedforward neural networks.
+InInternational Conference on Artificial Intelligence and Statistics, 2010.
+Pareesa Ameneh Golnari. LoRA-enhanced distillation on guided diffusion models.arXiv preprint
+arXiv:2312.06899, 2023.
+Yuan Gong, Yu-An Chung, and James Glass. Ast: Audio spectrogram transformer.arXiv preprint
+arXiv:2104.01778, 2021.
+Alex Graves. Practical variational inference for neural networks. InAdvances in Neural Information Pro-
+cessing Systems, 2011.
+Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q. Weinberger. On calibration of modern neural networks. In
+International Conference on Machine Learning, 2017.
+13
+
+=== PDF PAGE 14 ===
+Fredrik K. Gustafsson, Martin Danelljan, and Thomas B. Schon. Evaluating scalable bayesian deep learning
+methods for robust computer vision. InIEEE Conference on Computer Vision and Pattern Recognition
+Workshops, 2019.
+James A. Hanley and Barbara J. McNeil. The meaning and use of the area under a receiver operating
+characteristic (ROC) curve.Radiology, 143(1), 1982.
+Marton Havasi, Rodolphe Jenatton, Stanislav Fort, Jeremiah Zhe Liu, Jasper Snoek, Balaji Lakshmi-
+narayanan, Andrew M. Dai, and Dustin Tran. Training independent subnetworks for robust prediction.
+InInternational Conference on Learning Representations, 2020.
+Dan Hendrycks and Thomas Dietterich. Benchmarking neural network robustness to common corruptions
+and perturbations. 2019.
+Dan Hendrycks and Kevin Gimpel. A baseline for detecting misclassified and out-of-distribution examples
+in neural networks.arXiv preprint arXiv:1610.02136, 2016.
+Edward Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu
+Chen. LoRA: Low-rank adaptation of large language models. InInternational Conference on Learning
+Representations, 2021.
+Gao Huang, Yixuan Li, Geoff Pleiss, Zhuang Liu, John E. Hopcroft, and Kilian Q. Weinberger. Snapshot
+Ensembles: Train 1, getmfor free. InInternational Conference on Learning Representations, 2017.
+Pavel Izmailov, Sharad Vikram, Matthew D. Hoffman, and Andrew Gordon Wilson. What are bayesian
+neural network posteriors really like? InProceedings of Machine Learning Research, 2021.
+Albert Q. Jiang, Alexandre Sablayrolles, Antoine Roux, Arthur Mensch, Blanche Savary, Chris Bamford,
+Devendra Singh Chaplot, Diego de las Casas, Emma Bou Hanna, Florian Bressand, Gianna Lengyel,
+Guillaume Bour, Guillaume Lample, Lélio Renard Lavaud, Lucile Saulnier, Marie-Anne Lachaux, Pierre
+Stock, Sandeep Subramanian, Sophia Yang, Szymon Antoniak, Teven Le Scao, Théophile Gervet, Thibaut
+Lavril, Thomas Wang, Timothée Lacroix, and William El Sayed. Mixtral of experts.arXiv preprint
+arXiv:2401.04088, 2024.
+Alex Kendall and Yarin Gal. What uncertainties do we need in bayesian deep learning for computer vision?
+Advances in Neural Information Processing Systems, 30, 2017.
+Hyunjik Kim, George Papamakarios, and Andriy Mnih. The lipschitz constant of self-attention. InInterna-
+tional Conference on Machine Learning, pp. 5562–5571. PMLR, 2021.
+Alex Krizhevsky. Learning multiple layers of features from tiny images. Technical report, University of
+Toronto, 2009.
+Balaji Lakshminarayanan, Alexander Pritzel, and Charles Blundell. Simple and scalable predictive uncer-
+tainty estimation using deep ensembles. InAdvances in Neural Information Processing Systems, 2017.
+Olivier Laurent, Adrien Lafage, Enzo Tartaglione, Geoffrey Daniel, Jean-Marc Martinez, Andrei Bursuc,
+and Gianni Franchi. Packed-ensembles for efficient uncertainty estimation. InInternational Conference
+on Learning Representations, 2023.
+Hojung Lee and Jong-Seok Lee. Network fission ensembles for low-cost self-ensembles.Pattern Recognition
+Letters, 2025.
+Bonan Li, Yinhan Hu, Xuecheng Nie, Congying Han, Xiangjian Jiang, Tiande Guo, and Luoqi Liu. Dropkey
+for vision transformer. InIEEE/CVF Conference on Computer Vision and Pattern Recognition, 2023.
+Chunyuan Li, Heerad Farkhoor, Rosanne Liu, and Jason Yosinski. Measuring the intrinsic dimension of
+objective landscapes. InInternational Conference on Learning Representations, 2018a.
+14
+
+=== PDF PAGE 15 ===
+Yanghao Li, Naiyan Wang, Jianping Shi, Xiaodi Hou, and Jiaying Liu. Adaptive batch normalization for
+practical domain adaptation.Pattern Recognition, 80, 2018b.
+Jeremiah Liu, Zi Lin, Shreyas Padhy, Dustin Tran, Tania Bedrax-Weiss, and Balaji Lakshminarayanan.
+Simple and principled uncertainty estimation with deterministic deep learning via distance awareness. In
+Advances in Neural Information Processing Systems, volume 33, pp. 7498–7512, 2020.
+Jeremiah Liu, Shreyas Padhy, Jie Ren, Zi Lin, Yeming Wen, Alex Rudnicky, Dustin Tran, Balaji Lakshmi-
+narayanan, and Tania Bedrax-Weiss. A simple approach to improve single-model deep uncertainty via
+distance-awareness.Journal of Machine Learning Research, 24(42):1–63, 2023.
+Shih-YangLiu, Chien-YiWang, HongxuYin, PavloMolchanov, Yu-ChiangFrankWang, Kwang-TingCheng,
+and Min-Hung Chen. DoRA: Weight-decomposed low-rank adaptation.arXiv preprint arXiv:2402.09353,
+2024.
+Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. InInternational Conference on
+Learning Representations, 2017.
+Simian Luo, Yiqin Tan, Suraj Patil, Daniel Gu, Patrick von Platen, Apolinário Passos, Longbo Huang,
+Jian Li, and Hang Zhao. LCM-LoRA: A universal stable-diffusion acceleration module.arXiv preprint
+arXiv:2311.05556, 2023.
+Takeru Miyato, Toshiki Kataoka, Masanori Koyama, and Yuichi Yoshida. Spectral normalization for gener-
+ative adversarial networks. InInternational Conference on Learning Representations, 2018.
+Preetum Nakkiran, Gal Kaplun, Yamini Bansal, Tristan Yang, Boaz Barak, and Ilya Sutskever. Deep
+double descent: where bigger models and more data hurt.Journal of Statistical Mechanics: Theory and
+Experiment, 2021(12), 2021.
+Radford M. Neal.Bayesian Learning for Neural Networks. Lecture Notes in Statistics. Springer New York,
+1996.
+Yuval Netzer, Tao Wang, Adam Coates, Alessandro Bissacco, Baolin Wu, Andrew Y Ng, et al. Reading
+digits in natural images with unsupervised feature learning. InNeurIPS Workshop on Deep Learning and
+Unsupervised Feature Learning, 2011.
+Ian Osband, Zheng Wen, Seyed Mohammad Asghari, Vikranth Dwaracherla, Morteza Ibrahimi, Xiuyuan
+Lu, and Benjamin Van Roy. Epistemic neural networks.arXiv preprint arXiv:2107.08924, 2022.
+Yaniv Ovadia, Emily Fertig, Jie Ren, Zachary Nado, D. Sculley, Sebastian Nowozin, Joshua Dillon, Balaji
+Lakshminarayanan, and Jasper Snoek. Can you trust your model's uncertainty? evaluating predictive
+uncertainty under dataset shift. InAdvances in Neural Information Processing Systems, 2019.
+Karol J. Piczak. ESC: Dataset for environmental sound classification. InACM Multimedia Conference, 2015.
+Barbara Plank, Kristian Nørgaard Jensen, and Rob Van Der Goot. Dan+: Danish nested named entities
+and lexical normalization. InProceedings of the 28th international conference on computational linguistics,
+pp. 6649–6662, 2020.
+Rahul Rahaman and Alexandre H. Thiery. Uncertainty quantification and deep ensembles. InAdvances in
+Neural Information Processing Systems, 2020.
+Ali Rahimi and Benjamin Recht. Random features for large-scale kernel machines. InAdvances in Neural
+Information Processing Systems, 2007.
+Rajesh Ranganath, Sean Gerrish, and David M Blei. Black box variational inference. InInternational
+Conference on Artificial Intelligence and Statistics, 2014.
+Reece Shuttleworth, Jacob Andreas, Antonio Torralba, and Pratyusha Sharma. LoRA vs full fine-tuning:
+An illusion of equivalence.arXiv preprint arXiv:2410.21228, 2024.
+15
+
+=== PDF PAGE 16 ===
+Minho Sim, Jongwhoa Lee, and Ho-Jin Choi. Attention masking for improved near out-of-distribution image
+detection. InIEEE International Conference on Big Data and Smart Computing, 2023.
+Richard Socher, Alex Perelygin, Jean Wu, Jason Chuang, Christopher D. Manning, Andrew Ng, and Christo-
+pher Potts. Recursive deep models for semantic compositionality over a sentiment treebank. InConference
+on Empirical Methods in Natural Language Processing, 2013.
+Mana Takeda, Gibran Benitez, and Keiji Yanai. Training of multiple and mixed tasks with a single network
+using feature modulation. InInternational Conference on Pattern Recognition, 2021.
+Arthur Thuy and Dries F. Benoit. Fast and reliable uncertainty quantification with neural network ensembles
+for industrial image classification.Annals of Operations Research, 2025.
+Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco Massa, Alexandre Sablayrolles, and Hervé Jégou.
+Training data-efficient image transformers & distillation through attention. InProceedings of Machine
+Learning Research, 2020.
+Philipp Tschandl, Cliff Rosendahl, and Harald Kittler. The HAM10000 dataset, a large collection of multi-
+source dermatoscopic images of common pigmented skin lesions.Scientific Data, 5, 2018.
+Mehmet Ozgur Turkoglu, Alexander Becker, Hüseyin Anil Gündüz, Mina Rezaei, Bernd Bischl, Rodrigo Caye
+Daudt, Stefano D’Aronco, Jan Dirk Wegner, and Konrad Schindler. FiLM-Ensemble: Probabilistic deep
+learning via feature-wise linear modulation. InAdvances in Neural Information Processing Systems, 2022.
+Dennis Ulmer, Christian Hardmeier, and Jes Frellsen. Exploring predictive uncertainty and calibration in
+nlp: A study on the impact of method & data scarcity. InFindings of the Association for Computational
+Linguistics: EMNLP 2022, pp. 2707–2735, 2022.
+Laurens Van der Maaten and Geoffrey Hinton. Visualizing data using t-SNE.Journal of Machine Learning
+Research, 9(11), 2008.
+Grant Van Horn, Oisin Mac Aodha, Yang Song, Yin Cui, Chen Sun, Alex Shepard, Hartwig Adam, Pietro
+Perona, and Serge Belongie. The iNaturalist species classification and detection dataset. InIEEE Con-
+ference on Computer Vision and Pattern Recognition, pp. 8769–8778, 2018.
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser,
+and Illia Polosukhin. Attention is all you need. InAdvances in Neural Information Processing Systems,
+2017.
+Artem Vazhentsev, Gleb Kuzmin, Artem Shelmanov, Akim Tsvigun, Evgenii Tsymbalov, Kirill Fedyanin,
+Maxim Panov, Alexander Panchenko, Gleb Gusev, Mikhail Burtsev, Manvel Avetisian, and Leonid Zhukov.
+Uncertainty estimation of transformer predictions for misclassification detection. InProceedings of the 60th
+Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pp.8237–8252.
+Association for Computational Linguistics, 2022.
+Alex Wang, Amanpreet Singh, Julian Michael, Felix Hill, Omer Levy, and Samuel Bowman. Glue: A
+multi-task benchmark and analysis platform for natural language understanding. InProceedings of the
+2018 EMNLP workshop BlackboxNLP: Analyzing and interpreting neural networks for NLP, pp. 353–355,
+2018a.
+AlexWang, AmanpreetSingh, JulianMichael, FelixHill, OmerLevy, andSamuelR.Bowman. Glue: Amulti-
+task benchmark and analysis platform for natural language understanding. InBlackboxNLP@EMNLP,
+2018b.
+Xi Wang, Laurence Aitchison, and Maja Rudolph. LoRA ensembles for large language model fine-tuning.
+arXiv preprint arXiv:2310.00035, 2023.
+Yibin Wang, Haizhou Shi, Ligong Han, Dimitris Metaxas, and Hao Wang. Blob: Bayesian low-rank adapta-
+tion by backpropagation for large language models.Advances in Neural Information Processing Systems,
+37:67758–67794, 2024.
+16
+
+=== PDF PAGE 17 ===
+Max Welling, D Bren, and Yee Whye Teh. Bayesian learning via stochastic gradient Langevin dynamics. In
+International Conference on Machine Learning, 2011.
+Yeming Wen, Dustin Tran, and Jimmy Ba. BatchEnsemble: An alternative approach to efficient ensemble
+and lifelong learning. InInternational Conference on Learning Representations, 2020.
+Florian Wenzel, Jasper Snoek, Dustin Tran, and Rodolphe Jenatton. Hyperparameter ensembles for robust-
+ness and uncertainty quantification. InAdvances in Neural Information Processing Systems, 2020.
+Andrew Gordon Wilson and Pavel Izmailov. Bayesian deep learning and a probabilistic perspective of
+generalization. InAdvances in Neural Information Processing Systems, 2020.
+Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Clement Delangue, Anthony Moi, Pier-
+ric Cistac, Tim Rault, Rémi Louf, Morgan Funtowicz, Joe Davison, Sam Shleifer, Patrick von Platen,
+Clara Ma, Yacine Jernite, Julien Plu, Canwen Xu, Teven Le Scao, Sylvain Gugger, Mariama Drame,
+Quentin Lhoest, and Alexander M. Rush. Transformers: State-of-the-art natural language processing.
+InProceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System
+Demonstrations, 2020.
+Adam X. Yang, Maxime Robeyns, Xi Wang, and Laurence Aitchison. Bayesian low-rank adaptation for large
+language models. InInternational Conference on Learning Representations, 2024.
+Wenqian Ye, Yunsheng Ma, Xu Cao, and Kun Tang. Mitigating transformer overconfidence via Lipschitz
+regularization. InProceedings of the Conference on Uncertainty in Artificial Intelligence, 2023.
+C Zhang.Ensemble machine learning: methods and applications. Springer Science & Business Media, 2012.
+17
+
+=== PDF PAGE 18 ===
+Appendix
+Contents
+A Additional Experiments and Results 20
+A.1 CIFAR-10 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+A.2 ESC-50 Environmental Sound Classification . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+A.3 CIFAR-100 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+A.4 HAM10000 Lesion Classification . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+A.5 Comparison with a Single, High-rank LoRA Network . . . . . . . . . . . . . . . . . . . . . . . 22
+A.6 INaturalist 2017 Large-Scale Fine-Grained Image Classification . . . . . . . . . . . . . . . . . 22
+A.7 SST-2 Language Modeling for Sentiment Classification . . . . . . . . . . . . . . . . . . . . . . 23
+A.8 Robustness to Distribution Shifts: CIFAR-10-C and CIFAR-100-C . . . . . . . . . . . . . . . 24
+A.9 Computational Cost . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24
+B LoRA-Ensemble’s Generalization to Varying Model Sizes 25
+C Hyperparameter Selection and Sensitivity Analysis: LoRA Rank 27
+D Weight Space Analysis: LoRA-Ensemble versus Explicit Ensemble 29
+E Correlation Analysis Between Ensemble Diversity and Predictive Performance 30
+F Joint Training of Backbone and LoRA-Ensemble Layers on iNaturalist 32
+G Placement of LoRA-Ensemble Modules and Selection of Trainable Weights 33
+H LoRA-Ensemble for CNNs 33
+I LoRA-Ensemble Fine-Tuned on the Same Dataset as the Backbone Model 33
+J Post-Hoc Temperature Scaling for Model Calibration 34
+K Implementation of LoRA-Ensmeble 35
+L Training Details of LoRA-Ensemble 36
+M Initialization of LoRA-Ensemble Parameters 37
+N AST Implementation 37
+O Validation of AST Implementation 38
+P Hyper-parameter Tuning for AST Experiment 39
+18
+
+=== PDF PAGE 19 ===
+Q Computational Cost for AST Models 40
+R Baselines 40
+R.1 Hyperparameter Tuning for MC Dropout . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
+R.2 Initialization of Explicit Ensemble Parameters . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
+R.3 Batch-Ensemble . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+R.4 Snapshot Ensemble Implementation Details . . . . . . . . . . . . . . . . . . . . . . . . . . . . 44
+R.5 Last Layer Ensemble . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+R.6 Epistemic Neural Networks (EpiNet) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+R.7 FiLM-Ensemble and Other Implicit Baselines: Practical Challenges . . . . . . . . . . . . . . . 47
+R.8 Bayesian LoRA . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 47
+R.9 SNGP on Vision Transformers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 48
+S Definitions of Evaluation Metrics 50
+S.1 Accuracy . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 50
+S.2 Expected Calibration Error . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 50
+S.3 Macro F1-score . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 50
+S.4 Negative Log-Likelihood (NLL) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 51
+S.5 Brier score . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 51
+S.6 Area Under the Receiver Operating Characteristic Curve (AUROC) . . . . . . . . . . . . . . 51
+S.7 Area Under the Precision-Recall Curve (AUPRC) . . . . . . . . . . . . . . . . . . . . . . . . . 51
+S.8 False Positive Rate at 95% True Positive Rate (FPR@95%TPR) . . . . . . . . . . . . . . . . 52
+19
+
+=== PDF PAGE 20 ===
+A Additional Experiments and Results
+This section presents comprehensive experimental results for the newly introduced CIFAR-10 dataset, En-
+vironmental Sound Classification on ESC-50. It also includes additional results for the CIFAR-100 and
+HAM10000 datasets and expanded baseline comparisons for CIFAR-100.
+A.1 CIFAR-10
+The results for the CIFAR-10 dataset, as shown in Tab. 5, indicate that LoRA-Ensemble outperforms all
+other methods. Close behind is a single network enhanced with LoRA. This mirrors the results found in the
+main paper for CIFAR-100, with the exception of the calibration for a single model. It is important to note
+that although all methods achieve high accuracy and the differences between them are minimal, calibration
+is nearly perfect for most approaches. This suggests that the CIFAR-10 dataset is relatively easy for modern
+transformer models, and the results should not be over-interpreted. Nevertheless, the consistent performance
+across different random seeds suggests that the ranking is likely significant. Given the balanced nature of
+the CIFAR-10 dataset, the accuracy and F1-score are almost identical.
+Table 5: Performance on the CIFAR-10 dataset for all compared methods. Ensembles have 16 members.
+Best score for each metric inbold, second-best underlined.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network92.8±0.1 92.8±0.1 0.051±0.001 0.333±0.003 0.120±0.002
+Single Net w/ LoRA94.5 ±0.0 94.5 ±0.0 0.009±0.001 0.163±0.002 0.082±0.001
+MC Dropout92.9±0.2 92.9±0.2 0.023±0.002 0.260±0.005 0.110±0.003
+Snapshot Ensemble93.1±0.1 93.1±0.1 0.037±0.002 1.062±0.021 0.510±0.008
+Batch-Ensemble88.5±0.1 88.5±0.1 0.048±0.001 0.347±0.001 0.172±0.000
+Explicit Ensemble94.1±0.1 94.1±0.1 0.031±0.001 0.181±0.002 0.087±0.001
+LoRA-Ensemble95.9±0.195.9±0.10.003±0.0010.128±0.0010.064±0.000
+A.2 ESC-50 Environmental Sound Classification
+Like for the ViT model, we train an Audio Spectrogram Transformer version of LoRA-Ensemble by modifying
+the attention layers with different sets of LoRA weights. That ensemble is then compared to a single instance
+of AST with and without LoRA, to an Explicit Ensemble of AST-models, and to an MC Dropout variant of
+AST, similar to (Li et al., 2023). For ESC-50 a LoRA rank of 16 worked best, presumably due to the larger
+domain gap between (image-based) pre-training and the actual audio classification task. The experimental
+evaluation in (Gong et al., 2021) employs the same performance metrics as before, but a slightly different
+evaluation protocol. Model training (and evaluation) is done in a 5-fold cross-validation setting, where the
+epoch with the best average accuracy across all five folds is chosen as the final model. The performance
+metricsgivenbelowarecalculatedbytakingthepredictionsofallfivefoldsatthechosenepochandevaluating
+accuracy and calibration metrics jointly. While the accuracy calculated this way is equivalent to the average
+of all five folds, others are not, so this method results in a more realistic calculation of the calibration metrics.
+The results are summarized in Tab. 6. On this dataset LoRA-Ensemble does not significantly outperform
+the Explicit Ensemble, but still matches its performance with much lower computational demands, see
+Appendix Q. Accuracy is insignificantly lower, whereas calibration is slightly better in terms of ECE. We
+note that, remarkably, the weights used in the transformer modules and for creating patch embeddings were
+pre-trained on images rather than audio streams.
+A.3 CIFAR-100
+Increasing the ensemble size of LoRA-Ensemble on CIFAR-100 improves classification accuracy but reduces
+calibration, as illustrated in Fig. 4. The reliability diagram in Fig. 5 highlights this behavior: networks
+with LoRA on CIFAR-100 are generally under-confident, with accuracy exceeding predicted confidence. As
+20
+
+=== PDF PAGE 21 ===
+Table 6: Model performance on the ESC-50 dataset for the compared methods. Ensembles have 8 members
+due to memory limitations. Best score for each metric inbold, second-best underlined.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network89.6±0.7 89.5±0.7 0.039±0.004 0.410±0.020 0.164±0.009
+Single Net w/ LoRA88.0±0.3 87.8±0.3 0.043±0.004 0.461±0.019 0.186±0.005
+MC Dropout89.4±0.3 89.3±0.4 0.087±0.005 0.553±0.012 0.176±0.005
+Explicit Ensemble91.3±0.291.2±0.3 0.027 ±0.0040.322±0.0040.133±0.001
+LoRA-Ensemble91.1 ±0.2 90.8 ±0.20.021±0.003 0.328±0.004 0.138±0.001
+observed by (Rahaman & Thiery, 2020), ensembling under-confident models can exacerbate this discrepancy,
+leading to poorer calibration metrics.
+2 4 6 8 10 12 14 16
+Number of Members
+75
+76
+77
+78
+79
+80
+81
+82Accuracy
+Accuracy
+LoRA-Ensemble
+Explicit Ensemble
+MC Dropout
+Snapshot Ensemble
+2 4 6 8 10 12 14 16
+Number of Members
+0.02
+0.04
+0.06
+0.08
+0.10
+0.12
+0.14Expected Calibration Error
+Expected Calibration Error
+LoRA-Ensemble
+Explicit Ensemble
+MC Dropout
+Snapshot Ensemble
+Figure 4: Accuracy and Expected Calibration Error on CIFAR-100, with different ensemble sizes.
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+% of samples
+0.0 0.2 0.4 0.6 0.8 1.00.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Accuracy
+Reliability Diagram
+Avg. Confidence 89.7%
+Avg. Accuracy 80.0%
+Accuracy
+Gap
+% of samples in bin
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+% of samples
+0.0 0.2 0.4 0.6 0.8 1.00.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Accuracy
+Reliability Diagram
+Avg. Confidence 79.1%
+Avg. Accuracy 82.6%
+Accuracy
+Gap
+% of samples in bin
+Figure 5: Reliability diagrams for Explicit Ensemble (left) and LoRA-Ensemble (right) with 16 members,
+on CIFAR-100.
+A.4 HAM10000 Lesion Classification
+Classification accuracy and ECE for HAM10000 dataset are both graphed against ensemble size in Fig. 6.
+Again, LoRA-Ensemble outperforms all baselines for larger ensembles. In Fig. 7 the reliability diagrams
+21
+
+=== PDF PAGE 22 ===
+for LoRA-Ensemble and an Explicit Ensemble with 16 members each on the HAM10000 dataset are shown.
+Here, the models are overconfident, further supporting our reasoning regarding the surprising behaviour of
+calibration with growing ensemble size in the case of CIFAR-100.
+2 4 6 8 10 12 14 16
+Number of Members
+82
+83
+84
+85
+86
+87
+88Accuracy
+Accuracy
+LoRA-Ensemble
+Explicit Ensemble
+MC Dropout
+Snapshot Ensemble
+2 4 6 8 10 12 14 16
+Number of Members
+0.04
+0.06
+0.08
+0.10
+0.12
+0.14Expected Calibration Error
+Expected Calibration Error
+LoRA-Ensemble
+Explicit Ensemble
+MC Dropout
+Snapshot Ensemble
+Figure 6: Accuracy and Expected Calibration Error on HAM10000, with different ensemble sizes.
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+% of samples
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.00.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Accuracy
+Reliability Diagram
+Avg. Confidence 96.2%
+Avg. Accuracy 85.9%
+Accuracy
+Gap
+% of samples in bin
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+% of samples
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.00.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Accuracy
+Reliability Diagram
+Avg. Confidence 91.5%
+Avg. Accuracy 88.1%
+Accuracy
+Gap
+% of samples in bin
+Figure 7: Reliability diagrams for Explicit Ensemble (left) and LoRA-Ensemble (right) with 16 members,
+on HAM10000.
+A.5 Comparison with a Single, High-rank LoRA Network
+We compare the proposed LoRA-Ensemble method with an additional baseline: a single high-rank LoRA
+model configured to have the same total number of trainable LoRA parameters as the LoRA-Ensemble.
+This evaluation is conducted on the CIFAR-100 classification task to examine the relative effectiveness of
+ensembling versus increasing parameter capacity within a single model.
+Notably, as shown in Tab. 7, the high-rank LoRA model underperforms compared to the low-rank LoRA
+model. This result indicates that the performance gains of the LoRA-Ensemble are not solely due to an
+increased number of trainable parameters but are instead attributable to the ensembling approach.
+A.6 INaturalist 2017 Large-Scale Fine-Grained Image Classification
+In Fig. 8, reliability diagrams for the iNat 2017 dataset are shown, once for LoRA-Ensemble and once for
+an Explicit Ensemble, both with 4 members. One can clearly see the over-confidence of the Explicit model,
+22
+
+=== PDF PAGE 23 ===
+Table 7: Model performance on the CIFAR-100 dataset for the compared methods. Ensembles have 16
+members. Best score for each metric inbold, second-best underlined.
+MethodRank Trainable params.Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Net w/ LoRA 8 666’72479.6 ±0.2 79.4 ±0.20.014±0.003 0.671±0.005 0.286±0.003
+Single Net w/ LoRA 128 9’514’08477.0±0.1 77.0±0.1 0.080±0.001 0.867±0.007 0.332±0.002
+LoRA-Ensemble 8 10’667’58482.5±0.182.5±0.1 0.035 ±0.0010.587±0.0010.253±0.000
+and the much improved uncertainty calibration of LoRA-Ensemble at almost the same accuracy (49.6% vs.
+49.3%, c.f. Tab. 3).
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+% of samples
+0.0 0.2 0.4 0.6 0.8 1.00.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Accuracy
+Reliability Diagram
+Avg. Confidence 69.3%
+Avg. Accuracy 48.7%
+Accuracy
+Gap
+% of samples in bin
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+% of samples
+0.0 0.2 0.4 0.6 0.8 1.00.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Accuracy
+Reliability Diagram
+Avg. Confidence 53.9%
+Avg. Accuracy 49.1%
+Accuracy
+Gap
+% of samples in bin
+Figure 8: Reliability diagrams for Explicit Ensemble (left) and LoRA-Ensemble (right) with 4 members, on
+INat2017.
+A.7 SST-2 Language Modeling for Sentiment Classification
+To further illustrate the generality of our method, we extend the evaluation to also include language pro-
+cessing (NLP). Indeed, we find that LoRA-Ensemble also handles this very different modality and estimates
+well-calibrated uncertainties for language data.
+We chose the Stanford Sentiment Treebank 2 (SST-2) dataset (Socher et al., 2013) for the experiment, a
+widely used binary sentiment classification benchmark, and part of the GLUE benchmark suite (Wang et al.,
+2018b). The model we use is the uncased BERT base model, which we fine-tune for SST-2.
+Tab. 8 presents the performance on the SST-2 validation set. Among the methods, the LoRA-Ensemble
+shows strong overall performance: it achieves superior calibration in terms of negative log-likelihood (NLL),
+second-bestECEafterBayes-LoRA(withonlyanegligibledifference), andoutperformsallbaselinesincluding
+the Explicit Ensemble. The Explicit Ensemble holds only a marginal advantage of 0.5 percentage points
+in accuracy. In contrast, Monte Carlo Dropout improves calibration compared to single models but suffers
+from a substantial loss in accuracy, a pattern consistent with our other experiments and aligned with findings
+reported in the literature (Li et al., 2023). A single LoRA-augmented model shows better calibration than a
+single model, but lags in accuracy. Bayes-LoRA achieves competitive uncertainty calibration, obtaining the
+best ECE, but its NLL, Brier score, and accuracy are worse than those of both the Explicit Ensemble and the
+LoRA-Ensemble, and its accuracy is even lower than a single model, reflecting a trade-off where improved
+calibration comes at the expense of predictive performance. Refer to Appendix R.8 for more details and
+discussion about Bayes-LoRA.
+23
+
+=== PDF PAGE 24 ===
+Table 8: Performance on the SST-2 validation dataset, evaluated using five different random seeds per model.
+Ensembles have 8 members. Best score for each metric inbold, second-best underlined.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network92.5±0.2 92.5±0.2 0.064±0.003 0.345±0.012 0.136±0.003
+Single Net w/ LoRA91.6±0.5 91.6±0.5 0.059±0.005 0.292±0.016 0.148±0.008
+MC Dropout84.9±1.2 84.9±1.3 0.061±0.004 0.364±0.020 0.223±0.015
+Bayes-LoRA90.7±0.3 90.7±0.30.036±0.003 0.247±0.005 0.139±0.003
+Explicit Ensemble93.2±0.293.2±0.2 0.047±0.002 0.234 ±0.0040.112±0.003
+LoRA-Ensemble92.7 ±0.2 92.7 ±0.2 0.038 ±0.0030.208±0.007 0.114 ±0.002
+Table 9: Parameter counts and computation times for an Explicit Ensemble of 16 ViT models and the
+corresponding LoRA-Ensemble. Training time is the average duration for one epoch on CIFAR-100, with
+batch size 32. Inference time is the average duration of a forward pass, with batch size 1. GPU memory
+denotes the peak allocated CUDA memory.
+Method Params Mem train [MiB] Time train [s] Mem infer [MiB] Time infer [ms]
+Explicit Ensemble16×87M 16×2045 16×114 16×1381 16×5.2
+LoRA-Ensemble1.12×87M15821 1832 2335 14.8
+A.8 Robustness to Distribution Shifts: CIFAR-10-C and CIFAR-100-C
+Despite primarily evaluating the LoRA-Ensemble on in-distribution tasks, we also assess its robustness to
+out-of-distribution (OOD) inputs. A critical challenge arises when a model encounters data at test time that
+differs from the training distribution. If the model then produces poorly calibrated uncertainty estimates,
+this can lead to unsafe or unreliable predictions (Hendrycks & Dietterich, 2019).
+To examine this, we evaluate our method on the CIFAR-10-C and CIFAR-100-C benchmark datasets. These
+datasets apply 19 distinct corruption types at five severity levels to the original CIFAR-10 and CIFAR-100
+test sets (Hendrycks & Dietterich, 2019), introducing controlled distribution shifts, similar to prior work
+(Ovadia et al., 2019). For this evaluation, we use pretrained models trained on the clean datasets with
+minimal data augmentation (only rotations), and assess both predictive performance and calibration.
+Fig. 9 and 10 present the results. It is evident that the LoRA-Ensemble outperforms the other methods,
+maintaining relatively low ECE scores even under high levels of distribution shift.
+A.9 Computational Cost
+In addition to evaluating classification performance and calibration, we assess the computational cost in
+terms of parameters, memory usage, training time, and inference time. The required resources are presented
+in Tab. 9.
+The totalnumber of parametersis reported for an ensemble of 16 members, with LoRA matricesAandB
+of rank 8. Choosing a different rank will slightly alter the parameter count; in many cases a lower rank
+may suffice (Hu et al., 2021). All measurements were conducted on a single NVIDIA Tesla A100-80GB
+GPU.Training timeis reported as the total wall-clock time per epoch on CIFAR-100 with batch size 32.
+For the Explicit Ensemble, this corresponds to training 16 members sequentially; LoRA-Ensemble trains
+all members jointly in a single pass.Inference timeis the average duration of a forward pass on a single
+CIFAR-100 example with batch size 1. For the Explicit Ensemble, members are processed sequentially on a
+single GPU2, so we report the cumulative time for all 16 members.
+2Explicit Ensembles can be parallelized by distributing members across multiple GPUs; however, this requires proportionally
+more hardware and does not reflect a fair comparison under fixed compute constraints.
+24
+
+=== PDF PAGE 25 ===
+T est 1 2 3 4 5
+Shift Intensity
+70
+75
+80
+85
+90
+95Accuracy (%)
+Accuracy
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+(a)
+T est 1 2 3 4 5
+Shift Intensity
+0.00
+0.05
+0.10
+0.15
+0.20Expected Calibration Error
+Expected Calibration Error
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+ (b)
+T est 1 2 3 4 5
+Shift Intensity
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2
+1.4
+1.6Negative Log Likelihood
+NLL
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+(c)
+T est 1 2 3 4 5
+Shift Intensity
+0.1
+0.2
+0.3
+0.4
+0.5Brier Score
+Brier Score
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+ (d)
+Figure 9: LoRA-Ensemble evaluated under varying levels of distribution shift on the CIFAR-10-C dataset.
+Each ensemble consists of 16 members. "Test" refers to the original CIFAR-10 test set, while the corrupted
+sets include test images subjected to 19 different augmentations at multiple severity levels, introducing
+distribution shifts.
+The results demonstrate that LoRA-Ensemble achieves substantial efficiency gains: approximately 14 times
+fewer parameters, 9 times less inference memory, and over 5 times faster inference compared to Explicit
+Ensembles. Training time is comparable between the two methods, as LoRA-Ensemble processes all members
+jointly while the Explicit Ensemble trains members sequentially. The primary advantage of LoRA-Ensemble
+lies in its memory efficiency, which enables deployment of large ensembles on resource-constrained hardware
+where Explicit Ensembles would be infeasible.
+B LoRA-Ensemble’s Generalization to Varying Model Sizes
+Building upon our existing experiments with the HAM10000 dataset, we extended our analysis to include
+different backbone architectures with varying numbers of parameters. Specifically, we utilized various DeiT
+models pre-trained with distillation, as described by Touvron et al. (2020). The results are presented in
+Table 10. Notably, the DeiT Base-32 model is the same as the ViT Base-32 model.
+In the small parameter regime (Tiny-16, Small-16), the addition of a single LoRA module did not consistently
+enhance calibration compared to using a single model. This observation contrasts with our findings in most
+25
+
+=== PDF PAGE 26 ===
+T est 1 2 3 4 5
+Shift Intensity
+45
+50
+55
+60
+65
+70
+75
+80Accuracy (%)
+Accuracy
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+(a)
+T est 1 2 3 4 5
+Shift Intensity
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30Expected Calibration Error
+Expected Calibration Error
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+ (b)
+T est 1 2 3 4 5
+Shift Intensity
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0Negative Log Likelihood
+NLL
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+(c)
+T est 1 2 3 4 5
+Shift Intensity
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8Brier Score
+Brier Score
+Single Network
+Single Net w/ LoRA
+MC Dropout
+Explicit Ensemble
+LoRA Ensemble
+ (d)
+Figure 10: LoRA-Ensemble evaluated under varying levels of distribution shift on the CIFAR-100-C dataset.
+Each ensemble consists of 16 members. "Test" refers to the original CIFAR-100 test set, while the corrupted
+sets include test images subjected to 19 different augmentations at multiple severity levels, introducing
+distribution shifts.
+other experiments. However, in the larger parameter regime (ViT Base-32), incorporating even a single LoRA
+module significantly improved calibration. Increasing the number of ensembles in the LoRA-Ensemble not
+only boosted accuracy but also enhanced calibration, enabling it to match the performance of an Explicit
+Ensemble in both parameter regimes.
+Last but not least, as the number of parameters in the backbone architecture increased, the superiority of
+the LoRA-Ensemble over the Explicit Ensemble in terms of both accuracy and calibration became more
+pronounced. This trend indicates that as backbone size grows, the advantages of LoRA-Ensemble become
+increasingly dominant.
+Overall, the results demonstrate that the LoRA-Ensemble not only transfers successfully to a different
+backbone architecture (DeiT versus ViT) but also remains effective across varying parameter regimes.
+26
+
+=== PDF PAGE 27 ===
+Table 10: Performance metrics on the HAM10000 dataset for different Vision Transformer architectures.
+Ensembles have 16 members. The top two results for each metric are highlighted:boldfor the best,
+underlined for the second best.
+Arch. Method # Params. Accuracy (↑) F1 (↑) ECE (↓) NLL(↓) Brier (↓)
+DeiT
+Tiny-16
+Single Net
+5 M
+89.0±0.3 79.0±0.4 0.096±0.003 0.909±0.037 0.202±0.005
+Single Net w/ LoRA84.5±0.8 71.6±1.5 0.074±0.003 0.542±0.017 0.237±0.009
+Explicit Ensemble90.4±0.381.4±0.4 0.069 ±0.004 0.340±0.0060.142±0.002
+LoRA-Ensemble88.9±0.4 80.6 ±0.20.025±0.0030.325±0.004 0.164±0.002
+DeiT
+Small-16
+Single Net
+22 M
+89.6±0.4 79.0±0.5 0.093±0.003 0.876±0.032 0.191±0.007
+Single Net w/ LoRA86.3±0.5 76.8±1.0 0.100±0.007 0.731±0.053 0.234±0.010
+Explicit Ensemble91.5±0.1 82.4 ±0.2 0.061±0.002 0.318±0.0030.130±0.001
+LoRA-Ensemble90.4 ±0.182.8±0.40.047±0.0020.292±0.002 0.144±0.001
+DeiT
+Base-32
+Single Net
+86 M
+84.1±0.3 71.4±0.7 0.139±0.004 1.138±0.040 0.291±0.009
+Single Net w/ LoRA83.2±0.7 70.7±1.3 0.085 ±0.004 0.569±0.027 0.256±0.011
+Explicit Ensemble85.8 ±0.2 74.6±0.4 0.105±0.002 0.536±0.007 0.218±0.002
+LoRA-Ensemble88.0±0.278.3±0.60.037±0.0020.342±0.0030.175±0.002
+C Hyperparameter Selection and Sensitivity Analysis: LoRA Rank
+The main hyper-parameter introduced by adding LoRA is the rank of the low-rank decomposition (i.e., the
+common dimension of the matricesAandB). Varying that rank modulates the complexity of the model
+for the learning task. We have empirically studied the relationship between rank, accuracy, and Expected
+Calibration Error. Here we show results for HAM10000 and CIFAR-100 dataset.
+On HAM10000 we observe a clear trade-off between accuracy and calibration, Fig. 11a. With increasing
+rank the classification accuracy increases while the calibration deteriorates, in other words, one can to some
+degree balance predictive accuracy against uncertainty calibration by choosing the rank. Our focus in this
+work is on model calibration. We therefore generally choose the rank to favor calibration, even at the cost
+of slightly lower classification accuracy.
+For the CIFAR-100 dataset, our evaluation of LoRA-Ensemble shows both increased accuracy and improved
+calibration with increasing rank within the studied range. These findings are illustrated in Fig. 11b.
+This observation aligns with the findings of Rahaman & Thiery (2020), as LoRA-Ensemble continues to
+exhibit under-confidence even at higher ranks. Increasing model complexity enhances confidence, thereby
+improving calibration. However, at rank 32, the calibration of a single network augmented with LoRA begins
+to deteriorate, suggesting that a critical boundary has been reached. Beyond this point, the parameter space
+becomes insufficiently constrained, leading to effects similar to those observed by Guo et al. (2017).
+Athigherranks, accuracyplateauswhilememorydemandincreaseslinearlywithO(d)andO(k)forA∈R r×d
+andB∈Rk×rrespectively, wheredandkare the dimensions of the pre-trained weight matrixW 0∈Rk×d.
+Consequently, we selected rank 8 for our CIFAR-100 experiments.
+Overall, the rank serves as the primary control of LoRA’s expressive capacity. While larger values tend
+to improve performance on more complex datasets (e.g., rank 64 for iNaturalist), excessively large choices
+(e.g.,≥256) suppress the distinctive dimension-learning behavior of LoRA-Ensemble, resulting not only in
+diminishing returns but in some cases an actual decline in accuracy. In practice, we find that a small sweep
+over{4,8,16,32,64}on a held-out set is typically sufficient to identify a near-optimal rank.
+Practical guidelines for choosing the LoRA rank.Based on the sensitivity analyses, we propose the
+following practical recommendations for selecting the LoRA rank in LoRA-Ensemble:
+•Default choice.For small- to medium-sized datasets and modest domain shifts, low ranks (e.g.,
+r∈[4...8]) provide a favorable trade-off between accuracy, ensemble diversity, and calibration.
+27
+
+=== PDF PAGE 28 ===
+1 2 4 8 16
+LoRA Rank
+83
+84
+85
+86
+87
+88
+89Accuracy
+Accuracy
+1 members
+2 members
+4 members
+8 members
+16 members
+1 2 4 8 16
+LoRA Rank
+0.02
+0.04
+0.06
+0.08
+0.10Expected Calibration Error
+Expected Calibration Error
+1 members
+2 members
+4 members
+8 members
+16 members
+(a) HAM10000.
+12 4 8 16 32
+LoRA Rank
+78
+79
+80
+81
+82
+83Accuracy
+Accuracy
+1 members
+2 members
+4 members
+8 members
+16 members
+12 4 8 16 32
+LoRA Rank
+0.01
+0.02
+0.03
+0.04
+0.05
+0.06Expected Calibration Error
+Expected Calibration Error
+1 members
+2 members
+4 members
+8 members
+16 members
+(b) CIFAR-100
+Figure 11: Impact of LoRA rank on accuracy and ECE.
+•When to increase the rank.Higher ranks may be needed for large or fine-grained datasets (e.g.,
+iNaturalist), particularly when accuracy saturates at low ranks and calibration remains stable.
+•Avoid excessive ranks.Increasing the rank too far risk degrading the calibration and tends
+to reduce the diversity of ensemble members, as the characteristic LoRA learning dynamics are
+gradually lost.
+•Monitoring calibration.When increasing the rank, calibration metrics such as ECE should
+be monitored alongside accuracy, as improvements in predictive performance do not necessarily
+translate into better-calibrated uncertainty estimates.
+28
+
+=== PDF PAGE 29 ===
+Explicit LoRA Explicit LoRA
+(a) cos-similarity of high-ranking singular vectors (b) weight-space cosine similarity (c) training trajectories
+Figure 12: Weight space analysis of LoRA-Ensemble vs. Explicit Ensemble: The first row represents key
+matrices, while the second row represents query matrices.
+D Weight Space Analysis: LoRA-Ensemble versus Explicit Ensemble
+This section expands on Sec. 4, which examines the diversity of ensemble members in function and weight
+space for LoRA-Ensemble and Explicit Ensemble, showing that LoRA-Ensemble exhibits greater diversity in
+both spaces. While Sec. 4 focuses on value projection matrices due to their role in learned representations,
+this section examines query and key projection matrices, too. In Fig. 12, we observe that LoRA-Ensemble
+achieves greater diversity in query and key projection matrices, similar to the diversity observed in value
+projection matrices (Fig. 3).
+Using Singular Value Decomposition (SVD), a weight matrixW∈Rm×nis decomposed as:
+W=UΣV ⊤,
+whereU∈Rm×mandV∈Rn×nare orthonormal matrices representing rotational components, andΣ∈
+Rm×nis a diagonal matrix of singular values capturing the scaling effect. Singular vectors linked to larger
+singular values highlight key transformations encoded byW.
+In Fig. 13, we analyze the differences in weight updates between ensemble methods by computing the Singular
+Value Decomposition (SVD) of pre-trained and trained weights for ensemble members. Singular vectors
+corresponding to the top singular values (16 are shown) are extracted and compared using cosine similarity
+to evaluate changes in the weight structure. These similarities are averaged across layers and ensemble
+members. The results highlight distinct parameter update patterns between LoRA-Ensemble and Explicit
+Ensemble. LoRA-Ensembleintroducesnewhigh-rankingsingularvectors, referredtoas"intruderdimensions"
+(Shuttleworth et al., 2024), which are nearly orthogonal to the singular vectors of the pre-trained weights.
+The number of intruder dimensions depends on the LoRA rank. This effect is particularly pronounced in
+the value projection matrices, which aligns with their strong association with learned representations. In
+contrast, Explicit Ensemble members tend to preserve a structure closely aligned with the spectral properties
+of the pre-trained weights. This alignment is especially evident in the key and query projection matrices,
+which exhibit a strong resemblance to the original spectral structure.
+We further analyze theB·Amatrices learned by different ensemble members. Due to their random initial-
+ization, these matrices explore diverse directions in weight space. In Fig. 14, we plot the largest eigenvalues
+of these matrices (with only four non-zero eigenvalues as the LoRA rank is set to 4) and the similarity
+between the corresponding eigenvectors across ensemble members. The similarities are averaged over lay-
+ers and member pairs. The results show that while the eigenvalues across members follow a similar trend,
+the eigenvectors are largely uncorrelated. This indicates that ensemble members explore different regions
+of weight space while maintaining similar overall transformations. The shared eigenvalue trends suggest
+29
+
+=== PDF PAGE 30 ===
+Explicit LoRA Singular Values
+V ALUE
+KEY
+QUERY
+Figure 13: Cosine similarity of top singular vectors (and associated singular values) between initial pre-
+trained and final trained weights, averaged over layers and ensemble members.
+consistent semantic contributions across members, while the dissimilar eigenvectors highlight the diversity
+in their learned representations.
+We plot the t-SNE visualizations for different layers in Fig. 15, capturing the evolution of weights during
+training. The visualizations include the initial pretrained weights, and for each ensemble member, we plot
+weights from epoch 5 to epoch 65 at 5-epoch intervals. The plots reveal that LoRA-Ensemble members
+exhibit broader convergence across the loss landscape in various layers, signifying diverse learning dynamics.
+Conversely, Explicit Ensemble members tend to remain closer to their initial weights, indicating reduced
+diversity throughout the training process.
+E Correlation Analysis Between Ensemble Diversity and Predictive Performance
+Prior work has shown that diversity across modes in weight space correlates with improved uncertainty
+estimates (Fort et al., 2019b; Izmailov et al., 2021). To investigate this phenomenon in the context of LoRA,
+we trained eight-member ensembles on the HAM10000 dataset using varying LoRA initialization gains.
+30
+
+=== PDF PAGE 31 ===
+V ALUE KEY QUERY
+Figure 14: Cosine similarity of top singular vectors fromB·Alow-rank matrices (rank set to 4) between
+LoRA-Ensemble members, averaged over layers and all member pairs (first row), along with corresponding
+average singular values for different members (second row).
+Figure 15: Training trajectories of ensemble members of LoRA-Ensemble and Explicit Ensemble.
+We treat the LoRA initialization gain as a simplediversity knob: larger gains induce greater spread among
+the low-rank adapters. To quantify ensemble diversity, we compute the average pairwise correlation between
+the LoRAVprojection matrices of different ensemble members, averaged across all layers. Thediversity
+scoreis then defined as
+Diversity score= 1−average correlation.
+31
+
+=== PDF PAGE 32 ===
+This metric captures how dissimilar the ensemble members are in terms of their learned parameters, with
+higher scores indicating less correlated (i.e., more diverse) adapters.
+Tab. 11 summarizes the results. Both performance and calibration improve as diversity increases, up to a
+point. Beyond a certain threshold, additional diversity provides diminishing returns and eventually plateaus.
+Moreover, as shown in Fig. 14, excessively large gains degrade performance. From a Bayesian perspective,
+moderate gains behave like a well-chosen prior variance, encouraging the ensemble to explore distinct poste-
+rior modes. Excessively large gains, however, make the initial weights too diffuse, which can cause activation
+saturation, unstable gradients, suboptimal convergence, and ultimately higher variance and miscalibration.
+A sweep of gain values reveals a U-shaped calibration curve: uncertainty estimates improve with increasing
+diversity until diversity becomes excessive, at which point performance and calibration degrade.
+Gain Diversity Score Accuracy NLL
+1 0.006 0.854 0.405
+2 0.017 0.856 0.393
+4 0.048 0.860 0.374
+8 0.117 0.877 0.354
+12 0.184 0.881 0.345
+20 0.304 0.882 0.345
+40 0.511 0.882 0.344
+Table 11: Effect of LoRA initialization gain on ensemble diversity, accuracy, and calibration (measured by
+NLL) on HAM10000.
+F Joint Training of Backbone and LoRA-Ensemble Layers on iNaturalist
+LoRA-Ensemble keeps the backbone weights frozen and trains only the low-rank matrices. To assess the
+impact of relaxing this constraint, we evaluated the method in a setting where the full backbone is also
+trainable. Results on the iNat 2017 dataset, see Tab. 12, show a substantial drop in both accuracy and
+calibration when the entire network is trained, although performance still surpasses that of a single model.
+We hypothesize that enabling backbone training washes out the low-rank adjustments introduced by LoRA.
+With a frozen backbone, each model’s unique low-rank matrices create intruder dimensions that yield diverse
+feature spaces. See Appendix D for more details. Once the backbone is trainable, those adjustments merge
+into the dominant spectral modes, causing all ensemble members to collapse into the same parameter region
+and behave like a single network. Similar behavior was observed for the Batch-Ensemble method, as discussed
+in Appendix R.3.
+Table 12: Performance on the iNat 2017 dataset. ’full’ indicates that the entire network, including the
+pre-trained backbone, is trainable. Ensembles consist of 4 members. Best score for each metric inbold,
+second-best underlined.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network42.6 37.8 0.293 1.054 0.207
+Single Net w/ LoRA47.7 43.1 0.096 0.662 0.166
+Single Net w/ LoRA (full)42.8 38.0 0.271 0.958 0.201
+LoRA-Ensemble49.3 44.1 0.045 0.610 0.160
+LoRA-Ensemble (full)44.0 39.4 0.249 0.886 0.193
+32
+
+=== PDF PAGE 33 ===
+G Placement of LoRA-Ensemble Modules and Selection of Trainable Weights
+Typically, LoRA is applied only to the weights in the multi-head attention module (i.e., the query, key, value,
+and output projections), as demonstrated in the original LoRA paper (Hu et al., 2021). We acknowledge
+that, due to the modular nature of transformer architectures, LoRA layers can also be inserted into the
+feedforward MLP blocks. While this alternative placement has been shown in prior work to improve perfor-
+mance on certain datasets, it may also lead to reduced robustness and lower overall performance (Fomenko
+et al., 2024). Moreover, the projection matrices in the MLP blocks typically have significantly higher dimen-
+sionality, often four times larger than those in the attention layers. As a result, this placement introduces
+a substantial number of additional parameters, which can increase memory consumption. This effect is es-
+pecially pronounced when ensemble members are executed in parallel using vectorized mapping rather than
+sequential execution.
+Table 13 presents the results on the HAM10000 dataset. Notably, adding LoRA-Ensemble layers to the MLP
+blocks leads to improved accuracy, but at the cost of poorer calibration performance. Additionally, when the
+embedding layers of the Vision Transformer (ViT) are also trained alongside the low-rank matrices for the
+purpose of patch feature extraction, we observe a marked drop in classification accuracy. This performance
+degradation can be attributed to the substantial number of additional parameters introduced in the early
+stages of the model, which are by design an order of magnitude larger than in the subsequent LoRA layers,
+potentially leading to suboptimal training dynamics.
+Finally, we observe that assigning a separate classification head to each LoRA-Ensemble member yields
+further performance gains. However, we also note that this design choice can be omitted in favor of improved
+parameter efficiency, depending on the application constraints.
+Table 13: Ablation Study. Investigates the placement of LoRA-Ensemble layers and additional trainable
+components on the HAM10000 dataset. Ensembles consist of 8 members. Best score for each metric in
+bold, second-best underlined.
+LoRA-Ensemble Config. Extra Trainable LayersTrainable Params.Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Multi-head attention Cls. head 2’364’67987.5 77.7 0.041 0.365 0.187
+Multi-head attention Cls. head + tokenizer 4’724’74384.6 73.80.0250.422 0.217
+Multi-head attention + MLP Cls. head 5’313’79990.1 80.90.077 0.3830.157
+Multi-head attention + MLP Cls. head + tokenizer 7’673’86387.4 77.1 0.083 0.438 0.192
+Multi-head attention Full backbone 90’114’05585.2 73.3 0.126 1.000 0.264
+Multi-head attention Ensemble cls. head 2’402’36088.0 78.0 0.036 0.3470.179
+H LoRA-Ensemble for CNNs
+We extend LoRA Ensemble to convolutional neural networks (CNN) by applying it to a ResNet-18 backbone
+with an ensemble of four members. We mainly follow the original Batch-Ensemble (Wen et al., 2020)
+implementation. For detailed experimental settings, see (Turkoglu et al., 2022). Table 14 reports the CIFAR-
+100 results. LoRA-Ensemble achieves the second-best performance among implicit ensembling methods,
+behind only FiLM-Ensemble, but it does not match its efficacy on transformer architectures. As discussed
+in the main text and in the Appendix R.7, this gap stems from the fundamentally different computational
+structures of transformers compared with MLPs and CNNs, which makes direct adaptation of techniques
+between these domains challenging.
+I LoRA-Ensemble Fine-Tuned on the Same Dataset as the Backbone Model
+While our study explicitly focused on transfer learning setups, we also explored how LoRA-Ensemble can be
+applied when the backbone is trained on the same dataset. To this end, we initialized the LoRA ensemble
+with weights from a single network trained for 65 epochs on HAM10000, and subsequently fine-tuned it
+for one epoch without learning rate warmup. Fig. 15 presents the results of fine-tuning a LoRA-Ensemble
+with rank 2 for a single epoch. It is evident that even in this scenario, the LoRA-Ensemble improves
+33
+
+=== PDF PAGE 34 ===
+Table 14: Performance on the CIFAR-100 dataset for CNN architecture. Ensembles have 4 members and
+Resnet-18 is used as a backbone. For implicit ensemble methods, the best score for each metric inbold,
+second-best underlined.
+Method Accuracy (↑) ECE (↓)
+Single Network78.0±0.4 0.046±0.001
+Deep Ensemble81.6±0.3 0.041±0.002
+MC-Dropout75.5±0.6 0.064±0.003
+MIMO48.0±2.6 0.083±0.017
+Masksemble72.5±0.5 0.075±0.004
+FiLM-Ensemble79.4±0.20.038±0.000
+Batch-Ensemble77.7±0.1 0.052±0.002
+LoRA-Ensemble78.4 ±0.2 0.048 ±0.001
+both performance and calibration with minimal computational overhead. We also highlight that alternative
+methods, such as explicit ensembling, are not directly applicable in this context.
+Table 15: LoRA-Ensemble performance when it is fine-tuned on a pre-trained dataset. The HAM10000
+dataset is used, and the ensemble consists of 8 members. The backbone is identical to that of the Single
+Network, which is fine-tuned for one epoch. Best score for each metric inbold.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network84.1±0.3 71.4±0.7 0.139±0.004 1.138±0.040 0.291±0.009
+Single Net w/ LoRA83.2±0.7 70.7±1.3 0.085±0.004 0.569±0.027 0.256±0.011
+LoRA-Ensemble (finetuned for 1 epoch)84.8 72.2 0.059 0.514 0.238
+J Post-Hoc Temperature Scaling for Model Calibration
+Temperature scaling is a simple yet effective post-hoc calibration method used to improve the confidence of
+probabilistic models (Guo et al., 2017). It rescales the logits of a trained model by a scalar parameterT >0
+(the temperature). Given logitsz, the calibrated probabilitiesˆpi for classiare computed as:
+ˆpi = exp(zi/T)∑
+j exp(zj/T).(5)
+Here,T= 1corresponds to no scaling, andT >1reduces overconfidence by softening the logits.
+To assess the impact of temperature scaling on calibration, we conducted experiments on CIFAR-100 with
+varying temperature values, as shown in Tab. 16. For each method, the model parameters were fixed, and the
+effect of different temperatures on calibration was evaluated. We observe that calibration can be improved
+across all methods, with the exception of the single network with LoRA, which does not require temperature
+scaling.
+As discussed in Section 3.4, LoRA-Ensemble is under-confident on CIFAR-100, as evidenced by the optimal
+temperature being less than 1 for this method.
+When should temperature scaling be applied?
+•Use it for under-confidence.Temperature scaling is a good default post-hoc correction when
+predictions are systematically under-confident (accuracy>confidence across bins).
+•Benefitisdataset-specific.Theneedfortemperaturescaling(andthemagnitudeofimprovement)
+depends on the dataset and training regime; in some cases LoRA-Ensemble is already close to
+calibrated, while in others residual miscalibration remains.
+34
+
+=== PDF PAGE 35 ===
+•Decision rule.Evaluate calibration on a held-out validation set; apply temperature scaling only if
+it measurably improves calibration metrics (e.g., ECE/NLL) without harming accuracy.
+Table 16: Model performance on the CIFAR-100 dataset with different temperature. Best score for each
+metric and method inbold, second-best underlined.
+Method Temp. Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network 1.476.8 76.70.091 0.969 0.344
+Single Network 1.60.061 0.928 0.334
+Single Network 1.80.034 0.920 0.329
+Single Network 2.00.0290.9390.329
+Single Network 2.20.078 0.982 0.335
+Single Net w/ LoRA 0.479.2 79.10.130 1.020 0.332
+Single Net w/ LoRA 0.60.088 0.772 0.308
+Single Net w/ LoRA 0.80.042 0.688 0.294
+Single Net w/ LoRA 1.00.013 0.680 0.290
+Single Net w/ LoRA 1.20.073 0.722 0.298
+MC Dropout 0.476.6 76.60.203 1.554 0.372
+MC Dropout 0.60.174 1.223 0.361
+MC Dropout 0.80.111 1.1140.344
+MC Dropout 1.00.0571.163 0.342
+MC Dropout 1.20.175 1.333 0.393
+Explicit Ensemble 1.079.8 79.90.100 0.744 0.285
+Explicit Ensemble 1.20.072 0.719 0.282
+Explicit Ensemble 1.40.041 0.718 0.281
+Explicit Ensemble 1.60.0190.737 0.284
+Explicit Ensemble 1.80.046 0.777 0.290
+LoRA-Ensemble 0.482.4 82.40.103 0.628 0.252
+LoRA-Ensemble 0.60.063 0.565 0.247
+LoRA-Ensemble 0.80.018 0.557 0.247
+LoRA-Ensemble 1.00.034 0.587 0.253
+LoRA-Ensemble 1.20.095 0.650 0.269
+K Implementation of LoRA-Ensmeble
+In practice, our LoRA-Ensemble is implemented by replacing the respective linear layers (Wq,W k,W v, and
+Wo) in the pre-trained model architecture with custom LoRA modules.
+As a backbone for experiments with image datasets, we employ a Vision Transformer (ViT) model (Doso-
+vitskiy et al., 2020). The chosen architecture is thebasevariant with patch size32×32as defined in
+(Dosovitskiy et al., 2020). We load the weights fromtorchvision, which were trained on ImageNet-1k
+(Deng et al., 2009), using a variant of the training recipe from (Touvron et al., 2020), for details refer to
+their documentation.
+The forward pass through the backbone is parallelized by replicating the input along the batch dimension. In
+each LoRA module, the data is split into separate inputs per member and passed to the respective member
+with the help of avectorized map, which allows a parallelized forward pass even through the LoRA modules.
+The outputs are then again stacked along the batch dimension. In this way, one makes efficient use of the
+parallelization on GPU, while at the same time avoiding loading the pre-trained backbone into memory
+multiple times. As a backbone for audio experiments, we use the Audio Spectrogram Transformer (AST)
+backbone (Gong et al., 2021). That architecture was inspired by ViT (more specifically the data-efficient
+35
+
+=== PDF PAGE 36 ===
+version of ViT akin to DeiT (Touvron et al., 2020)) but is designed specifically for audio spectrograms.
+Following (Gong et al., 2021), we initialize the audio model weights by transferring and appropriately in-
+terpolating them from ImageNet pre-training. See Appendix N and O for details. As the AST version of
+LoRA-Ensemble would run into memory limits, we introduce chunking. While the forward pass through the
+backbone is still parallelized, the LoRA modules are called sequentially.3
+Finally, the pre-trained model does not have the correct output dimension for our prediction tasks (i.e., it
+was trained for a different number of classes). Therefore we entirely discard its last layer and add a new
+one with the correct dimensions, which we train from scratch. Obviously, the weights of that last layer are
+different for every ensemble member. We parallelize it in the same way as the LoRA module described above.
+L Training Details of LoRA-Ensemble
+The CIFAR-10/100, HAM10000, and iNaturalist 2017 dataset experiments are based on the ViT-Base-32
+architecture (Dosovitskiy et al., 2020). This model has 12 layers and uses 768-dimensional patch embeddings,
+and the multi-head attention modules have 12 heads. All Vision Transformer models for image classification
+are trained using the AdamW optimizer (Loshchilov & Hutter, 2017), except for iNat 2017, which is trained
+with SGD using a momentum of 0.9. The base learning rate is initially set to 0.0001 with a batch size of
+32 for all experiments, except for iNat 2017, where a learning rate of 0.1 is used with a batch size of 128.
+Training employs a learning rate warm-up of 500 steps for all experiments, except for iNat 2017, which uses
+2500 warm-up steps. During the warm-up phase, the learning rate increases linearly from 0 to the base
+value, after which it follows a cosine decay schedule for the remaining steps. For iNat 2017, an exponential
+learning rate decay with a factor of 0.94 is applied every 4 epochs. During the experiments, the gradients
+were calculated and then clipped not to exceed a maximum norm of 1. In the case of HAM10000, we used a
+weighted cross-entropy loss that considered the estimated effective number of samples, which was determined
+using a beta parameter of 0.9991 (Cui et al., 2019). Uniform class weights were used for all other datasets.
+The maximum number of training epochs varies depending on the dataset. For CIFAR-10/100, the model
+is trained for 16 epochs (just over 25,000 steps), while for HAM10000 and iNat 2017, it is trained for 65
+and 64 epochs, respectively. Overall, the hyperparameters used in this work were loosely based on (Conrad,
+2023). The models were trained using pre-trained weights fromtorchvision 0.17.1on an NVIDIA Tesla
+A100 graphics card. Moreover, the LoRA models are configured with a rank of 8 for CIFAR-10/100, 4 for
+HAM10000, and 64 for iNat 2017. For Monte Carlo Dropout the dropout rate was empirically set to be0.2.
+Refer to Appendix R.1 for details.
+The settings used for the ESC-50 dataset training are similar to those used in (Gong et al., 2021). However,
+we used a batch size of 1 instead of 48 to enable training on a single GPU. The base learning rate is set
+to 0.00001 for the Explicit Ensemble as well as MC Dropout experiments and 0.00005 for LoRA-Ensemble.
+These learning rates are lower than the ones used in (Gong et al., 2021), which is due to the smaller batch
+size. Refer to the Appendix P for more details. The LoRA models were implemented with a rank of 16. The
+dropout rate for MC dropout was kept at0.2.
+For language experiments on the SST-2 dataset (Socher et al., 2013) we used the BERT base uncased model
+(Devlin et al., 2019), loaded via the HuggingFace Transformers library (Wolf et al., 2020). Training utilizes
+the AdamW optimizer (Loshchilov & Hutter, 2017) withβ1 = 0.9andβ2 = 0.999, a linearly decaying learning
+rate over three epochs, and a batch size of 16. These settings were informed by prior work that used BERT
+on SST2 (Chhablani, 2023). We conduct a separate hyperparameter tuning for each method and select the
+learning rate from the candidate set{2×10−6,7×10−6,9×10−6,2×10−5,3×10−5,5×10−5,7×10−5}
+that yields the highest accuracy. For MC Dropout, we used a dropout rate of 0.2. For LoRA-Ensemble, we
+set the rank to 64 and initialize the LoRA layers using Xavier uniform initialization (Glorot & Bengio, 2010)
+with a gain factor of 10.
+As Fort et al. (2019a) have shown, varying initializations of the weights are most important to getting diverse
+ensemble members. For this reason, various initialization methods and corresponding parameters were tried,
+3For the Explicit Ensemble the vectorization could not be used on GPU, due to a technical issue with the ViT implementation
+in PyTorch.
+36
+
+=== PDF PAGE 37 ===
+with a Xavier uniform initialization (Glorot & Bengio, 2010) with gain 10, giving the best combination of
+accuracyandcalibration. ForiNat2017, againvalueof1isused. Formoreinformation, refertoAppendixM.
+This setting is kept for models across all datasets, including the one with an AST backbone.
+For the same reason, we investigated whether adding noise to the pre-trained parameters of an Explicit
+Ensemble increases its performance through a higher diversity of members. However, the results did not
+show any additional benefits beyond what the randomly initialized last layer already provided, hence we did
+not use that option. For more details, refer to Appendix R.2.
+M Initialization of LoRA-Ensemble Parameters
+Randomness in initialization is a key driver of diversity among ensemble members (Fort et al., 2019a).
+Therefore, finding the right balance between diversity and overly disrupting parameters is crucial. Hu et al.
+(2021) propose using a random Gaussian initialization forAwhile settingBto zero. This approach results
+in∆W=BAbeing zero at the start of training. In our experiments, we adopt this pattern by always
+initializingBto zero while varying the parameters and methods for initializingA. Following the method
+outlined by Hu et al. (2021), our initial experiments concentrated on the Gaussian initialization ofA, with
+a meanµ= 0and varying standard deviations. Additionally, we tested the Xavier uniform initialization
+(Glorot & Bengio, 2010) using different values for the gain. All tests were conducted on the CIFAR-100
+dataset and subsequently applied to other experiments. We compared results in terms of accuracy and
+Expected Calibration Error.
+Table 17: Accuracy and Expected Calibration Error for different initialization methods and varying distri-
+bution parameters for LoRA-Ensemble.
+Init. Type Std. / Gain Accuracy (↑) ECE (↓)
+Gaussian
+0.02 81.2 0.041
+0.05 81.4 0.037
+0.1 81.7 0.035
+0.2 82.1 0.034
+0.5 82.6 0.036
+1 82.5 0.039
+2 81.7 0.046
+Xavier Uniform
+1 81.5 0.039
+5 82.2 0.034
+10 82.4 0.034
+15 82.6 0.037
+20 82.4 0.038
+30 82.2 0.043
+In Tab. 17, the results are quantitatively presented. It is immediately evident that both techniques and all
+tested parameters perform similarly. While more specialized models may surpass our results in terms of ac-
+curacy, our primary focus is on calibration, with the goal of maintaining comparable predictive performance.
+Visual inspection of the results in Fig. 16 confirms the high similarity among all results. Choosing a small
+calibration error while maintaining high accuracy as a decision criterion, both Gaussian initialization with
+a standard deviation of0.5and Xavier uniform initialization with a gain of10or15are viable candidates.
+Since a gain of10combines high accuracy with the lowest Expected Calibration Error, we select Xavier
+uniform initialization with a gain of10for our experiments.
+N AST Implementation
+A different backbone is used for the experiment on the audio dataset. Specifically, we use the Audio Spec-
+trogram Transformer (AST) following the implementation of Gong et al. (2021), with slight modifications
+37
+
+=== PDF PAGE 38 ===
+0.02 0.05 0.1 0.2 0.5 1 2
+Standard deviation
+78
+79
+80
+81
+82Accuracy
+Accuracy
+1 members
+2 members
+4 members
+8 members
+16 members
+0.02 0.05 0.1 0.2 0.5 1 2
+Standard deviation
+0.010
+0.015
+0.020
+0.025
+0.030
+0.035
+0.040
+0.045Expected Calibration Error
+Expected Calibration Error
+1 members
+2 members
+4 members
+8 members
+16 members
+(a) Gaussian initialization with varying standard deviation.
+1 5 10 15 20 30
+Gain
+78
+79
+80
+81
+82Accuracy
+Accuracy
+1 members
+2 members
+4 members
+8 members
+16 members
+1 5 10 15 20 30
+Gain
+0.010
+0.015
+0.020
+0.025
+0.030
+0.035
+0.040Expected Calibration Error
+Expected Calibration Error
+1 members
+2 members
+4 members
+8 members
+16 members
+(b) Xavier uniform initialization with varying gain
+Figure 16: Accuracy and Expected Calibration Error for different initialization methods and varying distri-
+bution parameters across different ensemble sizes for LoRA-Ensemble.
+to fit our general architecture. Appendix O demonstrates the equivalence of our implementation. In their
+experiments, Gong et al. (2021) used two different types of pre-trained weights: one pre-trained on a large
+image dataset and the other on an audio dataset. For our research, we transfer the weights of a vision
+transformer model known as DeiT (Touvron et al., 2020), which has been pre-trained on the ImageNet
+dataset (Deng et al., 2009), to the original AST architecture by Gong et al. (2021). The model has 12 layers,
+uses 768-dimensional patch embeddings, and the multi-head attention modules have 12 heads. This task is
+considered more challenging than using models pre-trained on audio datasets.
+O Validation of AST Implementation
+The Audio Spectrogram Transformer (AST) model provided by Gong et al. (2021) was copied without any
+changes. However, the training and evaluation pipeline was adapted to fit our architecture. Correspondingly,
+38
+
+=== PDF PAGE 39 ===
+it was essential to validate the equivalence of our implementation by training a single AST on the ESC-50
+dataset. The results of our model should closely match those provided in Gong et al. (2021).
+They offer two sets of pre-trained weights: one where the weights of a Vision Transformer pre-trained on
+ImageNet(Dengetal.,2009)aretransferredtoAST,andanotherwheretheASTwaspre-trainedonAudioSet
+(Gemmeke et al., 2017). To verify our implementation, we ran it using the settings provided by Gong et al.
+(2021) and compared the results, which are summarized in Tab. 18. The results for both pre-training modes
+fall within the uncertainty range provided by (Gong et al., 2021). This suggests that our pipeline yields
+comparable outcomes, validating our implementation for continued use.
+Table 18: Comparison of the results obtained for the AST as given in Gong et al. (2021) and those obtained
+by our implementation. AST-S refers to the AST pre-trained on ImageNet, and AST-P refers to the AudioSet
+pre-training. Both results fall within the uncertainty range provided by Gong et al. (2021).
+Model Accuracy (Gong et al., 2021) Accuracy (our implementation)
+AST-S88.7±0.7 88.0
+AST-P95.6±0.4 95.8
+P Hyper-parameter Tuning for AST Experiment
+The original training settings of the AST-S model in (Gong et al., 2021) utilize a batch size of 48. However,
+due to the memory constraint of single GPU training on an NVIDIA Tesla A100 with 80 GB memory,
+replicating a batch size of 48 as in the original publication was infeasible for training an Explicit AST-S
+Ensemble with 8 members. Consequently, we perform minimal hyper-parameter tuning by employing a
+batch size of 1 for both the explicit AST-S and the LoRA AST-S model, exploring various learning rates.
+Apart from batch size and learning rate adjustments, all other settings remain consistent with (Gong et al.,
+2021).
+The hyper-parameter tuning results for the explicit model using a batch size of 1, as shown in Tab. 19,
+demonstrate performance similar to the original implementation with a batch size of 48, allowing for a fair
+comparison with our method (Gong et al., 2021). Additionally, Tab. 20 showcases the outcomes of tuning
+the learning rate for our LoRA AST-S model.
+Table 19: Single model 5-Fold cross-validation results of AST-S on ESC-50 sound dataset with different
+learning rates and batch size 1. The model settings selected based on accuracy for the experiments are
+highlighted.
+Model Learning rate Accuracy (↑) ECE (↓)
+AST-S 0.00001 88.2 0.0553
+AST-S 0.0000581.7 0.0933
+Table 20: Single model 5-Fold cross-validation results for our LoRA AST-S implementation on ESC-50 sound
+dataset with different learning rates and batch size 1. The model settings selected based on accuracy for the
+experiments arehighlighted.
+Model Learning rate Accuracy (↑) ECE (↓)
+LoRA AST-S 0.0000185.6 0.0447
+LoRA AST-S 0.00005 87.9 0.0487
+LoRA AST-S 0.000184.7 0.0501
+LoRA AST-S 0.000524.1 0.0291
+LoRA AST-S 0.00111.8 0.0295
+39
+
+=== PDF PAGE 40 ===
+Table 21: Parameter counts and computation times for an Explicit Ensemble of 8 AST models and the
+corresponding LoRA-Ensemble. Training time is the average duration for one epoch on ESC-50, with batch
+size 1. Inference time is the average duration of a forward pass, with batch size 1.
+Method Parameter overhead Training time [s] Inference time [ms]
+Explicit Ensemble8×87M 517 8×7.3
+LoRA-Ensemble1.08×87M 348 73.9
+Q Computational Cost for AST Models
+Similarly to the way we did for the Vision Transformer models, we estimate the required resources for AST
+models. The resource needs are presented in Tab. 21. The number of parameters is reported for an ensemble
+of 8 members, with theAandBmatrices in models using LoRA having a rank of 16. Training and inference
+times were measured on a single NVIDIA Tesla A100-80GB GPU, with a batch size of 1. Training time is
+given as the average wall clock time per training epoch while training on ESC-50, with 8 ensemble members.
+Inference time is reported as the average time for a single forward pass of an ESC-50 sample with a batch
+size of 1.
+As mentioned in Appendix K, the Explicit Ensemble processes the members sequentially, while LoRA-
+Ensemble is parallelized. However, fully parallelizing the training of AST models causes memory issues,
+so chunking was introduced. Thus, in LoRA-Ensemble models, the pass through the backbone runs in
+parallel, while LoRA modules are called sequentially. This also explains the significantly higher inference
+time compared to the results in Sec. A.9. Additionally, the one-time delay incurred by PyTorch’svmap
+function causes LoRA-Ensemble to be slightly slower at inference time.
+R Baselines
+R.1 Hyperparameter Tuning for MC Dropout
+We conducted an analysis to determine the impact of dropout probability on the accuracy and calibration
+of the ViT with Monte Carlo dropout. Fig. 17 displays the accuracy and ECE scores for various dropout
+probabilities. The experiment is carried out on the HAM10000 dataset with 16 members. Our findings show
+that a dropout probability of0.2offers a good balance between accuracy and calibration.
+R.2 Initialization of Explicit Ensemble Parameters
+A pre-trained Vision Transformer model is the backbone for our computer vision experiments. Correspond-
+ingly, the parameters of all members in an Explicit Ensemble are initialized to the same values across
+members. Initialization is a primary driver of diversity in ensemble members (Fort et al., 2019a). Hence,
+it is crucial to study the effect of noise in the parameter initialization on the calibration of the resulting
+ensemble. In the case of pre-trained model weights not having been trained on a dataset with the same
+number of classes, the last layer of all models is replaced completely. This means that regardless of the
+ensemble technique used, the weights of the last layer, which is responsible for classification, will vary across
+members. This variation in the weights of the classification layer is expected to contribute significantly to
+the diversity of the members. Nonetheless, we studied the impact of adding noise to the parameters of an
+Explicit Ensemble. This was done using the following formula:
+Wnew =W+α·dW,(6)
+wheredW∼N(0,σW ). Hereαis a scale factor to control the amount of noise andσW is the standard
+deviation of the parameters within a weight matrix. This was applied to all weight matrices separately.
+It is expected that the initial layers of a neural network will learn basic features, while the later layers
+will include dataset-specific properties. Therefore, it is assumed that adding noise to the later layers would
+40
+
+=== PDF PAGE 41 ===
+0.1 0.2 0.3 0.4 0.5
+Dropout Probability
+82.0
+82.5
+83.0
+83.5
+84.0Accuracy
+Accuracy
+MC Dropout
+0.1 0.2 0.3 0.4 0.5
+Dropout Probability
+0.092
+0.096
+0.100
+0.104Expected Calibration Error
+Expected Calibration Error
+MC Dropout
+Figure 17: Accuracy and Expected Calibration Error for different dropout probabilities methods for MC
+Dropout on HAM10000 dataset.
+increase diversity while maintaining pre-training. However, adding noise to the earlier layers might disrupt
+pre-training more significantly, especially with smaller datasets, as these parameters may not converge to
+meaningful values again. To address this, an experiment was set up where noise was added only to the
+last encoder layers of the model, increasing the number of affected encoder layers gradually. Additionally,
+several different noise scalesαwere tried, ranging from1to0.0001. In the presented experiment, the last
+classification layer is initialized using PyTorch’s default method for linear layers. At the time of writing it
+is as follows:
+Winit = Unif
+(
+−
+√
+5·
+√ 3
+fan_in,
+√
+5·
+√ 3
+fan_in
+)
+(7)
+Binit = Unif
+(
+−
+√ 1
+fan_in,
+√ 1
+fan_in
+)
+.(8)
+HereWspecifies the weight matrix andBis the bias. Experiments are conducted on the CIFAR-100 dataset.
+R.2.1 Results
+The most important metrics for this section are accuracy and Expected Calibration Error. The results for
+adding noise to the last layer up to the last five layers are summarized in Fig. 18. Fig. 18a depicts the results
+for a single model, while Fig. 18b shows the results for an ensemble of 16 members.
+It is evident that none of the experiments surpass the baseline of not using any additional noise beyond the
+randominitializationofthelastclassificationlayer. Afterthelastfivelayers, theresultsbecomeuninteresting,
+as they do not vary significantly from those shown in the plots. Therefore, the presentation is truncated at
+five layers. Based on the presented results, no additional noise is injected into the Explicit Ensemble, and
+only the last layer initialization is varied.
+R.3 Batch-Ensemble
+R.3.1 Implementation
+Probably the closest method to LoRA-Ensemble is Batch-Ensemble introduced in Wen et al. (2020). Batch-
+Ensemble was originally developed for MLPs, but we extend it to self-attention networks as an implicit
+ensemble baseline. The methodology draws inspiration from our development of LoRA-Ensemble, as the
+41
+
+=== PDF PAGE 42 ===
+10 3
+ 10 2
+ 10 1
+ 100
+Noise level
+0.45
+0.50
+0.55
+0.60
+0.65
+0.70
+0.75Accuracy
+Accuracy
+Noise in last layer only
+Noise in last 2 layers
+Noise in last 3 layers
+Noise in last 4 layers
+Noise in last 5 layers
+Baseline (no noise)
+10 3
+ 10 2
+ 10 1
+ 100
+Noise level
+0.125
+0.150
+0.175
+0.200
+0.225
+0.250
+0.275
+0.300Expected Calibration Error
+Expected Calibration Error
+Noise in last layer only
+Noise in last 2 layers
+Noise in last 3 layers
+Noise in last 4 layers
+Noise in last 5 layers
+Baseline (no noise)
+(a) Single model
+10 3
+ 10 2
+ 10 1
+ 100
+Noise level
+0.600
+0.625
+0.650
+0.675
+0.700
+0.725
+0.750
+0.775
+0.800Accuracy
+Accuracy
+Noise in last layer only
+Noise in last 2 layers
+Noise in last 3 layers
+Noise in last 4 layers
+Noise in last 5 layers
+Baseline (no noise)
+10 3
+ 10 2
+ 10 1
+ 100
+Noise level
+0.08
+0.10
+0.12
+0.14
+0.16Expected Calibration Error
+Expected Calibration Error
+Noise in last layer only
+Noise in last 2 layers
+Noise in last 3 layers
+Noise in last 4 layers
+Noise in last 5 layers
+Baseline (no noise)
+(b) 16 ensemble members
+Figure 18: Accuracy and Expected Calibration Error for different noise levels across varying numbers of
+layers for the Explicit Ensemble. The baseline with no noise is indicated by a dashed black line.
+two implementations share many similarities. The primary difference lies in the parametrization of ensemble
+members. For each projection matrix (query, key, value, and output), we define one shared full-rank trainable
+matrix initialized with the pre-trained weights of the base network, along with two additional trainable
+vectors,rands, which are specific to each ensemble member. The projection matrix for ensemble member
+iis defined as:
+Wi =W shared◦risT
+i ,(9)
+whereW shared is the shared trainable matrix, and◦denotes element-wise multiplication. Within each
+transformer block, a unique forward pass is computed for each ensemble memberi:
+hi =W ix,(10)
+42
+
+=== PDF PAGE 43 ===
+resulting inNdifferent predictionsT θi(X)for a given inputX. The final ensemble prediction is obtained
+by averaging the individual predictions:
+E[Y|X] =1
+N
+N∑
+i=1
+Tθi(X).(11)
+The forward pass for the Batch-Ensemble layer with shared weights is implemented as shown in Listing 1.
+Listing 1: Pytorch forward pass for Batch-Ensemble layer
+1defforward ( self , x ) :
+2" " "
+3Forward pass for the Batch - Ensemble layer
+4" " "
+5# Step 1: Compute the ensemble member - specific weights
+6r = self . r . weight # Shape : [1 , dim ]
+7s = self . s . weight # Shape : [ out_dim , 1]
+8W_rs = s @ r # Shape : [ out_dim , dim ]
+9
+10# Step 2: Combine with the shared weight
+11W _ c o m b i n e d = self . shared_w * W_rs # Element - wise m u l t i p l i c a t i o n
+12
+13# Step 3: Compute the output for a specific ensemble member
+14out = x @ W _ c o m b i n e d . T # x must have shape [ batch_size , dim ]
+15
+16returnout
+TherandsvectorsareinitializedfromaGaussiandistributioncenteredaround1, specificallyr,s∼N(1,σ 2),
+whereσ2 controlsthevariance. Weempiricallysetσ 2 = 0.02. Thisinitializationensuresthatatthebeginning
+of the training, the combined projection matrix for each ensemble member remains close to the pre-trained
+weights of the shared matrix, preventing disruption of learned pre-trained weights. The implementation and
+training details followed the LoRA-Ensmeble approach; for details, refer to K and L.
+R.3.2 Why LoRA-Ensemble Outperforms Batch-Ensemble
+Both LoRA-Ensemble and Batch-Ensemble leverage shared weights with member-specific low-rank modifica-
+tions to enable efficient ensembling. The key difference lies in their parameterization: LoRA-Ensemble uses
+additive low-rank updates, while Batch-Ensemble applies element-wise multiplicative scaling. Despite the
+conceptual similarity between the two methods, Batch-Ensemble performs significantly worse than LoRA-
+Ensemble in both accuracy and calibration, as demonstrated in Tab. 1 and Tab. .2 This performance gap
+persists even when applied to non–self-attention architectures such as convolutional neural networks, which
+were the original target application of Batch-Ensemble, as shown in Tab. 14.
+To clarify this difference, we examine the gradients of the member-specific parameters. For LoRA-Ensemble,
+the layer output is:
+hi =W shared·x+BiAix,
+with gradients:
+∂L
+∂Bi
+=δ·Ai·x,(12)
+∂L
+∂Ai
+=δ·Bi·x,(13)
+whereδ= ∂L
+∂hi
+.
+For Batch-Ensemble, the output is:
+hi = (Wshared⊙risT
+i )x,
+43
+
+=== PDF PAGE 44 ===
+Table 22: Model performance on the CIFAR-10 dataset for the compared methods. Ensembles have 4
+members. Best score for each metric inbold, second-best underlined.
+Method Accuracy (↑) F1 (↑) ECE (↓) NLL (↓) Brier (↓)
+Single Network92.8 92.8 0.051 0.333 0.120
+Batch-Ensemble88.5 88.5 0.046 0.345 0.171
+Batch-Ensemble++91.7 91.7 0.033 0.260 0.128
+LoRA-Ensemble95.6 95.6 0.003 0.133 0.067
+with gradients:
+∂L
+∂si
+=δ·(Wshared⊙ri)·x,(14)
+∂L
+∂ri
+=δ·(Wshared⊙sT
+i )·x.(15)
+In Batch-Ensemble, the gradient updates forri ands i are directly scaled by the shared weightsWshared,
+which can constrain the learning dynamics and reduce the independence of ensemble members. This scaling
+introduces sensitivity to the magnitude and sparsity ofW shared, potentially limiting the diversity of the
+ensemble.
+We defineBatch-Ensemble++by modifying the original Batch-Ensemble algorithm, replacing the point-
+wise multiplication operation with an addition operation as follows:
+Wi =W shared +risT
+i .(16)
+In this case, the r and s vectors are also initialized from a Gaussian distribution but centered around 0.
+We compare the performance of Batch-Ensemble++, the original Batch-Ensemble, and LoRA-Ensemble in
+Tab. 22. Batch-Ensemble++ significantly outperforms the original Batch-Ensemble in both accuracy and
+uncertainty calibration. However, its performance does not reach that of LoRA-Ensemble.
+We attribute this performance gap to the following key differences between the methods:
+•Limited Expressiveness:Batch-Ensemble restricts its ensemble-specific parameters to rank-1
+matrices, inherently limiting the expressive power of individual ensemble members.
+•Coupled Learning Dynamics:In Batch-Ensemble, the shared pre-trained matrixW shared is not
+kept frozen. This design choice can disrupt the learned pre-trained weights and may restrict the
+ability of the ensemble-specific parametersrandsto learn a sufficiently diverse set of features. A
+similar effect was observed in LoRA-Ensemble when the backbone was also updated during training;
+see the Appendix F for details.
+•Initialization Variations:Differences in parameter initialization may also contribute to the per-
+formance gap.
+R.4 Snapshot Ensemble Implementation Details
+Snapshot Ensemble (Huang et al., 2017), in its pure form, consists of training a single model with cycling
+learning and taking snapshots every few epochs. This can make it hard, however, for the model to converge
+to anything meaningful within the low number of epochs available for training per snapshot. Therefore,
+Snapshot Ensemble was modified slightly, by first letting training run for a number of epochs, without any
+cycling of the learning rate. After this burn-in period the learning rate is at 0 and a first snapshot is taken.
+44
+
+=== PDF PAGE 45 ===
+The remaining number of epochs is split evenly. If the remaining number of epochs is not divisible by the
+desired number of ensemble members, the burn-in period is extended until it is. For the HAM10000 dataset
+training is left at 65 epochs, with 20 burn-in epochs. For CIFAR-10 and CIFAR-100 using only 16 epochs
+would only leave 1 epoch per cycle for bigger models. Therefore, training is extended to 30 epochs with
+a burn-in period of 15 epochs. In our experiments (Tables 1 and 2), snapshot ensembles outperformed a
+single network in both calibration andaccuracy, butunderperformedExplicit Ensemble andLoRA-Ensemble,
+consistent with prior work (Lee & Lee, 2025; Thuy & Benoit, 2025).
+R.5 Last Layer Ensemble
+Last Layer Ensemble is a simple baseline where multiple independent classification heads are trained on a
+shared frozen backbone. Diversity arises purely from different random initializations of the heads, making
+it a minimal-cost approach to implicit ensembling.
+Given a frozen pre-trained backboneϕwith feature dimensiond= 768(ViT-B/32) andMclassification
+heads{hi}M
+i=1, the prediction for ensemble memberiisf i(x) =h i(ϕ(x)). The ensemble prediction is
+obtainedbyaveragingsoftmaxoutputsacrossmembers. EachheadisinitializedusingaGaussiandistribution
+Wi∼N(0,σ2
+init·I)withσinit = 0.01and bias initialized to zero. To ensure reproducibility while maintaining
+diversity, headiuses random seed42 +i.
+The training objective is the average cross-entropy loss across all members:L=1
+M
+∑M
+i=1LCE(hi(ϕ(x)),y).
+Since the backbone is frozen, gradients only flow through the classification heads. We use 16 ensemble
+members trained with AdamW optimizer (learning rate10−4, weight decay0.01) for 16 epochs on CIFAR-
+100 with batch size 32, 500 warmup steps, cosine learning rate schedule, and gradient clipping at 1.0.
+Listing 2: Last-Layer Ensemble
+1classL a s t L a y e r E n s e m b l e ( nn . Module ) :
+2def__init__ ( self , num_classes , n u m _ m e m b e r s =16 , init_std =0.01) :
+3super() . __init__ ()
+4self . backbone = vit_b_32 ( weights = ’ I M A G E N E T 1 K _ V 1 ’)
+5self . backbone . heads = nn . Identity ()
+6self . backbone .eval() # Frozen
+7
+8# Create M heads with di ff er en t seeds
+9self . heads = nn . M o d u l e L i s t ([
+10nn . Linear (768 , n u m _ c l a s s e s )for_in range( n u m _ m e m b e r s ) ])
+11fori , headin en um er at e( self . heads ) :
+12torch . m a n u a l _ s e e d (42 + i * 1000)
+13nn . init . normal_ ( head . weight , std = init_std )
+14nn . init . zeros_ ( head . bias )
+15
+16defforward ( self , x ) :
+17features = self . backbone ( x ) # [B , 768]
+18return[ head ( features )forheadinself . heads ]
+The main limitation of LLE is that all ensemble members share identical features, fundamentally constraining
+diversity to the final linear transformation. This prevents the method from expressing uncertainty about
+feature relevance and probably leads to heads converging to similar solutions during training.
+R.6 Epistemic Neural Networks (EpiNet)
+Epistemic Neural Networks (EpiNets) (Osband et al., 2022) estimate uncertainty by augmenting a base
+network with a small auxiliary network (the epinet) conditioned on a random epistemic indexz∼N(0,IDz).
+The prediction is:
+fθ(x,z) =µζ(x) +ση(sg[ϕζ(x)],z),(17)
+45
+
+=== PDF PAGE 46 ===
+whereµζ(x)is the base network output,ϕζ(x)∈R768 are features from the penultimate layer, sg[·]denotes
+stop-gradient (preventing gradients from flowing back to the base network through the epinet path), andση
+is the epinet. Following the original paper, we decompose the epinet into learnable and prior components:
+ση=σL
+η+α·σP, whereσP is a frozen randomly-initialized network providing initial diversity andα= 1.0.
+The epinet architecture is an MLP that takes the concatenation of featuresϕ∈R768 and epistemic index
+z∈RDz as input. The MLP outputs a matrixM∈RDz×C, which is then contracted with the epistemic
+index to produce class logits:ση(ϕ,z)c =∑Dz
+k=1Mk,c·zk =M⊤z. This design ensures the epinet output
+is linear inz, enabling smooth interpolation across the epistemic index space. The MLP uses two hidden
+layers of 256 units each with ReLU activations.
+We useDz = 10andM= 16ensemble members, each with its own learnable epinet (weights initialized
+near zero with std0.01) and frozen prior network (initialized with seed42 +i×1000). The base network
+is a trainable ViT-B/32. Training minimizes:L= 1
+M
+∑M
+i=1LCE(fθ(x,zi),y)with freshly sampledz i per
+member. We use the same training setup as Last Layer Ensemble: AdamW (learning rate10−4, weight decay
+0.01), batch size 32, 16 epochs, 500 warmup steps, cosine decay, and gradient clipping at 1.0.
+Listing 3: PyTorch implementation of EpiNet.
+1classEpinet ( nn . Module ) :
+2" " " Epinet : MLP o u t p u t t i n g matrix M , c o n t r a c t e d with z to get logits . " " "
+3def__init__ ( self , feature_dim , num_classes , epistemic_dim , hidden =256) :
+4super() . __init__ ()
+5self . e p i s t e m i c _ d i m = e p i s t e m i c _ d i m
+6self . n u m _ c l a s s e s = n u m _ c l a s s e s
+7self . mlp = nn . S e q u e n t i a l (
+8nn . Linear ( f e a t u r e _ d i m + epistemic_dim , hidden ) ,
+9nn . ReLU () ,
+10nn . Linear ( hidden , hidden ) ,
+11nn . ReLU () ,
+12nn . Linear ( hidden , e p i s t e m i c _ d i m * n u m _ c l a s s e s ) )
+13
+14defforward ( self , features , z ) :
+15x = torch . cat ([ features , z ] , dim = -1) # [B , 768+ D_z ]
+16M = self . mlp ( x ) . view ( -1 , self . epistemic_dim , self . n u m _ c l a s s e s ) # [B , D_z , C ]
+17returntorch . bmm ( M . tr an sp os e (1 , 2) , z . un sq ue ez e ( -1) ) . squeeze ( -1) # [B , C ]
+18
+19classEpiNet ( nn . Module ) :
+20def__init__ ( self , n u m _ c l a s s e s =100 , n u m _ m e m b e r s =16 , e p i s t e m i c _ d i m =10 ,
+21p r i o r _ s c a l e =1.0 , p r i o r _ s e e d _ s t a r t =42) :
+22super() . __init__ ()
+23self . backbone = vit_b_32 ( weights = V i T _ B _ 3 2 _ W e i g h t s . I M A G E N E T 1 K _ V 1 )
+24self . backbone . heads = nn . Linear (768 , n u m _ c l a s s e s ) # Tr ai na bl e base
+25
+26self . l e a r n a b l e _ e p i n e t s = nn . M o d u l e L i s t ([
+27Epinet (768 , num_classes , e p i s t e m i c _ d i m )
+28for_in range( n u m _ m e m b e r s ) ])
+29self . p r i o r _ n e t w o r k s = nn . M o d u l e L i s t ([
+30self . _ f r o z e n _ e p i n e t (768 , num_classes , epistemic_dim ,
+31seed = p r i o r _ s e e d _ s t a r t + i * 1000)
+32foriin range( n u m _ m e m b e r s ) ])
+33self . p r i o r _ s c a l e = p r i o r _ s c a l e
+34
+35defforward ( self , x , z_ sa mp le s = None ) :
+36features , b a s e _ o u t p u t = self . e x t r a c t _ f e a t u r e s ( x )
+37f e a t u r e s _ s g = features . detach () # Stop gradient
+38ifz_ sa mp le sisNone :
+39z_ sa mp le s = torch . randn (len( self . l e a r n a b l e _ e p i n e t s ) ,
+40x . size (0) , self . epistemic_dim , device = x . device )
+46
+
+=== PDF PAGE 47 ===
+41outputs = []
+42fori , ( learnable , prior )in en um er at e(
+43zip( self . learnable_epinets , self . p r i o r _ n e t w o r k s ) ) :
+44e p i n e t _ o u t = le ar na bl e ( features_sg , z_ sa mp le s [ i ]) \
+45+ self . p r i o r _ s c a l e * prior ( features_sg , z_ sa mp le s [ i ])
+46outputs . append ( b a s e _ o u t p u t + e p i n e t _ o u t )
+47returnoutputs
+R.7 FiLM-Ensemble and Other Implicit Baselines: Practical Challenges
+Many implicit ensemble methods, such as those proposed in (Wen et al., 2020; Turkoglu et al., 2022; Durasov
+et al., 2020; Havasi et al., 2020), are architecture-specific and predominantly designed for MLPs or CNNs.
+As a result, adapting these techniques to transformer architectures presents significant challenges, since
+transformers’ computation structure is quite different than MLPs and CNNs.
+In particular, we attempted to implement FiLM-Ensemble (Turkoglu et al., 2022) on a self-attention network,
+given the promising results reported by its authors. However, the authors themselves noted that applying
+FiLM-Ensemble to transformers is not straightforward, mainly because transformers rely on LayerNorm,
+whereas FiLM-Ensemble was developed with BatchNorm in mind. Our experiments confirmed that directly
+using BatchNorm in transformers led to notable performance degradation. We explored several approaches
+to adapt LayerNorm, but the most effective results were achieved by fixing all affine parameters for each
+ensemble member. This allowed for slight initial variations to introduce randomness and diversity, while
+keeping the variation among members minimal. The results, summarized in Tab. 23, show that increasing
+the ensemble size slightly improved accuracy, though the Expected Calibration Error (ECE) fluctuated
+without consistent improvement. In fact, when using larger ensemble sizes, such as 8 or 16, both accuracy
+and calibration worsened across all settings we tested.
+Table 23: Performance of FiLM-Ensemble for Vision Transformer (ViT) on CIFAR-10. Increasing the
+ensemble size slightly improves accuracy, but ECE fluctuates without showing consistent improvement.
+# ensemble members Accuracy (↑) ECE (↓)
+1 90.54 0.0286
+2 91.180.0269
+491.230.0289
+R.8 Bayesian LoRA
+Bayes-LoRA (Yang et al., 2024) introduces a Bayesian approach on the LoRA adapter parameters by fitting
+a Gaussian posterior around the maximum a posteriori (MAP) estimate of the fine-tuned model. In practice,
+this means we first obtain a standard LoRA fine-tuned network and then apply a Laplace approximation
+over its adapter weights. To make this tractable at scale, Bayes-LoRA relies on a Kronecker-factored ap-
+proximation of the Hessian, which allows efficient estimation of the posterior covariance. The result is a
+Bayesian model that can capture uncertainty while remaining computationally efficient compared to tradi-
+tional Bayesian neural networks.
+We evaluate Bayes-LoRA on the SST-2 sentiment classification task using a BERT base uncased (Socher
+et al., 2013; Devlin et al., 2019) backbone. The method is applied in a post-hoc fashion after fine-tuning.
+The original implementation of (Yang et al., 2024) used4. For MAP training, we follow the standard LoRA
+setup with a learning rate of5×10−5, training for 3 epochs with batch size 16. The LoRA rank is set
+to 64, identical to the LoRA-Ensemble. The prior variance is chosen as10 −3, since larger values tend
+to degrade performance. To balance computational efficiency and uncertainty estimation, the number of
+posterior samples (i.e., ensemble members) is fixed at 512. For the Kronecker-factored approximation, we
+usen kfac = 10.
+4https://github.com/MaximeRobeyns/bayesian_lora
+47
+
+=== PDF PAGE 48 ===
+In terms of results, Bayes-LoRA falls short of LoRA-Ensemble and Explicit Ensemble methods in predic-
+tive performance, measured by accuracy and F1. This observation is in line with previous findings in the
+literature, such as (Daxberger et al., 2021). We attribute this limitation to the reliance on a local Gaus-
+sian approximation around a single MAP solution, in contrast to the diversity gained through sufficiently
+independent ensemble members. However, the main strength of Bayes-LoRA lies in its ability to capture pre-
+dictive uncertainty effectively, reaching a level comparable to both LoRA-Ensemble and Explicit Ensemble.
+Detailed results can be found in Tab. 8 in Appendix A.7.
+From an efficiency perspective, Bayes-LoRA requires significantly more computation at inference: evaluating
+a single test example takes roughly 250 ms (512 posterior samples are used), compared to 22.7 ms (Tab. 9)
+for LoRA-Ensemble (16 members are used). This overhead makes Bayes-LoRA impractical for real-time
+applications but potentially valuable in settings where predictive uncertainty is crucial and strict latency
+constraints are less relevant.
+R.9 SNGP on Vision Transformers
+Spectral-normalized Neural Gaussian Process (SNGP) (Liu et al., 2020) is an efficient single-model uncer-
+tainty estimation method that achieves competitive calibration with deep ensembles while requiring only
+a single forward pass at inference. However, SNGP was originally designed and validated exclusively on
+residual convolutional architectures (e.g., Wide-ResNet) (Liu et al., 2023), and its theoretical guarantees do
+not extend to attention mechanisms.
+R.9.1 Method Overview
+SNGP combines two architectural modifications to standard neural networks:
+Spectral Normalization.Hidden layers are constrained to satisfy the bi-Lipschitz property by applying
+spectral normalization (Miyato et al., 2018), which bounds the spectral norm of weight matrices:
+WSN = W
+σ(W)·c,(18)
+whereσ(W)denotes the largest singular value andc<1is the spectral norm bound (typically 0.95). This
+ensures that the network preserves distances in the input space, which is critical for meaningful uncertainty
+estimation, inputs far from the training distribution should map to representations that are correspondingly
+distant.
+Gaussian Process Output Layer.The classification head is replaced with a Gaussian Process layer
+approximated via Random Fourier Features (RFF) (Rahimi & Recht, 2007). For an RBF kernel, the feature
+map is:
+ϕ(x) =
+√
+2
+D cos(Wx+b),(19)
+whereW∈Rd×Dwith entries sampled fromN(0,1/ℓ2)for length scaleℓ, andb∼Uniform(0,2π). The GP
+posterior is computed via Laplace approximation, maintaining a precision matrixΛthat is updated during
+training:
+Λ←Λ +ϕ(x)ϕ(x)⊤.(20)
+At inference, predictive uncertainty is obtained through mean-field approximation with factorπ/8or Monte
+Carlo sampling from the approximate posterior.
+Why SNGP Fails on Transformers.The method’s theoretical guarantees rely on the bi-Lipschitz
+property of residual connections in CNNs. However, Kim et al. (2021) prove that dot-product self-attention
+has an unbounded Lipschitz constant, violating the fundamental assumption underlying SNGP’s distance-
+awareness. They propose an alternative L2 self-attention that satisfies the Lipschitz condition; we include
+this variant as a baseline in our HAM10000 experiments (Table 2).
+48
+
+=== PDF PAGE 49 ===
+R.9.2 Training Details
+We implement SNGP for Vision Transformer (ViT-B/32) pretrained on ImageNet-1K using PyTorch. Ta-
+ble 24 summarizes the hyperparameters.
+Table 24: SNGP-ViT hyperparameters for CIFAR-100.
+Hyperparameter V alue
+Backbone
+Architecture ViT-B/32
+Pretrained weights ImageNet-1K
+Hidden dimension 768
+Backbone trainable Yes
+Spectral Normalization
+Spectral norm bound (c) 0.95
+Power iterations 1
+Layers normalized Attention + MLP (also tested MLP only)
+GP Output Layer
+Number of RFF (D) 1024
+RFF init std (1/ℓ) 0.05
+Kernel scale 1.0
+Input normalization LayerNorm
+Covariance momentum−1(exact)
+Ridge penalty10 −3
+Mean-field factorπ/8
+Training
+Optimizer AdamW
+Learning rate10 −4
+Weight decay 0.01
+Batch size 32
+Epochs 30
+Warmup steps 500
+LR schedule Cosine decay
+Gradient clipping 1.0
+We applied spectral normalization to both attention and MLP layers within transformer blocks, replacing
+the classification head with an RFF-GP layer following the original implementation guidelines (Liu et al.,
+2023). We also experimented with applying spectral normalization to MLP layers only, which yielded similar
+results.
+R.9.3 Results and Discussion
+Despite careful implementation, SNGP-ViT exhibited severely degraded performance on CIFAR-100: train-
+ing accuracy plateaued around 42% while test accuracy reached only 32.2% with an NLL of 2.7. This is
+substantially worse than all other baselines, including a deterministic ViT which achieves over 76% test
+accuracy (Table 1).
+Our observations align with documented challenges in the literature. Vazhentsev et al. (2022) note that the
+spectral normalization is theoretically proven to ensure the bi-Lipschitz constraint on the transformation
+defined by standard residual connection networks. However, the self-attention blocks in Transformers have
+a more complicated architecture than ResNet layers, which means the theoretical guarantees do not hold
+in general. Their experiments with SNGP on ELECTRA (Clark et al., 2020) demonstrate highly unstable
+performance; on CoNLL-2003, SNGP achieves an RCC-AUC of 56.43 compared to 6.08 for the baseline,
+nearly an order of magnitude worse.
+49
+
+=== PDF PAGE 50 ===
+Similarly, Ulmer et al. (2022) report that SNGP significantly underperforms on sequence tasks: on the
+Danish NER task (Plank et al., 2020), SNGP achieves only 22% accuracy while LSTM achieves 93%. They
+observe that even with pre-trained BERT models as feature extractors, training is quite unstable. The
+NLP Uncertainty Zoo library likewise warns that SNGP transformer models exhibit significant training
+instability.5
+S Definitions of Evaluation Metrics
+We primarily evaluate our models on accuracy and Expected Calibration Error (ECE, Guo et al., 2017). In
+addition to accuracy and Expected Calibration Error, we have calculated several other scores that have been
+used in the context of probabilistic deep learning. In the following section, we present the formulations used
+in our implementations.
+S.1 Accuracy
+Accuracy is defined as the fraction of correctly classified samples:
+Acc = 1
+N
+N∑
+i=1
+1(ˆyi =y i).(21)
+Herey i denotes the true label of samplei,ˆyi is the predicted label of samplei,Nis the total number of
+samples, and1(·)is the indicator function.
+S.2 Expected Calibration Error
+The Expected Calibration Error is a widely used metric for measuring the calibration of neural networks. We
+use the definition given in (Guo et al., 2017). ECE is defined as the expected difference between accuracy and
+confidence across several bins. In our experiments, we useM= 10equally spaced bins over the confidence
+interval[0,1]. We first need to define accuracy and confidence per binBm as follows:
+Acc(Bm) = 1
+|Bm|
+∑
+i∈Bm
+1(ˆyi =y i),(22)
+Conf(Bm) = 1
+|Bm|
+∑
+i∈Bm
+ˆpi.(23)
+Again,y i andˆyi denote the true and predicted labels of sampleirespectively, andˆp i is the predicted
+confidence of samplei. With this the Expected Calibration Error is given as:
+ECE =
+M∑
+m=1
+|Bm|
+n |Acc(Bm)−Conf(Bm)|(24)
+S.3 Macro F1-score
+F1 = 1
+C
+C∑
+j=1
+2pjrj
+pj +rj
+,(25)
+wherer j represents the Recall of classj, defined asrj = TP
+TP+FN , andp j represents the Precision of class
+j, defined asp j = TP
+TP+FP , andCrefers to the number of classes, Here,TP,FP, andFNdenote True
+Positives, False Positives, and False Negatives respectively.
+5https://dennisulmer.eu/nlp-uncertainty-zoo/nlp_uncertainty_zoo.models.sngp_transformer.html
+50
+
+=== PDF PAGE 51 ===
+S.4 Negative Log-Likelihood (NLL)
+NLL=−1
+N
+N∑
+i=1
+C∑
+j=1
+(yi,j log ˆpi,j) =−1
+N
+N∑
+i=1
+log ˆpi,(26)
+whereNdenotes the number of datapoints,Cthe number of classes,y i,j is 1 if the true label of pointiisj
+and 0 otherwise andˆpi,j is the predicted probability of sampleibelonging to classj.
+S.5 Brier score
+For Brier score we take the definition by (Brier, 1950), which is as follows:
+BS= 1
+N
+N∑
+i=1
+C∑
+j=1
+(ˆpi,j−yi,j)2,(27)
+whereNdenotes the number of datapoints,Cthe number of classes,y i,j is 1 if the true label of pointiisj
+and zero otherwise andˆpi,j is the predicted probability of sampleibelonging to classj.
+S.6 Area Under the Receiver Operating Characteristic Curve (AUROC)
+The AUROC score evaluates the performance of a binary classifier by measuring its ability to distinguish
+between positive and negative classes, as introduced by (Hanley & McNeil, 1982). In our out-of-distribution
+(OOD) detection experiments, the positive class corresponds to an in-distribution sample, while the negative
+class corresponds to an out-of-distribution sample.
+The AUROC is computed as the area under the ROC curve, which plots the true positive rate (TPR) against
+the false positive rate (FPR) across various decision thresholds. The TPR and FPR are defined as follows:
+TPR = TP
+TP+FN ,(28)
+FPR = FP
+FP+TN ,(29)
+where TP, FP, FN, and TN represent the true positives, false positives, false negatives, and true negatives,
+respectively.
+The AUROC score is given by the following integral:
+AUROC =
+∫ 1
+0
+TPR(FPR),dFPR.(30)
+A higher AUROC score indicates better classification performance, with a score of 1 representing a perfect
+classifier, and a score of 0.5 indicating performance equivalent to random chance.
+S.7 Area Under the Precision-Recall Curve (AUPRC)
+The Area Under the Precision-Recall Curve (AUPRC) assesses the performance of a binary classifier by
+measuring its ability to accurately identify positive instances, as described by (Davis & Goadrich, 2006).
+In our out-of-distribution (OOD) detection experiments, the positive class corresponds to in-distribution
+samples, while the negative class corresponds to out-of-distribution samples.
+51
+
+=== PDF PAGE 52 ===
+The AUPRC is calculated as the area under the Precision-Recall (PR) curve, which plots precision against
+recall at various decision thresholds. Precision and recall are defined as follows:
+Precision = TP
+TP+FP ,(31)
+Recall = TP
+TP+FN ,(32)
+where TP, FP, and FN represent true positives, false positives, and false negatives, respectively.
+The AUPRC score is the integral of precision with respect to recall, expressed as:
+AUPRC =
+∫ 1
+0
+Precision(Recall)dRecall.(33)
+A higher AUPRC score indicates better classifier performance in recognizing positive instances, with a score
+near 1 representing a good classifier, characterized by both high recall and high precision. This metric is
+especially valuable for evaluating classifiers on imbalanced datasets.
+S.8 False Positive Rate at 95% True Positive Rate (FPR@95%TPR)
+We use the false positive rate at 95% true positive rate (FPR@95%TPR) as an evaluation metric. This
+metric measures the proportion of negative samples that are incorrectly classified as positives when the true
+positive rate is fixed to 95%. Lower values of FPR@95%TPR indicate better performance, corresponding to
+fewer false positives at the same, high true positive rate.
+Formally, letτbe a decision threshold such that
+TPR(τ) = TP(τ)
+TP(τ) + FN(τ)= 0.95.(34)
+The reported score is then
+FPR@95%TPR = FPR(τ) = FP(τ)
+FP(τ) + TN(τ).(35)
+52
