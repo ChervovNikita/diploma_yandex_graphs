@@ -29,15 +29,21 @@ All24new GAT/SAGE acquisitions closed at13:44:14/13:43:06UTC, exit0. Coherent st
 
 A complete stored-logit diagnosis on27banks from117closed fits found a correct shared member on a majority of independent-correct/shared-wrong cases in every backbone/seed/reference comparison, roughly57–76%depending on backbone. This identifies an opportunity for learned aggregation, not a demonstrated selector. Coherent-bank redundancy and original-bank averaging loss remain distinct failures. [Complete diagnosis](common_wrapper117_stored_error_diagnosis_root_20261010_v1/REPORT.md) · [Historyv7](periodic_completed_history_revision_20261010_v7/REPORT.md).
 
-## Current study on 18.77
+## Complete study on 18.77
 
-At14:32:47UTC the fixed original1100-epoch Polynormer nine-fit family reported all9complete, owner absent and no failure. No partial quality was opened. Complete readout admission is next. Observed costs include concurrent host activity. [Frozen criteria and activation](live_route_WikiCS_complete9_root_activation_20261010_v1/QUALITY_CRITERIA.json).
+The original 1100-epoch Polynormer baseline/exchange/separable family completed all nine fits. A single selected-state readout then completed all nine models in 14.624 seconds. Every pooled/member correct count matched the original TRACE. The readout owner closed at 14:38:27 UTC with direct wait and child/CUDA absence.
 
-## Frozen next allocation study
+Exchange minus baseline is −0.075844 accuracy points on average, with one positive and two negative seeds. Exchange minus separable is −0.214891 points. The fixed exchange criteria fail, closing the exact rule. Separable minus baseline is +0.139047 points, positive in all three seeds, with a descriptive paired seed interval [−0.083547, +0.361640]. This is a small encountered-development clue, with no capable M1/I4 comparison or unused confirmation. Full classes, members, costs, repairs and harms are retained. [Complete report](live_route_WikiCS_complete9_readout_root_20261010_v1/REPORT.md).
 
-The fixed class-balanced Bayesian-bootstrap private-gradient screen is ready for publication and one full-TRAIN gradient integration. GAT/SAGE ×3pairedseeds ×coherent/graph-pair/rank-one-LoRA bootstrap arms means18new fits. All unweighted and ordinary/factorized references are reused from closed immutable families. Private parameters receive fixed positive Exp(1)weights, normalized within each TRAIN class, while shared parameters receive full-label unweighted meanownCE. There is one forward, two reverse calls and one unchanged AdamW update. This is generally a nonconservative block field. No primitive novelty is claimed. Both9-fit families must close before interpretation. No bootstrap scientific fit has started as of this status. [Fixed decision](private_class_balanced_bootstrap_pilot_decision_20261010_v1/DECISION.md).
+## Complete allocation bootstrap study
 
-Separately, graph-aware postprediction reliability is source preparation only. StoredVALIDarchives cannot supply full-node neighbor descriptors. Support, equal-label calibration/stacking controls and authorized selected-state export must be fixed before execution. AnyVALIDfusion fit remains encountered development because base checkpoint selection usedVALIDlabels. Unused confirmation is required.
+Both private-bootstrap families completed all 18 new fits. GAT closed at 14:44:57 UTC and SAGE at 14:43:44 UTC, with direct waits and process/CUDA absence. One joined CPU readout admitted the entire fixed roster and all references before comparison. Every transfer and member-protection flag fails. Graph-pair plus bootstrap reaches 81.291872% on GAT and 79.402098% on SAGE, below ordinary independent-four at 81.980786% and 80.021489%. GAT interaction is positive but does not rescue worse final predictions. Coherent bootstrap adds 195/108 covered readouts but 192/105 extra pooling losses. Close this exact fixed rule without another weighting grid. [Complete bootstrap report](private_class_balanced_bootstrap_pilot_decision_20261010_v1/REPORT.md).
+
+## Next fixed aggregation study
+
+Graph-aware postprediction reliability source is reviewed and frozen, awaiting publication and execution. One selected-state export supplies label-free neighbor descriptors, while stored own-node VALID logits remain authoritative. Temperature, the identical scorer with P=I, and regularized stacking controls receive the same fitting labels and equal opportunity on capable single, independent and shared banks. There are 45 banks across SAGE/GCN/GAT and three paired seeds, 99 selected-state forwards and 855 fixed small-head fits. Every endpoint and failure precedes interpretation.
+
+The numerical advance criteria are frozen in DECISION.md before any export or fusion fit. A useful clue must exceed both fitted shared controls and equally processed independent ensembles across all three backbones. VALID fusion remains encountered development because base checkpoint selection used those labels. A passing screen still requires unused confirmation. No graph-context novelty or accuracy gain is established. [Decision](common_wrapper_graph_reliability_root_20261010_v1/DECISION.md) · [Source and support](common_wrapper_graph_reliability_source_20261010_v1/README.md).
 
 ## Earlier results and confirmation
 
@@ -53,7 +59,7 @@ WikiCS fixed TEST is not classified as unused because older access remains unrec
 
 ## Execution and publication
 
-Latest verified allocation/GitHub head9d083609c508b0e24c5dc48e0abb0af784745a6b, pushed13:37:13UTC. Complete rotation/diagnosis and frozen bootstrap source are being published next. 18.77retains a7c87fcb for its unchanged completed source. Checkpoints, datasets and logits stay server-side.
+Latest verified allocation/GitHub head: 0c61c08d06b25d56afcca511d11a3d4bc04a627c, pushed at 14:35:02 UTC. Complete rotation/diagnosis and frozen bootstrap source are published. Actual bootstrap starts and the completed 18.77 readout will be published together next. 18.77 retains a7c87fcb for its unchanged completed fit source. Checkpoints, datasets and logits stay server-side.
 
 Use the literal one-GPU allocation route anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222; verify anogena-2-0 and sole GPU-44039938-fd82-41d2-fefd-de71514e2fac before project operations. 18.77 is shmelev@192.168.18.77, hostname peptide. Seven-GPU access is MacLink relay only. No sudo, PDF compilation, GENLINK, unrelated-data access or host mount/settings changes. Incidental standard caches are allowed.
 
