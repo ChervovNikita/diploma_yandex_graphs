@@ -1,96 +1,57 @@
 # Current GNNM research state
 
-10 October 2026. Goal active and unmet. Original paper scores remain unchanged. No new methodological superiority, unused confirmation or fresh manuscript acceptance is established. All experiments, failures, costs, reviews and superseded explanations remain in research_ledger.json and linked evidence. Previous complete state is preserved in publication/closed_CMCL_Wiki_and_hop_qualification_source_20261010_v1/before.
+10 October2026. Goal active and unmet. Original paper scores remain unchanged. No new methodological superiority, unused confirmation or fresh manuscript acceptance is established. Historical snapshots, complete outcomes, failures, costs, reviews and decisions remain in Git and research_ledger.json.
 
-## Complete specialist-credit study
+## Latest complete scientific results
 
-All 18 fixed PubMed fits closed successfully before quality was read. Six conditions used all three seeds9101/9203/9307 on the full19717-node,500-feature,88648-edge graph, TRAIN11829/VALID3942, split190111. The native PolyFormer uses width256, two blocks, eight heads, monomialK2, original Adam groups and full2000/250 selection. TEST stays closed.
+All18 private-hop fits and all3 private-Adam convention fits closed. Whole-family stored-logit comparisons completed on the authorized allocation before interpretation. They made zero new model forwards and did not open TEST.
 
-| Predictor | Mean selected VALID accuracy (%) | NLL |
+| PubMed predictor | Mean selected VALID accuracy (%) | NLL |
 |---|---:|---:|
-| Ordinary shared own_floor |90.977506|.281966|
-| Private CMCL |90.309489|.345505|
-| All-block CMCL |90.656181|.344376|
-| Vanilla CMCL |90.749196|.368313|
-| Private uniform |89.641468|.423597|
-| Private constant credit |90.165738|.353734|
+| Fresh shared own |91.045155|0.286731|
+| Private missing-hop |90.892948|0.284649|
+| Full-input auxiliary |91.036699|0.289057|
+| Common incomplete view |90.876036|0.297289|
+| All-block missing-hop |91.002875|0.286984|
+| Factorized single with all-view supervision |90.613902|0.332589|
+| Shared own with private-Adam normalization |90.571622|0.302934|
 
-Private CMCL loses accuracy, NLL and macro F1 against own_floor at every seed. Net available-correct count changes are+40/+63/−4, while lost alternatives increase+71/+88/+19. These changes account for31/25/23 fewer correct final decisions. Mean member accuracy falls1.10984points and worst member accuracy2.35921points. More alternatives did not yield a better predictor. Mean+33 is a net coverage cardinality change, not33 exact repairs of baseline errors.
+Private missing-hop loses final and mean-member accuracy at every seed. It acquires45/45/38 newly covered correct alternatives but loses28/27/48 old alternatives. Final repairs/harms37/40,32/34,43/56 leave fewer correct predictions. Its mean NLL improves slightly while seed9307 worsens. Immediate shared-gradient protection did not preserve later private competence. The exact recipe is unsupported; no coefficient salvage grid follows. Complete controls, paired seed intervals and actual costs: [private-hop interpretation](private_hop_full18_closed_interpretation_20261010_v1/REPORT.md).
 
-The new private bank has some pooling headroom, but it cannot rescue this recipe against the capable factorized single in every seed. For seed9307, the recorded strict common-rival cohort limits any nonnegative mixture of these unchanged probabilities to3583 correct nodes, below M1-native3585. Immediate shared auxiliary-gradient protection did not preserve future member competence. The exact private-CMCL recipe is closed. All-block is stronger than private credit here. Uniform/constant controls and changed gradient mass prevent assigning all harm causally to the KL term.
+Private-Adam normalization loses0.473533 mean accuracy points against fresh own, raises NLL0.016202 and weakens every member. Pooling losses shrink7/5/9 to1/1/5 while available correct alternatives shrink23/23/24. Fewer pooling losses can accompany a worse bank. The frozen competence/NLL gate fails. The conditional normalization+hop quartet and its extra stored collector stay disabled. [Normalization interpretation](pubmed_normalization_closed_interpretation_20261010_v1/REPORT.md).
 
-Evidence: private_CMCL18_closed_scalar_interpretation_20261010_v1/{REPORT.md,SUMMARY.json}, private_CMCL18_focused_history_decision_20261010_v1/REPORT.md, and three_research_roles_continuation_20261010_v2/fetched/private_CMCL18_closed_scalars_execution_20261010_v1/CLOSED_SCALAR_EVIDENCE.json. The JSON-only extractor took.124249s, with no models, checkpoint arrays, new inference or score changes. All fixed arms and exploratory df2 seed intervals are retained. Checkpoint selection and repeated development comparisons limit these intervals.
+These are selected development results on one encountered split and three optimizer seeds. Intervals describe seed variation and do not provide independent graph/node uncertainty or correct repeated research selection. Do not select the best repeated own baseline as evidence of superiority.
 
-## Stronger factorized independent reference is complete
+## Capable references and earlier complete families
 
-All9new full body1–3fits, all3committees and the stored-error comparison successfully closed. Every committee reuses its exactly admitted original M1-native body0 and adds3disjoint full native bodies, Adams, dropout streams and own2000/250raw-logit selectors. The stronger I4 scores90.825300%mean VALID accuracy and.277453NLL. Factorized M1-native scores90.816844%, sharedM4 90.901404%, ordinaryI4 90.216472%. StrongI4 minus M1 accuracy is−.050736/+.228311/−.152207points, mean+.008456; NLL improves at every block. StrongI4 minus shared is−.304414/+.025368/+.050736points, mean−.076104; NLL changes+.001947/−.008148/−.024532. No superior shared or independent accuracy is established.
+The stronger factorized PubMedI4 reaches90.825300% accuracy/.277453NLL; its admitted body0 M1 reaches90.816844%; earlier sharedM4 reaches90.901404%. I4−M1accuracy is mixed, mean+.008456points, while NLL improves every seed. I4acquires99/102/93 correct alternatives over M1 but pooling loses61/69/53. This is useful acquisition with serving loss; it differs from losses caused by weak members. [Complete reference](factorized_I4_closed_interpretation_20261010_v1/REPORT.md).
 
-The stronger bank acquires99/102/93correct alternatives on its first body's errors but pooling loses61/69/53of them. It repairs38/33/40and harms40/24/46, producing−2/+9/−6net correct predictions. Total bank pooling losses101/93/99are different counts. Against shared, it acquires97/105/113previously uncovered alternatives, loses coverage12/19/14, and final repairs40/55/49are offset by harms52/54/47. This is competent independent acquisition with serving loss, distinct from CMCL's member weakening.
+All42 heterogeneous label-context fits closed. Ordinary shared micro-F1=68.437870%; local multiplicative=68.279561%; ordinary genuineI4=69.081120%. The exact conditional shared recipe is unsupported. [Complete report](typed42_closed_scalar_interpretation_20261010_v1/REPORT.md).
 
-Source: pubmed_factorized_I4_reference_source_20261010_v1, manifest14a36fc9ec515245e6b8b4336d4f9f4eee7cc855deaa1d2c54d3929815761f5e. Actual closure receipts: factorized_I4_reference_root_activation_20261010_v1. Hash-bound complete report/costs: complete_study_readout_root_20261010_v1/factorized_I4_closed_readout_20261010_v1. Interpretation and df2exploratory intervals: factorized_I4_closed_interpretation_20261010_v1. Keep this as the decisive capable reference for private-hop. Earlier gains over ordinaryI4 do not establish an ensemble-specific mechanism.
+PrivateCMCL18 closed with lower member/final quality; its extra coverage did not offset increased lost alternatives. [Complete interpretation](private_CMCL18_closed_scalar_interpretation_20261010_v1/REPORT.md). WikiCS relation feedback failed its fixed utility criterion. Native initialization alone improves mean accuracy0.278094points but worsens NLL0.065817, with NLL harm in all seeds; its frozen screen fails. [Initializer result and exact flows](WikiCS_initializer_alphaF3_focused_history_decision_20261010_v1/REPORT.md).
 
-All9new fit owners total1117.863seconds; other stage and old-anchor costs remain separately retained and counted once. Four independent slow bodies have8335272parameters versus2125647shared. Retrospective body0reuse, validation selection, encountered split, capacity/work differences and acquisition overlap limit causal or speed claims. TEST remains closed.
+All unsuccessful arms, startup failures and old criteria remain preserved. No partial favorable arm is promoted. The new mechanism below is separate from those rejected recipes.
 
-## Heterogeneous context study is complete
+## Active prospective mechanism
 
-All18candidates and24genuine independent reference body fits, plus6reference committees, closed successfully before quality was read. Mean VALID micro-F1: ordinary shared68.437870%, local multiplicative68.279561%, local additive68.165610%, global multiplicative68.178121%, contextual single68.102364%, copied-start untied68.404462%, genuine ordinaryI4 69.081120%, genuine contextualI4 69.044373%. Local multiplicative minus own is+.375049/−.251631/−.598345points; minus genuine ordinaryI4 is−.804621/−.946617/−.653439. BCE is.537806for own,.537691for local multiplicative and.531218for genuine ordinaryI4. Close this exact conditional-label factor recipe; no salvage grid or novelty claim.
+A fixed low-rank exchange lets four routes use the same node's other route states before native graph propagation continues. Baseline/exchange/equal-budget separable blocks share native scorer starts and training. Standard attention/Cross-stitch ancestry and structured wider-model equivalence are explicit; no novel primitive or increased expressivity is claimed.
 
-SeHGNN retains37channels,width512,five Bernoulli outputs and6factor sites. Three observed-label masses and15balances condition2projections. TRAIN uses complementary half-label contexts; VALID pools both raw context logits before member raw-logit pooling. Genuine references use4independent starts and own selectors. Copied-start untied is not ordinaryI4. Contextual I4generator width32perbody differs from contextual single128. Conditional-model ancestry and information/sharing/capacity confounds remain explicit.
+The first full-TRAIN integration attempt on77 hit the configured64GiB process GPU cap. It completed one constructor and attempted one update; zero updates/Adam steps completed. Actual sampled GPU memory reached68,847,403,008bytes. This was an owner memory-cap stop, not a recorded CUDA OOM or predictive failure. Verified child wait and absence, actual costs and the entire V2source remain preserved in live_route_WikiCS_qualification_root_activation_20261010_v1.
 
-Raw genre labels are multi-hot and development rows have nonempty genre sets. All-five-positive channels zero already implies zero observed mass. Explicit mass exposes magnitude/normalization, not newly separating observed-all-negative from unobserved. Identical nonaffine output LayerNorm occurs in shared and genuineI4. No empirical collapse claim follows from scalar invariances.
+Separate V3source processes the two stochastic views sequentially: half-loss forward/backward/release for A, then B, followed by one original Adam update. All4coupled route graphs remain live within each view. The plain own objective has no cross-view term, so its real-arithmetic objective is unchanged; floating-point trajectory identity is not claimed. The same schedule applies to all3arms. The qualifier plans6whole-TRAIN local/global updates,12backwards,6Adam steps and42jointforwards with complete snapshot/RNG restoration. Source is root reviewed; numerical completion remains pending.
 
-Evidence and all fixed arms/costs: complete_study_readout_root_20261010_v1/typed42_closed_scalar_readout_20261010_v3 and typed42_closed_scalar_interpretation_20261010_v1. The V1JSONreader assumed the same TESTfield names in candidate/reference reports and failed before returning quality; both failed attempts are preserved. Reviewed V2admits the exact two schemas separately. Training, selection, context identity, whole-family closure and TESTrestrictions are unchanged. Interpretation uses stored JSON only, no new model/inference or checkpoint selection.
+Source live_route_wikics_native_init_source_20261010_v3, manifest302a1dcf2276a7a8091c3429ab01cf7a034db258fa654647f0b15e5de50b4d6a. Qualifier live_route_wikics_qualification_source_20261010_v3, manifest342ed6687d08887508c974e8e915182d17ca7b1dc84e3ef241cfc5887b29db7b. Root actor live_route_WikiCS_qualification_root_activation_20261010_v2. Full fits, predictive utility and manuscript claims remain unadmitted. The exact public WikiCS TRAIN-only graph is on77via Git; no Mac payload copy.
 
-## Complete WikiCS native-scorer controls
+## Three distinct research roles
 
-All6fits on18.77closed with successful original direct waits and actual process/CUDA absence. Selected metrics came from hash-bound original checkpoints and agree with their1100-epoch trace/earliest strict maxima. The CPU metadata read took2.039s. No new inference, selection, score or training occurred.
+The user explicitly requested new mechanisms, combinations and periodic history revision. The root and three researchers use the available4slots. New mechanisms: query_value_gate_source_review_20261009. Combinations: private_hop_interface_finalize_20261010. History: masked_context_source_audit_20261010. [Standing workflow](RESEARCH_WORKFLOW.md).
 
-Independent native scorer starts, ordinary own supervision, reaches81.75958/81.51308/81.56996%, mean81.61421%. Adding relation ensemble-credit reaches81.74061/81.55100/81.56996%, mean81.62053%. J−F is−.018966/+.037920/0points, mean+.006318. The necessary fixed all-positive/.2point gain criterion fails. Relation feedback is closed.
+Every full family closes with a scientific decision. A broader history revision follows two closures or a changed explanation. Mechanisms need an observed failure, closest primary prior, falsifier, decisive capable reference and estimated compute. Combinations need distinct useful repairs, bounded competence harm and a complete paired baseline/A/B/AB comparison. Current optimizer/view ingredients fail those conditions; combining their names is not progress.
 
-Initializer-only improvement versus copied starts is provisionally+.278094points in the saved aggregate comparison. Original anchor source/recipe/selector/route/endpoint/terminal parity and new NLL/coverage still need full readout before advancing it. Historical independent4 mean82.04399% is contextual and stronger. Known native initialization is not a methodological novelty claim. Do not equate attention-row starts with earlier Rademacher feature signs. Their competence tradeoffs differ.
+Root executes and publishes. Complete positives receive capable references and unused confirmation priority over more ablations. Fresh manuscript reviewers use the supplied skill and immutable completed evidence with fresh context, no author history or desired verdict. No new paper is promoted from setup evidence or partial outcomes.
 
-Evidence: WikiCS_fixed6_focused_history_decision_20261010_v1/REPORT.md and three_research_roles_continuation_20261010_v2/{GPU77_CLOSED6_CUSTODY.json,GPU77_FIXED6_SELECTED_METADATA.json}. No new77training started in this turn. Seven-GPU access remains forwarding only.
+## Routes and provenance
 
-## Private graph-hop supervision is the next fixed hypothesis
+Deliberate operations remain inside allowed local/server repositories. Allocation is literal anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222, hostname anogena-2-0, sole GPU44039938.18.77is peptide with two authorized GPUs. Seven-GPU access is MacLink relay only. Incidental standard runtime caches are permitted. No sudo, PDF compilation, GENLINK, mount/namespace/host-setting changes or unrelated-data access.
 
-Existing source teaches route0 with full context and routes1–3 with factual CE plus persistent missing-hop CE. Shared slow weights receive complete factual mean CE. All targets remain truthful classification targets. Every inference route still uses the full graph. Route-specific incomplete inputs keep all three native token slots, their biases and the original graph preprocessing. They do not force intermediate embeddings to zero.
-
-The4fixedM4 conditions are private missing-hop, full-input auxiliary, common incomplete view and all-block missing-hop. Factorized M1 all-view and a genuine factorized I4 are required references. Lambda.5 remains unchanged. This replaces the CMCL ownership/uniform-discouragement mechanism rather than retaining its exact acquired nodes. Private factual weight is2/3 for routes1–3, so competence preservation is a hypothesis. Correct alternatives, final accuracy/NLL, member competence and introduced errors decide usefulness. The full prospective roster is6arms×3seeds with original horizon and factual selector, no extra grid.
-
-Five-condition full-TRAIN qualification V2 passed all5updates, fresh factual replays and immediate shared-gradient routing. Worker12.544060s and directly waited finite owner14.216396s. All19717nodes/11829TRAINtargets were used;70forwards/36VJPs/5Adamtransitions. This is engineering evidence only. The unchanged full18source was root reviewed, committed at a224df311de4c278f6da3705efa53207f766792b and launched07:19:29UTC. Owner609012/start6042602957 on allocation boot24c315a7-3c08-471f-b550-b9a3e1faf75d owns all6arms×3seeds. At07:21UTC it was live, no failure, first own record active, no partial scores opened. Source private_hop_credit_pubmed_fullfit_source_20261010_v1; manifestd565db9ecde277a1753a4ec040067974a9a5533dfb4a802775ab5f90bdbaad8d; actual receipts private_hop_full18_root_activation_20261010_v1. V1 is preserved. Before any execution, root found and fixed two owner preconditions in V2: initialize the completed-record list and create the engineering folder before progress writes. Numeric method/run.py, finished hooks, masks and lambda are unchanged. Source readiness is not predictive benefit.
-
-## Current execution and prospective mechanisms
-
-The private-factor Adam convention control passed one genuine full PubMed TRAIN update on10October. All46 private R/S groups used decay/epsilon divided by4, while52 native groups and the original training loop stayed unchanged. It took7.073968seconds worker time and8.126313seconds with its finite owner. This is setup evidence only. Three full control fits started08:29:23UTC at source commit70213ae590ac543187dd64a31487d2e65c95a6f7, owner612878/start6043022298. They retain the original full task, seeds, selectors, horizon and factual probability pool. Comparison waits for all3controls, full18 and strong factorized I4.
-
-WikiCS initializer analysis has two preserved startup failures. V2 failed on an importlib local binding. V3 fixed that lexical bug, then failed because embedded process observations were treated as file descriptors. Both stopped before numerical imports/model construction/output creation, so neither made any forward call or changed a prediction. Complete failure receipts are retained in WikiCS_initializer_alphaF3_readout_local_mirror_20261010_v1 and_v2. V4 now binds authenticated original custody and actual raw lane receipts. Its three-record source-only fixture passed. Inputs, selection and the12-call plan are unchanged. A new separately reviewed activation remains required.
-
-The combination role prepared one conditional native-own/normalization/private-hop/both quartet. Normalization targets private learning conventions, while assigned views target graph evidence acquisition. Full-family competence, NLL, exclusive repairs and harm persistence must support those roles before any combined fit. The design does not release jobs or establish novelty. See combination_normalization_private_hop_conditional_design_20261010_v1/REPORT.md.
-
-A distinct proposal lets the four routes exchange a node's intermediate information before continuing native graph aggregation. Existing attention/Cross-stitch ancestry is explicit. A matched separable block with the same parameter budget tests whether any benefit needs exchange between routes. Native-scorer initialization and joint-autograd full-TRAIN qualification source are being integrated. No actual qualification or prediction result exists for this new block.
-
-## Research loop and publication
-
-The user requested3distinct researchers. New mechanisms: query_value_gate_source_review_20261009. Combinations: private_hop_interface_finalize_20261010. Complete-history synthesis: masked_context_source_audit_20261010. Each full family triggers a focused decision, and two closures or a changed explanation trigger a broader update. Proposals cite closest primary sources, a falsifier, decisive references and costs.
-
-History updated8superseded explanations, bounded frozen PubMed reweighting to4/8/2cases and distinguished unachieved residual separation from harmful classifier-visible separation. The inactive signs×private-CMCL design is retired after the complete loss. A proposed private pooled-CE ingredient collided with already tested phiJ/relationJ and known GNCL/Jeffares ancestry. No renamed coefficient grid is launched. Fresh Nash-MTL/PathMLP literature notes preserve scoped reads and prior collisions. Private-hop remains a prospective known-ingredient hypothesis.
-
-Sources, literature notes, state and README were pushed at2040fa166e153175e9c418e64b0a412c90a7254d with exact remote ref verified06:18UTC. Closed results, actual qualification and full18launch are being published separately. The active scientific queue contains the fixed private-hop family; new-method and combination source work remains prospective. Deliberate research operations remain in the allowed repositories, ordinary runtime caches permitted, no sudo, host mounts/namespace changes, unrelated data, GENLINK or PDF compilation. Fresh manuscript reviewers will receive immutable completed paper/evidence with no author history or requested verdict. No new manuscript has been promoted from partial evidence.
-
-## Latest checked publication
-
-70213ae590ac543187dd64a31487d2e65c95a6f7 was pushed and the exact GitHub branch ref verified08:28:36UTC.18.77 fast-forwarded to the same commit08:29:25UTC, preserving live changes. New actual receipts and decisions are published separately.
-
-At08:39:08UTC, the live private-hop owner had completed13of18fits and seed9307__private_missinghop was at epoch422. No failure or partial quality was opened.
-
-## WikiCS initializer readout is complete
-
-The repaired V4 reader completed12new member forwards in12.805690worker seconds, with original direct child wait and process/CUDA absence. No training or old forwards occurred. All3selected reconstruction counts agree with the original endpoints. Native F improves accuracy by+.492984/+.037922/+.303375points, mean+.278094, and mean member accuracy by+.165908points. However pooled NLL worsens every seed by+.073826/+.109650/+.013974, mean+.065817. Its frozen utility screen therefore fails. No initializer confirmation, temperature salvage or grid follows.
-
-Exact pool repairs/harms are140/114,129/127,177/161. Coverage gains/losses are157/102,143/89,193/129. These differ from marginal net gains55/54/64. Original modes and both startup failures remain preserved. See WikiCS_initializer_alphaF3_focused_history_decision_20261010_v1/REPORT.md and periodic_assumptions_next_experiment_audit_20261010_v2/REPORT.md.
-
-All3private-optimizer controls closed successfully by09:00:49UTC. Their quality remains closed until full18and capable references close. At08:53:36UTC private-hop had14of18fits complete, no failure, and the last-seed full_aux arm at epoch576.
-
-The distinct native receiver-exchange source now includes identical native scorer starts across baseline/exchange/separable. It remains a separate untested mechanism after the initializer's failed screen. Its prepared full-TRAIN qualifier covers one local and one global update per kind,6total Adam updates and42jointforwards. Actual qualification and full fits remain unadmitted pending source review. Standard attention/Cross-stitch ancestry, structured wider-model equivalence and required capable same-task references are explicit.
-
-The exact public WikiCS TRAIN-only projection (21,138,856bytes,580TRAINtargets,11701nodes,442907edges) was added to the research Git branch atcfe17c41ec340d56b794239bbaf0736c85f8a15c and synchronized to77. It stays off this Mac. No VALID/TEST label projection, new split or scientific score was generated.
+Latest verified publication before this update:73996ec51da7c41c1a4bf46b6d7cb370dddf53ff, pushed09:13:36UTC and77fast-forwarded09:14:10UTC. This update publishes complete23fit outcomes, actual comparison/qualification failure evidence and the separately reviewed memory repair. Source readiness is not an accuracy result.

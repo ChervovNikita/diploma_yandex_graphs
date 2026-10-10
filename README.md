@@ -1,18 +1,14 @@
 # GNNM: shared propagation in graph ensembles
 
-## Current research — 10 October 2026
+## Current research —10 October2026
 
-We are developing shared-backbone graph ensembles for more accurate predictions than capable singles and independent ensembles. Original five-dataset scores remain unchanged. The methodological-extension goal remains open.
+We are developing a shared-backbone ensemble that improves prediction quality over capable singles and independent ensembles. Original five-dataset scores remain unchanged. The methodological-extension goal remains open.
 
-The complete stronger PubMed comparison reaches 90.8253% mean selected VALID accuracy for factorized independent ensemble, 90.8168% for its admitted first-body single, and 90.9014% for ordinary shared training. Paired accuracy differences have mixed signs. Factorization reproduces most earlier gains over ordinary native models. The stronger independent bank provides many extra correct alternatives, but pooling loses many and barely changes accuracy versus its first body; NLL improves at all three optimization blocks. These are exploratory results on one encountered graph/split, with TEST closed. [Complete reference comparison](experiments_iclr/postsubmission_20260930/factorized_I4_closed_interpretation_20261010_v1/REPORT.md).
+The complete18-fit private graph-view study and3-fit optimizer convention control do not support their intended improvement. Private graph views acquire some useful alternative predictions but weaken members and lose final accuracy at every seed. Optimizer normalization also weakens members. Their proposed combination stays disabled. Complete outcomes, paired error changes, costs and exploratory uncertainty are retained. [Private-hop result](experiments_iclr/postsubmission_20260930/private_hop_full18_closed_interpretation_20261010_v1/REPORT.md) · [Optimizer result](experiments_iclr/postsubmission_20260930/pubmed_normalization_closed_interpretation_20261010_v1/REPORT.md).
 
-All 42 heterogeneous context fits also closed. Current conditional shared factors do not improve over ordinary shared training and lose to both genuine independent reference families. Private CMCL and relation-feedback campaigns also closed negatively. Outcomes, failures and costs remain available; no partial positive is promoted. [Current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md).
+A separate live hidden-route exchange is in development, with native graph layers and an equal-budget separable control. Standard attention/Cross-stitch ancestry is explicit. Its first full-TRAIN integration stopped at a configured GPU memory cap. A separately reviewed sequential-view implementation reduces simultaneous autograd storage while keeping one optimizer step; actual completion and predictive utility remain unmeasured. [Current state](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md).
 
-The new fixed 18-fit study tests persistent private graph-hop supervision with full factual supervision, same-view/common-view/all-block controls, and capable factorized references. It began at 07:19:29 UTC on the authorized allocation. No predictive result is available yet. [Study source](experiments_iclr/postsubmission_20260930/private_hop_credit_pubmed_fullfit_source_20261010_v1/README.md).
-
-Three distinct roles maintain the research loop: new mechanisms from primary literature, combinations supported by complementary repairs, and periodic revision of accumulated conclusions. The latest history map preserves 31 outcome entries and 49 evidence pointers, which are catalogue entries rather than fit totals. It corrects repeated proposals and sets the next experiment order. [Broad synthesis](experiments_iclr/postsubmission_20260930/periodic_completed_history_revision_20261010_v4/REPORT.md) · [Workflow](experiments_iclr/postsubmission_20260930/RESEARCH_WORKFLOW.md).
-
-Datasets, checkpoints and logits remain in authorized server repositories. The complete selected output records and scoped literature conclusions are preserved. Each extension has explicit selection/pooling rules. No new methodological superiority, unused confirmation or fresh manuscript acceptance is established.
+Three researchers cover new mechanisms, evidence-based combinations and periodic revision of the accumulated experiment history. Complete positives must survive capable references and unused confirmation before manuscript claims and fresh independent review. No new methodological superiority or acceptance is established. Datasets, checkpoints and logits remain in authorized server repositories. [Research workflow](experiments_iclr/postsubmission_20260930/RESEARCH_WORKFLOW.md).
 
 ## Original method
 
