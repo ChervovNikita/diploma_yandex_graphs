@@ -1,33 +1,23 @@
 # Current scientific status
 
-10 October 2026. Research active. Original paper scores unchanged. New methodological novelty and independent manuscript acceptance remain unestablished.
+10 October 2026. Research continues. Original paper scores are unchanged. A new methodological advantage and fresh manuscript acceptance remain unestablished.
 
-## Latest result changes the explanation
+## Latest completed results
 
-All six factorized-single PubMed fits have finished. Mean selected validation accuracy is 90.8168% for a factorized single and 90.7830% when that single averages four dropout losses per update. Shared GNNM reaches 90.9014%, the individually selected independent ensemble 90.2165%, and the ordinary native single 89.9374%.
+All 18 specialist-credit fits finished. Private CMCL scored90.3095% versus90.9775% ordinary shared training. It lost accuracy and NLL at all 3 seeds. More correct alternatives appeared in two seeds, but members weakened and averaging lost more alternatives. The exact recipe is closed. Full outcomes, intervals and the error explanation are preserved in [the decision](private_CMCL18_focused_history_decision_20261010_v1/REPORT.md).
 
-A factorized single therefore reproduces most of the earlier shared-model gain. Shared minus factorized single is +0.2537/+0.2029/−0.2029 percentage points across the three optimizer seeds, mean +0.0846. This is a strong competing optimization explanation. It does not prove a causal mechanism, match all M4 coordinates, establish an ensemble-specific advantage, or supply unused confirmation. PubMed TEST remains closed.
+All 6 WikiCS native attention-scorer controls also finished on18.77. Relation-feedback credit changed accuracy by only+.0063points on average, with one loss and one tie, and failed its fixed rule. Independently initialized scorers with ordinary supervision scored81.6142%. Their provisional+.2781point improvement over copied starts needs exact anchor admission and NLL/coverage before it can support another study. Known initialization alone is not a new method. [Complete note](WikiCS_fixed6_focused_history_decision_20261010_v1/REPORT.md).
 
-A capable factorized single is now an essential comparison for the next ensemble extension. The earlier 0.6849-point gain over ordinary independent ensembles is preserved, with this new qualification. Full stored results, failures and costs remain available.
+## Running work
 
-## Current work
+The stronger factorized independent ensemble is training nine new full bodies after three old anchors and the four-body interface passed exact admission/replay checks. Each body has its own full training and checkpoint selection. Compare only after all bodies and three complete committees close. This reference tests whether the earlier shared-model result survives a better ordinary ensemble.
 
-Three researchers have distinct responsibilities: new shared-backbone mechanisms from primary literature; combinations that address different observed failures; and synthesis of completed experiments across the research history. The synthesis updates after every completed family and revisits broad conclusions after two closures or a finding that changes the leading explanation. Each proposal needs a decisive reference and a result that would refute it.
+The heterogeneous graph references finished all 24 body fits and 6 committees. The 18 candidate fits are still running, with 7 complete at 06:33 UTC. Their quality stays closed until the entire candidate family finishes.
 
-The private-specialist-credit study remains running on the one-GPU allocation, with 15 of 18 complete at 06:06 UTC. The full family closes before quality is interpreted. It tests attributed CMCL private credit, shared own-loss protection and scaling controls.
+The next fixed hypothesis teaches private routes with different missing-hop graph views while retaining full-label factual supervision. It includes same-view, common-view, all-block and capable factorized-single controls. The numerical entry is reviewed and awaits actual qualification. Its predictions and member competence are unmeasured.
 
-Five of six WikiCS initializer×feedback fits have closed on 18.77; its last fit was at 961 of 1,100 updates at 06:01 UTC. No new 77 jobs were launched in this update.
+## Workflow
 
-All eight whole-input engineering paths for genuine ordinary and same-information contextual independent SeHGNN references passed and closed in 102.04 seconds. This verifies new constructors, selected-state replay and four-body assembly. It is setup evidence, not an accuracy result. The full reference acquisition started on allocation at 05:24 UTC: 24 independently fitted bodies and six assembled banks. Its owner and first child are verified live. No partial quality has been inspected. The 18 fixed candidate fits started at 06:00 UTC. At 06:06 UTC one candidate fit and 21 of 24 reference bodies were complete. Both whole families must close before comparison.
+Three research roles now cover different mechanisms, combinations and complete-history revision. Each completed family ends in a decision and a next action. The history review has already changed the PubMed explanation: factorized singles reproduce most shared gain, while reweighting unchanged shared predictions has little headroom. A proposed pooled-CE combination was already present in earlier tests and will not be repeated under a new name.
 
-## Error evidence and limits
-
-Stored PubMed and IMDB analyses distinguish weak member predictions from losses during pooling. Shared models mainly have errors that every route makes; the independent PubMed bank has broader correct coverage but loses more correct alternatives during averaging. These descriptions support competence-focused hypotheses without proving a remedy. The masked-context/contrastive-reconstruction screen and the earlier failed IMDB credit recipe remain closed; failures stay in the record.
-
-Complete M1 interpretation, the three research-role outputs, reviewed sources and README were committed and pushed at105a32781f6a68a20c032c2200de18e764199170; the exact remote ref was verified at05:25 UTC. Actual24 launch evidence and this continuation are being committed separately. No PDF compilation, sudo, GENLINK, unrelated-data access, or scientific execution on the seven-GPU relay.
-
-The new-method role saved a private-only missing-hop supervision proposal, with factual shared training retained and competent same-view factorized-single controls. It remains inactive; view diversification and selective gradient placement have prior ancestry. The combination role retained one starts×private-CMCL design on hold. The full-history synthesis is saved at completed_history_ingredient_interaction_synthesis_20261010_v1/REPORT.md.
-
-The three roles have been renewed with different questions. Complete PubMed error evidence also bounds the gain from reweighting unchanged route predictions: at most 4–8 validation nodes per optimizer seed, because all other shared errors have the same strict wrong rival across every route. This directs new mechanisms toward learning different useful class rankings. The bound applies to this saved bank, not all possible shared ensembles.
-
-Candidate source and the reference plan were committed and pushed at819d537014993732123ec2317ccbf57e141f86d3, with exact remote ref verified at 06:02 UTC.
+Source, literature and README were committed/pushed at2040fa166e153175e9c418e64b0a412c90a7254d. This continuation adds completed results and actual launch evidence. TEST remains closed for these new studies. No new training on 18.77 started in this turn, and seven-GPU use remains only forwarding. No sudo, PDF compilation, GENLINK or unrelated-data access.

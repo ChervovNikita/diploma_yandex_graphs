@@ -1,0 +1,52 @@
+--- combination_masked_context_pubmed_stage1_source_20261010_v1/train.py
++++ new_reviewed_private_hop_M4_entry/train.py
+@@ -10,6 +10,8 @@
+ from admission import admit
+ from source import bind, fingerprint, load_v3, sha, write
+ from stage_plan import description, forecast
++from private_hop_credit_source_20261010_v1 import adapter as hop
++from private_hop_credit_pubmed_entry_source_20261010_v1.hooks import fresh, expected_work
+ 
+ 
+ VERIFY_ATOL, VERIFY_RTOL = 2e-6, 2e-6
+@@ -98,7 +100,8 @@
+         valid_ids, valid_y = (torch.from_numpy(validation[key]).to('cuda:0') for key in ('valid_ids','valid_y'))
+         timings['numerical_imports_and_input_seconds'] = time.monotonic()-tick
+         tick = time.monotonic()
+-        session = method.Session(spec['condition'], spec['seed'], tensor['x'], tensor['edge_index'], tensor['train_ids'], tensor['train_y'], device='cuda:0')
++        session = fresh(method, hop, spec['condition'], spec['seed'], tensor,
++                        device='cuda:0', numerical_admitted=spec.get('private_hop_numerically_admitted') is True)
+         assert_independence(session, torch)
+         torch.cuda.synchronize()
+         timings['construction_seconds'] = time.monotonic()-tick
+@@ -151,18 +154,16 @@
+         verify_selected_metrics(selected_metrics, best_metrics)
+         torch.cuda.synchronize(); timings['selected_factual_seconds'] = time.monotonic()-tick
+         tick = time.monotonic()
+-        mask_report, masked_logits = mask_diagnostics(session, method, dict(TRAIN=(session.train_ids, session.train_y), VALID=(valid_ids, valid_y)))
++        mask_report, masked_logits = dict(available=False, reason='No legacy CORE diagnostic in private-hop study'), None
+         torch.cuda.synchronize(); timings['selected_mask_diagnostics_seconds'] = time.monotonic()-tick
+         payload = dict(factual_member_logits=logits.detach().cpu().numpy())
+         if masked_logits is not None: payload['owned_masked_member_logits'] = masked_logits.detach().cpu().numpy()
+         tick = time.monotonic(); np.savez_compressed(output/'SELECTED_MEMBER_LOGITS.npz', **payload)
+         timings['logit_write_seconds'] = time.monotonic()-tick
+-        expected_optimizers = 4 if spec['condition'] == 'independent4_native' else (2 if spec['condition'] == 'shared4_core' else 1)
+-        expected_masks = epochs*4+4 if spec['condition'] == 'shared4_core' else 0
+-        if session.counters['updates'] != epochs or session.counters['backwards'] != epochs*4 or session.counters['optimizer_steps'] != epochs*expected_optimizers or session.counters['factual_forwards'] != epochs*8+4 or session.counters['serving_forwards'] != epochs*4+4 or session.counters['masked_forwards'] != expected_masks:
++        if session.counters != expected_work(session, epochs, evaluations=epochs+1):
+             raise ValueError('Complete declared training/evaluation/diagnostic work counts differ')
+         if time.monotonic()-process_started >= active_cap: raise TimeoutError('Frozen scientific cap before completion')
+-        result = dict(schema='masked-context-PubMed-stage1-complete-v1', complete=True,
++        result = dict(schema='private-hop-PubMed-M4-complete-v1', complete=True,
+             record_id=spec['record_id'], condition=spec['condition'], seed=spec['seed'],
+             source_manifest_sha256=spec['source_manifest_sha256'], release_sha256=spec['_release_sha256'],
+             split_identity=spec['split_identity'], split_seed=190111, providers=providers,
+@@ -188,7 +189,7 @@
+             train_bundle_sha256=spec['train_bundle']['sha256'], valid_bundle_sha256=spec['valid_bundle']['sha256'],
+             TEST_labels_or_id_inputs=False, TEST_scored=False, automatic_retry=False,
+             competence_established_by_completion=False, whole_nine_comparison_required=True,
+-            owner_success_not_inferred=True, independent_primary_common_bank_selector=True)
++            owner_success_not_inferred=True, independent_primary_common_bank_selector=False)
+         write(output/'COMPLETE.json', result)
+         return result
+     except BaseException as error:

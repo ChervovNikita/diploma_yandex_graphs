@@ -1,0 +1,41 @@
+CUDA_VISIBLE_DEVICES= /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git/.gnnm_runtime/private_transfer_cp311_cu118_20261005_v1/bin/python -B -c 'from pathlib import Path
+import base64,hashlib,json,socket,subprocess
+from datetime import datetime,timezone
+assert socket.gethostname()=="peptide"
+assert subprocess.check_output(["nvidia-smi","--query-gpu=uuid","--format=csv,noheader"],text=True,timeout=10).splitlines()==["GPU-98aa0f2e-3dd1-5cd8-f001-f259f707a998","GPU-5dcf7db7-a450-3ca8-41b2-6c5316128ced"]
+R=Path("/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git");P=R/"experiments_iclr/postsubmission_20260930";A=P/"graph_relation_independent_native_local_scorer_training_activation_root_20261010_v1"
+plan=json.loads((A/"OWNER_PLAN.json").read_text());assert hashlib.sha256((A/"OWNER_PLAN.json").read_bytes()).hexdigest()=="88f10a0607fd416a11310a32338907d1656c5abfe0852175afed0b3d675929ef"
+closures=[]
+for lane,pid in (("8ced",4043992),("a998",4043993)):
+ assert not Path("/proc",str(pid)).exists()
+ O=P/plan["lanes"][lane]["owner_output"]
+ assert not (O/"FAILURE.json").exists()
+ closure=json.loads((O/"LANE_CLOSURE.json").read_text());assert closure["complete"]
+ for r in closure["records"]:
+  assert r["status"]=="complete" and r["actual_exit"]["exit_code"]==0 and r["actual_exit"]["terminal_wait_observed"]
+  assert r["physical_terminal"]["direct_wait_observed"] and r["physical_terminal"]["child_absent"] and r["physical_terminal"]["child_no_CUDA_rows"]
+ closures.append(closure)
+assert sum(len(c["records"]) for c in closures)==6
+import torch,gc,time
+started=time.monotonic();torch.set_num_threads(1)
+records=[]
+for closure in closures:
+ for row in closure["records"]:
+  r=row["completion"];q=P/r["path"];raw=q.read_bytes();assert len(raw)==r["bytes"] and hashlib.sha256(raw).hexdigest()==r["sha256"]
+  complete=json.loads(raw);assert complete["complete"] and complete["TEST_scoring"] is False
+  checkpoint=P/row["selected_checkpoint"]["path"];assert checkpoint.resolve().is_relative_to(P)
+  h=hashlib.sha256()
+  with checkpoint.open("rb") as handle:
+   for block in iter(lambda:handle.read(1024**2),b""):h.update(block)
+  assert h.hexdigest()==complete["selected_sha256"]==row["selected_checkpoint"]["sha256"]
+  state=torch.load(checkpoint,map_location="cpu",weights_only=False)
+  assert state["run"]["seed"]==complete["seed"] and state["run"]["arm"]==complete["arm"]
+  assert state["checkpoint_kind"]=="strict-first-maximum complete VALID joint snapshot"
+  trace_path=checkpoint.parent/"VALID_TRACE.json";trace_raw=trace_path.read_bytes();trace=json.loads(trace_raw)
+  assert len(trace)==1100
+  best=max(trace,key=lambda r:r["VALID_selector"])
+  assert best["epoch"]==state["epoch"] and best["VALID_selector"]==state["selected_VALID"] and best["members"]==state["member_VALID"]
+  records.append(dict(cell_id=row["cell_id"],seed=complete["seed"],arm=complete["arm"],selected_epoch=state["epoch"],selected_VALID_accuracy=state["selected_VALID"],selected_member_accuracy=state["member_VALID"],selected_global=state["global"],training_seconds=complete["seconds"],parameter_counts=complete["parameter_counts"],checkpoint=row["selected_checkpoint"],complete=r,trace=dict(path=str(trace_path.relative_to(P)),bytes=len(trace_raw),sha256=hashlib.sha256(trace_raw).hexdigest()),selector_values_read_from_original_state=True))
+  del state;gc.collect()
+print(json.dumps(dict(schema="WikiCS-fixed6-original-selected-metadata-v1",UTC=datetime.now(timezone.utc).isoformat(),whole6_closed=True,records=records,seconds=time.monotonic()-started,checkpoint_metadata_loaded_on_CPU=True,new_model_calls=0,no_new_metric_from_predictions=True,TEST_access=False,original_paper_scores_changed=False,old_anchor_comparison_not_performed=True)))
+'
