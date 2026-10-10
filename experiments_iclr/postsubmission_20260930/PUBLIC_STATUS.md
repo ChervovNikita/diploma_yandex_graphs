@@ -21,3 +21,13 @@ The new-method role checks mechanisms and their closest primary papers. The comb
 Next priorities are to finish private-hop 18-fit study, admit the existing Wiki initializer's original parity/NLL/coverage, and put unused confirmation before extra ablations if a method survives capable references. A stored-error intersection can later distinguish new graph-view repairs from stronger I4 repairs; it does not train an oracle selector. No renamed coefficient grid is launched.
 
 TEST stays closed in these studies. No new 18.77 training started in this continuation. Seven-GPU access is forwarding only. Sources, outcomes and actual receipts are being committed and pushed. No sudo, PDF compilation, GENLINK or unrelated-data access.
+
+## Newly started foundation control and separated research roles
+
+One full-TRAIN optimizer inventory check passed. Three complete PubMed fits now test whether dividing only the private factors' coupled Adam decay/epsilon by4 changes member competence and final quality. They started08:29:23UTC with the original task, seeds, horizon and selector. This is an attributed optimizer control, not a new method or measured gain.
+
+WikiCS initializer readout stopped twice before inference due to two source bugs. Both failures are preserved and a minimal schema repair passed its three-record metadata fixture and awaits activation. Original completed training remains valid and unchanged. No new77training started.
+
+The new-mechanism role prepares live hidden-route exchange on native WikiCS message passing with equal-budget separable and published-method comparisons. The combination role fixes a conditional normalization/private-hop quartet and exact repair/harm diagnostics. The history role revisits assumptions and duplicate proposals. Jobs and claims require complete evidence, capable references and unused confirmation. The current source commit70213ae is pushed and synchronized to77.
+
+Latest private-hop observation08:39UTC:13of18fits complete, no failure, last seed private-hop arm active. Partial family quality remains closed.

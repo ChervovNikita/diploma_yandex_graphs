@@ -1,0 +1,53 @@
+--- V3/collect_alphaF3.py
++++ V4/collect_alphaF3.py
+@@ -41,6 +41,14 @@
+     manifest = read(g.bound(cfg['source_manifest']))
+     for row in manifest['files']:
+         g.bound(row)
++    read_bindings = read(HERE / 'READ_BINDINGS.json')
++    custody_descriptor = next(r for r in read_bindings['files']
++        if r['path'] == 'three_research_roles_continuation_20261010_v2/GPU77_CLOSED6_CUSTODY.json')
++    authenticated_custody = read(g.bound(custody_descriptor))
++    g.require(authenticated_custody == pins0['whole6_original_custody'] and authenticated_custody['whole6_closed']
++        and all(o['complete'] for o in authenticated_custody['owner_closures']), 'Authenticated original whole-six custody')
++    authenticated_rows = {r['cell_id']: (o['lane'], r) for o in authenticated_custody['owner_closures'] for r in o['records']}
++    g.require(len(authenticated_rows) == 6, 'Exact original six custody slots')
+     g.require(pins0['whole6_closed'] and len(pins0['whole6_original_selected_records']) == 6
+         and [r['seed'] for r in pins0['records']] == [6101, 6203, 6307]
+         and cfg['maximum_member_forwards'] == 12, 'Already closed six; exact F-only three')
+@@ -60,8 +68,33 @@
+         completed = read(g.bound(new['complete']))
+         g.require(completed['complete'] and completed['epochs'] == completed['steps'] == 1100
+             and completed['selected_sha256'] == new['selected_checkpoint']['sha256'], 'Original completed new F')
+-        for key in ('actual_exit', 'physical_terminal', 'release'):
+-            g.bound(new['original_closed_custody'][key])
++        cell = new['original_selected_scalars']['cell_id']; lane, authenticated = authenticated_rows[cell]
++        g.require(new['original_closed_custody'] == authenticated and authenticated['status'] == 'complete'
++            and authenticated['automatic_retry'] is False and new['complete'] == authenticated['completion']
++            and new['selected_checkpoint'] == authenticated['selected_checkpoint'], 'Exact authenticated inline cell and descriptors')
++        for key in ('release', 'completion', 'selected_checkpoint'):
++            g.bound(authenticated[key])
++        actual_exit = authenticated['actual_exit']; physical_terminal = authenticated['physical_terminal']
++        identity = actual_exit['child_identity']
++        expected_argv = [pins['runtime']['python'], '-B', str(g.bound(pins0['native_helper'])), '--release',
++            str(g.bound(authenticated['release'])), '--release-sha256', authenticated['release']['sha256']]
++        g.require(actual_exit['cell_id'] == cell and actual_exit['exit_code'] == 0
++            and actual_exit['terminal_wait_observed'] is True and actual_exit['exit_code_authority'] == 'subprocess.Popen.wait/poll'
++            and actual_exit['identity_admitted_for_signals'] is True and actual_exit['attempts'] == 1
++            and actual_exit['retry'] is False and actual_exit['reason'] is None and not actual_exit['signals_sent']
++            and actual_exit['signal_refusal'] is None and actual_exit['job_sha256'] == authenticated['release']['sha256']
++            and actual_exit['cwd'] == actual_exit['observed_cwd'] == pins['runtime']['repository']
++            and identity == actual_exit['raw_identity_observation'] == physical_terminal['identity']
++            and identity['observation_complete'] is True and identity['argv'] == expected_argv
++            and type(identity['PID']) is int and identity['PID'] > 0 and identity['pgid'] == identity['sid'] == identity['PID']
++            and type(identity['start_ticks']) is int and identity['start_ticks'] > 0
++            and physical_terminal['actual_exit_code'] == 0 and physical_terminal['direct_wait_observed'] is True
++            and physical_terminal['child_absent'] is True and physical_terminal['child_no_CUDA_rows'] is True,
++            'Original actual wait, child identity and process/CUDA absence')
++        # Original run_existing_owner.py writes these under lane.owner_output/logs, not release.parent/../logs.
++        original_logs = g.inside('graph_relation_independent_native_local_scorer_training_supervision_root_20261010_v1/' + lane) / 'logs'
++        g.require(read(original_logs / (cell + '.EXIT.json')) == actual_exit
++            and read(original_logs / (cell + '.PHYSICAL_TERMINAL.json')) == physical_terminal, 'Actual raw lane receipts equal authenticated observations')
+     runtime = pins['runtime']; source = pins['data_source_pins']
+     g.require(socket.gethostname() == runtime['hostname'] and Path.cwd().resolve() == Path(runtime['repository']).resolve()
+         and str(Path(sys.executable).absolute()) == runtime['python'] and os.environ.get('PYTHONPATH', '') == ''
