@@ -63,8 +63,24 @@ WikiCS fixed TEST is not classified as unused because older access remains unrec
 
 ## Execution and publication
 
-Latest verified allocation/GitHub head: aa438100964ce6ceb062939b4363826bfd1c9eb3, pushed at15:08:06UTC. Complete bootstrap/full-nine results and graph source/start are published. Complete graph aggregation outcomes and latest scoped literature notes are next for publication. 18.77 retains a7c87fcb for its unchanged completed fit source. Checkpoints, datasets and logits stay server-side.
+Latest verified allocation/GitHub head: 620aebc3f8b39ada9e43caeadcb11026e4a45a7f, pushed at16:27:42UTC. Graph aggregation outcomes, retrieval source, actual TRAIN derivative qualification and the three execution freezes are published. The latest complete combination outcomes, reader repair, execution starts and current status are next for publication. 18.77 retains a7c87fcb for its unchanged completed fit source. Checkpoints, datasets and logits stay server-side.
 
 Use the literal one-GPU allocation route anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222; verify anogena-2-0 and sole GPU-44039938-fd82-41d2-fefd-de71514e2fac before project operations. 18.77 is shmelev@192.168.18.77, hostname peptide. Seven-GPU access is MacLink relay only. No sudo, PDF compilation, GENLINK, unrelated-data access or host mount/settings changes. Incidental standard caches are allowed.
 
 Root executes and publishes. Three distinct researchers handle new mechanisms, combinations and completed-history synthesis when useful. Source preparation is not scientific success. A positive screen needs capable matched controls and unused confirmation before paper claims. Fresh manuscript reviewers use the supplied skill, immutable evidence and fresh context without author history or a requested verdict; all reviews are preserved.
+
+## Complete bootstrap and graph-serving combination
+
+The fixed36-bank/900-endpoint diagnostic closed at16:24:26UTC, exit0, with all endpoints finite and zero new GNN training. Its complete stored-prediction reader finished server-side. An SSH transport timeout was recovered from the existing full report and all16 compact partitions; no training or analysis rerun followed.
+
+All six block accuracy-transfer and pooled-NLL-protection flags fail. Paired-correction A+B reaches81.342435% GAT and79.591708% SAGE, against equally graph-scored ordinaryI4 at82.088232% and81.064341%. Every paired seed is below that reference. A narrower SAGE pooled benefit remains: A+B minus its unweighted graph cell is+0.233852pp, positive at all three seeds, with NLL−0.013995. A+B minus bootstrap native is+0.189609pp. It rescues49 of126 newly covered alternatives that bootstrap averaging lost, but still loses77 and introduces48 harms on B-served alternatives. The original member-protection failure stays separate from final pooled usefulness. Close this fixed broad-superiority recipe; preserve the conditional serving effect and every repair/harm contrast.
+
+This remains encountered WikiCS development, with three optimization repeats on one graph. Checkpoint selection used allVALID labels before fusion folds, so the folds do not provide unused whole-pipeline confirmation. [Complete combination](bootstrap_graph_serving_combination_root_20261010_v1/COMPLETE_ANALYSIS_SUMMARY.json).
+
+## Running distinct retrieval acquisition study
+
+The three fixed label-retrieval families launched at16:28:20UTC on the verified one-GPU allocation, with owner/child pairs SAGE620581/620587, GCN620582/620589 and GAT620583/620588. The16:41:20UTC observation found all owners and children live, no reported failure, and6/21 completed acquisition units per family. No partial predictive outcome was opened. Complete all63 fits before comparison.
+
+Live hidden states retrieve class values from permitted TRAIN anchors. Common half-TRAIN queries are excluded from every route's retrieval support. Native CE and retrieval CE jointly update the model; serving mixes native and retrieval probabilities equally. The roster includes same-information live shared4, detached shared4, single and genuine independent4 across SAGE/GCN/GAT and three paired seeds. The known Matching Networks/NCA-family decoder is an attributed ingredient; no primitive novelty follows. Qualification passed actual TRAIN derivatives and serving shapes without validation scoring. The source-only complete reader preserves native components separately from mixed-selected predictions and awaits numerical execution after all closures.
+
+A successful screen prioritizes capable label-aware published references and unused confirmation. A failed screen closes this exact rule, rather than authorizing a rescue grid. The paper and original scores remain unchanged. [Frozen retrieval decision](nonlocal_label_retrieval_pilot_root_20261010_v1/DECISION.md).
