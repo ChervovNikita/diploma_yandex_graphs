@@ -1,0 +1,37 @@
+# Efficient ensemble comparisons for live route exchange
+
+**Decision:** if the complete seven-arm SAGE screen is favorable, add **one Packed-Ensembles graph comparator, M4/γ1**, with a prospective whole-model storage-budget width and competent acquisition. Full-width genuine I4 remains the quality reference. Generic nonlinear communication or its graph application is not a new ensemble principle.
+
+The reviewed exchange is `Z̃_v = Z_v + A_v(Z_v V)U`, with `A_v = row-softmax((Z_v Q)(Z_v K)ᵀ/√r)` and diagonal masked. The four separately normalized live states at node v supply recipient queries and foreign values. Each updated row enters its own next graph/root computation; the raw residual remains. Mean own CE couples all gradients. This creates one structured predictor over `(node,route)` states, not four independent predictors or additional observations. Zero outgoing U is standard residual initialization.
+
+## Exact operation overlap
+
+| Primary method | What overlaps | What the inspected method does differently |
+|---|---|---|
+| [MIMO](https://arxiv.org/html/2010.06610v2), §2/§3.5 | One jointly trained body, multiple supervised outputs and repeated-input serving. Input correlation explicitly controls sharing. | Native training independently samples input/label tuples, concatenates inputs before the body, sums matched NLLs, and repeats one example only at inference before probability pooling. Our routes receive the same node/label during training and explicitly exchange continuing states. That is closer to MIMO's fully repeated-input limit than its independent-tuple acquisition. |
+| [Packed-Ensembles](https://arxiv.org/html/2210.09184v4), §3 | Packs multiple nonlinear trajectories into one execution. Same data can feed all members; separate parameters need no independently shuffled examples. | Block-diagonal groups preserve parameter/gradient independence through every layer; there is no off-diagonal hidden-state exchange. Per-member width is αC/M, hidden quadratic storage scales α²/(Mγ). Packing full-width bodies is ordinary I4 execution. |
+| [Cross-stitch](https://arxiv.org/html/1604.03539v1), §3.3/Eqs1–2; [Set Transformer](https://arxiv.org/abs/1810.00825v3), §3.1/Eqs6–8 | Cross-stitch sends learned mixtures into each stream's next layer and couples gradients. Set attention returns a recipient-conditioned updated state for every input element. | Cross-stitch uses learned static coefficients; Set Transformer is a general set-attention architecture. Node conditioning, foreign-only masking, narrow projections, tied GNN maps and own terminal CE are specified choices, not new interaction primitives. |
+| [HGEN](https://arxiv.org/abs/2509.09843v1), §3.1–3.2/Eqs4–6; [LHGEL](https://arxiv.org/abs/2510.03432v1), §III-C/Eqs8–12 | Joint graph-ensemble learning and node-wise residual-attention fusion of multiple hidden embeddings are direct prior. | The inspected HGEN states are final GNN outputs; within-path fusion makes one representation. LHGEL fuses batch-setting then relation-group representations into one downstream state. Neither inspected fusion returns four recipient states to their next graph blocks. This is a scoped placement distinction, not a whole-paper absence claim. |
+| [GMoE](https://arxiv.org/html/2304.02806v1), §3.2 | Node-conditioned expert combinations occur inside graph layers; replacing every GNN layer already gives recurrent graph evidence mixing. | It combines hop1/hop2 experts into one composite node state, with top-k routing/balance losses. Our four continuing recipient states and own classifiers specify a different architecture/objective contract. No graph-mixing novelty follows. |
+
+Saved SAGMM source findings also establish thresholded, unnormalized expert-state sums followed by a learned projection. FFL/PCL establish online nonlinear hidden fusion and coupled branch supervision. Neither cheap final probability weighting nor a frozen late readout describes all relevant prior.
+
+## What remains distinct and testable
+
+The narrow distinction is **which donor state is sent at each source node before another graph update**, while recipient identities persist. For fixed linear propagation P, constant member mixing B commutes with P; node-dependent B generally gives `P(BH) ≠ B(PH)`. Nonlinear later blocks add further composition. This can change rankings beyond convex averaging of terminal predictions, but it introduces no new input information and can spread common mistakes. Existing private heads can also make late recombination change rankings, so escaping a shared wrong rival does not by itself identify a graph-propagation mechanism.
+
+A favorable complete screen would establish a useful operating point only against capable single/genuine-I4/factorized references and the equal-size separable control. Static same-site cross-stitch is the closest published mechanism reference already identified in saved work. The identical coupled forward trained on the served-pool CE is the existing structured-single explanation control; neither is claimed as a newly discovered method here.
+
+## One next efficient baseline
+
+Use PE4/γ1 with untied complete SAGE maps, private normalization/heads and independently acquired members. Choose one legal width from the **complete** parameter count before outcomes; α=√M only matches interior quadratic weights. Preserve current graph/data roles, full horizon opportunity and explicit loss/selection/reducer semantics. Native PE probability pooling differs from current raw-logit pooling and must be prospectively declared. Do not handicap it with additional subgroup sparsity or transplant stale width44. Narrowed members require measured competence; a win over weak narrow PE cannot replace the full-width I4 comparison.
+
+For fixed SAGE aggregation, `P[H₁,…,H₄]=[PH₁,…,PH₄]` permits exact channel packing, but all four edge-channel trajectories remain paid. Parameter, activation, edge-channel and wall-time budgets differ. Count fitting/selection, optimizer storage, failed work, every member trajectory, pooling and actual serving memory/time. No vision overhead or grouped-kernel speed is transferred.
+
+**No additional new hypothesis is retained.** Faithful MIMO on complete cached SIGN/token rows is materially different acquisition, but that conditional utility question is already saved. Arbitrary feature-row shuffling under unchanged adjacency corrupts graph correspondence. Reopening its separate contract now would add an unqualified family. Rank1BNN remains inactive and attributed.
+
+## Scope and unresolved sources
+
+Saved notes were read first. Seven retained primary method scopes were inspected: MIMO, PE, Cross-stitch, Set Transformer, HGEN, LHGEL and GMoE. This pass adds zero new paper identities, downloads or full-paper reads; no author-code/runtime/proof/result audit. Adjacent published numerical wording was incidentally visible and unused. The missing `REPORT.md` in the live architecture packet was corrected to its actual `CONCLUSIONS.json`/hypothesis/scope files.
+
+[Graph ensemble neural network](https://doi.org/10.1016/j.inffus.2024.102461) and [GEENI](https://doi.org/10.1145/3489517.3530416) retain unresolved full-method gaps. Prior publisher/SSRN/author-copy attempts supply no absence evidence; repeated blocked searches would not clear overlap. No numerical execution, scientific-host access, TEST labels, source/launcher changes, acceptance verdict, or canonical edits occurred. Exact local passages and input hashes accompany this memo.
