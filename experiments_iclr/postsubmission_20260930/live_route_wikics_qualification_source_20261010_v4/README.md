@@ -1,0 +1,5 @@
+# Finite TRAIN qualifier with float32 replay tolerance
+
+The scientific source remains the exact separately reviewed V3 sequential-view source. V4 changes only qualification result/release identity and the numerical output replay tolerance to rtol=0.0001, atol=0.00001. Original shape, finiteness, exact weights/Adam state signatures, native initialization, RNG bytes/endpoints, registration, gradients, full-graph updates, snapshots and work checks remain unchanged. All three cases use this one declared tolerance before any quality evaluation.
+
+The preceding V3 attempt completed baseline local/global updates and exact model/optimizer restoration but stopped on a maximum output difference of0.00000318885. The memory repair reached about39GiB reserved. Its actual failure, costs and wait/absence evidence are preserved. No CUDA OOM or accuracy failure occurred. The replay tolerance measures floating-point output agreement and is not a scientific selection gate. No old score changes, quality scoring or full fit is admitted by this source. No numerical tolerance grid or automatic retry is allowed.

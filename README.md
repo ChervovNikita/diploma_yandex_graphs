@@ -6,7 +6,7 @@ We are developing a shared-backbone ensemble that improves prediction quality ov
 
 The complete18-fit private graph-view study and3-fit optimizer convention control do not support their intended improvement. Private graph views acquire some useful alternative predictions but weaken members and lose final accuracy at every seed. Optimizer normalization also weakens members. Their proposed combination stays disabled. Complete outcomes, paired error changes, costs and exploratory uncertainty are retained. [Private-hop result](experiments_iclr/postsubmission_20260930/private_hop_full18_closed_interpretation_20261010_v1/REPORT.md) · [Optimizer result](experiments_iclr/postsubmission_20260930/pubmed_normalization_closed_interpretation_20261010_v1/REPORT.md).
 
-A separate live hidden-route exchange is in development, with native graph layers and an equal-budget separable control. Standard attention/Cross-stitch ancestry is explicit. Its first full-TRAIN integration stopped at a configured GPU memory cap. A separately reviewed sequential-view implementation reduces simultaneous autograd storage while keeping one optimizer step; actual completion and predictive utility remain unmeasured. [Current state](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md).
+A separate live hidden-route exchange is in development, with native graph layers and an equal-budget separable control. Standard attention/Cross-stitch ancestry is explicit. Its first full-TRAIN integration stopped at a configured GPU memory cap. A separately reviewed sequential-view implementation reduces simultaneous autograd storage while keeping one optimizer step; two baseline updates completed within memory; a separate qualifier-only replay tolerance amendment is pending. Predictive utility remains unmeasured. [Current state](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md).
 
 Three researchers cover new mechanisms, evidence-based combinations and periodic revision of the accumulated experiment history. Complete positives must survive capable references and unused confirmation before manuscript claims and fresh independent review. No new methodological superiority or acceptance is established. Datasets, checkpoints and logits remain in authorized server repositories. [Research workflow](experiments_iclr/postsubmission_20260930/RESEARCH_WORKFLOW.md).
 
@@ -261,28 +261,3 @@ For current completed comparisons, queue state and qualification limits, see [cu
 
 The current scientific comparisons and callable code are described above. Full original scores, unsuccessful experiments, costs and literature decisions remain in the [research ledger](experiments_iclr/postsubmission_20260930/research_ledger.json). Stronger individual members can still share their mistakes; model comparisons therefore assess both member competence and the final ensemble's errors.
 
-## Research workflow update (10 October 2026)
-
-Three research roles now run alongside experiment coordination. One checks different mechanisms against primary literature. One tests whether ingredients address different prediction failures and develops the required capable references. One revisits complete experimental families and supersedes explanations when new controls change them. Each family closure ends in a scientific decision and a next action. The [workflow](experiments_iclr/postsubmission_20260930/RESEARCH_WORKFLOW.md) fixes this cadence.
-
-The complete factorized-single controls changed the PubMed explanation. Factorized M1 validation accuracy is 90.8168%, compared with 90.9014% shared M4. Both factorized-single recipes outperform the ordinary independent ensemble in each optimizer seed. The old shared-versus-ordinary-ensemble gain therefore does not establish an ensemble-specific improvement. The stronger factorized independent reference has since completed. Its mixed accuracy contrasts and improved NLL are reported in the current research section above.
-
-The [history update](experiments_iclr/postsubmission_20260930/completed_history_supersession_and_decision_update_20261010_v1/REPORT.md) also identifies a limited opportunity for reweighting unchanged outputs. All shared PubMed errors without any correct member have a common strict false rival. A nonnegative mixture of the same probabilities could repair at most 4, 8 and 2 validation cases across the three seeds. Improving those remaining cases requires different member predictions. This bound describes the saved bank and does not establish a new method.
-
-The heterogeneous-context family has since closed all42fits negatively for the current conditional shared recipe. Private-specialist credit and WikiCS relation feedback also closed without the required gain. WikiCS initialization remains a complete trained candidate awaiting its repaired stored-output readout. The private-hop18study and3private-optimizer controls currently train. Original paper scores and TEST closure remain unchanged. Updated [status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md) and the ledger distinguish source preparations, running studies and completed predictive evidence.
-
-## Active source and execution update
-
-The private-factor Adam convention control passed one full-TRAIN update. Three full PubMed fits started08:29:23UTC, changing only private decay/epsilon by the derived factor of4. All3controls and the full18private-hop study must close before their comparison. Setup is not prediction evidence.
-
-Two WikiCS initializer-readout startup failures are preserved. Both occurred before numerical imports or model inference. A minimal custody-schema repair is in preparation. The separate live-route exchange proposal and conditional normalization/private-hop quartet remain untested. [Current state](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md) distinguishes these stages.
-
-Source commit70213ae590ac543187dd64a31487d2e65c95a6f7 was pushed with the exact GitHub ref verified and synchronized to18.77. Subsequent actual receipts and scientific decisions are committed separately.
-
-## Closed initialization screen and new mechanism sources
-
-The exact WikiCS initializer readout completed all12planned new member forwards. Mean accuracy improved0.278094points, but pooled NLL worsened0.065817, with adverse NLL at every seed. Its frozen utility screen fails and does not authorize initializer confirmation, calibration or another grid. [Full tradeoff and prediction flows](experiments_iclr/postsubmission_20260930/WikiCS_initializer_alphaF3_focused_history_decision_20261010_v1/REPORT.md).
-
-The three private-factor Adam normalization controls completed training. Quality remains closed until private-hop18closes. The distinct live hidden-route exchange has a new source, equal-budget separable block and whole-TRAIN local/global qualification entry. These remain untested, with standard attention/Cross-stitch ancestry and capable references explicitly required. [New source](experiments_iclr/postsubmission_20260930/live_route_wikics_native_init_source_20261010_v2/README.md) · [Qualifier](experiments_iclr/postsubmission_20260930/live_route_wikics_qualification_source_20261010_v2/README.md).
-
-The exact public WikiCS TRAIN-only projection is retained once in this research branch for native setup reproduction and inter-server synchronization. It contains features, edges and580training labels only. No new validation or test score was generated by transport.
