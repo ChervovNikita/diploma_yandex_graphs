@@ -6,7 +6,7 @@
 
 On full PubMed, ordinary shared GNNM achieved90.9014% mean selected validation accuracy. A genuine four-model ensemble with individually selected checkpoints achieved90.2165%; the native single89.9374%; a single averaging four dropout losses per update89.8698%. Shared GNNM beat all three controls in every optimizer seed. Its gain over the independent ensemble averaged0.6849 percentage points, with better NLL and mean member accuracy in all three seeds.
 
-This is promising exploratory evidence from one encountered graph and one split. It weakens two alternative explanations, but extra factor parameters remain a possible cause. Six full single-member factor controls are being prepared. PubMed TEST remains closed, and unused confirmation is still needed.
+This is promising exploratory evidence from one encountered graph and one split. It weakens two alternative explanations, but extra factor parameters remain a possible cause. Six full single-member factor controls are sealed and source-reviewed, scheduled after the running allocation study; qualification and training remain unstarted. PubMed TEST remains closed, and unused confirmation is still needed.
 
 The separate masked-context/contrastive-reconstruction screen failed its fixed continuation criteria. Its18 additions remain disabled. Failed ideas remain in the record.
 
