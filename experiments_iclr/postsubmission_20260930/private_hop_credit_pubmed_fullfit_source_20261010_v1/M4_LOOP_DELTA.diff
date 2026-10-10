@@ -1,0 +1,86 @@
+--- combination_masked_context_pubmed_stage1_source_20261010_v1/train.py
++++ m4_fit.py
+@@ -21,7 +21,7 @@
+         raise ValueError('Selected exact count/identity changed')
+ 
+ def checkpoint(session, epoch, metrics, signatures):
+-    return dict(schema='masked-context-selected-predictor-v1', epoch=epoch, selected_VALID=metrics,
++    return dict(schema='private-hop-selected-predictor-v1', epoch=epoch, selected_VALID=metrics,
+                 condition=session.name, seed=session.seed,
+                 selected_prediction_signatures=signatures,
+                 bodies=[{k:v.detach().cpu().clone() for k,v in body.state_dict().items()} for body in session.bodies],
+@@ -30,7 +30,7 @@
+                 serving='factual mean of four member softmax class probabilities',
+                 resumable=False, optimizer_history_included=False, labels_included=False)
+ 
+-def fit(spec, output, process_started):
++def fit(spec, output, process_started, factory, work, serving_benchmark):
+     session = None
+     output.mkdir(parents=True, exist_ok=False)
+     timings = dict(numerical_imports_and_input_seconds=0., construction_seconds=0., update_seconds=0.,
+@@ -41,7 +41,7 @@
+         tick = time.monotonic()
+         import numpy as np
+         import torch
+-        from metrics import classification, mask_diagnostics
++        from metrics import classification, repair_diagnostics
+         v3 = load_v3(numerical=True)
+         method = v3['method']
+         providers = dict(torch=str(torch.__version__), numpy=str(np.__version__))
+@@ -78,7 +78,7 @@
+         valid_ids, valid_y = (torch.from_numpy(validation[key]).to('cuda:0') for key in ('valid_ids','valid_y'))
+         timings['numerical_imports_and_input_seconds'] = time.monotonic()-tick
+         tick = time.monotonic()
+-        session = method.Session(spec['condition'], spec['seed'], tensor['x'], tensor['edge_index'], tensor['train_ids'], tensor['train_y'], device='cuda:0')
++        session = factory(method, spec['condition'], spec['seed'], tensor)
+         assert_independence(session, torch)
+         torch.cuda.synchronize()
+         timings['construction_seconds'] = time.monotonic()-tick
+@@ -131,24 +131,28 @@
+         verify_selected_metrics(selected_metrics, best_metrics)
+         torch.cuda.synchronize(); timings['selected_factual_seconds'] = time.monotonic()-tick
+         tick = time.monotonic()
+-        mask_report, masked_logits = mask_diagnostics(session, method, dict(TRAIN=(session.train_ids, session.train_y), VALID=(valid_ids, valid_y)))
++        roles = dict(TRAIN=(session.train_ids, session.train_y), VALID=(valid_ids, valid_y))
++        readouts = {name:dict(classification=classification(logits, probabilities, *role),
++                             repair=repair_diagnostics(logits, probabilities, *role),
++                             prediction_signatures=prediction_signatures(logits, probabilities, *role)) for name,role in roles.items()}
++        mask_report, masked_logits = dict(available=False, reason='No CORE diagnostic in hop study'), None
+         torch.cuda.synchronize(); timings['selected_mask_diagnostics_seconds'] = time.monotonic()-tick
+         payload = dict(factual_member_logits=logits.detach().cpu().numpy())
+         if masked_logits is not None: payload['owned_masked_member_logits'] = masked_logits.detach().cpu().numpy()
+         tick = time.monotonic(); np.savez_compressed(output/'SELECTED_MEMBER_LOGITS.npz', **payload)
+         timings['logit_write_seconds'] = time.monotonic()-tick
+-        expected_optimizers = 4 if spec['condition'] == 'independent4_native' else (2 if spec['condition'] == 'shared4_core' else 1)
+-        expected_masks = epochs*4+4 if spec['condition'] == 'shared4_core' else 0
+-        if session.counters['updates'] != epochs or session.counters['backwards'] != epochs*4 or session.counters['optimizer_steps'] != epochs*expected_optimizers or session.counters['factual_forwards'] != epochs*8+4 or session.counters['serving_forwards'] != epochs*4+4 or session.counters['masked_forwards'] != expected_masks:
++        benchmark = serving_benchmark(session, best_signatures, roles, timings)
++        if session.counters != work(session, epochs, evaluations=epochs+14):
+             raise ValueError('Complete declared training/evaluation/diagnostic work counts differ')
+         if time.monotonic()-process_started >= active_cap: raise TimeoutError('Frozen scientific cap before completion')
+-        result = dict(schema='masked-context-PubMed-stage1-complete-v1', complete=True,
++        result = dict(schema='private-hop-fullfit-complete-v1', complete=True,
+             record_id=spec['record_id'], condition=spec['condition'], seed=spec['seed'],
+             source_manifest_sha256=spec['source_manifest_sha256'], release_sha256=spec['_release_sha256'],
+             split_identity=spec['split_identity'], split_seed=190111, providers=providers,
+             max_epochs=2000, patience=250, epochs_executed=epochs, selected_epoch=best_epoch,
+             stopped_by='patience250' if epochs-best_epoch >= 250 else 'max2000', selector=spec['selector'],
+-            selected_VALID=selected_metrics, selected_mask_diagnostics=mask_report,
++            selected_VALID=selected_metrics, selected_readouts=readouts, serving_benchmark=benchmark,
++            selected_auxiliary_diagnostics=mask_report,
+             selected_prediction_signatures=selected_signatures,
+             selected_state_verification=dict(predictions_and_correct_masks_exact=True, counts_and_epoch_exact=True,
+                 float_absolute_tolerance=VERIFY_ATOL, float_relative_tolerance=VERIFY_RTOL,
+@@ -166,9 +170,9 @@
+                 keys=sorted(payload), factual_shape=[4,19717,3], masked_shape=None if masked_logits is None else [4,19717,3], contains_labels_or_role_ids=False, server_only=True),
+             selected_predictor=dict(path='SELECTED_PREDICTOR.pt', sha256=sha(selected_path), bytes=selected_path.stat().st_size, server_only=True, resumable=False),
+             train_bundle_sha256=spec['train_bundle']['sha256'], valid_bundle_sha256=spec['valid_bundle']['sha256'],
+-            TEST_labels_or_id_inputs=False, TEST_scored=False, automatic_retry=False,
+-            competence_established_by_completion=False, whole_nine_comparison_required=True,
+-            owner_success_not_inferred=True, independent_primary_common_bank_selector=True)
++            TEST_access=False, TEST_labels_or_id_inputs=False, TEST_scored=False, automatic_retry=False,
++            competence_established_by_completion=False, whole_eighteen_comparison_required=True,
++            owner_success_not_inferred=True, independent_primary_common_bank_selector=False)
+         write(output/'COMPLETE.json', result)
+         return result
+     except BaseException as error:
