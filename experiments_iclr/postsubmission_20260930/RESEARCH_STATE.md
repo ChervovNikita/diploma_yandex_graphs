@@ -1,3 +1,15 @@
+## Current status after complete context analysis, 10 October 2026
+
+The context-positive exclusion family and complete reader closed successfully: 21 new banks / 30 fits, 15 unchanged banks / 33 selected records and all 180 calibration endpoints, with 75 exact reused and 105 new finite endpoints. The private candidate reaches 80.495513% versus unchanged shared 80.571356%, common mixture 80.621919% and equipped genuine I4 80.084692%. Only the required I4 accuracy comparison passes; the private attribution and calibrated confidence criteria fail. Calibrated NLL is 0.706225 versus unchanged 0.682065. All outcomes remain preserved; the exact recipe closes without tuning. [Complete result](SAGE_context_positive_exclusion_pilot_root_20261011_v1/REPORT.md).
+
+The sparse feature-union/kernel family is also fully closed and negative. Context assigns uniform selected positive relations rather than changing the message graph. Neither closure establishes a general failure of contrastive learning or shared ensembles. Context's 264 repairs / 276 harms, lower correct-alternative coverage and weak strict-rival recovery do not justify an automatic graph-serving rescue. The conditional combination assessment is being closed without fusion fitting.
+
+Both 18.77 F reference jobs were verified training after their 21:09:30–31 UTC launch. Detached owners and automatic complete analysis survive the other Mac disconnect. No later connection or current completion claim has been made. The user has been told they may disconnect it and will be notified before another launch. Latest independently verified GitHub head is f1c69d7842bc349f77dddd0b209430e882996037 at 21:41:13 UTC; actual context closure, reader and scoped literature notes are next for publication.
+
+MLCL directly precedes allocating distinct positive relations to shared private heads. Uniform selected-positive masking permits class-collapsed geometry to ignore context incidence; actual collapse was not measured. Nonuniform full-classmate affinities request unequal ratios but do not guarantee a useful noncollapsed optimum or escape from stationary cosine collapse. The conditional weighted-versus-uniform proposal and a distinct literature mechanism receive complete-history assessment before the next source choice. [Scoped primary conclusions](graph_subclass_shared_objective_primary_scout_20261011_v1/REPORT.md).
+
+The research goal remains active and unmet. Original paper scores, failures and reviews are unchanged. No new methodological-superiority, unused-confirmation or acceptance claim is established. Older text below is retained chronology, superseded where later closure records say so.
+
 ## Running studies after both 18.77 launches
 
 Sparse feature-message acquisition is running on the authorized allocation (owner623323/child623325). Its independently reviewed complete reader is armed under finite watcher623351; all27fresh fits and all33banks/60records plus165equal endpoints precede interpretation. Exactly75original calibration endpoints are reused and90new ones are fitted. No original training or score changes.

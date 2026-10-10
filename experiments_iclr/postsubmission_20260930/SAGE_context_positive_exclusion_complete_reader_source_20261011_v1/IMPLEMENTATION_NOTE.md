@@ -1,0 +1,7 @@
+# Implementation note
+
+This complete reader extends the independently reviewed sparse-feature-kernel reader source (SHA256 969e11409ad235c5bade7da1891cadd2ff373a48d3d976ec0357c8de56d9cbd7), retaining its reviewed count, score, contrast, class/member, fixed-calibration and bounded-output infrastructure. The new code replaces kernel/support-specific admission with context target/order/qualification/operation custody and the declared five-reference criteria.
+
+Material schema differences are explicit: 36 banks /63 selected fits; 21 fresh banks /30 fits; 75 exact admitted reused endpoints plus 105 new attempts; 180 total terminal records; 21 new OOF archives; new cost field `restoration_seconds`; target archive/context mode/H-order binding. The prior/new calibration policies differ only in total roster work fields. The prior 165-terminal successful reader remains a separate custody dependency.
+
+Actual production source/config/criteria/reference/calibration/launch freeze bytes are pinned unchanged. Root started acquisition before this separate reader was sealed; no completed or partial new quality was used in preparation. Root must independently audit this saved source and bind its exact seal for a single admitted readout after real full closure. No scientific payload, numerical module, native model, optional mathematical or trajectory parity, remote action or TEST was used in preparation.
