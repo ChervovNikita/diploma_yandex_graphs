@@ -1,0 +1,226 @@
+--- /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_continuous_context_affinity_source_20261011_v1/run_family.py
++++ /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_continuous_context_affinity_source_20261011_v2/run_family.py
+@@ -1,4 +1,4 @@
+-"""Inactive native SAGE continuous context affinity; native Family, root admission."""
++"""Inactive native SAGE continuous affinity v2 with assigned independent I4 control."""
+ import argparse
+ import hashlib
+ import importlib.util
+@@ -11,11 +11,11 @@
+ from types import SimpleNamespace
+ 
+ ARMS = ("ordinaryM1_weighted_mixture", "factorizedM1_weighted_mixture",
+-        "genuinefactorizedI4_weighted_mixture", "shared4_weighted_private",
+-        "shared4_weighted_mixture", "shared4_uniform_allclassmate")
++        "genuinefactorizedI4_weighted_mixture", "genuinefactorizedI4_weighted_assigned",
++        "shared4_weighted_private", "shared4_weighted_mixture", "shared4_uniform_allclassmate")
+ CONTEXT_MODES = {ARMS[0]: "weighted_mixture", ARMS[1]: "weighted_mixture", ARMS[2]: "weighted_mixture",
+-                 ARMS[3]: "weighted_private", ARMS[4]: "weighted_mixture",
+-                 ARMS[5]: "uniform_allclassmate"}
++                 ARMS[3]: "weighted_assigned", ARMS[4]: "weighted_private",
++                 ARMS[5]: "weighted_mixture", ARMS[6]: "uniform_allclassmate"}
+ 
+ 
+ def load_source(name, path):
+@@ -90,13 +90,14 @@
+                     "context_coefficient": .05, "context_temperature": .2, "context_teacher_temperature": .2}
+         if any(cfg.get(key, value) != value for key, value in expected.items()):
+             raise ValueError("Exact prospectively fixed native SAGE recipe required; no grid")
+-        self.context_objective = load_source("sage_continuous_context_affinity_objective", str(helper_path))
++        self.context_objective = load_source("sage_continuous_context_affinity_objective_v2", str(helper_path))
+         self.context_contract = {"target_policy": self.context_objective.TARGET_POLICY,
+             "coefficient": self.context_objective.COEFFICIENT,
+             "student_temperature": self.context_objective.TEMPERATURE,
+             "teacher_temperature": self.context_objective.TEACHER_TEMPERATURE,
+             "objective": "outside_log_weighted_CE_all_classmates_all_nonself_TRAIN",
+             "mixture": "mean_of_four_complete_objectives_for_each_body_or_route",
++            "assigned_independent_body": "body_m_uses_Q_m_with_explicit_context_index",
+             "native_factual_forwards_per_route_update": 1}
+         self.synchronize()
+         prep_start = time.perf_counter()
+@@ -222,7 +223,7 @@
+         log_pool = self.torch.logsumexp(log_probs, dim=0) - math.log(len(logits))
+         return -log_pool.gather(1, targets[:, None]).mean()
+ 
+-    def fit(self, folder, seed, member, kind, factorized, members, context_mode):
++    def fit(self, folder, seed, member, kind, factorized, members, context_mode, context_index=None):
+         torch = self.torch
+         folder.mkdir()
+         self.progress(member, 0)
+@@ -233,8 +234,14 @@
+         start = time.perf_counter()
+         model, optimizer, streams = self.make(seed, member, kind, factorized, members)
+         bank, best, stale = members > 1, -1., 0
+-        if context_mode not in ("weighted_private", "weighted_mixture", "uniform_allclassmate") or (not bank and context_mode != "weighted_mixture"):
+-            raise ValueError("Fixed private/shared or fully informed single/I4 objective required")
++        if (context_mode not in ("weighted_private", "weighted_mixture", "uniform_allclassmate", "weighted_assigned")
++                or not bank and context_mode not in ("weighted_mixture", "weighted_assigned")):
++            raise ValueError("Fixed private/shared or complete mixture/assigned independent objective required")
++        if context_mode == "weighted_assigned":
++            if bank or not isinstance(context_index, int) or isinstance(context_index, bool) or context_index != member or not 0 <= member < 4:
++                raise ValueError("Assigned independent body m must use exactly context index m")
++        elif context_index is not None:
++            raise ValueError("Other fixed arms cannot receive a context index")
+         target_order_name = "bank" if bank else "single"
+         target_bank = self.context_targets[target_order_name]
+         target_tensor_hashes = self.context_preparation["actual_loss_tensor_hashes"][target_order_name]
+@@ -250,7 +257,7 @@
+                 with torch.no_grad():
+                     pool_ce = self.probability_pool_ce(logits, targets) if bank else None
+                 auxiliary, route_losses, pair_losses, paid = self.context_objective.context_auxiliary(
+-                    torch, self.F, hidden, target_bank, context_mode)
++                    torch, self.F, hidden, target_bank, context_mode, context_index=context_index)
+                 for key, value in paid.items():
+                     context_counts[key] = context_counts.get(key, 0) + value
+                 loss = own_ce + .05 * auxiliary
+@@ -269,7 +276,7 @@
+                     best, stale, selected_step = metrics["accuracy"], 0, step
+                     torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(), "streams": streams,
+                                 "step": step, "selection": metrics,
+-                                "context_mode": context_mode,
++                                "context_mode": context_mode, "context_index": context_index,
+                                 "context_target_archive_sha256": self.context_preparation["archive_sha256"],
+                                 "TRAIN_H_order": "train_ids" if bank else "native_boolean_mask",
+                                 "context_objective_contract": self.context_contract,
+@@ -277,13 +284,13 @@
+                                 "source_sha256": self.source_hashes,
+                                 "selection_update_training_scalars": {
+                                     "scope": "pre_AdamW_training_scalar_at_update_whose_post_update_VALID_selects_checkpoint",
+-                                    "step": step, "own_ce": train_own_ce,
++                                    "step": step, "context_index": context_index, "own_ce": train_own_ce,
+                                     "auxiliary": train_context, "weighted_auxiliary": .05 * train_context,
+                                     "objective": train_loss}}, checkpoint)
+                 else:
+                     stale += 1
+                 trace.write(json.dumps({"step": step, "learning_objective": "own_CE_plus_fixed_continuous_context_affinity",
+-                                        "context_mode": context_mode,
++                                        "context_mode": context_mode, "context_index": context_index,
+                                         "train_objective": train_loss, "train_own_ce": train_own_ce,
+                                         "train_probability_pool_ce_diagnostic": train_pool_ce,
+                                         "train_context_auxiliary": train_context,
+@@ -304,7 +311,7 @@
+             key: {"shape": list(value.shape), "dtype": str(value.dtype),
+                   "C_bytes_sha256": hashlib.sha256(value.detach().cpu().numpy().tobytes(order="C")).hexdigest()}
+             for key, value in target_bank.items()}
+-        if (state["context_mode"] != context_mode
++        if (state["context_mode"] != context_mode or state["context_index"] != context_index
+                 or state["context_target_archive_sha256"] != self.context_preparation["archive_sha256"]
+                 or state["TRAIN_H_order"] != ("train_ids" if bank else "native_boolean_mask")
+                 or state["context_objective_contract"] != self.context_contract
+@@ -313,6 +320,7 @@
+                 or state["source_sha256"] != self.source_hashes):
+             raise ValueError("Selected checkpoint scalar/target/source/order contract mismatch")
+         if (state["selection_update_training_scalars"]["step"] != state["step"]
++                or state["selection_update_training_scalars"]["context_index"] != context_index
+                 or not all(math.isfinite(state["selection_update_training_scalars"][key])
+                            for key in ("own_ce", "auxiliary", "weighted_auxiliary", "objective"))):
+             raise ValueError("Selected update scalar provenance missing or nonfinite")
+@@ -339,7 +347,7 @@
+                  "cuda_peak_allocated_bytes": torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0,
+                  "cuda_peak_reserved_bytes": torch.cuda.max_memory_reserved(self.device) if self.device.type == "cuda" else 0}
+         result = {"member": member, "learning_objective": "own_CE_plus_fixed_continuous_context_affinity",
+-                  "context_mode": context_mode, "context_coefficient": .05, "context_temperature": .2,
++                  "context_mode": context_mode, "context_index": context_index, "context_coefficient": .05, "context_temperature": .2,
+                   "context_teacher_temperature": .2,
+                   "context_objective_contract": self.context_contract,
+                   "context_target_tensor_hashes": target_tensor_hashes,
+@@ -374,13 +382,14 @@
+                 self.current.update(arm=arm, seed=seed)
+                 folder = self.output / f"{arm}_seed{seed}"
+                 folder.mkdir()
+-                genuine = arm == "genuinefactorizedI4_weighted_mixture"
++                genuine = arm in ("genuinefactorizedI4_weighted_mixture", "genuinefactorizedI4_weighted_assigned")
+                 bank = arm.startswith("shared4_")
+                 factorized = arm != "ordinaryM1_weighted_mixture"
+                 kind = "baseline"
+                 context_mode = CONTEXT_MODES[arm]
+                 fits = [self.fit(folder / f"member{m}", seed, m, kind, factorized, 4 if bank else 1,
+-                                 context_mode) for m in range(4 if genuine else 1)]
++                                 context_mode, context_index=m if arm == "genuinefactorizedI4_weighted_assigned" else None)
++                        for m in range(4 if genuine else 1)]
+                 pool_start = time.perf_counter()
+                 logits = torch.cat([x[0] for x in fits])
+                 metrics = self.metrics(logits)
+@@ -400,7 +409,7 @@
+                 write_json(folder / "RESULT.json", result)
+                 results.append(result)
+                 print(json.dumps({"finished": arm, "seed": seed, "selected_steps": [u["selected_step"] for u in units]}), flush=True)
+-        comparisons = []  # Reached only after the whole six-arm × three-seed roster.
++        comparisons = []  # Reached only after the whole seven-arm × three-seed roster.
+         for result in results:
+             seed, arm = result["seed"], result["arm"]
+             candidate = errors[seed, arm]
+@@ -408,14 +417,14 @@
+                            "harms": int((~errors[seed, ref] & candidate).sum())} for ref in ARMS}
+             comparisons.append({"arm": arm, "seed": seed, "versus": versus})
+         counts = {key: sum(unit["operation_counts"][key] for r in results for unit in r["fits"]) for key in results[0]["fits"][0]["operation_counts"]}
+-        if len(results) != 18 or self.completed_units != 27:
+-            raise ValueError("All18 banks/all27 independent optimizer fits must close")
+-        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "completion_scope": "fresh six-arm continuous affinity acquisition only",
++        if len(results) != 21 or self.completed_units != 39:
++            raise ValueError("All21 banks/all39 independent optimizer fits must close")
++        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "completion_scope": "fresh seven-arm continuous affinity acquisition only",
+                    "full_comparative_family_complete": False,
+                    "requires_root_admitted_own_only_anchors": {"banks": 15, "selected_fit_records": 33},
+                    "groups": len(results), "fit_units": self.completed_units,
+-                   "expected_groups": 18, "expected_fit_units": 27,
+-                   "joined_expected_groups": 33, "joined_expected_selected_fit_records": 60,
++                   "expected_groups": 21, "expected_fit_units": 39,
++                   "joined_expected_groups": 36, "joined_expected_selected_fit_records": 72,
+                    "context_objective_contract": self.context_contract, "TEST_access": False, "operation_counts": counts,
+                    "config_sha256": self.config_sha256, "source_sha256": self.source_hashes,
+                    "context_preparation_once": self.context_preparation,
+@@ -424,7 +433,7 @@
+ 
+ 
+ def main():
+-    raise SystemExit("Source-only continuous-affinity comparison: root reviews/qualifies/binds/freezes and invokes Family through its existing owner; no automatic scientific admission")
++    raise SystemExit("Source-only continuous-affinity v2 comparison: root reviews/qualifies/binds/freezes and invokes Family through its existing owner; no automatic scientific admission")
+ 
+ 
+ if __name__ == "__main__":
+--- /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_continuous_context_affinity_source_20261011_v1/context_affinity_objective.py
++++ /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_continuous_context_affinity_source_20261011_v2/context_affinity_objective.py
+@@ -108,20 +108,27 @@
+     return output
+ 
+ 
+-def context_auxiliary(torch, functional, hidden, targets, mode):
++def context_auxiliary(torch, functional, hidden, targets, mode, context_index=None):
+     """One live native H Gram with a complete nonself TRAIN denominator.
+ 
+     Weighted mixture explicitly averages all four outside-log objectives for
+     each route, including each independent single/I4 body. The common logZ is
+     computed once per route. Float32 Q row mass multiplies logZ literally.
++    Assigned I4 body m uses only Q_m, with an explicitly bound context index.
+     """
+-    modes = ("weighted_private", "weighted_mixture", "uniform_allclassmate")
++    modes = ("weighted_private", "weighted_mixture", "uniform_allclassmate", "weighted_assigned")
+     if (mode not in modes or hidden.ndim != 3 or hidden.shape[0] not in (1, 4)
+             or hidden.shape[1:] != (580, 128) or hidden.dtype != torch.float32):
+         raise ValueError("Fixed mode and live native float32 [1or4,580,128] H required")
+     members, rows, width = hidden.shape
+-    if mode != "weighted_mixture" and members != 4:
++    if mode not in ("weighted_mixture", "weighted_assigned") and members != 4:
+         raise ValueError("Private/uniform shared allocation requires four native routes")
++    if mode == "weighted_assigned":
++        if (members != 1 or not isinstance(context_index, int) or isinstance(context_index, bool)
++                or not 0 <= context_index < 4):
++            raise ValueError("One independent native body and explicit context index0..3 required")
++    elif context_index is not None:
++        raise ValueError("Only the assigned independent-body mode accepts a context index")
+     weights, uniform, allowed = targets["weights"], targets["uniform_weights"], targets["full_allowed"]
+     if weights.shape != (4, rows, rows) or uniform.shape != (rows, rows) or allowed.shape != (rows, rows):
+         raise ValueError("Four aligned affinities and common all-classmate/full-denominator targets required")
+@@ -140,6 +147,11 @@
+         pair_losses = torch.stack(losses, dim=-1)
+         route_losses = pair_losses.mean(-1)
+         reductions, target_matrices = members * 4, 4
++    elif mode == "weighted_assigned":
++        q = weights[context_index][None]
++        route_losses = (q.sum(-1) * log_z - (q * scores).sum(-1)).mean(-1)
++        pair_losses = route_losses[:, None]
++        reductions, target_matrices = 1, 1
+     else:
+         q = uniform[None] if mode == "uniform_allclassmate" else weights
+         route_losses = (q.sum(-1) * log_z - (q * scores).sum(-1)).mean(-1)

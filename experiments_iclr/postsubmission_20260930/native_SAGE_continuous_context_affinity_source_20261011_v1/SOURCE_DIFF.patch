@@ -1,0 +1,431 @@
+--- /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_context_positive_exclusion_source_20261010_v1/run_family.py
++++ /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_continuous_context_affinity_source_20261011_v1/run_family.py
+@@ -1,4 +1,4 @@
+-"""Inactive native SAGE fixed-context exclusion; existing Family, root admission."""
++"""Inactive native SAGE continuous context affinity; native Family, root admission."""
+ import argparse
+ import hashlib
+ import importlib.util
+@@ -10,13 +10,12 @@
+ import time
+ from types import SimpleNamespace
+ 
+-ARMS = ("ordinary_M1_context_mixture", "factorized_M1_context_mixture",
+-        "genuine_factorized_I4_context_mixture", "shared4_context_private_masked",
+-        "shared4_context_pair_mixture_masked", "shared4_context_private_full",
+-        "shared4_context_shuffled_masked")
+-CONTEXT_MODES = {ARMS[0]: "mixture", ARMS[1]: "mixture", ARMS[2]: "mixture",
+-                 ARMS[3]: "private", ARMS[4]: "mixture", ARMS[5]: "private_full",
+-                 ARMS[6]: "shuffled_private"}
++ARMS = ("ordinaryM1_weighted_mixture", "factorizedM1_weighted_mixture",
++        "genuinefactorizedI4_weighted_mixture", "shared4_weighted_private",
++        "shared4_weighted_mixture", "shared4_uniform_allclassmate")
++CONTEXT_MODES = {ARMS[0]: "weighted_mixture", ARMS[1]: "weighted_mixture", ARMS[2]: "weighted_mixture",
++                 ARMS[3]: "weighted_private", ARMS[4]: "weighted_mixture",
++                 ARMS[5]: "uniform_allclassmate"}
+ 
+ 
+ def load_source(name, path):
+@@ -48,7 +47,7 @@
+         self.factors = load_source("sage_family_factors", cfg["factors"])
+         self.cfg, self.output = cfg, output
+         self.current, self.completed_units = {"arm": None, "seed": None, "member": None, "update": 0}, 0
+-        helper_path = Path(__file__).with_name("context_objective.py")
++        helper_path = Path(__file__).with_name("context_affinity_objective.py")
+         source_paths = [__file__, str(helper_path), cfg["common_routes"], cfg["factors"]] + [str(Path(cfg["native_repo"]) / name) for name in ("models.py", "run_base.py", "run_common.py")]
+         self.source_hashes = {str(Path(path).resolve()): hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in source_paths}
+         self.config_sha256 = config_sha256
+@@ -87,10 +86,18 @@
+                     "hidden": 128, "dropout": .2, "learning_rate": .001, "weight_decay": 0,
+                     "max_updates": 1000, "patience_updates": 300, "rank": 16,
+                     "member_seed_stride": 1000003, "factor_seed_offset": 2000003,
+-                    "dropout_seed_offset": 3000007, "block_seed_offset": 4000037}
++                    "dropout_seed_offset": 3000007, "block_seed_offset": 4000037,
++                    "context_coefficient": .05, "context_temperature": .2, "context_teacher_temperature": .2}
+         if any(cfg.get(key, value) != value for key, value in expected.items()):
+             raise ValueError("Exact prospectively fixed native SAGE recipe required; no grid")
+-        self.context_objective = load_source("sage_fixed_context_objective", str(helper_path))
++        self.context_objective = load_source("sage_continuous_context_affinity_objective", str(helper_path))
++        self.context_contract = {"target_policy": self.context_objective.TARGET_POLICY,
++            "coefficient": self.context_objective.COEFFICIENT,
++            "student_temperature": self.context_objective.TEMPERATURE,
++            "teacher_temperature": self.context_objective.TEACHER_TEMPERATURE,
++            "objective": "outside_log_weighted_CE_all_classmates_all_nonself_TRAIN",
++            "mixture": "mean_of_four_complete_objectives_for_each_body_or_route",
++            "native_factual_forwards_per_route_update": 1}
+         self.synchronize()
+         prep_start = time.perf_counter()
+         if self.device.type == "cuda":
+@@ -120,6 +127,7 @@
+         preparation["numpy_version"] = np.__version__
+         preparation["target_loss_dtype"] = "float32; literal row mass multiplies lognormalizer"
+         preparation["same_target_bank_shared_across_all_arms_and_seeds"] = True
++        preparation["objective_contract"] = self.context_contract
+         self.synchronize()
+         preparation["inclusive_preparation_seconds"] = time.perf_counter() - prep_start
+         preparation["process_peak_rss_bytes"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024)
+@@ -225,9 +233,11 @@
+         start = time.perf_counter()
+         model, optimizer, streams = self.make(seed, member, kind, factorized, members)
+         bank, best, stale = members > 1, -1., 0
+-        if context_mode not in ("private", "mixture", "private_full", "shuffled_private") or (not bank and context_mode != "mixture"):
++        if context_mode not in ("weighted_private", "weighted_mixture", "uniform_allclassmate") or (not bank and context_mode != "weighted_mixture"):
+             raise ValueError("Fixed private/shared or fully informed single/I4 objective required")
+-        target_bank = self.context_targets["bank" if bank else "single"]
++        target_order_name = "bank" if bank else "single"
++        target_bank = self.context_targets[target_order_name]
++        target_tensor_hashes = self.context_preparation["actual_loss_tensor_hashes"][target_order_name]
+         context_counts = {}
+         checkpoint = folder / "selected.pt"
+         with (folder / "trace.jsonl").open("w") as trace:
+@@ -261,10 +271,18 @@
+                                 "step": step, "selection": metrics,
+                                 "context_mode": context_mode,
+                                 "context_target_archive_sha256": self.context_preparation["archive_sha256"],
+-                                "TRAIN_H_order": "train_ids" if bank else "native_boolean_mask"}, checkpoint)
++                                "TRAIN_H_order": "train_ids" if bank else "native_boolean_mask",
++                                "context_objective_contract": self.context_contract,
++                                "context_target_tensor_hashes": target_tensor_hashes,
++                                "source_sha256": self.source_hashes,
++                                "selection_update_training_scalars": {
++                                    "scope": "pre_AdamW_training_scalar_at_update_whose_post_update_VALID_selects_checkpoint",
++                                    "step": step, "own_ce": train_own_ce,
++                                    "auxiliary": train_context, "weighted_auxiliary": .05 * train_context,
++                                    "objective": train_loss}}, checkpoint)
+                 else:
+                     stale += 1
+-                trace.write(json.dumps({"step": step, "learning_objective": "own_CE_plus_fixed_context",
++                trace.write(json.dumps({"step": step, "learning_objective": "own_CE_plus_fixed_continuous_context_affinity",
+                                         "context_mode": context_mode,
+                                         "train_objective": train_loss, "train_own_ce": train_own_ce,
+                                         "train_probability_pool_ce_diagnostic": train_pool_ce,
+@@ -282,10 +300,22 @@
+         acquisition = time.perf_counter() - start
+         restoration_start = time.perf_counter()
+         state = torch.load(checkpoint, map_location="cpu", weights_only=True)
++        restored_target_tensor_hashes = {
++            key: {"shape": list(value.shape), "dtype": str(value.dtype),
++                  "C_bytes_sha256": hashlib.sha256(value.detach().cpu().numpy().tobytes(order="C")).hexdigest()}
++            for key, value in target_bank.items()}
+         if (state["context_mode"] != context_mode
+                 or state["context_target_archive_sha256"] != self.context_preparation["archive_sha256"]
+-                or state["TRAIN_H_order"] != ("train_ids" if bank else "native_boolean_mask")):
+-            raise ValueError("Selected checkpoint target/support/order custody mismatch")
++                or state["TRAIN_H_order"] != ("train_ids" if bank else "native_boolean_mask")
++                or state["context_objective_contract"] != self.context_contract
++                or state["context_target_tensor_hashes"] != target_tensor_hashes
++                or state["context_target_tensor_hashes"] != restored_target_tensor_hashes
++                or state["source_sha256"] != self.source_hashes):
++            raise ValueError("Selected checkpoint scalar/target/source/order contract mismatch")
++        if (state["selection_update_training_scalars"]["step"] != state["step"]
++                or not all(math.isfinite(state["selection_update_training_scalars"][key])
++                           for key in ("own_ce", "auxiliary", "weighted_auxiliary", "objective"))):
++            raise ValueError("Selected update scalar provenance missing or nonfinite")
+         model.load_state_dict(state["model"], strict=True)
+         optimizer.load_state_dict(state["optimizer"])
+         streams = state["streams"]
+@@ -308,8 +338,13 @@
+                  "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024),
+                  "cuda_peak_allocated_bytes": torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0,
+                  "cuda_peak_reserved_bytes": torch.cuda.max_memory_reserved(self.device) if self.device.type == "cuda" else 0}
+-        result = {"member": member, "learning_objective": "own_CE_plus_fixed_context",
++        result = {"member": member, "learning_objective": "own_CE_plus_fixed_continuous_context_affinity",
+                   "context_mode": context_mode, "context_coefficient": .05, "context_temperature": .2,
++                  "context_teacher_temperature": .2,
++                  "context_objective_contract": self.context_contract,
++                  "context_target_tensor_hashes": target_tensor_hashes,
++                  "source_sha256": self.source_hashes,
++                  "selected_update_training_scalars": state["selection_update_training_scalars"],
+                   "context_target_archive_sha256": self.context_preparation["archive_sha256"],
+                   "TRAIN_H_order": "train_ids" if bank else "native_boolean_mask",
+                   "preclassifier_width": hidden.shape[-1],
+@@ -339,9 +374,9 @@
+                 self.current.update(arm=arm, seed=seed)
+                 folder = self.output / f"{arm}_seed{seed}"
+                 folder.mkdir()
+-                genuine = arm == "genuine_factorized_I4_context_mixture"
++                genuine = arm == "genuinefactorizedI4_weighted_mixture"
+                 bank = arm.startswith("shared4_")
+-                factorized = arm != "ordinary_M1_context_mixture"
++                factorized = arm != "ordinaryM1_weighted_mixture"
+                 kind = "baseline"
+                 context_mode = CONTEXT_MODES[arm]
+                 fits = [self.fit(folder / f"member{m}", seed, m, kind, factorized, 4 if bank else 1,
+@@ -365,7 +400,7 @@
+                 write_json(folder / "RESULT.json", result)
+                 results.append(result)
+                 print(json.dumps({"finished": arm, "seed": seed, "selected_steps": [u["selected_step"] for u in units]}), flush=True)
+-        comparisons = []  # Reached only after the whole seven-arm × three-seed roster.
++        comparisons = []  # Reached only after the whole six-arm × three-seed roster.
+         for result in results:
+             seed, arm = result["seed"], result["arm"]
+             candidate = errors[seed, arm]
+@@ -373,13 +408,15 @@
+                            "harms": int((~errors[seed, ref] & candidate).sum())} for ref in ARMS}
+             comparisons.append({"arm": arm, "seed": seed, "versus": versus})
+         counts = {key: sum(unit["operation_counts"][key] for r in results for unit in r["fits"]) for key in results[0]["fits"][0]["operation_counts"]}
+-        if len(results) != 21 or self.completed_units != 30:
+-            raise ValueError("All21 banks/all30 independent optimizer fits must close")
+-        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "completion_scope": "fresh seven-arm acquisition only",
++        if len(results) != 18 or self.completed_units != 27:
++            raise ValueError("All18 banks/all27 independent optimizer fits must close")
++        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "completion_scope": "fresh six-arm continuous affinity acquisition only",
+                    "full_comparative_family_complete": False,
+                    "requires_root_admitted_own_only_anchors": {"banks": 15, "selected_fit_records": 33},
+                    "groups": len(results), "fit_units": self.completed_units,
+-                   "expected_groups": 21, "expected_fit_units": 30, "TEST_access": False, "operation_counts": counts,
++                   "expected_groups": 18, "expected_fit_units": 27,
++                   "joined_expected_groups": 33, "joined_expected_selected_fit_records": 60,
++                   "context_objective_contract": self.context_contract, "TEST_access": False, "operation_counts": counts,
+                    "config_sha256": self.config_sha256, "source_sha256": self.source_hashes,
+                    "context_preparation_once": self.context_preparation,
+                    "results": results, "comparisons": comparisons,
+@@ -387,7 +424,7 @@
+ 
+ 
+ def main():
+-    raise SystemExit("Source-only successor: root qualifies/binds/freezes and invokes Family through its existing owner; no automatic scientific admission")
++    raise SystemExit("Source-only continuous-affinity comparison: root reviews/qualifies/binds/freezes and invokes Family through its existing owner; no automatic scientific admission")
+ 
+ 
+ if __name__ == "__main__":
+--- /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_context_positive_exclusion_source_20261010_v1/context_objective.py
++++ /Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_continuous_context_affinity_source_20261011_v1/context_affinity_objective.py
+@@ -1,21 +1,22 @@
+-"""Pure caller-supplied NumPy/Torch helpers; no model, data reader or launcher.
++"""Pure caller-supplied NumPy/Torch helpers; no imports, model or launcher.
+ 
+-Known weighted supervised contrast/false-negative elimination ingredients.
+-Fixed targets do not establish learned class modes or competence protection.
++MLCL and weighted InfoNCE/y-Aware/X-CLR are attributed prior ingredients.
++Fixed unequal affinities request ratios, without a collapse or utility guarantee.
+ """
+ 
+ CONTEXT_NAMES = ("X", "X-PX", "PX", "P^2X")
+-NEIGHBORS = 16
+-SHUFFLE_SEED = 9100019
+ TEMPERATURE = .2
++TEACHER_TEMPERATURE = .2
+ COEFFICIENT = .05
++TARGET_POLICY = "continuous_all_classmate_full_denominator_v1"
+ 
+ 
+ def prepare_targets(np, x, edge_index, train_ids, train_y):
+-    """Prepare all four factual/shuffled relations from public X/E and TRAIN.
++    """Prepare fixed affinities from public X/E and ordered TRAIN only.
+ 
+-    Full ordered TRAIN is the auxiliary panel. Signatures/cosines use float64;
+-    native graph/features stay untouched. RNG is a dedicated local generator.
++    P changes signature preparation only. Every nonself classmate is a positive;
++    every nonself TRAIN node belongs to the student denominator. Zero signature
++    rows give cosine zero and hence uniform affinities over their classmates.
+     """
+     if x.ndim != 2 or x.dtype != np.float32 or not np.isfinite(x).all():
+         raise ValueError("Finite native float32 public features required")
+@@ -30,7 +31,7 @@
+         raise ValueError("TRAIN or public graph index outside its domain")
+     classes, counts = np.unique(train_y, return_counts=True)
+     if (counts < 2).any():
+-        raise ValueError("Every TRAIN class needs a nonself same-class positive")
++        raise ValueError("Every TRAIN class needs a nonself classmate; no omission or repair")
+     original_codes = edge_index[0] * n + edge_index[1]
+     codes = np.unique(np.concatenate((original_codes, np.arange(n, dtype=np.int64) * (n + 1))))
+     src, dst = codes // n, codes % n
+@@ -51,49 +52,25 @@
+     norms = np.linalg.norm(contexts, axis=-1, keepdims=True)
+     normalized = np.divide(contexts, norms, out=np.zeros_like(contexts), where=norms > 0)
+     cosine = normalized @ normalized.transpose(0, 2, 1)
+-    positive = np.zeros((4, b, b), dtype=bool)
+-    sort_entries = 0
+-    for context in range(4):
+-        for row in range(b):
+-            eligible = np.flatnonzero((train_y == train_y[row]) & (np.arange(b) != row))
+-            order = np.argsort(-cosine[context, row, eligible], kind="stable")
+-            positive[context, row, eligible[order[:NEIGHBORS]]] = True
+-            sort_entries += len(eligible)
+-    # Whole TRAIN is the panel. Preserve each anchor's positive-relation degree;
+-    # public-graph degree is not the preserved quantity.
+-    generator = np.random.default_rng(SHUFFLE_SEED)
+-    shuffled = np.empty_like(positive)
+-    permutations = np.empty((4, b), dtype=np.int64)
+-    for context in range(4):
+-        permutation = np.arange(b, dtype=np.int64)
+-        positive_degree = positive[context].sum(-1)
+-        for cls in classes:
+-            for count in np.unique(positive_degree[train_y == cls]):
+-                rows = np.flatnonzero((train_y == cls) & (positive_degree == count))
+-                permutation[rows] = generator.permutation(rows)
+-        shuffled[context] = positive[context][permutation[:, None], permutation[None, :]]
+-        permutations[context] = permutation
+-        if not np.array_equal(positive[context].sum(-1), shuffled[context].sum(-1)):
+-            raise ValueError("Incidence shuffle changed an anchor's positive degree")
+-    changed_by_context = np.count_nonzero(positive != shuffled, axis=(1, 2))
+-    if (changed_by_context == 0).any():
+-        raise ValueError("Fixed incidence shuffle is trivial in a context; no retry/repair")
+-    factual_weights = positive / positive.sum(-1, keepdims=True)
+-    shuffled_weights = shuffled / shuffled.sum(-1, keepdims=True)
+-    same_class = train_y[:, None] == train_y[None, :]
+-    different_class = ~same_class
+-    retained = positive | different_class[None]
+-    retained_shuffled = shuffled | different_class[None]
+     allowed = ~np.eye(b, dtype=bool)
+-    if (np.diagonal(positive, axis1=1, axis2=2).any()
+-            or np.diagonal(shuffled, axis1=1, axis2=2).any()
+-            or (positive & different_class[None]).any()
+-            or (shuffled & different_class[None]).any()):
+-        raise ValueError("Targets must remain nonself same-class")
++    positive = (train_y[:, None] == train_y[None, :]) & allowed
++    positive_counts = positive.sum(-1)
++    unnormalized = np.zeros_like(cosine)
++    unnormalized[:, positive] = np.exp(cosine[:, positive] / TEACHER_TEMPERATURE)
++    weights = unnormalized / unnormalized.sum(-1, keepdims=True)
++    uniform_weights = positive / positive_counts[:, None]
++    if (not np.isfinite(weights).all() or not np.isfinite(uniform_weights).all()
++            or (weights[:, positive] <= 0).any() or weights[:, ~positive].any()
++            or np.diagonal(weights, axis1=1, axis2=2).any()):
++        raise ValueError("Finite strictly positive classmate targets with exact zero other/self support required")
+     metadata = {
+-        "contexts": list(CONTEXT_NAMES), "neighbors": NEIGHBORS,
+-        "shuffle_seed": SHUFFLE_SEED, "TRAIN_rows": b, "TRAIN_panel": "all ordered TRAIN",
+-        "signature_dtype": "float64", "native_features_changed": False,
++        "target_policy": TARGET_POLICY, "contexts": list(CONTEXT_NAMES),
++        "teacher_temperature": TEACHER_TEMPERATURE, "student_temperature": TEMPERATURE,
++        "TRAIN_rows": b, "TRAIN_panel": "all ordered TRAIN", "signature_dtype": "float64",
++        "native_features_changed": False, "native_predictor_graph_changed": False,
++        "positive_support": "every other TRAIN classmate, identical weighted/uniform support",
++        "denominator_support": "every other TRAIN node, identical in every arm/context",
++        "zero_signature_cosine": 0, "singleton_class_policy": "fail without omission or repair",
+         "directed_original_edge_entries": edge_index.shape[1],
+         "signature_unique_edges_with_exact_self_loops": len(codes),
+         "signature_edge_dedup_sort_entries": len(original_codes) + n,
+@@ -102,82 +79,84 @@
+         "signature_gram_calls": 4, "signature_gram_entries": 4 * b * b,
+         "signature_gram_multiply_accumulates": 4 * b * b * d,
+         "signature_zero_rows_per_context": (norms[..., 0] == 0).sum(-1).tolist(),
+-        "same_class_stable_sort_entries": sort_entries,
++        "teacher_exponential_entries": 4 * int(positive.sum()),
++        "teacher_row_normalizations": 4 * b,
++        "teacher_dense_row_sum_entries": 4 * b * b,
++        "uniform_row_normalizations": b, "uniform_dense_target_entries": b * b,
+         "class_labels": classes.tolist(), "class_counts": counts.tolist(),
+-        "positive_counts_per_context": positive.sum((1, 2)).tolist(),
+-        "retained_counts_per_context": retained.sum((1, 2)).tolist(),
+-        "excluded_nonself_sameclass_counts_per_context": ((~retained) & allowed[None]).sum((1, 2)).tolist(),
+-        "changed_incidence_entries_per_context": changed_by_context.tolist(),
+-        "factual_shuffle_positive_degree_equal": True,
+-        "shuffle_preserves_public_graph_degree": False,
+-        "targets_use_VALID_or_predictions": False,
+-        "native_RNG_draws": 0,
++        "positive_counts_per_anchor": positive_counts.tolist(),
++        "positive_counts_per_context": [int(positive.sum())] * 4,
++        "full_denominator_entries_per_route": int(allowed.sum()),
++        "nonuniform_target_rows_per_context_exact_diagnostic":
++            (weights != uniform_weights[None]).any(-1).sum(-1).tolist(),
++        "targets_use_VALID_or_predictions": False, "native_RNG_draws": 0,
++        "target_or_coefficient_grid": False,
+     }
+-    return {"positive": positive, "shuffled_positive": shuffled,
+-            "weights": factual_weights, "shuffled_weights": shuffled_weights,
+-            "retained": retained, "shuffled_retained": retained_shuffled,
+-            "full_allowed": allowed, "permutations": permutations}, metadata
++    return {"weights": weights, "uniform_weights": uniform_weights,
++            "positive": positive, "full_allowed": allowed}, metadata
+ 
+ 
+ def tensor_bank(torch, arrays, order, device):
+-    """Joint row/column reordering aligns the same targets to native H order."""
++    """Apply one joint row/column permutation for native bank or single H order."""
+     output = {}
+-    for key in ("weights", "shuffled_weights", "retained", "shuffled_retained"):
+-        values = arrays[key][:, order[:, None], order[None, :]].copy()
++    for key in ("weights", "uniform_weights", "positive", "full_allowed"):
++        original = arrays[key]
++        values = (original[:, order[:, None], order[None, :]] if original.ndim == 3
++                  else original[order[:, None], order[None, :]]).copy()
+         output[key] = torch.as_tensor(values, device=device,
+                                       dtype=torch.float32 if "weights" in key else torch.bool)
+-    output["full_allowed"] = torch.as_tensor(arrays["full_allowed"][order[:, None], order[None, :]].copy(),
+-                                              device=device, dtype=torch.bool)
+     return output
+ 
+ 
+ def context_auxiliary(torch, functional, hidden, targets, mode):
+-    """One live H Gram; no extra model forward or cross-route contrast.
++    """One live native H Gram with a complete nonself TRAIN denominator.
+ 
+-    MIX averages complete (Q,E) losses. It never uses a Qbar union denominator.
+-    Fixed float32 target row mass multiplies logZ for literal weighted CE.
++    Weighted mixture explicitly averages all four outside-log objectives for
++    each route, including each independent single/I4 body. The common logZ is
++    computed once per route. Float32 Q row mass multiplies logZ literally.
+     """
+-    modes = ("private", "mixture", "private_full", "shuffled_private")
+-    if mode not in modes or hidden.ndim != 3 or hidden.shape[0] not in (1, 4) or hidden.shape[1] != 580:
+-        raise ValueError("Fixed mode and live [1or4,all580,D] native H required")
++    modes = ("weighted_private", "weighted_mixture", "uniform_allclassmate")
++    if (mode not in modes or hidden.ndim != 3 or hidden.shape[0] not in (1, 4)
++            or hidden.shape[1:] != (580, 128) or hidden.dtype != torch.float32):
++        raise ValueError("Fixed mode and live native float32 [1or4,580,128] H required")
+     members, rows, width = hidden.shape
+-    if mode != "mixture" and members != 4:
+-        raise ValueError("Private context allocation is defined only for four native routes")
+-    weights = targets["shuffled_weights" if mode == "shuffled_private" else "weights"]
+-    retained = targets["shuffled_retained" if mode == "shuffled_private" else "retained"]
+-    if weights.shape != (4, rows, rows) or retained.shape != weights.shape:
+-        raise ValueError("Four aligned fixed target/support pairs required")
+-    if weights.requires_grad or retained.requires_grad or weights.device != hidden.device or weights.dtype != hidden.dtype:
+-        raise ValueError("Frozen same-device native-float32 target bank required")
++    if mode != "weighted_mixture" and members != 4:
++        raise ValueError("Private/uniform shared allocation requires four native routes")
++    weights, uniform, allowed = targets["weights"], targets["uniform_weights"], targets["full_allowed"]
++    if weights.shape != (4, rows, rows) or uniform.shape != (rows, rows) or allowed.shape != (rows, rows):
++        raise ValueError("Four aligned affinities and common all-classmate/full-denominator targets required")
++    if any(value.requires_grad or value.device != hidden.device for value in targets.values()):
++        raise ValueError("Frozen same-device target/support bank required")
++    if weights.dtype != hidden.dtype or uniform.dtype != hidden.dtype or allowed.dtype != torch.bool:
++        raise ValueError("Native float32 target weights and Boolean denominator required")
+     normalized = functional.normalize(hidden, p=2, dim=-1, eps=1e-12)
+     scores = (normalized @ normalized.transpose(-2, -1)) / TEMPERATURE
+-    if mode == "mixture":
++    log_z = torch.logsumexp(scores.masked_fill(~allowed[None], float("-inf")), dim=-1)
++    if mode == "weighted_mixture":
+         losses = []
+         for context in range(4):
+-            q, e = weights[context], retained[context]
+-            log_z = torch.logsumexp(scores.masked_fill(~e[None], float("-inf")), dim=-1)
++            q = weights[context]
+             losses.append((q.sum(-1)[None] * log_z - (q[None] * scores).sum(-1)).mean(-1))
+         pair_losses = torch.stack(losses, dim=-1)
+         route_losses = pair_losses.mean(-1)
+-        reductions = members * 4
++        reductions, target_matrices = members * 4, 4
+     else:
+-        allowed = targets["full_allowed"][None] if mode == "private_full" else retained
+-        log_z = torch.logsumexp(scores.masked_fill(~allowed, float("-inf")), dim=-1)
+-        route_losses = (weights.sum(-1) * log_z - (weights * scores).sum(-1)).mean(-1)
++        q = uniform[None] if mode == "uniform_allclassmate" else weights
++        route_losses = (q.sum(-1) * log_z - (q * scores).sum(-1)).mean(-1)
+         pair_losses = route_losses[:, None]
+-        reductions = members
++        reductions, target_matrices = members, 1 if mode == "uniform_allclassmate" else 4
+     counts = {
+-        "context_batched_gram_calls": 1,
+-        "context_route_grams": members,
++        "context_batched_gram_calls": 1, "context_route_grams": members,
+         "context_normalized_coordinates": members * rows * width,
+         "context_cosine_gram_entries": members * rows * rows,
+         "context_gram_multiply_accumulates": members * rows * rows * width,
+         "context_score_anchor_rows": members * rows,
+         "context_target_support_pair_reductions": reductions,
+-        "context_logsumexp_anchor_reductions": reductions * rows,
+-        "context_dense_masked_logsumexp_entries": reductions * rows * rows,
++        "context_logsumexp_anchor_reductions": members * rows,
++        "context_dense_masked_logsumexp_entries": members * rows * rows,
+         "context_dense_weighted_score_entries": reductions * rows * rows,
+-        "context_extra_native_forwards": 0,
+-        "context_serving_calls": 0,
++        "context_target_rowmass_reductions": target_matrices * rows,
++        "context_target_rowmass_entries": target_matrices * rows * rows,
++        "context_extra_native_forwards": 0, "context_serving_calls": 0,
+     }
+     return route_losses.mean(), route_losses, pair_losses, counts
