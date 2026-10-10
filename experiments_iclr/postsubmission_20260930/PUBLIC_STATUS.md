@@ -1,21 +1,23 @@
 # Current scientific status
 
-10 October 2026. Goal active and unmet. Original paper scores unchanged. No new methodological superiority or manuscript acceptance established.
+10 October 2026. Research active. Original paper scores unchanged. New methodological novelty and independent manuscript acceptance remain unestablished.
 
-## Most useful new finding
+## Most useful completed finding
 
-The nine PubMed full fits are complete. Ordinary GNNM averages90.9014% selected validation accuracy. Masked classification plus contrastive reconstruction averages90.8422% and fails its continuation criteria, so the18 planned additions remain disabled. The independent bank averages90.2080%, but uses a common bank checkpoint selector. Stronger native single, four-dropout single and independently selected ensemble controls are now running as9 new groups/18 full trajectories. The apparent +0.6934pp GNNM advantage remains exploratory.
+On full PubMed, ordinary shared GNNM achieved90.9014% mean selected validation accuracy. A genuine four-model ensemble with individually selected checkpoints achieved90.2165%; the native single89.9374%; a single averaging four dropout losses per update89.8698%. Shared GNNM beat all three controls in every optimizer seed. Its gain over the independent ensemble averaged0.6849 percentage points, with better NLL and mean member accuracy in all three seeds.
 
-The saved predictions explain the next priority. On ordinary GNNM, almost every pooled mistake is shared by all members, with the same false class above the true class. A different convex average of those predictions cannot repair that ordering. The independent bank provides more correct alternatives but often loses them when pooled. We need to improve complementary member learning while preserving competence. These are descriptive validation counts, not a demonstrated new method or confirmation.
+This is promising exploratory evidence from one encountered graph and one split. It weakens two alternative explanations, but extra factor parameters remain a possible cause. Six full single-member factor controls are being prepared. PubMed TEST remains closed, and unused confirmation is still needed.
 
-## Current work
+The separate masked-context/contrastive-reconstruction screen failed its fixed continuation criteria. Its18 additions remain disabled. Failed ideas remain in the record.
 
-Three distinct researchers handle new mechanisms from literature, combinations/capable references, and a review of accumulated completed experiments. The new reference study launched03:13UTC after22.9s of full-task interface qualification; all outcomes remain closed until the fixed family finishes. Combinations must have an error-based reason and separate ingredient controls. Known techniques receive explicit attribution. Failed ideas remain recorded.
+## Current experiments and research roles
 
-Six WikiCS initializer×feedback fits continue on18.77. At02:55UTC three had reached1100 updates, two were training and one was queued. Both owners were active without failure. The entire family must close before quality comparison; no partial results have been used.
+Eighteen full private-specialist-credit fits are running on the one-GPU allocation. They retain ordinary shared supervision and test whether private factors can learn useful specialist corrections, with attributed CMCL and scaling controls. All six engineering checks passed; no partial predictive results have been used.
 
-The new typed-label-context factor source passed full-input engineering qualification for all six conditions. Its accuracy is unmeasured, and matched individually selected ordinary/contextual ensembles still need implementation. Setup success is not research success.
+Five of six WikiCS initializer×feedback fits have finished on18.77; the final fit was at277/1100 updates at04:05UTC. One lane has fully closed. Compare results after the entire family closes. No new77 experiments were launched in this update.
 
-## Evidence and publication
+Three researchers have distinct responsibilities: new graph mechanisms from literature; evidence-based combinations; synthesis of completed experiments and contradictions. The history role updates after every completed family to avoid repeating discarded hypotheses and to identify interactions worth testing. Root selects a small queue and handles execution and publication.
 
-Complete reports and costs remain in the research ledger. Source, complete outcomes and decisions through commit82c1ab8a117d9611b64e214c3f11bbb470ba8acd are pushed and the exact GitHub ref is verified. Actual reference launch/qualification metadata will be included in the next commit. TEST remains closed for PubMed. No PDF compilation, sudo, GENLINK, unrelated-data access or science on the seven-GPU relay. Fresh independent manuscript acceptance remains unmet.
+## Evidence
+
+The complete PubMed comparison, per-seed results, saved prediction diagnostics, costs and failures remain in the ledger and repository. Current commit/push receipts are in publication. No PDF compilation, sudo, GENLINK, unrelated-data access or scientific execution on the seven-GPU relay. Acceptance remains an outcome for a fresh reviewer to assess from supported manuscript claims.

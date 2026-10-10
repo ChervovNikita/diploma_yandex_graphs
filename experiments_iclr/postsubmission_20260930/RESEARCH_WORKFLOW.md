@@ -17,7 +17,7 @@ Combine mechanisms when each has a plausible distinct role. One can help members
 
 ## Keep the queue small
 
-The current18.77 study tests independent native attention-row starts × ensemble relation feedback. The complete nine-fit PubMed screen rejects masked classification/contrastive reconstruction continuation. Bare shared GNNM shows an exploratory advantage over a common-selected independent bank; capable native single, four-dropout single and individually selected independent references are now running and take priority. Stored-error counts identify common false rivals as the shared bank's main remaining problem. Typed label-context factors passed complete-input engineering qualification but await matched independent reference implementation and full predictive fits. Exact evidence and dispositions live in RESEARCH_STATE.md and research_ledger.json.
+The current18.77 study tests independent native attention-row starts × ensemble relation feedback. The complete nine-fit PubMed screen rejects masked classification/contrastive reconstruction continuation. Bare shared GNNM now beats the complete, individually selected independent bank and both single controls in all three PubMed seeds. M1 unit-factor controls take priority to distinguish four-member learning from added factor reparameterization; unused confirmation remains required. Stored-error counts identify common false rivals as the shared bank's main remaining problem. Typed label-context factors passed complete-input engineering qualification but await matched independent reference implementation and full predictive fits. Exact evidence and dispositions live in RESEARCH_STATE.md and research_ledger.json.
 
 Every completed family triggers a history update and a next-step decision. Preserve unsuccessful results and describe why a hypothesis failed within its measured scope. Reopen it only with a new mechanism or newly available evidence. Do not spend another grid on a renamed existing loss. A known method may be a useful ingredient or baseline, with its ancestry stated explicitly.
 
@@ -30,3 +30,9 @@ Root keeps the active scientific queue small and gives capable single and ordina
 ## Continue toward the paper
 
 Engineering checks precede full fits. A positive exploratory screen leads to matched capable references, mechanism comparisons and unused confirmation. Paper claims follow audited results and uncertainty estimates. Fresh manuscript reviewers start without author history or a requested verdict. Save every review and address its scientific concerns. Acceptance remains a goal, never an assumption used to interpret data.
+
+## Current role assignments and review cadence
+
+New mechanisms: adaptive_sharing_novelty_v1. Combinations and capable references: query_value_gate_source_review_20261009. Completed-history synthesis: masked_context_source_audit_20261010. These are research roles, separate from a fresh manuscript reviewer.
+
+After each complete experimental family, update the evidence synthesis before choosing another branch. Revisit the broader synthesis when new results contradict an earlier explanation or reveal complementary repairs. Do not repeatedly reread the same sources without a new scoped question. Save one prospective decision with its predicted benefit, expected harm, closest prior method, decisive control and compute estimate. Confirm promising mechanisms on unused evidence before promoting them to paper claims.

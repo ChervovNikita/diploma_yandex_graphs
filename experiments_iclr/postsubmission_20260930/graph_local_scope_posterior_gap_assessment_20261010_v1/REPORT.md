@@ -1,0 +1,31 @@
+# One graph-specific gap after recent prior checks
+
+Retain one research question: whether node-conditioned uncertainty over the existing finite hop channels can improve a shared GNN ensemble beyond global stochastic scope and deterministic node routing. The causal premise is still unproved: the common PubMed mistakes may not arise from inappropriate local scope. No method, fit, hyperparameter grid, source integration or score recalculation is admitted by this note. Running reference and 18.77 quality were not read.
+
+## Closest new primary work
+
+Bayesian Neighborhood Adaptation 2602.05358v1 is the strongest stochastic prior. It already learns beta stick-breaking hop probabilities and samples channel-by-layer masks while all samples use one weight bank. Its variational truncation T is finite. The printed mask z_ol has feature and layer indices, without a node index. The printed operator therefore does not assign different scope probabilities to different nodes. This does not make node-wise uncertainty new: saved Node-MoE and MoE-NP explicitly learn node-dependent filters/expert routes, while BayesianGCNN/VGCN/BBGDC are adjacent graph-posterior leads needing targeted closure.
+
+GRANOLA 2404.13344v2 directly generates node/channel-specific normalization parameters from an auxiliary graph network and random node features. GraphNormv2 2406.02997v3 directly learns graph-spectral centering projections. Tiny Deep Ensemble already supplies private normalization capacity. Generic private graph-aware normalization is therefore an attributed combination, with no novel operation. Their information-loss discussion does not establish an error cause in the current residual pre-LN PolyFormer. Non-backtracking and path-memory mixing likewise have direct saved NBA-GNN/HOPPER/D-MPNN ancestry; the brief rejected scout is sealed separately.
+
+## Concrete mechanism to qualify next
+
+The native mono bank already contains x,Px,P2x. Keep x intact and place node-conditioned continuous feature masks on the two propagated tokens before the existing shared processor. A single small amortizer can infer beta variables from the same public features and original degree/P1/P2_1 context. Four member-owned draws then supply different full graph-state trajectories to the shared dense body and learned private factors. Ordinary own CE remains. No teacher, pseudo-label, masked raw-feature target, new dataset field or CMCL loss is added.
+
+The masks have node, propagated-token and feature-channel indices; each local beta variable controls the channel inclusion tendency. Raw token0 stays intact. Scalar whole-token scaling can be suppressed by featurewise LayerNorm; channel masks avoid that simple invariance, although functional changes still require qualification. This is finite-channel gating, not automatic infinite-depth propagation. Every native dense route still runs. The model can change common rivals only if the original channels retain useful evidence and learned local attenuation uses it; it cannot recreate absent information. Local posterior sampling can also weaken members, spread common mistakes or produce an advantage entirely explained by stochastic single-model averaging.
+
+## A necessary probabilistic correction
+
+BNA prints a continuous ConcreteBernoulli variational conditional and a Bernoulli prior conditional. A literal KL between these distributions is not finite because the continuous and discrete supports differ. Its implementation was not inspected, so this is an unresolved printed-model/implementation issue rather than an author-code failure claim.
+
+Any new design must specify the model correctly. One coherent option uses the same continuous Concrete conditional p(z|v) in both the generative model and variational distribution q(z|v), with a beta prior and beta q(v). Then conditional KL is zero. With four distinct private predictors, explicitly include a uniform latent route index and fix its variational distribution to the same prior. Ordinary mean member log likelihood is its Jensen/variational bound; it is not log mean probability. The remaining beta KL then gives a valid lower-bound objective for that explicit continuous latent model. It is not an exact discrete-scope ELBO and does not supply calibrated epistemic uncertainty over all dense weights. This construction is ordinary variational modeling, not a newly invented Bayesian principle.
+
+## What would falsify the idea
+
+A deterministic node-wise router using the same hop bank tests whether uncertainty earns its cost. A global posterior tests whether local scope is needed. A single trained with four loss samples and served with four draws tests whether private learned routes add value. A common mask across routes tests whether separate draws matter. A feature-only amortizer tests whether the graph coordinates matter. Proper native and same-information independent references remain mandatory; a coupled or shared stochastic single must not be mislabeled as an independently initialized, individually selected ensemble.
+
+Use complete paired quality, class risk, fixed common-rival clearance, useful correct alternatives and net repairs. Record all stochastic selection and serving streams plus full sampling/KL/amortizer cost. Geometry or some corrected rivals cannot replace net quality. Stop if a capable simpler control matches, if masks weaken the members, or if repairs are canceled by new errors. A resource advantage must be measured alongside predictive quality.
+
+The immediate action is to finish the running native/reference and current candidate families, then decide whether this deficit remains. Before any novelty claim, close the strongest local Bayesian propagation prior and BNA source/support/selection semantics. This is one falsifiable composition question, not established methodological novelty or an acceptance forecast.
+
+Three bounded primary method scopes were newly read; no full papers, proofs, source implementations or reported results were certified. Exact URLs, ranges, Algorithm1 excerpts, incidental result exposure and query failures are recorded. Failed or empty searches do not certify absence. All artifacts and reads stayed within the research project, apart from ordinary public-source retrieval/runtime access.
