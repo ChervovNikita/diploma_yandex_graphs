@@ -1,0 +1,867 @@
+[
+  {
+    "i": 0,
+    "tag": "h5",
+    "text": "Report GitHub Issue"
+  },
+  {
+    "i": 1,
+    "tag": "p",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "i": 2,
+    "tag": "h1",
+    "text": "Graph Neural Processes for Spatio-Temporal Extrapolation"
+  },
+  {
+    "i": 3,
+    "tag": "p",
+    "text": "We study the task of spatio-temporal extrapolation that generates data at target locations from surrounding contexts in a graph. This task is crucial as sensors that collect data are sparsely deployed, resulting in a lack of fine-grained information due to high deployment and maintenance costs. Existing methods either use learning-based models like Neural Networks or statistical approaches like Gaussian Processes for this task. However, the former lacks uncertainty estimates and the latter fails to capture complex spatial and temporal correlations effectively. To address these issues, we propose Spatio-Temporal Graph Neural Processes (STGNP), a neural latent variable model which commands these capabilities simultaneously. Specifically, we first learn deterministic spatio-temporal representations by stacking layers of causal convolutions and cross-set graph neural networks. Then, we learn latent variables for target locations through vertical latent state transitions along layers and obtain extrapolations. Importantly during the transitions, we propose Graph Bayesian Aggregation (GBA), a Bayesian graph aggregator that aggregates contexts considering uncertainties in context data and graph structure. Extensive experiments show that STGNP has desirable properties such as uncertainty estimates and strong learning capabilities, and achieves state-of-the-art results by a clear margin."
+  },
+  {
+    "i": 4,
+    "tag": "h2",
+    "text": "1. Introduction"
+  },
+  {
+    "i": 5,
+    "tag": "p",
+    "text": "Spatio-temporal graph data, such as air quality readings (Zheng et al., 2015; Liang et al., 2022), traffic flow data (Wu et al., 2019; Liang et al., 2019; Pan et al., 2019), and climate data (Lin et al., 2022) reported by deployed sensors, are ubiquitous in the physical world. Analyzing such data fosters a variety of applications for smart cities, enhancing people\u2019s lives and helping decision-making (Jin et al., 2023). Ideally, the data should be fine-grained to realize its benefits but it is often impractical to deploy and maintain sufficient sensors in an area of interest because of the high expenditure (Shao et al., 2021; Wang et al., 2022). For example, a professional station to measure air quality can cost around $200,000 to build and $30,000 per year to maintain (Zheng et al., 2013). As a result, many applications have to rely on sparse data, leading to suboptimal solutions. Thus, finding ways to approximate the data in areas with no sensors has become a pressing issue."
+  },
+  {
+    "i": 6,
+    "tag": "p",
+    "text": "In this paper, we study the problem of spatio-temporal extrapolation, which involves estimating a function that predicts the spatio-temporal data at target locations of interest areas based on the surrounding context nodes and related exogenous covariates, operated in a graph structure, as shown in Figure 1(a). As an example, we use air quality extrapolation (Zheng et al., 2013) illustrated in Figure 1(b). We utilize the air quality index from context sensors to extrapolate the indexes at the target locations, taking into account covariates such as weather conditions that can also impact air quality."
+  },
+  {
+    "i": 7,
+    "tag": "p",
+    "text": "To achieve our goal, one pivotal property that needs to be considered is spatio-temporal correlations, i.e., the spatial dependencies within the graph and the temporal dependencies along the time axis. To capture these correlations, Neural Networks (NNs), especially Spatio-Temporal Graph Neural Networks (STGNNs), nowadays have become a favorite due to their tempting learning competence (Han et al., 2021; Wu et al., 2019). However, NNs have two main limitations: (i) They lack the sought-after ability to estimate uncertainties. Sensors often produce signals with different levels of ambiguity, such as noisy or missing observations due to unpredictable factors such as network disruptions. Explicitly capturing these uncertainties has proved to be a boon for making reliable decisions (Wang et al., 2019; Wen et al., 2023). However, most NNs are deterministic and unable to account for these uncertainties. (ii) Their ability to generalize to new data is limited. NNs require a large amount of training data to parameterize a function. Nevertheless, their reliance on parameters hinders their adaptability in unpredictable real-world environments, as the model needs to be retrained whenever the environment changes. Additionally, their sensitivity to hyperparameters demands a hyperparameter search to attain optimal performance."
+  },
+  {
+    "i": 8,
+    "tag": "p",
+    "text": "The limitations of NNs have led researchers to draw inspiration from probability models, with Gaussian Processes (GPs) being one potential approach (Seeger, 2004). GPs define a stochastic process in which the spatio-temporal relations are modeled by various kernels (Patel et al., 2022). Their Bayesian principle and non-parametric nature enable them to handle uncertainty and generalize well to a wide range of functions (Luttinen and Ilin, 2012). However, GPs suffer from limited expressivity of kernels, which can be disadvantageous. To address these issues, Neural Processes (NPs) (Garnelo et al., 2018) have emerged as a promising approach. NPs learn to construct stochastic processes by parameterizing neural networks in which an aggregator is introduced to integrate contexts. By combining the strengths of both NNs and GPs, NPs offer a compelling framework for spatio-temporal extrapolation."
+  },
+  {
+    "i": 9,
+    "tag": "p",
+    "text": "Unfortunately, NPs cannot be applied directly to spatio-temporal graph data due to the following factors: (i) They struggle to learn temporal dependencies effectively. Existing NPs (Singh et al., 2019; Qin et al., 2019) utilize latent state transitions to capture temporal relations recurrently. However, transitions tend to only focus on learned latent variables, disregarding the contextual information at later recurrent steps. This phenomenon, known as transition collapse, can impede learning over long sequences (Singh et al., 2019). (ii) They are incapable of modeling spatial relationships in a graph. Existing NPs\u2019 aggregation operations (Gordon et al., 2020; Kim et al., 2019; Volpp et al., 2020) lack the ability to model complex spatial relations defined in a graph. In addition, their deterministic nature makes them suboptimal for aggregating data with varying levels of ambiguity, such as missing values and noise in Figure 1(a)."
+  },
+  {
+    "i": 10,
+    "tag": "p",
+    "text": "To tackle these challenges, we propose Spatio-Temporal Graph Neural Processes (STGNP) for spatio-temporal extrapolation over graphs. STGNP has two stages: the first stage leverages a deterministic network to learn spatio-temporal representations of nodes. Instead of relying on a recurrent structure, the temporal dynamics are modeled by stacking convolution layers in a bottom-up way (Aksan and Hilliges, 2019), while the spatial relations are captured by cross-set graph neural networks. In the second stage, we employ state transitions to aggregate latent variables of target nodes following a top-down manner. Here, the transition assumes horizontal time independence and incorporates long-range temporal evolution from the upper layers. As the number of transitions only relates to the number of stacked layers, much smaller than the sequential length, our model naturally exhibits resistance to transition collapse."
+  },
+  {
+    "i": 11,
+    "tag": "p",
+    "text": "For the aggregator in each transition, we claim that different context nodes have different levels of importance. Motivated by (Volpp et al., 2020), we propose Graph Bayesian Aggregation (GBA) that directly aggregates distributions over latent variables regulated by the graph. Intuitively, a context node contributes less to the latent distribution if it is far from the target location or exhibits a high degree of ambiguity recognized by the module. This design explicitly considers graph structure into NP\u2019s aggregator and enhances the model\u2019s capability to capture node uncertainties."
+  },
+  {
+    "i": 12,
+    "tag": "p",
+    "text": "In summary, our main contributions are summarized as follows:"
+  },
+  {
+    "i": 13,
+    "tag": "p",
+    "text": "We propose Spatio-Temporal Graph Neural Processes. To the best of our knowledge, this is the first work that generalizes NPs to spatio-temporal graph modeling. STGNP captures uncertainties explicitly and can generalize to different functions robustly, which is a major advantage over NNs approaches. Additionally, STGNP is able to learn temporal relations and graph data effectively, which sets it apart from classical NPs models."
+  },
+  {
+    "i": 14,
+    "tag": "p",
+    "text": "We introduce Graph Bayesian Aggregation, a Bayesian method for aggregating context nodes, which allows the aggregator to model graph structure and uncertainties for context nodes."
+  },
+  {
+    "i": 15,
+    "tag": "p",
+    "text": "We conduct comprehensive experiments to evaluate the performance and properties of STGNP. Our results demonstrate that STGNP outperforms state-of-the-art baselines by a significant margin and exhibits compelling properties, such as uncertainty estimates, high generalizability, and robustness to noisy data."
+  },
+  {
+    "i": 16,
+    "tag": "h2",
+    "text": "2. Preliminaries"
+  },
+  {
+    "i": 17,
+    "tag": "p",
+    "text": "We first define concepts and notations of spatial-temporal data on graphs. Then, we introduce the basic concepts of neural processes."
+  },
+  {
+    "i": 18,
+    "tag": "h3",
+    "text": "2.1. Definitions and Notations"
+  },
+  {
+    "i": 19,
+    "tag": "h5",
+    "text": "Definition 1 (Graph)"
+  },
+  {
+    "i": 20,
+    "tag": "p",
+    "text": "We represent nodes as a graph \\mathcal{G}=(\\mathcal{V},\\mathcal{E}) , where \\mathcal{V} is the vertex set and \\mathcal{E} is the edge set defining the weights between nodes. The K -hop neighborhood of a node v\\in\\mathcal{V} denoted by \\mathcal{N}_{k}(v) is the set of nodes that are reachable from v with K steps. Based on \\mathcal{E} and K , an K -hop adjacency matrix A^{K} is derived to measure the non-Euclidean distances between connected neighbors."
+  },
+  {
+    "i": 21,
+    "tag": "h5",
+    "text": "Definition 2 (Spatio-Temporal Data)"
+  },
+  {
+    "i": 22,
+    "tag": "p",
+    "text": "Observed signals are retrieved from each node in the graph. We use Y_{i}=(y_{i,1},..,y_{i,t},..,y_{i,T})\\in\\mathbb{R}^{T\\times d_{y}} to denote data of node i that is measured over a time window T , where d_{y} is the number of features. Y=(Y_{1},..,Y_{n},..,Y_{N})\\in\\mathbb{R}^{N\\times T\\times d_{y}} is denoted as a signal tensor of all nodes over the window T , where N is the total number of observable nodes in the graph."
+  },
+  {
+    "i": 23,
+    "tag": "h5",
+    "text": "Definition 3 (Exogenous Covariates)"
+  },
+  {
+    "i": 24,
+    "tag": "p",
+    "text": "Exogenous covariates benefit the learning process as they usually have notable correlations with node data. These covariates are readily available from different sources. For instance, weather conditions can affect air pollutant data and they are collected from weather stations. We denote these factors as a tensor X\\in\\mathbb{R}^{N\\times T\\times d_{x}} and consider them explicitly."
+  },
+  {
+    "i": 25,
+    "tag": "h3",
+    "text": "2.2. Neural Processes"
+  },
+  {
+    "i": 26,
+    "tag": "p",
+    "text": "Neural Processes (Garnelo et al., 2018) construct stochastic processes that map x\\in\\mathbb{R}^{d_{x}} in an input domain to y\\in\\mathbb{R}^{d_{y}} in an output space, conditioned on a context set \\mathcal{C}=\\{(x_{n},y_{n})\\}_{n=1}^{N} of observed input-output pairs. NPs follow the same principle as Gaussian Processes except the stochastic process is learned implicitly by neural networks. Specifically, NPs define a conditional latent variable framework, where the distribution of a latent variable z is described by a learned conditional prior p(z|\\mathcal{C}) from the context set. Then, with inputs of target variables X_{\\mathcal{D}}=\\{x_{m}\\}_{m=1}^{M} in a target set \\mathcal{D} , a likelihood module p({Y}_{\\mathcal{D}}|{X}_{\\mathcal{D}},z) is trained to predict the corresponding output variables Y_{\\mathcal{D}} . The following posterior predictive likelihood formulates the generative process of NPs:"
+  },
+  {
+    "i": 27,
+    "tag": "tr",
+    "text": "(1) p({Y}_{\\mathcal{D}}|{X}_{\\mathcal{D}},\\mathcal{C})=\\int p({Y}_{\\mathcal{D}}|{X}_{\\mathcal{D}},z)p(z|\\mathcal{C})dz."
+  },
+  {
+    "i": 28,
+    "tag": "table",
+    "text": "(1) p({Y}_{\\mathcal{D}}|{X}_{\\mathcal{D}},\\mathcal{C})=\\int p({Y}_{\\mathcal{D}}|{X}_{\\mathcal{D}},z)p(z|\\mathcal{C})dz."
+  },
+  {
+    "i": 29,
+    "tag": "p",
+    "text": "In practice, NPs assume the target variables are independent, decomposing the likelihood such that p({Y}_{\\mathcal{D}}|{X}_{\\mathcal{D}},z) is factorized as \\prod_{m=1}^{M}p(y_{m}|x_{m},z) , where M=|\\mathcal{D}| . NPs organize a meta-learning framework where each pair of \\{\\mathcal{C},\\mathcal{D}\\} constructs its own stochastic process, making it less parametric dependent whit strong generalizability. Note that conditions \\mathcal{C} in the prior should be aggregated by a permutation-invariant function (e.g., mean, attention) to define a stochastic process, according to Kolmogorov Extension Theorem (\u00d8ksendal, 2003). As the marginalization of the latent variable z is normally intractable, the model is usually trained either by Monte-Carlo (MC) sampling to estimate Equation 1 directly (Foong et al., 2020) or by variational approximation of maximizing the evidence lower bound (ELBO) (Garnelo et al., 2018):"
+  },
+  {
+    "i": 30,
+    "tag": "tr",
+    "text": "(2) \\displaystyle\\log p({Y}_{\\mathcal{D}}|{X}_{\\mathcal{D}},\\mathcal{C})\\geq\\mathbb{E}_{q(z|\\mathcal{C}\\cup\\mathcal{D})}\\left[\\sum_{m=1}^{m}\\log\\frac{p(y_{m}|x_{m},z)p(z|\\mathcal{C})}{q(z|\\mathcal{C}\\cup\\mathcal{D})}\\right],"
+  },
+  {
+    "i": 31,
+    "tag": "p",
+    "text": "where q(z|\\mathcal{C}\\cup\\mathcal{D}) and p(y_{m}|x_{m},z) are the approximated posterior and the likelihood learned by neural networks. As the true conditional prior p(z|\\mathcal{C}) in the numerator is also intractable, the same module q(\\cdot) is employed to approximate p(z|\\mathcal{C})\\approx q(z|\\mathcal{C}) ."
+  },
+  {
+    "i": 32,
+    "tag": "h2",
+    "text": "3. Methodology"
+  },
+  {
+    "i": 33,
+    "tag": "p",
+    "text": "In this section, we propose STGNP, a neural latent variable model to enhance spatio-temporal extrapolation. As its graphical model illustrates in Figure 2, the key pipeline is to learn deterministic representations (STRL) and stochastic latent variables (GBA) in two stages. We first introduce the problem of spatio-temporal extrapolation. Then, we describe the deterministic stage for learning spatio-temporal representations and derive Graph Bayesian Aggregation to aggregate contexts in the stochastic stage. Finally, we introduce the generative process and the optimization procedure. Note that as target nodes are independent, we only discuss a single target node m in the following sections for brevity."
+  },
+  {
+    "i": 34,
+    "tag": "h3",
+    "text": "3.1. Problem Statement"
+  },
+  {
+    "i": 35,
+    "tag": "p",
+    "text": "We formulate spatio-temporal extrapolation in the NPs framework and first define the context set \\mathcal{C} containing nodes with exogenous covariates and observed data \\{(X_{n},Y_{n})\\}_{n=1}^{N}\\in\\mathbb{R}^{N\\times T\\times(d_{x}+d_{y})} . Our goal is to learn a posterior predictive distribution p(Y_{\\mathcal{D}}|X_{\\mathcal{D}},\\mathcal{C},A) to generate Y_{\\mathcal{D}}\\in\\mathbb{R}^{M\\times T\\times d_{y}} over the same time period in the target set D where M is the total number of target nodes, given the covariates X_{\\mathcal{D}} , the context set \\mathcal{C} , and the adjacency matrix A . In this paper, we use subscript m and n to index target and context nodes respectively, and adopt the terms location, node, and sensor interchangeably."
+  },
+  {
+    "i": 36,
+    "tag": "h3",
+    "text": "3.2. Spatio-Temporal Representation Learning"
+  },
+  {
+    "i": 37,
+    "tag": "p",
+    "text": "The deterministic stage has three building blocks to capture spatial and temporal correlations: learnable target token, dilated causal convolution, and cross-set graph convolution. We introduce them individually and then illustrate the overall learning framework."
+  },
+  {
+    "i": 38,
+    "tag": "h5",
+    "text": "Learnable Target Token"
+  },
+  {
+    "i": 39,
+    "tag": "p",
+    "text": "Our network takes sensor data and covariates as inputs; however, the data Y_{m} of a target node is unknown. Existing methods typically preprocess it by either filling it with zeros (Appleby et al., 2020; Wu et al., 2021) or employing linear interpolation to estimate its values (Hu et al., 2021). However, using zero to represent target variables can be confusing, as it may be interpreted as the semantic zero within the dataset. Moreover, interpolation incurs large errors, which also hampers model performance. Inspired by Masked AutoEncoder (He et al., 2022), we leverage a shared learnable token e\\in\\mathbb{R}^{d_{0}} as embeddings for target nodes, while using an embedding layer with the parameter W\\in\\mathbb{R}^{d_{y}\\times d_{0}} to get embeddings for context nodes. The token is optimized by the network to identify a position in the feature space that represents the target node, which avoids inferior preprocessing."
+  },
+  {
+    "i": 40,
+    "tag": "h5",
+    "text": "Cross-Set Graph Convolution Layer"
+  },
+  {
+    "i": 41,
+    "tag": "p",
+    "text": "Graph convolution is a seminal operation to learn spatial relations in a graph structure. Existing GCNs methods typically treat dependencies over all nodes equally (Wu et al., 2021; Hu et al., 2021). However, in our task, relations across the target and context sets take priority due to their direct influence on the target nodes. Based on this insight, we argue that disregarding internal relations within the two sets does not adversely affect performance and propose cross-set graph convolution (CSGCN), in which only dependencies across the set \\mathcal{C} and \\mathcal{D} are captured. Specifically, given the representation of the target node V_{m}^{l-1}\\in\\mathbb{R}^{T\\times d_{l-1}} at layer l-1 , we update it by its neighbors H_{n}^{l-1} in the context set up to K -hop, with each neighbor weighted by the adjacency weight A^{k}_{m,n} :"
+  },
+  {
+    "i": 42,
+    "tag": "tr",
+    "text": "(3) V_{m}^{l}=\\sum_{k=0}^{K}\\frac{V_{m}^{l-1}+\\sum_{n\\in\\mathcal{N}^{c}_{k}(m)}A^{k}_{m,n}H_{n}^{l-1}}{1+\\sum_{n\\in\\mathcal{N}^{c}_{k}(m)}A^{k}_{m,n}}W^{l}_{k},"
+  },
+  {
+    "i": 43,
+    "tag": "table",
+    "text": "(3) V_{m}^{l}=\\sum_{k=0}^{K}\\frac{V_{m}^{l-1}+\\sum_{n\\in\\mathcal{N}^{c}_{k}(m)}A^{k}_{m,n}H_{n}^{l-1}}{1+\\sum_{n\\in\\mathcal{N}^{c}_{k}(m)}A^{k}_{m,n}}W^{l}_{k},"
+  },
+  {
+    "i": 44,
+    "tag": "p",
+    "text": "where W^{l}_{k}\\in\\mathbb{R}^{d_{l-1}\\times d_{l}} are learnable parameters and \\mathcal{N}^{c}_{k}(m) is k -hop neighbors of the target node m indexed from A^{k} . Note that when l=0 , V_{m}^{0} is the broadcast target token and H_{n}^{0} is the context embeddings. Compared to traditional GCNs, CSGCN offers improved efficiency, reducing the computational complexity from \\mathcal{O}((N+M)^{2}) to \\mathcal{O}(N\\times M) . Despite this efficiency gain, it maintains strong learning capabilities as demonstrated in the experiments."
+  },
+  {
+    "i": 45,
+    "tag": "h5",
+    "text": "Dilated Causal Convolution Layer"
+  },
+  {
+    "i": 46,
+    "tag": "p",
+    "text": "We employ dilated causal convolutions (DCConv) (Yu and Koltun, 2016) to capture temporal dependencies. Unlike the recurrent structure, it learns temporal relations over long sequences by stacking causal layers. This approach proves advantageous as the number of layers is considerably smaller than the length of the sequence, mitigating the issue of transition collapse in the later stage. Specifically, at time t , a 1D causal convolution learns a temporal representation h_{i,t}^{l}\\in\\mathbb{R}^{d_{l}} for node i :"
+  },
+  {
+    "i": 47,
+    "tag": "tr",
+    "text": "(4) h_{i,t}^{l}=H_{i}^{l-1}\\star\\mathcal{K}^{l}(t)=\\sum_{s=0}^{k-1}\\mathcal{K}^{l}(s)\\odot H_{i}^{l-1}(t-\\eta\\times s),"
+  },
+  {
+    "i": 48,
+    "tag": "table",
+    "text": "(4) h_{i,t}^{l}=H_{i}^{l-1}\\star\\mathcal{K}^{l}(t)=\\sum_{s=0}^{k-1}\\mathcal{K}^{l}(s)\\odot H_{i}^{l-1}(t-\\eta\\times s),"
+  },
+  {
+    "i": 49,
+    "tag": "p",
+    "text": "where H_{i}^{l-1}\\in\\mathbb{R}^{T\\times d_{l-1}} is a node representation at the previous layer, \\star\\mathcal{K}^{l} means a DCConv with the kernel size c\\times d_{l-1}\\times d_{l} , and \\odot is the Hadamard product. The dilation factor \\eta is initialized to 1 with an exponentially increasing rate of 2 (van den Oord et al., 2016) and zero-padding is used to ensure the inputs and outputs have the same time length T ."
+  },
+  {
+    "i": 50,
+    "tag": "h5",
+    "text": "Learning Framework"
+  },
+  {
+    "i": 51,
+    "tag": "p",
+    "text": "As shown in Figure 3, each layer of the network first applies a CSGCN to model spatial relations, followed by a DCConv to capture temporal dependencies for node representations. Additionally, the features of covariates, learned through a 1\\times 1 convolution, are incorporated into the node representations. Note that we do not explicitly involve covariates in CSGCNs and DCConvs, as they may exhibit different spatio-temporal dependencies or even lack relations in certain scenarios (Tashiro et al., 2021). By stacking layers with skip connections, the representations of the target node are obtained in which each layer maintains temporal dependencies at various scales, with upper layers capturing long-range relations and lower layers comprising fine-grained information. Thus, the stochastic stage is able to access different scales through its hierarchical dependency."
+  },
+  {
+    "i": 52,
+    "tag": "h3",
+    "text": "3.3. Graph Bayesian Aggregation"
+  },
+  {
+    "i": 53,
+    "tag": "p",
+    "text": "The core component for the stochastic stage is our proposed Graph Bayesian Aggregation, which aggregates information from context nodes and derives latent variables Z_{m}^{l}\\in\\mathbb{R}^{T\\times d_{l}} describing stochastic processes over target nodes. Figure 4 illustrates the aggregation process. Based on Bayes\u2019 theorem (Bishop and Nasrabadi, 2006), we assume a prior p(Z_{m}^{l}) over the target node. Then for each context node n , a latent observation model p(R^{l}_{n}|Z^{l}_{m},A_{m,n}) is derived in which its mean conditions on a linear transformation of Z_{m} and A_{m,n} . Thus once observe R^{l}_{n} , the latent variable Z^{l} is updated through its posterior:"
+  },
+  {
+    "i": 54,
+    "tag": "tr",
+    "text": "(5) p(Z_{m}^{l}|\\{(R^{l}_{n},{A}_{m,n})\\}_{n=1}^{N})=\\frac{\\prod_{n\\in\\mathcal{N}^{c}_{1}(m)}p(R^{l}_{n}|Z_{m}^{l},{A}_{m,n})p(Z_{m}^{l})}{\\prod_{n\\in\\mathcal{N}^{c}_{1}(m)}p(R^{l}_{n})},"
+  },
+  {
+    "i": 55,
+    "tag": "table",
+    "text": "(5) p(Z_{m}^{l}|\\{(R^{l}_{n},{A}_{m,n})\\}_{n=1}^{N})=\\frac{\\prod_{n\\in\\mathcal{N}^{c}_{1}(m)}p(R^{l}_{n}|Z_{m}^{l},{A}_{m,n})p(Z_{m}^{l})}{\\prod_{n\\in\\mathcal{N}^{c}_{1}(m)}p(R^{l}_{n})},"
+  },
+  {
+    "i": 56,
+    "tag": "p",
+    "text": "where we suppose the latent observations are independent and only consider the 1 -hop neighbor to simplify the computation. The prior p(Z_{m}^{l}) follows a factorized Gaussian:"
+  },
+  {
+    "i": 57,
+    "tag": "tr",
+    "text": "(6) \\displaystyle\\begin{split}&p(Z_{m}^{l})=\\mathcal{N}(Z_{m}^{l}|\\mu_{Z_{m}^{l}},\\operatorname{diag}(\\sigma_{Z_{m}^{l}}^{2})),\\\\ &(\\mu_{Z_{m}^{l}},\\sigma_{Z_{m}^{l}})=\\operatorname{Enc}_{Z}^{l}(Z_{m}^{l+1},V_{m}^{l}),\\end{split}"
+  },
+  {
+    "i": 58,
+    "tag": "p",
+    "text": "where \\mu_{Z_{m}^{l}} and \\sigma_{Z_{m}^{l}}^{2} are mean and variance learned by \\operatorname{Enc}^{l}_{Z}(\\cdot) that will be discussed in the following section. For the latent observation model, we also impose a factorized Gaussian. Note that instead of learning its mean, we learn the observation R^{l}_{n} directly together with its variance \\sigma^{2}_{R^{l}_{n}} , which guarantees valid Gaussian conditioning during inference (Volpp et al., 2020):"
+  },
+  {
+    "i": 59,
+    "tag": "tr",
+    "text": "(7) \\displaystyle\\begin{split}&p(R^{l}_{n}|Z^{l}_{m},A_{m,n})=\\mathcal{N}(R^{l}_{n}|A_{m,n}Z^{l}_{m},\\operatorname{diag}(\\sigma^{2}_{R^{l}_{n}})),\\\\ &(R_{n}^{l},\\sigma_{R_{n}^{l}})=\\operatorname{Enc}_{R}^{l}(H_{n}^{l}),\\end{split}"
+  },
+  {
+    "i": 60,
+    "tag": "p",
+    "text": "where R_{n} and \\sigma^{2}_{R_{n}} are parameterized by \\operatorname{Enc}^{l}_{R}(\\cdot) . The Gaussian assumption avoids an intractable computation of the marginal likelihood of the posterior\u2019s denominator. In fact, we can calculate it easily by Gaussian conditioning in a closed-form solution. (see proof in Appendix B):"
+  },
+  {
+    "i": 61,
+    "tag": "tr",
+    "text": "(8) \\displaystyle\\bar{\\sigma}_{Z_{m}^{l}}^{2}=\\left[\\left(\\sigma_{Z_{m}^{l}}\\right)^{-2}+\\sum\\nolimits_{n\\in\\mathcal{N}^{c}_{1}(m)}\\left(\\sigma_{R^{l}_{n}}/A_{m,n}\\right)^{-2}\\right]^{-1},"
+  },
+  {
+    "i": 62,
+    "tag": "tr",
+    "text": "(9) \\displaystyle\\bar{\\mu}_{Z_{m}^{l}}=\\bar{\\sigma}_{Z_{m}^{l}}^{2}\\left(\\mu_{Z_{m}^{l}}/\\sigma^{2}_{Z_{m}^{l}}+\\sum\\nolimits_{n\\in\\mathcal{N}^{c}_{1}(m)}A_{m,n}R_{n}/\\sigma^{2}_{R^{l}_{n}}\\right),"
+  },
+  {
+    "i": 63,
+    "tag": "p",
+    "text": "where \\bar{\\sigma}_{Z_{m}^{l}}^{2} and \\bar{\\mu}_{Z_{m}^{l}} are updated parameters and the operations are conducted in an element-wise manner. With factorization, the conditioning is efficient to compute, avoiding costly matrix inversion. In addition, all the calculations are differentiable so that GBA can be optimized in an end-to-end way by stochastic gradient descent."
+  },
+  {
+    "i": 64,
+    "tag": "p",
+    "text": "There are significant implications behind the aggregation. First, it incorporates the graph structure into the model by applying a linear transformation through the adjacency matrix, which is equivalent to GCNs when neglecting uncertainty terms. This suggests that GBA has similar learning abilities to GCNs. Second, the aggregation takes the uncertainties of nodes into consideration, which is a compelling property against previous methods. From the equations, the contribution of a context node is determined by its learned observation R^{l}_{n} , the variance \\sigma_{R^{l}_{n}} , and the distance weight A_{m,n} . Specifically, Equation 8 gives a reasonable assumption that a context node located at a greater distance would provide less confident information. Additionally, Equation 9 implicates a node\u2019s contribution diminishes when its associated variance \\sigma_{R^{l}_{n}} is large, signifying higher ambiguity. This theoretically guarantees the model\u2019s robustness when dealing with noisy data."
+  },
+  {
+    "i": 65,
+    "tag": "h3",
+    "text": "3.4. Generative Process"
+  },
+  {
+    "i": 66,
+    "tag": "p",
+    "text": "The target latent variable Z_{m}^{l} depends on its representation V_{m}^{l} and those of the context nodes H^{l} . The longer-range temporal dependencies are transited by conditioning Z_{m}^{l} on Z_{m}^{l+1} , forming a vertical time hierarchy. In practice, given V_{m}^{l} and a sample from p(Z_{m}^{l+1}) , the network \\operatorname{Enc}^{l}_{Z}(Z_{m}^{l+1},V_{m}^{l}) first learns a prior p(Z_{m}^{l}) over the target node in Equation 6. Then, the deterministic representations of context nodes are adopted to learn their latent observations by \\operatorname{Enc}^{l}_{R}(H_{n}^{l}) in Equation 7. Next, parameters of p(Z_{m}^{l}) are updated according to Equation 8 and 9. After the bottom layer l=1 , a likelihood model concatenates samples Z_{m}=(Z_{m}^{1},...Z_{m}^{L}) from all layers and the target node\u2019s exogenous covariates X_{m} to predict its extrapolations Y_{m} . Formally, the generative process of STGNP is summarized as:"
+  },
+  {
+    "i": 67,
+    "tag": "tr",
+    "text": "(10) \\displaystyle\\begin{split}p(Y_{m},Z_{m}|X_{m},\\mathcal{C},A)=p(Y_{m}|X_{m},Z_{m})\\prod_{l=1}^{L}p(Z_{m}^{l}|Z_{m}^{l+1},V_{m}^{l},H^{l},A),\\end{split}"
+  },
+  {
+    "i": 68,
+    "tag": "p",
+    "text": "where the first term is a likelihood; the second term denotes a conditional prior aggregated through the GBA. Note that at the top layer L , Z_{m}^{L+1}=\\mathbf{0} and the likelihood is assumed to be a factorized Gaussian distribution."
+  },
+  {
+    "i": 69,
+    "tag": "h3",
+    "text": "3.5. Inference and Optimization"
+  },
+  {
+    "i": 70,
+    "tag": "p",
+    "text": "Typically, closed-form solutions for non-linear transitions and likelihood do not exist; thus we train the model through variational approximation. The approximated posterior q(Z_{m}|\\mathcal{C}\\cup\\mathcal{D},A) has the same structure as the conditional prior but takes target node data Y_{m} as inputs. Then the deterministic and stochastic modules can be optimized together by the evidence lower-bound (ELBO):"
+  },
+  {
+    "i": 71,
+    "tag": "tr",
+    "text": "(11) \\displaystyle\\begin{split}\\log p(Y_{m}|&X_{m},\\mathcal{C},A)\\geq\\mathbb{E}_{q(Z_{m})}[\\log{p(Y_{m}|X_{m},Z_{m})}]\\\\ &-\\mathbb{KL}(q(Z_{m}|\\mathcal{C}\\cup\\mathcal{D},A)||p(Z_{m}|X_{m},\\mathcal{C},A)).\\end{split}"
+  },
+  {
+    "i": 72,
+    "tag": "p",
+    "text": "Given the hierarchical structure of Equation 10, the Kullback\u2013Leibler divergence term \\mathbb{KL} can be further decomposed as:"
+  },
+  {
+    "i": 73,
+    "tag": "tr",
+    "text": "(12) \\displaystyle\\begin{split}\\mathbb{KL}(\\cdot||\\cdot)=\\sum_{l=1}^{L}\\mathbb{E}_{q(Z_{m}^{l+1})}[\\mathbb{KL}(q(Z_{m}^{l}&|Z_{m}^{l+1},{V_{m}^{\\prime}}^{l},H^{l},A)\\\\ &||p(Z_{m}^{l}|Z_{m}^{l+1},V_{m}^{l},H^{l},A)],\\end{split}"
+  },
+  {
+    "i": 74,
+    "tag": "p",
+    "text": "where unlike using the learned token, {V_{m}^{\\prime}}^{0} is the feature embeddings of Y_{m} . Following (Garnelo et al., 2018), we use the same variational module to approximate the conditional prior so that p(\\cdot)=q(\\cdot) in Equation 12 During optimization, ELBO can be minimized using stochastic gradient descent with the reparameterization trick (Kingma and Welling, 2014)."
+  },
+  {
+    "i": 75,
+    "tag": "h2",
+    "text": "4. Experiments"
+  },
+  {
+    "i": 76,
+    "tag": "p",
+    "text": "To evaluate the performance and properties of STGNP, we conducted experiments to answer the following questions:"
+  },
+  {
+    "i": 77,
+    "tag": "p",
+    "text": "Q1: How does STGNP perform on real-world datasets compared to other baselines?"
+  },
+  {
+    "i": 78,
+    "tag": "p",
+    "text": "Q2: What is the quality of the uncertainty estimates?"
+  },
+  {
+    "i": 79,
+    "tag": "p",
+    "text": "Q3: What is the effect of each component in our model, e.g., the learnable token, CSGCN, DCConv and GBA."
+  },
+  {
+    "i": 80,
+    "tag": "p",
+    "text": "Q4: Is STGNP resistant to different missing ratios in datasets?"
+  },
+  {
+    "i": 81,
+    "tag": "p",
+    "text": "Q5: Is it sensitive to hyperparameters and prone to overfitting?"
+  },
+  {
+    "i": 82,
+    "tag": "p",
+    "text": "Q6: Does STGNP show robust generalizability when the domain of sensors changes?"
+  },
+  {
+    "i": 83,
+    "tag": "h3",
+    "text": "4.1. Experimental Setup"
+  },
+  {
+    "i": 84,
+    "tag": "h4",
+    "text": "4.1.1. Dataset Descriptions."
+  },
+  {
+    "i": 85,
+    "tag": "p",
+    "text": "We carry out experiments on three real-world spatio-temporal datasets."
+  },
+  {
+    "i": 86,
+    "tag": "p",
+    "text": "Beijing (Zheng et al., 2015): Beijing contains air quality indexes (AQI) from 36 stations and district-level meteorological attributes. Following (Cheng et al., 2018; Han et al., 2021), we aim to extrapolate the AQI of PM2.5, PM10, and NO2, using meteorological attributes such as temperature, humidity, pressure, wind speed, direction, and weather as covariates."
+  },
+  {
+    "i": 87,
+    "tag": "p",
+    "text": "London11 1 https://www.biendata.xyz/competition/kdd_2018/: We adopt London to evaluate the performance on different domains to answer Q6. It collects signals from 24 stations. Note that some baselines use non-publicly available covariates like POIs in the above two datasets. To ensure a fair comparison, we do not utilize them for all models in this work."
+  },
+  {
+    "i": 88,
+    "tag": "p",
+    "text": "UrbanWater (Liu et al., 2016; Liang et al., 2018; Liu et al., 2020): The urban water quality data comes from 15 monitoring stations in Shenzhen, which collects 3 water measures of water quality: residual chlorine (RC), turbidity (TU), and power of hydrogen (pH). Following (Liu et al., 2020), we extrapolate RC given exogenous covariates TU and pH."
+  },
+  {
+    "i": 89,
+    "tag": "h4",
+    "text": "4.1.2. Baselines."
+  },
+  {
+    "i": 90,
+    "tag": "p",
+    "text": "We consider eight baselines which can be categorized into three classes."
+  },
+  {
+    "i": 91,
+    "tag": "p",
+    "text": "Statistical models: We utilize KNN, IDW (Lu and Wong, 2008), RF (Fawagreh et al., 2014), and ANCL (Patel et al., 2022). ANCL is a GPs-based framework that designs specialized kernels for different data attributes."
+  },
+  {
+    "i": 92,
+    "tag": "p",
+    "text": "Neural Network methods: We take ADAIN (Cheng et al., 2018) and MCAM (Han et al., 2021) as NNs baselines. ADAIN uses MLP and RNN layers for static and dynamic data, followed by an attention mechanism to aggregate features, whereas MCAM introduces multi-channel attention blocks for static and dynamic correlations."
+  },
+  {
+    "i": 93,
+    "tag": "p",
+    "text": "Neural Processes approaches: We modify SNP (Singh et al., 2019) and name the variant as SGNP. As SNP cannot deal with graph data, we add a cross-set graph network at each recurrent step before the aggregation. SGANP is an advanced version of SGNP modified from (Qin et al., 2019), which utilizes attention mechanisms as the aggregator."
+  },
+  {
+    "i": 94,
+    "tag": "p",
+    "text": "Our model, STGNP, is based on a probabilistic framework and is a general method that is not tailored to specific tasks. It can also be applied in situations where exogenous covariates are not available by simply removing the corresponding causal convolution blocks. In contrast, ANCL relies on periodic and categorical kernels and MCAM utilizes horizontal and vertical wind speeds that are specific to the air quality task. SGNP and SGANP have a similar NP framework to ours, but we abandon the recurrent structure and propose GBA to aggregate nodes under a Bayesian framework."
+  },
+  {
+    "i": 95,
+    "tag": "h4",
+    "text": "4.1.3. Evaluation Strategy and Hyperparameters."
+  },
+  {
+    "i": 96,
+    "tag": "p",
+    "text": "In Figure 5, we illustrate the evaluation strategy for experiments. As we lack fine-grained data for the areas, we manually set aside 30% of existing stations in the dataset as target nodes for reporting performance. The remaining 70% is used for training purposes, ensuring a ratio of 3N=7M . This ensures that target nodes will not involve in the training phase. The data is sequentially divided into three segments: an 80% training set, a 10% validation set, and a 10% test set. During training and validation, we use N-3 nodes to extrapolate the remaining 3 randomly selected nodes. We report extrapolation metrics of MAE, MSE, and MAPE of the target stations. Since our model, SGNP, and SGANP contain stochastic modules, we adopt the mean of distributions directly, instead of sampling, to report the results. The time window T is 24 and the adjacency matrix is constructed based on the locations of stations, normalized by a thresholded Gaussian kernel (Shuman et al., 2013). It is worth noting that, in the case of NNs, data processing is necessary to handle missing values in the dataset. For this reason, we employ linear interpolation to fill in the missing values for ADAIN and MCAM, while for the other baselines, missing values are left as zero. Hyperparameters are the same on all datasets for STGNP. The deterministic learning stage has 3 layers with a kernel size k=3 and channel numbers [16,32,64] . The stochastic stage is a 3-layer 1\\times 1 convolutions module and the channels of latent variables are [16,32,64] . The likelihood function is a 3-layer 1\\times 1 convolution with 128 channels in each layer. STGNP, ADAIN, MCAM, SGNP, and SGANP are implemented with PyTorch and trained on an NVIDIA A100 GPU. We repeat each experiment 5 times and report the average and variance of the metrics. Our implementations22 2 https://github.com/hjf1997/STGNP are publicly available."
+  },
+  {
+    "i": 97,
+    "tag": "h3",
+    "text": "4.2. Overall Performance"
+  },
+  {
+    "i": 98,
+    "tag": "p",
+    "text": "To answer Q1, we report the overall results of baselines over Beijing and Water datasets, as shown in Table 1. Note that ANCL and MCAM require meteorological features, so they cannot be applied to the Water dataset. From the table, we see that STGNP consistently outperforms other baseline models with a notable margin, with the lowest errors on all datasets. Moreover, we have the following observations. First, the GPs model ANCL outperforms the other statistical models, indicating that GPs have the essential ability to capture complex dependencies with dedicated kernels. Second, NNs models surpass the above methods on all datasets because of their strong learning capability. Third, we find that SGNP and SGANP cannot consistently outperform NNs, possibly due to the transition collapse of the recurrent structure which may cause them to ignore the input contexts. Comparing these two models, although the attention aggregator performs better than the mean aggregator on tasks like computer vision, this is not always the case for graph data. This is because the data is constrained by a graph, which should be considered explicitly. Our STGNP has the best results due to the use of causal convolutions to alleviate transition collapse and the GBA to take into fact node uncertainties."
+  },
+  {
+    "i": 99,
+    "tag": "p",
+    "text": "Another interesting discovery is that our model, SGNP, SGANP, and ANCL exhibit lower metric variances compared to other NN models. Evidently, for PM10 concentrations with large extrapolation errors, the metric variances for these models are small whereas for ADAIN and MCAM, their MAE and RMSE reach high values of 1.3 , 3.4 , and 3.2 , 5.5 , separately. The primary reason for the models with low variances is their ability to model data in a probabilistic manner and their awareness of uncertainty. This characteristic enables the models to be robust to parameter initialization and reduces the chance of getting trapped in local minima."
+  },
+  {
+    "i": 100,
+    "tag": "p",
+    "text": "We also visualize extrapolation results in Figure 6 which illustrates the PM2.5 extrapolations of the five best models on the Beijing dataset, together with the ground truth. We observe that our model produces the most accurate results toward the ground truth data. This is particularly evident during the sudden change in the data after 9 AM on March 29, as highlighted in the red box. This demonstrates the effectiveness of our model in capturing both spatial information from surrounding sensors and temporal dependencies."
+  },
+  {
+    "i": 101,
+    "tag": "h3",
+    "text": "4.3. Uncertainty Estimates Analysis"
+  },
+  {
+    "i": 102,
+    "tag": "p",
+    "text": "One of the key benefits of our STGNP model is its capability to provide high-quality uncertainty estimates. To answer Q2, we first evaluate the qualitative results to show that they provide valuable information. In Figure 6, our model consistently has more accurate extrapolations compared with baselines. However, at 3\u20136 AM, March 28 shown in the blue box, all methods fail to generate precise data. Significantly, our model renders higher uncertainties (orange shadow), indicating possible inaccurate extrapolations. This ability to accurately estimate uncertainty can be extremely useful in practical decision-making. For instance, if the uncertainty for a location is consistently high, researchers could use this information to prioritize the deployment of sensors in order to achieve more accurate data analysis with minimal expenditure."
+  },
+  {
+    "i": 103,
+    "tag": "p",
+    "text": "Next, to evaluate the quality of our estimates quantitatively, we follow the approach used in (Chai et al., 2018) and examine the number of extrapolations that fall in the uncertainty intervals. Assume a Gaussian likelihood with variance \\sigma^{2} to suggest uncertainty, the intervals 1\\sigma,2\\sigma,3\\sigma centered at the predicted data cover \\approx 68.3\\%,95.5\\%,99.7\\% of the probability density. We posit that a better model should have a higher proportion of points falling in the intervals. Table 2 reports the statistical results of the proportions for ANCL, SGNP, SGANP, and STGNP. It shows that all NPs methods have superior performance compared to ANCL and that our STGNP outperforms SGNP and SGANP in most metrics. This is likely due to the fact that our model also considers uncertainties in context nodes through GBA."
+  },
+  {
+    "i": 104,
+    "tag": "h3",
+    "text": "4.4. Ablation Study"
+  },
+  {
+    "i": 105,
+    "tag": "p",
+    "text": "To assess the contribution of each component to the overall performance of our model and answer Q3, we conduct ablation studies and present the results in Figure 8. In each study, we only modify the corresponding part while leaving other settings unchanged."
+  },
+  {
+    "i": 106,
+    "tag": "p",
+    "text": "Effect of learnable token: We remove the learned token and use linear interpolation to preprocess target nodes (w/o TK). The results unveil that the token has a positive impact on the model\u2019s performance. We believe this is because using simple interpolation to represent all signals of the target nodes leads to significant errors. Mingled with context nodes\u2019 signals, this hobbles the model\u2019s learning ability, and even the uncertainty estimates struggle to rectify them. In contrast, the learned token identifies a suitable position in the feature space that accurately indicates the target nodes, thereby avoiding this problem."
+  },
+  {
+    "i": 107,
+    "tag": "p",
+    "text": "Effect of CSGCN: To evaluate the effectiveness of cross-set graph convolutional network, we compare it to three variants: (a) w/o CSGCN: removing CSGCN in our model; (b) r/p GCN: replacing CSGCN with a standard GCN. (c) r/p RGCN: replacing it with an advance relational GCN (Schlichtkrull et al., 2018). Our results show that removing the spatial learning module CSGCN leads to a degradation in performance, underscoring the importance of capturing spatial dependencies. Additionally, we find our CSGCN achieves performance on par with the standard GCN, which learns dependencies among all nodes in two sets, and even slightly better than the RGCN, which explicitly characterizes categorical relations among nodes. This observation suggests that modeling dependencies across two sets are sufficient to achieve satisfactory performance, thereby validating our insight."
+  },
+  {
+    "i": 108,
+    "tag": "p",
+    "text": "Effect of GBA: Results from experiments where GBA is discarded (w/o GBA) or replaced with a max aggregator (r/p MAX), a mean aggregator (r/p MEAN), or an attention aggregator (r/p ATTN) highlight the critical role of GBA. Removing or replacing it leads to a significant decline in results on most datasets. This is likely because context nodes have varying levels of ambiguities. Without uncertainty estimates, the model has difficulty extracting valuable context information, which hampers the performance of the likelihood module."
+  },
+  {
+    "i": 109,
+    "tag": "p",
+    "text": "Effect of causal convolution: We replace our temporal learning framework with an RNN structure (r/p RNN) and the results show a strong deterioration in the model\u2019s performance. The outcome indicates transition collapse, which occurs in an RNN because of a large number of transitions, can have a substantial impact on the model\u2019s capability. In contrast, our STGNP model effectively mitigates this issue by significantly reducing the number of transitions."
+  },
+  {
+    "i": 110,
+    "tag": "h3",
+    "text": "4.5. Missing Ratio Study"
+  },
+  {
+    "i": 111,
+    "tag": "p",
+    "text": "Evaluating the model\u2019s performance on data with missing values is important, as real-world sensors might lose signals due to unpredictable factors. To answer Q4, we train models using manually corrupted data by randomly replacing a ratio of data with zero. Following the same procedure, we preprocess them with linear interpolation for NNs, while leaving the missing values as zero for NPs models. The results, which illustrate the MAE performance of various baselines for ratios ranging from 0.2 to 0.7, are shown in Figure 7(a). We observe significant performance degradation in ADAIN and MCAM, which can be similarly attributed to large errors caused by interpolation. In contrast, STGNP and SGANP demonstrate better performance, with STGNP performing the best results. The key factor behind their success lies in the ability of their likelihood modules to capture uncertainties associated with the target nodes. This capability effectively mitigates the impact of missing data. Compellingly, the GBA module in our STGNP is able to further enhance its robustness by accurately modeling uncertainties in the signals of individual sensors."
+  },
+  {
+    "i": 112,
+    "tag": "h3",
+    "text": "4.6. Hyperparameter Study"
+  },
+  {
+    "i": 113,
+    "tag": "p",
+    "text": "To answer Q5, we study the performance of STGNP under various hyperparameter settings. We first explore the impact of the number of channels in two stages. Following the default setting of the channel numbers [8u,16u,32u] where u=2 , we vary u from 1 to 4 . From Figure 7(b), we observe that even with the drastically increasing number of learnable parameters (violet curves), the MAE metrics (green, blue, red, and yellow curves) keep stable. Then, we examine the effect of changing the number of channels of the likelihood module ranging from 32 to 256 and also observe stable performances, as shown in Figure 7(c). Finally, we investigate the effect of the number of layers ranging from 1 to 5 . From Figure 7(d), the performances initially improve as it increases, but start to oscillate since 3 layers. This can be explained by the perceptive field of the model, where 1 and 2 layers correspond to fields of 3 and 7 , respectively. These limited perceptive fields constrain the model\u2019s performance. However, once the perceptive field becomes sufficiently large (i.e., at 3 layers and above), the model captures long enough temporal dependencies, leading to improved and more stable performance. These findings suggest STGNP is insensitive to hyperparameters, as long as the perceptive field is adequately large."
+  },
+  {
+    "i": 114,
+    "tag": "h3",
+    "text": "4.7. Cross-Domain Evaluation"
+  },
+  {
+    "i": 115,
+    "tag": "p",
+    "text": "To assess the generalization ability of models and answer Q6, we train them on the Beijing dataset and evaluate results using the London dataset. Table 3 reports the performances of PM2.5, where the first and second columns of MAE mean the performance of training models using London data directly and training on Beijing while evaluating on London. We confirm that our STGNP has the best results in both training approaches. In addition, when measuring the performance discrepancy, we also discover that STGNP has the smallest performance degeneration, especially compared to NNs models. This is likely due to STGNP\u2019s strong spatio-temporal learning capability as well as its non-parametric design inherited from GPs. This allows the model to learn high-level spatio-temporal principles in the feature space and to instantiate these dependencies during testing by constructing a stochastic process from the sets."
+  },
+  {
+    "i": 116,
+    "tag": "h2",
+    "text": "5. Related Work"
+  },
+  {
+    "i": 117,
+    "tag": "h3",
+    "text": "5.1. Spatio-Temporal Extrapolation"
+  },
+  {
+    "i": 118,
+    "tag": "p",
+    "text": "Spatio-temporal extrapolation is a task that involves predicting the state of a surrounding environment based on known information. Early works in this area use statistical machine learning methods, such as K -Nearest Neighbors (KNN) and Random Forest (RF) (Fawagreh et al., 2014), to solve this problem. KNN approaches rely on linear dependencies between data points, while RF can capture non-linear dependencies. However, these methods only consider spatial relations and struggle to model more complex and dynamic correlations. Gaussian Processes (Seeger, 2004) learn to construct stochastic processes, in which the spatio-temporal dependencies are captured by flexible kernels that are designed to handle different types of features (Li et al., 2020). For instance, Patel et al. (Patel et al., 2022) used periodical and Hamming distance kernels for temporal and categorical features respectively. However, these kernels are tailored to specific scenarios and the cubic time complexity limits their applicability. Some approaches view extrapolation as a tensor completion task (Yu et al., 2016). Based on a low-rank matrix assumption, these methods capture the spatio-temporal patterns while being efficient to optimize. However, they are transductive, meaning that they can only infer the state of nodes involved in the training process. They are not able to generalize to new nodes that were not present in the training data. Recently, Neural Networks (NNs) have become the dominant paradigm. Cheng et al.(Cheng et al., 2018) proposed an attention model for air quality inference, where the dynamic and static data are encoded by RNNs and MLPs, and the attention mechanism integrates the features of nodes. Han et al. (Han et al., 2021) combined GCNs with a multi-channel attention module to improve performance. However, NNs tend to struggle with learning uncertainties and can overfit on datasets with low amounts of data. Some NNs also view extrapolation as a kriging problem. For instance, Appleby et al. (Appleby et al., 2020) interpolate a node given its neighbors with time information as extra features, and We et al. (Wu et al., 2021) learn the temporal dynamics, explicitly. However, the first only captures spatial relations and the second cannot incorporate exogenous covariates. On the contrary, our approach is able to achieve both goals."
+  },
+  {
+    "i": 119,
+    "tag": "h3",
+    "text": "5.2. Neural Processes Family"
+  },
+  {
+    "i": 120,
+    "tag": "p",
+    "text": "Neural Processes (NPs) combine the merits of both NNs and GPs (Garnelo et al., 2018), which possess strong learning ability and uncertainty estimates. Basically, it induces latent variables over the context set, forming a conditional latent variable model. Then, a likelihood module is utilized to generate the target outputs. Le et al. (Le et al., 2018) found that NPs suffer an underfitting problem because of the incapable aggregation function (e.g., mean or sum). Then, Kim et al. (Kim et al., 2019) proposed Attentive Neural Processes (ANP) to calculate the importance within/across the context set and target set. Kim et al. (Kim et al., 2022) further proposed a stochastic attention mechanism for aggregation where the attention weights are inferred using Bayesian inference and Volpp et al. (Volpp et al., 2020) introduced a stochastic aggregator to aggregate context variables directly. However, these works only consider the spatial domain and cannot handle graph data. Singh et al. (Singh et al., 2019) first focused on sequential data and proposed Sequential Neural Processes (SNP). With a latent state transition function from a variational recurrent neural network (VRNN) (Chung et al., 2015), it constructs a sequential stochastic process for a timeline. Then, Yoon et al. (Yoon et al., 2020) introduced Recurrent Memory Reconstruction to compensate for the distribution shift in a sequence. However, these recurrent structures have the transition collapse problem, which can make it difficult to learn temporal relations over long sequences. In contrast, our method utilizes casual convolutions to alleviate the challenge."
+  },
+  {
+    "i": 121,
+    "tag": "h2",
+    "text": "6. Conclusions and Future Work"
+  },
+  {
+    "i": 122,
+    "tag": "p",
+    "text": "We introduce Spatio-Temporal Graph Neural Processes, the first framework for spatio-temporal extrapolation in the Neural Processes family. Our model captures temporal relations and addresses the transition collapse problem using causal convolutions while effectively learning spatial dependencies using the cross-set graph network. The Graph Bayesian Aggregation aggregates context nodes in a way that takes into account their uncertainties and enhances the learning ability of NPs on graph data. Experimental results demonstrate the superiority of STGNP in terms of extrapolation accuracy, uncertainty estimates, robustness, and generalizability. In the future, an intriguing direction would be to explore STGNP for spatio-temporal forecasting, which is another fundamental task in the area. By aggregating historical representations, the model could provide predictions about future time steps."
+  },
+  {
+    "i": 123,
+    "tag": "h2",
+    "text": "References"
+  },
+  {
+    "i": 124,
+    "tag": "h2",
+    "text": "Appendix A Mathematical Notation"
+  },
+  {
+    "i": 125,
+    "tag": "p",
+    "text": "We define the major mathematical notations in the paper in Table 4 for better understanding."
+  },
+  {
+    "i": 126,
+    "tag": "h2",
+    "text": "Appendix B Derivation of Graph Bayesian Aggregation"
+  },
+  {
+    "i": 127,
+    "tag": "p",
+    "text": "In this section, we give formal derivations of the proposed Graph Bayesian Aggregation. We first derive the general GBA without factorization or specific graph stricture. We assume a latent prior Z over a target node (omitting subscript m for brevity). The latent observation functions of all context nodes are an independent linear transformation of Z following Gaussian distributions:"
+  },
+  {
+    "i": 128,
+    "tag": "tr",
+    "text": "(13) \\displaystyle p(Z)=\\mathcal{N}(Z|\\mu,\\Lambda^{-1}),"
+  },
+  {
+    "i": 129,
+    "tag": "tr",
+    "text": "(14) \\displaystyle p(R_{n}|Z)=\\mathcal{N}(R_{n}|A_{n}Z,L_{n}^{-1})\\quad\\text{ For }n\\in[1,N],"
+  },
+  {
+    "i": 130,
+    "tag": "p",
+    "text": "where we use the precision matrix \\Lambda and L for convenience; A_{n} is a transformation matrix, representing the graph structure. The logarithmic joint probability over Z and [R_{1},..,R_{N}] is:"
+  },
+  {
+    "i": 131,
+    "tag": "tr",
+    "text": "(15) \\displaystyle\\ln{p(Z,R_{1},..,R_{N})} \\displaystyle= \\displaystyle\\ln{p(Z)}+\\ln{p(R_{1}...R_{N}|Z)}"
+  },
+  {
+    "i": 132,
+    "tag": "p",
+    "text": "where the second order terms can be decomposed as:"
+  },
+  {
+    "i": 133,
+    "tag": "tr",
+    "text": "\\displaystyle-\\frac{1}{2}\\begin{bmatrix}Z\\\\ R_{1}\\\\ \\vdots\\\\ R_{N}\\end{bmatrix}\\underbrace{\\begin{bmatrix}\\Lambda+\\sum_{n=1}^{N}A_{n}^{T}L_{n}A_{n}&-A_{1}^{T}L_{1}&\\cdots&-A_{N}^{T}L_{N}\\\\ -L_{1}A_{1}&L_{1}&\\cdots&0\\\\ \\vdots&\\vdots&\\ddots&\\vdots\\\\ -L_{N}A_{N}&0&\\cdots&L_{N}\\end{bmatrix}}_{P}\\begin{bmatrix}Z\\\\ R_{1}\\\\ \\vdots\\\\ R_{N}\\end{bmatrix}."
+  },
+  {
+    "i": 134,
+    "tag": "p",
+    "text": "According to (Bishop and Nasrabadi, 2006), matrix P above is the precision matrix of the joint distribution, where the covariance matrix can be calculated as:"
+  },
+  {
+    "i": 135,
+    "tag": "tr",
+    "text": "(16) \\operatorname{cov}[Z,R_{1},..,R_{N}]=P^{-1}."
+  },
+  {
+    "i": 136,
+    "tag": "table",
+    "text": "(16) \\operatorname{cov}[Z,R_{1},..,R_{N}]=P^{-1}."
+  },
+  {
+    "i": 137,
+    "tag": "p",
+    "text": "Next, the linear terms in Equation 15 can be decomposed as:"
+  },
+  {
+    "i": 138,
+    "tag": "tr",
+    "text": "(17) Z^{\\top}\\Lambda\\mu=\\begin{bmatrix}Z,R_{1},\\cdots,R_{N}\\end{bmatrix}\\begin{bmatrix}\\Lambda\\mu,0,\\cdots,0\\end{bmatrix}^{\\top}."
+  },
+  {
+    "i": 139,
+    "tag": "table",
+    "text": "(17) Z^{\\top}\\Lambda\\mu=\\begin{bmatrix}Z,R_{1},\\cdots,R_{N}\\end{bmatrix}\\begin{bmatrix}\\Lambda\\mu,0,\\cdots,0\\end{bmatrix}^{\\top}."
+  },
+  {
+    "i": 140,
+    "tag": "p",
+    "text": "Then from (Bishop and Nasrabadi, 2006), the mean of the joint distribution is computed by:"
+  },
+  {
+    "i": 141,
+    "tag": "tr",
+    "text": "(18) \\displaystyle\\mathbb{E}[Z,R_{1},..,R_{N}]=P^{-1}\\begin{bmatrix}\\Lambda\\mu,0,\\cdots,0\\end{bmatrix}^{\\top}=\\begin{bmatrix}\\mu,A_{1}\\mu,\\cdots,A_{N}\\mu\\end{bmatrix}^{\\top}."
+  },
+  {
+    "i": 142,
+    "tag": "p",
+    "text": "The mean and covariance of the marginal distribution of p(R_{1},..,R_{N}) can be extracted from Equation 17 and 16:"
+  },
+  {
+    "i": 143,
+    "tag": "tr",
+    "text": "(19) \\mathbb{E}\\begin{bmatrix}R_{1}&\\cdots&R_{N}\\end{bmatrix}=\\begin{bmatrix}A_{1}\\mu,\\cdots,A_{N}\\mu\\end{bmatrix}^{\\top},"
+  },
+  {
+    "i": 144,
+    "tag": "table",
+    "text": "(19) \\mathbb{E}\\begin{bmatrix}R_{1}&\\cdots&R_{N}\\end{bmatrix}=\\begin{bmatrix}A_{1}\\mu,\\cdots,A_{N}\\mu\\end{bmatrix}^{\\top},"
+  },
+  {
+    "i": 145,
+    "tag": "tr",
+    "text": "(20) \\operatorname{cov}[R_{1}\\cdots R_{N}]=\\begin{bmatrix}L_{1}^{-1}+A_{1}\\Lambda^{-1}A_{1}^{\\top}\\\\ \\vdots\\\\ L_{N}^{-1}+A_{N}\\Lambda^{-1}A_{N}^{\\top}\\end{bmatrix}."
+  },
+  {
+    "i": 146,
+    "tag": "table",
+    "text": "(20) \\operatorname{cov}[R_{1}\\cdots R_{N}]=\\begin{bmatrix}L_{1}^{-1}+A_{1}\\Lambda^{-1}A_{1}^{\\top}\\\\ \\vdots\\\\ L_{N}^{-1}+A_{N}\\Lambda^{-1}A_{N}^{\\top}\\end{bmatrix}."
+  },
+  {
+    "i": 147,
+    "tag": "p",
+    "text": "Finally, with p(Z,R_{1},..,R_{N}) , and p(R_{1},..,R_{N}) , we could obtain the probability of p(Z|R_{1},..,R_{N}) through Gaussian conditioning, which is also a Gaussian:"
+  },
+  {
+    "i": 148,
+    "tag": "tr",
+    "text": "(21) {\\textstyle\\sum_{Z|R_{1}\\cdots R_{N}}}=\\left(L+\\sum_{n=1}^{N}A_{n}\\Lambda A_{n}^{\\top}\\right)^{-1},"
+  },
+  {
+    "i": 149,
+    "tag": "table",
+    "text": "(21) {\\textstyle\\sum_{Z|R_{1}\\cdots R_{N}}}=\\left(L+\\sum_{n=1}^{N}A_{n}\\Lambda A_{n}^{\\top}\\right)^{-1},"
+  },
+  {
+    "i": 150,
+    "tag": "tr",
+    "text": "(22) \\displaystyle\\mu_{z|R_{1}\\cdots R_{N}}={\\textstyle\\sum_{z|R_{1}\\cdots R_{N}}}\\left(\\Lambda\\mu+\\sum_{n=1}^{N}A_{n}^{T}L_{n}R_{n}\\right)."
+  },
+  {
+    "i": 151,
+    "tag": "p",
+    "text": "In GBA, the Gaussian distributions assume to be factorized; thus \\Lambda^{-1}=\\operatorname{diag}(\\sigma_{z}) and L_{n}^{-1}=\\operatorname{diag}(\\sigma_{R_{n}}) . The transformation A_{n}=I(a_{n}) , where a_{n} represents the distance between a target node and the context node n . Then, the Gaussian can be further weight as:"
+  },
+  {
+    "i": 152,
+    "tag": "tr",
+    "text": "(23) \\displaystyle\\bar{\\sigma}_{Z}^{2}=\\left[\\left(\\sigma_{Z}\\right)^{-2}+\\sum_{n=1}^{N}\\left(\\sigma_{R_{n}}/a_{n}\\right)^{-2}\\right]^{-1},"
+  },
+  {
+    "i": 153,
+    "tag": "tr",
+    "text": "(24) \\displaystyle\\bar{\\mu}_{Z}=\\bar{\\sigma}_{Z}^{2}\\left(\\mu_{Z}/\\sigma^{2}_{Z}+\\sum_{n=1}^{N}a_{n}R_{n}/\\sigma^{2}_{R_{n}}\\right)."
+  },
+  {
+    "i": 154,
+    "tag": "h2",
+    "text": "Appendix C Derivation of ELBO for STGNP"
+  },
+  {
+    "i": 155,
+    "tag": "p",
+    "text": "Here, we derive the evidence lower-bound (ELBO) for STGNP. For brevity, we still omit the subscript m ."
+  },
+  {
+    "i": 156,
+    "tag": "tr",
+    "text": "(25) \\displaystyle\\begin{split}&\\log p\\left(Y\\mid X,\\mathcal{C},A\\right)=\\log\\mathbb{E}_{q\\left(Z\\mid\\mathcal{C}\\cup\\mathcal{D},A\\right)}\\frac{p\\left(Y,Z\\mid X,\\mathcal{C},A\\right)}{q\\left(Z\\mid\\mathcal{C}\\cup\\mathcal{D},A\\right)}\\\\ &\\geq\\mathbb{E}_{q\\left(\\cdot\\right)}\\left[\\log\\frac{p\\left(Y\\mid X,Z\\right)p\\left(Z\\mid X,\\mathcal{C},A\\right)}{q\\left(Z\\mid\\mathcal{C}\\cup\\mathcal{D},A\\right)}\\right]\\\\ &=\\mathbb{E}_{q\\left(\\cdot\\right)}\\left[\\log p\\left(Y\\mid X,Z\\right)-\\log\\frac{q\\left(Z\\mid\\mathcal{C}\\cup\\mathcal{D},A\\right)}{p\\left(Z\\mid X,\\mathcal{C},A\\right)}\\right]\\\\ &=\\mathbb{E}_{q\\left(\\cdot\\right)}\\left[\\log p\\left(Y\\mid X,Z\\right)-\\log\\frac{\\prod_{l=1}^{L}q\\left(Z^{l}\\mid Z^{l+1},{V^{\\prime}}^{l},H^{l},A\\right)}{\\prod_{l=1}^{L}q\\left(Z^{l}\\mid Z^{l+1},V^{l},H^{l},A\\right)}\\right]\\\\ &=\\mathbb{E}_{q\\left(Z\\mid\\mathcal{C}\\cup\\mathcal{D},A\\right)}\\left[\\log p\\left(Y\\mid X,Z\\right)\\right]-\\\\ &\\sum_{l=1}^{L}\\mathbb{E}_{q(Z^{l+1})}\\left[\\mathbb{KL}\\left(q(Z^{l}|Z^{l+1},{V^{\\prime}}^{l},H^{l},A)||q(Z^{l}|Z^{l+1},V^{l},H^{l},A)\\right)\\right].\\\\ \\end{split}"
+  },
+  {
+    "i": 157,
+    "tag": "h2",
+    "text": "Appendix D Experimental Details"
+  },
+  {
+    "i": 158,
+    "tag": "h3",
+    "text": "D.1. STGNP Architectures"
+  },
+  {
+    "i": 159,
+    "tag": "p",
+    "text": "Our STGNP has two major architectural components for deterministic and stochastic learning as shown in Figure 9:"
+  },
+  {
+    "i": 160,
+    "tag": "p",
+    "text": "Deterministic spatio-temporal stage: The core component of this stage is the spatio-temporal learning module consisting of dilated causal convolutions and cross-set graph neural networks. Each layer contains a CSGCN to learn spatial dependencies and a DCconv to model temporal relations of sensor data. A DCconv has a kernel size of k=3 and the number of output channels is denoted by d . A CSGCN includes a multilayer perceptron layer with d neurons. We stack 3 layers with skip connections to capture spatial-temporal dependencies with d=[16,32,64] . The dilation factor is set to have an exponentially increasing rate of 2 w.r.t the layers so the receptive field reaches 15 . Although this field is smaller than the length of the sequence ( T=24 ), the ablation study shows that it still produces satisfactory performance."
+  },
+  {
+    "i": 161,
+    "tag": "p",
+    "text": "Stochastic generative stage: The Graph Bayesian Aggregation and the likelihood function are major modules in this stage. The GBA includes a prior and a latent observation module. Both two modules contain a 1 -layer 1\\times 1 convolution with d kernels followed by 2 1\\times 1 convolutions to obtain the mean and variance. We stack 3 GBAs corresponding to the 3 blocks in the first stage with d=[16,32,64] . The likelihood function generating extrapolation results is a 3 -layer 1\\times 1 convolution with 128 channels."
+  },
+  {
+    "i": 162,
+    "tag": "h3",
+    "text": "D.2. Training Settings"
+  },
+  {
+    "i": 163,
+    "tag": "p",
+    "text": "All parameters are initialized with Xavier normalization (Glorot and Bengio, 2010) and optimized by the Adam optimizer (Kingma and Ba, 2015) with a learning rate of 10-3. We train each model for 150 epochs. At each iteration, we randomly sample N-3 nodes to extrapolate the remaining 3 nodes, with the time length T=24 . Note that the number of target nodes has an impact on the performance of the trained models. We conducted experiments to determine the optimal number of target nodes and found that using 3 nodes generally resulted in the best performance across all baseline models."
+  },
+  {
+    "i": 164,
+    "tag": "h3",
+    "text": "D.3. Cross-Domain Evaluation"
+  },
+  {
+    "i": 165,
+    "tag": "p",
+    "text": "We first learn models using the Beijing dataset and then evaluate their performances on the London dataset. As the London dataset lacks weather information, we remove this attribute in Beijing during training. The other training procedures remain the same. Note that we only investigate the performance of PM2.5 concentration and exclude stations BX1, and HR1 due to their large portion of missing values. This is because, for the London dataset, both PM10 and NO2 have a significant amount of missing data (5/7 stations without any signal, and 2/1 stations with missing rates larger than 60%), which makes training unstable and the performance of the models largely depends on the training and testing data split."
+  },
+  {
+    "i": 166,
+    "tag": "h2",
+    "text": "Appendix E Additional Visualizations"
+  },
+  {
+    "i": 167,
+    "tag": "p",
+    "text": "We present additional visualization results of STGNP and the baselines on the Beijing dataset. As shown in Figure 10, our model consistently outperforms others on all time steps. Additionally, on less accurate extrapolations, our model is able to yield large uncertainties, which facilitates decision-making."
+  },
+  {
+    "i": 168,
+    "tag": "h2",
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "i": 169,
+    "tag": "p",
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "i": 170,
+    "tag": "p",
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "i": 171,
+    "tag": "p",
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "i": 172,
+    "tag": "p",
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]

@@ -1,0 +1,732 @@
+[
+  {
+    "tag": "h1",
+    "id": null,
+    "text": "Graph Adversarial Training: Dynamically Regularizing Based on Graph Structure"
+  },
+  {
+    "tag": "h6",
+    "id": "abstract1",
+    "text": "Abstract"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Recent efforts show that neural networks are vulnerable to small but intentional perturbations on input features in visual classification tasks. Due to the additional consideration of connections between examples (e.g., articles with citation link tend to be in the same class), graph neural networks could be more sensitive to the perturbations, since the perturbations from connected examples exacerbate the impact on a target example. Adversarial Training (AT), a dynamic regularization technique, can resist the worst-case perturbations on input features and is a promising choice to improve model robustness and generalization. However, existing AT methods focus on standard classification, being less effective when training models on graph since it does not model the impact from connected examples."
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.2",
+    "text": "In this work, we explore adversarial training on graph, aiming to improve the robustness and generalization of models learned on graph. We propose Graph Adversarial Training (GraphAT), which takes the impact from connected examples into account when learning to construct and resist perturbations. We give a general formulation of GraphAT, which can be seen as a dynamic regularization scheme based on the graph structure. To demonstrate the utility of GraphAT, we employ it on a state-of-the-art graph neural network model \u2014 Graph Convolutional Network (GCN). We conduct experiments on two citation graphs (Citeseer and Cora) and a knowledge graph (NELL), verifying the effectiveness of GraphAT which outperforms normal training on GCN by 4.51% in node classification accuracy. Codes are available via: https://github.com/fulifeng/GraphAT."
+  },
+  {
+    "tag": "h6",
+    "id": null,
+    "text": "Index Terms:"
+  },
+  {
+    "tag": "h2",
+    "id": "S1",
+    "text": "I Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Graph-based learning makes predictions by accounting for both input features of examples and the relations between examples. It is remarkably effective for a wide range of applications, such as predicting the profiles and interests of social network users [1, 2], predicting the role of a protein in biological interaction graph [3, 4], and classifying contents like documents, videos, and webpages based on their interlinks [5, 6, 7]. In addition to the supervised loss on labeled examples, graph-based learning also optimizes the smoothness of predictions over the graph structure, that is, closely connected examples are encouraged to have similar predictions [8, 9, 10, 11]. Recently, owing to the extraordinary representation ability, deep neural networks become prevalent models for graph-based learning [12, 1, 7, 10, 11]."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "Despite promising performance, we argue that graph neural networks are vulnerable to small but intentional perturbations on the input features [13, 14], and this could even be more serious than the standard neural networks that do not model the graph structure. The reasons are twofold: 1) graph neural networks also optimize the supervised loss on labeled data, thus it will face the same vulnerability issue as the standard neural networks [15], and 2) the additional smoothness constraint will exacerbate the impact of perturbations, since smoothing across connected nodes11 1 In the following sections, we interchangeably use node and example. would aggregate the impact of perturbations from nodes connected to the target node (i.e., the node that we apply perturbations with the aim of changing its prediction). Figure 1 illustrates the impact of perturbations on node features with an intuitive example of a graph with 4 nodes. A graph neural network model predicts node labels (3 in total) for clean input features and features with applied perturbations, respectively. Here perturbations are intentionally applied to the features of nodes 1, 2, 4. Consequently, the graph neural network model is fooled to make wrong predictions on nodes 1 and 2 as with standard neural networks. Moreover, by propagating the node embeddings, the model aggregates the influence of perturbations to node 3, from which its prediction is also affected. In real-world applications, small perturbations like the update of node features may frequently happen, but should not change the predictions much. As such, we believe that there is a strong need to stabilize the graph neural network models during training."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "Adversarial Training (AT) is a dynamic regularization technique that proactively simulates the perturbations during the training phase [15]. It has been empirically shown to be able to stabilize neural networks, and enhance their robustness against perturbations in standard classification tasks [16, 17, 18, 19, 20, 21]. Therefore, employing a similar approach to that of AT on a graph neural network model would also be helpful to the model\u2019s robustness. However, directly employing AT on graph neural network is insufficient, since it treats examples as independent of each other and does not consider the impacts from connected examples. As such, we propose a new adversarial training method, named Graph Adversarial Training (GraphAT), which learns to construct and resist perturbations by taking the graph structure into account."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "The key idea of GraphAT is that, when generating perturbations on a target example, it maximizes the divergence between the prediction of the target example and its connected examples. That is, the adversarial perturbations should attack the graph smoothness constraint as much as possible. Then, GraphAT updates model parameters by additionally minimizing a graph adversarial regularizer, reducing the prediction divergence between the perturbed target example and its connected examples. Through this way, GraphAT can resist the worst-case perturbations on graph-based learning and enhance model robustness. To efficiently calculate the adversarial perturbations, we further devise a linear approximation method based on back-propagation."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p5.1",
+    "text": "To demonstrate GraphAT, we employ it on a well-established graph neural network model, Graph Convolutional Network (GCN) [7], which implements the smoothness constraint by performing embedding propagation. We study the method\u2019s performance on node classification, one of the most popular tasks on graph-based learning. Extensive experiments on three public benchmarks (two citation graphs and a knowledge graph) verify the strengths of GraphAT \u2014 compared to normal training on GCN, GraphAT leads to 4.51% accuracy improvement. Moreover, the improvements on less popular nodes (with a small degree) are more significant, highlighting the necessity of performing AT with the graph structure considered."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p6.1",
+    "text": "The main contributions of this paper are summarized as:"
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i1.p1.1",
+    "text": "We formulate Graph Adversarial Training, a new optimization method for graph neural networks that can enhance the model\u2019s robustness against perturbations on node input features."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i2.p1.1",
+    "text": "We devise a graph adversarial regularizer that dynamically encourages the model to generate similar predictions on the perturbed target example and its connected examples, and develop an efficient algorithm to construct perturbations."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i3.p1.1",
+    "text": "We demonstrate the effectiveness of GraphAT on GCN, conducting experiments on three datasets which show that our method achieves state-of-the-art performance for node classification. Codes are available via: https://github.com/fulifeng/GraphAT."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p7.1",
+    "text": "In the remainder of this paper, we first discuss related work in Section 2, followed by the problem formulation and preliminaries in Section 3. In Section 4 and 5, we elaborate the method and experimental results, respectively. We conclude the paper and envision future directions in Section 6."
+  },
+  {
+    "tag": "h2",
+    "id": "S2",
+    "text": "II Related Work"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "In this section, we discuss the existing research on graph-based learning and adversarial learning, which are closely related to this work."
+  },
+  {
+    "tag": "h3",
+    "id": "S2.SS1",
+    "text": "II-A Graph-based Learning"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "Graph, a natural representation of relational data, in which nodes and edges represent entities and their relations, is widely used in the analysis of social networks, transaction records, biological interactions, collections of interlinked documents, web pages, and multimedia contents, etc.. On such graphs, one of the most popular tasks is node classification targeting to predicting the label of nodes in the graph by accounting for node features and the graph structure. The existing work on node classification mainly fall into two broad categories: graph Laplacian regularization and graph embedding-based methods. Methods lying in the former category explicitly encode the graph structure as a regularization term to smooth the predictions over the graph, i.e., the regularization incurs a large penalty when similar nodes (e.g., closely connected) are predicted with different labels [8, 9, 22, 23, 24]."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "Recently, graph embedding-based methods, which learn node embeddings that encodes the graph data, have become promising solution. Most of embedding-based methods fall into two broad categories: skip-gram based methods and convolution based methods, depending on how the graph data are modeled. The skip-gram based methods learn node embeddings via using the embedding of a node to predict node context that are generated by performing random walk on the graph so as the embeddings of \u201dconnected\u201d nodes are associated to each other [5, 6, 2, 12]. Inspired by the idea of convolution in computer vision, which aggregates contextual signals in a local window, convolution based methods iteratively aggregate representation of neighbor nodes to learn a node embedding [25, 26, 27, 3, 7, 4, 11, 28, 29, 30]."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p3.1",
+    "text": "In both of the two categories, methods leveraging the advanced representation ability of deep neural networks (neural graph-based learning methods) have shown remarkably effective in solving the node classification task. However, the neural graph-based learning models are vulnerable to intentionally designed perturbations indicating the unstability in generalization [31, 13], and little attention has been paid to enhance the robustness of these methods, which is the focus of this work."
+  },
+  {
+    "tag": "h3",
+    "id": "S2.SS2",
+    "text": "II-B Adversarial Learning"
+  },
+  {
+    "tag": "h4",
+    "id": "S2.SS2.SSS1",
+    "text": "II-B1 Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.SSS1.p1.1",
+    "text": "In order tackle the vulnerability to intentional perturbations of deep neural networks, researchers proposed adversarial training which is an alternative minimax process [32]. The adversarial training methods augment the training process by dynamically generating adversarial examples from clean examples with perturbations maximally attacking the training objective, and then learn over these adversarial examples by minimizing an additional regularization term [33, 34, 15, 17, 35, 36, 37, 38]. The adversarial training methods mainly fall into supervised and semi-supervised ones regarding the target of the training objective. In supervised learning tasks such as visual recognition [15], supervised loss [33, 34, 15] and its surrogates [36, 37, 38] over adversarial examples are designed as the target of the maximization and minimization. For semi-supervised learning where partial examples are labeled, divergence of predictions for inputs around each examples is adopted as the target. Generally speaking, the philosophy of adversarial training methods is to smooth the prediction around individual inputs in a dynamical fashion."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.SSS1.p2.1",
+    "text": "Our work is inspired by these adversarial training methods. In addition to the local smoothness of individual examples, our method further accounts for relation between examples (i.e., the graph structure) in the target of the minimax process so as to learn robust classifiers predicting smoothly over the graph structure. To the best of our knowledge, this is the first attempt to incorporate graph structure in adversarial training."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.SSS1.p3.1",
+    "text": "Another emerging research topic related to our work is generating adversarial perturbations attacking neural graph-based learning models where [31] and [13] are the only published work. However, methods in [31] and [13] are not suitable for constructing adversarial examples in graph adversarial training. This is because these methods generate a new graph as the adversarial example for each individual node, i.e., they would generate NN graphs when the number of nodes is NN leading to unaffordable memory overhead. In this work, we devise an efficient method to generate adversarial examples for graph adversarial training."
+  },
+  {
+    "tag": "h4",
+    "id": "S2.SS2.SSS2",
+    "text": "II-B2 Generative Adversarial Networks"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.SSS2.p1.1",
+    "text": "Generative adversarial networks (GAN) is a machine learning framework with two different networks as a generator and a discriminator playing minimax game on generating and detecting fake examples. Recently, several GAN-based models are proposed to learn graph embeddings, which either generate fake nodes and edges to augment embedding learning [39, 40] or smooth the leaned embeddings to follow a prior distribution [41, 42, 43, 44]. However, using two different networks inevitably doubles the computation of model training and the labor of parameter tuning of GAN-based methods. Moreover, for different applications, one may need to build GAN from scratch, whereas our method is a generic solution can be seamlessly applied to enhance the existing graph neural network models with less computing and tuning overhead."
+  },
+  {
+    "tag": "h2",
+    "id": "S3",
+    "text": "III Preliminaries"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "We first introduce some notations used in the following sections. We use bold capital letters (e.g. \ud835\udc7f\\bm{X}) and bold lowercase letters (e.g. \ud835\udc99\\bm{x}) to denote matrices and vectors, respectively. Note that all vectors are in a column form if not otherwise specified, and Xi\u200bjX_{ij} denotes the entry of matrix \ud835\udc7f\\bm{X} at the row ii and column jj. In Table I, we summarize some of the terms and notations."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS1",
+    "text": "III-A Graph Representation"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "The nodes and edges of a graph represent the entities of interest and their relations, respectively. First, the edges in a graph with NN nodes are typically represented as an adjacency matrix \ud835\udc68\u2208\u211dN\u00d7N\\bm{A}\\in\\mathbb{R}^{N\\times N}. In this work, we mainly study unweighted graphs where \ud835\udc68\\bm{A} is a binary matrix. Ai\u200bj=1A_{ij}=1 if there is an edge between node ii and jj, otherwise Ai\u200bj=0A_{ij}=0. Moreover, we use a diagonal matrix \ud835\udc6b\u2208\u211dN\u00d7N\\bm{D}\\in\\mathbb{R}^{N\\times N} to denote the degrees of nodes, i.e., Di\u200bi=\u2211j=1NAi\u200bjD_{ii}=\\sum_{j=1}^{N}A_{ij}. For an attributed graph, where each node is associated with a feature vector, we use a matrix \ud835\udc7f=[\ud835\udc991,\ud835\udc992,\u22ef,\ud835\udc99N]T\u2208\u211dN\u00d7F\\bm{X}=[\\bm{x}_{1},\\bm{x}_{2},\\cdots,\\bm{x}_{N}]^{T}\\in\\mathbb{R}^{N\\times F} to represent the feature vectors of all nodes, where FF is the dimension of the features. Finally, an attributed graph is denoted as G=(\ud835\udc68,\ud835\udc6b,\ud835\udc7f)G=(\\bm{A},~\\bm{D},~\\bm{X})."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS2",
+    "text": "III-B Node Classification"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "On graph data, node classification is one of the most popular tasks. In the general problem setting of node classification, a graph GG with NN nodes is given, associated with labels (\ud835\udc80\\bm{Y}) of a some portion of nodes [7, 12, 11]. This setting is transductive since testing nodes are observed (only features and associated edges) during training, and is the focus of this work. Here, \ud835\udc80=[\ud835\udc9a1,\ud835\udc9a2,\u22ef,\ud835\udc9aM]T\u2208\u211dM\u00d7L\\bm{Y}=[\\bm{y}_{1},\\bm{y}_{2},\\cdots,\\bm{y}_{M}]^{T}\\in\\mathbb{R}^{M\\times L} are the labels, where MM and LL are the numbers of labeled nodes and node classes, respectively, and \ud835\udc9ai\\bm{y}_{i} is the one-hot encoding of node ii\u2019s label. Note that, without loss of generality, we index the labeled nodes and unlabeled nodes in the range of [1,M][1,M] and (M,N](M,N], respectively. The target of node classification is to learn a prediction function (classifier) \ud835\udc9a^\ud835\udc8a=f\u2061(\ud835\udc99i,G|\ud835\udeaf)\\bm{\\hat{y}_{i}}=f(\\bm{x}_{i},G|\\mathcal{\\mathbf{\\Theta}}), to forecast the label of the node, where \ud835\udeaf\\mathcal{\\mathbf{\\Theta}} includes model parameters to be learned."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS3",
+    "text": "III-C Graph-based Learning"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "text": "Graph-based learning methods have been shown remarkably effective on solving the node classification task [8, 9, 22, 23]. Generally, most of the graph-based learning models jointly optimize two objectives: 1) supervised loss on labeled nodes and 2) graph smoothness constraint, which can be summarized as:"
+  },
+  {
+    "tag": "table",
+    "id": "S3.EGx1",
+    "text": "\u0393=\u03a9+\u03bb\u200b\u03a6,\\displaystyle\\Gamma=\\Omega+\\lambda\\Phi, (1)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.2",
+    "text": "where \u03a9\\Omega is a classification loss (e.g., log loss, hinge loss, and cross-entropy loss) that measures the discrepancy between prediction and ground-truth of labeled nodes. \u03a6\\Phi encourages smoothness of predictions over the graph structure, which is based on the assumption that closely connected nodes tend to have similar predictions. For instance, \u03a6\\Phi could be a graph Laplacian term, \u2211i,j=1NAi\u200bj\u200b\u2016\ud835\udc9a^i\u2212\ud835\udc9a^j\u20162\\sum\\limits_{i,j=1}^{N}A_{ij}\\|\\bm{\\hat{y}}_{i}-\\bm{\\hat{y}}_{j}\\|^{2}, which directly regulates the predictions of connected nodes to be similar [8, 9, 22, 23]. The assumption could also be implicitly implemented by iteratively propagating node embeddings through the graph so that connected nodes obtain close embeddings and are predicted similarly [3, 7, 10, 11]. Here, \u03bb\\lambda is a hyperparameter to balance the two terms."
+  },
+  {
+    "tag": "h2",
+    "id": "S4",
+    "text": "IV Methodology"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "In this section, we first introduce the formulation of Graph Adversarial Training, followed by the introduction of GraphVAT, an extension of GraphAT, which further incorporates the virtual adversarial regularization [35]. We then present two solutions for the node classification task, GraphAT and GraphVAT, which employ GraphAT and GraphVAT to train GCN [7], respectively. Finally, we analyze the time complexity of the two solutions and present the important implementation details."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS1",
+    "text": "IV-A Graph Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "Recent advances of Adversarial Training has been successful in learning deep neural network-based classifiers, making them robust against perturbations for a wide range of standard classification tasks such as visual recognition [15, 16, 35] and text classification [17]. Generally, applying AT would regulate the model parameters to smooth the output distribution [35]. Specifically, for each clean example in the dataset, AT encourages the model to assign similar outputs to the artificial input (i.e., the adversarial example) derived from the clean example. Inspired by the philosophy of standard AT, we develop graph adversarial training, which trains graph neural network modules in the manner of generating adversarial examples and optimizing additional regularization terms over the adversarial examples, so as to prevent the adverse effects of perturbations. Here the focus is to prevent perturbations propagated through node connections (as illustrated in Figure 1), i.e., accounting for graph structure in adversarial training."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "text": "Generally, the formulation of GraphAT is:"
+  },
+  {
+    "tag": "table",
+    "id": "S4.EGx2",
+    "text": "min:\u0393G\u200bA\u200bT=\u0393+\u03b2\u2211i=1N\u2211j\u2208\ud835\udca9id(f(\ud835\udc99i+\ud835\udc93ig,G|\ud835\udeaf),f(\ud835\udc99j,G|\ud835\udeaf)),\\displaystyle\\text{{min:}}~\\Gamma_{GAT}=\\Gamma+\\beta\\sum_{i=1}^{N}\\sum_{j\\in\\mathcal{N}_{i}}d(f(\\bm{x}_{i}+\\bm{r}_{i}^{g},G|\\mathcal{\\mathbf{\\Theta}}),f(\\bm{x}_{j},G|\\mathcal{\\mathbf{\\Theta}})), max:\ud835\udc93ig=argmax\ud835\udc93i,\u2016\ud835\udc93i\u2016\u2264\u03f5\u2211j\u2208\ud835\udca9id(f(\ud835\udc99i+\ud835\udc93i,G|\ud835\udeaf^),f(\ud835\udc99j,G|\ud835\udeaf^)),\\displaystyle\\text{{max:}}~\\bm{r}_{i}^{g}=\\arg\\max_{\\bm{r}_{i},\\|\\bm{r}_{i}\\|\\leq\\epsilon}\\sum_{j\\in\\mathcal{N}_{i}}d(f(\\bm{x}_{i}+\\bm{r}_{i},G|\\mathcal{\\mathbf{\\hat{\\Theta}}}),f(\\bm{x}_{j},G|\\mathcal{\\mathbf{\\hat{\\Theta}}})), (2)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p2.2",
+    "text": "where \u0393G\u200bA\u200bT\\Gamma_{GAT} is the training objective function with two terms: the standard objective function of the origin graph-based learning model (e.g., Equation 1) and graph adversarial regularizer. The second term encourages the graph adversarial examples to be classified similarly as connected examples where \ud835\udeaf\\mathcal{\\mathbf{\\Theta}} denotes the parameters to be learned, and dd is a nonnegative function that measures the divergence (e.g., Kullback-Leibler divergence [45]) between two predictions. \ud835\udc93ig\\bm{r}_{i}^{g} denotes the graph adversarial perturbation, which is applied to the input feature of the clean example ii to construct a graph adversarial example."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p3.1",
+    "text": "The graph adversarial perturbation is calculated by maximizing the graph adversarial regularizer under current value of model parameters. That is to say, the graph adversarial perturbation is the direction of changes on the input feature, which can maximally attack the graph adversarial regularizer, i.e., the worst case of perturbations propagated from neighbor nodes. \u03f5\\epsilon is a hyperparameter controling the magnitude of perturbations, which is typically set as small values so that the feature distribution of adversarial examples is close to that of clean examples."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p4.1",
+    "text": "Generally, similar to the standard AT, each iteration of GraphAT can also be viewed as playing a minimax game:"
+  },
+  {
+    "tag": "p",
+    "id": "S4.I1.i1.p1.1",
+    "text": "Maximization: GraphAT generates graph adversarial perturbations from clean examples, which break the smoothness between connected nodes to the maximum extent. and then constructs graph adversarial examples by adding the perturbations to the input of associated clean examples."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I1.i2.p1.1",
+    "text": "Minimization: GraphAT minimizes the objective function of the graph neural network with an additional regularizer over graph adversarial examples, by encouraging smoothness between predictions of adversarial examples and connected examples. As such, the model becomes robust against perturbations propagated through the graph."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p5.1",
+    "text": "Figure 2 illustrates the process of GraphAT. While the traditional graph-based regularizations (e.g., the graph Laplacian term) also encourage the smoothness of predictions over the graph structure, GraphAT is believed to be a more advanced regulation for two reasons: 1) the regularization performed by GraphAT is dynamic since the adversarial examples are adaptively generated according to the current parameters and predictions of the model whereas the standard graph-based regularizations are static; and 2) GraphAT to some extent augments the training data, since the generated adversarial examples have not occurred in the training data, which is beneficial to model generalization."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p6.1",
+    "text": "Approximation. It is non-trivial to obtain the closed-form solution of \ud835\udc93ig\\bm{r}_{i}^{g}. Inspired by the linear approximation method proposed in [15] for standard adversarial training, we also design a linear approximation method to calculate the graph adversarial perturbations in GraphAT, of which the formulation is:"
+  },
+  {
+    "tag": "table",
+    "id": "S4.EGx3",
+    "text": "\ud835\udc93ig\u2248\u03f5\ud835\udc88\u2016\ud835\udc88\u2016, where \ud835\udc88=\u2207\ud835\udc99i\u2211j\u2208\ud835\udca9iD(f(\ud835\udc99i,G|\ud835\udeaf^),f(\ud835\udc99j,G|\ud835\udeaf^)),\\displaystyle\\bm{r}_{i}^{g}\\approx\\epsilon\\frac{\\bm{g}}{\\|\\bm{g}\\|}\\text{, where }\\bm{g}=\\nabla_{\\bm{x}_{i}}\\sum_{j\\in\\mathcal{N}_{i}}D(f(\\bm{x}_{i},G|\\bm{\\hat{\\Theta}}),f(\\bm{x}_{j},G|\\bm{\\hat{\\Theta}})), (3)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p6.2",
+    "text": "where \ud835\udc88\\bm{g} is the gradient w.r.t. the input \ud835\udc99i\\bm{x}_{i}. For graph neural network models, the gradient can be efficiently calculated by one backpropagation. Note that \ud835\udeaf^\\bm{\\hat{\\Theta}} is a constant set denoting the current model parameters."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS2",
+    "text": "IV-B Virtual Graph Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "Considering that node classification is a task of semi-supervised learning by nature, we further devise an extended version of GraphAT, named GraphVAT which additionally smooths the distribution of predictions around each clean example to further enhance the model robustness. Inspired by the idea of virtual adversarial training [35], we further add a virtual adversarial regularizer into the training objective function and construct virtual adversarial examples to attack the local smoothness of predictions. Compared to standard AT which only considers labeled clean examples, virtual adversarial training additionally encourages the model to make consistent predictions around the unlabeled clean examples. The formulation of GraphVAT is:"
+  },
+  {
+    "tag": "table",
+    "id": "S4.EGx4",
+    "text": "min:\u0393G\u200bV\u200bA\u200bT=\u0393+\u03b1\u200b\u2211i=1Nd\u2061(f\u2061(\ud835\udc99i+\ud835\udc93iv,G|\ud835\udeaf),\ud835\udc9a~i)\u23dfvirtual adversarial regularizer+\\displaystyle\\text{{min:}}~\\Gamma_{GVAT}=\\Gamma+\\underbrace{\\alpha\\sum_{i=1}^{N}d(f(\\bm{x}_{i}+\\bm{r}_{i}^{v},G|\\bm{\\Theta}),\\bm{\\tilde{y}}_{i})}_{\\text{virtual adversarial regularizer}}+ \u03b2\u200b\u2211i=1N\u2211j\u2208\ud835\udca9id\u2061(f\u2061(\ud835\udc99i+\ud835\udc93ig,G|\ud835\udeaf),f\u2061(\ud835\udc99j,G|\ud835\udeaf))\u23dfgraph adversarial regularizer,\\displaystyle\\quad\\quad\\quad\\quad\\quad\\underbrace{\\beta\\sum_{i=1}^{N}\\sum_{j\\in\\mathcal{N}_{i}}d(f(\\bm{x}_{i}+\\bm{r}_{i}^{g},G|\\bm{\\Theta}),f(\\bm{x}_{j},G|\\bm{\\Theta}))}_{\\text{graph adversarial regularizer}}, max:\ud835\udc93iv=argmax\ud835\udc93i\u2032,\u2016\ud835\udc93i\u2032\u2016\u2264\u03f5\u2032d(f(\ud835\udc99i+\ud835\udc93i\u2032,G|\ud835\udeaf^),\ud835\udc9a~i),\\displaystyle\\text{{max:}}~\\bm{r}_{i}^{v}=\\arg\\max_{\\bm{r}_{i}^{\\prime},\\|\\bm{r}_{i}^{\\prime}\\|\\leq\\epsilon^{\\prime}}d(f(\\bm{x}_{i}+\\bm{r}_{i}^{\\prime},G|\\bm{\\hat{\\Theta}}),\\bm{\\tilde{y}}_{i}), (4)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.2",
+    "text": "where \ud835\udc93i\u2032\\bm{r}_{i}^{\\prime} denotes the virtual adversarial perturbation, the direction that leads to the largest change on the model prediction of \ud835\udc99i\\bm{x}_{i}. For labeled nodes and unlabeled nodes, \ud835\udc9a~i\\bm{\\tilde{y}}_{i} denotes ground truth label and model prediction, respectively. That is,"
+  },
+  {
+    "tag": "table",
+    "id": "S4.Ex4",
+    "text": "\ud835\udc9a~i={\ud835\udc9a^i,i\u2264M\u200b(labeled node),f\u2061(\ud835\udc99i,G|\ud835\udeaf^),M<i\u2264N\u200b(unlabeled node).\\bm{\\tilde{y}}_{i}=\\left\\{\\begin{aligned} &\\bm{\\hat{y}}_{i},~&i\\leq M~\\text{(labeled node)},\\\\ &f(\\bm{x}_{i},G|\\bm{\\hat{\\Theta}}),~&M<i\\leq N~\\text{(unlabeled node)}.\\\\ \\end{aligned}\\right."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.3",
+    "text": "Note that GraphVAT can be seen as jointly playing two minimax games with three players, where the two maximum players generate virtual adversarial examples and graph adversarial examples, respectively. That is, in each iteration, two types of perturbations and the associated adversarial examples are generated to attack 1) the smoothness of prediction around individual clean example; and 2) the smoothness of connected examples, respectively. By minimizing the additional regularizers over these adversarial examples, the learned model is encouraged to be more smooth and robust, achieving good generalization."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p2.1",
+    "text": "Approximation. For labeled nodes, \ud835\udc93i\u2032\\bm{r}_{i}^{\\prime} can be easily evaluated via linear approximation [15], i.e., calculating the gradient of d\u2061(f\u2061(\ud835\udc99i,G|\ud835\udeaf^),\ud835\udc9a~i)d(f(\\bm{x}_{i},G|\\bm{\\hat{\\Theta}}),\\bm{\\tilde{y}}_{i}) w.r.t. \ud835\udc99i\\bm{x}_{i}. For unlabeled nodes, such approximation is infeasible since the gradient will always be zero. This is because d\u2061(f\u2061(\ud835\udc99i,G|\ud835\udeaf^),\ud835\udc9a~i)d(f(\\bm{x}_{i},G|\\bm{\\hat{\\Theta}}),\\bm{\\tilde{y}}_{i}) achieves the minimum value (0) at \ud835\udc99i\\bm{x}_{i} (note that \ud835\udc9a~i=f\u2061(\ud835\udc99i,G|\ud835\udeaf^)\\bm{\\tilde{y}}_{i}=f(\\bm{x}_{i},G|\\bm{\\hat{\\Theta}}) for unlabeled data). Realizing that the first-order gradient is always zero, we estimate \ud835\udc93i\u2032\\bm{r}_{i}^{\\prime} from the second-order Taylor approximation of d\u2061(f\u2061(\ud835\udc99i+\ud835\udc93i\u2032,G|\ud835\udeaf^),\ud835\udc9a~i)d(f(\\bm{x}_{i}+\\bm{r}_{i}^{\\prime},G|\\bm{\\hat{\\Theta}}),\\bm{\\tilde{y}}_{i}). That is, \ud835\udc93iv\u2248arg\u2061max\ud835\udc93i\u2032,\u2016\ud835\udc93i\u2032\u2016\u2264\u03f5\u2032\u200b12\u200b\ud835\udc93i\u2032T\u200b\ud835\udc6f\u200b\ud835\udc93i\u2032\\bm{r}_{i}^{v}\\approx\\arg\\max_{\\bm{r}_{i}^{\\prime},\\|\\bm{r}_{i}^{\\prime}\\|\\leq\\epsilon^{\\prime}}\\frac{1}{2}\\bm{r}_{i}^{\\prime T}\\bm{H}\\bm{r}_{i}^{\\prime} where \ud835\udc6f\\bm{H} is the Hessian matrix of d\u2061(f\u2061(\ud835\udc99i+\ud835\udc93i\u2032,G|\ud835\udeaf^),\ud835\udc9a~i)d(f(\\bm{x}_{i}+\\bm{r}_{i}^{\\prime},G|\\bm{\\hat{\\Theta}}),\\bm{\\tilde{y}}_{i}). For the consideration of efficiency, we calculate \ud835\udc93iv\\bm{r}_{i}^{v} via the power iteration approximation [35]:"
+  },
+  {
+    "tag": "table",
+    "id": "S4.EGx5",
+    "text": "\ud835\udc93iv\u2248\u03f5\u2032\ud835\udc88\u2016\ud835\udc88\u2016, where \ud835\udc88=\u2207\ud835\udc93id(f(\ud835\udc99i+\ud835\udc93i,G|\ud835\udeaf^,\ud835\udc9a~i))|,\ud835\udc93i=\u03be\u200b\ud835\udc85\\displaystyle\\bm{r}_{i}^{v}\\approx\\epsilon^{\\prime}\\frac{\\bm{g}}{\\|\\bm{g}\\|}\\text{, where }\\bm{g}=\\nabla_{\\bm{r}_{i}}d(f(\\bm{x}_{i}+\\bm{r}_{i},G|\\bm{\\hat{\\Theta}},\\bm{\\tilde{y}}_{i}))\\left|{}_{\\bm{r}_{i}=\\xi\\bm{d}}\\right., (5)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p2.2",
+    "text": "where \ud835\udc85\\bm{d} is a random vector. Detailed derivation of the method is referred to [35]."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS3",
+    "text": "IV-C Graph Convolution Network"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p1.1",
+    "text": "Inspired by the extraordinary representation ability, many neural networks have been used as the predictive model f\u2061(\ud835\udc99i,G|\ud835\udeaf)f(\\bm{x}_{i},G|\\bm{\\Theta}) [1, 7, 10, 11]. Under the transductive setting, Graph Convolutional Network [7] is a state-of-the-art model. Specifically, GCN stacks multiple graph convolution layers, which is formulated:"
+  },
+  {
+    "tag": "table",
+    "id": "S4.EGx6",
+    "text": "\ud835\udc6fl=\u03c3\u2061(\ud835\udc6b~\u221212\u200b\ud835\udc68~\u200b\ud835\udc6b~\u221212\u200b(\ud835\udc6fl\u22121\u200b\ud835\udc7el+\ud835\udc83l)).\\displaystyle\\bm{H}^{l}=\\sigma\\left(\\bm{\\widetilde{D}}^{-\\frac{1}{2}}\\bm{\\widetilde{A}}\\bm{\\widetilde{D}}^{-\\frac{1}{2}}\\left(\\bm{H}^{l-1}\\bm{W}^{l}+\\bm{b}^{l}\\right)\\right). (6)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p1.2",
+    "text": "Specifically, the ll-th graph convolution layer conducts three operations to project \ud835\udc6fl\u22121\u2208\u211dN\u00d7Dl\u22121\\bm{H}^{l-1}\\in\\mathbb{R}^{N\\times D^{l-1}} (the output of the (l\u22121)(l-1)-th layer or the node features \ud835\udc7f\\bm{X}) into \ud835\udc6fl\u2208\u211dN\u00d7Dl\\bm{H}^{l}\\in\\mathbb{R}^{N\\times D^{l}}, where Dl\u22121D^{l-1} and DlD^{l} are the output dimension of layer l\u22121l-1 and ll, respectively."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I2.i1.p1.1",
+    "text": "Similar as the fully connected layer, the graph convolution layer first projects the input (\ud835\udc6fl\u22121\\bm{H}^{l-1}) into latent representations with \ud835\udc7el\u2208\u211dDl\u22121\u00d7Dl\\bm{W}^{l}\\in\\mathbb{R}^{D^{l-1}\\times D^{l}} and \ud835\udc83l\u2208\u211dDl\\bm{b}^{l}\\in\\mathbb{R}^{D^{l}}."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I2.i2.p1.1",
+    "text": "It then propagates the latent representations (\ud835\udc6fl\u22121\u200b\ud835\udc7el+\ud835\udc83l\\bm{H}^{l-1}\\bm{W}^{l}+\\bm{b}^{l}) through the normalizied adjacency matrix \ud835\udc6b~\u221212\u200b\ud835\udc68~\u200b\ud835\udc6b~\u221212\\bm{\\widetilde{D}}^{-\\frac{1}{2}}\\bm{\\widetilde{A}}\\bm{\\widetilde{D}}^{-\\frac{1}{2}} with self-connections, where \ud835\udc6b~=\ud835\udc6b+\ud835\udc70\\bm{\\widetilde{D}}=\\bm{D}+\\bm{I} and \ud835\udc68~=\ud835\udc68+\ud835\udc70\\bm{\\widetilde{A}}=\\bm{A}+\\bm{I} (\ud835\udc70\u2208\u211dN\u00d7N\\bm{I}\\in\\mathbb{R}^{N\\times N} is an identity matrix). Here, the representation of node ii in \ud835\udc6f\\bm{H} is the aggregation of latent representations in (\ud835\udc6fl\u22121\u200b\ud835\udc7el+\ud835\udc83l\\bm{H}^{l-1}\\bm{W}^{l}+\\bm{b}^{l}) of nodes connected to ii (including itself due to the self-connection)."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I2.i3.p1.1",
+    "text": "Finally, a non-linear activation function \u03c3\\sigma (e.g., the sigmoid, hyperbolic tangent, and rectifier functions) is applied to allow non-linearity."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p2.1",
+    "text": "The original objective function of GCN is,"
+  },
+  {
+    "tag": "table",
+    "id": "S4.EGx7",
+    "text": "\u2211i=1Mc\u200br\u200bo\u200bs\u200bs\u200b-\u200be\u200bn\u200bt\u200br\u200bo\u200bp\u200by\u200b(f\u2061(\ud835\udc99i,G|\ud835\udeaf),\ud835\udc9ai)+\u03bb\u200b\u2016\ud835\udeaf\u2016F2,\\displaystyle\\sum_{i=1}^{M}cross\\text{-}entropy(f(\\bm{x}_{i},G|\\bm{\\Theta}),\\bm{y}_{i})+\\lambda\\|\\bm{\\Theta}\\|_{F}^{2}, (7)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p2.2",
+    "text": "where the second term is L2L_{2}-norm to prevent overfitting. To train GCN with our proposed GraphAT and GraphVAT, we set the \u0393\\Gamma term in Equation 2 and 4 as the cross-entropy loss in Equation 7, which are minimized to update the parameter of GCN, respectively."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS4",
+    "text": "IV-D Time Complexity and Implementation"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p1.1",
+    "text": "Time Complexity. As compared to GCN with standard training, the additional computation of GraphAT is twofold: 1) generating graph adversarial perturbations ({\ud835\udc93ig,i<N}\\{\\bm{r}_{i}^{g},i<N\\}) with Equation 3 and 2) calculating the value of graph adversarial regularizer (\u2211i=1N\u2211j\u2208\ud835\udca9iD\u2061(f\u2061(\ud835\udc99i+\ud835\udc93ig,G|\ud835\udeaf),f\u2061(\ud835\udc99j,G|\ud835\udeaf))\\sum_{i=1}^{N}\\sum_{j\\in\\mathcal{N}_{i}}D(f(\\bm{x}_{i}+\\bm{r}_{i}^{g},G|\\bm{\\Theta}),f(\\bm{x}_{j},G|\\bm{\\Theta}))). Considering that they can be accomplished with a back-propagation (to calculate \ud835\udc93ig\\bm{r}_{i}^{g}) and a forward-propagation (to calculate f\u2061(\ud835\udc99i+\ud835\udc93ig,G|\ud835\udeaf)f(\\bm{x}_{i}+\\bm{r}_{i}^{g},G|\\bm{\\Theta})), the computation overhead of GraphAT is acceptable. Additionally, GraphVAT computes virtual adversarial perturbations and virtual adversarial regularizer, which can also be finished by performing one back-propagation and one forward-propagation [35]. It indicates that the overhead of GraphVAT is still acceptable [35]."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p2.1",
+    "text": "Implementation. Noting that number of connected nodes varies a lot across the nodes in the graph, we sample KK neighbors for each node to generate adversarial examples and calculate the graph adversarial regularizer to facilitate the calculation. Here, the following sampling strategies [28] are considered:"
+  },
+  {
+    "tag": "p",
+    "id": "S4.I3.i1.p1.1",
+    "text": "Uniform: neighbors are selected uniformly."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I3.i2.p1.1",
+    "text": "Degree: the probability of selecting a node is proportional to the normalized node degree."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I3.i3.p1.1",
+    "text": "Degree-Reverse: on the contrary, the probability is the reciprocal of node degree (also normalized to sum to unity)."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I3.i4.p1.1",
+    "text": "PageRank: it performs PageRank [46] on the graph and takes the normalized pagerank score as the sampling probability."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS4.p2.2",
+    "text": "Note that advanced but complex sampling strategies (e.g., the one proposed in [28]) are not considered due to efficiency consideration."
+  },
+  {
+    "tag": "h2",
+    "id": "S5",
+    "text": "V Experiments"
+  },
+  {
+    "tag": "h3",
+    "id": "S5.SS1",
+    "text": "V-A Experimental Settings"
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS1.SSS1",
+    "text": "V-A1 Datasets"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.SSS1.p1.1",
+    "text": "We follow the same experimental settings as in [7] and conduct experiments on two types of node classification datasets: citation network datasets (Citeseer and Cora [47]) and knowledge graph (NELL [12])22 2 https://github.com/kimiyoung/planetoid., of which the statistics are summarized in Table II."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I1.i1.p1.1",
+    "text": "In the citation networks, nodes and edges represent documents and citation links between documents, respectively. Note that the direction of edge is omitted since a citation is assumed to have equally impacts on the prediction of the associated two documents. Each document is associated with a normalized bag-of-words feature vector and a class label. During training, we use features of all nodes, but only 20 labels per class. 500 and 1,000 of the remaining nodes are used as validation and testing, respectively."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I1.i2.p1.1",
+    "text": "NELL is a bipartite graph of 55,864 relation nodes and 9,891 entity nodes, extracted from a knowledge graph which is a set of triplets in the format of (e1,r,e2)(e_{1},r,e_{2}). Here e1e_{1} and e2e_{2} are entities, and rr is the connected relation between them. Following [7], each relation rr is split into two relation nodes (r1r_{1} and r2r_{2}), from which two edges (e1,r1)(e_{1},r_{1}) and (e2,r2)(e_{2},r_{2}) are constructed. Entity nodes and relation nodes are described by bag-of-words feature vectors (normalized) and one-hot encodings, respectively. Note that we pad zero values to align the feature vectors of entity and relation nodes. Here only labels of entity nodes are available and only 0.0010.001 of entities under each class are labeled during training."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS1.SSS2",
+    "text": "V-A2 Baselines"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.SSS2.p1.1",
+    "text": "We compare the following baselines:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.I2.i1.p1.1",
+    "text": "LP [8]: label propagation ignores node features and only propagates labels over the graph structure."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I2.i2.p1.1",
+    "text": "DeepWalk [5]: it is a skip-gram based graph embedding method, which learns the embedding of a node by predicting its contexts that are generated by performing random walk on the graph."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I2.i3.p1.1",
+    "text": "SemiEmb [48]: it learns node embeddings from node features and leverages Laplacian regularization to encourage connected nodes have close embeddings."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I2.i4.p1.1",
+    "text": "Planetoid [12]: similar as DeepWalk, this method learns node embeddings by predicting node context, but additionally accounts for node features."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I2.i5.p1.1",
+    "text": "GCN [7]: it stacks two graph convolution layers to project node features into labels. It propagates node representations and predictions over the graph structure to smooth the output."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I2.i6.p1.1",
+    "text": "GraphSGAN [40]: this is a semi-supervised generative adversarial network which encodes the density signal of the graph structure during generation of fake nodes."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.SSS2.p1.2",
+    "text": "Note that LP, DeepWalk, SemiEmb, and Planetoid are also baselines in the paper of GCN, we exactly follow their settings in [7]. In addition, the setting of GraphSGAN is same as the original paper."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS1.SSS3",
+    "text": "V-A3 Parameter Settings"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.SSS3.p1.1",
+    "text": "We implement GraphAT and GraphVAT, which train GCN with different versions of graph adversarial training, respectively, with Tensorflow. GraphAT has six hyperparameters in total: 1) D1D^{1}, the size of hidden layer (GCN); 2) \u03bb\\lambda, the weight for L2L_{2}-norm (GCN); 3) dropout ratio (GCN); 4) \u03f5\\epsilon, the scale of graph adversarial perturbations (GraphAT); 5) \u03b2\\beta, the weight for graph adversarial regularizer (GraphAT); and 6) KK, the number of sampled neighbors (GraphAT). For fair comparison, we set D1D^{1}, \u03bb\\lambda as the optimal values of standard GCN. But we set dropout ratio as zero in GraphAT for stable training. For the remaining three parameters, \u03f5\\epsilon, \u03b2\\beta, and KK, we performed grid-search within the ranges of [0.01, 0.05, 0.1, 0.5, 1], [0.01, 0.05, 0.1, 0.5, 1, 5], [1, 2, 3], respectively."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.SSS3.p2.1",
+    "text": "For GraphVAT, for simplicity, we set the six hyperparameters common to that of GraphAT using the optimal values found for GraphAT. Here we only tune its three additional hyperparameters: 1) \u03f5\u2032\\epsilon^{\\prime}, the scale of virtual adversarial perturbations; 2) \u03b1\\alpha, the weight for virtual adversarial regularizer; and 3) \u03be\\xi, the scale to calculate approximation. In particular, we perform grid-search within the ranges of [0.01, 0.05, 0.1, 0.5, 1], [0.001, 0.005, 0.01, 0.05, 0.1, 0.5], [1e-6, 1e-5, 1e-4], respectively. It should be noted that the Uniform strategy is adopted to sample neighbor nodes if not other specified."
+  },
+  {
+    "tag": "h3",
+    "id": "S5.SS2",
+    "text": "V-B Performance Comparison"
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS2.SSS1",
+    "text": "V-B1 Model Comparison"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.SSS1.p1.1",
+    "text": "We first investigate how effective is the proposed graph adversarial training via comparing the performance of GraphVAT (the extended version of GraphAT) with state-of-the-art node classification methods. Table III shows the classification performance of the compared methods on the three datasets regarding accuracy. The performance of LP, DeepWalk, SemiEmb, and Planetoid are taken from the GCN paper [7] since we follow its settings exactly. From the results, we have the following observations:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.I3.i1.p1.1",
+    "text": "GraphVAT significantly outperforms the standard GCN, exhibiting relative improvements of 6.35%, 1.47%, and 5.72% on the Citeseer, Cora, and NELL datasets, respectively. As the only difference between GraphVAT and GCN is applying the proposed graph adversarial training, the improvements are attributed to the proposed training method which would enhance the stabilization and generalization of GCN. Besides, the results validate that GraphVAT is effective in solving the node classification task."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I3.i2.p1.1",
+    "text": "GraphVAT achieves comparable performance as that of GraphSGAN, which is the state-of-the-art method of node classification. It demonstrates the efficacy of the proposed method. However, our method could offer a more feasible solution for two reasons: 1) GraphSGAN is based on the standard generative adversarial network, which explicitly plays a mini-max game between a discriminator and a generator (two different networks). This, inevitably, will lead to doubling of the computation of model training and the labor of parameter tuning. 2) For different node classification applications, GraphSGAN needs to be built from scratch, whereas our GraphVAT is a generic solution that can be seamlessly applied to enhance the existing models of the applications."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I3.i3.p1.1",
+    "text": "GraphVAT and GraphSGAN achieve better results in all the cases as compared to the other baselines. On the Citeseer, Cora, and NELL datasets, the relative improvements are at least 6.35%, 1.97%, and 4.52%, respectively. This indicates the effectiveness of adversarial learning, i.e., dynamically playing a mini-max game either implicitly (GraphVAT) and explicitly (GraphSGAN) in the training phase. Moreover, the results are consistent with findings in previous work [15, 42, 49, 35]."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I3.i4.p1.1",
+    "text": "Among the baselines, 1) the methods that jointly account for the graph structure and node features (in the category of +Node Features) outperform LP and DeepWalk that only consider graph structure. This suggests further exploration of how to combine the connection patterns and node features more appropriately. 2) As compared to SemiEmb that is a shallow model, Planetoid and GCN achieves significant improvements (from 8.56% to 131.8%) in all cases. The improvement is reasonable and attributed to the strong representation ability of neural networks. As such, methods targeting to enhance the graph neural network models, such as the graph adversarial training, will be meaningful and influential in future."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS2.SSS2",
+    "text": "V-B2 Performance w.r.t. Node Degree"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.SSS2.p1.1",
+    "text": "We next study how the graph adversarial training performs on nodes with different densities of connections so as to understand where this regularization technique can be more suitably applied. We empirically split the nodes into three groups according to node degree (i.e., the number of neighbors), where node degrees are in ranges of [1,2][1,2], [3,5][3,5], [6,N][6,N]. Figure 3 illustrates the distribution of nodes over the three groups. As can be seen, in all the three datasets, a great number of nodes are sparsely connected (with degrees smaller than three), and only about ten percent of the nodes are densely connected with degrees bigger than five."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.SSS2.p2.1",
+    "text": "By separately counting the accuracy of GCN and GraphVAT over nodes in different groups, we obtain the group-oriented performance on the three datasets, which is depicted in Figure 4. From the results, we observe that:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.I4.i1.p1.1",
+    "text": "In all the three datasets, both GCN and GraphVAT achieves the best performance on the group of [3,5][3,5]. The relatively worse performance on the group of [1,2][1,2] could be attributed to that the nodes in that group are sparsely connected and lacks sufficient signals propagated from the neighbors, which are helpful for the classification [8, 7, 50]. In addition, we postulate the reason for the worse performance over nodes with degrees in [6,N][6,N] as such nodes are harder to classify. This is because such nodes typically represent more general entities, such as those having connections to other entities with different types of relations and are thus harder to be accurately classified into a specific category."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I4.i2.p1.1",
+    "text": "In most cases (except the [6,N][6,N] group of Cora and NELL), GraphVAT outperforms GCN, which indicates that graph adversarial training would benefit the prediction of nodes with different degrees and is roughly not sensitive to the density of graph. For one of the exceptions (the [6,N][6,N] group of NELL), we speculate that the reason is the under-fitting of standard GCN on such nodes (note that the performance of GCN on [6,N][6,N] is 27.7% on average worse than the other two groups), where additional regularization performed by graph adversarial training worsens the under-fitting problem."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I4.i3.p1.1",
+    "text": "GraphVAT significantly and consistently outperforms GCN on the group of [1,2][1,2], with an average improvement of 5.45%. The result indicates that the graph adversarial training would be more effective on sparse part of the graph. It should be noted that most of the graphs are sparse in real world applications [51]. As such this result further demonstrates the potential of the proposed methods in real world applications."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS2.SSS3",
+    "text": "V-B3 Method Ablation"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.SSS3.p1.1",
+    "text": "Recall that we design two versions of graph adversarial training: 1) basic GraphAT (Equation 2) and 2) incorporating virtual adversarial training (Equation 4). To evaluate the contribution of these two types of regularizations, we compare the performance of the following solutions built upon GCN:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.I5.i1.p1.1",
+    "text": "GCN: It learns the parameters of GCN with standard training, i.e., it optimizes Equation 7."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I5.i2.p1.1",
+    "text": "GCN-VAT: Virtual adversarial training, which performs perturbations by considering node features only, is employed to train GCN, i.e., optimizing Equation 4 with \u03b2=0\\beta=0."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I5.i3.p1.1",
+    "text": "GraphAT: It trains GCN by the basic GraphAT, of which the perturbations only focus on graph structure. That is optimizing Equation 4 with \u03b1=0\\alpha=0."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I5.i4.p1.1",
+    "text": "GraphVAT: It accounts for both the virtual and graph adversarial regularizations during the training of GCN."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.SSS3.p2.1",
+    "text": "Table IV shows the performance of the compared methods on the three datasets w.r.t. accuracy. As can be seen:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.I6.i1.p1.1",
+    "text": "In most of the cases, GCN performs worse than the other approaches, which indicates that adversarial training could enhance the node classification model as compared to the standard training. That is, by intentionally and dynamically generating perturbations and optimizing additional regularizers, the trained model could by more accurate."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I6.i2.p1.1",
+    "text": "GraphVAT achieves the best performance in all cases, i.e., GraphVAT outperforms both GCN-VAT and GraphAT. It shows that perturbations targeting at both the individual nodes (virtual adversarial perturbations) and neighbor nodes (graph adversarial perturbations) benefit the training of graph neural network model. Moreover, it suggests that it is beneficial to jointly consider both the node features and graph structure in adversarial training of graph neural networks."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I6.i3.p1.1",
+    "text": "Compared to GCN-VAT, GraphAT achieves improvements of 1.38% and 4.04% on the Citeseer and Cora datasets, which signifies the benefit of accounting for the graph structure in adversarial training of graph neural networks. However, on the NELL dataset, the performance of GraphAT is 1.58% worse than GCN-VAT. We speculate that the decrease is mainly because NELL is a bipartite graph where the neighbors of an entity node are all relation nodes without bag-of-words descriptions and labels. Therefore, as compared to standard graph with homogeneous nodes, the generated graph adversarial perturbations according to the predictions of connected relation nodes are less effective. It should be noted that, by resisting such perturbations, GraphAT still implicitly encourages smooth predictions of entity nodes connected by the same relation node, which could be the reason why GraphAT outperforms standard GCN on NELL."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS2.SSS4",
+    "text": "V-B4 Effect of Sampling Strategies"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.SSS4.p1.1",
+    "text": "As mentioned in Section IV-D, different strategies could be adopted to sample neighbor nodes for the generation of graph adversarial perturbations and the calculation of graph adversarial regularizer. Here, we investigate the effect of sampling strategies via comparing the results of GraphAT performing different samplings. Note that we select GraphAT rather than GraphVAT for the reason that we focus on investigating properties of the proposed graph adversarial training."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.SSS4.p2.1",
+    "text": "Table V shows the corresponding performance, from which we can observe that the performance of different sampling strategies are comparable to each other. As compared to Uniform, the relative improvement (RI) achieved by the other strategies is within a range of [-0.9%, 0.1%]. As such, Uniform would be a suitable selection since it will not bring any additional computation as compared to the other approaches."
+  },
+  {
+    "tag": "h3",
+    "id": "S5.SS3",
+    "text": "V-C Effect of Hyperparameters"
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS3.SSS1",
+    "text": "V-C1 Sensitivity"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS3.SSS1.p1.1",
+    "text": "We then investigate how the value of hyperparameters effects the performance of the proposed GraphAT. Given a hyperparameter, we evaluate model performance when adjusting its value and fixing the other hyperparameters with optimal values. Since focusing on graph adversarial regularization, we mainly study: a) weight of graph adversarial regularizer (\u03b2\\beta), b) scale of graph adversarial perturbations (\u03f5\\epsilon), and c) number of sampled neighbors (kk), and use GraphAT to report the performance. It should be noted that, in the following, we focus on the citation graphs and omit results on NELL, which is a bipartite graph rather than a standard graph."
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS3.SSS1.p2.1",
+    "text": "Figure 5 illustrates the performance of GraphAT on the validation and testing of the three datasets when varying the value of \u03b2\\beta, \u03f5\\epsilon, and kk. From the figures, we have the following observations:"
+  },
+  {
+    "tag": "p",
+    "id": "S5.I7.i1.p1.1",
+    "text": "Under most cases, the performance of GraphAT changes smoothly near the optimal value of the selected hyperparameter, which indicates that GraphAT is not sensitive to hyperparameters. The only exception is that GraphAT performs significantly worse when k=3k=3 and k=5k=5 as compared to the performance with other values of kk. We check the training procedure and observe that both of them are caused by triggering early stopping at the early stage of the training (dozens of epochs), which is occasional and would converge to an expected performance if disable early stopping."
+  },
+  {
+    "tag": "p",
+    "id": "S5.I7.i2.p1.1",
+    "text": "For each parameter, a) GraphAT achieves best performance with \u03b2\\beta is around 0.1, which roughly balances the contribution of the supervised loss and the graph adversarial regularizer (note that the supervised loss decreases fast at the early epochs). Larger value of \u03b2\\beta (stronger regularization) will harm GraphAT since the model could suffer from the underfitting issue. b) GraphAT performs well when \u03f5\\epsilon is in the range of [1e-4, 1e-2], but the performance decreases significantly as increasing \u03f5\\epsilon. This result supports the assumption that perturbations have to be in a small scale so that the constructed adversarial examples have similar feature distributions as the real data. c) GraphAT performs best when k=1k=1 or k=2k=2, which is somehow coherent with the result in Figure 4 that graph adversarial training are more effective to nodes with degree in [1, 2]. This result is appealing since the computation cost linearly increases as sampling more neighbors."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS3.SSS2",
+    "text": "V-C2 Tuning \u03f5\\epsilon Only"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS3.SSS2.p1.1",
+    "text": "Considering that the number of candidate combinations exponentially increases with the number of hyperparameters, we explore whether comparable performance could be achieved when tune one hyperparameter alone and fix the others with empirical values. It should be noted that previous work [35] has shown that tuning \u03f5\u2032\\epsilon^{\\prime} alone could suffice for achieving satisfactory performance of VAT. Similarly, we tune \u03f5\\epsilon with \u03b2=1\\beta=1 and k=1k=1 and summarize the performance of GraphAT in Table VI. As can be seen, on the citation graphs, tuning \u03f5\\epsilon alone achieves satisfactory performance. As such, the overhead of additional hyperparameters of the proposed GraphAT could be ignored."
+  },
+  {
+    "tag": "h3",
+    "id": "S5.SS4",
+    "text": "V-D Impact of Graph Adversarial Training"
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS4.SSS1",
+    "text": "V-D1 Training Process"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS4.SSS1.p1.1",
+    "text": "We next study the effect of GraphAT on the training process of GCN. Specifically, we observe the performance of GCN and GraphAT on the validation and testing of Citeseer and Cora after every training epoch, which is depicted in Figure 6. As can be seen, 1) On the two datasets, the performance of GCN and GraphAT becomes stable after 100 epochs, which indicates that graph adversarial training will not affect the convergence speed of GCN. 2) It is interesting to see that the performance of GraphAT increases faster than standard GCN during the initial several epochs. Note that the supervised loss is typically much larger (about 1e5 times) than the value of graph adversarial regularizer at the initial epochs. This is because all nodes are assigned predictions close to random at the beginning which leads to tiny divergence between connected nodes. As such, the acceleration of performance increase at the initial epochs is believed to be the effect of data augmentation (additional adversarial examples) rather then a better regularization."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS4.SSS2",
+    "text": "V-D2 Robustness against Adversarial Perturbations"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS4.SSS2.p1.1",
+    "text": "Recall that our target is to enhance the robustness of graph neural networks. Table VII shows relative performance decrease of GCN and GraphAT on adversarial examples as compared to clean examples. As can be seen, by training GCN with graph adversarial training, the model becomes less sensitive to graph adversarial perturbations. Graph adversarial perturbations in the scale of 0.01 (i.e., \u03f5=0.01\\epsilon=0.01) decreases accuracy of GCN by 13.9% on average, while the number is only 2.9% for GraphAT. It validates that the graph adversarial training technique could enhance the robustness of a GCN model."
+  },
+  {
+    "tag": "h4",
+    "id": "S5.SS4.SSS3",
+    "text": "V-D3 Effect of Graph Adversarial Training on Divergence of Neighbor Nodes"
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS4.SSS3.p1.1",
+    "text": "We retrospect that the intuition of graph adversarial regularizer is to encourage connected nodes to be predicted similarly. Table VIII shows the effect of applying graph adversarial training to train GCN, from which we can see that graph adversarial training reduces the divergence between connected nodes as expected. These results show that the predictions of GraphAT are more smooth over the graph structure, which indicates the stronger generalization ability and robustness of the trained model."
+  },
+  {
+    "tag": "h2",
+    "id": "S6",
+    "text": "VI Conclusion"
+  },
+  {
+    "tag": "p",
+    "id": "S6.p1.1",
+    "text": "In this work, we proposed a new learning method, named graph adversarial training, which additional accounts for relation between examples as compared to standard adversarial training. By iteratively generating adversarial examples attacking the graph smoothness constraint and learning over adversarial examples, the proposed method encourages the smoothness of predictions over the given graph, a property indicating good generalization of the model. As can be seen as a dynamic regularization technique, our method is generic to be applied to train most graph neural network models. We trained one well-established model, GCN, with the proposed method to solve the node classification task. By conducting experiments on three benchmark datasets, we demonstrated that training GCN with our method is remarkably effective, achieving an average improvement of 4.51%. Moreover, it also beats GCN trained with VAT, indicating the necessity of performing AT with graph structure considered"
+  },
+  {
+    "tag": "p",
+    "id": "S6.p2.1",
+    "text": "In future, we will explore we are interested to explore the effectiveness of GAD on more graph neural network models [3, 11, 4]. Moreover, we are interested to investigate the effect of GAD on other graph-based learning tasks such as link prediction and community detection. As focusing on graph-based learning with only one graph in this paper, one potential future work is to investigate the effectiveness of graph adversarial training for graph-based learning methods simultaneously handling multiple graphs. In addition, we are interested in testing the performance of graph adversarial training on graphs with specifical structures, for instance, hyper-graphs and heterogeneous information graphs. Moreover, we would like to incorporate techniques like robust optimization [52] and adversarial dropout [53] into the proposed method to further enhance its ability of stabilizing graph neural network models."
+  },
+  {
+    "tag": "h2",
+    "id": "Sx1",
+    "text": "Acknowledgments"
+  },
+  {
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "text": "This research is part of NExT++ reserach, supported by the National Research Foundation Singapore under its AI Singapore Programme (AISG-100E-2018-012), Prime Minister\u2019s Office under its IRC@SG Funding Initiative, and National Natural Science Foundation of China (61972372). We thank the anonymous reviewers and the associated editor for their reviewing efforts."
+  },
+  {
+    "tag": "h2",
+    "id": "bib",
+    "text": "References"
+  }
+]

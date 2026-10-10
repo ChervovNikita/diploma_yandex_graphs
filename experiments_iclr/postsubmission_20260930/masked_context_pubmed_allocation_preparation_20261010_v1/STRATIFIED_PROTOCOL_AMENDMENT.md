@@ -1,0 +1,9 @@
+# Representative split amendment before model construction
+
+10 October 2026. The earlier native split remains preserved. Its public-data custodian, which did not construct a model or score any prediction, found VALID class counts [88, 1880, 1975] and TEST counts [72, 1916, 1957]. Equal TRAIN quotas leave almost the entire smallest class in TRAIN. This motivates changing the primary development population before any candidate or comparator outcome.
+
+Use the same complete normalized PubMed graph and published PolyFormer monomial configuration. For each class c, use an independent fixed NumPy RandomState190111 stream in ascending class order to permute its node IDs. Take floor(0.6*n_c) for TRAIN, the following floor(0.2*n_c) for VALID, and the remainder for TEST. This produces TRAIN counts [2461, 4725, 4643], VALID [820, 1575, 1547] and TEST [822, 1575, 1549]. The split identity is PubMed-class-stratified-floor60-20-20. It is a declared deviation from the author split. The graph was previously encountered, so this remains exploration.
+
+All model, mask, loss, seeds, staged roster, budgets, selection and continuation criteria in PROTOCOL.md remain unchanged. Add class macro accuracy alongside ordinary accuracy. Candidate mean macro accuracy must be no worse than shared4_own for a continuation. Report accuracy and NLL for every class at the selected epoch, with paired seed contrasts. The existing three-seed, one-split screen cannot establish a general superiority claim.
+
+Only the data custodian uses the full public labels to construct stratified roles. The candidate and comparators load TRAIN labels for learning and the separate VALID labels for selection. TEST scoring stays closed. V3 extends only qualification protocol admission. V2 method and native-provider source are unchanged, and scientific execution remains disabled until the complete runner is reviewed.

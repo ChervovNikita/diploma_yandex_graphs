@@ -1,0 +1,250 @@
+--- v1/method.py
++++ v2/method.py
+@@ -265,6 +265,14 @@
+                 total.backward(); self.counters['backwards'] += 1
+                 metrics['masked_ce'] += float(ce.detach())/4; metrics['core'] += float(core.detach())/4
+                 metrics['scalar_objective'] += float(total.detach())
++        # Untied bodies retain native unscaled own gradients. The common
++        # decoder, like its counterpart in BE4/all-view single, learns the
++        # mean reconstruction objective across the four participating routes.
++        decoder_gradient_divisor = self.spec['members'] if self.spec['untied'] and self.decoder is not None else 1
++        if decoder_gradient_divisor != 1:
++            for parameter in self.decoder.parameters():
++                if parameter.grad is not None:
++                    parameter.grad.div_(decoder_gradient_divisor)
+         active = [p for body in self.bodies for p in body.parameters() if p.grad is not None]
+         if self.decoder is not None: active += [p for p in self.decoder.parameters() if p.grad is not None]
+         if not active or any(not torch.isfinite(p.grad).all() for p in active): raise FloatingPointError('Accumulated gradient')
+@@ -278,15 +286,21 @@
+                    for state in optimizer.state.values() for value in state.values()):
+                 raise FloatingPointError('Optimizer state')
+         return dict(**metrics, ownership=ownership, TRAIN_label_count=len(self.train_ids),
+-                    complete_graph_nodes=len(self.x), gradient_assignment='ordinary complete scalar objective; no selective routing')
++                    complete_graph_nodes=len(self.x), decoder_data_gradient_divisor=decoder_gradient_divisor,
++                    gradient_assignment='ordinary old-state scalar backwards; common untied decoder uses route-mean data gradient')
+ 
+     def factual_probabilities(self):
+-        """Unchanged serving interface; no labels or hidden decoder use."""
+-        for body in self.bodies: body.eval()
+-        logits = []
+-        with torch.no_grad():
+-            for member in range(self.spec['members']):
+-                value, _ = self._forward(member, 'factual'); logits.append(value)
+-                self.counters['serving_forwards'] += 1
+-        bank = torch.stack(logits)
+-        return bank.softmax(-1).mean(0), bank
++        """Factual serving with exact module-mode restoration on every exit."""
++        modes = [(module, module.training) for body in self.bodies for module in body.modules()]
++        try:
++            for body in self.bodies: body.eval()
++            logits = []
++            with torch.no_grad():
++                for member in range(self.spec['members']):
++                    value, _ = self._forward(member, 'factual'); logits.append(value)
++                    self.counters['serving_forwards'] += 1
++            bank = torch.stack(logits)
++            return bank.softmax(-1).mean(0), bank
++        finally:
++            # Direct flags preserve callers' mixed submodule modes too.
++            for module, previous in modes: module.training = previous
+--- v1/qualify.py
++++ v2/qualify.py
+@@ -22,6 +22,13 @@
+     if not path.is_file() or sha(path) != row['sha256']:
+         raise ValueError('Exact caller artifact bytes required')
+     return path
++
++
++def array_fingerprint(array):
++    """SHA256 of dtype/shape header and exact C-order bytes; no labels exposed."""
++    header = json.dumps(dict(dtype=array.dtype.str, shape=list(array.shape)),
++                        sort_keys=True, separators=(',', ':')).encode()
++    return hashlib.sha256(header+b'\n'+array.tobytes(order='C')).hexdigest()
+ 
+ 
+ def admit(path, digest):
+@@ -44,6 +51,28 @@
+     splits = {'official_Planetoid':60, 'native_PolyFormer_60_20_20':11829}
+     if spec.get('split_protocol') not in splits or spec.get('TRAIN_count') != splits[spec['split_protocol']]:
+         raise ValueError('Explicit unaltered official/native TRAIN projection required')
++    if spec['split_protocol'] == 'native_PolyFormer_60_20_20':
++        if type(spec.get('split_seed')) is not int or not 0 <= spec['split_seed'] < 2**32:
++            raise ValueError('Frozen native split seed required before numerical imports')
++        split_identity = 'PolyFormer-class-balanced-60-20-20'
++    else:
++        if spec.get('split_seed') is not None:
++            raise ValueError('Official fixed masks have no random split seed')
++        split_identity = 'Planetoid-public-PubMed'
++    if spec.get('split_identity') != split_identity:
++        raise ValueError('Explicit official/native split identity required')
++    custody = json.loads(bind(spec['split_custody']).read_text())
++    if custody.get('schema') != 'masked-context-PubMed-TRAIN-role-custody-v1':
++        raise ValueError('Exact root-bound TRAIN-only exporter custody required')
++    for key in ('split_protocol', 'split_seed', 'split_identity', 'TRAIN_count'):
++        if custody.get(key) != spec.get(key): raise ValueError('Split custody disagrees with release: '+key)
++    if custody.get('train_bundle_sha256') != spec['train_bundle']['sha256']:
++        raise ValueError('Split custody must identify the exact TRAIN bundle')
++    if custody.get('feature_normalization') != 'PyG.NormalizeFeatures':
++        raise ValueError('Native normalized feature target must be declared')
++    bind(custody['exporter_source'])
++    if set(custody.get('array_fingerprints', {})) != {'x', 'edge_index', 'train_ids', 'train_y'}:
++        raise ValueError('All four TRAIN-only arrays require exact dtype/shape/byte fingerprints')
+     if spec.get('maximum_active_seconds') is None or not 0 < spec['maximum_active_seconds'] <= 1800:
+         raise ValueError('External finite engineering envelope at most1800 seconds required')
+     manifest = HERE/'MANIFEST.json'
+@@ -60,12 +89,29 @@
+     if condition(spec['condition'])['auxiliary_rewire']:
+         bind(spec['auxiliary_graph'])
+         rewire = spec.get('frozen_rewire_recipe', {})
+-        if any(key not in rewire for key in ('double_edge_swap_seed', 'swap_count', 'rejection_cap', 'graph_fingerprint')):
+-            raise ValueError('Rewire algorithm/count/rejection cap/fingerprint must be frozen separately')
++        if type(rewire.get('double_edge_swap_seed')) is not int or not 0 <= rewire['double_edge_swap_seed'] < 2**32:
++            raise ValueError('Frozen legal double-edge-swap seed required')
++        if type(rewire.get('swap_count')) is not int or rewire['swap_count'] <= 0:
++            raise ValueError('Frozen positive swap count required')
++        if type(rewire.get('rejection_cap')) is not int or rewire['rejection_cap'] < rewire['swap_count']:
++            raise ValueError('Frozen rejection cap must cover the requested swaps')
++        fingerprint = rewire.get('graph_fingerprint')
++        if not isinstance(fingerprint, str) or len(fingerprint) != 64 or any(c not in '0123456789abcdef' for c in fingerprint):
++            raise ValueError('Exact lowercase SHA256 graph array fingerprint required')
++        bind(rewire['generator_source'])
++        generated = json.loads(bind(rewire['generation_custody']).read_text())
++        if generated.get('schema') != 'masked-context-degree-preserving-rewire-custody-v1' or generated.get('algorithm') != 'double_edge_swap':
++            raise ValueError('Exact double-edge-swap generation custody required')
++        for key in ('double_edge_swap_seed', 'swap_count', 'rejection_cap', 'graph_fingerprint'):
++            if generated.get(key) != rewire[key]: raise ValueError('Rewire generation custody disagrees: '+key)
++        if generated.get('generator_source_sha256') != rewire['generator_source']['sha256'] or generated.get('auxiliary_bundle_sha256') != spec['auxiliary_graph']['sha256']:
++            raise ValueError('Rewire custody must identify generator and auxiliary bundle')
+     elif spec.get('auxiliary_graph') is not None:
+         raise ValueError('Auxiliary graph only admitted for rewired condition')
+     output = inside(spec['output'], existing=False)
+     if output.exists(): raise FileExistsError(output)
++    spec['_engineering_release_sha256'] = digest
++    spec['_split_custody'] = custody
+     return spec, output
+ 
+ 
+@@ -74,11 +120,12 @@
+ 
+ 
+ def engineering(spec, output):
++    started = time.monotonic()
+     # Imports and numeric input loading only occur after complete admission.
+     import numpy as np
+     import torch
+     from method import Session
+-    started = time.monotonic(); output.mkdir(parents=True, exist_ok=False)
++    output.mkdir(parents=True, exist_ok=False)
+     session = None
+     try:
+         torch.set_num_threads(2)
+@@ -92,12 +139,18 @@
+             raise ValueError('Exact float32 features and int64 projected graph/roles required')
+         if len(arrays['train_ids']) != spec['TRAIN_count'] or arrays['edge_index'].shape != tuple(spec['edge_shape']):
+             raise ValueError('Complete frozen TRAIN and graph dimensions required')
++        fingerprints = {key:array_fingerprint(value) for key,value in arrays.items()}
++        if fingerprints != spec['_split_custody']['array_fingerprints']:
++            raise ValueError('Loaded TRAIN-only arrays disagree with frozen exporter custody')
+         tensors = {key:torch.from_numpy(value) for key,value in arrays.items()}
+         auxiliary = None
+         if spec.get('auxiliary_graph') is not None:
+             with np.load(bind(spec['auxiliary_graph']), allow_pickle=False) as archive:
+                 if archive.files != ['edge_index']: raise ValueError('Only frozen auxiliary graph allowed')
+-                auxiliary = torch.from_numpy(archive['edge_index'].copy())
++                auxiliary_array = archive['edge_index'].copy()
++                if auxiliary_array.dtype != np.int64 or array_fingerprint(auxiliary_array) != spec['frozen_rewire_recipe']['graph_fingerprint']:
++                    raise ValueError('Loaded auxiliary graph disagrees with frozen dtype/shape/byte fingerprint')
++                auxiliary = torch.from_numpy(auxiliary_array)
+         device = torch.device(spec['device'])
+         if device.type == 'cuda':
+             index = 0 if device.index is None else device.index
+@@ -120,7 +173,10 @@
+             trace.append(dict(step=step+1, update_seconds=time.monotonic()-tick, TRAIN=value))
+             write(output/'PROGRESS.json', dict(engineering=True, science_enabled=False, steps=step+1,
+                 counters=session.counters, inclusive_seconds=time.monotonic()-started))
++        modes_before = [module.training for body in session.bodies for module in body.modules()]
+         tick = time.monotonic(); probabilities, logits = session.factual_probabilities()
++        if modes_before != [module.training for body in session.bodies for module in body.modules()]:
++            raise ValueError('Factual serving must preserve every prior module mode')
+         if device.type == 'cuda': torch.cuda.synchronize()
+         serving_seconds = time.monotonic()-tick
+         if probabilities.shape != (19717,3) or not torch.isfinite(probabilities).all() or not torch.allclose(probabilities.sum(-1), torch.ones(19717, device=probabilities.device), atol=1e-5, rtol=1e-5):
+@@ -140,10 +196,13 @@
+             science_enabled=False, VALID_access=False, TEST_access=False, competence_established=False,
+             runtime_qualification_scope='One condition and1–3 complete TRAIN updates only; no convergence or selected-checkpoint evidence',
+             condition=spec['condition'], seed=spec['seed'], split_protocol=spec['split_protocol'],
++            split_seed=spec['split_seed'], split_identity=spec['split_identity'],
++            engineering_release_sha256=spec['_engineering_release_sha256'],
++            split_custody=spec['split_custody'], array_fingerprints=fingerprints, serving_modes_preserved=True,
+             source_manifest_sha256=spec['source_manifest_sha256'], data_SHA=spec['train_bundle']['sha256'],
+             providers=providers, trace=trace, gradient_audit=getattr(session, 'audit', None),
+             counters=session.counters, shapes=shapes, preprocessing_seconds=session.preparation_seconds,
+-            serving_seconds=serving_seconds, inclusive_seconds=time.monotonic()-started, peak_CUDA_bytes=peak,
++            serving_seconds=serving_seconds, inclusive_seconds=time.monotonic()-started, timing_scope='includes numerical imports/input loading; outer owner charges admission and process startup separately', peak_CUDA_bytes=peak,
+             predictor_parameters=sum(p.numel() for b in session.bodies for p in b.parameters()),
+             decoder_parameters=0 if session.decoder is None else sum(p.numel() for p in session.decoder.parameters()),
+             no_predicted_or_heldout_scores=True, no_checkpoints_saved=True)
+--- v1/plan.py
++++ v2/plan.py
+@@ -17,7 +17,7 @@
+             factor_initialization='unit', partition_seed=190101,
+             negative_seed_offset=700001, ownership_seed_offset=800001,
+             decoder='one common Linear(hidden, input_features, bias=True)',
+-            decoder_optimizer='ordinary base Adam group lr/weight_decay',
++            decoder_optimizer='base Adam; shared decoder always uses mean route reconstruction data gradient',
+             serving='factual mean member class probabilities')
+ 
+ 
+@@ -65,7 +65,7 @@
+     byte_ledger = dict(factual_and_four_masked_feature_banks=5*bytes_per_bank,
+         one_poly_token_hidden_tensor=n*tokens*h*4,
+         one_attention_score_tensor=n*heads*tokens*tokens*4,
+-        all_masked_reconstructions_approximately=(n//4+1)*f*4,
++        one_route_masked_reconstructions_approximately=(n//4+1)*f*4,
+         one_512_anchor_negative_gather=512*32*f*4,
+         full_route_negative_gathers_retained_by_autograd_approximately=(n//4+1)*32*f*4,
+         full_negative_id_bank_approximately=(n//4+1)*32*8,
+--- v1/README.md
++++ v2/README.md
+@@ -68,8 +68,9 @@
+ is sum-rule gradient accumulation, not selective block routing. Shared loss is
+ averaged over routes. Untied losses are summed so each native body's gradient
+ retains ordinary unscaled supervision. In the auxiliary untied control, the
+-single shared decoder receives the summed four losses and one base Adam step;
+-this couples those bodies and is stated explicitly.
++single shared decoder receives the mean reconstruction data gradient and one base Adam step;
++this couples those bodies and is stated explicitly. Body gradients remain unscaled.
++The decoder normalization is applied after old-state backwards and before its Adam step.
+ 
+ LayerNorm has no running population state; BatchNorm is rejected. Dropout is
+ native. Factual and masked streams are separate and persist by member (and by
+@@ -164,3 +165,18 @@
+ source structure and literal partition/negative-identity invariants without
+ Torch, a model or data. They do not establish numerical/native parity,
+ convergence, representation usefulness, novelty or acceptance.
++
++## Corrected V2 source generation
++
++V1 remains immutable. The fresh source audit identified a decoder-normalization
++confound, serving-mode restoration and missing split/rewire custody checks.
++V2 averages only the untied common decoder data gradient before its Adam step,
++preserves untied native-body gradients, and restores every predictor module mode
++in a finally block. Engineering reports the exact release digest/split identity/
++seed and verifies all four TRAIN-only array fingerprints against a bound exporter
++custody file. Rewired qualification requires legal frozen recipe values, bound
++generator/custody and an exact auxiliary edge-array fingerprint. No held-out
++labels are loaded to perform these checks. Numerical imports are included in the
++worker timing, while admission/process startup stays in outer-owner accounting.
++The masked rule, coefficients, seeds, predictor, original streams and9→27 roster
++are unchanged. No new scientific mode, fit, dataset or numerical evidence is added.
+--- v1/ENGINEERING_RELEASE_TEMPLATE_DISABLED.json
++++ v2/ENGINEERING_RELEASE_TEMPLATE_DISABLED.json
+@@ -30,6 +30,8 @@
+   "seed": 9101,
+   "source_manifest_sha256": null,
+   "source_review_approved": false,
++  "split_custody": null,
++  "split_identity": null,
+   "split_protocol": null,
+   "split_seed": null,
+   "steps": 3,

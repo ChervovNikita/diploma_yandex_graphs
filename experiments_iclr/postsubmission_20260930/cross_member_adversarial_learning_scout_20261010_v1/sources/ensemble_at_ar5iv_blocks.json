@@ -1,0 +1,847 @@
+[
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Adversarial examples are perturbed inputs designed to fool machine learning models. Adversarial training injects such examples into training data to increase robustness. To scale this technique to large datasets, perturbations are crafted using fast single-step methods that maximize a linear approximation of the model\u2019s loss."
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.2",
+    "text": "We show that this form of adversarial training converges to a degenerate global minimum, wherein small curvature artifacts near the data points obfuscate a linear approximation of the loss. The model thus learns to generate weak perturbations, rather than defend against strong ones. As a result, we find that adversarial training remains vulnerable to black-box attacks, where we transfer perturbations computed on undefended models, as well as to a powerful novel single-step attack that escapes the non-smooth vicinity of the input data via a small random step."
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.3",
+    "text": "We further introduce Ensemble Adversarial Training, a technique that augments training data with perturbations transferred from other models. On ImageNet, Ensemble Adversarial Training yields models with stronger robustness to black-box attacks. In particular, our most robust model won the first round of the NIPS 2017 competition on Defenses against Adversarial Attacks (Kurakin et al. 2017c). However, subsequent work found that more elaborate black-box attacks could significantly enhance transferability and reduce the accuracy of our models."
+  },
+  {
+    "tag": "h2",
+    "id": "S1",
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Machine learning (ML) models are often vulnerable to adversarial examples, maliciously perturbed inputs designed to mislead a model at test time (Biggio et al. 2013; Szegedy et al. 2013; Goodfellow et al. 2014b; Papernot et al. 2016a). Furthermore, Szegedy et al. 2013 showed that these inputs transfer across models: the same adversarial example is often misclassified by different models, thus enabling simple black-box attacks on deployed models (Papernot et al. 2017; Liu et al. 2017)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "Adversarial training (Szegedy et al. 2013) increases robustness by augmenting training data with adversarial examples. Madry et al. 2017 showed that adversarially trained models can be made robust to white-box attacks (i.e., with knowledge of the model parameters) if the perturbations computed during training closely maximize the model\u2019s loss. However, prior attempts at scaling this approach to ImageNet-scale tasks (Deng et al. 2009) have proven unsuccessful (Kurakin et al. 2017b)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "It is thus natural to ask whether it is possible, at scale, to achieve robustness against the class of black-box adversaries Towards this goal, Kurakin et al. 2017b adversarially trained an Inception v3 model (Szegedy et al. 2016b) on ImageNet using a \u201csingle-step\u201d attack based on a linearization of the model\u2019s loss (Goodfellow et al. 2014b). Their trained model is robust to single-step perturbations but remains vulnerable to more costly \u201cmulti-step\u201d attacks. Yet, Kurakin et al. 2017b found that these attacks fail to reliably transfer between models, and thus concluded that the robustness of their model should extend to black-box adversaries. Surprisingly, we show that this is not the case."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "We demonstrate, formally and empirically, that adversarial training with single-step methods admits a degenerate global minimum, wherein the model\u2019s loss can not be reliably approximated by a linear function. Specifically, we find that the model\u2019s decision surface exhibits sharp curvature near the data points, thus degrading attacks based on a single gradient computation. In addition to the model of Kurakin et al. 2017b, we reveal similar overfitting in an adversarially trained Inception ResNet v2 model (Szegedy et al. 2016a), and a variety of models trained on MNIST (LeCun et al. 1998)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p5.1",
+    "text": "We harness this result in two ways. First, we show that adversarially trained models using single-step methods remain vulnerable to simple attacks. For black-box adversaries, we find that perturbations crafted on an undefended model often transfer to an adversarially trained one. We also introduce a simple yet powerful single-step attack, which we call R+FGSM, that applies a small random perturbation\u2014to escape the non-smooth vicinity of the data point\u2014before linearizing the model\u2019s loss. While seemingly weaker than the Fast Gradient Sign Method of Goodfellow et al. 2014b, our attack significantly outperforms it for a same perturbation norm, for models trained with or without adversarial training."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p6.1",
+    "text": "Second, we propose Ensemble Adversarial Training, a training methodology that incorporates perturbed inputs transferred from other pre-trained models. Our approach decouples adversarial example generation from the parameters of the trained model, and increases the diversity of perturbations seen during training. We train Inception v3 and Inception ResNet v2 models on ImageNet that exhibit increased robustness to adversarial examples transferred from other holdout models, using various single-step and multi-step attacks (Goodfellow et al. 2014b; Carlini & Wagner 2017a; Kurakin et al. 2017a; Madry et al. 2017). We also show that our methods globally reduce the dimensionality of the space of adversarial examples (Tram\u00e8r et al. 2017). Our Inception ResNet v2 model won the first round of the NIPS 2017 competition on Defenses Against Adversarial Attacks (Kurakin et al. 2017c), where it was evaluated on other competitors\u2019 attacks in a black-box setting.11 1 We publicly released our model after the first round, and it could thereafter be targeted using white-box attacks. Nevertheless, a majority of the top submissions in the final round, e.g. (Xie et al. 2018) built upon our released model."
+  },
+  {
+    "tag": "h3",
+    "id": "S1.SS1",
+    "text": "1.1 Subsequent Work (added April 2020)"
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS1.p1.1",
+    "text": "Starting with the NIPS 2017 competition on Defenses Against Adversarial Attacks, many subsequent works have proposed more elaborate black-box transfer-based attacks. By incorporating additional optimization techniques (e.g., momentum (Dong et al. 2018), data-augmentation (Xie et al. 2019b; Dong et al. 2019) or gradients from a residual network\u2019s \u201cskip connections\u201d (Wu et al. 2020)), these attacks substantially improve the transferability of adversarial examples. While Ensemble Adversarial Training still improves a model\u2019s robustness to these attacks, the best attack to date\u2014by Wu et al. 2020\u2014reduces the accuracy of our most robust ImageNet model to 22%22\\% (for \u2113\u221e\\ell_{\\infty} perturbations bounded by \u03f5=16/255\\epsilon=16/255)."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS1.p2.1",
+    "text": "We further note that adversarial training with multi-step attacks has now been scaled to ImageNet (Xie et al. 2019a), resulting in models with plausible and non-negligible robustness to white-box attacks, thereby superseding the results obtained with Ensemble Adversarial Training. Adversarial training with multi-step attacks is currently regarded as the state-of-the-art approach for attaining robustness to a fixed type of perturbations, whether in a white-box or black-box setting."
+  },
+  {
+    "tag": "p",
+    "id": "S1.SS1.p3.1",
+    "text": "At the same time, a surprising recent result of Wong et al. 2020 suggests that with appropriate step-size tuning and early-stopping, adversarial training with the single-step R+FGSM attack yields models with white-box robustness that is comparable to that obtained with more expensive multi-step attacks (Madry et al. 2017)."
+  },
+  {
+    "tag": "h2",
+    "id": "S2",
+    "text": "2 Related Work"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "Various defensive techniques against adversarial examples in deep neural networks have been proposed (Gu & Rigazio 2014; Luo et al. 2015; Papernot et al. 2016c; Nayebi & Ganguli 2017; Cisse et al. 2017) and many remain vulnerable to adaptive attackers (Carlini & Wagner 2017a; Carlini & Wagner 2017b; Baluja & Fischer 2017). Adversarial training (Szegedy et al. 2013; Goodfellow et al. 2014b; Kurakin et al. 2017b; Madry et al. 2017) appears to hold the greatest promise for learning robust models."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "Madry et al. 2017 show that adversarial training on MNIST yields models that are robust to white-box attacks, if the adversarial examples used in training closely maximize the model\u2019s loss. Moreover, recent works by Sinha et al. 2018, Raghunathan et al. 2018 and Kolter & Wong 2017 even succeed in providing certifiable robustness for small perturbations on MNIST. As we argue in Appendix C, the MNIST dataset is peculiar in that there exists a simple \u201cclosed-form\u201d denoising procedure (namely feature binarization) which leads to similarly robust models without adversarial training. This may explain why robustness to white-box attacks is hard to scale to tasks such as ImageNet (Kurakin et al. 2017b). We believe that the existence of a simple robust baseline for MNIST can be useful for understanding some limitations of adversarial training techniques."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p3.1",
+    "text": "Szegedy et al. 2013 found that adversarial examples transfer between models, thus enabling black-box attacks on deployed models. Papernot et al. 2017 showed that black-box attacks could succeed with no access to training data, by exploiting the target model\u2019s predictions to extract (Tram\u00e8r et al. 2016) a surrogate model. Some prior works have hinted that adversarially trained models may remain vulnerable to black-box attacks: Goodfellow et al. 2014b found that an adversarial maxout network on MNIST has slightly higher error on transferred examples than on white-box examples. Papernot et al. 2017 further showed that a model trained on small perturbations can be evaded by transferring perturbations of larger magnitude. Our finding that adversarial training degrades the accuracy of linear approximations of the model\u2019s loss is as an instance of a gradient-masking phenomenon (Papernot et al. 2016b), which affects other defensive techniques (Papernot et al. 2016c; Carlini & Wagner 2017a; Nayebi & Ganguli 2017; Brendel & Bethge 2017; Athalye et al. 2018)."
+  },
+  {
+    "tag": "h2",
+    "id": "S3",
+    "text": "3 The Adversarial Training Framework"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "We consider a classification task with data x\u2208[0,1]dx\\in[0,1]^{d} and labels ytrue\u2208\u2124ky_{\\text{true}}\\in\\mathbb{Z}_{k} sampled from a distribution \ud835\udc9f\\mathcal{D}. We identify a model with an hypothesis hh from a space \u210b\\mathcal{H}. On input xx, the model outputs class scores h\u2061(x)\u2208\u211dkh(x)\\in\\mathbb{R}^{k}. The loss function used to train the model, e.g., cross-entropy, is L\u2061(h\u2061(x),y)L(h(x),y)."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS1",
+    "text": "3.1 Threat Model"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "For some target model h\u2208\u210bh\\in\\mathcal{H} and inputs (x,ytrue)(x,y_{\\text{true}}) the adversary\u2019s goal is to find an adversarial example xadvx^{\\text{adv}} such that xadvx^{\\text{adv}} and xx are \u201cclose\u201d yet the model misclassifies xadvx^{\\text{adv}}. We consider the well-studied class of \u2113\u221e\\ell_{\\infty} bounded adversaries (Goodfellow et al. 2014b; Madry et al. 2017) that, given some budget \u03f5\\epsilon, output examples xadvx^{\\text{adv}} where \u2016xadv\u2212x\u2016\u221e\u2264\u03f5\\|x^{\\text{adv}}-x\\|_{\\infty}\\leq\\epsilon. As we comment in Appendix C.1, \u2113\u221e\\ell_{\\infty} robustness is of course not an end-goal for secure ML. We use this standard model to showcase limitations of prior adversarial training methods, and evaluate our proposed improvements."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "text": "We distinguish between white-box adversaries that have access to the target model\u2019s parameters (i.e., hh), and black-box adversaries with only partial information about the model\u2019s inner workings. Formal definitions for these adversaries are in Appendix A. Although security against white-box attacks is the stronger notion (and the one we ideally want ML models to achieve), black-box security is a reasonable and more tractable goal for deployed ML models."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS2",
+    "text": "3.2 Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "Following Madry et al. 2017, we consider an adversarial variant of standard Empirical Risk Minimization (ERM), where our aim is to minimize the risk over adversarial examples:"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E1",
+    "text": "h\u2217=arg\u200bminh\u2208\u210b\ud835\udd3c(x,ytrue)\u223c\ud835\udc9f[max\u2016xadv\u2212x\u2016\u221e\u2264\u03f5\u2061L\u2061(h\u2061(xadv),ytrue)].h^{*}=\\argmin_{h\\in\\mathcal{H}}\\quad\\Exp_{(x,y_{\\text{true}})\\sim\\mathcal{D}}\\Big[\\max_{\\|x^{\\text{adv}}-x\\|_{\\infty}\\leq\\epsilon}L(h(x^{\\text{adv}}),y_{\\text{true}})\\Big]\\;. (1)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.2",
+    "text": "Madry et al. 2017 argue that adversarial training has a natural interpretation in this context, where a given attack (see below) is used to approximate solutions to the inner maximization problem, and the outer minimization problem corresponds to training over these examples. Note that the original formulation of adversarial training (Szegedy et al. 2013; Goodfellow et al. 2014b), which we use in our experiments, trains on both the \u201cclean\u201d examples xx and adversarial examples xadvx^{\\text{adv}}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "text": "We consider three algorithms to generate adversarial examples with bounded \u2113\u221e\\ell_{\\infty} norm. The first two are single-step (i.e., they require a single gradient computation); the third is iterative\u2014it computes multiple gradient updates. We enforce xadv\u2208[0,1]dx^{\\text{adv}}\\in[0,1]^{d} by clipping all components of xadvx^{\\text{adv}}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p3.1",
+    "text": "Fast Gradient Sign Method (FGSM). This method (Goodfellow et al. 2014b) linearizes the inner maximization problem in (1):"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E2",
+    "text": "xFGSMadv\u2254x+\u03b5\u22c5\ud835\ude9c\ud835\ude92\ud835\ude90\ud835\ude97\u2061(\u2207xL\u200b(h\u2061(x),ytrue)).x^{\\text{adv}}_{\\text{FGSM}}\\coloneqq x+\\varepsilon\\cdot\\mathtt{sign}\\left(\\nabla_{x}L(h(x),y_{\\text{true}})\\right)\\;. (2)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p4.1",
+    "text": "Single-Step Least-Likely Class Method (Step-LL). This variant of FGSM introduced by Kurakin et al. 2017a; Kurakin et al. 2017b targets the least-likely class, yLL=arg\u200bmin\u2061{h\u2061(x)}y_{\\text{LL}}=\\argmin\\{h(x)\\}:"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E3",
+    "text": "xLLadv\u2254x\u2212\u03b5\u22c5\ud835\ude9c\ud835\ude92\ud835\ude90\ud835\ude97\u2061(\u2207xL\u200b(h\u2061(x),yLL)).x^{\\text{adv}}_{\\text{LL}}\\coloneqq x-\\varepsilon\\cdot\\mathtt{sign}\\left(\\nabla_{x}L(h(x),y_{\\text{LL}})\\right)\\;. (3)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p4.2",
+    "text": "Although this attack only indirectly tackles the inner maximization in (1), Kurakin et al. 2017b find it to be the most effective for adversarial training on ImageNet."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p5.1",
+    "text": "Iterative Attack (I-FGSM or Iter-LL). This method iteratively applies the FGSM or Step-LL kk times with step-size \u03b1\u2265\u03f5/k\\alpha\\geq\\epsilon/k and projects each step onto the \u2113\u221e\\ell_{\\infty} ball of norm \u03f5\\epsilon around xx. It uses projected gradient descent to solve the maximization in (1). For fixed \u03f5\\epsilon, iterative attacks induce higher error rates than single-step attacks, but transfer at lower rates (Kurakin et al. 2017a; Kurakin et al. 2017b)."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS3",
+    "text": "3.3 A Degenerate Global Minimum for Single-Step Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "text": "When performing adversarial training with a single-step attack (e.g., the FGSM or Step-LL methods above), we approximate Equation (1) by replacing the solution to the inner maximization problem in with the output of the single-step attack (e.g., xFGSMadvx^{\\text{adv}}_{\\text{FGSM}} in (2)). That is, we solve"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E4",
+    "text": "h\u2217=arg\u200bminh\u2208\u210b\ud835\udd3c(x,ytrue)\u223c\ud835\udc9f[L\u2061(h\u2061(xFGSMadv),ytrue)].h^{*}=\\argmin_{h\\in\\mathcal{H}}\\quad\\Exp_{(x,y_{\\text{true}})\\sim\\mathcal{D}}\\Big[L(h(x^{\\text{adv}}_{\\text{FGSM}}),y_{\\text{true}})\\Big]\\;. (4)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p1.2",
+    "text": "For model families \u210b\\mathcal{H} with high expressive power, this alternative optimization problem admits at least two substantially different global minima h\u2217h^{*}:"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i1.p1.1",
+    "text": "For an input xx from \ud835\udc9f\\mathcal{D}, there is no xadvx^{\\text{adv}} close to xx (in \u2113\u221e\\ell_{\\infty} norm) that induces a high loss. That is,"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E5",
+    "text": "L(h\u2217(xFGSMadv),ytrue)\u2248max\u2016xadv\u2212x\u2016\u221e\u2264\u03f5L(h\u2217(xadv),ytrue)]\u22480.L(h^{*}(x^{\\text{adv}}_{\\text{FGSM}}),y_{\\text{true}})\\approx\\max_{\\|x^{\\text{adv}}-x\\|_{\\infty}\\leq\\epsilon}L(h^{*}(x^{\\text{adv}}),y_{\\text{true}})]\\approx 0\\;. (5)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i1.p1.2",
+    "text": "In other words, h\u2217h^{*} is robust to all \u2113\u221e\\ell_{\\infty} bounded perturbations."
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i2.p1.1",
+    "text": "The minimizer h\u2217h^{*} is a model for which the approximation method underlying the attack (i.e., linearization in our case) poorly fits the model\u2019s loss function. That is,"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E6",
+    "text": "L(h\u2217(xFGSMadv),ytrue)\u226amax\u2016xadv\u2212x\u2016\u221e\u2264\u03f5L(h\u2217(xadv),ytrue)].L(h^{*}(x^{\\text{adv}}_{\\text{FGSM}}),y_{\\text{true}})\\ll\\max_{\\|x^{\\text{adv}}-x\\|_{\\infty}\\leq\\epsilon}L(h^{*}(x^{\\text{adv}}),y_{\\text{true}})]\\;. (6)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.I1.i2.p1.2",
+    "text": "Thus the attack when applied to h\u2217h^{*} produces samples xadvx^{\\text{adv}} that are far from optimal."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS3.p3.1",
+    "text": "Note that this second \u201cdegenerate\u201d minimum can be more subtle than a simple case of overfitting to samples produced from single-step attacks. Indeed, we show in Section 4.1 that single-step attacks applied to adversarially trained models create \u201cadversarial\u201d examples that are easy to classify even for undefended models. Thus, adversarial training does not simply learn to resist the particular attack used during training, but actually to make that attack perform worse overall. This phenomenon relates to the notion of Reward Hacking (Amodei et al. 2016) wherein an agent maximizes its formal objective function via unintended behavior that fails to captures the designer\u2019s true intent."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS4",
+    "text": "3.4 Ensemble Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p1.1",
+    "text": "The degenerate minimum described in Section 3.3 is attainable because the learned model\u2019s parameters influence the quality of both the minimization and maximization in (1). One solution is to use a stronger adversarial example generation process, at a high performance cost (Madry et al. 2017). Alternatively, Baluja & Fischer 2017 suggest training an adversarial generator model as in the GAN framework (Goodfellow et al. 2014a). The power of this generator is likely to require careful tuning, to avoid similar degenerate minima (where the generator or classifier overpowers the other)."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.p2.1",
+    "text": "We propose a conceptually simpler approach to decouple the generation of adversarial examples from the model being trained, while simultaneously drawing an explicit connection with robustness to black-box adversaries. Our method, which we call Ensemble Adversarial Training, augments a model\u2019s training data with adversarial examples crafted on other static pre-trained models. Intuitively, as adversarial examples transfer between models, perturbations crafted on an external model are good approximations for the maximization problem in (1). Moreover, the learned model can not influence the \u201cstrength\u201d of these adversarial examples. As a result, minimizing the training loss implies increased robustness to black-box attacks from some set of models."
+  },
+  {
+    "tag": "h4",
+    "id": "S3.SS4.SSS0.Px1",
+    "text": "Domain Adaptation with multiple sources."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.SSS0.Px1.p1.1",
+    "text": "We can draw a connection between Ensemble Adversarial Training and multiple-source Domain Adaptation (Mansour et al. 2009; Zhang et al. 2012). In Domain Adaptation, a model trained on data sampled from one or more source distributions \ud835\udcae1,\u2026,\ud835\udcaek\\mathcal{S}_{1},\\dots,\\mathcal{S}_{k} is evaluated on samples xx from a different target distribution \ud835\udcaf\\mathcal{T}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.SSS0.Px1.p2.1",
+    "text": "Let \ud835\udc9ci\\mathcal{A}_{i} be an adversarial distribution obtained by sampling (x,ytrue)(x,y_{\\text{true}}) from \ud835\udc9f\\mathcal{D}, computing an adversarial example xadvx^{\\text{adv}} for some model such that \u2016xadv\u2212x\u2016\u221e\u2264\u03f5\\|x^{\\text{adv}}-x\\|_{\\infty}\\leq\\epsilon, and outputting (xadv,ytrue)(x^{\\text{adv}},y_{\\text{true}}). In Ensemble Adversarial Training, the source distributions are \ud835\udc9f\\mathcal{D} (the clean data) and \ud835\udc9c1,\u2026,\ud835\udc9ck\\mathcal{A}_{1},\\dots,\\mathcal{A}_{k} (the attacks overs the currently trained model and the static pre-trained models). The target distribution takes the form of an unseen black-box adversary \ud835\udc9c\u2217\\mathcal{A^{*}}. Standard generalization bounds for Domain Adaptation (Mansour et al. 2009; Zhang et al. 2012) yield the following result."
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem1.p1.1",
+    "text": "Let h\u2217\u2208\u210bh^{*}\\in\\mathcal{H} be a model learned with Ensemble Adversarial Training and static black-box adversaries \ud835\udc9c1,\u2026,\ud835\udc9ck\\mathcal{A}_{1},\\dots,\\mathcal{A}_{k}. Then, if h\u2217h^{*} is robust against the black-box adversaries \ud835\udc9c1,\u2026\u200b\ud835\udc9ck\\mathcal{A}_{1},\\dots\\mathcal{A}_{k} used at training time, then h\u2217h^{*} has bounded error on attacks from a future black-box adversary \ud835\udc9c\u2217\\mathcal{A^{*}}, if \ud835\udc9c\u2217\\mathcal{A^{*}} is not \u201cmuch stronger\u201d, on average, than the static adversaries \ud835\udc9c1,\u2026,\ud835\udc9ck\\mathcal{A}_{1},\\dots,\\mathcal{A}_{k}."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS4.SSS0.Px1.p3.1",
+    "text": "We give a formal statement of this result and of the assumptions on \ud835\udc9c\u2217\\mathcal{A^{*}} in Appendix B. Of course, ideally we would like guarantees against arbitrary future adversaries. For very low-dimensional tasks (e.g., MNIST), stronger guarantees are within reach for specific classes of adversaries (e.g., \u2113\u221e\\ell_{\\infty} bounded perturbations (Madry et al. 2017; Sinha et al. 2018; Raghunathan et al. 2018; Kolter & Wong 2017)), yet they also fail to extend to other adversaries not considered at training time (see Appendix C.1 for a discussion). For ImageNet-scale tasks, stronger formal guarantees appear out of reach, and we thus resort to an experimental assessment of the robustness of Ensemble Adversarially Trained models to various non-interactive black-box adversaries in Section 4.2.22 2 We note that subsequent work did succeed in scaling both empirical (Xie et al. 2019a) and certified (Cohen et al. 2019) white-box defenses to ImageNet-scale tasks."
+  },
+  {
+    "tag": "h2",
+    "id": "S4",
+    "text": "4 Experiments"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "We show the existence of a degenerate minimum, as described in Section 3.3, for the adversarially trained Inception v3 model of Kurakin et al. 2017b. Their model (denoted v3adv{}_{\\text{adv}}) was trained on a Step-LL attack with \u03f5\u226416/256\\epsilon\\leq{16}/{256}. We also adversarially train an Inception ResNet v2 model (Szegedy et al. 2016a) using the same setup. We denote this model by IRv2adv{}_{\\text{adv}}. We refer the reader to (Kurakin et al. 2017b) for details on the adversarial training procedure."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p2.1",
+    "text": "We first measure the approximation-ratio of the Step-LL attack for the inner maximization in (1). As we do not know the true maximum, we lower-bound it using an iterative attack. For 1,0001{,}000 random test points, we find that for a standard Inception v3 model, step-LL gets within 19%19\\% of the optimum loss on average. This attack is thus a good candidate for adversarial training. Yet, for the v3adv{}_{\\text{adv}} model, the approximation ratio drops to 7%7\\%, confirming that the learned model is less amenable to linearization. We obtain similar results for Inception ResNet v2 models. The ratio is 17%17\\% for a standard model, and 8%8\\% for IRv2adv{}_{\\text{adv}}. Similarly, we look at the cosine similarity between the perturbations given by a single-step and multi-step attack. The more linear the model, the more similar we expect both perturbations to be. The average similarity drops from 0.130.13 for Inception v3 to 0.020.02 for v3adv{}_{\\text{adv}}. This effect is not due to the decision surface of v3adv{}_{\\text{adv}} being \u201ctoo flat\u201d near the data points: the average gradient norm is larger for v3adv{}_{\\text{adv}} (0.170.17) than for the standard v3 model (0.100.10)."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p3.1",
+    "text": "We visualize this \u201cgradient-masking\u201d effect (Papernot et al. 2016b) by plotting the loss of v3adv{}_{\\text{adv}} on examples x\u2217=x+\u03f51\u22c5g+\u03f52\u22c5g\u22a5x^{*}=x+\\epsilon_{1}\\cdot g+\\epsilon_{2}\\cdot g^{\\scriptscriptstyle\\bot}, where gg is the signed gradient of model v3adv{}_{\\text{adv}} and g\u22a5g^{\\scriptscriptstyle\\bot} is a signed vector orthogonal to gg. Looking forward to Section 4.1, we actually chose g\u22a5g^{\\scriptscriptstyle\\bot} to be the signed gradient of another Inception model, from which adversarial examples transfer to v3adv{}_{\\text{adv}}. Figure 1 shows that the loss is highly curved in the vicinity of the data point xx, and that the gradient poorly reflects the global loss landscape. Similar plots for additional data points are in Figure 4."
+  },
+  {
+    "tag": "p",
+    "id": "S4.p4.1",
+    "text": "We show similar results for adversarially trained MNIST models in Appendix C.2. On this task, input dropout (Srivastava et al. 2014) mitigates adversarial training\u2019s overfitting problem, in some cases. Presumably, the random input mask diversifies the perturbations seen during training (dropout at intermediate layers does not mitigate the overfitting effect). Mishkin et al. 2017 find that input dropout significantly degrades accuracy on ImageNet, so we did not include it in our experiments."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS1",
+    "text": "4.1 Attacks Against Adversarially Trained Networks"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "Kurakin et al. 2017b found their adversarially trained model to be robust to various single-step attacks. They conclude that this robustness should translate to attacks transferred from other models. As we have shown, the robustness to single-step attacks is actually misleading, as the model has learned to degrade the information contained in the model\u2019s gradient. As a consequence, we find that the v3adv{}_{\\text{adv}} model is substantially more vulnerable to single-step attacks than Kurakin et al. 2017b predicted, both in a white-box and black-box setting. The same holds for the IRv2adv{}_{\\text{adv}} model."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "text": "In addition to the v3adv{}_{\\text{adv}} and IRv2adv{}_{\\text{adv}} models, we consider standard Inception v3, Inception v4 and Inception ResNet v2 models. These models are available in the TensorFlow-Slim library (Abadi et al. 2015). We describe similar results for a variety of models trained on MNIST in Appendix C.2."
+  },
+  {
+    "tag": "h4",
+    "id": "S4.SS1.SSS0.Px1",
+    "text": "Black-box attacks."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p1.1",
+    "text": "Table 1 shows error rates for single-step attacks transferred between models. We compute perturbations on one model (the source) and transfer them to all others (the targets). When the source and target are the same, the attack is white-box. Adversarial training greatly increases robustness to white-box single-step attacks, but incurs a higher error rate in a black-box setting. Thus, the robustness gain observed when evaluating defended models in isolation is misleading. Given the ubiquity of this pitfall among proposed defenses against adversarial examples (Carlini & Wagner 2017a; Brendel & Bethge 2017; Papernot et al. 2016b), we advise researchers to always consider both white-box and black-box adversaries when evaluating defensive strategies. Notably, a similar discrepancy between white-box and black-box attacks was recently observed in Buckman et al. 2018."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p2.1",
+    "text": "Attacks crafted on adversarial models are found to be weaker even against undefended models (i.e., when using v3adv{}_{\\text{adv}} or IRv2adv{}_{\\text{adv}} as source, the attack transfers with lower probability). This confirms our intuition from Section 3.3: adversarial training does not just overfit to perturbations that affect standard models, but actively degrades the linear approximation underlying the single-step attack."
+  },
+  {
+    "tag": "h4",
+    "id": "S4.SS1.SSS0.Px2",
+    "text": "A new randomized single-step attack."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px2.p1.1",
+    "text": "The loss function visualization in Figure 1 shows that sharp curvature artifacts localized near the data points can mask the true direction of steepest ascent. We thus suggest to prepend single-step attacks by a small random step, in order to \u201cescape\u201d the non-smooth vicinity of the data point before linearizing the model\u2019s loss. Our new attack, called R+FGSM (alternatively, R+Step-LL), is defined as follows, for parameters \u03f5\\epsilon and \u03b1\\alpha (where \u03b1<\u03f5\\alpha<\\epsilon):"
+  },
+  {
+    "tag": "table",
+    "id": "S4.EGx1",
+    "text": "xadv=x\u2032+(\u03b5\u2212\u03b1)\u22c5\ud835\ude9c\ud835\ude92\ud835\ude90\ud835\ude97\u2061(\u2207x\u2032J\u200b(x\u2032,ytrue)),wherex\u2032=x+\u03b1\u22c5\ud835\ude9c\ud835\ude92\ud835\ude90\ud835\ude97\u2061(\ud835\udca9\u2061(\ud835\udfced,\ud835\udc08d)).\\displaystyle x^{\\text{adv}}=x^{\\prime}+(\\varepsilon-\\alpha)\\cdot\\mathtt{sign}\\left(\\nabla_{x^{\\prime}}J(x^{\\prime},y_{\\text{true}})\\right),\\quad\\text{where}\\quad x^{\\prime}=x+\\alpha\\cdot\\mathtt{sign}(\\mathcal{N}(\\mathbf{0}^{d},\\mathbf{I}^{d}))\\;. (7)"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px2.p1.2",
+    "text": "Note that the attack requires a single gradient computation. The R+FGSM is a computationally efficient alternative to iterative methods that have high success rates in a white-box setting. Our attack can be seen as a single-step variant of the general PGD method from (Madry et al. 2017)."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px2.p2.1",
+    "text": "Table 2 compares error rates for the Step-LL and R+Step-LL methods (with \u03f5=16/256\\epsilon={16}/{256} and \u03b1=\u03f5/2\\alpha={\\epsilon}/{2}). The extra random step yields a stronger attack for all models, even those without adversarial training. This suggests that a model\u2019s loss function is generally less smooth near the data points. We further compared the R+Step-LL attack to a two-step Iter-LL attack, which computes two gradient steps. Surprisingly, we find that for the adversarially trained Inception v3 model, the R+Step-LL attack is stronger than the two-step Iter-LL attack. That is, the local gradients learned by the adversarially trained model are worse than random directions for finding adversarial examples!"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px2.p3.1",
+    "text": "We find that the addition of this random step hinders transferability (see Table 9). We also tried adversarial training using R+FGSM on MNIST, using a similar approach as (Madry et al. 2017). We adversarially train a CNN (model A in Table 5) for 100100 epochs, and attain >90.0%>90.0\\% accuracy on R+FGSM samples. However, training on R+FGSM provides only little robustness to iterative attacks. For the PGD attack of (Madry et al. 2017) with 2020 steps, the model attains 18.0%18.0\\% accuracy. Subsequent work by Wong et al. Wong et al. 2020 shows that single-step adversarial training with an attack similar to R+FGSM successfully yields models robust to white-box attacks, if the step-sizes of the attack\u2019s random and gradient step are appropriately tuned."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS2",
+    "text": "4.2 Ensemble Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "We now evaluate our Ensemble Adversarial Training strategy described in Section 3.4. We recall our intuition: by augmenting training data with adversarial examples crafted from static pre-trained models, we decouple the generation of adversarial examples from the model being trained, so as to avoid the degenerate minimum described in Section 3.3. Moreover, our hope is that robustness to attacks transferred from some fixed set of models will generalize to other black-box adversaries."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p2.1",
+    "text": "We train Inception v3 and Inception ResNet v2 models (Szegedy et al. 2016a) on ImageNet, using the pre-trained models shown in Table 3. In each training batch, we rotate the source of adversarial examples between the currently trained model and one of the pre-trained models. We select the source model at random in each batch, to diversify examples across epochs. The pre-trained models\u2019 gradients can be precomputed for the full training set. The per-batch cost of Ensemble Adversarial Training is thus lower than that of standard adversarial training: using our method with n\u22121n-1 pre-trained models, only every nthn^{\\text{th}} batch requires a forward-backward pass to compute adversarial gradients. We use synchronous distributed training on 50 machines, with minibatches of size 16 (we did not pre-compute gradients, and thus lower the batch size to fit all models in memory). Half of the examples in a minibatch are replaced by Step-LL examples. As in Kurakin et al. 2017b, we use RMSProp with a learning rate of 0.0450.045, decayed by a factor of 0.940.94 every two epochs."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p3.1",
+    "text": "To evaluate how robustness to black-box attacks generalizes across models, we transfer various attacks crafted on three different holdout models (see Table 3), as well as on an ensemble of these models (as in Liu et al. 2017). We use the Step-LL, R+Step-LL, FGSM, I-FGSM and the PGD attack from Madry et al. 2017 using the hinge-loss function from Carlini & Wagner 2017a. Our results are in Table 4. For each model, we report the worst-case error rate over all black-box attacks transfered from each of the holdout models (2020 attacks in total). Results for MNIST are in Table 8."
+  },
+  {
+    "tag": "h4",
+    "id": "S4.SS2.SSS0.Px1",
+    "text": "Convergence speed."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px1.p1.1",
+    "text": "Convergence of Ensemble Adversarial Training is slower than for standard adversarial training, a result of training on \u201chard\u201d adversarial examples and lowering the batch size. Kurakin et al. 2017b report that after 187187 epochs (150\u200bk150k iterations with minibatches of size 3232), the v3adv{}_{\\text{adv}} model achieves 78%78\\% accuracy. Ensemble Adversarial Training for models v3adv-ens3{}_{\\text{adv-ens3}} and v3adv-ens4{}_{\\text{adv-ens4}} converges after 280280 epochs (450\u200bk450k iterations with minibatches of size 1616). The Inception ResNet v2 model is trained for 175175 epochs, where a baseline model converges at around 160160 epochs."
+  },
+  {
+    "tag": "h4",
+    "id": "S4.SS2.SSS0.Px2",
+    "text": "White-box attacks."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px2.p1.1",
+    "text": "For both architectures, the models trained with Ensemble Adversarial Training are slightly less accurate on clean data, compared to standard adversarial training. Our models are also more vulnerable to white-box single-step attacks, as they were only partially trained on such perturbations. Note that for v3adv-ens4{}_{\\text{adv-ens4}}, the proportion of white-box Step-LL samples seen during training is 1/4\\nicefrac{{1}}{{4}} (instead of 1/3\\nicefrac{{1}}{{3}} for model v3adv-ens3{}_{\\text{adv-ens3}}). The negative impact on the robustness to white-box attacks is large, for only a minor gain in robustness to transferred samples. Thus it appears that while increasing the diversity of adversarial examples seen during training can provide some marginal improvement, the main benefit of Ensemble Adversarial Training is in decoupling the attacks from the model being trained, which was the goal we stated in Section 3.4."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px2.p2.1",
+    "text": "Ensemble Adversarial Training is not robust to white-box Iter-LL and R+Step-LL samples: the error rates are similar to those for the v3adv{}_{\\text{adv}} model, and omitted for brevity (see Kurakin et al. 2017b for Iter-LL attacks and Table 2 for R+Step-LL attacks). Kurakin et al. 2017b conjecture that larger models are needed to attain robustness to such attacks. Yet, against black-box adversaries, these attacks are only a concern insofar as they reliably transfer between models."
+  },
+  {
+    "tag": "h4",
+    "id": "S4.SS2.SSS0.Px3",
+    "text": "Black-box attacks."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px3.p1.1",
+    "text": "Ensemble Adversarial Training significantly boosts robustness to the attacks we transfer from the holdout models. For the IRv2adv-ens{}_{\\text{adv-ens}} model, the accuracy loss (compared to IRv2\u2019s accuracy on clean data) is 7.4%\\mathbf{7.4\\%} (top 1) and 3.1%\\mathbf{3.1\\%} (top 5). We find that the strongest attacks in our test suite (i.e., with highest transfer rates) are the FGSM attacks. Black-box R+Step-LL or iterative attacks are less effective, as they do not transfer with high probability (see Kurakin et al. 2017b and Table 9). Attacking an ensemble of all three holdout models, as in Liu et al. 2017, did not lead to stronger black-box attacks than when attacking the holdout models individually."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px3.p2.1",
+    "text": "Our results have little variance with respect to the attack parameters (e.g., smaller \u03f5\\epsilon) or to the use of other holdout models for black-box attacks (e.g., we obtain similar results by attacking the v3adv-ens3{}_{\\text{adv-ens3}} and v3adv-ens4{}_{\\text{adv-ens4}} models with the IRv2 model). We also find that v3adv-ens3{}_{\\text{adv-ens3}} is not vulnerable to perturbations transferred from v3adv-ens4{}_{\\text{adv-ens4}}. We obtain similar results on MNIST (see Appendix C.2), thus demonstrating the applicability of our approach to different datasets and model architectures."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px3.p3.1",
+    "text": "Yet, subsequent work (Dong et al. 2019; Xie et al. 2019b; Wu et al. 2020) has proposed new attacks that substantially improve the transferability of adversarial examples. Although Ensemble Adversarial Training still improves a model\u2019s robustness against these attacks, the achieved robust accuracy is greatly reduced. To our knowledge, the strongest attack to date is that proposed by Wu et al. 2020, which reduces the accuracy of the IRv2adv-ens{}_{\\text{adv-ens}} to 22%22\\%."
+  },
+  {
+    "tag": "h4",
+    "id": "S4.SS2.SSS0.Px4",
+    "text": "The NIPS 2017 competition on adversarial examples."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px4.p1.1",
+    "text": "Our Inception ResNet v2 model was included as a baseline defense in the NIPS 2017 competition on Adversarial Examples (Kurakin et al. 2017c). Participants of the attack track submitted non-interactive black-box attacks that produce adversarial examples with bounded \u2113\u221e\\ell_{\\infty} norm. Models submitted to the defense track were evaluated on all attacks over a subset of the ImageNet test set. The score of a defense was defined as the average accuracy of the model over all adversarial examples produced by all attacks."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px4.p2.1",
+    "text": "Our IRv2adv-ens{}_{\\text{adv-ens}} model finished 1st among 7070 submissions in the first development round, with a score of 95.3%95.3\\% (the second placed defense scored 89.9%89.9\\%). The test data was intentionally chosen as an \u201ceasy\u201d subset of ImageNet. Our model achieved 97.9%97.9\\% accuracy on the clean test data."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px4.p3.1",
+    "text": "After the first round, we released our model publicly, which enabled other users to launch white-box attacks against it. Nevertheless, a majority of the final submissions built upon our released model. The winning submission (team \u201cliaofz\u201d with a score of 95.3%95.3\\%) made use of a novel adversarial denoising technique. The second placed defense (team \u201ccihangxie\u201d with a score of 92.4%92.4\\%) prepends our IRv2adv-ens{}_{\\text{adv-ens}} model with random padding and resizing of the input image (Xie et al. 2018)."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px4.p4.1",
+    "text": "It is noteworthy that the defenses that incorporated Ensemble Adversarial Training fared better against the worst-case black-box adversary. Indeed, although very robust on average, the winning defense achieved as low as 11.8%11.8\\% accuracy on some attacks. The best defense under this metric (team \u201crafaelmm\u201d which randomly perturbed images before feeding them to our IRv2adv-ens{}_{\\text{adv-ens}} model) achieved at least 53.6%53.6\\% accuracy against all submitted attacks, including the attacks that explicitly targeted our released model in a white-box setting."
+  },
+  {
+    "tag": "h4",
+    "id": "S4.SS2.SSS0.Px5",
+    "text": "Decreasing gradient masking."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px5.p1.1",
+    "text": "Ensemble Adversarial Training decreases the magnitude of the gradient masking effect described previously. For the v3adv-ens3{}_{\\text{adv-ens3}} and v3adv-ens4{}_{\\text{adv-ens4}} models, we find that the loss incurred on a Step-LL attack gets within respectively 13%13\\% and 18%18\\% of the optimum loss (we recall that for models v3 and v3adv{}_{\\text{adv}}, the approximation ratio was respectively 19%19\\% and 7%7\\%). Similarly, for the IRv2adv-ens{}_{\\text{adv-ens}} model, the ratio improves from 8%8\\% (for IRv2adv{}_{\\text{adv}}) to 14%14\\%. As expected, not solely training on a white-box single-step attack reduces gradient masking. We also verify that after Ensemble Adversarial Training, a two-step iterative attack outperforms the R+Step-LL attack from Section 4.1, thus providing further evidence that these models have meaningful gradients."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px5.p2.1",
+    "text": "Finally, we revisit the \u201cGradient-Aligned Adversarial Subspace\u201d (GAAS) method of Tram\u00e8r et al. 2017. Their method estimates the size of the space of adversarial examples in the vicinity of a point, by finding a set of orthogonal perturbations of norm \u03f5\\epsilon that are all adversarial. We note that adversarial perturbations do not technically form a \u201csubspace\u201d (e.g., the \ud835\udfce\\mathbf{0} vector is not adversarial). Rather, they may form a \u201ccone\u201d, the dimension of which varies as we increase \u03f5\\epsilon. By linearizing the loss function, estimating the dimensionality of this cone reduces to finding vectors rir_{i} that are strongly aligned with the model\u2019s gradient g=\u2207xL\u200b(h\u2061(x),ytrue)g=\\nabla_{x}L(h(x),y_{\\text{true}}). Tram\u00e8r et al. 2017 give a method that finds kk orthogonal vectors rir_{i} that satisfy g\u22a4\u200bri\u2265\u03f5\u22c5\u2016g\u20162\u22c51kg^{\\scriptscriptstyle\\top}r_{i}\\geq\\epsilon\\cdot\\|g\\|_{2}\\cdot\\frac{1}{\\sqrt{k}} (this bound is tight). We extend this result to the \u2113\u221e\\ell_{\\infty} norm, an open question in Tram\u00e8r et al. 2017. In Section E, we give a randomized combinatorial construction (Colbourn 2010), that finds kk orthogonal vectors rir_{i} satisfying \u2016ri\u2016\u221e=\u03f5\\|r_{i}\\|_{\\infty}=\\epsilon and \ud835\udd3c[g\u22a4\u200bri]\u2265\u03f5\u22c5\u2016g\u20161\u22c51k\\Exp\\left[g^{\\scriptscriptstyle\\top}r_{i}\\right]\\geq\\epsilon\\cdot\\|g\\|_{1}\\cdot\\frac{1}{\\sqrt{k}}. We show that this result is tight as well."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.SSS0.Px5.p3.1",
+    "text": "For models v3, v3adv{}_{\\text{adv}} and v3adv-ens3{}_{\\text{adv-ens3}}, we select 500500 correctly classified test points. For each xx, we search for a maximal number of orthogonal adversarial perturbations rir_{i} with \u2016ri\u2016\u221e=\u03f5\\|r_{i}\\|_{\\infty}=\\epsilon. We limit our search to k\u2264100k\\leq 100 directions per point. The results are in Figure 2. For \u03f5\u2208{4,10,16}\\epsilon\\in\\{4,10,16\\}, we plot the proportion of points that have at least kk orthogonal adversarial perturbations. For a fixed \u03f5\\epsilon, the value of kk can be interpreted as the dimension of a \u201cslice\u201d of the cone of adversarial examples near a data point. For the standard Inception v3 model, we find over 5050 orthogonal adversarial directions for 30%30\\% of the points. The v3adv{}_{\\text{adv}} model shows a curious bimodal phenomenon for \u03f5\u226510\\epsilon\\geq 10: for most points (\u224880%\\approx 80\\%), we find no adversarial direction aligned with the gradient, which is consistent with the gradient masking effect. Yet, for most of the remaining points, the adversarial space is very high-dimensional (k\u226590k\\geq 90). Ensemble Adversarial Training yields a more robust model, with only a small fraction of points near a large adversarial space."
+  },
+  {
+    "tag": "h2",
+    "id": "S5",
+    "text": "5 Conclusion and Future Work"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "Previous work on adversarial training at scale has produced encouraging results, showing strong robustness to (single-step) adversarial examples (Goodfellow et al. 2014b; Kurakin et al. 2017b). Yet, these results are misleading, as the adversarially trained models remain vulnerable to simple black-box and white-box attacks. Our results, generic with respect to the application domain, suggest that adversarial training can be improved by decoupling the generation of adversarial examples from the model being trained. Our experiments with Ensemble Adversarial Training show that the robustness attained to attacks from some models transfers to attacks from other models."
+  },
+  {
+    "tag": "p",
+    "id": "S5.p2.1",
+    "text": "We did not consider black-box adversaries that attack a model via other means than by transferring examples from a local model. For instance, generative techniques (Baluja & Fischer 2017) might provide an avenue for stronger attacks. Yet, a recent work by Xiao et al. 2018 found Ensemble Adversarial Training to be resilient to such attacks on MNIST and CIFAR10, and often attaining higher robustness than models that were adversarially trained on iterative attacks."
+  },
+  {
+    "tag": "p",
+    "id": "S5.p3.1",
+    "text": "Moreover, interactive adversaries (see Appendix A) could try to exploit queries to the target model\u2019s prediction function in their attack, as demonstrated in Papernot et al. 2017. If queries to the target model yield prediction confidences, an adversary can estimate the target\u2019s gradient at a given point (e.g., using finite-differences as in Chen et al. 2017) and fool the target with our R+FGSM attack. Note that if queries only return the predicted label, the attack does not apply. Exploring the impact of these classes of black-box attacks and evaluating their scalability to complex tasks is an interesting avenue for future work."
+  },
+  {
+    "tag": "h2",
+    "id": "Sx1",
+    "text": "Acknowledgments"
+  },
+  {
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "text": "We thank Ben Poole and Jacob Steinhardt for feedback on early versions of this work. Nicolas Papernot is supported by a Google PhD Fellowship in Security. Research was supported in part by the Army Research Laboratory, under Cooperative Agreement Number W911NF-13-2-0045 (ARL Cyber Security CRA), and the Army Research Office under grant W911NF-13-1-0421. The views and conclusions contained in this document are those of the authors and should not be interpreted as representing the official policies, either expressed or implied, of the Army Research Laboratory or the U.S. Government. The U.S. Government is authorized to reproduce and distribute reprints for government purposes notwithstanding any copyright notation hereon."
+  },
+  {
+    "tag": "h2",
+    "id": "bib",
+    "text": "References"
+  },
+  {
+    "tag": "h2",
+    "id": "A1",
+    "text": "Appendix A Threat Model: Formal Definitions"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.1",
+    "text": "We provide formal definitions for the threat model introduced in Section 3.1. In the following, we explicitly identify the hypothesis space \u210b\\mathcal{H} that a model belongs to as describing the model\u2019s architecture. We consider a target model h\u2208\u210bh\\in\\mathcal{H} trained over inputs (x,ytrue)(x,y_{\\text{true}}) sampled from a data distribution \ud835\udc9f\\mathcal{D}. More precisely, we write"
+  },
+  {
+    "tag": "table",
+    "id": "A1.Ex1",
+    "text": "h\u2190train\u200b(\u210b,Xtrain,Ytrain,r),h\\leftarrow\\texttt{train}(\\mathcal{H},X_{\\text{train}},Y_{\\text{train}},r)\\;,"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.2",
+    "text": "where train is a randomized training procedure that takes in a description of the model architecture \u210b\\mathcal{H}, a training set Xtrain,YtrainX_{\\text{train}},Y_{\\text{train}} sampled from \ud835\udc9f\\mathcal{D}, and randomness rr."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.1",
+    "text": "Given a set of test inputs X,Y={(x1,y1),\u2026,(xm,ym)}X,Y=\\{(x_{1},y_{1}),\\dots,(x_{m},y_{m})\\} from \ud835\udc9f\\mathcal{D} and a budget \u03f5>0\\epsilon>0, an adversary \ud835\udc9c\\mathcal{A} produces adversarial examples Xadv={x1adv,\u2026,xmadv}X^{\\text{adv}}=\\{x^{\\text{adv}}_{1},\\dots,x^{\\text{adv}}_{m}\\}, such that \u2016xi\u2212xiadv\u2016\u221e\u2264\u03f5\\|x_{i}-x^{\\text{adv}}_{i}\\|_{\\infty}\\leq\\epsilon for all i\u2208[1,m]i\\in[1,m]. We evaluate success of the attack as the error rate of the target model over XadvX^{\\text{adv}}:"
+  },
+  {
+    "tag": "table",
+    "id": "A1.Ex2",
+    "text": "1m\u200b\u2211i=1m\ud835\udfd9\u200b(arg\u200bmax\u2061h\u200b(xiadv)\u2260yi).\\frac{1}{m}\\sum_{i=1}^{m}\\mathbbm{1}(\\argmax h(x^{\\text{adv}}_{i})\\neq y_{i})\\;."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.2",
+    "text": "We assume \ud835\udc9c\\mathcal{A} can sample inputs according to the data distribution \ud835\udc9f\\mathcal{D}. We define three adversaries."
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem2.p1.1",
+    "text": "For a target model h\u2208\u210bh\\in\\mathcal{H}, a white-box adversary is given access to all elements of the training procedure, that is train (the training algorithm), \u210b\\mathcal{H} (the model architecture), the training data Xtrain,YtrainX_{\\text{train}},Y_{\\text{train}}, the randomness rr and the parameters hh. The adversary can use any attack (e.g., those in Section 3.2) to find adversarial inputs."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p3.1",
+    "text": "White-box access to the internal model weights corresponds to a very strong adversarial model. We thus also consider the following relaxed and arguably more realistic notion of a black-box adversary."
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem3.p1.1",
+    "text": "For a target model h\u2208\u210bh\\in\\mathcal{H}, a non-interactive black-box adversary only gets access to train (the target model\u2019s training procedure) and \u210b\\mathcal{H} (the model architecture). The adversary can sample from the data distribution \ud835\udc9f\\mathcal{D}, and uses a local algorithm to craft adversarial examples XadvX^{\\text{adv}}."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p4.1",
+    "text": "Attacks based on transferability (Szegedy et al. 2013) fall in this category, wherein the adversary selects a procedure train\u2032\\texttt{train}^{\\prime} and model architecture \u210b\u2032\\mathcal{H}^{\\prime}, trains a local model h\u2032h^{\\prime} over \ud835\udc9f\\mathcal{D}, and computes adversarial examples on its local model h\u2032h^{\\prime} using white-box attack strategies."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p5.1",
+    "text": "Most importantly, a black-box adversary does not learn the randomness rr used to train the target, nor the target\u2019s parameters hh. The black-box adversaries in our paper are actually slightly stronger than the ones defined above, in that they use the same training data Xtrain,YtrainX_{\\text{train}},Y_{\\text{train}} as the target model."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p6.1",
+    "text": "We provide \ud835\udc9c\\mathcal{A} with the target\u2019s training procedure train to capture knowledge of defensive strategies applied at training time, e.g., adversarial training (Szegedy et al. 2013; Goodfellow et al. 2014b) or ensemble adversarial training (see Section 4.2). For ensemble adversarial training, \ud835\udc9c\\mathcal{A} also knows the architectures of all pre-trained models. In this work, we always mount black-box attacks that train a local model with a different architecture than the target model. We actually find that black-box attacks on adversarially trained models are stronger in this case (see Table 1)."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p7.1",
+    "text": "The main focus of our paper is on non-interactive black-box adversaries as defined above. For completeness, we also formalize a stronger notion of interactive black-box adversaries that additionally issue prediction queries to the target model (Papernot et al. 2017). We note that in cases where ML models are deployed as part of a larger system (e.g., a self driving car), an adversary may not have direct access to the model\u2019s query interface."
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem4.p1.1",
+    "text": "For a target model h\u2208\u210bh\\in\\mathcal{H}, an interactive black-box adversary only gets access to train (the target model\u2019s training procedure) and \u210b\\mathcal{H} (the model architecture). The adversary issues (adaptive) oracle queries to the target model. That is, for arbitrary inputs x\u2208[0,1]dx\\in[0,1]^{d}, the adversary obtains y=arg\u200bmax\u2061h\u200b(x)y=\\argmax h(x) and uses a local algorithm to craft adversarial examples (given knowledge of \u210b\\mathcal{H}, train, and tuples (x,y)(x,y))."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p8.1",
+    "text": "Papernot et al. 2017 show that such attacks are possible even if the adversary only gets access to a small number of samples from \ud835\udc9f\\mathcal{D}. Note that if the target model\u2019s prediction interface additionally returns class scores h\u2061(x)h(x), interactive black-box adversaries could use queries to the target model to estimate the model\u2019s gradient (e.g., using finite differences) (Chen et al. 2017), and then apply the attacks in Section 3.2. We further discuss interactive black-box attack strategies in Section 5."
+  },
+  {
+    "tag": "h2",
+    "id": "A2",
+    "text": "Appendix B Generalization Bound for ensemble Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p1.1",
+    "text": "We provide a formal statement of Theorem 1 in Section 3.4, regarding the generalization guarantees of Ensemble Adversarial Training. For simplicity, we assume that the model is trained solely on adversarial examples computed on the pre-trained models (i.e., we ignore the clean training data and the adversarial examples computed on the model being trained). Our results are easily extended to also consider these data points."
+  },
+  {
+    "tag": "p",
+    "id": "A2.p2.1",
+    "text": "Let \ud835\udc9f\\mathcal{D} be the data distribution and \ud835\udc9c1,\u2026,\ud835\udc9ck,\ud835\udc9c\u2217\\mathcal{A}_{1},\\dots,\\mathcal{A}_{k},\\mathcal{A}^{*} be adversarial distributions where a sample (x,y)(x,y) is obtained by sampling (x,ytrue)(x,y_{\\text{true}}) from \ud835\udc9f\\mathcal{D}, computing an xadvx^{\\text{adv}} such that \u2016xadv\u2212x\u2016\u221e\u2264\u03f5\\|x^{\\text{adv}}-x\\|_{\\infty}\\leq\\epsilon and returning (xadv,ytrue)(x^{\\text{adv}},y_{\\text{true}}). We assume the model is trained on NN data points ZtrainZ_{\\text{train}}, where Nk\\frac{N}{k} data points are sampled from each distribution \ud835\udc9ci\\mathcal{A}_{i}, for 1\u2264i\u2264k1\\leq i\\leq k. We denote \ud835\udc9ctrain={\ud835\udc9c1,\u2026,\ud835\udc9ck}\\mathcal{A}_{\\text{train}}=\\{\\mathcal{A}_{1},\\dots,\\mathcal{A}_{k}\\}. At test time, the model is evaluated on adversarial examples from \ud835\udc9c\u2217\\mathcal{A}^{*}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.p3.1",
+    "text": "For a model h\u2208\u210bh\\in\\mathcal{H} we define the empirical risk"
+  },
+  {
+    "tag": "table",
+    "id": "A2.E8",
+    "text": "R^\u200b(h,\ud835\udc9ctrain)\u22541N\u200b\u2211(xadv,ytrue)\u2208ZtrainL\u2061(h\u2061(xadv),ytrue),\\hat{R}(h,\\mathcal{A}_{\\text{train}})\\coloneqq\\frac{1}{N}\\sum_{(x^{\\text{adv}},y_{\\text{true}})\\in Z_{\\text{train}}}L(h(x^{\\text{adv}}),y_{\\text{true}})\\;, (8)"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p3.2",
+    "text": "and the risk over the target distribution (or future adversary)"
+  },
+  {
+    "tag": "table",
+    "id": "A2.E9",
+    "text": "R\u2061(h,\ud835\udc9c\u2217)\u2254\ud835\udd3c(xadv,ytrue)\u223c\ud835\udc9c\u2217[L\u2061(h\u2061(xadv),ytrue)].R(h,\\mathcal{A}^{*})\\coloneqq\\Exp_{(x^{\\text{adv}},y_{\\text{true}})\\sim\\mathcal{A}^{*}}[L(h(x^{\\text{adv}}),y_{\\text{true}})]\\;. (9)"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p3.3",
+    "text": "We further define the average discrepancy distance (Mansour et al. 2009) between distributions \ud835\udc9ci\\mathcal{A}_{i} and \ud835\udc9c\u2217\\mathcal{A}^{*} with respect to a hypothesis space \u210b\\mathcal{H} as"
+  },
+  {
+    "tag": "table",
+    "id": "A2.E10",
+    "text": "disc\u210b(\ud835\udc9ctrain,\ud835\udc9c\u2217)\u22541k\u2211i=1ksuph1,h2\u2208\u210b|\ud835\udd3c\ud835\udc9ci[\ud835\udfd9{h1(xadv)=h2(xadv)}]\u2212\ud835\udd3c\ud835\udc9c\u2217[\ud835\udfd9{h1(xadv)=h2(xadv)}]|.\\text{disc}_{\\mathcal{H}}(\\mathcal{A}_{\\text{train}},\\mathcal{A}^{*})\\coloneqq\\frac{1}{k}\\sum_{i=1}^{k}\\sup_{h_{1},h_{2}\\in\\mathcal{H}}\\left|\\Exp_{\\mathcal{A}_{i}}[\\mathbbm{1}_{\\{h_{1}(x^{\\text{adv}})=h_{2}(x^{\\text{adv}})\\}}]-\\Exp_{\\mathcal{A}^{*}}[\\mathbbm{1}_{\\{h_{1}(x^{\\text{adv}})=h_{2}(x^{\\text{adv}})\\}}]\\right|\\;. (10)"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p3.4",
+    "text": "This quantity characterizes how \u201cdifferent\u201d the future adversary is from the train-time adversaries. Intuitively, the distance disc\u200b(\ud835\udc9ctrain,\ud835\udc9c\u2217)\\text{disc}(\\mathcal{A}_{\\text{train}},\\mathcal{A}^{*}) is small if the difference in robustness between two models to the target attack \ud835\udc9c\u2217\\mathcal{A}^{*} is somewhat similar to the difference in robustness between these two models to the attacks used for training (e.g., if the static black-box attacks \ud835\udc9ci\\mathcal{A}_{i} induce much higher error on some model h1h_{1} than on another model h2h_{2}, then the same should hold for the target attack \ud835\udc9c\u2217\\mathcal{A}^{*}). In other words, the ranking of the robustness of models h\u2208\u210bh\\in\\mathcal{H} should be similar for the attacks in \ud835\udc9ctrain\\mathcal{A}_{\\text{train}} as for \ud835\udc9c\u2217\\mathcal{A}^{*}."
+  },
+  {
+    "tag": "p",
+    "id": "A2.p4.1",
+    "text": "Finally, let RN\u200b(\u210b)R_{N}(\\mathcal{H}) be the average Rademacher complexity of the distributions \ud835\udc9c1,\u2026,\ud835\udc9ck\\mathcal{A}_{1},\\dots,\\mathcal{A}_{k} (Zhang et al. 2012). Note that RN\u200b(\u210b)\u21920R_{N}(\\mathcal{H})\\rightarrow 0 as N\u2192\u221eN\\rightarrow\\infty. The following theorem is a corollary of Zhang et al. 2012:"
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem5.p1.1",
+    "text": "Assume that \u210b\\mathcal{H} is a function class consisting of bounded functions. Then, with probability at least 1\u2212\u03f51-\\epsilon,"
+  },
+  {
+    "tag": "table",
+    "id": "A2.E11",
+    "text": "suph\u2208\u210b|R^\u200b(h,\ud835\udc9ctrain)\u2212R\u2061(h,\ud835\udc9c\u2217)|\u2264disc\u210b\u200b(\ud835\udc9ctrain,\ud835\udc9c\u2217)+2\u200bRN\u200b(\u210b)+O\u2061(ln\u2061(1/\u03f5)N).\\sup_{h\\in\\mathcal{H}}|\\hat{R}(h,\\mathcal{A}_{\\text{train}})-R(h,\\mathcal{A}^{*})|\\leq\\text{disc}_{\\mathcal{H}}(\\mathcal{A}_{\\text{train}},\\mathcal{A}^{*})+2R_{N}(\\mathcal{H})+O\\left(\\sqrt{\\frac{\\ln(1/\\epsilon)}{N}}\\right)\\;. (11)"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p5.1",
+    "text": "Compared to the standard generalization bound for supervised learning, the generalization bound for Domain Adaptation incorporates the extra term disc\u210b\u200b(\ud835\udc9ctrain,\ud835\udc9c\u2217)\\text{disc}_{\\mathcal{H}}(\\mathcal{A}_{\\text{train}},\\mathcal{A}^{*}) to capture the divergence between the target and source distributions. In our context, this means that the model h\u2217h^{*} learned by Ensemble Adversarial Training has guaranteed generalization bounds with respect to future adversaries that are not \u201ctoo different\u201d from the ones used during training. Note that \ud835\udc9c\u2217\\mathcal{A}^{*} need not restrict itself to perturbation with bounded \u2113\u221e\\ell_{\\infty} norm for this result to hold."
+  },
+  {
+    "tag": "h2",
+    "id": "A3",
+    "text": "Appendix C Experiments on MNIST"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p1.1",
+    "text": "We re-iterate our ImageNet experiments on MNIST. For this simpler task, Madry et al. 2017 show that training on iterative attacks conveys robustness to white-box attacks with bounded \u2113\u221e\\ell_{\\infty} norm. Our goal is not to attain similarly strong white-box robustness on MNIST, but to show that our observations on limitations of single-step adversarial training, extend to other datasets than ImageNet."
+  },
+  {
+    "tag": "h3",
+    "id": "A3.SS1",
+    "text": "C.1 A Note on \u2113\u221e\\ell_{\\infty} Robustness on MNIST"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p1.1",
+    "text": "The MNIST dataset is a simple baseline for assessing the potential of a defense, but the obtained results do not always generalize to harder tasks. We suggest that this is because achieving robustness to \u2113\u221e\\ell_{\\infty} perturbations admits a simple \u201cclosed-form\u201d solution, given the near-binary nature of the data. Indeed, for an average MNIST image, over 80%80\\% of the pixels are in {0,1}\\{0,1\\} and only 6%6\\% are in the range [0.2,0.8][0.2,0.8]. Thus, for a perturbation with \u03f5\u22640.3\\epsilon\\leq 0.3, binarized versions of xx and xadvx^{\\text{adv}} can differ in at most 6%6\\% of the input dimensions. By binarizing the inputs of a standard CNN trained without adversarial training, we obtain a model that enjoys robustness similar to the model trained by Madry et al. 2017. Concretely, for a white-box I-FGSM attack, we get at most 11.4%11.4\\% error."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p2.1",
+    "text": "The existence of such a simple robust representation begs the question of why learning a robust model with adversarial training takes so much effort. Finding techniques to improve the performance of adversarial training, even on simple tasks, could provide useful insights for more complex tasks such as ImageNet, where we do not know of a similarly simple \u201cdenoising\u201d procedure."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p3.1",
+    "text": "These positive results on MNIST for the \u2113\u221e\\ell_{\\infty} norm also leave open the question of defining a general norm for adversarial examples. Let us motivate the need for such a definition: we find that if we first rotate an MNIST digit by 20\u200b\u00b020\\degree, and then use the I-FGSM, our rounding model and the model from Madry et al. 2017 achieve only 65%65\\% accuracy (on \u201cclean\u201d rotated inputs, the error is <5%<5\\%). If we further randomly \u201cflip\u201d 55 pixels per image, the accuracy of both models drops to under 50%50\\%. Thus, we successfully evade the model by slightly extending the threat model (see Figure 3)."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS1.p4.1",
+    "text": "Of course, we could augment the training set with such perturbations (see Engstrom et al. 2017). An open question is whether we can enumerate all types of \u201cadversarial\u201d perturbations. In this work, we focus on the \u2113\u221e\\ell_{\\infty} norm to illustrate our findings on the limitations of single-step adversarial training on ImageNet and MNIST, and to showcase the benefits of our Ensemble Adversarial Training variant. Our approach can easily be extended to consider multiple perturbation metrics. We leave such an evaluation to future work."
+  },
+  {
+    "tag": "h3",
+    "id": "A3.SS2",
+    "text": "C.2 Results"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p1.1",
+    "text": "We repeat experiments from Section 4 on MNIST. We use the architectures in Table 5. We train a standard model for 66 epochs, and an adversarial model with the FGSM (\u03f5=0.3\\epsilon=0.3) for 12 epochs."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p2.1",
+    "text": "During adversarial training, we avoid the label leaking effect described by Kurakin et al. 2017b by using the model\u2019s predicted class arg\u200bmax\u2061h\u200b(x)\\argmax h(x) instead of the true label ytruey_{\\text{true}} in the FGSM,"
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p3.1",
+    "text": "We first analyze the \u201cdegenerate\u201d minimum of adversarial training, described in Section 3.3. For each trained model, we compute the approximation-ratio of the FGSM for the inner maximization problem in equation (1). That is, we compare the loss produced by the FGSM with the loss of a strong iterative attack. The results appear in Table 6. As we can see, for all model architectures, adversarial training degraded the quality of a linear approximation to the model\u2019s loss."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.p4.1",
+    "text": "We find that input dropout (Srivastava et al. 2014) (i.e., randomly dropping a fraction of input features during training) as used in architecture B limits this unwarranted effect of adversarial training.33 3 We thank Arjun Bhagoji, Bo Li and Dawn Song for this observation. If we omit the input dropout (we call this architecture B\u2217) the single-step attack degrades significantly. We discuss this effect in more detail below. For the fully connected architecture D, we find that the learned model is very close to linear and thus also less prone to the degenerate solution to the min-max problem, as we postulated in Section 3.3."
+  },
+  {
+    "tag": "h4",
+    "id": "A3.SS2.SSS0.Px1",
+    "text": "Attacks."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.SSS0.Px1.p1.1",
+    "text": "Table 7 compares error rates of undefended and adversarially trained models on white-box and black-box attacks, as in Section 4.1. Again, model B presents an anomaly. For all other models, we corroborate our findings on ImageNet for adversarial training: (1) black-box attacks trump white-box single-step attacks; (2) white-box single-step attacks are significantly stronger if prepended by a random step. For model Badv{}_{\\text{adv}}, the opposite holds true. We believe this is because input dropout increases diversity of attack samples similarly to Ensemble Adversarial Training."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.SSS0.Px1.p2.1",
+    "text": "While training with input dropout helps avoid the degradation of the single-step attack, it also significantly delays convergence of the model. Indeed, model Badv{}_{\\text{adv}} retains relatively high error on white-box FGSM examples. Adversarial training with input dropout can be seen as comparable to training with a randomized single-step attack, as discussed in Section 4.1."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.SSS0.Px1.p3.1",
+    "text": "The positive effect of input dropout is architecture and dataset specific: Adding an input dropout layer to models A, C and D confers only marginal benefit, and is outperformed by Ensemble Adversarial Training, discussed below. Moreover, Mishkin et al. 2017 find that input dropout significantly degrades accuracy on ImageNet. We thus did not incorporate it into our models on ImageNet."
+  },
+  {
+    "tag": "h4",
+    "id": "A3.SS2.SSS0.Px2",
+    "text": "Ensemble Adversarial Training."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.SSS0.Px2.p1.1",
+    "text": "To evaluate Ensemble Adversarial Training 3.4, we train two models per architecture. The first, denoted [A-D]adv-ens{}_{\\text{adv-ens}}, uses a single pre-trained model of the same type (i.e., Aadv-ens{}_{\\text{adv-ens}} is trained on perturbations from another model A). The second model, denoted [A-D]adv-ens3{}_{\\text{adv-ens3}}, uses 33 pre-trained models ({A,C,D}\\{A,C,D\\} or {B,C,D}\\{B,C,D\\}). We train all models for 1212 epochs."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.SSS0.Px2.p2.1",
+    "text": "We evaluate our models on black-box attacks crafted on models A,B,C,D (for a fair comparison, we do not use the same pre-trained models for evaluation, but retrain them with different random seeds). The attacks we consider are the FGSM, I-FGSM and the PGD attack from Madry et al. 2017 with the loss function from Carlini & Wagner 2017a), all with \u03f5=0.3\\epsilon=0.3. The results appear in Table 8. For each model, we report the worst-case and average-case error rate over all black-box attacks."
+  },
+  {
+    "tag": "p",
+    "id": "A3.SS2.SSS0.Px2.p3.1",
+    "text": "Ensemble Adversarial Training significantly increases robustness to black-box attacks, except for architecture B, which we previously found to not suffer from the same overfitting phenomenon that affects the other adversarially trained networks. Nevertheless, model Badv-ens{}_{\\text{adv-ens}} achieves slightly better robustness to white-box and black-box attacks than Badv{}_{\\text{adv}}. In the majority of cases, we find that using a single pre-trained model produces good results, but that the extra diversity of including three pre-trained models can sometimes increase robustness even further. Our experiments confirm our conjecture that robustness to black-box attacks generalizes across models. Indeed, we find that when training with three external models, we attain very good robustness against attacks initiated from models with the same architecture (as evidenced by the average error on our attack suite), but also increased robustness to attacks initiated from the fourth holdout model"
+  },
+  {
+    "tag": "h2",
+    "id": "A4",
+    "text": "Appendix D Transferability of Randomized Single-Step Perturbations."
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.1",
+    "text": "In Section 4.1, we introduced the R+Step-LL attack, an extension of the Step-LL method that prepends the attack with a small random perturbation. In Table 9, we evaluate the transferability of R+Step-LL adversarial examples on ImageNet. We find that the randomized variant produces perturbations that transfer at a much lower rate (see Table 1 for the deterministic variant)."
+  },
+  {
+    "tag": "h2",
+    "id": "A5",
+    "text": "Appendix E Gradient Aligned Adversarial Subspaces for the \u2113\u221e\\ell_{\\infty} Norm"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p1.1",
+    "text": "Tram\u00e8r et al. 2017 consider the following task for a given model hh: for a (correctly classified) point xx, find kk orthogonal vectors {r1,\u2026,rk}\\{r_{1},\\dots,r_{k}\\} such that \u2016ri\u20162\u2264\u03f5\\|r_{i}\\|_{2}\\leq\\epsilon and all the x+rix+r_{i} are adversarial (i.e., arg\u200bmax\u2061h\u200b(x+ri)\u2260ytrue\\argmax h(x+r_{i})\\neq y_{\\text{true}}). By linearizing the model\u2019s loss function, this reduces to finding kk orthogonal vectors rir_{i} that are maximally aligned with the model\u2019s gradient g=\u2207xL\u200b(h\u2061(x),ytrue)g=\\nabla_{x}L(h(x),y_{\\text{true}}). Tram\u00e8r et al. 2017 left a construction for the \u2113\u221e\\ell_{\\infty} norm as an open problem."
+  },
+  {
+    "tag": "p",
+    "id": "A5.p2.1",
+    "text": "We provide an optimal construction for the \u2113\u221e\\ell_{\\infty} norm, based on Regular Hadamard Matrices (Colbourn 2010). Given the \u2113\u221e\\ell_{\\infty} constraint, we find orthogonal vectors rir_{i} that are maximally aligned with the signed gradient, sign\u200b(g)\\texttt{sign}(g). We first prove an analog of (Tram\u00e8r et al. 2017, Lemma 1)."
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem6.p1.1",
+    "text": "Let v\u2208{\u22121,1}dv\\in\\{-1,1\\}^{d} and \u03b1\u2208(0,1)\\alpha\\in(0,1). Suppose there are k orthogonal vectors r1,\u2026\u200brn\u2208{\u22121,1}dr_{1},\\dots r_{n}\\in\\{-1,1\\}^{d} satisfying v\u22a4\u200bri\u2265\u03b1\u22c5dv^{\\top}r_{i}\\geq\\alpha\\cdot d. Then \u03b1\u2264k\u221212\\alpha\\leq k^{-\\frac{1}{2}}."
+  },
+  {
+    "tag": "p",
+    "id": "A5.p3.1",
+    "text": "Let ri^=ri\u2016ri\u20162=rid\\hat{r_{i}}=\\frac{r_{i}}{\\|r_{i}\\|_{2}}=\\frac{r_{i}}{\\sqrt{d}}. Then, we have"
+  },
+  {
+    "tag": "table",
+    "id": "A5.E12",
+    "text": "d=\u2016v\u201622\u2265\u2211i=1k|v\u22a4\u200bri^|2=d\u22121\u200b\u2211i=1k|v\u22a4\u200bri|2\u2265d\u22121\u22c5k\u22c5(\u03b1\u22c5d)2=k\u22c5\u03b12\u22c5d,d=\\|v\\|_{2}^{2}\\geq\\sum_{i=1}^{k}|v^{\\top}\\hat{r_{i}}|^{2}=d^{-1}\\sum_{i=1}^{k}|v^{\\top}r_{i}|^{2}\\geq d^{-1}\\cdot k\\cdot(\\alpha\\cdot d)^{2}=k\\cdot\\alpha^{2}\\cdot d\\;, (12)"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p3.2",
+    "text": "from which we obtain \u03b1\u2264k\u221212\\alpha\\leq k^{-\\frac{1}{2}}. \u220e"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p4.1",
+    "text": "This result bounds the number of orthogonal perturbations we can expect to find, for a given alignment with the signed gradient. As a warm-up consider the following trivial construction of kk orthogonal vectors in {\u22121,1}d\\{-1,1\\}^{d} that are \u201csomewhat\u201d aligned with sign\u200b(g)\\texttt{sign}(g). We split sign\u200b(g)\\texttt{sign}(g) into kk \u201cchunks\u201d of size dk\\frac{d}{k} and define rir_{i} to be the vector that is equal to sign\u200b(g)\\texttt{sign}(g) in the iith chunk and zero otherwise. We obtain sign\u200b(g)\u22a4\u200bri=dk\\texttt{sign}(g)^{\\top}r_{i}=\\frac{d}{k}, a factor k\\sqrt{k} worse than the the bound in Lemma 6."
+  },
+  {
+    "tag": "p",
+    "id": "A5.p5.1",
+    "text": "We now provide a construction that meets this upper bound. We make use of Regular Hadamard Matrices of order kk (Colbourn 2010). These are square matrices HkH_{k} such that: (1) all entries of HkH_{k} are in {\u22121,1}k\\{-1,1\\}^{k}; (2) the rows of HkH_{k} are mutually orthogonal; (3) All row sums are equal to k\\sqrt{k}."
+  },
+  {
+    "tag": "p",
+    "id": "A5.p6.1",
+    "text": "The order of a Regular Hadamard Matrix is of the form 4\u200bu24u^{2} for an integer uu. We use known constructions for k\u2208{4,16,36,64,100}k\\in\\{4,16,36,64,100\\}."
+  },
+  {
+    "tag": "p",
+    "id": "Thmtheorem7.p1.1",
+    "text": "Let g\u2208\u211ddg\\in\\mathbb{R}^{d} and kk be an integer for which a Regular Hadamard Matrix of order kk exists. Then, there is a randomized construction of kk orthogonal vectors r1,\u2026\u200brn\u2208{\u22121,1}dr_{1},\\dots r_{n}\\in\\{-1,1\\}^{d}, such that sign\u200b(g)\u22a4\u200bri=d\u22c5k\u22121/2\\texttt{sign}(g)^{\\top}r_{i}=d\\cdot k^{-\\nicefrac{{1}}{{2}}}. Moreover, \ud835\udd3c[g\u22a4\u200bri]=k\u22121/2\u22c5\u2016g\u20161\\Exp[g^{\\top}r_{i}]=k^{-\\nicefrac{{1}}{{2}}}\\cdot\\|g\\|_{1}."
+  },
+  {
+    "tag": "p",
+    "id": "A5.p7.1",
+    "text": "We construct kk orthogonal vectors r1,\u2026,rk\u2208{\u22121,1}dr_{1},\\dots,r_{k}\\in\\{-1,1\\}^{d}, where rir_{i} is obtained by repeating the ith row of HkH_{k} d/k\\nicefrac{{d}}{{k}} times (for simplicity, we assume that kk divides dd. Otherwise we pad rir_{i} with zeros). We then multiply each rir_{i} component-wise with sign\u200b(g)\\texttt{sign}(g). By construction, the kk vectors ri\u2208{\u22121,1}dr_{i}\\in\\{-1,1\\}^{d} are mutually orthogonal, and we have sign\u200b(g)\u22a4\u200bri=dk\u22c5k=d\u22c5k\u22121/2\\texttt{sign}(g)^{\\top}r_{i}=\\frac{d}{k}\\cdot\\sqrt{k}=d\\cdot k^{-\\nicefrac{{1}}{{2}}}, which is tight according to Lemma 6."
+  },
+  {
+    "tag": "p",
+    "id": "A5.p8.1",
+    "text": "As the weight of the gradient gg may not be uniformly distributed among its dd components, we apply our construction to a random permutation of the signed gradient. We then obtain"
+  },
+  {
+    "tag": "table",
+    "id": "A5.EGx2",
+    "text": "\ud835\udd3c[g\u22a4\u200bri]\\displaystyle\\Exp[g^{\\top}r_{i}] =\ud835\udd3c[\u2211j=1d|g(j)|\u22c5sign\u200b(g(j))\u22c5ri(j)]\\displaystyle=\\Exp\\Big[\\sum_{j=1}^{d}|g^{(j)}|\\cdot\\texttt{sign}(g^{(j)})\\cdot r_{i}^{(j)}\\Big] (13) =\u2211j=1d|g(j)|\u22c5\ud835\udd3c[sign\u200b(g(j))\u22c5ri(j)]=k\u22121/2\u22c5\u2016g\u20161.\\displaystyle=\\sum_{j=1}^{d}|g^{(j)}|\\cdot\\Exp\\left[\\texttt{sign}(g^{(j)})\\cdot r_{i}^{(j)}\\right]=k^{-\\nicefrac{{1}}{{2}}}\\cdot\\|g\\|_{1}\\;. (14)"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p8.2",
+    "text": "\u220e"
+  },
+  {
+    "tag": "p",
+    "id": "A5.p9.1",
+    "text": "It can be shown that the bound in Lemma 7 can be attained if and only if the rir_{i} are constructed from the rows of a Regular Hadamard Matrix (Colbourn 2010). For general integers kk for which no such matrix exists, other combinatorial designs may be useful for achieving looser bounds."
+  },
+  {
+    "tag": "h2",
+    "id": "A6",
+    "text": "Appendix F Illustrations of Gradient Masking in Adversarial Training"
+  },
+  {
+    "tag": "p",
+    "id": "A6.p1.1",
+    "text": "In Section 3.3, we show that adversarial training introduces spurious curvature artifacts in the model\u2019s loss function around data points. As a result, one-shot attack strategies based on first-order approximations of the model loss produce perturbations that are non-adversarial. In Figures 4 and 5 we show further illustrations of this phenomenon for the Inception v3adv{}_{\\text{adv}} model trained on ImageNet by Kurakin et al. 2017b as well as for the model Aadv{}_{\\text{adv}} we trained on MNIST."
+  }
+]

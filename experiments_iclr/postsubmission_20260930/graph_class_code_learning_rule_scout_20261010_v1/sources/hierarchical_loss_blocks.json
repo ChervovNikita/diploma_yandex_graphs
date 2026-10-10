@@ -1,0 +1,602 @@
+[
+  {
+    "tag": "h1",
+    "id": null,
+    "text": "Making Better Mistakes: Leveraging Class Hierarchies with Deep Networks"
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Deep neural networks have improved image classification dramatically over the past decade, but have done so by focusing on performance measures that treat all classes other than the ground truth as equally wrong. This has led to a situation in which mistakes are less likely to be made than before, but are equally likely to be absurd or catastrophic when they do occur. Past works have recognised and tried to address this issue of mistake severity, often by using graph distances in class hierarchies, but this has largely been neglected since the advent of the current deep learning era in computer vision. In this paper, we aim to renew interest in this problem by reviewing past approaches and proposing two simple modifications of the cross-entropy loss which outperform the prior art under several metrics on two large datasets with complex class hierarchies: tieredImageNet and iNaturalist\u201919."
+  },
+  {
+    "tag": "h2",
+    "id": "S1",
+    "text": "1 Introduction"
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Image classification networks have improved greatly over recent years, but generalisation remains imperfect, and test-time errors do of course occur. Conventionally, such errors are defined with respect to a single ground-truth class and reported using one or more top-kk measures (kk typically set to 11 or 55). However, this practice imposes certain notions of what it means to make a mistake, including treating all classes other than the \u201ctrue\u201d label as equally wrong. This may not actually correspond to our intuitions about desired classifier behaviour, and for some applications this point may prove crucial. Take the example of an autonomous vehicle observing an object on the side of the road: whatever measure of classifier performance we use, we can certainly agree that mistaking a lamppost for a tree is less of a problem than mistaking a person for a tree, as such a mistake would have crucial implications in terms both of prediction and planning. If we want to take such considerations into account, we must incorporate a nontrivial model of the relationships between classes, and accordingly rethink more broadly what it means for a network to \u201cmake a mistake\u201d. One natural and convenient way of representing these class relationships is through a taxonomic hierarchy tree."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "This idea is not new. In fact, it was once fairly common across various machine learning application domains to consider class hierarchy when designing classifiers, as surveyed in Silla & Freitas silla2011survey. That work assembled and categorised a large collection of hierarchical classification problems and algorithms, and suggested widely applicable measures for quantifying classifier performance in the context of a given class hierarchy. The authors noted that the hierarchy-informed classifiers of the era typically empirically outperformed \u201cflat\u201d (i.e. hierarchy-agnostic) classifiers even under standard metrics, with the performance gap increasing further under the suggested hierarchical metrics. Furthermore, class hierarchy is at the core of the ImageNet dataset: as detailed in Deng et al. deng2009imagenet, it was constructed directly from WordNet miller1998wordnet, itself a hierarchy originally designed solely to represent semantic relationships between words. Shortly after ImageNet\u2019s introduction, works such as Deng et al. deng2010does, Zhao et al. zhao2011large, and Verma et al. verma2012learning explicitly noted that the underpinning WordNet hierarchy suggested a way of quantifying the severity of mistakes, and experimented with hierarchical cost minimisation. Likewise, Deng et al. deng2011hierarchical presented a straightforward method for using a hierarchy-derived similarity matrix to define a more semantically meaningful compatibility function for image retrieval. Despite this initial surge of interest and the promising results accompanying it, the community effectively discarded hierarchical measures after deciding that they were not communicating substantially different information about classifier performance than top-1 and top-5 accuracies11 1 From Russakovsky et al. russakovsky2015imagenet: \u201c[..] we found that all three measures of error (top-5, top-1, and hierarchical) produced the same ordering of results. Thus, since ILSVRC2012 we have been exclusively using the top-5 metric which is the simplest and most suitable to the dataset.\u201d. When the celebrated results in Krizhevsky et al. krizhevsky2012imagenet were reported in flat top-kk terms only, the precedent was firmly set for the work which followed in the deep learning era of image classification. Interest in optimising hierarchical performance measures waned accordingly."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "We argue here that this problem is ripe for revisitation, and we begin by pointing to Fig. 1. Here, a mistake is defined as a top-1 prediction which differs from the ground-truth class, and the severity of such a mistake is the height of the lowest common ancestor of the predicted and ground-truth classes in the hierarchy. We see that while the flat top-1 accuracies of state-of-the-art classifiers have improved to impressive levels over the years, the distributions of the severities of the errors that are made have changed very little over this time. We hypothesise that this is due, at least in part, to the scarcity of modern learning methods which attempt to exploit prior information and preferences about class relationships in the interest of \u201cmaking better mistakes\u201d, whether this information is sourced from an offline taxonomy or otherwise. The few exceptions of which we are aware include Frome et al. frome2013devise, Wu et al. wu2016learning, Barz & Denzler barz2019hierarchy, and a passing mention in Redmon & Farhadi redmon2017yolo9000. In Sec. 2, we suggest a framework for thinking about these pieces of work, their predecessors, and some of their conceptual relatives."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "The contributions of this work are as follows:"
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i1.p1.1",
+    "text": "We review relevant literature within an explanatory framework which unifies a fairly disjoint prior art."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i2.p1.1",
+    "text": "Building on the perspective gained from the preceding, we propose two methods that are both simple and effective at leveraging class hierarchies. Each uses a one-parameter drop-in generalisation of the standard cross-entropy loss. These loss variants can be tuned to produce different empirical tradeoffs between top-kk and hierarchical performance measures, and reduce to the standard setup in their respective limits."
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i3.p1.1",
+    "text": "We perform an extensive experimental evaluation to both demonstrate the effectiveness of the said methods compared to prior art and to encourage future work."
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.2",
+    "text": "The PyTorch paszke2019pytorch code for all experiments is available at github.com/fiveai/making-better-mistakes."
+  },
+  {
+    "tag": "h2",
+    "id": "S2",
+    "text": "2 Framework and related work"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "We first suggest a simple framework for thinking about methods relevant to the problem of making better mistakes on image classification, beginning with the standard supervised setup. Consider a training set \ud835\udcae={(xi,Ci)}i=1,\u2026,N\\mathcal{S}=\\{(x_{i},C_{i})\\}_{i=1,\\ldots,N} which pairs NN images xi\u2208\u2110x_{i}\\in\\mathcal{I} with class labels Ci\u2208\ud835\udc9eC_{i}\\in\\mathcal{C}. A network architecture implements the predictor function \u03d5\u2061(x,\u03b8)\\phi(x;\\theta), whose parameters \u03b8\\theta are learned by minimising"
+  },
+  {
+    "tag": "table",
+    "id": "S2.E1",
+    "text": "1N\u200b\u2211i=1N\u2112\u2061(\u03d5\u2061(xi,\u03b8),y\u2061(Ci))+\u211b\u2061(\u03b8),\\frac{1}{N}\\sum_{i=1}^{N}\\mathcal{L}(\\phi(x_{i};\\theta),y(C_{i}))+\\mathcal{R}(\\theta), (1)"
+  },
+  {
+    "tag": "p",
+    "id": "S2.p1.2",
+    "text": "where the loss function \u2112\\mathcal{L} compares the predictor\u2019s output \u03d5\u2061(xi,\u03b8)\\phi(x_{i};\\theta) to an embedded representation y\u2061(Ci)y(C_{i}) of each example\u2019s class, and \u211b\\mathcal{R} is a regulariser."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "Under common choices such as cross-entropy for \u2112\\mathcal{L} and one-hot embedding for yy, it is easy to see that the framework is agnostic of relationships between classes. The question is how such class relationships \u210b\\mathcal{H} can be incorporated into the loss in Eqn. 1. We identify the following three approaches:"
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i1.p1.1",
+    "text": "Replacing class representation y\u2061(C)y(C) with an alternate embedding y\u210b\u200b(C)y^{\\mathcal{H}}(C). Such \u201clabel-embedding\u201d methods, discussed in Sec. 2.1, can draw their embedding both from taxonomic hierarchies and alternative sources."
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i2.p1.1",
+    "text": "Altering the loss function \u2112\\mathcal{L} in terms of its arguments to produce \u2112\u210b\u200b(\u03d5\u2061(x,\u03b8),y\u2061(C))\\mathcal{L}^{\\mathcal{H}}(\\phi(x;\\theta),y(C)), i.e. making the penalty assigned to a given output distribution and embedded label dependent on \u210b\\mathcal{H}. Methods using these \u201chierarchical losses\u201d are covered in Sec. 2.2."
+  },
+  {
+    "tag": "p",
+    "id": "S2.I1.i3.p1.1",
+    "text": "Altering the function \u03d5\u2061(x,\u03b8)\\phi(x;\\theta) to \u03d5\u210b\u200b(x,\u03b8)\\phi^{\\mathcal{H}}(x;\\theta), i.e. making hierarchically-informed architectural changes to the network, generally with the hope of introducing a favourable inductive bias. We cover these \u201chierarchical architectures\u201d in Sec. 2.3 ."
+  },
+  {
+    "tag": "p",
+    "id": "S2.p2.2",
+    "text": "While a regulariser \u211b\u210b\\mathcal{R}^{\\mathcal{H}} is certainly feasible, it is curiously rare in practice: zhao2011large is the only example we know of."
+  },
+  {
+    "tag": "h3",
+    "id": "S2.SS1",
+    "text": "2.1 Label-embedding methods"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "These methods map class labels to vectors whose relative locations represent semantic relationships, and optimise a loss on these embedded vectors. The DeViSE method of Frome et al. frome2013devise maps target classes onto a unit hypersphere, assigning terms with similar contexts to similar representations through analysis of unannotated Wikipedia text mikolov2013efficient. The loss function is a ranking loss which penalises the extent to which the output is more cosine-similar to false label embeddings than to the correct one. They learn a linear mapping from a pre-trained visual feature pipeline to the embedded labels, then fine-tune the visual pipeline."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "Romera-Paredes & Torr romera2015embarrassingly note that their solution for learning an analogous linear mapping for zero-shot classification should easily extend to accommodating these sorts of embeddings. In Hinton et al. (hinton2015distilling, Sec. 2), the role of the label embedding function is played by a temperature-scaled pre-existing classifier ensemble. This ensemble is \u201cdistilled\u201d into a smaller DNN through cross-entropy minimisation against the ensemble\u2019s output. For zero-shot classification, Xian et al. xian2016latent experiment with various independent embedding methods, as is also done in Akata et al. akata2015evaluation: annotated attributes, word2vec mikolov2013distributed, glove pennington2014glove, and the WordNet hierarchy. Their ranking loss function is functionally equivalent to that in Frome et al. frome2013devise, and they learn a choice of linear mappings to these representations from the output of a fixed CNN. Barz & Denzler barz2019hierarchy present an embedding algorithm which maps examples onto a hypersphere such that all distances represent similarities derived from lowest common ancestor (LCA) height in a given hierarchy tree. They proceed by minimising the sum of two rather different losses: (1) a linear loss based on cosine distance to the embedded class vectors and (2) the standard cross-entropy loss on the output of a fully-connected layer added after the embedding layer."
+  },
+  {
+    "tag": "h3",
+    "id": "S2.SS2",
+    "text": "2.2 Hierarchical losses"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "In these methods, the loss function itself is parametrised by the class hierarchy such that a higher penalty is assigned to the prediction of a more distant relative of the true label. Deng et al. deng2010does simply train kNN- and SVM-based classifiers to minimise the expected WordNet LCA height directly. Zhao et al. zhao2011large modify standard multi-class logistic regression by replacing the output class probabilities with normalised class-similarity-weighted sums. They also regularise feature selection using an \u201coverlapping-group-lasso penalty\u201d which encourages the use of similar features for closely related classes, a rare example of a hierarchical regulariser. Verma et al. verma2012learning incorporate normalised LCA height into a \u201ccontext-sensitive loss function\u201d while learning a separate metric at each node in a taxonomy tree for nearest-neighbour classification. Wu et al. wu2016learning implement granular classification of food images by sharing a standard deep network backbone between multiple fully-connected layers, each one outputting class probabilities at its respective hierarchy level. A separate label propagation step is used to smooth inconsistencies in the resulting marginal probabilities. Alsallakh et al. alsallakh2017convolutional likewise use a standard deep architecture as their starting point, but instead add branches strategically to intermediate pipeline stages. They thereby force the net to classify into offline-determined superclasses at the respective levels, backpropagating error in these intermediate predictions accordingly. At test time, these additions are simply discarded."
+  },
+  {
+    "tag": "h3",
+    "id": "S2.SS3",
+    "text": "2.3 Hierarchical architectures"
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p1.1",
+    "text": "These methods attempt to incorporate class hierarchy into the classifier architecture without necessarily changing the loss function otherwise. The core idea is to \u201cdivide and conquer\u201d at the structural level, with the classifier assigning inputs to superclasses at earlier layers and making fine-grained distinctions at later ones. In the context of language models, it was noted at least as early as Goodman goodman2001classes that classification with respect to an IS-A hierarchy tree could be formulated as a tree of classifiers outputting conditional probabilities, with the product of the conditionals along a given leaf\u2019s ancestry representing its posterior; motivated by efficiency, Morin & Bengio morin2005hierarchical applied this observation to a binary hierarchy derived from WordNet. Redmon & Farhadi redmon2017yolo9000 propose a modern deep-learning variant of this framework in the design of the YOLOv2 object detection and classification system. Using a version of WordNet pruned into a tree, they effectively train a conditional classifier at every parent node in the tree by using one softmax layer per sibling group and training under the usual cross-entropy loss over leaf posteriors. While their main aim is to enable the integration of the COCO detection dataset with ImageNet, they suggest that graceful degradation on new or unknown object categories might be an incidental benefit. Brust & Denzler brust2018integrating propose an extension of conditional classifier chains to the more general case of DAGs."
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p2.1",
+    "text": "The above approaches can be seen as a limiting case of hierarchical classification, in which every split in the hierarchy is cast as a separate classification problem. Many hierarchical classifiers fall between this extreme and that of flat classification, working in terms of a coarser-grained conditionality in which a \u201cgeneralist\u201d makes assignments to groupings of the target classes before then distinguishing the group members from one another using \u201cexperts\u201d. Xiao et al. xiao2014error, the quasi-ensemble section of Hinton et al. (hinton2015distilling, Sec. 5), Yan et al. yan2015hd, and Ahmed et al. ahmed2016network all represent modern variations on this theme (which first appears no later than jacobs1991adaptive). Additionally, the listed methods all use some form of low-level feature sharing either via architectural constraint or parameter cloning, and all infer the visual hierarchy dynamically through confusion clustering or latent parameter inference. Alsallakh et al. alsallakh2017convolutional make the one proposal of which we are aware which combines hierarchical architectural modifications (at train time) with a hierarchical loss, as described in Sec. 2.2. At test time, however, the architecture is that of an unmodified AlexNet, and all superclass \u201cassignment\u201d is purely implicit."
+  },
+  {
+    "tag": "h2",
+    "id": "S3",
+    "text": "3 Method"
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "We now outline two simple methods that allow to leverage class hierarchies in order to make better mistakes on image classification. We concentrate on the case where the output of the network is a categorical distribution over classes for each input image and denote the corresponding distribution as p\u2061(C)=\u03d5C\u200b(x,\u03b8)p(C)=\\phi_{C}(x;\\theta), where subscripts denote vector indices and xx and \u03b8\\theta are omitted. In Sec. 3.1, we describe the hierarchical cross-entropy (HXE), a straightforward example of the hierarchical losses reviewed in Sec. 2.2. This approach expands each class probability into the chain of conditional probabilities defined by its lineage in a given hierarchy tree. It then reweights the corresponding terms in the loss so as to penalise classification mistakes in a way that is informed by the hierarchy. In Sec. 3.2, we suggest an easy choice of embedding function to implement the label-embedding framework of Sec. 2.1. The resulting soft labels are PMFs over \ud835\udc9e\\mathcal{C} whose values decay exponentially w.r.t. an LCA-based distance to the ground truth."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS1",
+    "text": "3.1 Hierarchical cross-entropy"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "When the hierarchy \u210b\\mathcal{H} is a tree, it corresponds to a unique factorisation of the categorical distribution p\u2061(C)p(C) over classes in terms of the conditional probabilities along the path connecting each class to the root of the tree. Denoting the path from a leaf node CC to the root RR as C(0)=C,\u2026,C(h)=RC^{(0)}=C,\\ldots,C^{(h)}=R, the probability of class CC can be factorised as"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E2",
+    "text": "p\u2061(C)=\u220fl=0h\u22121p\u2061(C(l)|C(l+1)),p(C)=\\prod_{l=0}^{h-1}p(C^{(l)}|C^{(l+1)}), (2)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.2",
+    "text": "where h\u2261h\u2061(C)h\\equiv h(C) is the depth of node CC. Note that we have omitted the last term p\u2061(C(h))=1p(C^{(h)})=1. The conditionals can conversely be written in terms of the class probabilities as"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E3",
+    "text": "p\u2061(C(l)|C(l+1))=\u2211A\u2208Leaves\u200b(C(l))p\u2061(A)\u2211B\u2208Leaves\u200b(C(l+1))p\u2061(B),p(C^{(l)}|C^{(l+1)})=\\frac{\\sum_{A\\in\\text{Leaves}(C^{(l)})}p(A)}{\\sum_{B\\in\\text{Leaves}(C^{(l+1)})}p(B)}, (3)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p1.3",
+    "text": "where Leaves\u200b(C)\\text{Leaves}(C) denotes the set of leaf nodes of the subtree starting at node CC."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "text": "A direct way to incorporate hierarchical information in the loss is to hierarchically factorise the output of the classifier according to Eqn. 2 and define the total loss as the reweighted sum of the cross-entropies of the conditional probabilities. This leads us to define the hierarchical cross-entropy (HXE) as"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E4",
+    "text": "\u2112HXE(p,C)=\u2212\u2211l=0h\u22121\u03bb(C(l))logp(C(l)|C(l+1)),\\mathcal{L}_{\\text{HXE}}(p,C)=-\\sum_{l=0}^{h-1}\\lambda(C^{(l)})\\log p(C^{(l)}|C^{(l+1)}), (4)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p2.2",
+    "text": "where \u03bb\u2061(C(l))\\lambda(C^{(l)}) is the weight associated with the edge node C(l+1)\u2192C(l)C^{(l+1)}\\to C^{(l)}, see Fig. 2a. Although this loss is expressed in terms of conditional probabilities, it can easily be applied to models that output class probabilities using Eqn. 3. Note that \u2112HXE\\mathcal{L}_{\\text{HXE}} reduces to the standard cross-entropy when all weights are equal to 11. This limit case, which was briefly mentioned by Redmon & Farhadi in their YOLO-v2 paper redmon2017yolo9000, results only in architectural changes but does not incorporate hierarchical information in the loss directly."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p3.1",
+    "text": "Eqn. 4 has an interesting information-theoretical interpretation: since each term log\u2061p\u2061(C(l)|C(l+1))\\log p(C^{(l)}|C^{(l+1)}) corresponds to the the information associated with the edge C(l+1)\u2192C(l)C^{(l+1)}\\to C^{(l)} in the hierarchy, the HXE corresponds to discounting the information associated with each of these edges differently. Note that since the HXE is expressed in terms of conditional probabilities, the reweighting in Eqn. 4 is not equivalent to reweighting the cross-entropy for each possible ground truth class independently (as done, for instance, in lin2017focal; cui2019class). A sensible choice for the weights is to take"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E5",
+    "text": "\u03bb\u2061(C)=exp\u2061(\u2212\u03b1\u200bh\u200b(C)),\\lambda(C)=\\exp(-\\alpha h(C)), (5)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS1.p3.2",
+    "text": "where h\u2061(C)h(C) is the depth of node CC and \u03b1>0\\alpha>0 is a hyperparameter that controls the extent to which information is discounted down the hierarchy. The higher the value of \u03b1\\alpha, the higher the preference for \u201cgeneric\u201d as opposed to \u201cfine-grained\u201d information, because classification errors related to nodes further away from the root receive a lower loss. While such a definition has the advantages of interpretability and simplicity, one could think of other meaningful weightings (e.g. based on the branching factor of the hierarchy tree). We concentrate on Eqn. 5 here, while leaving the exploration of different strategies for future work."
+  },
+  {
+    "tag": "h3",
+    "id": "S3.SS2",
+    "text": "3.2 Soft labels"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "Our second approach to incorporating hierarchical information, soft labels, is a label-embedding approach as described in Sec. 2.1. These methods use a mapping function y\u2061(C)y(C) to associate classes with representations which encode class-relationship information that is absent in the trivial case of the one-hot representation. In the interest of simplicity, we choose a mapping function ysoft\u200b(C)y^{\\text{soft}}(C) which outputs a categorical distribution over the classes. This enables us to simply use the standard cross-entropy loss:"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E6",
+    "text": "\u2112Soft(p,C)=\u2212\u2211A\u2208\ud835\udc9eyAsoft(C)logp(A),\\mathcal{L}_{\\text{Soft}}(p,C)=-\\sum_{A\\in\\mathcal{C}}y^{\\text{soft}}_{A}(C)\\log p(A), (6)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.2",
+    "text": "where the soft label embedding is given componentwise by"
+  },
+  {
+    "tag": "table",
+    "id": "S3.E7",
+    "text": "yAsoft\u200b(C)=exp\u2061(\u2212\u03b2\u200bd\u200b(A,C))\u2211B\u2208\ud835\udc9eexp\u2061(\u2212\u03b2\u200bd\u200b(B,C)),y^{\\text{soft}}_{A}(C)=\\frac{\\exp(-\\beta d(A,C))}{\\sum_{B\\in\\mathcal{C}}\\exp(-\\beta d(B,C))}, (7)"
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p1.3",
+    "text": "for class distance function dd and parameter \u03b2\\beta. This loss is illustrated in Fig. 2b. For the distance function d\u2061(Ci,Cj)d(C_{i},C_{j}), we use the height of LCA(Ci,Cj)(C_{i},C_{j}) divided by the height of the tree. To understand the role of the hyperparameter \u03b2\\beta, note that values of \u03b2\\beta that are much bigger than the typical inverse distance in the tree result in a label distribution that is nearly one-hot, i.e. yA\u200b(C)\u2243\u03b4A\u200bCy_{A}(C)\\simeq\\delta_{AC}, in which case the cross-entropy reduces to the familiar single-term log-loss expression. Conversely, for very small values of \u03b2\\beta the label distribution is near-uniform. Between these extremes, greater probability mass is assigned to classes more closely related to the ground truth, with the magnitude of the difference controlled by \u03b2\\beta."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "text": "We offer two complementary interpretations that motivate this representation (besides its ease). For one, the distribution describing each target class can be considered to be a model of the actual uncertainty that a labeller would experience due to visual confusion between closely related classes22 2 In a recent work, Peterson et al. peterson2019human make use of soft labels expressing the distribution of human labellers for a subset of CIFAR-10, showing strong generalisation for classifiers trained on them.. It could also be thought of as encoding the extent to which a common response to different classes is required of the classifier, i.e. the imposition of correlations between outputs, where higher correlations are expected for more closely related classes. This in turn suggests a connection to the superficially different but conceptually related distillation method of Hinton et al. (hinton2015distilling, Sec. 2), in which correlations between a large network\u2019s responses to different classes are mimicked by a smaller network to desirable effect. Here, we simply supply these correlations directly, using widely available hierarchies."
+  },
+  {
+    "tag": "p",
+    "id": "S3.SS2.p3.1",
+    "text": "Another important connection is the one to label smoothing szegedy2016rethinking, in which one-hot labels are combined with the uniform distribution. This technique has been used to regularise large neural networks (e.g. szegedy2016rethinking; chorowski2017towards; vaswani2017attention; zoph2018learning), but has only recently muller2019does been studied more thoroughly."
+  },
+  {
+    "tag": "p",
+    "id": "S3.F2.3",
+    "text": "(a) {forest} (b) {forest}"
+  },
+  {
+    "tag": "h2",
+    "id": "S4",
+    "text": "4 Evaluation"
+  },
+  {
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "In the following, we first describe the datasets (Sec. 4.1) and metrics (Sec. 4.2) of the setup common to all of our experiments. Then, in Sec. 4.3, we evaluate our two simple proposals and compare them to the prior art. Finally, we experiment with random hierarchies to understand when information on class relatedness can help classification."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS1",
+    "text": "4.1 Datasets"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "In our experiments, we use tieredImageNet ren2018meta (a large subset of ImageNet) and iNaturalist\u201919 van2018inaturalist, two datasets with hierarchies that are a) significantly different from one another and b) complex enough to cover a large number of visual concepts. ImageNet aims to populate the WordNet miller1998wordnet hierarchy of nouns, with WordNet itself generated by inspecting IS-A lexical relationships. By contrast, iNaturalist\u201919 van2018inaturalist has a biological taxonomy ruggiero2015higher at its core."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "text": "tieredImageNet was originally introduced by Ren et al. ren2018meta for the problem of few-shot classification, in which the sets of classes between dataset splits are disjoint. The authors\u2019 motivation in creating the dataset was to use the WordNet hierarchy to generate splits containing significantly different classes, facilitating better assessment of few-shot classifiers by enforcing problem difficulty."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p3.1",
+    "text": "Although our task and motivations are different, we chose this dataset because of the large portion of the WordNet hierarchy spanned by its classes. To make it suitable for the problem of (standard) image classification, we re-sampled the dataset so as to represent all classes across the train, validation, and test splits. Moreover, since the methods proposed in Sec. 3.1 and YOLO-v2 redmon2017yolo9000 require that the graph representing the hierarchy be a tree, we modified the graph of the spanned WordNet hierarchy slightly to comply with this assumption (more details available in Appendix D). After this procedure, we obtained a tree of height 1313 covering 608608 classes. We refer to this modified version of tieredImageNet as tieredImageNet-H."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p4.1",
+    "text": "iNaturalist is a dataset of images of organisms that has mainly been used to evaluate fine-grained visual categorisation methods. The dataset construction protocol differs significantly from the one used for ImageNet in that it relies on passionate volunteers instead of workers paid per task van2018inaturalist. Importantly, for the 2019 edition of the CVPR Fine-Grained Visual Categorization Workshop, metadata with hierarchical relationships between species have been released. In contrast to WordNet, this taxonomy is an 8-level complete tree spanning 10101010 classes that can readily be used in our experiments without modifications. Since the labels for the test set are not public, we randomly re-sampled three splits from the original train and validation splits into a new training, validation and test set (with respective probabilities of 0.70.7, 0.150.15, and 0.150.15)"
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS2",
+    "text": "4.2 Metrics"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "We consider three measures of performance, covering different interpretations of a classifier\u2019s mistakes."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p2.1",
+    "text": "Top-kk error. Under this measure, an example is defined as correctly classified if the ground truth is among the top kk classes with the highest likelihood. This is the measure normally used to compare classifiers, usually with k=1k{=}1 or k=5k{=}5. Note that this measure considers all mistakes of the classifier equally, irrespective of how \u201csimilar\u201d the predicted class is to the ground truth."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p3.1",
+    "text": "Hierarchical measures. We also consider measures that, in contrast to the top-kk error, do weight the severity of mistakes. We use the height of the lowest common ancestor (LCA) between the predicted class and the ground truth as a core severity measure, as originally proposed in the papers describing the creation of ImageNet deng2009imagenet; deng2010does. As remarked in deng2010does, this measure should be thought of in logarithmic terms, as the number of confounded classes is exponential in the height of the ancestor. We also experimented with the Jiang-Conrath distance as suggested by Deselaers & Ferrari deselaers2011visual, but did not observe meaningful differences wrt. the height of the LCA."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p4.1",
+    "text": "We consider two measures that utilise the height of the LCA between nodes in the hierarchy."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I1.i1.p1.1",
+    "text": "The hierarchical distance of a mistake is the mean height of the LCA between the ground truth and the predicted class when the input is misclassified, i.e. when the class with the maximum likelihood is incorrect. Hence, it measures the severity of misclassification when only a single class can be considered as a prediction."
+  },
+  {
+    "tag": "p",
+    "id": "S4.I1.i2.p1.1",
+    "text": "The average hierarchical distance of top-kk, instead, takes the mean LCA height between the ground truth and each of the kk most likely classes. This measure can be important when multiple hypotheses of a classifier can be considered for a certain downstream task."
+  },
+  {
+    "tag": "h3",
+    "id": "S4.SS3",
+    "text": "4.3 Experimental results"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p1.1",
+    "text": "In the following, we analyse the performance of the two approaches described in Sec. 3.1 and Sec. 3.2, which we denote by HXE and soft labels, respectively. Besides a vanilla cross-entropy-based flat classifier, we also implemented and compared against the methods proposed by Redmon & Farhadi redmon2017yolo9000 (YOLO-v2)33 3 Note that this refers to the conditional classifier subsystem proposed in Sec. 4 of that work, not the main object detection system., Frome et al. frome2013devise (DeViSE), and Barz & Denzler barz2019hierarchy. As mentioned in Sec. 1, these methods represent, to the best of our knowledge, the only modern attempts to deliberately reduce the semantic severity of a classifier\u2019s mistakes that are generally applicable to any modern architecture. Note, though, that we do not run DeViSE on iNaturalist-19, as the class IDs of this dataset are alien to the corpus used by word2vec mikolov2013efficient."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p2.1",
+    "text": "Finally, we do not compare against the \u201cgeneralist/expert\u201d architectures surveyed in Sec. 2.3 for reasons explained in Appendix B."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p3.1",
+    "text": "Since we are interested in understanding the mechanisms by which the above metrics can be improved, it is essential to use a simple configuration that is common between all of the algorithms taken into account. We use a ResNet-18 architecture (with weights pretrained on ImageNet) trained with Adam reddi2019convergence for 200,000200,000 steps and mini-batches of size 256256. We use a learning rate of 1\u200be\u221251\\mathrm{e}{-5} unless specified otherwise. Further implementation details are deferred to Appendix C."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p4.1",
+    "text": "Main results. In Fig. 3 and 4 we show how it is possible to effectively trade off top-1 error to reduce hierarchical error, by simply adjusting the hyperparameters \u03b1\\alpha and \u03b2\\beta in Eqn. 5 and 7. Specifically, increasing \u03b1\\alpha corresponds to (exponentially) discounting information down the hierarchy, thus more severely penalising mistakes where the predicted class is further away from the ground truth. Similarly, decreasing \u03b2\\beta in the soft-label method amounts to progressively shifting the label mass away from the ground truth and towards the neighbouring classes. Both methods reduce to the cross-entropy in the respective limits \u03b1\u21920\\alpha\\to 0 and \u03b2\u2192\u221e\\beta\\to\\infty. Moreover, notice that varying \u03b2\\beta affects the entropy of the distribution representing a soft label, where the two limit cases are \u03b2=\u221e\\beta{=}\\infty for the standard one-hot case and \u03b2=0\\beta{=}0 for the uniform distribution. We experiment with 0.1\u2264\u03b1\u22640.90.1\\leq\\alpha\\leq 0.9 and 4\u2264\u03b2\u2264304\\leq\\beta\\leq 30."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p5.1",
+    "text": "To limit noise in the evaluation procedure, for both of our methods and all of the competitors, we fit a 4th-degree polynomial to the validation loss (after having discarded the first 50,00050,000 training steps) and pick the epoch corresponding to its minimum along with its four neighbours. Then, to produce the points reported in our plots, we average the results obtained from these five epochs on the validation set, while reserving the test set for the experiments of Table 1. Notice how, in Fig. 4, when considering the hierarchical distance with k=1k{=}1, methods are almost perfectly aligned along the plot diagonal, which demonstrates the strong linear correlation between this metric and the top-1 error. This result is consistent with what is observed in russakovsky2015imagenet, which in 20112011 led the organisers of the ILSVRC workshop to discard rankings based on hierarchical distance."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p6.1",
+    "text": "When considering the other metrics described in Sec. 4.2, a different picture emerges. In fact, a tradeoff between top-1 error and hierarchical distance is evident in Fig. 3 and in the plots of Fig. 4 with k=5k{=}5 and k=20k{=}20. Notice how the points on the plots belonging to our methods outline a set of tradeoffs that subsumes the prior art. For example, in Fig. 3, given any desired tradeoff betweeen top-1 error and hierarchical distance of mistakes on tieredImageNet-H, it is better to use HXE than any other method. A similar phenomenon is observable when considering the average hierarchical distance of top-5 and top-20 (Fig. 4), although in these cases it is better to use the soft labels. The only exception to this trend is represented by Barz & Denzler barz2019hierarchy on tieredImageNet-H, which can achieve slightly lower average hierarchical distance for k=5k{=}5 or k=20k{=}20 than soft labels with \u03b2=5\\beta{=}5 at a significant cost in terms of top-1 error."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p7.1",
+    "text": "Using the results illustrated in Fig. 3 and 4, we pick two reasonable operating points for both of our proposals: one for the high-distance/low-top1-error regime, and one for the low-distance/high-top1-error regime. We then run both of these configurations on the test sets and report our results in Table 1. Means and 95% confidence intervals are obtained from the five best epochs."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p8.1",
+    "text": "The trends observed on the validation set largely repeat themselves on the test set. When one desires to prioritise top-1 error, then soft labels with high \u03b2\\beta or HXE with low \u03b1\\alpha are more appropriate, as they outperform the cross-entropy on the hierarchical-distance-based metrics while being practically equivalent in terms of top-1 error. In cases where the hierarchical measures should be prioritised instead, it is preferable to use soft labels with low \u03b2\\beta or HXE with high \u03b1\\alpha, depending on the particular choice of hierarchical metric. Although the method of Barz & Denzler is competitive in this regime, it also exhibits the worst deterioration in top-1 error with respect to the cross-entropy."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p9.1",
+    "text": "Our experiments generally indicate, over all tested methods, an inherent tension between performance in the top-1 sense and in the hierarchical sense. We speculate that there may be a connection between this tension and observations proceeding from the study of adversarial examples indicating a tradeoff between robustness and (conventional) accuracy, as in e.g. tsipras2018robustness; zhang2019theoretically."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p10.1",
+    "text": "Can hierarchies be arbitrary? Although the lexical WordNet hierarchy and the biological taxonomy of iNaturalist are not visual hierarchies per se, they reflect visual relationships between the objects represented in the underlying datasets. Since deep networks leverage visual features, it is interesting to investigate the extent to which the structure of a particular hierarchy is important. The connection between visual and semantic proximity has also been explored in such works as deng2010does; deselaers2011visual. But what happens if we impose an arbitrary hierarchy that potentially subverts this relationship?"
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p11.1",
+    "text": "To answer this question, we randomised the nodes of the hierarchies and repeated our experiments. Results on iNaturalist-19 are displayed in Fig. 5 (tieredImageNet-H exhibits a similar trend). Again, we report tradeoff plots showing top-1 errors on the x-axis and metrics based on the height of the LCA (on the randomised hierarchy) on the y-axis. It is evident that the hierarchical distance metrics are significantly worse when using the random hierarchy. Although this is not surprising, the extent to which the results deteriorate is remarkable. This suggests that the inherent nature of the structural relationship expressed by a hierarchy is paramount for learning classifiers that, besides achieving competitive top-1 accuracy, are also able to make better mistakes. Thus, while one may wish to enforce application-specific relationships using this approach (as motivated in Sec. 1), the effectiveness of doing so may be constrained by underlying properties of the data."
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p12.1",
+    "text": "Curiously, for several values of the \u03b1\\alpha and \u03b2\\beta hyperparameters of HXE and soft labels, the top-1 error of the random hierarchy is consistently lower than its \u201creal\u201d hierarchy counterpart. We speculate this might be due to the structural constraints imposed by a hierarchy anchored to the visual world, which can limit a neural network from opportunistically learning correlations that allow it to achieve low top-1 error (at the expense of ever more brittle generalisation). Indeed, the authors of zhang2016understanding noted that it is more difficult to train a deep network to map real images to random labels than it is to do so with random images. The most likely explanation for this is that common visual features, which are inescapably shared by closely related examples, dictate common responses."
+  },
+  {
+    "tag": "h2",
+    "id": "S5",
+    "text": "5 Conclusion"
+  },
+  {
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "Since the advent of deep learning, the community\u2019s interest in making better classification mistakes seems to have nearly vanished. In this paper, we have shown that this problem is still very much open and ripe for a comeback. We have demonstrated that two simple baselines that modify the cross-entropy loss are able to outperform the few modern methods tackling this problem. Improvements in this task are undoubtedly possible, but it is important to note the delicate balance between standard top-1 accuracy and mistake severity. As it stands, it appears that it is possible to make better mistakes, but the nature of the class relationships defining the concept of \u201cbetter\u201d is crucial. Our hope is that the results presented in this paper are soon to be surpassed by the new competitors that it has inspired."
+  },
+  {
+    "tag": "h2",
+    "id": "bib",
+    "text": "References"
+  },
+  {
+    "tag": "h2",
+    "id": "A1",
+    "text": "Appendix A Outputting conditional probabilities with HXE"
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.1",
+    "text": "We investigated whether outputting conditional probabilities instead of class probabilities affects the performance of the classifier represented by our proposed HXE approach (Sec. 3.1). These two options correspond, respectively, to implementing hierarchical information as an architectural change or as modification of the loss only:"
+  },
+  {
+    "tag": "p",
+    "id": "A1.I1.i1.p1.1",
+    "text": "When the model outputs the conditional probabilities p\u2061(C(l)|C(l+1))p(C^{(l)}|C^{(l+1)}) directly, the output dimension is equal to the total number of nodes in the hierarchy and normalisation is ensured hierarchically with a different softmax at each independent level of the hierarchy. Eqn. 4 can be used directly on the output of the model."
+  },
+  {
+    "tag": "p",
+    "id": "A1.I1.i2.p1.1",
+    "text": "When the model outputs the class probabilities, the output dimension is equal to the number of leaf nodes in the hierarchy and normalisation can be performed with a single softmax. In this case, however, it is necessary to use Eqn. 3 in order to obtain the conditional probablilities in terms of the final probabilities in Eqn. 4."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.2",
+    "text": "The second method, which we advocate here, has the advantage that hierarchichal information is implemented in the loss only, meaning that it does not require direct knowledge of the hierarchy for inference."
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.1",
+    "text": "Comparing different values of \u03b1\\alpha for otherwise identical training parameters, we also observe that outputting the class probabilities consistently results in an improvement of performance across all of the metrics: see Fig. 7."
+  },
+  {
+    "tag": "h2",
+    "id": "A2",
+    "text": "Appendix B Note on methods based on hierarchical architectures"
+  },
+  {
+    "tag": "p",
+    "id": "A2.p1.1",
+    "text": "We opted not to evaluate against the \u201cgeneralist/expert\u201d hierarchical models surveyed in Sec. 2.3 for several reasons. For one, none of the listed methods perform experiments under hierarchical measures. As noted in the main text, they all rely on discovered hierarchies, ruling out direct comparison to methods accepting the hierarchies considered here. Crucially, these methods increase the capacity of their base models, which not only rules out controlled experimental comparison, but confounds the intuition behind why their designs demonstrate improved performance: the extent to which the hierarchical design per se is responsible for the gains in top-kk accuracy observed is actually an open question. We also note that a recurring theme in these works is the observation that in practice, the use of generalists which make hard categorisations into disjoint coarse categories causes enough irrecoverable errors to motivate moving away from this design strategy. Mitigating approaches typically involve the use of non-disjoint coarse categories and probabilistic one-to-many coarse classification. Thus, while these methods are worthy of mention and further investigation, they do not yet represent attempts at the problem we examine in this paper."
+  },
+  {
+    "tag": "h2",
+    "id": "A3",
+    "text": "Appendix C More implementation details"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p1.1",
+    "text": "In order to perform meaningful comparisons, we adopted a simple configuration (network architecture, optimiser, data augmentation, \u2026) and used it for all the methods presented in this paper."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.1",
+    "text": "We used a ResNet-18 architecture (with weights pretrained on ImageNet) trained with Adam reddi2019convergence for 200,000200,000 steps and mini-batch size of 256256. We used a learning rate of 1\u200be\u221251\\mathrm{e}{-5} unless specified otherwise. To reduce overfitting, we adopted PyTorch\u2019s basic data augmentation routines with default hyperparameters: RandomHorizontalFlip() and RandomResizedCrop(). For both datasets, images have been resized (stretched) to 224\u00d7224224{\\times}224."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p3.1",
+    "text": "Below, we provide further information about the methods we compared against, together with the few minor implementation choices we had to make. As mentioned in Sec. 1, these methods represent, to the best of our knowledge, the only modern attempts to deliberately reduce the semantic severity of a classifier\u2019s mistakes that are generally applicable to any modern architecture."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p4.1",
+    "text": "YOLO-v2. In motivating the hierarchical variant of the YOLO-v2 framework, Redmon & Farhadi (redmon2017yolo9000, Sec. 4), mention the need of integrating the smaller COCO detection dataset lin2014microsoft with the larger ImageNet classification dataset under a unified class hierarchy. Their approach too relies on a heuristic for converting the WordNet graph into a tree, and then effectively training a conditional classifier at every parent node in the tree by using one softmax layer per sibling group and training under the usual softmax loss over leaf posteriors. The authors report only a marginal drop in standard classification accuracy when enforcing this tree-structured prediction, including the additional internal-node concepts. They note that the approach brings benefits, including graceful degradation on new or unknown object categories, as the network is still capable of high confidence in a parent class when unsure as to which of its children is correct."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p5.1",
+    "text": "Since the model outputs conditional probabilities instead of class probabilities, we changed the output dimension of the terminal fully-connected layer, such that it outputs logits for every node in the hierarchy. Proper normalisation of the conditional probabilities is then enforced at every node of the hierarchy using the softmax function. Finally, the loss is computed by summing the individual cross-entropies of the conditional probabilities on the path connecting the ground-truth label to the root of the tree."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p6.1",
+    "text": "DeViSE."
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx1",
+    "text": "model.fc = torch.nn.Sequential("
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx2",
+    "text": "torch.nn.Linear(in_features=512,"
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx3",
+    "text": "out_features=512),"
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx4",
+    "text": "torch.nn.ReLU(),"
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx5",
+    "text": "torch.nn.BatchNorm1d(512),"
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx6",
+    "text": "torch.nn.Linear(in_features=512,"
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx7",
+    "text": "out_features=300)"
+  },
+  {
+    "tag": "div",
+    "id": "lstnumberx8",
+    "text": ")"
+  },
+  {
+    "tag": "p",
+    "id": "A3.p7.1",
+    "text": "Frome et al. frome2013devise proposed DeViSE with the aim of both making more semantically reasonable errors and enabling zero-shot prediction. The approach involves modifying a standard deep classification network to instead output vectors representing semantic embeddings of the class labels. The label embeddings are learned through analysis of unannotated text mikolov2013efficient in a separate step, with the classification network modified by replacing the softmax layer with a learned linear mapping to that embedding space. The loss function is a form of ranking loss which penalises the extent of greater cosine similarity to negative examples than positive ones. Inference comprises finding the nearest class embedding vectors to the output vector, again under cosine similarity."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p8.1",
+    "text": "Since an official implementation of DeViSE is not available to the public, we re-implemented it following the details discussed in the paper frome2013devise. Below the list of changes we found appropriate to make."
+  },
+  {
+    "tag": "p",
+    "id": "A3.I1.i1.p1.1",
+    "text": "For the generation of the word embeddings, instead of the rather dated method of Mikolov et al. mikolov2013efficient, we used the high-performing and publicly available44 4 https://github.com/facebookresearch/fastText fastText library bojanowski2017enriching to obtain word embeddings of length 300 (the maximum made available by the library)."
+  },
+  {
+    "tag": "p",
+    "id": "A3.I1.i2.p1.1",
+    "text": "Instead of a single fully-connected layer mapping the network output to the word embeddings, we used the network \u201chead\u201d described in Listing 1. We empirically verified that this configuration with two fully-connected layers outperforms the one with a single fully-connected layer. Moreover, in this way the number of parameters of DeViSE roughly matches the one of the other experiments, which have architectures with a single fully-connected layer but a higher number of outputs (608, equivalent to the number of classes of tieredImageNet-H, as opposed to 300, the word-embedding size)."
+  },
+  {
+    "tag": "p",
+    "id": "A3.I1.i3.p1.1",
+    "text": "Following what described in frome2013devise, we performed training in two steps. First, we trained only the fully-connected layers for the first 150,000150,000 steps with a learning rate of 1\u200be\u221241\\mathrm{e}{-4}. We then trained the entire network for 50,00050,000 extra epochs, using a learning rate of 1\u200be\u221261\\mathrm{e}{-6} for the weights of the backbone. Note that frome2013devise did not specify neither how long the two steps of training should last nor the values of the respective learning rates. To decide the above values, we performed a small hyperparameter search."
+  },
+  {
+    "tag": "p",
+    "id": "A3.I1.i4.p1.1",
+    "text": "frome2013devise says that DeViSE is trained starting from an ImageNet-pretrained architecture. Since we evaluated all methods on tieredImageNet-H, we instead initialised DeViSE weights with the ones of an architecture fully trained with the cross-entropy loss on this dataset. We verified that this obtains better results than starting training from ImageNet weights."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p9.1",
+    "text": "Barz&Denzler barz2019hierarchy. This approach involves first mapping class labels into a space in which dot products represent semantic similarity (based on normalised LCA height), then training a deep network to learn matching feature vectors (before the fully connected layer) on its inputs. There is a very close relationship to DeViSE frome2013devise, with the main difference being that here, the label embedding is derived from a supplied class hierarchy in a straightfoward manner instead of via text analysis: iterative arrangement of embedding vectors such that all dot products equal respective semantic similarities. The authors experiment with two different loss functions: (1) a linear reward for the dot product between the output feature vector and ground-truth class embedding (i.e. a penalty on misalignment); and (2) the sum of the preceding and a weighted term of the usual cross-entropy loss on the output of an additional fully connected layer with softmax. We only used (2), since in barz2019hierarchy it attains significantly better results than (1)."
+  },
+  {
+    "tag": "p",
+    "id": "A3.p10.1",
+    "text": "We used the code released by the authors 55 5 https://github.com/cvjena/semantic-embeddings to produce the label embeddings. To ensure consistency with the other experiments, two differences in implementation with respect to the original paper were required."
+  },
+  {
+    "tag": "p",
+    "id": "A3.I2.i1.p1.1",
+    "text": "We simply used a ResNet-18 instead of the architectures Barz & Denzler experimented with in their paper barz2019hierarchy (i.e. ResNet-110w he2016deep, PyramidNet-272-200 han2017deep and Plain-11 barz2018deep)."
+  },
+  {
+    "tag": "p",
+    "id": "A3.I2.i2.p1.1",
+    "text": "Instead of SGD with warm restarts loshchilov2016sgdr, we used Adam reddi2019convergence with a learning rate of 1\u200be\u221241\\mathrm{e}{-4} (the value performing best on the validation set)."
+  },
+  {
+    "tag": "h2",
+    "id": "A4",
+    "text": "Appendix D Pruning the WordNet hierarchy"
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.1",
+    "text": "The ImageNet dataset russakovsky2015imagenet was generated by populating the WordNet miller1998wordnet hierarchy of nouns with images. WordNet is structured as a graph composed of a set of IS-A parent-child relationships. Similarly to the work of Morin & Bengio morin2005hierarchical and Redmon & Farhadi redmon2017yolo9000, our proposed hierarchical cross entropy loss (HXE, Sec. 3.1) also relies on the assumption that the hierarchy underpinning the data takes the form of a tree. Therefore, we modified the hierarchy to obtain a tree from the WordNet graph."
+  },
+  {
+    "tag": "p",
+    "id": "A4.p2.1",
+    "text": "First, for each class, we found the longest path from the corresponding node to the root. This amounts to selecting the paths with the highest discriminative power with respect to the image classes. When multiple such paths existed, we selected the one with the minimum number of new nodes and added it to the new hierarchy. Second, we removed the few non-leaf nodes with a single child, as they do not possess any discriminative power."
+  },
+  {
+    "tag": "p",
+    "id": "A4.p3.1",
+    "text": "Finally, we observed that the pruned hierarchy\u2019s root is not physical entity, as one would expect, but rather the more general entity. This is problematic, since entity contains both physical objects and abstract concepts, while tieredImageNet classes only represent physical objects. Upon inspection, we found that this was caused by the classes bubble, traffic sign, and traffic lights being connected to sphere and sign, which are considered abstract concepts in the WordNet hierarchy. Instead, we connected them to sphere, artifact and signboard, respectively, thus connecting them to physical entity."
+  },
+  {
+    "tag": "p",
+    "id": "A4.p4.1",
+    "text": "Even though our second proposed method (soft labels), as well as the cross-entropy baseline, DeViSE frome2013devise and Barz & Denzler barz2019hierarchy, do not make any assumption regarding the structure of the hierarchy, we ran them using this obtained pruned hierarchy for consistency of the experimental setup."
+  },
+  {
+    "tag": "h2",
+    "id": "A5",
+    "text": "Appendix E Supplementary figures"
+  }
+]
