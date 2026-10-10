@@ -1,6 +1,22 @@
+## Latest frozen kernel study and complete loss disposition
+
+The complete SAGE GNCL/SupCon family fails all prospective accuracy/risk conjunctions. Preserve every raw/calibrated comparison and complete repair interaction. No K is activated. The native SAGE sparse feature-kernel source is independently reviewed and actually TRAIN-qualified, with original anchors and75exact calibration endpoints admitted. Its18bank/27fit production source, six arms, criteria, operator/control/reference/role hashes and full-family calibration policy are frozen before fitting.27new optimizer-body fits and90newscalar endpoints are next; all165endpoints precede interpretation. This changes message information and ownership, not a renamed failed loss. [Freeze](SAGE_sparse_feature_kernel_pilot_root_20261010_v1/FREEZE.json).
+
+The source sync to18.77uses a public21commit incremental bundle, preserving unrelated/untracked repository artifacts. The matched Fcore remains an independent reference experiment, K=null, with fresh same-runtime fits and no allocation-logit promotion. No new77job has launched yet. Original scores/TEST/manuscript stay unchanged.
+
 # Current GNNM research state
 
 10 October 2026. Goal active and unmet. Original paper scores are unchanged. No new methodological superiority, unused confirmation or fresh manuscript acceptance is established. Complete history, failures, costs and reviews remain in Git and research_ledger.json.
+
+
+## Latest complete learning comparison and next execution
+
+The full27-fit SAGE committee-supervision × within-route SupCon study and all165calibration fits are complete. None of A/B/AB passes the frozen raw or risk criteria. Their raw changes versus unchanged shared are−0.006320/+0.082164/+0.018961points. B slightly improves mean-member accuracy but loses31correct-alternative occurrences; the complete combination loses many distinct repairs and has negative raw interaction. No K or confirmation is selected. [Complete closure](SAGE_GNCL_SupCon_2x2_pilot_root_20261010_v1/REPORT.md).
+
+Known methods remain useful building blocks. The next distinct source learns sparse feature-neighbor message kernels inside continuing SAGE propagation, with private/common/fixed operators and richer equipped single/I4controls. It is attributed to attention/AM-GCN/DGM and requires actualTRAIN qualification and source review. The same-runtime77 F reference core is separately source-ready for fresh shared versus coherent full-width untied learning, capable singles and genuine independent references. Neither source has begun scientific fitting.
+
+18.77 is reachable through MacLink; both A10080GB GPUs were idle with about79GBfree at the guarded observation. Normal source Gitfetch timed out; SSH443 recovery is in progress. No host settings or mounts were changed and no new77job has launched. Latest verified allocation/GitHub head isab8419011cebd09beedc35f3e756baab95995b7e,20:18:12UTC. Complete new numerical results and successor sources are next for publication. Older execution text below is chronology superseded by this summary.
+
 
 ## Current decision after complete distribution analysis
 

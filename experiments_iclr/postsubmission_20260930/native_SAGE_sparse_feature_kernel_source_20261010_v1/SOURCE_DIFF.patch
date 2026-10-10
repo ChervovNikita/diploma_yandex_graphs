@@ -1,0 +1,240 @@
+--- common_wrapper_SAGE_full_family_source_20261010_v1/run_family.py
++++ native_SAGE_sparse_feature_kernel_source_20261010_v1/run_family.py
+@@ -1,4 +1,4 @@
+-"""One complete SAGE family; existing native train_step, no launcher or retries."""
++"""Inactive native SAGE sparse feature-kernel family; original lifecycle, no launcher."""
+ import argparse
+ import hashlib
+ import importlib.util
+@@ -10,8 +10,8 @@
+ import time
+ from types import SimpleNamespace
+ 
+-ARMS = ("ordinary_M1", "ordinary_genuine_I4", "factorized_allmap_M1",
+-        "factorized_allmap_genuine_I4", "shared4_unchanged", "separable_equal_size", "exchange")
++ARMS = ("shared4_private_kernel", "shared4_common_kernel", "shared4_fixed_feature_union",
++        "ordinary_M1_feature_kernel", "factorized_M1_feature_kernel", "genuine_factorized_I4_feature_kernel")
+ 
+ 
+ def load_source(name, path):
+@@ -43,7 +43,8 @@
+         self.factors = load_source("sage_family_factors", cfg["factors"])
+         self.cfg, self.output = cfg, output
+         self.current, self.completed_units = {"arm": None, "seed": None, "member": None, "update": 0}, 0
+-        source_paths = [__file__, cfg["common_routes"], cfg["factors"]] + [str(Path(cfg["native_repo"]) / name) for name in ("models.py", "run_base.py", "run_common.py")]
++        helper_path = Path(__file__).with_name("feature_graph.py")
++        source_paths = [__file__, str(helper_path), cfg["common_routes"], cfg["factors"]] + [str(Path(cfg["native_repo"]) / name) for name in ("models.py", "run_base.py", "run_common.py")]
+         self.source_hashes = {str(Path(path).resolve()): hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in source_paths}
+         self.config_sha256 = config_sha256
+         write_json(output / "SOURCE_HASHES.json", {"config_sha256": config_sha256, "files": self.source_hashes})
+@@ -75,6 +76,37 @@
+         self.data = SimpleNamespace(x=tensor(x), edge_index=tensor(edges), y=labels, train_mask=mask)
+         self.batch = {"x": self.data.x, "edge_index": self.data.edge_index,
+                       "graph": SimpleNamespace(edge_index=self.data.edge_index)}
++        expected = {"seeds": [7301, 7403, 7507], "depth": 2, "hidden": 128, "dropout": .2,
++                    "learning_rate": .001, "max_updates": 1000, "patience_updates": 300,
++                    "rank": 16, "member_seed_stride": 1000003, "factor_seed_offset": 2000003,
++                    "dropout_seed_offset": 3000007, "block_seed_offset": 4000037}
++        if any(cfg.get(key, value) != value for key, value in expected.items()):
++            raise ValueError("Exact existing native SAGE source recipe required; no hidden grid")
++        self.feature_graph = load_source("sage_feature_graph", str(helper_path))
++        self.synchronize()
++        prep_start = time.perf_counter()
++        if self.device.type == "cuda":
++            torch.cuda.reset_peak_memory_stats(self.device)
++        original_edges = self.data.edge_index
++        support, prep = self.feature_graph.build_support(torch, self.data.x, original_edges)
++        original_cpu, support_cpu = original_edges.cpu().numpy(), support.cpu().numpy()
++        support_file = output / "FEATURE_SUPPORT.npz"
++        np.savez(support_file, original_edge_index=original_cpu, union_edge_index=support_cpu)
++        prep["support_file_sha256"] = hashlib.sha256(support_file.read_bytes()).hexdigest()
++        prep["original_COO_int64_C_bytes_sha256"] = hashlib.sha256(original_cpu.tobytes(order="C")).hexdigest()
++        prep["union_COO_int64_C_bytes_sha256"] = hashlib.sha256(support_cpu.tobytes(order="C")).hexdigest()
++        prep["support_archive_bytes"] = support_file.stat().st_size
++        prep["torch_version"] = torch.__version__
++        prep["tf32_matmul_allowed"] = bool(torch.backends.cuda.matmul.allow_tf32)
++        self.data.edge_index = support
++        self.batch["edge_index"] = support
++        self.batch["graph"].edge_index = support
++        self.synchronize()
++        prep["inclusive_preparation_seconds"] = time.perf_counter() - prep_start
++        prep["cuda_peak_allocated_bytes"] = torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0
++        prep["cuda_peak_reserved_bytes"] = torch.cuda.max_memory_reserved(self.device) if self.device.type == "cuda" else 0
++        self.feature_support_metadata = prep
++        write_json(output / "FEATURE_SUPPORT.json", prep)
+ 
+     def progress(self, member, update):
+         self.current.update(member=member, update=update)
+@@ -88,7 +120,7 @@
+         native = seed + self.cfg.get("member_seed_stride", 1000003) * member
+         return native, native + self.cfg.get("factor_seed_offset", 2000003), native + self.cfg.get("dropout_seed_offset", 3000007)
+ 
+-    def make(self, seed, member, kind, factorized, members):
++    def make(self, seed, member, kind, factorized, members, kernel_mode):
+         torch, c = self.torch, self.cfg
+         native_seed, _, _ = self.seeds(seed, member)
+         self.set_seed(native_seed)
+@@ -106,6 +138,8 @@
+                     body.input_linear.r[row].copy_(signs[0].to(body.input_linear.r))
+             # FactorLinear construction fixes every other r/s row to one.
+         model = wrapper if members > 1 else body
++        self.feature_graph.install(torch, body, model, members, kernel_mode,
++                                   native_seed + self.feature_graph.KERNEL_SEED_OFFSET)
+         model.to(self.device)
+         optimizer = torch.optim.AdamW(model.parameters(), lr=c.get("learning_rate", .001), weight_decay=0)
+         if wrapper is not None:
+@@ -125,10 +159,11 @@
+                                                      self.cuda if self.device.type == "cuda" else None)
+ 
+     def logits(self, model, streams, bank, ids):
+-        if bank:
+-            batch = dict(self.batch, ids=ids)
+-            return model(batch, route_scope=lambda m: self.scope(streams, m))[0]
+-        return model(self.data, self.data.x)[ids].unsqueeze(0)
++        with model._feature_kernel.context(self.data.x, self.data.edge_index):
++            if bank:
++                batch = dict(self.batch, ids=ids)
++                return model(batch, route_scope=lambda m: self.scope(streams, m))[0]
++            return model(self.data, self.data.x)[ids].unsqueeze(0)
+ 
+     def metrics(self, logits):
+         torch, y = self.torch, self.valid_y.to(logits.device)
+@@ -145,7 +180,7 @@
+                 "correct_alternative_count": correct.any(0).sum().item(),
+                 "coverage_lost_in_pooling": (correct.any(0) & ~pooled_correct).sum().item()}
+ 
+-    def fit(self, folder, seed, member, kind, factorized, members):
++    def fit(self, folder, seed, member, kind, factorized, members, kernel_mode):
+         torch = self.torch
+         folder.mkdir()
+         self.progress(member, 0)
+@@ -154,7 +189,7 @@
+             torch.cuda.reset_peak_memory_stats(self.device)
+         self.synchronize()
+         start = time.perf_counter()
+-        model, optimizer, streams = self.make(seed, member, kind, factorized, members)
++        model, optimizer, streams = self.make(seed, member, kind, factorized, members, kernel_mode)
+         bank, best, stale = members > 1, -1., 0
+         checkpoint = folder / "selected.pt"
+         with (folder / "trace.jsonl").open("w") as trace:
+@@ -168,7 +203,7 @@
+                     optimizer.step()
+                     train_loss = loss.item()
+                 else:
+-                    with self.scope(streams, 0):
++                    with model._feature_kernel.context(self.data.x, self.data.edge_index), self.scope(streams, 0):
+                         train_loss = self.train_step(model, optimizer, self.data, False)
+                 model.eval()
+                 with torch.no_grad():
+@@ -180,7 +215,8 @@
+                                 "step": step, "selection": metrics}, checkpoint)
+                 else:
+                     stale += 1
+-                trace.write(json.dumps({"step": step, "train_own_ce": train_loss, "valid": metrics,
++                trace.write(json.dumps({"step": step, "learning_objective": "mean_own_CE", "kernel_mode": kernel_mode,
++                                        "train_own_ce": train_loss, "valid": metrics,
+                                         "strict_improvement": improved, "stale_updates": stale}, allow_nan=False) + "\n")
+                 trace.flush()
+                 self.progress(member, step)
+@@ -188,12 +224,14 @@
+                     break
+         self.synchronize()
+         acquisition = time.perf_counter() - start
++        restore_start = time.perf_counter()
+         state = torch.load(checkpoint, map_location="cpu", weights_only=True)
+         model.load_state_dict(state["model"], strict=True)
+         optimizer.load_state_dict(state["optimizer"])
+         streams = state["streams"]
+         model.eval()
+         self.synchronize()
++        restore_seconds = time.perf_counter() - restore_start
+         serving_start = time.perf_counter()
+         with torch.no_grad():
+             selected_logits = self.logits(model, streams, bank, self.valid_ids)
+@@ -201,14 +239,16 @@
+             selected_logits = selected_logits.cpu()
+         self.synchronize()
+         serving = time.perf_counter() - serving_start
+-        costs = {"acquisition_seconds": acquisition, "selected_forward_and_metrics_seconds": serving,
++        costs = {"acquisition_seconds": acquisition, "restore_seconds": restore_seconds,
++                 "selected_forward_and_metrics_seconds": serving,
+                  "parameters": sum(p.numel() for p in model.parameters()),
+                  "inference_parameter_bytes": sum(p.numel() * p.element_size() for p in model.parameters()),
+                  "selected_checkpoint_bytes": checkpoint.stat().st_size,
+                  "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024),
+                  "cuda_peak_allocated_bytes": torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0,
+                  "cuda_peak_reserved_bytes": torch.cuda.max_memory_reserved(self.device) if self.device.type == "cuda" else 0}
+-        result = {"member": member, "native_factor_dropout_seeds": [self.seeds(seed, member + r) for r in range(members)],
++        result = {"member": member, "feature_kernel": model._feature_kernel.describe(),
++                  "learning_objective": "mean_own_CE", "native_factor_dropout_seeds": [self.seeds(seed, member + r) for r in range(members)],
+                   "selected_step": selected_step, "completed_updates": step, "selection": state["selection"], "restored": restored,
+                   "selected_state": str(checkpoint), "costs": costs,
+                   "operation_counts": {"updates": step, "backwards": step, "adam_steps": step,
+@@ -223,19 +263,21 @@
+     def run(self):
+         torch, np, results, errors = self.torch, self.np, [], {}
+         seeds = self.cfg["seeds"]
+-        if len(seeds) != 3 or len(set(seeds)) != 3:
+-            raise ValueError("Complete three-seed roster required")
++        if seeds != [7301, 7403, 7507]:
++            raise ValueError("Exact three paired seeds7301/7403/7507 required")
+         write_json(self.output / "CONFIG.json", self.cfg)
+         for seed in seeds:
+             for arm in ARMS:
+                 self.current.update(arm=arm, seed=seed)
+                 folder = self.output / f"{arm}_seed{seed}"
+                 folder.mkdir()
+-                genuine = "genuine_I4" in arm
+-                bank = arm in ARMS[4:]
+-                factorized = arm.startswith("factorized") or bank
+-                kind = "exchange" if arm == "exchange" else "separable" if arm == "separable_equal_size" else "baseline"
+-                fits = [self.fit(folder / f"member{m}", seed, m, kind, factorized, 4 if bank else 1) for m in range(4 if genuine else 1)]
++                genuine = arm == "genuine_factorized_I4_feature_kernel"
++                bank = arm.startswith("shared4_")
++                factorized = arm != "ordinary_M1_feature_kernel"
++                kind = "baseline"
++                kernel_mode = "common" if arm == "shared4_common_kernel" else "fixed" if arm == "shared4_fixed_feature_union" else "private"
++                fits = [self.fit(folder / f"member{m}", seed, m, kind, factorized, 4 if bank else 1,
++                                 kernel_mode) for m in range(4 if genuine else 1)]
+                 pool_start = time.perf_counter()
+                 logits = torch.cat([x[0] for x in fits])
+                 metrics = self.metrics(logits)
+@@ -255,7 +297,7 @@
+                 write_json(folder / "RESULT.json", result)
+                 results.append(result)
+                 print(json.dumps({"finished": arm, "seed": seed, "selected_steps": [u["selected_step"] for u in units]}), flush=True)
+-        comparisons = []  # Reached only after the whole seven-arm × three-seed roster.
++        comparisons = []  # Reached only after all six arms at all three paired seeds.
+         for result in results:
+             seed, arm = result["seed"], result["arm"]
+             candidate = errors[seed, arm]
+@@ -263,8 +305,15 @@
+                            "harms": int((~errors[seed, ref] & candidate).sum())} for ref in ARMS[:6]}
+             comparisons.append({"arm": arm, "seed": seed, "versus": versus})
+         counts = {key: sum(unit["operation_counts"][key] for r in results for unit in r["fits"]) for key in results[0]["fits"][0]["operation_counts"]}
+-        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "groups": len(results), "fit_units": self.completed_units,
+-                   "expected_groups": 21, "expected_fit_units": 39, "TEST_access": False, "operation_counts": counts,
++        kernel_counts = {key: sum(u["feature_kernel"]["counters"][key] for r in results for u in r["fits"])
++                         for key in results[0]["fits"][0]["feature_kernel"]["counters"]}
++        write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True,
++                   "completion_scope": "fresh six-arm feature-support acquisition only", "full_comparative_family_complete": False,
++                   "requires_root_admitted_own_only_anchors": {"banks": 15, "selected_fit_records": 33},
++                   "groups": len(results), "fit_units": self.completed_units,
++                   "expected_groups": 18, "expected_fit_units": 27, "TEST_access": False,
++                   "feature_support": self.feature_support_metadata, "feature_kernel_operation_counts": kernel_counts,
++                   "operation_counts": counts,
+                    "config_sha256": self.config_sha256, "source_sha256": self.source_hashes, "results": results, "comparisons": comparisons,
+                    "cost_scope": "sequential acquisition; selected full-graph forward, metrics, CPU transfer and probability pool; RSS is process lifetime peak; overlap supplied by root"})
+ 
+@@ -274,10 +323,7 @@
+     parser.add_argument("--config", required=True)
+     parser.add_argument("--output", required=True)
+     args = parser.parse_args()
+-    output = Path(args.output)
+-    output.mkdir(parents=True, exist_ok=False)
+-    config_bytes = Path(args.config).read_bytes()
+-    Family(json.loads(config_bytes), output, hashlib.sha256(config_bytes).hexdigest()).run()
++    raise RuntimeError("Prospective source only. Root must admit/qualify this Family under the existing owner; no CLI science release.")
+ 
+ 
+ if __name__ == "__main__":
