@@ -1,0 +1,38 @@
+# Coauthor CS heldout exposure and acquisition provenance
+
+10 October 2026. **Known local branches only; no scientific input admission.** The earlier [SAGE readiness memo](../SAGE_unused_CoauthorCS_confirmation_readiness_20261010_v1/REPORT.md) remains sealed and unchanged. This followup checks the identified later branches and acquisition route. It finds affirmative authorized-route/GPU receipts for the actual Coauthor CS acquisition, and no later TEST access in the inspected coordinate branch. The later folders named `native_CS` and `staged_posterior_matched_CS` are **Correct & Smooth on WikiCS**, not Coauthor CS. Geometry continuations use Tolokers. These branches cannot certify the Coauthor CS holdout's global unused status.
+
+## Exact holdout and the actual acquisition
+
+The inspected historical asset is the custom Coauthor CS seed 4100 holdout with **3,660 nodes**, sealed target SHA256 `3fe86456097b63a58147193604a780cb6c9fb54a7d308805330552ec10f0ed56`. The [acquisition receipt](../coordinate_ensemble_execution_root_v1/acquire/output/CoauthorCS/acquisition_receipt.json), dated 1 October at 19:19:33 UTC, binds that seal and the public metadata manifest SHA256 `a08729bc5ce30e22e40cfd54908993d5f222dfb81de0baa13f7f766c7542c723`. It records `scientific_scoring_performed=false` and `ACQUIRED_NOT_EXPERIMENT_ADMITTED`. The local manifest's bytes match that receipt hash. Custodial stratification decoded the labels; this is not a never-parsed-target claim.
+
+The [actual acquisition authorization](../coordinate_ensemble_execution_root_v1/cs_acquisition_supervisor_run01/authorization.json) records:
+
+- Literal destination `anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru`.
+- One visible GPU, UUID `GPU-44039938-fd82-41d2-fefd-de71514e2fac`.
+- Successful child completion, with bound route and guard source hashes.
+
+The [bridge operation terminal](../coordinate_ensemble_execution_root_v1/bridge_cs_acquisition_run01/operation_000_TERMINAL.json) separately records that GPU UUID before the CPU acquisition, the Coauthor CS output namespace, empty child CUDA visibility and exit 0. Its bridge START binds the actual CS acquisition request hash. The [installed-source custody authorization](../coordinate_ensemble_execution_root_v1/coauthor_source_supervisor_run01/authorization.json), at 19:14:05 UTC, also records the same literal destination, sole GPU UUID and successful completion. The source request allowed only copying two installed PyG modules, not data/model execution. Acquisition source/protocol hashes are carried into the manifest.
+
+**Provenance conclusion:** the inspected CS acquisition and source-custody receipts positively identify the explicitly authorized route and GPU. They are not the earlier wrong-allocation receipts. The old `run_authorized_v2.py` verifies explicit route, repository and GPU properties but does **not** query or record physical hostname. Thus the historical hostname `anogena-2-0` is not independently established by these receipts. This precise gap remains visible; an expected hostname is not an observed hostname. Earlier outside-authorization assets remain excluded. This followup releases no historical asset or outcome as a current scientific input, and no connection was made to resolve the hostname gap.
+
+## Declared readers and actual branch evidence
+
+| Branch | Source population and reader | Actual receipt evidence | Coauthor CS holdout consequence |
+| --- | --- | --- | --- |
+| Coauthor CS coordinate acquisition | PyG CS provider; custodian creates custom masks and sealed target file | Acquisition receipt binds the exact seal and records no scientific scoring; actual route/GPU receipts above | Historical target creation, not scientific TEST evaluation |
+| Coordinate scientific fits and selected replay | `coordinate_ensemble_runner_v3/runner.py` loads the public graph, TRAIN/VALID bundles and TEST indices only; source states PyG objects and sealed targets are not opened in scientific phases | Stage1 terminal records `test_labels_read=false`; saved coordinate ledger branch records `heldout_labels_scored=false`, last updated 2 October | No model TEST read/scoring in this saved branch; later/external custody remains unresolved |
+| `native_CS_qualification_activation_root_20261008_v1` | ROLE_HASH_SOURCE reads `label_correction_full_WikiCS_role_projection_allocation_20261008_v1/train.npz` and `valid.npz`; owner is explicitly WikiCS | ROLE_HASH_BINDING records `TEST_loaded=false`; qualification adoption records no development scoring | Different graph; does not bind the CS seal |
+| `native_CS_fixed72_activation_root_20261008_v1` and its execution root | Correct & Smooth evaluator bound to the same WikiCS owner and numeric roles; 580 TRAIN anchors and 5,274 development targets | Worker complete; `development_scoring=true`, `TEST_access=false`; terminal complete with exit 0; reference receipt complete and `TEST_access=false`; all 72 correction records say `heldout_truths_supplied_to_CS=false` | WikiCS development was scored; Coauthor CS target exposure is not implicated |
+| `staged_posterior_matched_CS_reference_source_20261009_v2` and later readout | SOURCE_BINDINGS points to `label_only_staged_posterior_full_WikiCS_source_20261008_v1`; analyzer explicitly reads TRAIN/VALID role files | Saved RESULT says complete and `secondary_consumed_development_only=true`; cost terminal complete; no separate actual TEST-access flag in this RESULT | Source and actual scope identify consumed WikiCS development; missing flag is not a global no-TEST certificate |
+| Geometry sequential assessment and centered continuation | Protocol explicitly names complete official Tolokers split 0 TRAIN/VALID; role metadata hash `28ea4214f75ed495c384ba2d2f673112895ebbdce2394062dc7c1e9aa8ed7450` | Sequential terminal complete and `TEST_truth_accessed=false`; original18 nested terminal complete and `TEST_truth_accessed=false` | Different graph; no binding to the CS seal |
+
+The fixed72 cost/failure receipt records 72 complete records and no failed or blocked records. This is completion metadata, not quality evidence. No outcome metric, per-node prediction or raw payload value was extracted. A TRAIN-only correction algorithm alone would not prove its evaluator avoided TEST; the actual evaluator receipt and role source are separately identified above.
+
+## Remaining eligibility boundary
+
+A bounded source/metadata filename search for `CoauthorCS`, `ms_academic_cs` and the exact target hash found coordinate source/asset locators, duplicated verified source snapshots and later source-only public-provider references. No additional actual Coauthor CS scientific owner with an affirmative TEST opening was established in that searched set. This is **not** a project-wide absence claim. Public-provider support and a reused metadata citation are not execution evidence.
+
+Before a new confirmation can use CS, root still needs a complete account of later/external target access and scoring, release of the coordinate reservation, and an explicit current input-admission decision that keeps excluded history excluded. The historical hostname receipt is missing. Raw/provider bundles contain all labels, so absence of a TEST scoring flag cannot settle access to those bundles. A missing access flag remains unresolved. The earlier memo's SELECT/CAL and competent-reference gaps also remain.
+
+No source protocol, sealed filename, this exposure check or an unconsumed branch flag admits scientific assets. No dataset, label payload, model, checkpoint, prediction array, current distribution outcome, remote host or canonical file was accessed or changed.

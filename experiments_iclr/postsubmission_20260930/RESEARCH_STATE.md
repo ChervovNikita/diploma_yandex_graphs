@@ -2,6 +2,14 @@
 
 10 October 2026. Goal active and unmet. Original paper scores are unchanged. No new methodological superiority, unused confirmation or fresh manuscript acceptance is established. Complete history, failures, costs and reviews remain in Git and research_ledger.json.
 
+## Current decision after complete distribution analysis
+
+The user now accepts improvement for one backbone; SAGE is the priority. This is a prospective scope change, not a change to completed studies' frozen criteria. All 15 neighbourhood-distribution banks/24 fits and 150 scalar calibration fits have closed. Private quartiles add only 0.075844 accuracy points over unchanged shared SAGE; their calibrated NLL harm against richer I4 is 0.022935. The exact rule fails and closes. Whole-procedure repairs differ from fixed-state residual repairs; [complete interpretation](native_neighborhood_distribution_pilot_root_20261010_v1/REPORT.md) preserves both scopes.
+
+The next fixed source tests native SAGE committee CE and within-route SupCon separately and together. Six fresh arms provide 18 banks/27 fits; 15 exact original anchors provide 33 historical selected fits after admission. Known objectives are attributed, with no novelty claim. Actual TRAIN qualification passed all nine disposable units; all 15 original anchors/33 selected fits have been admitted by guarded metadata and byte checks. Scientific training has not yet started. A worthwhile result prioritizes unused whole-pipeline confirmation. No additional GPUs are needed for this screen.
+
+Latest verified publication: `763553fed7770190525b84ae9bb052789c7d459d`, 19:07:44 UTC. Current closure, scope and prospective study records are being published next. Older execution entries below are chronology, superseded by this current summary and their later closure records.
+
 ## Latest complete comparison
 
 The native common wrapper has completed SAGE, GCN and GAT comparisons on the same encountered WikiCS development roles: 63 groups and 117 acquisitions, with ordinary/factorized singles and genuine independent-four references. All full-family outcomes precede interpretation. The latest GCN/GAT owner closures were 12:45:25/12:47:09 UTC, exit 0. Concurrent costs are recorded as observed costs, not isolated speed benchmarks.

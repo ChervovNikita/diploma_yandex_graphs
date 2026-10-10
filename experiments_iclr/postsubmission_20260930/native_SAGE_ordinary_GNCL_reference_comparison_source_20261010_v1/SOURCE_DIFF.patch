@@ -1,0 +1,133 @@
+--- common_wrapper_SAGE_full_family_source_20261010_v1/run_family.py
++++ native_SAGE_ordinary_GNCL_reference_comparison_source_20261010_v1/run_family.py
+@@ -1,4 +1,4 @@
+-"""One complete SAGE family; existing native train_step, no launcher or retries."""
++"""Native SAGE own/GNCL reference comparison; existing lifecycle, no launcher or retries."""
+ import argparse
+ import hashlib
+ import importlib.util
+@@ -11,7 +11,7 @@
+ from types import SimpleNamespace
+ 
+ ARMS = ("ordinary_M1", "ordinary_genuine_I4", "factorized_allmap_M1",
+-        "factorized_allmap_genuine_I4", "shared4_unchanged", "separable_equal_size", "exchange")
++        "factorized_allmap_genuine_I4", "shared4_unchanged", "shared4_gncl_half")
+ 
+ 
+ def load_source(name, path):
+@@ -145,7 +145,12 @@
+                 "correct_alternative_count": correct.any(0).sum().item(),
+                 "coverage_lost_in_pooling": (correct.any(0) & ~pooled_correct).sum().item()}
+ 
+-    def fit(self, folder, seed, member, kind, factorized, members):
++    def probability_pool_ce(self, logits, targets):
++        log_probs = logits.log_softmax(-1)
++        log_pool = self.torch.logsumexp(log_probs, dim=0) - math.log(len(logits))
++        return -log_pool.gather(1, targets[:, None]).mean()
++
++    def fit(self, folder, seed, member, kind, factorized, members, objective="own_only"):
+         torch = self.torch
+         folder.mkdir()
+         self.progress(member, 0)
+@@ -156,6 +161,8 @@
+         start = time.perf_counter()
+         model, optimizer, streams = self.make(seed, member, kind, factorized, members)
+         bank, best, stale = members > 1, -1., 0
++        if objective not in ("own_only", "gncl_half") or (objective == "gncl_half" and not bank):
++            raise ValueError("GNCL is reserved for the unchanged shared four-route bank")
+         checkpoint = folder / "selected.pt"
+         with (folder / "trace.jsonl").open("w") as trace:
+             for step in range(1, self.cfg.get("max_updates", 1000) + 1):
+@@ -163,13 +170,22 @@
+                     model.train()
+                     optimizer.zero_grad()
+                     logits = self.logits(model, streams, True, self.train_ids)
+-                    loss = self.F.cross_entropy(logits.flatten(0, 1), self.data.y[self.train_ids].repeat(members))
++                    targets = self.data.y[self.train_ids]
++                    own_ce = self.F.cross_entropy(logits.flatten(0, 1), targets.repeat(members))
++                    if objective == "gncl_half":
++                        pool_ce = self.probability_pool_ce(logits, targets)
++                        loss = .5 * own_ce + .5 * pool_ce
++                    else:
++                        loss = own_ce
++                        with torch.no_grad():
++                            pool_ce = self.probability_pool_ce(logits, targets)
+                     loss.backward()
+                     optimizer.step()
+-                    train_loss = loss.item()
++                    train_loss, train_own_ce, train_pool_ce = loss.item(), own_ce.item(), pool_ce.item()
+                 else:
+                     with self.scope(streams, 0):
+                         train_loss = self.train_step(model, optimizer, self.data, False)
++                    train_own_ce, train_pool_ce = train_loss, None
+                 model.eval()
+                 with torch.no_grad():
+                     metrics = self.metrics(self.logits(model, streams, bank, self.valid_ids))
+@@ -180,7 +196,9 @@
+                                 "step": step, "selection": metrics}, checkpoint)
+                 else:
+                     stale += 1
+-                trace.write(json.dumps({"step": step, "train_own_ce": train_loss, "valid": metrics,
++                trace.write(json.dumps({"step": step, "learning_objective": objective,
++                                        "train_objective": train_loss, "train_own_ce": train_own_ce,
++                                        "train_probability_pool_ce": train_pool_ce, "valid": metrics,
+                                         "strict_improvement": improved, "stale_updates": stale}, allow_nan=False) + "\n")
+                 trace.flush()
+                 self.progress(member, step)
+@@ -208,10 +226,12 @@
+                  "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024),
+                  "cuda_peak_allocated_bytes": torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0,
+                  "cuda_peak_reserved_bytes": torch.cuda.max_memory_reserved(self.device) if self.device.type == "cuda" else 0}
+-        result = {"member": member, "native_factor_dropout_seeds": [self.seeds(seed, member + r) for r in range(members)],
++        result = {"member": member, "learning_objective": objective, "native_factor_dropout_seeds": [self.seeds(seed, member + r) for r in range(members)],
+                   "selected_step": selected_step, "completed_updates": step, "selection": state["selection"], "restored": restored,
+                   "selected_state": str(checkpoint), "costs": costs,
+                   "operation_counts": {"updates": step, "backwards": step, "adam_steps": step,
++                    "train_probability_pool_loss_evaluations": step if bank else 0,
++                    "train_probability_pool_backward_evaluations": step if objective == "gncl_half" else 0,
+                     "train_fullgraph_native_trajectories": members * step, "valid_selection_fullgraph_native_trajectories": members * step,
+                     "selected_valid_fullgraph_native_trajectories": members,
+                     "native_graph_block_calls": self.cfg.get("depth", 2) * members * (2 * step + 1)}}
+@@ -223,8 +243,8 @@
+     def run(self):
+         torch, np, results, errors = self.torch, self.np, [], {}
+         seeds = self.cfg["seeds"]
+-        if len(seeds) != 3 or len(set(seeds)) != 3:
+-            raise ValueError("Complete three-seed roster required")
++        if seeds != [0, 1, 2]:
++            raise ValueError("The fixed paired seeds are [0, 1, 2]")
+         write_json(self.output / "CONFIG.json", self.cfg)
+         for seed in seeds:
+             for arm in ARMS:
+@@ -234,8 +254,9 @@
+                 genuine = "genuine_I4" in arm
+                 bank = arm in ARMS[4:]
+                 factorized = arm.startswith("factorized") or bank
+-                kind = "exchange" if arm == "exchange" else "separable" if arm == "separable_equal_size" else "baseline"
+-                fits = [self.fit(folder / f"member{m}", seed, m, kind, factorized, 4 if bank else 1) for m in range(4 if genuine else 1)]
++                kind = "baseline"
++                objective = "gncl_half" if arm == "shared4_gncl_half" else "own_only"
++                fits = [self.fit(folder / f"member{m}", seed, m, kind, factorized, 4 if bank else 1, objective) for m in range(4 if genuine else 1)]
+                 pool_start = time.perf_counter()
+                 logits = torch.cat([x[0] for x in fits])
+                 metrics = self.metrics(logits)
+@@ -255,16 +276,16 @@
+                 write_json(folder / "RESULT.json", result)
+                 results.append(result)
+                 print(json.dumps({"finished": arm, "seed": seed, "selected_steps": [u["selected_step"] for u in units]}), flush=True)
+-        comparisons = []  # Reached only after the whole seven-arm × three-seed roster.
++        comparisons = []  # Reached only after the whole six-arm × three-seed roster.
+         for result in results:
+             seed, arm = result["seed"], result["arm"]
+             candidate = errors[seed, arm]
+             versus = {ref: {"repairs": int((errors[seed, ref] & ~candidate).sum()),
+-                           "harms": int((~errors[seed, ref] & candidate).sum())} for ref in ARMS[:6]}
++                           "harms": int((~errors[seed, ref] & candidate).sum())} for ref in ARMS[:5]}
+             comparisons.append({"arm": arm, "seed": seed, "versus": versus})
+         counts = {key: sum(unit["operation_counts"][key] for r in results for unit in r["fits"]) for key in results[0]["fits"][0]["operation_counts"]}
+         write_json(self.output / "COMPLETE_FAMILY.json", {"complete": True, "groups": len(results), "fit_units": self.completed_units,
+-                   "expected_groups": 21, "expected_fit_units": 39, "TEST_access": False, "operation_counts": counts,
++                   "expected_groups": 18, "expected_fit_units": 36, "TEST_access": False, "operation_counts": counts,
+                    "config_sha256": self.config_sha256, "source_sha256": self.source_hashes, "results": results, "comparisons": comparisons,
+                    "cost_scope": "sequential acquisition; selected full-graph forward, metrics, CPU transfer and probability pool; RSS is process lifetime peak; overlap supplied by root"})
+ 
