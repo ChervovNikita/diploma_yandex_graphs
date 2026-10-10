@@ -31,3 +31,11 @@ WikiCS initializer readout stopped twice before inference due to two source bugs
 The new-mechanism role prepares live hidden-route exchange on native WikiCS message passing with equal-budget separable and published-method comparisons. The combination role fixes a conditional normalization/private-hop quartet and exact repair/harm diagnostics. The history role revisits assumptions and duplicate proposals. Jobs and claims require complete evidence, capable references and unused confirmation. The current source commit70213ae is pushed and synchronized to77.
 
 Latest private-hop observation08:39UTC:13of18fits complete, no failure, last seed private-hop arm active. Partial family quality remains closed.
+
+## Closed initializer tradeoff and new source
+
+WikiCS initialization readout is complete. Mean validation accuracy improves0.278094points over copied starts, but NLL worsens0.065817, with the NLL loss at every seed. The original screen fails. Exact repairs and harms are retained in the [focused decision](WikiCS_initializer_alphaF3_focused_history_decision_20261010_v1/REPORT.md).
+
+The3private-factor optimizer controls have also finished training, with quality still closed pending the full18study. Its last observation is14of18complete without failure.
+
+A distinct live graph exchange and equal-budget separable comparison now have callable disabled source and a representative local/global TRAIN-only qualifier. They have no predictive result or accepted-method claim. Existing source review and actual qualification precede full fits. The exact public21MBTRAIN-only graph is synchronized to77through Git without a Mac copy.

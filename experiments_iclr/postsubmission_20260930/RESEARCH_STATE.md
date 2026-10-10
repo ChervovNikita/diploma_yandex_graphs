@@ -82,3 +82,15 @@ Sources, literature notes, state and README were pushed at2040fa166e153175e9c418
 70213ae590ac543187dd64a31487d2e65c95a6f7 was pushed and the exact GitHub branch ref verified08:28:36UTC.18.77 fast-forwarded to the same commit08:29:25UTC, preserving live changes. New actual receipts and decisions are published separately.
 
 At08:39:08UTC, the live private-hop owner had completed13of18fits and seed9307__private_missinghop was at epoch422. No failure or partial quality was opened.
+
+## WikiCS initializer readout is complete
+
+The repaired V4 reader completed12new member forwards in12.805690worker seconds, with original direct child wait and process/CUDA absence. No training or old forwards occurred. All3selected reconstruction counts agree with the original endpoints. Native F improves accuracy by+.492984/+.037922/+.303375points, mean+.278094, and mean member accuracy by+.165908points. However pooled NLL worsens every seed by+.073826/+.109650/+.013974, mean+.065817. Its frozen utility screen therefore fails. No initializer confirmation, temperature salvage or grid follows.
+
+Exact pool repairs/harms are140/114,129/127,177/161. Coverage gains/losses are157/102,143/89,193/129. These differ from marginal net gains55/54/64. Original modes and both startup failures remain preserved. See WikiCS_initializer_alphaF3_focused_history_decision_20261010_v1/REPORT.md and periodic_assumptions_next_experiment_audit_20261010_v2/REPORT.md.
+
+All3private-optimizer controls closed successfully by09:00:49UTC. Their quality remains closed until full18and capable references close. At08:53:36UTC private-hop had14of18fits complete, no failure, and the last-seed full_aux arm at epoch576.
+
+The distinct native receiver-exchange source now includes identical native scorer starts across baseline/exchange/separable. It remains a separate untested mechanism after the initializer's failed screen. Its prepared full-TRAIN qualifier covers one local and one global update per kind,6total Adam updates and42jointforwards. Actual qualification and full fits remain unadmitted pending source review. Standard attention/Cross-stitch ancestry, structured wider-model equivalence and required capable same-task references are explicit.
+
+The exact public WikiCS TRAIN-only projection (21,138,856bytes,580TRAINtargets,11701nodes,442907edges) was added to the research Git branch atcfe17c41ec340d56b794239bbaf0736c85f8a15c and synchronized to77. It stays off this Mac. No VALID/TEST label projection, new split or scientific score was generated.
