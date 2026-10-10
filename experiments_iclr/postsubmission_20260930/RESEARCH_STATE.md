@@ -25,7 +25,7 @@ Matched WikiCS native single/I4 reference source is prepared, disabled and condi
 
 ## Publication and limits
 
-Latest verified allocation/GitHub head2ab70a42932f304230564477b8a59af6c31de469. Named-key SSH push and exact remote ref both verified at01:52UTC. The earlier5b0d235 push also remains verified.18.77 is older Git with exact scientific source separately staged. Current workflow clarification and observations await the next publication.
+Latest verified allocation/GitHub head96769ee097656677bf63b678a3b0f20ef6d18edf. Named-key SSH push and exact remote ref both verified at02:00UTC. The earlier5b0d235 push also remains verified.18.77 is older Git with exact scientific source separately staged. The workflow clarification and current observations are committed and pushed. New agent source remains unsealed and excluded.
 
 Science route is literal anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222, hostanogena-2-0, sole GPU-44039938-fd82-41d2-fefd-de71514e2fac. Verify before project operations.18.77 uses reviewed MacLink and peptide/two-GPU checks. Seven-GPU access is forwarding only.
 

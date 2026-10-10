@@ -1,0 +1,540 @@
+--- sealed_Stage1/source.py
++++ disabled_Stage2/source.py
+@@ -44,6 +44,11 @@
+         path = (folder/row['path']).resolve(strict=True)
+         if not path.is_relative_to(folder) or sha(path) != row['sha256'] or path.stat().st_size != row['bytes']:
+             raise ValueError('Exact V3 payload changed')
++    stage1=bind(bindings['stage1_manifest'])
++    for row in json.loads(stage1.read_text())['files']:
++        path=(stage1.parent/row['path']).resolve(strict=True)
++        if not path.is_relative_to(stage1.parent) or sha(path)!=row['sha256'] or path.stat().st_size!=row['bytes']:
++            raise ValueError('Retained sealed Stage1 source changed')
+     dependency_bindings = json.loads((folder/'SOURCE_BINDINGS.json').read_text())
+     for row in dependency_bindings['dependencies'].values(): bind(row)
+     return bindings
+@@ -51,11 +56,11 @@
+ 
+ def verify_manifest(digest):
+     path = HERE/'SOURCE_MANIFEST.json'
+-    if sha(path) != digest: raise ValueError('Exact sealed Stage1 source manifest required')
++    if sha(path) != digest: raise ValueError('Exact sealed Stage2 source manifest required')
+     for row in json.loads(path.read_text())['files']:
+         file = (HERE/row['path']).resolve(strict=True)
+         if not file.is_relative_to(HERE) or sha(file) != row['sha256'] or file.stat().st_size != row['bytes']:
+-            raise ValueError('Stage1 source payload changed')
++            raise ValueError('Stage2 source payload changed')
+     return verify_sources()
+ 
+ 
+@@ -67,7 +72,7 @@
+     loaded = {}
+     try:
+         for name in ('native', 'plan') + (('method',) if numerical else ()):
+-            spec = importlib.util.spec_from_file_location('_stage1_exact_v3_'+name, folder/(name+'.py'))
++            spec = importlib.util.spec_from_file_location('_stage2_exact_v3_'+name, folder/(name+'.py'))
+             module = importlib.util.module_from_spec(spec)
+             spec.loader.exec_module(module)
+             loaded[name] = module
+--- sealed_Stage1/train.py
++++ disabled_Stage2/train.py
+@@ -1,4 +1,4 @@
+-"""Prospective full Stage1 fit. No run without a separate exact root release."""
++"""Prospective full Stage2 fit. No run without a separate exact root release."""
+ import argparse
+ import importlib.metadata
+ import json
+@@ -9,7 +9,7 @@
+ import time
+ from admission import admit
+ from source import bind, fingerprint, load_v3, sha, write
+-from stage_plan import description, forecast
++from stage_plan import description, forecast, spec as condition_spec
+ 
+ 
+ VERIFY_ATOL, VERIFY_RTOL = 2e-6, 2e-6
+@@ -39,10 +39,10 @@
+         raise ValueError('Selected exact count/identity changed')
+ 
+ 
+-def checkpoint(session, epoch, metrics, signatures):
++def checkpoint(session, epoch, metrics, signatures, ownership):
+     return dict(schema='masked-context-selected-predictor-v1', epoch=epoch, selected_VALID=metrics,
+                 condition=session.name, seed=session.seed,
+-                selected_prediction_signatures=signatures,
++                selected_prediction_signatures=signatures, selected_last_ownership=ownership,
+                 bodies=[{k:v.detach().cpu().clone() for k,v in body.state_dict().items()} for body in session.bodies],
+                 decoder=None if session.decoder is None else {k:v.detach().cpu().clone() for k,v in session.decoder.state_dict().items()},
+                 selected_next_negative_states=[generator.getstate() for generator in session.negative_generators],
+@@ -98,7 +98,15 @@
+         valid_ids, valid_y = (torch.from_numpy(validation[key]).to('cuda:0') for key in ('valid_ids','valid_y'))
+         timings['numerical_imports_and_input_seconds'] = time.monotonic()-tick
+         tick = time.monotonic()
+-        session = method.Session(spec['condition'], spec['seed'], tensor['x'], tensor['edge_index'], tensor['train_ids'], tensor['train_y'], device='cuda:0')
++        auxiliary_edges = None
++        if spec.get('auxiliary_graph') is not None:
++            with np.load(bind(spec['auxiliary_graph']), allow_pickle=False) as archive:
++                if archive.files != ['edge_index']: raise ValueError('Only complete public auxiliary edge_index admitted')
++                edge_array = archive['edge_index'].copy()
++                if edge_array.dtype != np.int64 or fingerprint(edge_array) != spec['_rewire_custody']['graph_fingerprint']:
++                    raise ValueError('Frozen complete rewire graph fingerprint differs')
++                auxiliary_edges = torch.from_numpy(edge_array)
++        session = method.Session(spec['condition'], spec['seed'], tensor['x'], tensor['edge_index'], tensor['train_ids'], tensor['train_y'], device='cuda:0', auxiliary_edges=auxiliary_edges)
+         assert_independence(session, torch)
+         torch.cuda.synchronize()
+         timings['construction_seconds'] = time.monotonic()-tick
+@@ -109,6 +117,9 @@
+             for epoch in range(1, 2001):
+                 if time.monotonic()-process_started >= active_cap: raise TimeoutError('Frozen scientific active-time cap')
+                 tick = time.monotonic(); train_metrics = session.train_step(audit=False)
++                expected_decoder_divisor=4 if spec['condition']=='untied4_shared_decoder_core' else 1
++                if train_metrics['decoder_data_gradient_divisor']!=expected_decoder_divisor:
++                    raise ValueError('Exact V3 common-decoder route-mean data gradient required')
+                 torch.cuda.synchronize(); update_seconds = time.monotonic()-tick
+                 timings['update_seconds'] += update_seconds
+                 tick = time.monotonic(); probabilities, logits = session.factual_probabilities()
+@@ -121,7 +132,7 @@
+                     best_correct, best_epoch, best_metrics = correct, epoch, valid_metrics
+                     best_signatures = prediction_signatures(logits, probabilities, valid_ids, valid_y)
+                     tick = time.monotonic(); temporary = output/'SELECTED_PREDICTOR.partial.pt'
+-                    torch.save(checkpoint(session, epoch, valid_metrics, best_signatures), temporary)
++                    torch.save(checkpoint(session, epoch, valid_metrics, best_signatures, train_metrics['ownership']), temporary)
+                     os.replace(temporary, selected_path); checkpoint_writes += 1
+                     timings['checkpoint_write_seconds'] += time.monotonic()-tick
+                 epochs = epoch
+@@ -143,6 +154,7 @@
+         for body, state in zip(session.bodies, selected['bodies']): body.load_state_dict(state, strict=True)
+         if session.decoder is not None: session.decoder.load_state_dict(selected['decoder'], strict=True)
+         for generator, state in zip(session.negative_generators, selected['selected_next_negative_states']): generator.setstate(state)
++        selected_ownership = selected['selected_last_ownership']
+         del selected; torch.cuda.synchronize(); timings['restore_seconds'] = time.monotonic()-tick
+         tick = time.monotonic(); probabilities, logits = session.factual_probabilities()
+         selected_metrics = classification(logits, probabilities, valid_ids, valid_y)
+@@ -151,18 +163,18 @@
+         verify_selected_metrics(selected_metrics, best_metrics)
+         torch.cuda.synchronize(); timings['selected_factual_seconds'] = time.monotonic()-tick
+         tick = time.monotonic()
+-        mask_report, masked_logits = mask_diagnostics(session, method, dict(TRAIN=(session.train_ids, session.train_y), VALID=(valid_ids, valid_y)))
++        mask_report, masked_logits = mask_diagnostics(session, method, dict(TRAIN=(session.train_ids, session.train_y), VALID=(valid_ids, valid_y)), selected_ownership)
+         torch.cuda.synchronize(); timings['selected_mask_diagnostics_seconds'] = time.monotonic()-tick
+         payload = dict(factual_member_logits=logits.detach().cpu().numpy())
+         if masked_logits is not None: payload['owned_masked_member_logits'] = masked_logits.detach().cpu().numpy()
+         tick = time.monotonic(); np.savez_compressed(output/'SELECTED_MEMBER_LOGITS.npz', **payload)
+         timings['logit_write_seconds'] = time.monotonic()-tick
+-        expected_optimizers = 4 if spec['condition'] == 'independent4_native' else (2 if spec['condition'] == 'shared4_core' else 1)
+-        expected_masks = epochs*4+4 if spec['condition'] == 'shared4_core' else 0
+-        if session.counters['updates'] != epochs or session.counters['backwards'] != epochs*4 or session.counters['optimizer_steps'] != epochs*expected_optimizers or session.counters['factual_forwards'] != epochs*8+4 or session.counters['serving_forwards'] != epochs*4+4 or session.counters['masked_forwards'] != expected_masks:
++        expected = condition_spec(spec['condition'])
++        expected_masks = epochs*expected['masked_views']+expected['masked_views']
++        if session.counters['updates'] != epochs or session.counters['backwards'] != epochs*expected['backwards'] or session.counters['optimizer_steps'] != epochs*expected['optimizer_steps'] or session.counters['factual_forwards'] != epochs*2*expected['members']+expected['members'] or session.counters['serving_forwards'] != (epochs+1)*expected['members'] or session.counters['masked_forwards'] != expected_masks:
+             raise ValueError('Complete declared training/evaluation/diagnostic work counts differ')
+         if time.monotonic()-process_started >= active_cap: raise TimeoutError('Frozen scientific cap before completion')
+-        result = dict(schema='masked-context-PubMed-stage1-complete-v1', complete=True,
++        result = dict(schema='masked-context-PubMed-stage2-complete-v1', complete=True,
+             record_id=spec['record_id'], condition=spec['condition'], seed=spec['seed'],
+             source_manifest_sha256=spec['source_manifest_sha256'], release_sha256=spec['_release_sha256'],
+             split_identity=spec['split_identity'], split_seed=190111, providers=providers,
+@@ -183,12 +195,12 @@
+             predictor_parameters=sum(p.numel() for body in session.bodies for p in body.parameters()),
+             decoder_parameters=0 if session.decoder is None else sum(p.numel() for p in session.decoder.parameters()),
+             complete_saved_member_logits=dict(path='SELECTED_MEMBER_LOGITS.npz', sha256=sha(output/'SELECTED_MEMBER_LOGITS.npz'), bytes=(output/'SELECTED_MEMBER_LOGITS.npz').stat().st_size,
+-                keys=sorted(payload), factual_shape=[4,19717,3], masked_shape=None if masked_logits is None else [4,19717,3], contains_labels_or_role_ids=False, server_only=True),
++                keys=sorted(payload), factual_shape=[expected['members'],19717,3], masked_shape=None if masked_logits is None else [4,19717,3], contains_labels_or_role_ids=False, server_only=True),
+             selected_predictor=dict(path='SELECTED_PREDICTOR.pt', sha256=sha(selected_path), bytes=selected_path.stat().st_size, server_only=True, resumable=False),
+             train_bundle_sha256=spec['train_bundle']['sha256'], valid_bundle_sha256=spec['valid_bundle']['sha256'],
+             TEST_labels_or_id_inputs=False, TEST_scored=False, automatic_retry=False,
+-            competence_established_by_completion=False, whole_nine_comparison_required=True,
+-            owner_success_not_inferred=True, independent_primary_common_bank_selector=True)
++            competence_established_by_completion=False, whole_27_comparison_required=True, retained_Stage1_records=9, selected_ownership=selected_ownership,
++            owner_success_not_inferred=True, independent_primary_common_bank_selector_limit_retained=True)
+         write(output/'COMPLETE.json', result)
+         return result
+     except BaseException as error:
+@@ -204,18 +216,21 @@
+ 
+ 
+ def assert_independence(session, torch):
+-    if session.name != 'independent4_native': return
++    if session.name != 'untied4_shared_decoder_core': return
+     parameters = [set(id(p) for p in body.parameters()) for body in session.bodies]
+     if len(parameters) != 4 or any(parameters[a] & parameters[b] for a in range(4) for b in range(a)):
+-        raise ValueError('Genuine independent4 requires four disjoint full native bodies')
+-    if len(session.optimizers) != 4 or session.decoder is not None:
+-        raise ValueError('Four private native Adams and no decoder required')
++        raise ValueError('Untied4 control requires four disjoint full native bodies')
++    if len(session.optimizers) != 5 or session.decoder is None:
++        raise ValueError('Four private body Adams plus one common decoder Adam required')
+     factors = session.factors.FactorLinear
+     if any(isinstance(module, factors) for body in session.bodies for module in body.modules()):
+         raise ValueError('Independent native bodies cannot contain BE factor wrappers')
+-    for member, optimizer in enumerate(session.optimizers):
++    for member, optimizer in enumerate(session.optimizers[:4]):
+         optimized = {id(p) for group in optimizer.param_groups for p in group['params']}
+         if optimized != parameters[member]: raise ValueError('Private optimizer/body mismatch')
++    decoder_params = {id(p) for p in session.decoder.parameters()}
++    if decoder_params != {id(p) for g in session.optimizers[4].param_groups for p in g['params']} or any(decoder_params & params for params in parameters):
++        raise ValueError('One disjoint common decoder optimizer required')
+ 
+ 
+ def main():
+--- sealed_Stage1/metrics.py
++++ disabled_Stage2/metrics.py
+@@ -10,19 +10,20 @@
+ 
+ def classification(logits, probabilities, ids, labels):
+     import torch
+-    if logits.shape != (4, 19717, 3) or probabilities.shape != (19717, 3):
+-        raise ValueError('Complete four-member logits and factual probabilities required')
++    members_count = logits.shape[0]
++    if members_count not in (1,4) or logits.shape != (members_count, 19717, 3) or probabilities.shape != (19717, 3):
++        raise ValueError('Complete one/four-member factual logits and probabilities required')
+     if not torch.isfinite(logits).all() or not torch.isfinite(probabilities).all():
+         raise FloatingPointError('Nonfinite selected/evaluated logits')
+     values = logits[:, ids]
+     log_members = values.log_softmax(-1)
+-    log_pool = torch.logsumexp(log_members, dim=0)-math.log(4)
++    log_pool = torch.logsumexp(log_members, dim=0)-math.log(members_count)
+     prediction = probabilities[ids].argmax(-1)
+     pooled = accuracy_counts(prediction, labels)
+     selected = log_pool.gather(1, labels[:, None]).flatten()
+     pooled['NLL'] = float(-selected.mean().item())
+     members = []
+-    for member in range(4):
++    for member in range(members_count):
+         row = accuracy_counts(values[member].argmax(-1), labels)
+         row['NLL'] = float(-log_members[member].gather(1, labels[:, None]).mean().item())
+         members.append(row)
+@@ -33,56 +34,58 @@
+         row = dict(class_id=c, **accuracy_counts(prediction[chosen], labels[chosen]))
+         row['NLL'] = float(-selected[chosen].mean().item())
+         row['members'] = [dict(**accuracy_counts(values[m, chosen].argmax(-1), labels[chosen]),
+-                               NLL=float(-log_members[m, chosen, c].mean().item())) for m in range(4)]
++                               NLL=float(-log_members[m, chosen, c].mean().item())) for m in range(members_count)]
+         classes.append(row)
+     return dict(pooled=pooled, members=members,
+-                mean_member_accuracy=sum(m['accuracy'] for m in members)/4,
++                mean_member_accuracy=sum(m['accuracy'] for m in members)/members_count,
+                 worst_member_accuracy=min(m['accuracy'] for m in members),
+                 classes=classes, macro_accuracy=sum(c['accuracy'] for c in classes)/3)
+ 
+ 
+-def mask_diagnostics(session, method, roles):
++def mask_diagnostics(session, method, roles, selected_ownership):
+     import torch
+     from torch.nn import functional as F
+     structural = dict(eligible_partition_counts=[len(ids) for ids in session.anchor_ids],
+-                      partition_seed=190101, ownership='persistent route m owns quarter m',
++                      partition_seed=190101, selected_training_ownership=selected_ownership,
+                       uses_public_feature_targets_only=True, affects_selection=False)
+-    if session.name != 'shared4_core':
++    if not session.spec['masked']:
+         return dict(available=False, reason='Exact own-only V3 condition has no masked views or decoder', **structural), None
+-    modules = [module for body in session.bodies for module in body.modules()]+list(session.decoder.modules())
+-    modes = [(module, module.training) for module in modules]
++    if sorted(selected_ownership) != list(range(4)):raise ValueError('Selected four-quarter ownership permutation required')
++    modules=[module for body in session.bodies for module in body.modules()]
++    if session.decoder is not None:modules+=list(session.decoder.modules())
++    modes=[(module,module.training) for module in modules]
+     try:
+-        for body in session.bodies: body.eval()
+-        session.decoder.eval()
+-        banks, routes = [], []
++        for body in session.bodies:body.eval()
++        if session.decoder is not None:session.decoder.eval()
++        banks,routes=[],[]
+         with torch.no_grad():
+-            for member in range(4):
+-                logits, hidden = session._forward(member, 'masked', member)
++            for slot in range(4):
++                member=slot if session.spec['members']==4 else 0
++                quarter=selected_ownership[member] if session.spec['members']==4 else slot
++                logits,hidden=session._forward(member,'masked',quarter)
+                 banks.append(logits)
+-                ids = session.anchor_ids[member]
+-                reconstruction = session.decoder(hidden[ids])
+-                generator = random.Random()
+-                generator.setstate(session.negative_generators[member].getstate())
+-                negatives = method.negative_indices(len(ids), generator).to(session.device)
+-                cosine = (F.normalize(reconstruction, dim=-1, eps=1e-8)*F.normalize(session.x[ids], dim=-1, eps=1e-8)).sum(-1)
+-                role_rows = {}
+-                for name, (role_ids, role_labels) in roles.items():
+-                    chosen = torch.isin(role_ids, ids)
+-                    full = dict(**accuracy_counts(logits[role_ids].argmax(-1), role_labels),
+-                                NLL=float(F.cross_entropy(logits[role_ids], role_labels).item()))
+-                    missing = None if not chosen.any() else dict(
+-                        **accuracy_counts(logits[role_ids[chosen]].argmax(-1), role_labels[chosen]),
+-                        NLL=float(F.cross_entropy(logits[role_ids[chosen]], role_labels[chosen]).item()))
+-                    role_rows[name] = dict(all_role_nodes=full, own_missing_feature_nodes=missing)
+-                routes.append(dict(member=member, quarter=member, anchors=len(ids),
+-                                   CORE32=float(method.core_loss(reconstruction, session.x[ids], negatives).item()),
+-                                   reconstruction_target_cosine_mean=float(cosine.mean().item()), roles=role_rows))
+-            bank = torch.stack(banks)
+-            probabilities = bank.softmax(-1).mean(0)
+-            masked_valid = classification(bank, probabilities, *roles['VALID'])
+-        return dict(available=True, routes=routes, masked_VALID=masked_valid,
+-                    masked_pool_is_diagnostic_only=True,
+-                    negative_draw='Clone of selected epoch next-negative-generator states; no training stream is advanced',
+-                    **structural), bank
++                ids=session.anchor_ids[quarter]
++                reconstruction_report=None
++                if session.decoder is not None:
++                    reconstruction=session.decoder(hidden[ids])
++                    generator=random.Random()
++                    generator.setstate(session.negative_generators[member if session.spec['members']==4 else quarter].getstate())
++                    negatives=method.negative_indices(len(ids),generator).to(session.device)
++                    cosine=(F.normalize(reconstruction,dim=-1,eps=1e-8)*F.normalize(session.x[ids],dim=-1,eps=1e-8)).sum(-1)
++                    reconstruction_report=dict(CORE32=float(method.core_loss(reconstruction,session.x[ids],negatives).item()),
++                        reconstruction_target_cosine_mean=float(cosine.mean().item()))
++                role_rows={}
++                for name,(role_ids,role_labels) in roles.items():
++                    chosen=torch.isin(role_ids,ids)
++                    full=dict(**accuracy_counts(logits[role_ids].argmax(-1),role_labels),NLL=float(F.cross_entropy(logits[role_ids],role_labels).item()))
++                    missing=None if not chosen.any() else dict(**accuracy_counts(logits[role_ids[chosen]].argmax(-1),role_labels[chosen]),
++                        NLL=float(F.cross_entropy(logits[role_ids[chosen]],role_labels[chosen]).item()))
++                    role_rows[name]=dict(all_role_nodes=full,own_missing_feature_nodes=missing)
++                routes.append(dict(member=member,quarter=quarter,anchors=len(ids),reconstruction=reconstruction_report,roles=role_rows))
++            bank=torch.stack(banks)
++            masked_valid=classification(bank,bank.softmax(-1).mean(0),*roles['VALID'])
++        return dict(available=True,routes=routes,masked_VALID=masked_valid,masked_pool_is_diagnostic_only=True,
++            negative_draw='Clone selected next-negative states; no training RNG/ownership is advanced',
++            core_available=session.decoder is not None,**structural),bank
+     finally:
+-        for module, mode in modes: module.training = mode
++        for module,mode in modes:module.training=mode
+--- sealed_Stage1/admission.py
++++ disabled_Stage2/admission.py
+@@ -7,26 +7,27 @@
+ import sys
+ from source import HERE, PHASE, bind, inside, sha, verify_manifest
+ from stage_plan import CONDITIONS, SEEDS, SPLIT, MAX_EPOCHS, PATIENCE, SELECTOR, LIMITS, QUALIFICATION_UPDATES, SERVER_HOST, SERVER_GPU, SERVER_PHASE
++from stage_plan import spec as condition_spec
+ 
+ 
+ def admit(path, digest):
+     path = inside(path)
+     if sha(path) != digest: raise ValueError('Exact separate root release digest required')
+     spec = json.loads(path.read_text())
+-    if spec.get('schema') != 'masked-context-PubMed-stage1-scientific-release-v1':
+-        raise ValueError('Separate Stage1 scientific release required')
++    if spec.get('schema') != 'masked-context-PubMed-stage2-scientific-release-v1':
++        raise ValueError('Separate Stage2 scientific release required')
+     for key in ('enabled', 'root_science_authorized', 'source_review_approved',
+                 'source_delta_assessment_approved', 'runtime_qualified',
+                 'complete_graph_data_custody_verified', 'VALID_custody_verified',
+                 'external_hard_bound_confirmed', 'fresh_resource_readiness_confirmed',
+-                'ordinary_runtime_confirmed', 'complete_nine_roster_frozen'):
++                'ordinary_runtime_confirmed', 'complete_eighteen_roster_frozen', 'complete_nine_positive_stage1_verified'):
+         if spec.get(key) is not True: raise ValueError('Inactive root admission: '+key)
+-    for key in ('TEST_access', 'automatic_retry', 'resume', 'further18_activated'):
+-        if spec.get(key) is not False: raise ValueError('TEST, retries, resume and later stages are closed')
++    for key in ('TEST_access', 'automatic_retry', 'resume'):
++        if spec.get(key) is not False: raise ValueError('TEST, retries and resume are closed')
+     if any(key in spec for key in ('test_bundle', 'test_ids', 'test_y', 'split_ids_bundle')):
+         raise ValueError('No TEST artifact or full role bundle admitted')
+     if spec.get('condition') not in CONDITIONS or spec.get('seed') not in SEEDS:
+-        raise ValueError('Exact declared Stage1 condition/seed required')
++        raise ValueError('Exact declared Stage2 condition/seed required')
+     if spec.get('record_id') != f"seed{spec['seed']}__{spec['condition']}":
+         raise ValueError('Declared record identity required')
+     for key, value in SPLIT.items():
+@@ -35,15 +36,17 @@
+         raise ValueError('Fixed2000/250 strict-first pooled selector required')
+     bindings = verify_manifest(spec.get('source_manifest_sha256'))
+     root = json.loads(bind(spec['root_admission']).read_text())
+-    if root.get('schema') != 'masked-context-stage1-root-adoption-v1' or root.get('enabled') is not True:
++    if root.get('schema') != 'masked-context-stage2-root-adoption-v1' or root.get('enabled') is not True:
+         raise ValueError('Separately reviewed actual root adoption required')
+-    for key in ('source_review_approved', 'source_delta_assessment_approved', 'complete_nine_roster_frozen'):
++    for key in ('source_review_approved', 'source_delta_assessment_approved', 'complete_eighteen_roster_frozen', 'complete_nine_positive_stage1_verified'):
+         if root.get(key) is not True: raise ValueError('Root has not approved '+key)
+     if root.get('source_manifest_sha256') != spec['source_manifest_sha256'] or root.get('prototype_manifest_sha256') != bindings['prototype_manifest']['sha256']:
+         raise ValueError('Root must adopt exact new runner and exact V3')
+     if root.get('roster_sha256') != sha(HERE/'ROSTER.json') or root.get('protocol_sha256') != sha(HERE/'PROTOCOL.json'):
+         raise ValueError('Root roster/protocol adoption mismatch')
+     bind(root['source_review']); bind(root['source_delta_assessment'])
++    from closure import positive_nine
++    positive_nine(root['stage1_comparison'], bindings)
+     train = bind(spec['train_bundle']); valid = bind(spec['valid_bundle'])
+     if train == valid: raise ValueError('Separate TRAIN-only and VALID-only projections required')
+     custody = json.loads(bind(spec['split_custody']).read_text())
+@@ -79,7 +82,7 @@
+         raise ValueError('Both VALID-array fingerprints required')
+     bind(validation['custodian_source'])
+     qualifications = root.get('qualifications', {})
+-    if set(qualifications) != set(CONDITIONS): raise ValueError('All Stage1 runtime surfaces need explicit root coverage')
++    if set(qualifications) != set(CONDITIONS): raise ValueError('All Stage2 runtime surfaces need explicit root coverage')
+     terminals = root.get('qualification_terminals', {})
+     if set(terminals) != set(CONDITIONS): raise ValueError('Actual qualification owner terminals required')
+     for name, row in qualifications.items():
+@@ -93,10 +96,16 @@
+         expected_updates=QUALIFICATION_UPDATES[name]
+         if result.get('counters', {}).get('updates') != expected_updates or len(result.get('trace', [])) != expected_updates:
+             raise ValueError('Frozen full-TRAIN engineering coverage count differs')
+-        if row['sha256'] != bindings['actual_qualifications'][name]['sha256'] or terminals[name]['sha256'] != bindings['actual_qualification_terminals'][name]['sha256']:
+-            raise ValueError('Exact actual V3/source/runtime engineering custody required')
++        expected=condition_spec(name);counts=result['counters']
++        if counts.get('factual_forwards')!=(expected_updates+1)*expected['members'] or counts.get('masked_forwards')!=expected_updates*expected['masked_views'] or counts.get('backwards')!=expected_updates*expected['backwards'] or counts.get('optimizer_steps')!=expected_updates*expected['optimizer_steps']:
++            raise ValueError('All factual/masked/backward/optimizer routes must be qualified')
++        if result.get('no_predicted_or_heldout_scores') is not True:
++            raise ValueError('Qualification must not select or score heldout roles')
+         if any(t.get('TRAIN', {}).get('TRAIN_label_count') != 11829 or t.get('TRAIN', {}).get('complete_graph_nodes') != 19717 for t in result['trace']):
+             raise ValueError('Qualification must use every TRAIN label on the complete graph')
++        decoder_divisor=4 if name=='untied4_shared_decoder_core' else 1
++        if any(t['TRAIN'].get('decoder_data_gradient_divisor')!=decoder_divisor for t in result['trace']):
++            raise ValueError('Qualified common decoder must retain exact V3 normalization')
+         if result.get('data_SHA') != spec['train_bundle']['sha256'] or result.get('providers') != spec['frozen_providers']:
+             raise ValueError('Qualification data/runtime differs')
+         for key in ('split_protocol', 'split_seed', 'split_identity'):
+@@ -106,6 +115,11 @@
+             raise ValueError('Qualification requires an actually waited successful owner terminal')
+         if result.get('engineering_release_sha256') not in terminal.get('argv', []):
+             raise ValueError('Qualification owner must bind the actual engineering release')
++        argv=terminal['argv']
++        if name=='shared4_core_rewired':
++            actual_release=json.loads(bind(dict(path=argv[argv.index('--release')+1],sha256=result['engineering_release_sha256'])).read_text())
++            if actual_release.get('auxiliary_graph',{}).get('sha256')!=spec.get('auxiliary_graph',{}).get('sha256') or actual_release.get('frozen_rewire_recipe',{}).get('graph_fingerprint')!=spec.get('frozen_rewire_recipe',{}).get('graph_fingerprint'):
++                raise ValueError('Qualification must cover the exact frozen common auxiliary graph')
+     limits = spec.get('limits', {})
+     for key, value in LIMITS.items():
+         if value is not None and limits.get(key) != value: raise ValueError('Fixed resource cap differs: '+key)
+@@ -129,6 +143,11 @@
+         raise ValueError('Existing project runtime launcher/hash required; its ordinary interpreter symlink is permitted')
+     if Path(sys.executable).resolve() != python_path.resolve() or os.environ.get('PYTHONPATH', '') != runtime['PYTHONPATH']:
+         raise ValueError('Exact root-bound existing runtime executable/PYTHONPATH required')
++    if spec['condition'] == 'shared4_core_rewired':
++        from rewire import admit_auxiliary
++        spec['_rewire_custody'] = admit_auxiliary(spec, bindings)
++    elif spec.get('auxiliary_graph') is not None or spec.get('frozen_rewire_recipe') is not None:
++        raise ValueError('Only the predeclared rewire condition receives changed auxiliary edges')
+     output = inside(spec['output'], existing=False)
+     if output.is_relative_to(HERE) or output.exists(): raise ValueError('Fresh separate server execution output required')
+     spec['_release_sha256'], spec['_train_custody'], spec['_validation_custody'] = digest, custody, validation
+--- sealed_Stage1/stage_plan.py
++++ disabled_Stage2/stage_plan.py
+@@ -1,52 +1,83 @@
+-"""Frozen nine-record source plan. Stdlib only; all releases are disabled."""
+-SEEDS = (9101, 9203, 9307)
+-CONDITIONS = ('shared4_own', 'shared4_core', 'independent4_native')
+-SPLIT = dict(dataset='PubMed', split_protocol='class_stratified_floor60_20_20',
+-             split_identity='PubMed-class-stratified-floor60-20-20', split_seed=190111,
+-             full_graph_shape=[19717, 500], TRAIN_count=11829, VALID_count=3942,
+-             TRAIN_class_counts=[2461, 4643, 4725], VALID_class_counts=[820, 1547, 1575])
+-SELECTOR = 'first strict maximum factual mean-member-probability pooled VALID accuracy'
+-MAX_EPOCHS, PATIENCE = 2000, 250
+-SERVER_HOST = 'anogena-2-0'
+-SERVER_GPU = 'GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+-SERVER_PHASE = '/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930'
+-LIMITS = dict(GPU_bytes=32*1024**3, RSS_bytes=16*1024**3,
+-              output_bytes=512*1024**2, log_bytes=8*1024**2,
+-              automatic_retry=False, external_active_seconds=9000,
+-              external_cleanup_seconds=10)
+-QUALIFICATION_UPDATES = dict(shared4_core=3, shared4_own=1, independent4_native=1)
++"""Frozen positive-continuation controls. Stdlib only; source is disabled."""
++SEEDS=(9101,9203,9307)
++STAGE1=('shared4_own','shared4_core','independent4_native')
++CONDITIONS=('shared4_masked_ce','shared4_core_shuffled','shared4_core_rewired',
++            'single_native','single_four_view_core','untied4_shared_decoder_core')
++ALL_CONDITIONS=('shared4_own','shared4_masked_ce','shared4_core','shared4_core_shuffled',
++    'shared4_core_rewired','single_native','independent4_native','single_four_view_core','untied4_shared_decoder_core')
++SPLIT=dict(dataset='PubMed',split_protocol='class_stratified_floor60_20_20',
++    split_identity='PubMed-class-stratified-floor60-20-20',split_seed=190111,
++    full_graph_shape=[19717,500],TRAIN_count=11829,VALID_count=3942,
++    TRAIN_class_counts=[2461,4643,4725],VALID_class_counts=[820,1547,1575])
++SELECTOR='first strict maximum factual mean-member-probability pooled VALID accuracy'
++MAX_EPOCHS,PATIENCE=2000,250
++SERVER_HOST='anogena-2-0'
++SERVER_GPU='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
++SERVER_PHASE='/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930'
++LIMITS=dict(GPU_bytes=32*1024**3,RSS_bytes=16*1024**3,output_bytes=512*1024**2,
++    log_bytes=8*1024**2,automatic_retry=False,external_active_seconds=9000,external_cleanup_seconds=10)
++QUALIFICATION_UPDATES={name:1 for name in CONDITIONS}
++REWIRE=dict(double_edge_swap_seed=190121,accepted_swaps_per_nonself_undirected_edge=10,
++    maximum_proposals_per_requested_swap=100,one_common_graph_for_all_optimizer_seeds=True,
++    preserves='complete node universe, every nonself degree, isolated nodes, undirected edge count and original self edges',
++    connected_components_preserved=False,labels_used=False,quality_or_overlap_selected=False)
++PURPOSES={
++    'shared4_masked_ce':'Core minus masked CE isolates added contrastive reconstruction under the same owned masking and factual/masked CE exposure; masked CE minus own measures masking/extra CE opportunity.',
++    'shared4_core_shuffled':'Core minus shuffled tests persistent ownership against per-update permutation of the same four fixed mask banks. Mask populations, all four exposures and scalar weights remain fixed.',
++    'shared4_core_rewired':'Core minus rewired tests auxiliary original-graph alignment after complete degree-preserving rewiring. Factual graph/serving and missing-feature ownership remain unchanged. Component/homophily/neighborhood structure can change, limiting causal interpretation.',
++    'single_native':'Complete capable native single reference at the same seed, architecture, optimizer, full horizon and representative roles; source matching alone does not prove competence.',
++    'single_four_view_core':'Single all-view minus native tests auxiliary learning without a bank; core minus all-view single compares shared-bank utility against one full body receiving every auxiliary view with the same mean auxiliary coefficients.',
++    'untied4_shared_decoder_core':'Untied core minus ordinary independent4 tests auxiliary learning with free private bodies coupled through one decoder. Core minus untied core compares practical sharing/coordinates, with body gradients unscaled and decoder mean data gradient fixed; this is not an ordinary independent acquisition control.'}
++CONTROL_PRIORITY=('single_native','single_four_view_core','shared4_masked_ce',
++    'untied4_shared_decoder_core','shared4_core_shuffled','shared4_core_rewired')
+ 
+ 
+-def roster():
+-    return [dict(record_id=f'seed{seed}__{name}', condition=name, seed=seed,
+-                 members=4, bodies=4 if name == 'independent4_native' else 1,
+-                 enabled=False, max_epochs=MAX_EPOCHS, patience=PATIENCE,
+-                 selector=SELECTOR, TEST_access=False, limits=dict(LIMITS), **SPLIT)
+-            for seed in SEEDS for name in CONDITIONS]
++def spec(name):
++    if name not in ALL_CONDITIONS:raise ValueError('Exact fixed condition required')
++    untied=name in ('independent4_native','untied4_shared_decoder_core')
++    shared=name.startswith('shared4')
++    masked=name not in ('shared4_own','single_native','independent4_native')
++    core=masked and name!='shared4_masked_ce'
++    members=4 if shared or untied else 1
++    return dict(members=members,bodies=4 if untied else 1,shared_BE=shared,untied=untied,masked=masked,core=core,
++        all_view_single=name=='single_four_view_core',masked_views=4 if masked else 0,
++        factual_views=members,optimizer_steps=4+(1 if core else 0) if untied else 1+(1 if core else 0),
++        backwards=5 if name=='single_four_view_core' else members)
++
++
++def roster(conditions=CONDITIONS):
++    return [dict(record_id=f'seed{seed}__{name}',condition=name,seed=seed,enabled=False,
++        max_epochs=2000,patience=250,selector=SELECTOR,TEST_access=False,limits=dict(LIMITS),
++        **SPLIT,**spec(name)) for seed in SEEDS for name in conditions]
+ 
+ 
+ def description():
+-    return dict(schema='masked-context-PubMed-disabled-stage1-plan-v1',
+-                enabled=False, records=roster(), complete_family_count=9,
+-                further18_activated=False, numerical_calls_performed=0,
+-                independent_selector_limit='Primary common bank selector; individually selected ordinary independent members remain required for an eventual superiority claim.',
+-                competence_limit='Three TRAIN updates establish bounded engineering behavior only. Complete nine records and selected member/class readouts precede continuation; capable singles, own-selected independent ensembles and unused confirmation remain required for stronger claims.')
++    return dict(schema='masked-context-disabled-stage2-plan-v1',enabled=False,
++        positive_complete_nine_required=True,records=roster(),retained_stage1_records=9,
++        new_records=18,complete_family_records=27,rewire=REWIRE,purposes=PURPOSES,
++        control_priority=list(CONTROL_PRIORITY),
++        primary_reference_priority='After whole Stage1 closure and passing frozen screen: native single3 first; separately own-selected ordinary-independent reference banks remain a primary prerequisite for a stronger claim, before lower-priority perturbation interpretation. They are not silently added to this18/27 source roster.',
++        partial_family_interpretation=False,automatic_retry=False,TEST_access=False,
++        stronger_claim_limit='One encountered graph/split, optimizer replicates, common independent-bank selector. Preserve all27 and all failures. Capable singles and own-selected independent ensembles plus unused confirmation remain required.')
+ 
+ 
+ def forecast(native_forecast):
+-    return dict(schema='masked-context-stage1-symbolic-cost-v1', measured=False,
+-                native_shape_ledger=native_forecast, records=9, native_body_constructions=18,
+-                maximum_bank_updates=18000, maximum_training_fullgraph_forwards=96000,
+-                maximum_regular_VALID_member_forwards=72000,
+-                maximum_backward_calls=72000, maximum_Adam_steps=42000,
+-                selected_factual_member_forwards=36, selected_masked_member_forwards=12,
+-                preprocessing_banks=21, saved_factual_float32_logit_bytes=8517744,
+-                saved_masked_float32_logit_bytes=2839248,
+-                maximum_selected_checkpoint_writes=18000,
+-                wall_seconds=None, GPU_peak_bytes=None, RSS_peak_bytes=None,
+-                limits=LIMITS, scientific_wall_cap_pending=False,
+-                complete9_additive_active_plus_cleanup_cap_seconds=81090,
+-                caps_prospective_and_root_admission_pending=True,
+-                timing_rule='After root qualification, use same-runtime per-condition complete-update and factual-serving times times2000, plus preprocessing, checkpoint I/O, selected diagnostics and owner overhead. Do not infer a complete-run ETA from three updates.',
+-                omitted_peaks='Native autograd tapes, negative reconstruction gathers, stacked serving logits, CUDA allocator, full graph preprocessing, checkpoint copies and optimizer state.',
+-                stop_rule='Any frozen wall/resource cap is a preserved failure, never a completed shortened scientific record or an automatic retry.')
++    counts={name:spec(name) for name in CONDITIONS}
++    return dict(schema='masked-context-stage2-symbolic-cost-v1',measured_complete_run=False,
++        exact_native_shape_ledger=native_forecast,condition_work=counts,new_records=18,
++        retained_records=9,complete_family_records=27,
++        maximum_training_fullgraph_forwards=6000*sum(r['factual_views']+r['masked_views'] for r in counts.values()),
++        maximum_regular_VALID_member_forwards=6000*sum(r['members'] for r in counts.values()),
++        maximum_backward_calls=6000*sum(r['backwards'] for r in counts.values()),
++        maximum_Adam_steps=6000*sum(r['optimizer_steps'] for r in counts.values()),
++        selected_factual_member_forwards=3*sum(r['members'] for r in counts.values()),
++        selected_masked_member_forwards=3*sum(r['masked_views'] for r in counts.values()),
++        preprocessing_banks=3*sum(5 if r['masked'] else 1 for r in counts.values()),
++        native_body_constructions=3*sum(r['bodies'] for r in counts.values()),
++        saved_factual_float32_logit_bytes=3*19717*3*4*sum(r['members'] for r in counts.values()),
++        saved_masked_float32_logit_bytes=3*19717*3*4*sum(r['masked_views'] for r in counts.values()),
++        maximum_selected_checkpoint_writes=36000,limits=LIMITS,
++        new18_additive_active_plus_cleanup_cap_seconds=162180,complete27_additive_cap_seconds=243270,
++        rewire_generation_envelope_seconds=600,rewire_generation_GPU_bytes=0,rewire_generation_RSS_bytes=16*1024**3,
++        wall_estimate_seconds=None,new_control_GPU_peak_bytes=None,
++        limitation='Stage1 rates do not qualify shuffled/rewired/single/all-view/untied-decoder controls. Complete TRAIN-only timing, graph generation and selected-output peaks require future root evidence; no proxy may become a shortened horizon or favorable retry.')
