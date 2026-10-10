@@ -17,7 +17,7 @@ Combine mechanisms when each has a plausible distinct role. One can help members
 
 ## Keep the queue small
 
-The current compute study is independent native attention-row starts × ensemble relation feedback. The second candidate is persistent masked-context classification and contrastive reconstruction. The IMDB readout of all24 correctness banks is complete and supports member competence as the measured priority. The nine-record PubMed screen is running. A separate typed-label-context factor prototype is disabled pending qualification. The new-method scout continues independently. Exact packets, dispositions and evidence live in RESEARCH_STATE.md and research_ledger.json.
+The current compute study is independent native attention-row starts × ensemble relation feedback. The second candidate is persistent masked-context classification and contrastive reconstruction. The diagnostic action is a finite IMDB readout of all24 saved correctness banks. The new-method scout continues independently. Exact packets, dispositions and evidence live in RESEARCH_STATE.md and research_ledger.json.
 
 Every completed family triggers a history update and a next-step decision. Preserve unsuccessful results and describe why a hypothesis failed within its measured scope. Reopen it only with a new mechanism or newly available evidence. Do not spend another grid on a renamed existing loss. A known method may be a useful ingredient or baseline, with its ancestry stated explicitly.
 
