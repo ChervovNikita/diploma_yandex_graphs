@@ -4,9 +4,9 @@
 
 ## Running comparisons
 
-Nine complete PubMed fits now compare ordinary shared training, persistent masked-context classification/contrastive reconstruction, and genuine independent4 across three seeds. The allocation owner is detached and the first baseline was observed at epoch220. Full graph, stratified roles and all numerical surfaces were qualified before admission. Finish all nine before interpreting accuracy, NLL, member competence and class coverage. Initial update/serving proxy3.74h excludes other costs and later-rate changes.
+Nine complete PubMed fits now compare ordinary shared training, persistent masked-context classification/contrastive reconstruction, and genuine independent4 across three seeds. The allocation owner is detached and the first baseline has completed and the core fit was observed at epoch390, with no recorded failure. Full graph, stratified roles and all numerical surfaces were qualified before admission. Finish all nine before interpreting accuracy, NLL, member competence and class coverage. Initial update/serving proxy3.74h excludes other costs and later-rate changes.
 
-Six WikiCS fits remain queued/running on18.77, testing independent native attention-row initialization × ensemble feedback against preserved copied-start anchors. Last quality-free observation showed both owners active without failure. Finish the whole family before interpretation. No partial accuracy values opened.
+Six WikiCS fits remain queued/running on18.77, testing independent native attention-row initialization × ensemble feedback against preserved copied-start anchors. Latest quality-free observation showed both owners active without failure.6101_alphaF finished its1100 updates,6101_relationJ was at1068 and6203_alphaF was at582. Finish the whole family before interpretation. No partial accuracy values opened.
 
 ## What the history review changed
 
@@ -18,4 +18,4 @@ Prior Q/K, relation-feedback, geometry, IMDB, Tolokers and MolHIV negative findi
 
 A separate disabled SeHGNN prototype learns query-conditional private factors from observed-label/knownness fields along typed paths. Native positive-label propagation already exists, and its ancestry is explicit. Target-excluded TRAIN halves, matched-information single/shared/untied controls and extra serving cost are retained. It is unqualified and has no measured gain.
 
-Three agents have distinct new-method, combination and history roles. Latest verified allocation/GitHub commit5b0d23546bbf928962bf5094a05c3b816efff2ad. Latest launch/prototype publication follows. Source, data and deliberate operations use the authorized project repositories. Seven-GPU access is relay only. No sudo, PDF compilation, host changes, GENLINK or unrelated-data access. Fresh manuscript acceptance review remains outstanding.
+Three agents have distinct new-method, combination and history roles. Latest verified allocation/GitHub commit2ab70a42932f304230564477b8a59af6c31de469 includes the masked-context launch and new-method prototype. The named GitHub key push and exact remote ref were verified. Source, data and deliberate operations use the authorized project repositories. Seven-GPU access is relay only. No sudo, PDF compilation, host changes, GENLINK or unrelated-data access. Fresh manuscript acceptance review remains outstanding.

@@ -21,6 +21,12 @@ The current compute study is independent native attention-row starts × ensemble
 
 Every completed family triggers a history update and a next-step decision. Preserve unsuccessful results and describe why a hypothesis failed within its measured scope. Reopen it only with a new mechanism or newly available evidence. Do not spend another grid on a renamed existing loss. A known method may be a useful ingredient or baseline, with its ancestry stated explicitly.
 
+The history researcher also revisits the collection of complete families. A failed loss on one backbone does not rule out all ways to train different members. A larger hidden-vector distance does not prove useful prediction differences. Keep these scopes explicit. Save contradictions, repeated hypotheses and at most three new tests in one synthesis before opening another branch of research.
+
+For a combination, report A, B and A+B against their common baseline. Record which baseline mistakes each repairs, which repairs survive the combination and which new mistakes it creates. Accuracy and competent member predictions determine usefulness. An interaction estimate by itself does not establish an improvement. The pending masked-context2×2 uses a single, a shared four-member bank, the single learning all auxiliary views, and the shared bank learning route-owned views. This is a descriptive comparison with architecture and parameter differences disclosed.
+
+Root keeps the active scientific queue small and gives capable single and ordinary independent-ensemble references priority over extra ablation conditions. Prospective source work may continue during running fits. No partial family or TEST outcome may choose a continuation. Engineering checks should resolve a concrete execution risk and stop when that risk is resolved.
+
 ## Continue toward the paper
 
 Engineering checks precede full fits. A positive exploratory screen leads to matched capable references, mechanism comparisons and unused confirmation. Paper claims follow audited results and uncertainty estimates. Fresh manuscript reviewers start without author history or a requested verdict. Save every review and address its scientific concerns. Acceptance remains a goal, never an assumption used to interpret data.

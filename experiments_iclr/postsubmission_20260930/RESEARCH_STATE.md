@@ -4,9 +4,9 @@
 
 ## Running science
 
-**PubMed masked-context Stage1:** nine full fits on the authorized allocation, conditions shared4_own/shared4_core/genuine independent4_native × seeds9101/9203/9307. Owner588121/start6040573132, boot24c315a7-3c08-471f-b550-b9a3e1faf75d, detached parent1. First child588123/start6040573139 observed at epoch220, no family failure. No quality fields opened. Exact source4ea24b47…, owner planca18489b…. See masked_context_pubmed_stage1_root_execution_20261010_v1/ACTUAL_LAUNCH.json and OWNER_PLAN.json. All nine must close before comparison. Initial update/serving proxy3.74h excludes other costs and later rates.
+**PubMed masked-context Stage1:** nine full fits on the authorized allocation, conditions shared4_own/shared4_core/genuine independent4_native × seeds9101/9203/9307. Owner588121/start6040573132, boot24c315a7-3c08-471f-b550-b9a3e1faf75d, detached parent1. Latest observation01:53UTC: baseline seed9101__shared4_own complete, core seed9101__shared4_core at epoch390, owner active without family failure. No quality fields opened. Exact source4ea24b47…, owner planca18489b…. See masked_context_pubmed_stage1_root_execution_20261010_v1/ACTUAL_LAUNCH.json and OWNER_PLAN.json. All nine must close before comparison. Initial update/serving proxy3.74h excludes other costs and later rates.
 
-**WikiCS initializer×feedback:** six full fits on18.77 against six preserved copied-start anchors. Owner4043992/start1774146656 on8ced and4043993/start1774146656 ona998, boot2de86898-2942-402c-a7a5-29f64e4688d1. Last quality-free observation00:55:41UTC:6101_alphaF epoch857/1100 and6203_alphaF epoch233/1100, no failure. Exact handoff: graph_relation_independent_native_local_scorer_training_owner_preparation_20261010_v1/ACTUAL_LAUNCH_HANDOFF.json. Do not treat stale/transient observations as terminal. Finish all six before comparison. Native independent attention-row starts are known initialization practice, not claimed novelty.
+**WikiCS initializer×feedback:** six full fits on18.77 against six preserved copied-start anchors. Owner4043992/start1774146656 on8ced and4043993/start1774146656 ona998, boot2de86898-2942-402c-a7a5-29f64e4688d1. Latest quality-free observation01:53:33UTC:6101_alphaF finished its1100 updates,6101_relationJ at1068/1100,6203_alphaF at582/1100. Both owners active, no recorded failure. Remaining fixed fits stay queued. Exact handoff: graph_relation_independent_native_local_scorer_training_owner_preparation_20261010_v1/ACTUAL_LAUNCH_HANDOFF.json. Do not treat stale/transient observations as terminal. Finish all six before comparison. Native independent attention-row starts are known initialization practice, not claimed novelty.
 
 ## Completed preparation and findings
 
@@ -25,7 +25,7 @@ Matched WikiCS native single/I4 reference source is prepared, disabled and condi
 
 ## Publication and limits
 
-Latest verified allocation/GitHub head5b0d23546bbf928962bf5094a05c3b816efff2ad. Successful SSH push followed by failed SSH re-probe was independently verified through GitHub API. Latest launch/prototype records await this publication.18.77 is older Git with exact source separately staged.
+Latest verified allocation/GitHub head2ab70a42932f304230564477b8a59af6c31de469. Named-key SSH push and exact remote ref both verified at01:52UTC. The earlier5b0d235 push also remains verified.18.77 is older Git with exact scientific source separately staged. Current workflow clarification and observations await the next publication.
 
 Science route is literal anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222, hostanogena-2-0, sole GPU-44039938-fd82-41d2-fefd-de71514e2fac. Verify before project operations.18.77 uses reviewed MacLink and peptide/two-GPU checks. Seven-GPU access is forwarding only.
 
