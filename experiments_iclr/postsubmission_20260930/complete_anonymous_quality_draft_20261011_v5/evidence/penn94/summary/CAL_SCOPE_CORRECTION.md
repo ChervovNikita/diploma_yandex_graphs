@@ -1,0 +1,1 @@
+The unpublished report draft used the term cross-fitted. Penn uses one fixed500-step temperature fit on its separate4,851-node CAL role per bank/fusion, then scores9,705 CONFIRM nodes. REPORT.md now states that scope. The earlier unshared wording is retained in REPORT_UNPUBLISHED_DRAFT.txt. No numerical value, study outcome, scorer or manuscript score changed.
