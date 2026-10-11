@@ -53,3 +53,10 @@ The sequential own-CE engine check passed on the complete existing WikiCS traini
 The custodial export closed all ten Physics masks on the complete 34,493-node graph. Both the full-graph sequential core and published meanSAGE source-port execution checks passed, including selected-state restoration; neither used heldout truth or produced scientific accuracy. The complete 60-bank/90-body scientific cohort is now frozen for launch, with the original ten seeds, unchanged operator/objective/selection rules, capable singles and genuine independent ensembles. All states and prediction banks must close before calibration, and all 60 fixed temperatures must close before one TEST release. The two binding transport/source-interface failures are retained; no fit or score was produced by either. Penn94 remains unchanged and running. Full coupled acquisition is not yet reported as started.
 
 Manuscript v3 is committed, uncompiled and unchanged at this milestone. A fresh paper review follows substantial additional evidence and its complete manuscript revision. No per-step reviewer is used.
+
+
+## Physics scientific cohort running
+
+At04:50:53UTC the complete frozen60-bank/90-body Physics study started on the authorized sole allocation GPU. Its independent core/context children have begun real optimizer updates. The04:51:25 metadata check found100% GPU utilization and no failure; no heldout quality was read. Penn94 remains concurrent under its unchanged programme. Full fitting, selected-state export,60 fixed scalar calibration endpoints and one complete TEST release precede interpretation. The finite external owner permits48hours for the whole cohort; actual completion time will depend on the unchanged early stopping.
+
+The integration/source/admission commitfb4233ea2d816a4b461821a45ae488155501de16 is pushed and exactly verified on GitHub at04:52:04UTC. The GitHub443 probe failure and successful22 transport are retained. No paper review was launched.
