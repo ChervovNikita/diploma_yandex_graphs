@@ -16,6 +16,14 @@ Prediction quality is primary. The saved paper scaffold retains the five-dataset
 
 Fresh Codex paper reviewers will apply the supplied review skill after substantial scientific progress and manuscript revision. No reviewer is running, and reviews are not launched after individual steps or experiments. The acceptance goal remains unmet.
 
-Latest previously verified GitHub publication:53d512bc458df3e13e36ddf64f48a537186ce9b3,01:12:25UTC. This current source/launch/synthesis milestone is being published next. Full data, arrays and checkpoints remain server-side. No new18.77 job is launched; the other Mac may be disconnected. Authorized project repositories only, normal incidental caches allowed, no sudo/PDF compilation/GENLINK/unrelated-data access. Seven-GPU allocation remains relay-only.
+Latest exactly verified GitHub publication:293da963273f4b9356d8fdac43858ab33b1a5540,01:45:57UTC. The complete source/launch/synthesis milestone contains86changed files; large data and checkpoints were not added. Full data, arrays and checkpoints remain server-side. No new18.77 job is launched; the other Mac may be disconnected. Authorized project repositories only, normal incidental caches allowed, no sudo/PDF compilation/GENLINK/unrelated-data access. Seven-GPU allocation remains relay-only.
 
 Earlier canonical status is preserved at[previous status](status_refresh_endpoint_VALUE_launch_root_20261011_v1/PUBLIC_STATUS.md); detailed research history and decisions remain in research_ledger.json and versioned complete reports.
+
+## Complete-stage continuation and paper preparation
+
+Penn94 watcher627089 now advances the same acquisition to fixed calibration and one complete CONFIRM release after sealed terminal custody. All70banks/100body attempts and90CAL endpoints precede release; no partial predictive metric or outcome-dependent continuation is used. Both training children were live at02:12:31UTC; endpoint VALUE has completed9of24optimizer units.
+
+Readable LaTeX introduction/methods/results fragments now exist, retaining original five-dataset numbers and the Roman analysis. Four small exact historical dependencies (376966bytes total) were recovered from the server archive, including the original heatmap and conference style; the large archive was not restored. A new figure explains the complete F member/coverage result from existing published aggregate tables, preserving the wide paired interval and NLL tradeoff in its caption. No new prediction score, compilation or review was produced.
+
+A native Packed-Ensembles M4/gamma1 point is source-prepared at width59/215508parameters under BASE's216674 cap. No qualifier or fit is admitted yet. The separate teacher-free three-edge ordered-path residual has primary-source ancestry and essential controls recorded; it remains an inactive hypothesis. Existing path aggregation is not claimed as a new primitive.

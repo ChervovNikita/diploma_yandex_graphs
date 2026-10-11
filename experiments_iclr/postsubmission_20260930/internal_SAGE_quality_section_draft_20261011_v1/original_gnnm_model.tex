@@ -1,0 +1,28 @@
+\section{The GNNM model}\label{sec:method}
+\paragraph{Input and member paths.}
+For a graph with $n$ nodes, the input is a feature matrix $X\in\mathbb{R}^{n\times d}$ and an edge list. Each row of $X$ contains the $d$ features of one node. An input projector maps these features to $h$ hidden coordinates. GNNM creates $M$ versions of this map using a common weight matrix and short learned vectors for each member. We use $M=4$ in the main benchmark.
+
+For any input or output projector, the member-specific operation is
+\begin{equation}\label{eq:be}
+\operatorname{BE}_m(U;W)=((U\odot r_m)W)\odot s_m+b_m.
+\end{equation}
+Here $U$ is the input to the projector, $W$ is its shared matrix, and $\odot$ means coordinatewise multiplication. The vector $r_m$ rescales input coordinates, $s_m$ rescales output coordinates, and $b_m$ adds a member-specific bias. These vectors are learned during training. A member changes the map using vectors rather than storing another full matrix.
+
+\paragraph{Shared graph layers.}
+After input projection, every member has an $n\times h$ table of hidden states. Each graph layer combines a node's state with information from its neighbors. All members use the same learned graph-layer parameters, but apply them to their own states. In attention backbones, the different states can also produce different attention coefficients. The graph layers are therefore evaluated once per member. Figure~\ref{fig:sharing} distinguishes the shared weights from the separate computations.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{architecture_sharing_compact.png}
+\caption{BASE produces one prediction. ENS stores and runs four complete models. GNNM stores one graph stack but applies it to four member-specific hidden states. The input and output matrices are each shared, with lightweight factors distinguishing the members' projectors. ENS and GNNM average the four raw output scores.}
+\label{fig:sharing}
+\end{figure}
+
+\paragraph{Training and prediction.}
+The output projector produces one raw score per class and node for each member. For binary tasks it produces one score. Training minimizes the average of the members' cross-entropy losses on the training nodes. Errors from all members update the common graph weights, while each member's factors also receive their own gradients. Dropout masks are drawn separately for the members.
+
+At inference, dropout is disabled and the $M$ raw score arrays are averaged. Multiclass prediction chooses the class with the largest averaged score. For binary ROC-AUC, the averaged score ranks nodes. We average raw logits, rather than class probabilities or majority votes. The input features and graph are the same for every member. Test labels are used only to evaluate the selected predictions.
+
+\paragraph{Stored model size.}
+The input and output matrices are stored once, and the member factors grow linearly with input and hidden width. Together the two projectors contain $dh+hq+M(d+3h+2q)$ parameters, where $q$ is the output width. All graph-layer and final-normalization parameters are also stored once. An ordinary $M$-model ensemble stores $M$ complete copies. This reduces weight storage but leaves the member activations and graph computations. Appendix~\ref{app:implementation} gives initialization and the exact backbone operations.
+

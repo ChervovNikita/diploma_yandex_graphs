@@ -1,0 +1,48 @@
+\section{Five-dataset benchmark}\label{sec:original-benchmark}
+\subsection{Experimental setup}
+The benchmark uses the five datasets introduced by \citet{platonov2023critical} to evaluate learning on graphs where neighboring nodes need not share labels. Roman Empire and Amazon Ratings are multiclass tasks evaluated by accuracy. Minesweeper, Questions and Tolokers are binary tasks evaluated by ROC-AUC. Each dataset supplies ten official train/validation/test splits.
+
+We use seven graph backbones: GCN, SAGE, GAT, GAT-sep, GT, GT-sep and TAG, plus a graph-free ResNet control. GT denotes the TransformerConv-based implementation specified in the appendix. For every backbone, BASE is one ordinary model, ENS is four independent ordinary models, and GNNM uses four member paths. This compares sharing within each architecture instead of combining different backbones into one ensemble.
+
+All benchmark models use hidden width 512, learning rate $3\cdot10^{-5}$, AdamW with zero weight decay, LayerNorm, GELU and dropout 0.2. Depths 1--5 are evaluated, and validation chooses a depth separately for each method and official split. Runs have a 5,000-step cap and validation stopping. The supplement reconstructs the complete grid from 6,000 original run records and identifies all 1,200 selected records.
+
+Each method uses its intended validation procedure. ENS trains its members independently and selects each member's checkpoint using its own validation score, then chooses depth using their averaged prediction. GNNM trains its four paths jointly and selects one model checkpoint using their averaged validation prediction. Both procedures use validation data to select predictions evaluated on the test split. The benchmark compares these complete methods as designed. To study the effect of shared graph weights by itself, we use separate matched comparisons below. Projector initialization also differs in the original benchmark, and its launch-time code and data fingerprints were not preserved. Appendix~\ref{app:protocol} gives the exact reconstruction rule and provenance limits.
+
+\subsection{Predictive results}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{gnnm_vs_ens_heatmap.png}
+\caption{GNNM minus the four-model ensemble on all five datasets and eight backbones. Each cell averages the paired differences over ten official splits, in percentage points of that dataset's metric. Blue favors GNNM and red favors ENS. The two metric families are shown separately. Each method uses its intended validation-selection rule. Appendix Table~\ref{tab:benchmark-absolute} gives all absolute scores and deviations.}
+\label{fig:benchmark-main}
+\end{figure}
+
+Figure~\ref{fig:benchmark-main} shows every dataset and backbone. GNNM exceeds BASE in 33 of 40 mean comparisons and ENS in 28. Relative to ENS, it improves on six of eight backbones on Roman Empire, five on Amazon Ratings, three on Minesweeper, all eight on Questions, and six on Tolokers. These counts summarize the suite. The 40 cells share five graphs and are not 40 independent tasks.
+
+The most consistent backbone results are SAGE, GT and GT-sep, which improve over ENS on all five datasets. For SAGE, Roman Empire rises from 87.47\% to 90.04\%, and Questions from 74.39 to 77.02 ROC-AUC points. Gains are smaller on Minesweeper and Tolokers. GAT behaves differently: it improves on Questions but loses on the other four datasets. GCN also loses on Amazon Ratings, Minesweeper and Tolokers. Sharing therefore depends on the backbone as well as the dataset.
+
+The ResNet control ignores graph edges and improves over ENS on two datasets. Its behavior confirms that the boundary factorization can affect predictions without message passing. The graph results need additional comparisons to determine the contribution of sharing graph weights specifically. We provide those comparisons next. The appendix retains paired split differences and selection sensitivities, including the small and negative effects.
+
+\subsection{Storage and execution cost}
+In the original resource sweep, GNNM stores roughly one quarter of ENS's parameters. Its measured training-step time is 0.3--2.5\% higher. This is expected from the implementation: four different hidden-state tables still pass through the graph. Parameter storage is the measured benefit, while compute and peak memory must be assessed separately.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Original resource sweep, averaged over eight backbones and five depths. Parameter counts are millions, step times are milliseconds, and peak allocation is MiB. These configurations are not necessarily the depth selected for prediction. Both methods use four paths.}
+\label{tab:resource-main}
+\begin{tabular}{lrrr}
+\toprule
+& Parameters & Step time & Peak allocation\\
+Dataset & ENS / GNNM & ENS / GNNM & ENS / GNNM\\
+\midrule
+Roman Empire & 16.04 / 4.02 & 204.4 / 209.6 & 2228 / 2164\\
+Amazon Ratings & 16.01 / 4.01 & 300.7 / 306.5 & 3706 / 3636\\
+Minesweeper & 15.40 / 3.86 & 126.8 / 128.5 & 1679 / 1543\\
+Questions & 16.00 / 4.01 & 542.1 / 552.8 & 6385 / 6420\\
+Tolokers & 15.41 / 3.86 & 658.7 / 660.6 & 12953 / 12818\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:resource-main} separates these costs. The sweep uses 50 warmup steps and 200 synchronized optimization steps. It processes members sequentially and uses weight decay 0.01 for all methods, whereas predictive runs use zero decay. The original sweep records do not independently identify the device model. Later profiles use an identified A100 and saved timing samples. Appendix~\ref{app:cost-details} gives the protocols and full measurements. We do not claim lower latency or lower peak memory from fewer stored parameters.
+
