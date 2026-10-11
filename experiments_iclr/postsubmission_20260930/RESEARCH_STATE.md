@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated 11 October 2026, 08:26 UTC. The scientific goal remains active. Fresh Codex manuscript review follows substantial supported scientific progress and a complete paper update; no new review was launched.
+Updated 11 October 2026, 08:38 UTC. The scientific goal remains active. Fresh Codex manuscript review follows substantial supported scientific progress and a complete paper update; no new review was launched.
 
 ## Leading development result
 
@@ -20,7 +20,9 @@ The TRAIN-only shared-gradient diagnostic completed15banks/24restores/51backward
 
 At 08:26:11 UTC Physics core remains active with 51 of 80 optimizer bodies complete; all ten source-derived meanSAGE fits are complete. Full 60-bank/90-body closure, exports, all 60 fixed calibrations and the complete heldout release remain required. Its full-pipeline watcher is alive, without failure or partial predictive reads. [Observation V10](native_SAGE_Physics_confirmation_root_20261011_v1/COHORT_OBSERVATION_V13.json).
 
-Penn94 remains active with 69 bank directories in its tenth block; this is a directory count, not a verified count of completed fits. Its fixed 70-bank/100-body roster, 90 CAL endpoints and final release are unchanged. The watcher is alive. The sole GPU is 100% utilized; costs overlap. [Observation V21](native_SAGE_endpoint_value_execution_root_20261011_v1/JOINT_SCIENTIFIC_OBSERVATION_V24.json).
+Penn94 has fully closed70banks/100body attempts/90CAL endpoints/90CONFIRM rows with no native/calibration failures. Internal shared SAGE scores78.1535% versus75.2993% equally equipped I4, gain2.8542pp in alltenblocks,95%CI[2.5464,3.1620], Holm8.93e-9. Mean members gain2.1602pp. It loses.9799pp to original GNNM79.1334%; LINKX84.6852% is stronger. Therefore the full required four-contrast primary criterion failed and secondary attribution stays closed. Raw NLL worsens.4532 vsI4; separate-CAL temperature improves the difference to-.03586, with all fixed protections passing. Every outcome/cost/vector is retained. [Complete report](native_SAGE_Penn94_complete_confirmation_summary_root_20261011_v1/REPORT.md).
+
+FiLM now trains: Penn's physical acquisition closed at08:30:17UTC irrespective of scientific outcome. At08:32:25UTC its live shared7301 fit is atupdate204, with one completed body. Full9banks/18fits/45CAL closure still precedes interpretation. No partial score has been opened.
 
 ## Complete paper and next controlled comparison
 
@@ -39,3 +41,5 @@ Exact-ref verified pushed HEAD is 50301c4c23d7177e71b9115353eb8d64926be1a5 at 07
 Previous state is preserved in Git atb80f8538b80a92d1e9b0ddd794f3293448a2ba75 and versioned records. The ledger preserves decisions, failures and all original scores.
 
 The V5 complete-paper integration outline is ready, conditional on complete Physics/Penn releases; V4 remains unchanged. Source/results/decisions through the TRAIN-gradient admission are exact-ref pushed in e4b87040d6ebb4da0c6e367b6e32aa3e497afc35 at08:21:56UTC. The completed gradient output and new outline are pending the next compact scientific-result publication. No reviewer has been launched.
+
+The attributed Rank-1 BNN acquisition proposal is source-only with21banks/39fits/105CAL attempts; a native port is being prepared. It is not a new primitive or tested improvement. Both manuscript review and new stochastic acquisition remain unlaunched. Complete TRAIN-gradient evidence and V5 outline are exact-ref pushed in d595b74fff46375245855e6e4b59f49fea197f96 at08:33:06UTC after a preserved SSH banner timeout.
