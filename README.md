@@ -19,23 +19,28 @@ node features and graph edges
 
 BatchEnsemble is established prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715)); [Kim, 2023](https://koasas.kaist.ac.kr/handle/10203/308201) previously placed its factors inside GNN layers. Original GNNM uses boundary projectors. The later internal-factor and conditional-message procedures below change that placement or the information supplied to members. Every reported original paper score remains unchanged.
 
-## Research status — 11 October 2026
+## Research status — 12 October 2026
 
-**Both memory studies are training.** Physics GRU has completed 11 of its 30 new fit groups and remains live. Its full-graph implementation check passed one complete training update plus checkpoint and RNG restoration. A separate small GPU fixture verified derivatives to the private factors with a nonzero readout. PubMed LM4's v2 full-input qualifier passed all eight interfaces, with four source and 26 stage2 updates, in 21.137 seconds with 4.45 GB peak CUDA reserved memory. Its fresh acquisition was verified live at 19:57:50 UTC. These checks establish execution readiness; prediction results are pending.
+**The larger study is being prepared and remains disabled until the user approves its exact run manifest.** Original GNNM’s five paper datasets will not be rerun. Original GNNM, capable single models and genuine independent ensembles will be tested on compatible new datasets.
 
-| Direction | Dataset / backbone | Current state | Scientific purpose |
-| --- | --- | --- | --- |
-| Common local representation + private recurrent graph memory | Coauthor Physics / source meanSAGE | Training: 9 new ordinary ancestors, then 21 candidate/control groups containing 39 further training runs | Test whether privately adapted graph history adds useful correct predictions beyond capable singles and independent ensembles |
-| Parallel landmark memory | PubMed / factorized [PolyFormer (KDD 2024)](https://doi.org/10.1145/3637528.3671849) | Training: 12 fresh source ancestors, then 24 candidate/control groups containing 42 further training runs | Supply nonlocal graph evidence where every current member makes the same error; compare equally equipped singles and independent ensembles |
-| Complete-family error analysis | All completed studies | Updated after each family closes | Separate weak member predictions, missing correct alternatives and alternatives lost during averaging |
+| Work | Current state | Meaning |
+| --- | --- | --- |
+| Physics private GRU memory | 13/30 fresh fit groups complete; full cohort still training | Wait for the whole comparison before interpreting results |
+| PubMed private landmark memory | Complete: 36 fresh groups, 54 trajectories, 39 CAL endpoints | No improvement over its source; all combined criteria failed |
+| Training refactor | Full-budget engine and source-bound node, PolyFormer and molecular connections; 66 allocation CPU checks passed | Engineering verification, not new predictive results |
+| New data preparation | Cora, CiteSeer, PubMed, WikiCS, Amazon Computers/Photo, Coauthor CS/Physics prepared; zero new fits/scores | Complete split/provider custody; CAL/evaluation targets separated from fitting inputs |
+| Large-study coverage | Method/source inventory audited; native/molecular manifests and link connection in preparation | Final counts, author replication and remaining migration gaps must be explicit before approval |
 
-Both studies run as separate processes on the authorized one-GPU allocation. Current status distinguishes preparation, training and completed prediction evidence.
+PubMed LM4 and its listed source-equivalent controls selected checkpoint 0 after 100 executed continuation updates. Its mean development accuracy was **90.8308%**, exactly the selected source score in each seed. The mean difference versus equipped I4 was +0.2280 points with one negative seed; calibrated NLL was worse. This preserves a failed procedure and motivates better prospective training diagnostics, without claiming a learned improvement.
 
-- [Live research state](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md) and [research ledger](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/research_ledger.json)
-- [Current recurrent-memory protocol and source](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/native_meanSAGE_private_GRU_execution_source_20261011_v1/README.md)
-- [Actual training launch](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/private_GRU_acquisition_root_20261011_v1/ACTUAL_LAUNCH.json)
-- [Current PubMed landmark-memory protocol and v2 source](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/pubmed_private_landmark_memory_execution_source_20261011_v2/README.md)
-- [Actual PubMed acquisition launch](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/pubmed_private_landmark_memory_activation_root_20261011_v2/acquire/ACTUAL_LAUNCH.json)
+The refactor records complete TRAIN/SELECT trajectories, sample-weighted molecular epoch losses, actual optimizer counts and checkpoint/RNG restoration. Two experiment slots per GPU are prepared for the allocation plus 18.77's two GPUs, with fixed assignments and global phase gates. Current preparation uses allocation only; 18.77 synchronization and live environment checks are pending.
+
+The catalog has 273 canonical entries across 73 families, including controls, diagnostics and unfinished implementations. It is **not a count of runnable methods**. Source-only and blocked procedures add no executed experiments.
+
+- [Current research state](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md)
+- [Training pipeline and preparation status](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/training_pipeline_v2_20261012/README.md)
+- [Complete PubMed outcome and checkpoint selections](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/pubmed_LM4_complete_interpretation_root_20261012_v1/REPORT.md)
+- [Recurrent-memory protocol and source](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/native_meanSAGE_private_GRU_execution_source_20261011_v1/README.md)
 - [Complete outcomes and their reference limits](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/complete_quality_gain_reference_confirmation_evidence_map_20261011_v1/REPORT.md)
 
 ### Current recurrent-memory architecture
