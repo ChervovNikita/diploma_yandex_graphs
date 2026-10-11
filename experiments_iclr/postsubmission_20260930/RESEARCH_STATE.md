@@ -4,13 +4,13 @@
 
 The fixed common-local/private-GRU-memory cohort is training on the authorized one-GPU allocation. Finite owner640426 and direct child640428 were verified live with exact process birth identities. Source commit3115d83fc4e8b04104ca8777061a1e37d501e0ea and sealed execution manifest6ae17dc319254a23910acef265c102ca83db471e069763add3652f27e32d1ab5 bind the run.
 
-Latest progress observation: all9new ordinary P1 ancestors and the first B4 decoder-only control completed,10/30newfitgroups and10/48newoptimizer trajectories. G1block10103 was at update38. These are execution counts, without opening selected DEV results. No partial outcome chooses continuation.
+Latest progress observation at18:29UTC: all9new ordinary P1 ancestors and the first B4 decoder-only control completed,10/30newfitgroups and10/48newoptimizer trajectories. G1block10103 was at update154. These are execution counts, without opening selected DEV results. No partial outcome chooses continuation.
 
 The sole full-input qualifier passed: one complete streamed TRAIN update,8actual cuDNN forward/backward calls, exact checkpoint0/model/Adam/all-module-mode/global/private-RNG restoration. Profiled TRAIN83.305s; SELECT0 4.277s; restored SELECT5.134s; total153.294s; peakCUDAallocated311,685,632bytes/reserved371,195,904bytes; RSS6,817,198,080bytes. This is readiness evidence; actual unprofiled horizons/costs remain to measure.
 
-The cohort has9new source fits then21stage2groups/39optimizer trajectories. Nominal33cohortfitgroups/51trajectories include3inheritedP1; externalWI4 adds3oldgroups/12oldtrajectories. The complete39serving/CAL rows include33new temperatures and6inherited temperatures:16,500new plus3,000inherited scalar updates. Every old reference retains its receipt/owner/cost. Whole CAL/DEV source is prepared but unexecuted, with actual body/view distinctions and owner closure before scoring.
+The cohort has9new source fits then21stage2groups/39optimizer trajectories. Nominal33cohortfitgroups/51trajectories include3inheritedP1; externalWI4 adds3oldgroups/12oldtrajectories. The complete39serving/CAL rows include33new temperatures and6inherited temperatures:16,500new plus3,000inherited scalar updates. Every old reference retains its receipt/owner/cost. Whole CAL/DEV source is prepared but unexecuted, with actual body/view distinctions and owner closure before scoring. The independent source audit found no aggregation fault; root has admitted a finite whole-family watcher with exact producer/owner linkage. Deployment and launch are pending. The sealed specification literally names a fitted-CAL NLL guard; it is preserved separately from the reader's added calibrated DEVELOPMENT confidence guard. Both verdicts remain visible, and neither changes raw/member criteria or whether complete scoring proceeds.
 
-User currently authorizes allocation-only work. The latest MacLink observation failed before18.77 access; no new77job occurred. The distinct parallel landmark-memory PubMed hypothesis is in prospective design/source preparation, with separate scientist and experimental implementer. It will require its own fixed capable-single/genuine-independent comparisons and finite admission before concurrent execution. No new method quality or novelty verdict exists.
+User currently authorizes allocation-only work. The latest MacLink observation failed before18.77 access; no new77job occurred. The distinct parallel landmark-memory PubMed hypothesis is root-adopted for source preparation, with separate scientist and experimental implementer. Its exact backbone is PolyFormer (KDD2024), and its fixed fresh family has36fitbanks/54trajectories and39CAL endpoints. No numerical execution is admitted yet. It will require its own fixed capable-single/genuine-independent comparisons and finite admission before concurrent execution. No new method quality or novelty verdict exists.
 
 ## Complete scientific evidence
 
@@ -23,10 +23,10 @@ The [quality/reference map](complete_quality_gain_reference_confirmation_evidenc
 
 ## Authoritative execution and publication files
 
-- `private_GRU_acquisition_root_20261011_v1/CONFIG.json`, `ROOT_DECISION.json`, `ACTUAL_LAUNCH.json`, `OBSERVATION_01.json`; `monitor.py` observes only the exact owner and progress.
+- `private_GRU_acquisition_root_20261011_v1/CONFIG.json`, `ROOT_DECISION.json`, `ACTUAL_LAUNCH.json`, `OBSERVATION_01.json`; `monitor.py` observes only the exact owner and progress; the latest is`OBSERVATION_02.json`.
 - `native_meanSAGE_private_GRU_execution_source_20261011_v1/MANIFEST.json`; `native_meanSAGE_private_GRU_readout_source_20261011_v1/MANIFEST.json`.
 - `private_GRU_full_input_root_20261011_v1/QUALIFICATION.json` and `OWNER_END.json`; `private_GRU_derivative_root_20261011_v1/DERIVATIVE.json` and owner.
-- `publication/README_progress_update_20261011_v1/README_MAIN.md` is published on GitHub defaultmain at62618687cd00735005f0a8cc4b42ae82d2af8a02; onlyREADME.md changed, and exact remote main was verified. Research source/evidence are published at10e48fab3081843af8469fb8c22e5e6d005fe8fa.
+- `publication/README_progress_update_20261011_v1/README_MAIN.md` is published on GitHub defaultmain at62618687cd00735005f0a8cc4b42ae82d2af8a02; onlyREADME.md changed, and exact remote main was verified. Research source/evidence and README completion records are published at35be3180f5537b8b3f06bec0899aa1912a869a12.
 - `research_ledger.json` retains all decisions, outcomes, failures, costs and prior status. Earlier state text is preserved in Git and status_history.
 
 ## Paper and goal

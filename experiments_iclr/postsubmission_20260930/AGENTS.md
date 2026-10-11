@@ -19,6 +19,9 @@ the allocation repository
 or the authorized 18.77 repository
 `/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git`.
 Use the reviewed MacLink wrapper for 18.77. Keep credentials private.
+Current user scheduling override: **use only the allocation for now**. Do not
+retry MacLink or 18.77, and do not launch or monitor jobs there until the user
+reauthorizes that route. Preserve earlier 18.77 evidence and provenance.
 Ordinary incidental runtime caches are allowed; use normal host execution.
 No sudo, filesystem namespaces, mount changes, unrelated-data access,
 GENLINK work or PDF compilation.
