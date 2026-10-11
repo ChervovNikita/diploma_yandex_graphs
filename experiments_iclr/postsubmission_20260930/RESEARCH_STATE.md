@@ -40,3 +40,7 @@ Exact missing metadata was restored. Preparation closed successfully with frozen
 ## PubMed v2 compatibility correction
 
 The first full-input qualifier failed on an unsupported PyTorch2.1.2 Xavier initializer keyword after4 discarded source and2 decoder-only updates, before a memory update. Cost13.107s, peakCUDAreserved4.452GB; no SELECT/CAL/DEV quality was used. V1 source, owner and report remain preserved. V2 uses the same explicit Xavier uniform law and isolated generator through the supported tensor API. All scientific settings remain unchanged. Fresh exact-source preparation is admitted; qualification and acquisition await actual success.
+
+## PubMed LM4 qualify admission
+
+Exact missing metadata was restored. Preparation closed successfully with frozen SELECT/CAL/DEV roles and three label-free landmark/BFS capsules. One material full-input qualifier is admitted; its launch and result remain to verify. No model acquisition is admitted yet.

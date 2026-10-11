@@ -64,7 +64,7 @@ def main():
     state.write_text(state.read_text()+'\n## PubMed LM4 '+args.stage+' admission\n\n'+
         ('Exact missing metadata was restored. Preparation closed successfully with frozen SELECT/CAL/DEV roles and three label-free landmark/BFS capsules. One material full-input qualifier is admitted; its launch and result remain to verify. No model acquisition is admitted yet.' if args.stage=='qualify' else
          'The single material full-input qualifier passed all8 interfaces,4 discarded source/26 stage2 updates, second-step memory gradients, exact state restoration and full equipped I4 serving within finite caps. The unchanged complete36-bank/54-trajectory comparison is admitted; actual launch remains to verify. No partial development outcomes were used and no quality/novelty conclusion follows from qualification.')+'\n')
-    ledger_path=PHASE/'research_ledger.json';ledger=json.loads(ledger_path.read_text());key='pubmed_LM4_'+args.stage+'_admission_20261011_v1';assert key not in ledger
+    ledger_path=PHASE/'research_ledger.json';ledger=json.loads(ledger_path.read_text());key='pubmed_LM4_v2_'+args.stage+'_admission_20261011_v1';assert key not in ledger
     ledger[key]=decision;ledger_path.write_text(json.dumps(ledger,indent=2,sort_keys=True)+'\n')
     folders=[HERE]
     if args.stage=='qualify':folders.append(PHASE/'pubmed_private_landmark_memory_readout_source_20261011_v2')
