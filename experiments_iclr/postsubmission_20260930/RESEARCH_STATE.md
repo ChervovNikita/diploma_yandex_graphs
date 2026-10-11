@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated11October2026,07:05UTC. The scientific goal remains active. Fresh Codex manuscript review follows substantial supported scientific progress and a complete paper update; no new review was launched.
+Updated 11 October 2026, 07:38 UTC. The scientific goal remains active. Fresh Codex manuscript review follows substantial supported scientific progress and a complete paper update; no new review was launched.
 
 ## Leading development result
 
@@ -16,9 +16,9 @@ The new sender-context association diagnostic completed36banks/108native traject
 
 ## Live confirmation programmes
 
-At06:58:17UTC Physics core remains active with28of80optimizer bodies complete; the10source-derived meanSAGE fits are complete. The original50corebanks/80bodies plus10referencebanks/10bodies, fullselected export,60fixed calibrations and one complete heldout release remain required. Whole-after-fit watcher is live and no failure/partial predictive metric is read. [ObservationV9](native_SAGE_Physics_confirmation_root_20261011_v1/COHORT_OBSERVATION_V9.json).
+At 07:24:45 UTC Physics core remains active with 35 of 80 optimizer bodies complete; all ten source-derived meanSAGE fits are complete. Full 60-bank/90-body closure, exports, all 60 fixed calibrations and the complete heldout release remain required. Its full-pipeline watcher is alive, without failure or partial predictive reads. [Observation V10](native_SAGE_Physics_confirmation_root_20261011_v1/COHORT_OBSERVATION_V10.json).
 
-Penn94 remains active with58bank directories in its ninth block; its fixed70bank/100body roster,90CAL endpoints and complete final release remain unchanged. Its watcher is alive. The sole authorized GPU is100%utilized and costs overlap, without isolated speed claims. [ObservationV20](native_SAGE_endpoint_value_execution_root_20261011_v1/JOINT_SCIENTIFIC_OBSERVATION_V20.json).
+Penn94 remains active with 62 bank directories in its ninth block. Its fixed 70-bank/100-body roster, 90 CAL endpoints and final release are unchanged. The watcher is alive. The sole GPU is 100% utilized; costs overlap. [Observation V21](native_SAGE_endpoint_value_execution_root_20261011_v1/JOINT_SCIENTIFIC_OBSERVATION_V21.json).
 
 ## Complete paper and next controlled comparison
 
@@ -26,10 +26,12 @@ Penn94 remains active with58bank directories in its ninth block; its fixed70bank
 
 The portable Physics source has one actual same-runtime update/strict restore check, without a clean-install/external-portability or predictive-success claim. [Scope](portable_conditional_SAGE_same_runtime_binding_check_root_20261011_v1/REPORT.md). The fixed-state explanation attributes source-conditioned pre-mean distinctions to existing work; the same-graph common-builder attribution remains conditional source-only preparation.
 
-An actual native GNN-FiLM comparator is being implemented for9WikiCS banks/18fits with capableM1/shared4/genuineI4. N's restricted map omits FiLM's additive modulation and edgewise activation. The richer operator has materially larger capacity, and the matched scaffold is an adaptation rather than a published-score reproduction. There is no FiLM result or full-run admission. [Fixed procedure](native_PyG_FiLM_comparator_procedure_memo_20261011_v2/PROCEDURE.md).
+The full native GNN-FiLM comparator source is implemented and has passed one actual full-graph training/restore check in 7.71 seconds. It has nine banks, 18 actual fits and 45 fixed calibration attempts. The single check used 354,146 parameters, 7.30 GB peak allocated CUDA and TRAIN labels only; it measured no prediction score. The fixed complete scientific pipeline is now root-admitted but not yet dispatched. It waits for physical terminal closure of at least one current acquisition, regardless of outcome, then performs the full fit/readout without retries or subsets. The richer FiLM operator is not equivalent to N and has materially larger capacity. [Source](native_PyG_FiLM_WikiCS_comparator_source_20261011_v1/README.md) · [Actual check](native_PyG_FiLM_WikiCS_comparator_execution_root_20261011_v1/READINESS_REPORT.md) · [Pipeline](native_PyG_FiLM_WikiCS_comparator_execution_root_20261011_v1/FULL_PIPELINE_README_V1.md).
+
+The verified 12 September 2025 BSNN v2 preserves the shared-network/private-sampled-geometry overlap; official publication remains unresolved. This is one versioned method revisit, zero new paper identities, with no novelty clearance. [Saved primary update](BSNN_primary_version_publication_update_20261011_v1/REPORT.md). The complete ten-bank common-builder export/CAL/scoring consumer is now source-ready, still conditional on full Physics E support and a new admission; no such fit is admitted.
 
 ## Publication and resources
 
-Exact-ref verified pushed HEAD isb80f8538b80a92d1e9b0ddd794f3293448a2ba75,06:58:19UTC. The complete association outcome and sealedV4 are the next publication batch. Latest read-only18.77 attempt still reports the paired Mac offline; no new18.77job was started. Seven-GPU access is forwarding-only. No sudo, PDF compilation, Desktop access, GENLINK or unrelated deliberate operations.
+Exact-ref verified pushed HEAD is 50301c4c23d7177e71b9115353eb8d64926be1a5 at 07:10:01 UTC. Complete association outcomes and sealed V4 are pushed. The current FiLM source, actual check, admitted queue and BSNN update are the next batch. The paired Mac remains offline; no new 18.77 job. Seven-GPU access is forwarding-only. No sudo, PDF compilation, Desktop access, GENLINK or unrelated deliberate operations.
 
 Previous state is preserved in Git atb80f8538b80a92d1e9b0ddd794f3293448a2ba75 and versioned records. The ledger preserves decisions, failures and all original scores.
