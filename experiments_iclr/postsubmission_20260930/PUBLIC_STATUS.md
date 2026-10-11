@@ -60,3 +60,8 @@ Manuscript v3 is committed, uncompiled and unchanged at this milestone. A fresh 
 At04:50:53UTC the complete frozen60-bank/90-body Physics study started on the authorized sole allocation GPU. Its independent core/context children have begun real optimizer updates. The04:51:25 metadata check found100% GPU utilization and no failure; no heldout quality was read. Penn94 remains concurrent under its unchanged programme. Full fitting, selected-state export,60 fixed scalar calibration endpoints and one complete TEST release precede interpretation. The finite external owner permits48hours for the whole cohort; actual completion time will depend on the unchanged early stopping.
 
 The integration/source/admission commitfb4233ea2d816a4b461821a45ae488155501de16 is pushed and exactly verified on GitHub at04:52:04UTC. The GitHub443 probe failure and successful22 transport are retained. No paper review was launched.
+
+
+## Fixed Physics continuation installed
+
+The05:00:40UTC lifecycle observation confirms the actual core is training E4 on the first paired block and all10 source-derived published meanSAGE fits have completed. The one-shot after-fit watcher629434 is alive and waiting; no partial quality was read. It will require the full90 selected states, export all50 core banks, join all60 banks, attempt all60 fixed calibration endpoints and authorize one complete TEST release. Every stage is finite and failures are preserved. No manuscript reviewer is running. Two inactive attributed proposals were saved (served class modes and learned private topology); neither is a tested gain or a novelty claim, and neither changes the current studies.
