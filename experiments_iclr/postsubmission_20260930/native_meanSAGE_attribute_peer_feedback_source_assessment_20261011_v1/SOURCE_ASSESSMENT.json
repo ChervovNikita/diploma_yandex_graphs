@@ -1,0 +1,167 @@
+{
+  "utc": "2026-10-11T11:33:08.660089+00:00",
+  "scope": "Independent substantive source assessment only; no paper review, scientific imports, numerical arrays, parity grids, server/GPU work or source edits.",
+  "verdict": "No substantive core equation/control/gradient/parameter-ownership defect identified. Optimizer, selector, RNG manager, export and CAL are caller interfaces, so this is not execution qualification.",
+  "substantive_core_bugs": [],
+  "confirmed": [
+    {
+      "topic": "P1 backbone",
+      "finding": "P1 retains source mean/skip transforms on the same dropped sparse values or dense hidden input, p=.4, row z/max(norm,1) in both layers, first-only ReLU, Glorot aggregate/skip and zero bias, and .05 first-layer matrix squares. The factor/feedback RNGs do not consume slow Glorot draws.",
+      "core_lines": [
+        69,
+        75,
+        111,
+        143,
+        159,
+        165
+      ],
+      "ancestor": "author_model.py model_class; primary graphsage.py sage_layer"
+    },
+    {
+      "topic": "Incidence equations",
+      "finding": "The helper constructs D=diag(max(rowcounts,1))^-1 B and C=diag(max(columncounts,1))^-1 B^T from positive undropped raw-X entries. Empty incidence rows give zero output; the forward inserts C/phi/D after the first clipped ReLU and before native second-layer dropout.",
+      "core_lines": [
+        33,
+        42,
+        47,
+        50,
+        223,
+        243
+      ]
+    },
+    {
+      "topic": "SA4/SM4/SX4 controls",
+      "finding": "SA4 uses its own hub; SM4 maps the mean of the three other hubs; SX4 averages the three other already mapped donors. Both peer controls exclude n=m and use four calls to the same shared phi, with equal rank16/scale.25/site/parameter count. UX4 applies each donor's private phi before exclusion/averaging.",
+      "core_lines": [
+        202,
+        227,
+        232,
+        237,
+        238
+      ]
+    },
+    {
+      "topic": "Live graph and zero start",
+      "finding": "No detach/no_grad/cache removes donor credit in the core. Vmap=0 makes feedback zero, dloss/dBmap=0, and the feedback-only donor-to-recipient first-layer derivative zero initially; Vmap may receive a nonzero first gradient. Own recipient-layer gradients remain. After Vmap changes, cross paths can carry credit, without a guarantee every gradient becomes nonzero.",
+      "core_lines": [
+        168,
+        177,
+        226,
+        237,
+        243
+      ]
+    },
+    {
+      "topic": "Effective regularization",
+      "finding": "The penalty is .05 sum(r_i^2 W_ij^2 s_j^2) for first-layer aggregate and skip only. Joint models average route penalties once; each returned I4/IA4 M1 has a full own penalty. Feedback maps and second-layer parameters are unpenalized as declared. Factorization changes optimization despite the source marginal Glorot law for each route's effective matrix; F1/I4 remain substantive controls.",
+      "core_lines": [
+        131,
+        165,
+        205
+      ]
+    },
+    {
+      "topic": "Parameter ownership",
+      "finding": "I4/IA4 return four separate M1 Models; UX4 returns one Model containing four fresh Bodies and four private feedback map pairs. The inspector checks cross-owner Parameter/storage aliases, including UX4 feedback-versus-body and feedback-versus-feedback aliases. Declared counts agree with layer/factor/bias/map algebra.",
+      "core_lines": [
+        180,
+        184,
+        190,
+        252,
+        263,
+        275,
+        286
+      ]
+    }
+  ],
+  "bounded_caller_risks": [
+    {
+      "topic": "P1 optimizer/selector ABI",
+      "risk": "The factory is not the original MeanSAGE class ABI: logits are [1,N,5], bias has a leading route dimension, and state-dict names differ. Source semantics require the bound TF1Adam (epsilon before bias correction and saved float32 beta powers), total own CE+L2, latest tied SELECT minimum, 50 strictly worse updates and 100000 ceiling. These are not implemented by core.py. Ordinary Torch Adam/AdamW or accuracy-based selection would change the learner."
+    },
+    {
+      "topic": "Same undropped C/D",
+      "risk": "Forward checks C/D shapes only; the helper assumes qualified coalesced binary raw X. The controller must construct and bind one fixed C/D pair before dropout and reuse it across every equipped control, rather than deriving per-route or per-update incidence from dropped X. Sparse/autograd/runtime behavior is outside this source audit."
+    },
+    {
+      "topic": "Zero-start and complete objective",
+      "risk": "A first-update qualification must accept zero Bmap and feedback-donor gradients at Vmap=0. SX4/SM4 can still have different Vmap gradients because ReLU is applied before versus after donor averaging. Keep a complete joint live forward/backward before the single update; detached-prefix or separately updated donor shortcuts would change the method. Do not add a gradient nonzero gate or numerical grid."
+    },
+    {
+      "topic": "Persistent route RNG",
+      "risk": "The factory forks/restores CPU construction RNG and stores a plain post_constructor_cpu_rng attribute; it does not create CUDA/dropout streams or checkpoint mutable route state. Bind persistent route/body CPU/CUDA streams prospectively and restore them fully; cloning the same stream into all routes does not establish independent masks. Each independent M1 calls its context with local route0, so I4/IA4 must bind that call to the actual body, not a shared route0 manager."
+    },
+    {
+      "topic": "Optimizer and selector ownership",
+      "risk": "The inspector validates parameters, not optimizers or selectors. I4/IA4 need four exact own parameter sets, full unscaled own CE+L2 and four own selector/stopping/checkpoint states. UX4 needs one optimizer over every disjoint body+feedback group, one mean own CE plus one averaged effective penalty and one synchronized joint selector/checkpoint; it is a coupled learner. Do not divide model.regularizer() by four again."
+    },
+    {
+      "topic": "Serving and CAL",
+      "risk": "The core returns clipped raw logits and implements no pool/CAL. Raw authority is mean_m softmax(z_m), with archived native member/pool argmax. CAL must use mean_m softmax(member_logprob_m/T), a common scalar inside each member, Adam lr.05 for500 steps, clamp logT[-5,5], latest tied minimum among step0..500. This equals softmax(z_m/T) per member up to class-common shifts, and generally differs from softmax(mean_m z_m/T). Calibrated bank argmax may change; report raw and calibrated accuracy with raw primary. The sign-dropout post-raw-mean/final500 reader is incompatible."
+    }
+  ],
+  "repair_disposition": "No sealed core repair requested from this source audit. The method owner should preserve the explicit caller contracts in its controller/reader; root retains the required finite full-input execution check. No additional qualification requested.",
+  "input_receipts": [
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_meanSAGE_attribute_peer_feedback_core_source_20261011_v1/core.py",
+      "bytes": 17023,
+      "sha256": "242396b38ab43a99ac9f0b00f63424569688a223c0fc3838fa5aeb94e3b5a301"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/shared_attribute_incidence_feedback_architecture_scout_20261011_v1/STUDY_PROPOSAL.json",
+      "bytes": 19848,
+      "sha256": "15db52442932d7c1691be92785b6eefe4a1ca40bfe6c8c69dd45ab102c861787"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_CoauthorPhysics_author_meanSAGE_context_source_20261011_v1/author_model.py",
+      "bytes": 6444,
+      "sha256": "dfd19cf6da0460a4de49697e2c5afe185e85e8192db4bb51e548868b9a2d1401"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_CoauthorPhysics_author_meanSAGE_context_source_20261011_v1/consumer.py",
+      "bytes": 21231,
+      "sha256": "84f076664ad409b674e8a7ba89362e41670080635feedc512a7fd68e25821db0"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_CoauthorPhysics_custodial_provider_source_20261011_v1/pinned_sources/GNNBenchmark_gnnbench__models__graphsage.py",
+      "bytes": 14163,
+      "sha256": "d4466a95e7438a29b55303edcd22703bb00002afd5f9bf98eca8567f03a9d0e4"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_CoauthorPhysics_custodial_provider_source_20261011_v1/pinned_sources/GNNBenchmark_gnnbench__models__base_model.py",
+      "bytes": 4290,
+      "sha256": "cbce2754b30af6202b7bce2a243af746c0bf7bdb776f30e120bcb256028bce0d"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_CoauthorPhysics_custodial_provider_source_20261011_v1/pinned_sources/GNNBenchmark_gnnbench__early_stopping.py",
+      "bytes": 5951,
+      "sha256": "ddc51ca7f1dbc4b2a1b8b5135968f625ab5bc5647e99f1dfa28aee98ed32dae0"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_CoauthorPhysics_custodial_provider_source_20261011_v1/pinned_sources/GNNBenchmark_config__optimized__graphsage_mean.conf.yaml",
+      "bytes": 209,
+      "sha256": "88eae5799a3a2e644b92ef39ae4feb870568d91b2db90c3d906a0512e4eaad29"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_CoauthorPhysics_custodial_provider_source_20261011_v1/pinned_sources/GNNBenchmark_config__train.conf.yaml",
+      "bytes": 3575,
+      "sha256": "ea0a8445c3b464de545c7fedc54b38ffd454c7a1c6b54f924eb39fe7b3c9ddbc"
+    }
+  ],
+  "sealed_manifest_receipts": [
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_meanSAGE_attribute_peer_feedback_core_source_20261011_v1/MANIFEST.json",
+      "bytes": 922,
+      "sha256": "6b5fa48970cfd237f3d3ba62b507fa656ba3768379b77069d2b520ace828913d"
+    },
+    {
+      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/shared_attribute_incidence_feedback_architecture_scout_20261011_v1/MANIFEST.json",
+      "bytes": 5386,
+      "sha256": "db1dd1aaff443275d37dff8f715b1e830a463f7db48eeee0eddf20eabef6b6c5"
+    }
+  ],
+  "sealed_files_unchanged": true,
+  "local_scientific_imports": false,
+  "numerical_tests": false,
+  "novelty_or_performance_claim": false
+}
