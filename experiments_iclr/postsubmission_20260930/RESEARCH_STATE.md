@@ -1,4 +1,30 @@
+# Current GNNM research status
+
+## Two complete scientific studies running — 11 October 2026
+
+Penn94 confirmation started at01:09:15UTC on the verified one-GPU allocation, owner626530/child626532. The frozen seven-arm, ten-block study acquires70banks/100optimizer bodies, including original GNNM, matched boundary factors, internal factors, capable singles, genuine I4 and fixed LINKX context. All fits precede90fixed scalar endpoints and one CONFIRM release. At01:36:46UTC the same child is live with the genuine I4 arm reached. No partial predictive result is interpreted. [Launch](native_SAGE_Penn94_data_preparation_root_20261011_v1/ACTUAL_ACQUISITION_LAUNCH_V1.json).
+
+The distinct endpoint-VALUE family started at01:41:14UTC, owner626845/child626848. It changes source-to-receiver feature messages before native SAGE mean aggregation, while preserving a shared backbone and private BatchEnsemble factors. Fresh BASE, endpoint shared4, receiver-conditioned shared4, equipped single and genuine equippedI4 supply15banks/24optimizer bodies over three paired seeds. The complete graph, ordinary member losses, selectors and probability averaging remain fixed. All15banks and75OOF scalar attempts precede interpretation. A finite watcher626868 starts the sealed readout only after successful whole-family closure. No fitted outcome or new-primitive claim exists yet. [Actual launch](native_SAGE_endpoint_value_execution_root_20261011_v1/SCIENTIFIC_LAUNCH_V1.json).
+
+Actual full-TRAIN VALUE qualification passed8units/34native trajectories/16discarded backwards in16.911s, with16.107GB CUDA allocated peak and0.999GBRSS. Identity starts, live native/builder gradients, delayed factor activation, meaningful state restoration and independent body storage passed on the entire11701-node/442907-edge graph. Qualification has zero scientific fits or VALID scoring. V1 is preserved; V2 only permits a24hour finite family cap after the unmeasured two-hour forecast was unsupported by the complete qualifier. Model, learning, roster, selector and scoring sources are unchanged. The cap is not an ETA. Both jobs use ordinary concurrent allocation execution; timings are observed costs, not isolated benchmarks. [Qualification](native_SAGE_endpoint_value_execution_root_20261011_v1/QUALIFICATION_EXACT_V1.json).
+
+## Supported evidence and remaining goal
+
+The complete encountered-WikiCS F bank reaches80.6219% against80.0847% genuine factorizedI4 and79.3199% ordinaryM1, with positive paired differences at all three seeds. Broader correct-alternative coverage outweighs weaker average members. Mean calibrated NLL protection narrowly fails; this is an accuracy signal with a confidence tradeoff, not unused confirmation or methodological novelty. Affinity and fixed keys are closed negative increments, with failures, repairs/harms and costs retained. No auxiliary gain is invented. Original five-dataset scores are unchanged.
+
+Prediction quality is primary. The saved paper scaffold retains the five-dataset result and distinguishes member competence, useful alternative coverage and errors introduced by pooling. Closest ECC/NNConv/sheaf/BatchEnsemble ancestry is explicit; the endpoint comparison must show utility and pass its controls before any claim is promoted. One future integrated shared-path idea is inactive, with no fit admission. [Paper scaffold](internal_SAGE_quality_manuscript_scaffold_20261011_v1/METHODS_RESULTS_SCAFFOLD.md) · [Conditional claim map](native_SAGE_endpoint_value_conditional_claim_map_20261011_v1/REPORT.md).
+
+Fresh Codex paper reviewers will apply the supplied review skill after substantial scientific progress and manuscript revision. No reviewer is running, and reviews are not launched after individual steps or experiments. The acceptance goal remains unmet.
+
+Latest previously verified GitHub publication:53d512bc458df3e13e36ddf64f48a537186ce9b3,01:12:25UTC. This current source/launch/synthesis milestone is being published next. Full data, arrays and checkpoints remain server-side. No new18.77 job is launched; the other Mac may be disconnected. Authorized project repositories only, normal incidental caches allowed, no sudo/PDF compilation/GENLINK/unrelated-data access. Seven-GPU allocation remains relay-only.
+
+Earlier canonical status is preserved at[previous status](status_refresh_endpoint_VALUE_launch_root_20261011_v1/PUBLIC_STATUS.md); detailed research history and decisions remain in research_ledger.json and versioned complete reports.
+
+# Preserved preceding research state
+
 ## Actual fixed-key training and exact source publication
+
+Latest exact source/evidence publication: `53d512bc458df3e13e36ddf64f48a537186ce9b3`, pushed and remote-ref verified at01:12:25UTC. Penn94 scientific training remains active; source and full-graph qualification are published, with large data/checkpoints server-side. No manuscript-review process has launched.
 
 ## Actual Penn94 scientific training started
 
