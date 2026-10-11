@@ -1,0 +1,34 @@
+# Inactive sequential own-CE ogbn-arxiv port
+
+This is source preparation. No tensor, label, prediction, model, qualification or scientific fit was opened or executed. Original sealed E/F files are unchanged. Root owns data-access audit, preprocessing/support, prospective freeze, qualification, the public OGB SAGE capable-reference decision and confirmation admission.
+
+## Small integration surface
+
+- `own_ce.py:update` performs one `zero_grad`, each of four native route CE/4 backwards in route order, releases its tape/hidden references, and performs one AdamW step. Detached TRAIN logits alone survive for diagnostic probability pooling. Singles and each genuine I4 body use their original unscaled own CE and their own optimizer.
+- `port.py:bind` reuses the pinned actual E V2 owner, installer and helper through explicit checked source amendments. It returns `ArxivFamily` and a derived-source receipt. It preserves E's acquisition loop, native initialization/factor law, persistent dropout streams, native map ownership, strict earliest-maximum selector, checkpoint save/load and probability reader. It retains all five arms and the original separate M1/I4 fitting/selection procedure. No full consumer/provenance framework is copied.
+- `qualify_full_train.py:qualify` accepts root's admitted family factory, complete label-free SELECT IDs, fixed tolerances and finite budgets. The simultaneous route path is restricted to this disposable qualifier. All CLI entries exit inactive.
+
+The source adapter requires exactly official `ogbn-arxiv`, N=169343, D=128, C=40, width128/depth2/LayerNorm/dropout0.2, AdamW0.001/zero decay, maximum1000/patience300, stalk4 and the existing seed offsets. The two 256-to-16 builders and their equation are unchanged. Root must fill actual TRAIN/SELECT counts, processed edge/self-edge counts, provider identity and graph-support hash. It checks complete factual support after loading. No sampling, induced graph, edge-direction fallback or alternate dataset is exposed.
+
+The inherited `valid_npz`, `valid_ids`, `valid_y`, `VALID` trace/archive field names designate **SELECT only** in this port. Root must bind a safe SELECT file containing only `{ids,y}`, not all official VALID or CAL. Qualification sets `training_only=True`, so it never deserializes that SELECT label file; the caller separately supplies only its label-free membership IDs. CAL/TEST handling and the new inference/confirmation protocol remain outside this adapter. The inherited stage marker `F` is an implementation field, not an adopted statistical plan.
+
+## Root integration
+
+1. Fill the profile and fixed configuration from root's provider audit; pin the packet, original E/native/PyG/route/factor sources, safe TRAIN/SELECT roles and label-free SELECT IDs. Keep original E source paths available. The root-native `models`, `run_base`, `run_common`, `SAGEConv` and `MessagePassing` import/path checks remain.
+2. Supply `root_validate(cfg, *, action, executing_source, port_receipt)`. It must verify actual host/GPU/runtime, all source/role/provider/preprocessing hashes, complete official membership, the canonical config/prospective protocol, fixed fresh seed roster, watchdog and caps. Its learning lock retains E's required `source_sha256`, `safe_role_sha256`, `root_runtime_admission`, `stage`, `K`, and baseline fields. It must bind both the original source and all derived hashes in `port_receipt`; original WikiCS admission is invalid.
+3. Call `Family, port_receipt = port.bind(e_directory, cfg, root_validate, release)`. For qualification, release status is `ROOT_FULL_TRAIN_QUALIFICATION_ADMITTED`; the factory passed to `qualify` calls `Family(cfg, output, config_sha256, training_only=True)`. The qualifier is called once with root-bound full SELECT IDs, a frozen seed, engineering tolerances and wall/CUDA/RSS caps. Root enforces an external pending-call watchdog.
+4. A separate future fit release requires `ROOT_CONFIRMATION_FIT_ADMITTED` and `capable_reference_decision=ROOT_ADMITTED`, plus the root validator's prospective freeze. PASS never supplies that release. Root integrates `Family.run()` only after admission. The packet provides no launcher, calibrator, TEST reader, scheduling change or fallback.
+
+## One complete-graph qualification
+
+The fixed eight native units are BASE/E4/N4/M1 and four genuinely independent I4 bodies. Each has two discarded common-state update pairs, to exercise private builder factors after the identity-initialized first step. For each pair, sequential then simultaneous starts from the same complete model/AdamW/member/global-RNG snapshot. Compare every registered gradient, native/builder parameter and AdamW moment/update within root's frozen tolerances; compare persistent/global RNG exactly. Each update must change state and advance AdamW once. E4/N4 builders retain their exact zero/ones initialization/count and live slow/second-step fast gradient paths.
+
+Every unit saves its discarded snapshot, serves the complete label-free SELECT membership through the original full-graph probability reader, poisons parameters/moments/streams/global RNG, strictly restores all state, and repeats serving. Genuine I4 bodies are checked for parameter/storage aliasing. No SELECT accuracy, stopping decision or heldout label is used. Observe full TRAIN and selector/serving peaks on the actual support; numerical tolerance is an engineering criterion only.
+
+The complete qualifier declares 68 TRAIN native trajectories, 50 discarded backward calls and 32 discarded AdamW steps, plus 34 label-free selector/serving trajectories. It is finite preparation, not scientific acquisition. Source/initialization/CPU snapshot and process lifetime RSS work are included in qualification wall/resource accounting. Each comparison mode records its own CUDA peak; the receipt retains the maximum. An OOM, cap violation or failed equality is a retained qualification failure; no reduced graph, smaller case, alternate resource regime or rescue follows automatically.
+
+The memory benefit remains unqualified. Detached TRAIN outputs, graph/node states, gradients, optimizer moments and temporary allocations remain. Four times less tape retention is not a measured fourfold peak reduction. Floating-point reduction order may differ; this port claims mathematical own-CE equivalence, not bitwise replay or predictive superiority.
+
+## Source audit
+
+`SOURCE_BINDINGS.json` pins relied-upon source/read scopes. `STATIC_SOURCE_CHECKS.json` records syntax and exact amendment-anchor inspection only. Diff previews use symbolic root-frozen role-count placeholders and are review artifacts; they are not runnable providers or dataset configurations. `EXECUTION_DISABLED.json` and templates retain all unfilled root decisions. No external dependency or numerical library was imported during source checks. Stop source preparation here; root owns integration/execution.

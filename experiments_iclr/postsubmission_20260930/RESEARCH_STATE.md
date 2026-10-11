@@ -22,7 +22,7 @@ Average members improve 1.073 pp over unchanged sharing. Across three dependent 
 
 Penn94's original fixed 70-bank/100-body study remains in training without partial comparisons. Its watcher retains 90 calibration attempts before one complete heldout release. This running protocol stays fixed. Confirmation of the newly supported endpoint method now takes priority over new path fits. Full four-route autograd memory on Penn94 is unqualified; a sequential member-backward schedule or another representative unused graph needs a prospective protocol before training. [Original confirmation freeze](native_SAGE_Penn94_confirmation_protocol_root_20261011_v1/PROSPECTIVE_INFERENCE_ADOPTION_V1.json).
 
-The fixed parameter-budget Packed-Ensembles comparison acquired all 3 banks /3 optimizer bundles /12 private-body records and closed successfully at 02:56 UTC. The joined raw reader is source-ready and awaits publication/execution. All E/PE custody and E's 75 endpoints precede joined interpretation. No PE quality result has been interpreted. [Acquisition closure](native_SAGE_PE4_execution_root_20261011_v1/PE_NATIVE_OBSERVATION_V1.json).
+The fixed parameter-budget Packed-Ensembles comparison acquired all 3 banks /3 optimizer bundles /12 private-body records and closed successfully at 02:56 UTC. The complete joined raw reader has closed all 18 banks /27 optimizer bundles /36 body records. PE accuracy is 79.7876%; BASE−PE is +.8406 pp and E4−PE is +1.4094 pp, with all three paired differences positive. PE matches BASE's weight budget; E4 has about10% more parameters and still has worse raw NLL than PE. No new calibration or model forward was added. [Acquisition closure](native_SAGE_PE4_execution_root_20261011_v1/PE_NATIVE_OBSERVATION_V1.json).
 
 ## Paper and parallel research
 
@@ -32,7 +32,7 @@ Distinct researchers handle the deferred path source, one public primary literat
 
 ## Publication and execution scope
 
-Latest verified allocation/GitHub head: 3deecb13f94fce3859874ea33bbfdf2c18322a86, 02:46:11 UTC, 39 explicit files. Complete endpoint outcomes, the joined reader and new paper drafts are next for exact publication. Datasets, checkpoints and logits stay server-side.
+Latest verified allocation/GitHub head: 7c011f325eb89de557d7ef907eab4b4746b45af4, 03:05:18 UTC, 115 explicit files. Complete endpoint outcomes, the joined-reader source and paper drafts are pushed. The subsequently completed joined result is next for publication. Datasets, checkpoints and logits stay server-side.
 
 MacLink reports the other Mac offline. No new 18.77 job was launched and no reconnection action is requested. The seven-GPU allocation is a relay only. Ordinary runtime caches are permitted. No sudo, PDF compilation, GENLINK, unrelated-data access or host-setting changes.
 
@@ -365,3 +365,21 @@ Source and full-reader deployment are committed and verified on GitHub at2652d63
 All27 native fits closed successfully at20:13:26UTC in446.770001seconds; the20:14:36UTC observation confirmed owner622591 and child622593 absent. The fixed18fresh banks plus15 original anchors await the reviewed complete joined readout and165 equal-policy scalar endpoints. No predictive outcome has been opened or interpreted. Actual acquisition is complete, not an accuracy-success claim.
 
 The complete reader's independent source review found and repaired one frozen-checkpoint custody omission, with v1 and its defect preserved. The reviewed v2 has no remaining material source blocker and will run once after publication; source approval is not predictive evidence. [Reader review](SAGE_GNCL_SupCon_2x2_complete_reader_independent_source_review_20261010_v2/REPORT.md).
+
+
+## Complete endpoint VALUE and Packed-Ensembles comparison; confirmation correction
+
+All15 E-study banks/24 bodies and all75 calibration endpoints are closed. E4 gains0.5688accuracy points over unchanged sharing and0.3034 over equally equipped genuineI4, with all three paired signs positive. The I4 interval includeszero; independent models retain better NLL/Brier, and E members remain weaker. The complete18-bank PE join gives E4−PE4 +1.4094points; PE is about10% smaller and has better rawNLL. These are encountered WikiCS development observations. See the complete E interpretation and PE joined records; no novelty or unused-confirmation verdict follows.
+
+The actual bounded sequential own-CE engine check passed in15.021seconds, with the declared six discarded AdamW updates, unchanged engineering tolerances, strict restoration and no heldout scoring. Two earlier constructor/admission failures are retained; source registration was fixed without changing scientific objectives. This check resolves an execution risk, not predictive utility or new-graph resources.
+
+The history audit found affirmative older ogbn-arxiv results and explicit previous exclusion from untouched confirmation. Root therefore paused scientific arxiv admission and preserves its sources as an encountered replication candidate. A stalled optional archive byte stream was stopped; it decoded no data, fitted no model and signalled no scientific job. GitHub is the next provider/history candidate, with no outcome or fit admission. Penn94 continues under its original70-bank/100-body programme without partial-result inspection.
+
+Complete draftv3 is being prepared with originalfivebenchmark, E/PE evidence and all material uncertainty. No new manuscript reviewer is running. The user's cadence is supported substantial progress, complete paper update, then fresh zero-context Codex review using the supplied skill. Goal remains active and unmet.
+
+
+## Available Physics confirmation and complete manuscriptv3
+
+The authoritative CoauthorPhysics NPZ is acquired and bound to author commit1e72912a0810cdf27ae54fd589a3b43358a2b161/gitblob8d8bc12e29aa67f6753a712080eae81079bd7d01 and SHA256e4d68468eba5fb8f6b280ffd406bd53e6e4295ba1dd2967d6fe99b978e4b3375. The prospective60-bank/90-body protocol fixes ten paired20TRAIN/30SELECT/30CAL-perclass masks and remaining TEST before any new arrays/targets or outcome access. Provider/model support495924/530417 is distinguished. Custodial export alone is being admitted; actual full-widegraph resource qualification and scientific fitting remain unadmitted. The precise published meanSAGE source point is a context control, with its source loss selector and latest ties preserved. Sources and scoped history are in the closed Physics exporter/external audit packets.
+
+V3 anonymous uncompiled manuscript is closed and sealed (manifest022c051928b9bf585dacef3fd4c27aa23b55ba6b3d0816220e85d5c398ba272c). It incorporates complete E/PE outcomes with uncertainty and established ancestry. Original benchmark/figures and adverse outcomes are preserved. No reviewer followed these implementation steps. The next independent paper assessment waits for substantial additional evidence and the corresponding full manuscript revision.
