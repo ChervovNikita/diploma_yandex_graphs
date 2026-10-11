@@ -1,5 +1,23 @@
 # Current scientific status
 
+## Actual Penn94 scientific training started
+
+The integrated seven-arm/ten-block study started at 01:09:15 UTC, owner626530/child626532, on the verified sole allocation GPU. The first observation confirms training of the unchanged internal shared arm at98% GPU utilization. All70 banks/100 optimizer bodies precede any calibration; all90 fixed scalar endpoints precede one complete CONFIRM release. No partial predictive metric is interpreted. Source seal6efb07fff02e86d06c705d90e13f8da87d75b7bebc3e5c468f91a52e02eba9a0 and config1626a42bd1df0a0654d672e5a5a59fe76bfd53fc5dc8fd2cbfe2cfd339b303b9 were bound before launch.
+
+Actual complete-graph qualification passed all10 optimizer integrations in15.377s, with8,397,117,440bytes maximum allocated GPU memory. Original cadence uses10 disposable updates; other bodies use one. This is implementation/resource evidence, not accuracy or methodological success. Missing native sparse wheels and the pinned LINKX source were installed/deployed within the project before qualification; failed binding attempts are preserved. Every scientific reference is fresh. Current/original scores and TEST restrictions remain unchanged. [Actual launch](native_SAGE_Penn94_data_preparation_root_20261011_v1/ACTUAL_ACQUISITION_LAUNCH_V1.json).
+
+No new18.77 job is launched. Endpoint-VALUE source preparation remains distinct and unexecuted. Paper revision and fresh Codex review follow substantial supported results, not intermediate setup checks.
+
+## Current utility work and exact publication
+
+Complete fixed-key outcomes, reader, costs, theory and prospective confirmation sources are exactly committed and pushed as `22533122461a4950918c9f7313f345028e7c0e9b` (00:50:48 UTC). No original score changed.
+
+Penn94 public inputs and fixed roles are now prepared on the authorized allocation: 41,554 nodes, 4,814 features and 2,724,458 directed edge entries. Roles contain 19,407 TRAIN / 4,852 SELECT / 4,851 CAL / 9,705 CONFIRM nodes; 2,739 unknown-target nodes remain in the graph. The target column is removed from features. Raw inputs and the 843 MB public tensor stay server-side. Custodial release targets were decoded for role integrity; no predictive metric or model fit occurred. The integrated seven-arm/ten-seed source and representative complete-graph qualification are next. [Preparation receipt](native_SAGE_Penn94_data_preparation_root_20261011_v1/PUBLIC_ROLES_PREPARATION_RECEIPT_V1.json).
+
+Root prospectively adopts four primary complete-procedure raw-accuracy contrasts, paired-seed uncertainty and Holm correction, with a +0.2 percentage-point observed practical margin. This estimates seed variation on one fixed graph, not transfer to all graphs. Original-GNNM recipe differences, matched placement and same-selected-state pooling remain separate. [Protocol adoption](native_SAGE_Penn94_confirmation_protocol_root_20261011_v1/PROSPECTIVE_INFERENCE_ADOPTION_V1.json).
+
+A distinct source packet changes endpoint-dependent VALUE messages inside native SAGE before averaging. Its five-arm/three-seed plan includes unchanged sharing, an operation/capacity control and equipped single/I4 references. Known operator ancestry and earlier failures remain explicit. No fitted outcome, novelty claim, manuscript review or new18.77 job follows from preparation. Substantial supported results and a revised paper precede fresh zero-context Codex reviews.
+
 ## User-directed review milestone
 
 The user specifies fresh **Codex** reviewers applying the supplied paper-review criteria, with zero author context. Substantial scientific progress and an updated manuscript must precede that assessment. Intermediate source work is not a manuscript review milestone. No full-paper reviewer has launched in this turn. The unused Sonnet dependency tree was removed; its installation/disposition record remains. This entry supersedes the authentication/paper-review-due statements below. Scientific research continues without an authentication dependency.
