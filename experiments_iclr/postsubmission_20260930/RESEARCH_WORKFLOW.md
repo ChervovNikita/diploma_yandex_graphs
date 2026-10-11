@@ -85,3 +85,9 @@ The next queue contains one fixed-key graph-context acquisition candidate with d
 ## Manuscript review after substantial scientific progress
 
 The user explicitly directs fresh Codex reviewers to apply the supplied peer-review skill and overrides its Claude/Sonnet provider requirement. Do not launch a manuscript reviewer after each step or experiment. First obtain substantial supported scientific progress and update the paper; then give independent zero-context reviewers immutable anonymous manuscript/evidence with no requested verdict. Research source checks and complete-family interpretation are separate from manuscript review. Preserve every actual review. No paper-review process is running at this milestone.
+
+## Complete dropout closure and collective architecture acquisition
+
+All42sign-dropout banks/69states/42CALclosed; the candidate gains only.0137points over same-input IIDand loses1.5536to capableI4. All primary/attribution criteria fail. Close this exact rule and retain costs/errors. The30-bank nonlinear attribute-peer feedback study was admitted and launched before dropout outcomes opened. Complete its competent source-derived meanSAGE learning, genuine equipped singles/I4and self/operation/unshared controls before interpretation. Its native probability mean and own CALlaw must not use the raw-logit dropout reader.
+
+Maintain a dedicated scientist for substantially different graph-specific shared-ensemble architectures, a whole-family implementation/combination role and a history/error-evidence role. Current users ask for architectural science beyond masks or another diversity-loss tweak. Known operations may be ingredients; a contribution requires a useful, attributed combination or acquisition mechanism with decisive controls. Do not label a qualification, a literature gap proposal or a conditional-variance identity as scientific performance.

@@ -4,24 +4,29 @@ Updated 11 October 2026. The scientific goal remains active and unmet: establish
 
 ## Active scientific experiment
 
-The full sign-aware route-dropout study is running on the verified one-GPU allocation. Owner635864 supervises training child635866 with a finite12-hour limit. The fixed panel has42fresh prediction banks,69unique training bodies and42separate calibration endpoints across three complete Physics development protocols. The first metadata-only observation found3banks/3states closed and96% GPU use. No partial prediction metric or CAL/development truth has been opened.
+The full meanSAGE attribute-peer feedback study is training on the verified one-GPU allocation. Owner636808 supervises child636810. The fixed panel contains30banks,48optimizer trajectories,57physical backbones and30CALendpoints across three paired full Physics protocols. The12:17UTC metadata observation found7banks/13trajectories closed,85%GPUuse and no owner failure. No partial predictive outcomes have been opened. Full-input qualification passed once after a preserved zero-step Torch compatibility failure. The qualified state is discarded.
 
-The panel compares the original versus first-normalized-graph-input dropout position, IID versus sign-aware coupling, uniform balance, capable factor singles, genuine independent ensembles, four-copy singles, equally coupled unsharedI4, fresh original GNNM and source meanSAGE. All states are newly trained on the fixed fresh roles; qualified states are discarded. It is encountered-graph development, not unused graph confirmation. Adaptive antithetic sampling and multi-sample dropout are known ancestry. The local covariance argument supplies no accuracy or gradient-variance guarantee.
+Members transmit first-layer hidden states through binary node–attribute incidence. A shared rank16 nonlinear map processes donor summaries, and each recipient uses the other three before its second graph layer. Controls include capable source/factor singles, genuine independent ensembles, self-only feedback, mean-before-nonlinearity and a jointly learned unshared bank. The latter is not called genuine independent. Whole30-bank/48selected-state/57body closure precedes30fixed CALendpoints and one whole development release. Native probability pooling and its separate frozen CALlaw remain intact.
 
-One actual full-input execution qualification passed: a shared candidate update and a coupled-unsharedI4round, five own optimizer updates/eight backwards. Finite masks/loss and strict model/optimizer/global/body/sampler RNG restoration pass. Numerical runtime10.44s, peak allocatedCUDA3.55GiB/RSS2.60GiB, actual owner exit0/wait/reap. One pre-payload transport failure was repaired after verifying no remote deployment or model action. There was one numerical qualification, with no optional repeat.
+- [Live full acquisition](meanSAGE_attribute_peer_feedback_acquisition_root_20261011_v1/ROOT_DECISION.json)
+- [Actual complete qualification](meanSAGE_attribute_peer_feedback_full_input_qualification_20261011_v2/COMPLETE_QUALIFICATION_BINDINGS.json)
+- [Fixed scientific proposal](shared_attribute_incidence_feedback_architecture_scout_20261011_v1/REPORT.md)
+- [Qualified frozen source](meanSAGE_attribute_peer_feedback_execution_source_20261011_v3/README.md)
 
-A finite watcher636243 will run fixed calibration and one complete development report only after the entire acquisition and its owner close successfully. All42positive temperature scalars use CPUfloat64 Adam.01 for500fixed updates each. All21,000scalar updates and actualCALowner closure precede the three whole development-role releases. Failures stop the handoff without retries or subsets. Every raw/member/proper-loss/class/error outcome and fixed contrast is retained.
+## Latest complete scientific experiment
 
-- [Live acquisition](Physics_dropout_pilot_acquisition_root_20261011_v1/REPORT.md)
-- [Qualified execution](Physics_dropout_pilot_full_input_qualification_root_20261011_v1/REPORT.md)
-- [Fixed scientific proposal](shared_route_information_exchange_architecture_scout_20261011_v2/REPORT.md)
-- [Complete source packet](Physics_dropout_pilot_execution_source_20261011_v2/README.md)
+The full dropout family has closed all42fresh banks,69selected optimizer states,42CALendpoints and21,000scalar updates. All acquisition/calibration/scoring owners exited successfully. The candidate scores90.9972% versus90.9835%same-input IIDsharing,92.5508%capable genuineI4 and92.5723%source meanSAGE. Its+0.0137point IIDgain has mixed signs and its mean members worsen0.0836points. All primary and graph-attribution criteria fail. Against genuineI4, its members lose4.8942points;716additional member-covered readouts are accompanied by2,323additional pooling losses across the three protocols. The exact sign-aware coupling rule is closed without a rescue grid. Restricted conditional variance is not predictive competence.
 
-## Distinct architecture research
+- [Complete dropout results and disposition](Physics_dropout_pilot_complete_development_summary_root_20261011_v1/REPORT_V2.md)
+- [Every whole-population contrast and frozen criterion](Physics_dropout_pilot_complete_development_summary_root_20261011_v1/SUMMARY.json)
 
-The dedicated method researcher is investigating nonlinear peer summaries transported through node–attribute incidence on the competent source meanSAGE backbone. Each recipient uses other routes' summaries before the next graph layer. CONN, TextGCN, feature-graph diffusion and stream-mixing ancestry remain explicit. Capable self-feedback singles, genuineI4, unshared joint models and operation-placement controls are required. This is inactive source/research preparation: no new primitive, utility or broad-backbone improvement has been established.
+The peer-feedback study was admitted and launched before these dropout outcomes were opened. Its independent frozen roster and scientific conditions do not depend on this negative outcome. These new studies are development on an encountered graph; any future unused confirmation remains a separately admitted study.
 
-The implementation role supplies fixed acquisition/readout source. The history role revisits complete scientific families and error evidence; its latest sealed synthesis distinguishes original SELECT-only evidence from final predictive outcomes. Root selects, executes, interprets and publishes. These roles are separate from independent manuscript review.
+## Dedicated architecture research
+
+Three useful, distinct researchers are active. The architecture researcher investigates substantially different graph-specific mechanisms and their strongest published alternatives; it has completed peer-feedback source and actual qualification and now pursues the next scientific hypothesis. The implementation researcher prepares whole-family readout using the peer study's native probability mean and500-update selected CALrule. The history researcher revisits complete member/pooling errors and distinguishes shared gains from gains explained by competent singles or known graph operators. Root chooses, runs, interprets and publishes representative comparisons. This is separate from manuscript review.
+
+Incidence propagation, recipient exclusion, nonlinear set aggregation and stream exchange have known HGNN/AllSet/CONN/TextGCN/cross-stitch ancestry. The proposed collective acquisition recipe has no established novel-primitive, accuracy or universal-wrapper claim. The restricted linear identity case can amplify common components and damp member deviations; it is not a theorem about actual nonlinear training or generalization.
 
 ## Complete prediction evidence
 
@@ -59,4 +64,4 @@ The complete TRAIN-gradient diagnostic did51backwards and zero updates. Its sign
 
 Complete anonymous V5 preserves the original five-dataset centerpiece and all numerical tables/dependencies, with the complete Penn/FiLM/Physics evidence. It is sealed, uncompiled and unreviewed;157static checks pass. No pagination or acceptance claim follows. Fresh Codex reviewers apply the supplied skill after substantial supported progress and a complete revision, with immutable anonymous evidence and no author history or requested verdict.
 
-V5/source publication is exact-ref verified at8dad48774f41fbd79b9bf1e3937c00ae0b884534,10:52:09UTC. The subsequent live-acquisition/complete-reference and README publication is being finalized; publication receipts identify the exact current remote head. Full checkpoints/logits stay on authorized servers. No new18.77fit has started; seven-GPU access remains relay-only. No sudo, PDF compilation, Desktop operations, GENLINK or unrelated deliberate access.
+V5/source publication is exact-ref verified at8dad48774f41fbd79b9bf1e3937c00ae0b884534,10:52:09UTC. The latest preceding exact-ref verified source/readout publication is d742b7e90acdcc15159b3ee5f53c73cfe5347124. Complete dropout/peer source and actual launch publication is being finalized; publication receipts identify the exact current remote head. Full checkpoints/logits stay on authorized servers. No new18.77fit has started; seven-GPU access remains relay-only. No sudo, PDF compilation, Desktop operations, GENLINK or unrelated deliberate access.
