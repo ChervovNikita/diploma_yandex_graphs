@@ -1,0 +1,23 @@
+# V5: inactive CoauthorPhysics core port
+
+This source packet adds the root-chosen CoauthorPhysics profile and ten different paired custom stratified role blocks. It preserves every sealed V1–V4 and E source. Root reported the existing bounded WikiCS sequential engine PASS (about15seconds); this packet creates no new equivalence suite. Root separately freezes actual provider/runtime/source/protocol identities, runs the full Physics resource entry, and admits acquisition.
+
+## Fixed graph and acquisition
+
+N34493/D8415/C5, raw binary float32 inputs with normalize_features=false. The provider exporter has already inserted exactly34493 self entries: every arm receives the same530417-entry support (provider no-loop support495924). Consumers add no loops. Ten paired seeds:8101,8219,8363,8501,8663,8819,9001,9199,9403,9623. Each block has20TRAIN/30SELECT/30CAL per class and the remaining CONFIRM, giving100/150/150/34093. These are prospective custom masks stratified using custodian truth, not official masks or label-free splitting. All original paper scores remain unchanged.
+
+The core native Model SAGE h128/depth2/LayerNorm/dropout.2, AdamW.001/zero decay, max1000/stale300 and earliest strict SELECT accuracy are unchanged. Shared BASE/E4/N4 minimize mean own route CE by four sequential quarter-scaled backwards and one optimizer update. equipped_M1 uses unscaled own CE; genuine equipped_I4 acquires four separate models, optimizers and own selectors. No auxiliary objective, cross-route loss or sampled/induced graph is introduced.
+
+`port.bind(e_directory,cfg,root_validate,release)` returns the profiled Family and port receipt. In addition to earlier cfg fields, Physics requires `role_blocks`, a dictionary keyed by all ten seed strings, each exact `{train_npz,select_npz}`, and `active_role_seed` identifying the initial safe block. Initial `train_npz` and `valid_npz` must match that block. Safe TRAIN exact fields are `{x,edge_index,ids,y}`; SELECT exact fields are `{ids,y}`. The derived full scientific `Family.run()` activates each seed's tiny TRAIN/SELECT arrays before its five arms; it reuses the initial full public X/support. Root must bind all twenty NPZ identities and identical full graph identities across blocks. No CAL/CONFIRM truth is opened.
+
+## Bounded resource entry
+
+`ROOT_PHYSICS_RESOURCE_QUALIFICATION_ADMITTED` requires root's existing engine PASS and maps to `physics_sequential_resource`. Use `qualify.resource_integration(factory,selector_ids,output,seed=...,release=...,limits=...,dataset="CoauthorPhysics")`. The factory constructs TRAIN-only Family; qualification seed must equal active_role_seed, and selector IDs are label-free. The entry performs exactly one update for E4/N4/BASE/M1:13TRAIN routes/backwards,4AdamW steps; strict save/poison/restore and26 label-free SELECT serving routes; then two constructor-only M1s to check I4 ownership. No simultaneous Physics tapes or new numerical suite. Output `PHYSICS_RESOURCE_QUALIFICATION.json` is separate from `ENGINE_EQUIVALENCE.json`. Root proposed caps64GiB RSS/48GiB CUDA plus a finite external wall watchdog.
+
+Scientific release `ROOT_CONFIRMATION_FIT_ADMITTED` requires `engine_equivalence=ROOT_VERIFIED_PASS`, `actual_physics_resource_qualification=ROOT_VERIFIED_PASS`, capable_reference_decision=ROOT_ADMITTED and exactly the ten seeds. The callback `root_validate(cfg,action=...,executing_source=...,port_receipt=...)` owns host/GPU, source/runtime/provider/role hashes, actual support, prospective protocol and caps. Source sealing creates none of those admissions.
+
+## Selected archives and source disposition
+
+Core output retains the immutable E schema: each bank folder `<ARM>_seed<seed>` has RESULT.json; each fit subfolder `member<m>` has selected.pt and RESULT.json. The selected checkpoint includes model, optimizer, route streams, selected_step and selection. I4 has four own checkpoints, shared4 and M1 one. The bank `selected_VALID.npz` contains `{ids,y,raw_logits,probability_mean,member_errors,pooled_errors}` for SELECT only. Root/readout owner restores selected states for later label-free CAL/CONFIRM exports and complete common calibration/scorer release. Native published h32 meanSAGE context is supplied separately; this packet does not transplant OGB author SAGE or claim reported-score replication.
+
+Only source AST parsing, source rendering/anchors and preserved updater/profile function ASTs were inspected here. No numerical imports, dataset/label/tensor/prediction reads, fits, remote execution, reviewer, canonical or paper edits occurred. Inactive pending root execution and freeze.
