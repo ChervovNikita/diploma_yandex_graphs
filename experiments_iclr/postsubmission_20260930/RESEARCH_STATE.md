@@ -1,51 +1,62 @@
 # Current GNNM research status
 
-Updated 11 October 2026 after the complete 09:30 UTC Physics release. The goal remains active and unmet. No new manuscript review has started: the user requests substantial supported progress and a complete revision first.
+Updated 11 October 2026. The scientific goal remains active and unmet: establish a defensible shared-backbone method with better prediction quality and a clear recommendation from fresh independent reviewers. Original manuscript scores are unchanged. No new manuscript review has been requested after individual experiments.
 
-## Complete prediction results
+## Active scientific experiment
 
-Endpoint-conditioned E on encountered WikiCS scores 81.1971%, versus 80.6282% unchanged sharing, 80.8937% equally equipped genuine I4, 81.0517% receiver N and 80.2174% equipped M1. All three paired raw differences are positive; the descriptive E–I4 95% interval [−0.356, 0.963] points includes zero. I4 retains better proper losses and mean members. N explains most of the BASE gain. This is exploratory, with ECC/FiLM/NSD/BatchEnsemble/BSNN ancestry explicit and no new-principle claim.
+The full sign-aware route-dropout study is running on the verified one-GPU allocation. Owner635864 supervises training child635866 with a finite12-hour limit. The fixed panel has42fresh prediction banks,69unique training bodies and42separate calibration endpoints across three complete Physics development protocols. The first metadata-only observation found3banks/3states closed and96% GPU use. No partial prediction metric or CAL/development truth has been opened.
 
-**Penn94 is fully complete:** 70 banks, 100 training bodies, 90 CAL endpoints and 90 CONFIRM rows. Internal shared SAGE scores 78.1535%, versus genuine I4 at 75.2993%: +2.8542 points in all ten paired optimizer blocks, 95% CI [2.5464, 3.1620], Holm p=8.93e−9. Mean members improve 2.1602 points. Original GNNM at 79.1334% is 0.9799 points stronger; LINKX at 84.6852% exceeds all tested SAGE procedures. The full four-contrast primary criterion fails and secondary attribution stays closed. Raw NLL worsens by 0.4532 versus I4; separate-CAL calibration improves the difference to −0.03586 and all fixed practical protections pass. Penn tests internal-factor SAGE, not endpoint E. [Complete report](native_SAGE_Penn94_complete_confirmation_summary_root_20261011_v1/REPORT.md).
+The panel compares the original versus first-normalized-graph-input dropout position, IID versus sign-aware coupling, uniform balance, capable factor singles, genuine independent ensembles, four-copy singles, equally coupled unsharedI4, fresh original GNNM and source meanSAGE. All states are newly trained on the fixed fresh roles; qualified states are discarded. It is encountered-graph development, not unused graph confirmation. Adaptive antithetic sampling and multi-sample dropout are known ancestry. The local covariance argument supplies no accuracy or gradient-variance guarantee.
 
-**Native PyG FiLM is fully complete:** 9 banks, 18 fits and 45 fixed CAL endpoints on WikiCS development. FiLM M1/shared4/I4 raw accuracy is 77.2153/79.9836/78.4161%. Existing E exceeds shared FiLM by 1.2135 points and FiLM I4 by 2.7809 points, positive in all three paired seeds. Raw/calibrated NLL and Brier also favor E. This is one fixed-recipe adaptation, not a SOTA certification, unused confirmation or capacity-matched causal comparison. FiLM sharing also improves I4 by 1.5674 points. [Complete report](native_PyG_FiLM_WikiCS_complete_summary_root_20261011_v1/REPORT.md).
+One actual full-input execution qualification passed: a shared candidate update and a coupled-unsharedI4round, five own optimizer updates/eight backwards. Finite masks/loss and strict model/optimizer/global/body/sampler RNG restoration pass. Numerical runtime10.44s, peak allocatedCUDA3.55GiB/RSS2.60GiB, actual owner exit0/wait/reap. One pre-payload transport failure was repaired after verifying no remote deployment or model action. There was one numerical qualification, with no optional repeat.
 
-## Complete Physics confirmation
+A finite watcher636243 will run fixed calibration and one complete development report only after the entire acquisition and its owner close successfully. All42positive temperature scalars use CPUfloat64 Adam.01 for500fixed updates each. All21,000scalar updates and actualCALowner closure precede the three whole development-role releases. Failures stop the handoff without retries or subsets. Every raw/member/proper-loss/class/error outcome and fixed contrast is retained.
 
-The whole Physics pipeline closed at 09:30:29 UTC: 60 banks, 90 training bodies and 60 fixed calibration endpoints, all finite. E scores 91.3264%, BASE 90.5403%, N 91.2982%, equipped M1 92.2233%, genuine I4 92.7891% and source-derived meanSAGE 93.0590%. E–BASE gains 0.7861 points at all ten blocks, paired 95% CI [0.5548, 1.0173]; E–I4 loses 1.4628 points at all ten, CI [−1.8744, −1.0511]. The primary conjunction fails. E–N is +0.0282 with mixed signs and a closed attribution gate. Calibrated NLL protection fails versus I4. Mean E members are 5.1747 points weaker than I4, despite 4,379 extra covered readouts, because pooling loses 9,369 more. No subset, retry, TEST-selected serving or automatic common-builder continuation. [Complete report](native_SAGE_Physics_complete_confirmation_summary_root_20261011_v1/REPORT.md).
+- [Live acquisition](Physics_dropout_pilot_acquisition_root_20261011_v1/REPORT.md)
+- [Qualified execution](Physics_dropout_pilot_full_input_qualification_root_20261011_v1/REPORT.md)
+- [Fixed scientific proposal](shared_route_information_exchange_architecture_scout_20261011_v2/REPORT.md)
+- [Complete source packet](Physics_dropout_pilot_execution_source_20261011_v2/README.md)
 
-The separate ten-fit original Physics anchor subsequently completed all TRAIN/SELECT acquisitions in 608.85 seconds with an actual owner wait/reap and no native failure. Its complete SELECT-only summary is being fetched; it has no CAL/TEST release or newly established prediction gain. At the last 10:41:22 UTC observation the sole authorized GPU was idle.
+## Distinct architecture research
 
-## Complete analysis and prospective work
+The dedicated method researcher is investigating nonlinear peer summaries transported through node–attribute incidence on the competent source meanSAGE backbone. Each recipient uses other routes' summaries before the next graph layer. CONN, TextGCN, feature-graph diffusion and stream-mixing ancestry remain explicit. Capable self-feedback singles, genuineI4, unshared joint models and operation-placement controls are required. This is inactive source/research preparation: no new primitive, utility or broad-backbone improvement has been established.
 
-The TRAIN gradient diagnostic closes 15 banks, 24 restored states and 51 backwards in 71.40 seconds, with zero updates. E shared-gradient energy ratios 0.301913/0.197579/0.261446, versus BASE 0.270802/0.258091/0.260580 and N 0.287516/0.252188/0.232216, do not show uniform overwhelming opposition. No gradient-surgery branch follows. These selected-state/dropout Euclidean measurements are not AdamW dynamics or causal training evidence. [Report](WikiCS_E_TRAIN_shared_gradient_cancellation_summary_root_20261011_v1/REPORT.md).
+The implementation role supplies fixed acquisition/readout source. The history role revisits complete scientific families and error evidence; its latest sealed synthesis distinguishes original SELECT-only evidence from final predictive outcomes. Root selects, executes, interprets and publishes. These roles are separate from independent manuscript review.
 
-The error, head and context-association studies retain their complete failed or limited dispositions. They do not establish absent hidden class information, general capacity failure or exclusive ensemble geometry. [Error audit](WikiCS_E_frozen_strata_diagnostic_root_20261011_v1/REPORT.md) · [Head study](WikiCS_E_fixed_feature_head_capacity_summary_root_20261011_v1/INTERPRETATION.txt) · [Context study](WikiCS_E_source_context_association_summary_root_20261011_v1/REPORT.txt).
+## Complete prediction evidence
 
-The broad history after Penn and FiLM supersedes a universal shared-member weakness explanation: competence and pooling retention depend on the graph and recipe. Original GNNM remains mandatory in any meaningful extension. [Synthesis](broad_shared_training_history_after_Penn_FiLM_20261011_v1/REPORT.md).
+### WikiCS development
 
-The Rank-1 BNN acquisition proposal and native v2 port are known attributed source preparation: 21 banks/39 fits/105 CAL attempts. The fixed-noise ownership repair retains v1. Neither runtime qualification nor scientific admission has occurred. A separate original boundary comparator of 3 banks/3 fits requires an explicit roster amendment. Reader integration is underway without launch. The covariance note adds ordinary shared-random-function interpretation, not novelty or utility. Common-builder Physics attribution remains conditional and unexecuted.
+Endpoint-conditioned E scores81.1971%, versus80.6282% unchanged sharing,80.8937% equally equipped genuineI4,81.0517% receiverN and80.2174% equippedM1. All three raw paired differences againstI4 are positive, but the descriptive95% interval[−.356,.963] includes zero. I4 retains better proper losses and mean members; N explains most of the baseline gain. This is exploratory, with known conditional-message and BatchEnsemble ancestry and no new-principle claim.
 
-## Research responsibilities
+Native PyGFiLM completed9banks/18fits/45calibrations. Its M1/shared4/I4 scores77.2153/79.9836/78.4161%. E exceeds sharedFiLM by1.2135points and FiLMI4 by2.7809points at all three seeds. These fixed-recipe adaptations differ in capacity/operator and establish no SOTA or unused-confirmation claim.
 
-The user asks explicitly for dedicated architecture research beyond incremental comparisons. The new-method researcher now performs fresh primary-source search, synthesizes gaps against complete failures, and designs one distinct shared-backbone mechanism with decisive controls. The reader draft is preserved and stochastic acquisition remains inactive. The history researcher reassesses Physics/Penn/FiLM and prioritizes a capable original-GNNM anchor; the manuscript researcher integrates complete outcomes. Root owns scientific admission, representative execution and publishing. No new primitive or global improvement is established.
+### Penn94 complete confirmation
+
+The full70-bank/100-body/90-CAL study is complete. Internal sharedSAGE scores78.1535% versus75.2993% genuine equippedI4: +2.8542points in all ten paired optimizer blocks,95%CI[2.5464,3.1620], Holm p8.93e−9. Mean members improve2.1602points. Original GNNM scores79.1334% and LINKX84.6852%. The full required four-contrast criterion fails, and the secondary placement gate stays closed. RawNLL worsens versusI4; separate-CAL calibration passes the declared practical protection. Penn is internal-factor sharing, not endpointE replication.
+
+### Physics complete confirmation
+
+The full60-bank/90-body/60-CAL study is complete. E scores91.3264%, BASE90.5403%, N91.2982%, equippedM1 92.2233%, genuineI4 92.7891% and source meanSAGE93.0590%. E−BASE gains.7861points in all ten paired blocks,95%CI[.5548,1.0173]; E−I4 loses1.4628points in all ten,CI[−1.8744,−1.0511]. The primary conjunction fails. E−N is+.0282 with mixed signs and closed attribution. CalibratedNLL protection fails versusI4.
+
+E members are5.1747points weaker thanI4. Across the complete readouts, E covers4,379extra correct alternatives but loses9,369more through pooling. More correct alternatives therefore did not yield a better final ensemble. These are descriptive comparisons of whole recipes, not identified causes or a validated router opportunity.
+
+### Original Physics acquisition anchor
+
+Ten original-GNNM TRAIN/SELECT-only fits completed in608.85s with actual owner exit0/wait/reap. All source/checkpoint/SELECT byte receipts are audited. Their stored selected SELECT mean is90.7333%; SELECT chose the checkpoints, so this is an acquisition diagnostic. It cannot be ranked against E's TEST accuracy. No original CAL/TEST, member/proper-loss/coverage result is supplied. This closes a missing acquisition reference and establishes no new predictive gain.
+
+- [Penn94 complete report](native_SAGE_Penn94_complete_confirmation_summary_root_20261011_v1/REPORT.md)
+- [FiLM complete report](native_PyG_FiLM_WikiCS_complete_summary_root_20261011_v1/REPORT.md)
+- [Physics complete report](native_SAGE_Physics_complete_confirmation_summary_root_20261011_v1/REPORT.md)
+- [Original Physics complete acquisition](Physics_original_boundary_GNNM_anchor_complete_summary_20261011_v1/REPORT.md)
+- [Scientific history and next actions](shared_training_history_after_original_Physics_anchor_20261011_v1/REPORT.md)
+
+## Preserved diagnoses and closed branches
+
+The complete TRAIN-gradient diagnostic did51backwards and zero updates. Its signs vary by seed and do not support uniform overwhelming opposition; no gradient-surgery fit follows. The fixed head/context/affinity/error families retain their exact failed or limited outcomes. They do not establish absent hidden class information, universal capacity failure or a general rejection of route diversity. Rank-1Gaussian and conditional common-builder proposals remain inactive; the failed Physics confirmation does not automatically activate them. Every old disposition and cost is retained in the research ledger and Git.
 
 ## Manuscript and publication
 
-Anonymous V4 is unchanged and uncompiled. Complete sealed V5 integrates Penn, FiLM and Physics, preserving the original five-dataset centerpiece and all tables/dependencies. Its 157 static checks pass; it is uncompiled and unreviewed. Physics is now complete and is included in V5 integration with its failed independent-superiority and endpoint-attribution criteria. Source cuts are not verified page reductions. Fresh Codex reviewers apply the supplied skill only after substantial complete integration, without author history or a requested verdict. No acceptance is claimed.
+Complete anonymous V5 preserves the original five-dataset centerpiece and all numerical tables/dependencies, with the complete Penn/FiLM/Physics evidence. It is sealed, uncompiled and unreviewed;157static checks pass. No pagination or acceptance claim follows. Fresh Codex reviewers apply the supplied skill after substantial supported progress and a complete revision, with immutable anonymous evidence and no author history or requested verdict.
 
-Latest exact-ref verified pushed HEAD is de7a7e0fafca493f8cfba678ff29f8913da4d870 at 10:04:29 UTC, including complete Physics/FiLM and cross-graph history. V5 and new original/coupling records are pending the next publication; receipts identify exact paths. No new 18.77 training has started. Seven-GPU access is relay only. No sudo, PDF compilation, Desktop access, GENLINK or unrelated deliberate operations. Full states/logits remain on servers; original scores are unchanged. The ledger and Git retain earlier decisions.
-
-## Current architecture experiment and distinct roles
-
-The fixed sign-aware coupled-dropout proposal V2 now contains 42 fresh banks, 69 unique training bodies and 42 separate-CAL endpoints on three fresh Physics development protocols. It compares position × coupling, uniform balance, genuine factor singles/I4, four-copy singles, equally coupled unshared I4, fresh original GNNM and source meanSAGE. All controlled outcomes are required. Activation-dependent antithetic sampling has known ancestry; only conditional mean-activation variance has an analytic guarantee, not gradients or accuracy. No fits are launched yet.
-
-The dedicated architecture researcher simultaneously investigates one substantially different mechanism for stronger shared-route predictors against the accumulated error evidence and strongest primary-source alternatives. The implementation researcher integrates the frozen pilot for full-input qualification and execution. The history researcher closes the original ten acquisitions and updates the broad failure map. These are scientific research roles, separate from zero-context manuscript review. The next action is an actual finite full-input update/restore check, then the whole fixed predictive study if viable. No novelty or universal architecture improvement has been established.
-
-## Actual new study readiness
-
-The corrected source completed one actual full Physics qualification: shared candidate1update plus equally coupled unsharedI4one4-update round,8backwards. Finite masks/loss and strict model/optimizer/global/body/sampler RNG restore pass. Runtime10.44s, peak allocatedCUDA3.55GiB/RSS2.60GiB; actual finite ownerexit0 and wait/reap. This is execution evidence only. Fresh role custody is bound and full predictive fits now run from bound acquisitionV2; no second optional qualifier is needed. Complete V5 and new sources are exact-ref verified pushed at8dad48774f41fbd79b9bf1e3937c00ae0b884534,10:52:09UTC.
-
-## Live scientific acquisition
-
-The full42-bank/69-body/42-CAL pilot is running on the verified sole allocation GPU: owner635864, child635866, finite12h ceiling. SourceV2 retains all17qualified bytes and binds the complete acquisition. No partial quality or CAL/DEV truth is opened; complete endpoints precede one whole development readout. Original-paper scores remain unchanged. The dedicated architecture scout separately investigates recipient-excluded nonlinear peer summaries through node–attribute incidence on competent source meanSAGE, with CONN/TextGCN/stream-mixing ancestry explicit and no novelty/utility certification.
+V5/source publication is exact-ref verified at8dad48774f41fbd79b9bf1e3937c00ae0b884534,10:52:09UTC. The subsequent live-acquisition/complete-reference and README publication is being finalized; publication receipts identify the exact current remote head. Full checkpoints/logits stay on authorized servers. No new18.77fit has started; seven-GPU access remains relay-only. No sudo, PDF compilation, Desktop operations, GENLINK or unrelated deliberate access.
