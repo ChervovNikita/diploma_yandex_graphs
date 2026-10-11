@@ -1,0 +1,1682 @@
+[
+  {
+    "i": 0,
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "i": 1,
+    "tag": "p",
+    "id": "p1.1",
+    "text": "Differentiable Antithetic Sampling for Variance Reduction in Stochastic Variational Inference"
+  },
+  {
+    "i": 2,
+    "tag": "p",
+    "id": "p2.1",
+    "text": "Mike Wu Noah Goodman Stefano Ermon"
+  },
+  {
+    "i": 3,
+    "tag": "p",
+    "id": "p3.1",
+    "text": "Stanford University Stanford University Stanford University"
+  },
+  {
+    "i": 4,
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Stochastic optimization techniques are standard in variational inference algorithms. These methods estimate gradients by approximating expectations with independent Monte Carlo samples. In this paper, we explore a technique that uses correlated, but more representative , samples to reduce variance. Specifically, we show how to generate antithetic samples with sample moments that match the population moments of an underlying proposal distribution. Combining a differentiable antithetic sampler with modern stochastic variational inference, we showcase the effectiveness of this approach for learning a deep generative model. An implementation is available at https://github.com/mhw32/antithetic-vae-public ."
+  },
+  {
+    "i": 5,
+    "tag": "h2",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "i": 6,
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "A wide class of problems in science and engineering can be solved by gradient-based optimization of function expectations. This is especially prevalent in machine learning ( Schulman et al., 2015 ) , including variational inference ( Ranganath et al., 2014 ; Rezende et al., 2014 ) and reinforcement learning ( Silver et al., 2014 ) . On the face of it, problems of this nature require solving an intractable integral. Most practical approaches instead use Monte Carlo estimates of expectations and their gradients. These techniques are unbiased but can suffer from high variance when sample size is small—one unlikely sample in the tail of a distribution can heavily skew the final estimate. A simple way to reduce variance is to increase the number of samples; however the computational cost grows quickly. We would like to reap the positive benefits of a larger sample size using as few samples as possible. With a fixed computational budget, how do we choose samples?"
+  },
+  {
+    "i": 7,
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "A large body of work has been dedicated to reducing variance in sampling, with the most popular in machine learning being reparameterizations for some continuous distributions ( Kingma and Welling, 2013 ; Jang et al., 2016 ) and control variates to adjust for estimated error ( Mnih and Gregor, 2014 ; Weaver and Tao, 2001 ) . These techniques sample i.i.d. but perhaps it is possible to choose correlated samples that are more representative of their underlying distribution? Several such non-independent sampling approaches have been proposed in statistics. In this work we investigate antithetics , where for every sample we draw, we include a negatively correlated sample to minimize the distance between sample and population moments."
+  },
+  {
+    "i": 8,
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "The key challenges in applying antithetic sampling to modern machine learning are (1) ensuring that antithetic samples are correctly distributed such that they provide unbiased estimators for Monte Carlo simulation, and (2) ensuring that sampling is differentiable to permit gradient-based optimization. We focus on stochastic variational inference and explore using antithetics for learning the parameters for a deep generative model. Critically, our method of antithetic sampling is differentiable and can be composed with reparametrizations of the underlying distributions to provide a fully differentiable sampling process. This yields a simple and low variance way to optimize the parameters of the variational posterior."
+  },
+  {
+    "i": 9,
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "Concisely, our contributions are as follows:"
+  },
+  {
+    "i": 10,
+    "tag": "p",
+    "id": "S1.I1.i1.p1.1",
+    "text": "We review a method to to generate Gaussian variates with known sample moments, then apply it to antithetics, and generalize it to other families using deterministic transformations."
+  },
+  {
+    "i": 11,
+    "tag": "p",
+    "id": "S1.I1.i2.p1.1",
+    "text": "We show that differentiating through the sampling computation improves variational inference."
+  },
+  {
+    "i": 12,
+    "tag": "p",
+    "id": "S1.I1.i3.p1.1",
+    "text": "We show that training VAEs with antithetic samples improves learning across objectives, posterior families, and datasets."
+  },
+  {
+    "i": 13,
+    "tag": "h2",
+    "id": null,
+    "text": "2 Background"
+  },
+  {
+    "i": 14,
+    "tag": "h3",
+    "id": null,
+    "text": "2.1 Variational Inference and Learning"
+  },
+  {
+    "i": 15,
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "Consider a generative model that specifies a joint distribution p_{\\theta}(x,z) over a set of observed variables x\\in\\mathbb{R}^{m} and stochastic variables z\\in\\mathbb{R}^{d} parameterized by \\theta. We are interested in the posterior distribution p_{\\theta}(z|x)=\\frac{p_{\\theta}(x|z)p(z)}{p(x)}, which is intractable since p(x)=\\int_{z}p(x,z)dz. Instead, we introduce a variational posterior , q_{\\phi}(z|x) that approximates p_{\\theta}(z|x) but is easy to sample from and to evaluate."
+  },
+  {
+    "i": 16,
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "Our objective is to maximize the likelihood of the data (the “evidence”), \\log p_{\\theta}(x). This is intractable so we optimize the evidence lower bound (ELBO) instead:"
+  },
+  {
+    "i": 17,
+    "tag": "table",
+    "id": "S2.EGx1",
+    "text": "\\displaystyle\\log p_{\\theta}(x) \\displaystyle\\geq\\mathbb{E}_{q_{\\phi}(z|x)}[\\log\\frac{p_{\\theta}(x,z)}{q_{\\phi}(z|x)}] (1)"
+  },
+  {
+    "i": 18,
+    "tag": "p",
+    "id": "S2.SS1.p2.2",
+    "text": "The VAE ( Kingma and Welling, 2013 ; Rezende et al., 2014 ) is an example of one such generative model where p_{\\theta}(x|z) and q_{\\phi}(z|x) are both deep neural networks used to parameterize a simple likelihood (e.g., Bernoulli or Gaussian)."
+  },
+  {
+    "i": 19,
+    "tag": "p",
+    "id": "S2.SS1.SSS0.Px1.p1.1",
+    "text": "Since \\phi can impact the ELBO (though not the true marginal likelihood it lower bounds), we jointly optimize over \\theta and \\phi. The gradients of the ELBO objective are:"
+  },
+  {
+    "i": 20,
+    "tag": "table",
+    "id": "S2.EGx2",
+    "text": "\\displaystyle\\nabla_{\\theta}\\textup{ELBO} \\displaystyle=\\mathbb{E}_{q_{\\phi}(z|x)}[\\nabla_{\\theta}\\log p_{\\theta}(x,z)] (2) \\displaystyle\\nabla_{\\phi}\\textup{ELBO} \\displaystyle=\\nabla_{\\phi}\\mathbb{E}_{q_{\\phi}(z|x)}[\\log\\frac{p_{\\theta}(x,z)}{q_{\\phi}(z|x)}] (3)"
+  },
+  {
+    "i": 21,
+    "tag": "p",
+    "id": "S2.SS1.SSS0.Px1.p1.2",
+    "text": "Eqn. 2 can be directly estimated using Monte Carlo techniques. However, as it stands, Eqn. 3 is difficult to approximate as we cannot distribute the gradient inside the expectation. Luckily, if we constrain q_{\\phi}(z|x) to certain families, we can reparameterize."
+  },
+  {
+    "i": 22,
+    "tag": "p",
+    "id": "S2.SS1.SSS0.Px2.p1.1",
+    "text": "Reparameterization refers to isolating sampling from the gradient computation graph ( Kingma and Welling, 2013 ; Rezende et al., 2014 ) . If we can sample z\\sim q_{\\phi}(z|x) by applying a deterministic function z=g_{\\phi}(\\epsilon):\\mathbb{R}^{d}\\rightarrow\\mathbb{R}^{d} to sampling from an unparametrized distribution, \\epsilon\\sim R, then we can rewrite Eqn. 3 as:"
+  },
+  {
+    "i": 23,
+    "tag": "table",
+    "id": "S2.E4",
+    "text": "\\nabla_{\\phi}\\textup{ELBO}=\\mathbb{E}_{\\epsilon\\in R}[\\nabla_{z}\\log\\frac{p_{\\theta}(x,z(\\epsilon))}{q_{\\phi}(z(\\epsilon)|x)}\\nabla_{\\phi}g_{\\phi}(\\epsilon)] (4)"
+  },
+  {
+    "i": 24,
+    "tag": "p",
+    "id": "S2.SS1.SSS0.Px2.p2.1",
+    "text": "which can now be estimated in the usual manner. As an example, if q_{\\phi}(z|x) is a Gaussian, \\mathcal{N}(\\mu,\\sigma^{2}) and we choose R to be \\mathcal{N}(0,1), then g(\\epsilon)=\\epsilon*\\sigma+\\mu."
+  },
+  {
+    "i": 25,
+    "tag": "h3",
+    "id": null,
+    "text": "2.2 Antithetic Sampling"
+  },
+  {
+    "i": 26,
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "Normally, we sample i.i.d. from q_{\\phi}(z|x) and R to approximate Eqns. 2 and 4 , respectively. However, drawing correlated samples could reduce variance in our estimation. Suppose we are given k samples z_{1},z_{2},...,z_{k}\\sim q_{\\phi}(z|x). We could choose a second set of samples z_{k+1},z_{k+2},...,z_{2k}\\sim q_{\\phi}(z|x,z_{1},...,z_{k}) such that z_{i+k} is somehow the “opposite” of z_{i}. Then, we can write down a new estimator using both sample sets. For example, Eqn. 2 can be approximated by:"
+  },
+  {
+    "i": 27,
+    "tag": "table",
+    "id": "S2.E5",
+    "text": "\\frac{1}{2k}\\sum_{i=1}^{k}\\nabla_{\\theta}\\log p_{\\theta}(x,z_{i})+\\nabla_{\\theta}\\log p_{\\theta}(x,z_{i+k}) (5)"
+  },
+  {
+    "i": 28,
+    "tag": "p",
+    "id": "S2.SS2.p1.2",
+    "text": "Assuming z_{k+1},...,z_{2k} is marginally distributed according to q_{\\phi}(z|x), Eqn. 5 is unbiased. Moreover, if q_{\\phi}(z|x) is near symmetric, the variance of this new estimator will be cut significantly. But what does “opposite” mean? One idea is to define “opposite” as choosing z_{k+i} such that the moments of the combined sample set z_{1},...,z_{2k} match the moments of q_{\\phi}(z|x). Intuitively, if z_{i} is too large, then choosing z_{k+i} to be too small can help rebalance the sample mean, reducing first order errors. Similarly, if our first set of samples is too condensed at the mode, then choosing antithetic samples with higher spread can stabilize the variance closer to its expectation. However, sampling z_{k+1},...,z_{2k} with particular sample statistics in mind is a difficult challenge. To solve this, we first narrow our scope to Gaussian distributions, and later extend to other distribution families."
+  },
+  {
+    "i": 29,
+    "tag": "h2",
+    "id": null,
+    "text": "3 Generating Gaussian Variates with Given Sample Mean and Variance"
+  },
+  {
+    "i": 30,
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "We present the constrained sampling problem : given a Gaussian distribution with population mean \\mu and population variance \\sigma^{2}, we wish to generate k samples x_{1},...,x_{k}\\sim\\mathcal{N}(\\mu,\\sigma^{2}) subject to the conditions:"
+  },
+  {
+    "i": 31,
+    "tag": "table",
+    "id": "S3.EGx3",
+    "text": "\\displaystyle\\frac{1}{k}\\sum_{i=1}^{k}x_{i} \\displaystyle=\\eta (6) \\displaystyle\\frac{1}{k}\\sum_{i=1}^{k}(x_{i}-\\eta)^{2} \\displaystyle=\\delta^{2} (7)"
+  },
+  {
+    "i": 32,
+    "tag": "p",
+    "id": "S3.p1.2",
+    "text": "where the constants \\eta and \\delta^{2} are given and represent the sample mean and sample variance . In other words, how can we draw samples from the correct marginal distribution conditioned on matching desired sample moments? For example, we might wish to match sample and population moments: \\eta=\\mu and \\delta=\\sigma."
+  },
+  {
+    "i": 33,
+    "tag": "p",
+    "id": "S3.p2.1",
+    "text": "Over forty years, there have been a handful of solutions. We review the algorithm introduced by ( Marsaglia and Good, 1980 ) . In our experiments, we reference a second algorithm by ( Pullin, 1979 ; Cheng, 1984 ) , which is detailed in the supplement. We chose ( Marsaglia and Good, 1980 ) due its simplicity, low computational overhead, and the fact that it makes the fewest random choices of proposed solutions."
+  },
+  {
+    "i": 34,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p1.1",
+    "text": "Since x_{1},...,x_{k} are independent, we can write the joint density function as follows:"
+  },
+  {
+    "i": 35,
+    "tag": "table",
+    "id": "S3.E8",
+    "text": "p(x_{1},...,x_{k})=(2\\pi\\sigma^{2})^{-\\frac{k}{2}}e^{-\\frac{1}{2\\sigma^{2}}\\sum_{i}(x_{i}-\\mu)^{2}} (8)"
+  },
+  {
+    "i": 36,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p2.1",
+    "text": "We can interpret Eqn. 53 as a hyperplane and Eqn. 54 as the surface of a sphere in k dimensions. Let \\mathcal{X} be the set of all points (x_{1},...,x_{k})\\in\\mathbb{R}^{k} that satisfy the above constraints. Geometrically, we can view \\mathcal{X} as the intersection between the hyperplane and k-dimensional sphere, i.e., the surface of a (k-1) dimensional sphere (e.g. a circle if k=2)."
+  },
+  {
+    "i": 37,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p3.1",
+    "text": "We make the following important observation: the joint density (Eqn. 8 ) is constant for all points in \\mathcal{X}. To see this, we can write the following:"
+  },
+  {
+    "i": 38,
+    "tag": "table",
+    "id": "S3.Ex1",
+    "text": "\\begin{split}\\sum_{i}(x_{i}-\\mu)^{2}&=\\sum_{i}(x_{i}-\\eta)^{2}\\\\ &\\quad+2(\\eta-\\mu)\\sum_{i}(x_{i}-\\eta)+k(\\eta-\\mu)^{2}\\\\ &=\\sum_{i}(x_{i}-\\eta)^{2}+k(\\eta-\\mu)^{2}\\\\ &=k\\delta^{2}+k(\\eta-\\mu)^{2}\\end{split}"
+  },
+  {
+    "i": 39,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p3.2",
+    "text": "where \\sum_{i}(x_{i}-\\eta)=\\sum_{i}(x_{i})-k\\eta=0 by Eqn. 53 . Plugging this into the density function, rewrite Eqn. 8 as:"
+  },
+  {
+    "i": 40,
+    "tag": "table",
+    "id": "S3.E9",
+    "text": "p(x_{1},...,x_{k})=(2\\pi\\sigma^{2})^{-\\frac{k}{2}}e^{-\\frac{1}{2\\sigma^{2}}(k\\delta^{2}+k(\\eta-\\mu)^{2})} (9)"
+  },
+  {
+    "i": 41,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p3.3",
+    "text": "Critically, Eqn. 9 is independent of x_{1},...,x_{k}. For any (\\eta,\\delta,\\mu,\\sigma), the density for every x\\in\\mathcal{X} is constant. In other words, the conditional distribution of x_{1},...,x_{k} given that x_{1},...,x_{k}\\in\\mathcal{X} is the uniform distribution over \\mathcal{X}. Surprisingly, it does not depend on \\mu or \\sigma."
+  },
+  {
+    "i": 42,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px1.p4.1",
+    "text": "Therefore, to solve the constrained sampling problem, we need only be able to sample uniformly from the surface of a (k-1) dimensional sphere."
+  },
+  {
+    "i": 43,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p1.1",
+    "text": "More precisely, we can generate the required samples \\textbf{x}=(x_{1},...,x_{k}) from a point \\textbf{z}=(z_{1},...,z_{k-1}) uniformly distributed on the unit sphere in \\mathbb{R}^{k-1} centered at the origin by solving the linear system:"
+  },
+  {
+    "i": 44,
+    "tag": "table",
+    "id": "S3.E10",
+    "text": "\\textbf{x}=k^{\\frac{1}{2}}\\delta\\textbf{z}B+\\eta\\textbf{v} (10)"
+  },
+  {
+    "i": 45,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p1.2",
+    "text": "where \\textbf{v}=(1,1,...,1) is a k dimensional vector of ones and B is a (k-1) by k matrix such that the rows of B form an orthonormal basis with the null space of v i.e. we choose B where BB^{t}=I and B\\textbf{v}^{t}=0, which happens to satisfy our constraints:"
+  },
+  {
+    "i": 46,
+    "tag": "table",
+    "id": "S3.EGx4",
+    "text": "\\displaystyle\\textbf{x}\\textbf{v}^{t} \\displaystyle=k\\eta (11) \\displaystyle(\\textbf{x}-\\eta\\textbf{v})(\\textbf{x}-\\eta\\textbf{v})^{t}=k\\delta^{2}\\textbf{z}BB^{t}\\textbf{z}^{t} \\displaystyle=k\\delta^{2} (12)"
+  },
+  {
+    "i": 47,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p1.3",
+    "text": "As z is uniformly distributed over the unit (k-1) sphere, Eqn. 11 and 12 guarantee that x is uniformly distributed in \\mathcal{X}. We can generate z by sampling (\\epsilon_{1},...,\\epsilon_{k-1})\\sim\\mathcal{N}(0,1) and setting z_{i}=\\epsilon_{i}/\\sum_{i}\\epsilon_{i}^{2}. As in ( Marsaglia and Good, 1980 ) , we set B to RowNormalize(A) where A is defined as"
+  },
+  {
+    "i": 48,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p2.1",
+    "text": "\\begin{bmatrix}1-k&1&1&.&.&.&1&1&1\\\\ 0&2-k&1&.&.&.&1&1&1\\\\ 0&0&3-k&.&.&.&1&1&1\\\\ .&&&&&&&&.\\\\ .&&&&&&&&.\\\\ .&&&&&&&&.\\\\ 0&0&0&.&.&.&-2&1&1\\\\ 0&0&0&.&.&.&0&-1&1\\end{bmatrix}"
+  },
+  {
+    "i": 49,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p3.1",
+    "text": "and RowNormalize divides each row vector in A by the sum of the elements in that row. We summarize the procedure in Alg. 1 and the properties of MarsagliaSample in Prop. 5 ."
+  },
+  {
+    "i": 50,
+    "tag": "p",
+    "id": "Thmprop1.p1.1",
+    "text": "For any k>2, \\mu\\in\\mathbb{R} and \\sigma^{2}>0, if \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and \\frac{(k-1)\\delta^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{k-1} and \\boldsymbol{\\epsilon}=\\epsilon_{1},...,\\epsilon_{k-1}\\sim\\mathcal{N}(0,1) i.i.d., then the generated samples x_{1},...,x_{k}=\\textsc{MarsagliaSample}(\\boldsymbol{\\epsilon},\\eta,\\delta^{2},k) are independent normal variates sampled from \\mathcal{N}(\\mu,\\sigma^{2}) such that \\frac{1}{k}\\sum_{i}x_{i}=\\eta and \\frac{1}{k}\\sum_{i}(x_{i}-\\eta)^{2}=\\delta^{2}."
+  },
+  {
+    "i": 51,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p4.1",
+    "text": "We provide a full proof in the supplement. For a sketch, let \\mathbf{x}=(x_{1},...,x_{k}) such that x_{i}\\sim\\mathcal{N}(\\mu,\\sigma^{2}) i.i.d. Compute sample statistics \\eta,\\delta^{2} from \\mathbf{x} as defined in Eqn. 13 . Consider the joint distribution over samples and sample moments:"
+  },
+  {
+    "i": 52,
+    "tag": "table",
+    "id": "S3.Ex2",
+    "text": "p(\\mathbf{x},\\eta,\\delta^{2})=p(\\eta,\\delta^{2})p(\\mathbf{x}|\\eta,\\delta^{2})"
+  },
+  {
+    "i": 53,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p4.2",
+    "text": ". We make two observations: first, \\eta,\\delta^{2}, as defined, are drawn from p(\\eta,\\delta^{2}). Second, as hinted above, p(\\mathbf{x}|\\eta,\\delta^{2}) is the uniform distribution over a (k-1)-sphere, which Marsaglia shows us how to sample from. Thus, any samples \\mathbf{x^{\\prime}}\\sim p(\\mathbf{x}|\\eta=\\eta,\\delta^{2}=\\delta^{2}) will be distributed as \\mathbf{x} is (marginally), in other words i.i.d. Gaussian. ∎"
+  },
+  {
+    "i": 54,
+    "tag": "p",
+    "id": "S3.SS0.SSS0.Px2.p5.1",
+    "text": "As implied in Prop. 5 , if we happen to know the population mean \\mu and variance \\sigma^{2} (as we do in variational inference), we could generate k i.i.d. Gaussian variates by sampling \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and \\frac{(k-1)\\delta^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{k-1}, and passing \\eta, \\delta^{2} to MarsagliaSample ."
+  },
+  {
+    "i": 55,
+    "tag": "h2",
+    "id": null,
+    "text": "4 Constrained Antithetic Sampling"
+  },
+  {
+    "i": 56,
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "We might be inclined to use MarsagliaSample to directly generate samples with some fixed deterministic \\eta=\\mu and \\delta=\\sigma. However, Prop. 5 holds only if the desired sample moments \\eta,\\delta are random variables. If we choose them deterministically, we can no longer guarantee the correct marginal distribution for the samples, thus precluding their use for Monte Carlo estimates. Instead, what we can do is compute \\eta and \\delta^{2} from i.i.d. samples from \\mathcal{N}(\\mu,\\sigma^{2}), derive antithetic sample moments, and use MarsagliaSample to generate a second set of samples distributed accordingly."
+  },
+  {
+    "i": 57,
+    "tag": "p",
+    "id": "S4.p2.1",
+    "text": "More precisely, given a set of k independent normal variates (x_{1},...,x_{k})\\sim\\mathcal{N}(\\mu,\\sigma^{2}), we would like to generate a new set of k normal variates (x_{k+1},...,x_{2k}) such that the combined sample moments match the population moments, \\frac{1}{2k}\\sum_{i=1}^{2k}x_{i}=\\mu and \\frac{1}{2k}\\sum_{i=1}^{2k}(x_{i}-\\mu)^{2}=\\sigma^{2}. We call the second set of samples (x_{k+1},...,x_{2k}) antithetic to the first set."
+  },
+  {
+    "i": 58,
+    "tag": "p",
+    "id": "S4.p3.1",
+    "text": "We compute sample statistics from the first set:"
+  },
+  {
+    "i": 59,
+    "tag": "table",
+    "id": "S4.EGx5",
+    "text": "\\displaystyle\\eta \\displaystyle=\\frac{1}{k}\\sum_{i=1}^{k}x_{i} \\displaystyle\\delta^{2} \\displaystyle=\\frac{1}{k}\\sum_{i=1}^{k}(x_{i}-\\mu)^{2} (13)"
+  },
+  {
+    "i": 60,
+    "tag": "p",
+    "id": "S4.p3.2",
+    "text": "Note that \\eta,\\delta are random variables, satisfying \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and \\frac{(k-1)\\delta^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{k-1}. Ideally, we would want the second set to come from an “opposing” \\eta^{\\prime} and \\delta^{\\prime}. To choose \\eta^{\\prime} and \\delta^{\\prime}, we leverage the inverse CDF transform : given the cumulative distribution function (CDF) for a random variable X, denoted F_{X}, we can define a uniform variate Y=F_{X}(X). The antithetic uniform variable is then Y^{\\prime}=1-Y, which upon application of the inverse CDF function, is mapped back to a properly distributed antithetic variate X^{\\prime}=F^{-1}_{X}(Y^{\\prime}). Crucially, X and X^{\\prime} have the same marginal distribution, but are not independent."
+  },
+  {
+    "i": 61,
+    "tag": "p",
+    "id": "S4.p4.1",
+    "text": "Let F_{\\eta} represent a Gaussian CDF and F_{\\delta} represent a Chi-squared CDF. We can derive \\eta^{\\prime} and \\delta^{\\prime} as:"
+  },
+  {
+    "i": 62,
+    "tag": "table",
+    "id": "S4.EGx6",
+    "text": "\\displaystyle\\eta^{\\prime} \\displaystyle=F^{-1}_{\\eta}(1-F_{\\eta}(\\eta)) (14) \\displaystyle\\frac{(k-1)(\\delta^{\\prime})^{2}}{\\sigma^{2}} \\displaystyle=F^{-1}_{\\delta}\\left(1-F_{\\delta}\\left(\\frac{(k-1)\\delta^{2}}{\\sigma^{2}}\\right)\\right) (15)"
+  },
+  {
+    "i": 63,
+    "tag": "p",
+    "id": "S4.p4.2",
+    "text": "Crucially, \\eta^{\\prime},\\delta^{\\prime} chosen this way are random variables with the correct marginal distributions, i.e., \\eta^{\\prime}\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and \\frac{(k-1)(\\delta^{\\prime})^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{k-1}. knowing \\eta^{\\prime},\\delta^{\\prime}, it is straightforward to generate antithetic samples with MarsagliaSample . We summarize the algorithm in Alg. 4 and its properties in Prop. 2 ."
+  },
+  {
+    "i": 64,
+    "tag": "p",
+    "id": "Thmprop2.p1.1",
+    "text": "Given k-1 i.i.d samples \\boldsymbol{\\epsilon}=(\\epsilon_{1},...,\\epsilon_{k-1})\\sim\\mathcal{N}(0,1), k i.i.d. samples \\boldsymbol{x}=(x_{1},...,x_{k})\\sim\\mathcal{N}(\\mu,\\sigma^{2}), let (x_{k+1},...,x_{2k})=\\textsc{AntitheticSample}(\\boldsymbol{x},\\boldsymbol{\\epsilon},\\mu,\\sigma^{2},k) be the generated antithetic samples. Then:"
+  },
+  {
+    "i": 65,
+    "tag": "p",
+    "id": "S4.I1.i1.p1.1",
+    "text": "x_{k+1},...,x_{2k} are independent normal variates sampled from \\mathcal{N}(\\mu,\\sigma^{2}) ."
+  },
+  {
+    "i": 66,
+    "tag": "p",
+    "id": "S4.I1.i2.p1.1",
+    "text": "The combined sample mean \\frac{1}{2k}\\sum_{i=1}^{2k}x_{i} is equal to the population mean \\mu ."
+  },
+  {
+    "i": 67,
+    "tag": "p",
+    "id": "S4.I1.i3.p1.1",
+    "text": "The sample variance of x_{k+1},...,x_{2k} is anticorrelated with the sample variance of x_{1},...,x_{k} ."
+  },
+  {
+    "i": 68,
+    "tag": "p",
+    "id": "S4.p5.1",
+    "text": "The first property follows immediately from Prop. 5 , as by construction \\eta^{\\prime},\\delta^{\\prime} have the correct marginal distribution. Simple algebra shows that the inverse Gaussian CDF transform simplifies to \\eta^{\\prime}=2*\\mu-\\eta, giving the desired relationship \\eta/2+\\eta^{\\prime}/2=\\mu. The third property follows from Eq. 15 . ∎"
+  },
+  {
+    "i": 69,
+    "tag": "p",
+    "id": "S4.p6.1",
+    "text": "Since both sets of samples share the same (correct) marginal distribution, x_{1},...,x_{2k} can be used to obtain unbiased Monte Carlo estimates."
+  },
+  {
+    "i": 70,
+    "tag": "p",
+    "id": "Thmprop3.p1.1",
+    "text": "Given k-1 i.i.d samples \\boldsymbol{\\epsilon}=(\\epsilon_{1},...,\\epsilon_{k-1})\\sim\\mathcal{N}(0,1), k i.i.d. samples \\boldsymbol{x}=(x_{1},...,x_{k})\\sim\\mathcal{N}(\\mu,\\sigma^{2}), let (x_{k+1},...,x_{2k})=\\textsc{AntitheticSample}(\\boldsymbol{x},\\boldsymbol{\\epsilon},\\mu,\\sigma^{2},k) be the generated antithetic samples. Then \\frac{1}{2k}\\sum_{i=1}^{2k}f(x_{i}) is an unbiased estimator of \\mathbb{E}_{x\\sim\\mathcal{N}(\\mu,\\sigma^{2})}[f(x)]."
+  },
+  {
+    "i": 71,
+    "tag": "p",
+    "id": "S4.p7.1",
+    "text": "Let q(x_{1},\\cdots,x_{k},x_{k+1},\\cdots,x_{2k}) denote the joint distribution of the 2k samples. Note the two groups of samples (x_{1},...,x_{k}) and (x_{k+1},...,x_{2k}) are not independent. However,"
+  },
+  {
+    "i": 72,
+    "tag": "table",
+    "id": "S4.EGx7",
+    "text": "\\displaystyle\\mathbb{E}_{(x_{1},\\cdots,x_{k},x_{k+1},\\cdots,x_{2k})\\sim q}\\left[\\frac{1}{2k}\\sum_{i=1}^{2k}f(x_{i})\\right]= \\displaystyle\\frac{1}{2k}\\sum_{i=1}^{2k}\\mathbb{E}_{x_{i}\\sim q_{i}(x_{i})}\\left[f(x_{i})\\right]=\\mathbb{E}_{x\\sim\\mathcal{N}(\\mu,\\sigma^{2})}[f(x)]"
+  },
+  {
+    "i": 73,
+    "tag": "p",
+    "id": "S4.p7.2",
+    "text": "because by assumption and Prop. 2 , each x_{i} is marginally distributed as \\mathcal{N}(\\mu,\\sigma^{2}). ∎"
+  },
+  {
+    "i": 74,
+    "tag": "h3",
+    "id": null,
+    "text": "4.1 Approximate Antithetic Sampling"
+  },
+  {
+    "i": 75,
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "If F_{\\eta} and F_{\\delta} were well-defined and invertible, we could use Alg. 4 as is, with its good guarantees. On one hand, since \\eta is normally distributed, the inverse CDF transform simplifies to:"
+  },
+  {
+    "i": 76,
+    "tag": "table",
+    "id": "S4.E16",
+    "text": "\\eta^{\\prime}=2*\\mu-\\eta (16)"
+  },
+  {
+    "i": 77,
+    "tag": "p",
+    "id": "S4.SS1.p1.2",
+    "text": "However, there is no general closed form expression for F^{-1}_{\\delta}. Our options are then to either use a discretized table of probabilities or approximate the inverse CDF. Because we desire differentiability, we choose to use a normal approximation to F_{\\delta}."
+  },
+  {
+    "i": 78,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p1.1",
+    "text": "Canal (2005) surveys a variety of normal approximations, all of which are a linear combination of \\chi^{2} variates to a power root. We choose to use ( Hawkins and Wixley, 1986 ) as (P1) it is an even power, (P2) it contains only 1 term involving a random variate, and (P3) is shown to work better for smaller degrees of freedom (smaller sample sizes). We derive a closed form for computing \\delta^{\\prime} from \\delta by combining the normal approximation with Eqn. 16 . We denote this final transform as the antithetic Hawkins-Wixley transform :"
+  },
+  {
+    "i": 79,
+    "tag": "table",
+    "id": "S4.E17",
+    "text": "\\lambda^{\\prime}=v(2(1-\\frac{3}{16v}-\\frac{7}{512v^{2}}+\\frac{231}{8192v^{3}})-(\\frac{\\lambda}{v})^{1/4})^{4} (17)"
+  },
+  {
+    "i": 80,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p1.2",
+    "text": "where \\lambda\\sim\\chi^{2}_{v} with v being the degree of freedom. Therefore, if we set \\lambda=(k-1)\\delta^{2}/\\sigma^{2}\\sim\\chi^{2}_{k-1} and v=k-1, then we can derive (\\delta^{\\prime})^{2}=\\lambda^{\\prime}\\sigma^{2}/(k-1) where \\lambda^{\\prime} is computed as in Eqn. 17 , whose derivation can be found in the supplementary material."
+  },
+  {
+    "i": 81,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p2.1",
+    "text": "P1 is important as odd degree approximations e.g. ( Wilson and Hilferty, 1931 ) can result in a negative value for \\lambda^{\\prime} under small k. P2 is required to derive a closed form as most linear combinations do not factor. P3 is desirable for variational inference."
+  },
+  {
+    "i": 82,
+    "tag": "p",
+    "id": "S4.SS1.SSS0.Px1.p3.1",
+    "text": "To update Alg. 4 , we swap the fourth line with Eqn. 16 and the sixth line with Eqn. 17 . The first property in Prop. 2 and therefore also Prop. 3 do not hold anymore: the approximate AntitheticSample has bias that depends on the approximation error in Eqn. 17 . In practice, we find the approximate AntitheticSample to be effective. From now on, when we refer to AntitheticSample , we refer to the approximate version. See supplement for a written algorithm. We refer to Fig. 2 for an illustration of the impact of antithetics: sampling i.i.d. could result in skewed sample distributions that over-emphasize the mode or tails, especially when drawing very few samples. Including antithetic samples helps to “stabilize” the sample distribution to be closer to the true distribution."
+  },
+  {
+    "i": 83,
+    "tag": "h2",
+    "id": null,
+    "text": "5 Generalization to Other Families"
+  },
+  {
+    "i": 84,
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "Marsaglia and Good (1980) ’s algorithm is restricted to distribution families that can be transformed to a unit sphere (primarily Gaussians), as are many similar algorithms ( Cheng, 1984 ; Pullin, 1979 ) . However, we can explore “generalizing” AntitheticSample to a wider class of families by first antithetically sampling in a Gaussian distribution, then transforming its samples to samples from another family using a deterministic function, g:\\mathbb{R}^{d}\\rightarrow\\mathbb{R}^{d}. Although we are not explicitly matching the moments of the derived distributions, we expect that transformations of more representative samples in an initial distribution may be more representative in the transformed distribution. We now discuss a few candidates for g(\\cdot)."
+  },
+  {
+    "i": 85,
+    "tag": "h3",
+    "id": null,
+    "text": "5.1 One-Liners"
+  },
+  {
+    "i": 86,
+    "tag": "p",
+    "id": "S5.SS1.p1.1",
+    "text": "Devroye (1996) presents a large suite of “one line” transformations between distributions. We focus on three examples starting from a Gaussian to (1) Log Normal, (2) Exponential, and (3) Cauchy. Many additional transformations (e.g. to Pareto, Gumbel, Weibull, etc.) can be used in a similar fashion. Let F_{x} refer to the CDF of a random variable x. See supplementary material for derivations."
+  },
+  {
+    "i": 87,
+    "tag": "p",
+    "id": "S5.SS1.SSS0.Px1.p1.1",
+    "text": "g(z)=e^{z} where z\\sim\\mathcal{N}(\\mu,\\sigma^{2})."
+  },
+  {
+    "i": 88,
+    "tag": "p",
+    "id": "S5.SS1.SSS0.Px2.p1.1",
+    "text": "Let F_{x}(x)=1-\\exp^{\\lambda x} where \\lambda\\in\\mathbb{R}^{d} is a learnable parameter. Then F_{x}^{-1}(y)=-\\frac{1}{\\lambda}\\log y. Thus, g(u,\\lambda)=-\\frac{1}{\\lambda}\\log u where u\\in U(0,1)."
+  },
+  {
+    "i": 89,
+    "tag": "p",
+    "id": "S5.SS1.SSS0.Px3.p1.1",
+    "text": "Let F_{x}(x)=\\frac{1}{2}+\\frac{1}{\\pi}\\arctan(\\frac{x-x_{0}}{\\gamma}) where x_{0}\\in\\mathbb{R}^{d},\\gamma\\in\\mathbb{R}^{d} are learnable parameters. Then F_{x}^{-1}(y)=\\gamma(\\tan(\\pi y)+x_{0}). Given u\\in U(0,1), we define g(u,x_{0},\\gamma)=\\gamma(\\tan(\\pi u)+x_{0})."
+  },
+  {
+    "i": 90,
+    "tag": "h3",
+    "id": null,
+    "text": "5.2 Deeper Flows"
+  },
+  {
+    "i": 91,
+    "tag": "p",
+    "id": "S5.SS2.p1.1",
+    "text": "One liners are an example of a simple flow where we know how to score the transformed sample. If we want more flexible distributions, we can apply normalizing flows (NF). A normalizing flow ( Rezende and Mohamed, 2015 ) applies T invertible transformations h^{(t)},t=1,...,T to samples z^{(0)} from a simple distribution, leaving z^{(T)} as a sample from a complex distribution. A common normalizing flow is a linear-time transformation: g(z)=z+u(h(w^{T}z+b)) where w\\in\\mathbb{R}^{d},u\\in\\mathbb{R}^{d},b\\in\\mathbb{R} are learnable parameters, and h is a non-linearity. In variational inference, flows enable us to parameterize a wider set of posterior families."
+  },
+  {
+    "i": 92,
+    "tag": "p",
+    "id": "S5.SS2.p2.1",
+    "text": "We can also achieve flexible posteriors using volume-preserving flows (VPF), of which Tomczak and Welling (2016) introduced the Householder transformation: g(z)=(I-2\\frac{v\\cdot v^{T}}{\\|v\\|^{2}})z where v\\in\\mathbb{R}^{d} is a trainable parameter. Critically, the Jacobian-determinant is 1."
+  },
+  {
+    "i": 93,
+    "tag": "h2",
+    "id": null,
+    "text": "6 Differentiable Antithetic Sampling"
+  },
+  {
+    "i": 94,
+    "tag": "p",
+    "id": "S6.p1.1",
+    "text": "Finally, we can use AntitheticSample to approximate the ELBO for variational inference."
+  },
+  {
+    "i": 95,
+    "tag": "p",
+    "id": "S6.p2.1",
+    "text": "For a given observation x\\in p_{\\textup{data}}(x) from an empirical dataset, we write the antithetic gradient estimators as:"
+  },
+  {
+    "i": 96,
+    "tag": "table",
+    "id": "S6.E18",
+    "text": "\\begin{split}\\nabla_{\\theta}\\textup{ELBO}&\\approx\\frac{1}{2k}\\sum_{i=1}^{k}[\\nabla_{\\theta}\\log p_{\\theta}(x,z_{i})\\\\ &+\\nabla_{\\theta}\\log p_{\\theta}(x,z_{i+k})]\\end{split} (18)"
+  },
+  {
+    "i": 97,
+    "tag": "table",
+    "id": "S6.E19",
+    "text": "\\begin{split}\\nabla_{\\phi}\\textup{ELBO}&\\approx\\frac{1}{2k}\\sum_{i=1}^{k}[\\nabla_{z}\\log\\frac{p_{\\theta}(x,z_{i}(\\epsilon))}{q_{\\phi}(z_{i}(\\epsilon)|x)}\\nabla_{\\phi}g_{\\phi}(\\epsilon_{i})\\\\ &+\\nabla_{z}\\log\\frac{p_{\\theta}(x,z_{i+k}(\\epsilon))}{q_{\\phi}(z_{i+k}(\\epsilon)|x)}\\nabla_{\\phi}g_{\\phi}(\\epsilon_{i+k})]\\end{split} (19)"
+  },
+  {
+    "i": 98,
+    "tag": "p",
+    "id": "S6.p2.2",
+    "text": "where (\\epsilon_{1},...,\\epsilon_{k})\\sim\\mathcal{N}(0,1), \\boldsymbol{\\xi}=(\\xi_{1},...,\\xi_{k-1}), \\boldsymbol{z}=(z_{1},...,z_{k})\\sim q_{\\phi}(z|x), and (z_{k+1},...,z_{2k})=\\textsc{AntitheticSample}(\\boldsymbol{z},\\boldsymbol{\\xi},\\mu,\\sigma^{2},k). Optionally, \\boldsymbol{z}=\\textsc{Transform}(\\boldsymbol{z},\\alpha) where Transform denotes any sample transformation(s) with parameters \\alpha."
+  },
+  {
+    "i": 99,
+    "tag": "p",
+    "id": "S6.p3.1",
+    "text": "Alternative variational bounds have been considered recently, including an importance-weighted estimator of the ELBO, or IWAE ( Burda et al., 2015 ) . Antithetic sampling can be applied in a similar fashion, as also shown in ( Shu et al., 2019 ) ."
+  },
+  {
+    "i": 100,
+    "tag": "p",
+    "id": "S6.p4.1",
+    "text": "Importantly, AntitheticSample is a special instance of a reparameterization estimator. Aside from samples from a parameter-less distribution (unit Gaussian), AntitheticSample is completely deterministic, meaning that it is differentiable with respect to the population moments \\mu and \\sigma^{2} by any modern auto-differentiation library. Allowing backpropagation through AntitheticSample means that any free parameters are aware of the sampling strategy. Thus, including antithetics will change the optimization trajectory, resulting in a different variational posterior than if we had used i.i.d samples alone. In Sec. 8 , we show experimentally that most of the benefit of differentiable antithetic sampling comes from being differentiable."
+  },
+  {
+    "i": 101,
+    "tag": "p",
+    "id": "S6.p5.1",
+    "text": "Alg. 3 summarizes inference in a VAE using differentiable antithetic sampling (denoted by AntiVAE 1 1 1 For some experiments, we use Cheng’s algorithm instead of Marsaglia’s. We refer to this as AntiVAE (Cheng). ). To the best of our knowledge, the application of antithetic sampling to stochastic optimization, especially variational inference is novel. Both the application of ( Marsaglia and Good, 1980 ) to drawing antithetics and the extension of AntitheticSample to other distribution families by transformation is novel. This is also the first instance of differentiating through an antithetic sample generator."
+  },
+  {
+    "i": 102,
+    "tag": "table",
+    "id": "S6.T1.2",
+    "text": "Model stat. MNIST dyn. MNIST FashionMNIST Omniglot Caltech Frey Hist. VAE -90.44 -86.96 -2819.13 -110.65 -127.26 -1778.78 -3320.37 AntiVAE -89.74 -86.94 -2807.06 -110.13 -124.87 -1758.66 -3293.01 AntiVAE (Cheng) -89.70 -86.93 -2806.71 -110.39 -125.19 -1758.29 -3292.72 VAE+IWAE -89.78 -86.71 -2797.02 -109.32 -123.99 -1772.06 -3311.23 AntiVAE+IWAE -89.71 -86.62 -2793.01 -109.48 -123.35 -1771.47 -3305.91 VAE (\\log\\mathcal{N}) -149.47 -145.13 -2891.75 -164.01 -269.51 -1910.11 -3460.18 AntiVAE (\\log\\mathcal{N}) -149.78 -141.76 -2882.11 -163.55 -266.82 -1895.15 -3454.54 VAE (Exp.) 141.95 -140.91 -2971.00 -159.92 -200.14 -2176.83 -3776.48 AntiVAE (Exp.) 141.98 -140.58 -2970.12 -158.15 - 197.47 -2156.93 -3770.33 VAE (Cauchy) -217.69 -217.53 -3570.53 -187.34 -419.78 -2404.24 -3930.40 AntiVAE (Cauchy) -215.89 -217.12 -3564.80 -186.02 -417.0 -2395.07 -3926.95 VAE+10-NF -90.07 -86.93 -2803.98 -110.03 -128.62 -1780.61 -3328.68 AntiVAE+10-NF -89.77 -86.57 -2801.90 -109.43 -127.23 -1777.26 -3303.00 VAE+10-VPF -90.59 -86.99 -2802.65 -110.19 -128.87 -1789.18 -3312.30 AntiVAE+10-VPF -90.00 -86.59 -2797.05 -109.04 126.72 -1787.18 -3305.42"
+  },
+  {
+    "i": 103,
+    "tag": "h2",
+    "id": null,
+    "text": "7 Experiments"
+  },
+  {
+    "i": 104,
+    "tag": "p",
+    "id": "S7.p1.1",
+    "text": "We compare performance of the VAE and AntiVAE on seven image datasets: static MNIST ( Larochelle and Murray, 2011 ) , dynamic MNIST ( LeCun et al., 1998 ) , FashionMNIST ( Xiao et al., 2017 ) , OMNIGLOT ( Lake et al., 2015 ) , Caltech 101 Silhouettes ( Marlin et al., 2010 ) , Frey Faces 2 2 2 https://cs.nyu.edu/ roweis/data.html , and Histopathology patches ( Tomczak and Welling, 2016 ) . See supplement for details."
+  },
+  {
+    "i": 105,
+    "tag": "p",
+    "id": "S7.p2.1",
+    "text": "In both VAE and AntiVAE, q_{\\phi}(z|x) and p_{\\theta}(x|z) are two-layer MLPs with 300 hidden units, Xavier initialization ( Glorot and Bengio, 2010 ) , and ReLU. By default, we set d=40 and k=8 (i.e. 4 antithetic samples) and optimize either the ELBO or IWAE. For grayscale images, p_{\\theta}(x|z) parameterize a discretized logistic distribution as in ( Kingma et al., 2016 ; Tomczak and Welling, 2017 ) . The log variance from p_{\\theta}(x|z) is clamped between -4.5 and 0.0 ( Tomczak and Welling, 2017 ) . We use Adam ( Kingma and Ba, 2014 ) with a fixed learning rate of 3\\cdot 10^{-4} and a mini-batch of 128. We train for 500 epochs. Test marginal log likelihoods are estimated via importance sampling using 100 i.i.d. samples. See supplement for additional experiments where we vary architectures, measure runtimes, report variance over many runs, and more."
+  },
+  {
+    "i": 106,
+    "tag": "h2",
+    "id": null,
+    "text": "8 Results"
+  },
+  {
+    "i": 107,
+    "tag": "p",
+    "id": "S8.p1.1",
+    "text": "Fig. 3 and Table 1 show test log likelihoods (over 5 runs). We summarize findings below:"
+  },
+  {
+    "i": 108,
+    "tag": "p",
+    "id": "S8.SS0.SSS0.Px1.p1.1",
+    "text": "AntiVAE consistently achieves higher log likelihoods, usually by a margin of 2 to 5 log units. With FashionMNIST/Histopathology, the margin grows to as much as 30 log units. In the 3 cases that AntiVAE performs worse than VAE, the log-likelihoods are almost equal (\\leq 1 log unit). In Fig. 3(b) , we see a case where, even when the final performance is equivalent, AntiVAE learns faster. We find similar behavior using a tighter IWAE bound or other posterior families defined by one liners and flows. With the latter, we see improvements of up to 25 log units. A better sampling strategy is effective regardless of the choice of objective and distributional family."
+  },
+  {
+    "i": 109,
+    "tag": "p",
+    "id": "S8.SS0.SSS0.Px2.p1.1",
+    "text": "Fig. 4 a illustrates that as the number of samples k\\rightarrow\\infty, posterior samples will match the true moments of q_{\\phi}(z|x) regardless of the sampling strategy. But as k\\rightarrow 0, the effectiveness grows quickly. We expect best performance at small (but not too small) k where the normal approximation (Eqn. 17 ) is decent and the value of antithetics is high."
+  },
+  {
+    "i": 110,
+    "tag": "p",
+    "id": "S8.SS0.SSS0.Px3.p1.1",
+    "text": "Fig. 4 b illustrates that the importance of sampling strategy increases as the dimensionality grows due to an exponential explosion in the volume of the sample space. With higher dimensionality, we find antithetic sampling to be more effective."
+  },
+  {
+    "i": 111,
+    "tag": "p",
+    "id": "S8.SS0.SSS0.Px4.p1.1",
+    "text": "From Fig. 4(c) , 4(d) , we see that most of the improvement from antithetics relies on differentiating through AntitheticSample . This is sensible as the model can adjust parameters if it is aware of the sampling strategy, leading to better optima. Even if we do not backpropagate through sampling (draw antithetic samples from \\mathcal{N}(0,1) followed by standard reparameterization), we will still find modest improvement over i.i.d. sampling."
+  },
+  {
+    "i": 112,
+    "tag": "p",
+    "id": "S8.SS0.SSS0.Px4.p2.1",
+    "text": "We believe differentiability encourages initial samples to be more diverse. To test this, we measure the variance of the first k/2 samples (1) without antithetics, (2) with non-differentiable antithetics, and (3) with differentiable antithetics. Fig. 4 e shows that samples in (3) have consistently higher variance than (1) or (2)."
+  },
+  {
+    "i": 113,
+    "tag": "p",
+    "id": "S8.SS0.SSS0.Px5.p1.1",
+    "text": "We measure an average 0.004 sec. increase in wallclock time per step when adding in antithetics."
+  },
+  {
+    "i": 114,
+    "tag": "h2",
+    "id": null,
+    "text": "9 Conclusion"
+  },
+  {
+    "i": 115,
+    "tag": "p",
+    "id": "S9.p1.1",
+    "text": "We present a differentiable antithetic sampler for variance reduction. We show its benefits for a family of VAEs. We hope to apply it to reinforcement learning using pathwise derivatives ( Levy and Ermon, 2018 ) ."
+  },
+  {
+    "i": 116,
+    "tag": "h4",
+    "id": null,
+    "text": "Acknowledgements"
+  },
+  {
+    "i": 117,
+    "tag": "p",
+    "id": "S9.SS0.SSSx1.p1.1",
+    "text": "This research was supported by NSF (#1651565, #1522054, #1733686), ONR, AFOSR (FA9550-19-1-0024), FLI, and SocioNeticus (part of the DARPA SocialSim program). MW is supported by NSF GRFP."
+  },
+  {
+    "i": 118,
+    "tag": "h2",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "i": 119,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix A Description of Datasets"
+  },
+  {
+    "i": 120,
+    "tag": "p",
+    "id": "A1.p1.1",
+    "text": "We provide details in preprocessing for datasets used in the experiments in the main text. In total, we tested AntiVAE on seven datasets: static MNIST, dynamic MNIST, FashionMNIST, OMNIGLOT, Caltech 101 Silhouettes, Frey Faces, and Histopathology patches. As in previous literature, static MNIST uses a fixed binarization of images whereas dynamic MNIST resamples images from the training dataset at each minibatch. In dynamic MNIST, the validation and test sets have fixed binarization. We do an identical dynamic resampling procedure for OMNIGLOT. Caltech101 is given as binary data, so we cannot resample at training time, which we find to cause overfitting on the test set. For grayscale images that cannot be binarized, we would like to parameterize the generative model as a Gaussian distribution. In practice, we found this choice to cause over-prioritization of the reconstruction term, essentially causing the VAE to behave like a regular autoencoder. Instead, we find that a logistic distribution over the 256 grayscale domain avoids this failure mode. We use the default variance constraints as in ( Tomczak and Welling, 2017 ) . We now provide a brief description to introduce each dataset."
+  },
+  {
+    "i": 121,
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px1.p1.1",
+    "text": "is a dataset of hand-written digits from 0 to 9 split into 60,000 examples for training and 10,000 for testing. We use 10,000 randomly chosen images from the training set as a validation group."
+  },
+  {
+    "i": 122,
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px2.p1.1",
+    "text": "Similar to MNIST, this more difficult dataset contains 28x28 grayscale images of 10 different articles of clothing e.g. skirts, shoes, shirts, etc. The sizing and splits are identical to MNIST."
+  },
+  {
+    "i": 123,
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px3.p1.1",
+    "text": "is a dataset with 1,623 hand-wrriten characters from 50 different alphabets. Unlike the MNIST family of datasets, each character is only represented by 20 images, making this dataset more difficult. The training set is 24,345 examples with 8,070 test images. We again take 10% of the training data as validation."
+  },
+  {
+    "i": 124,
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px4.p1.1",
+    "text": "contains silhouettes of 101 different object classes in black and white: each image has a filled polygon on a white background. There are 4,100 training images, 2,264 validation datapoints and 2,307 test examples. Like OMNIGLOT, this task is difficult due to the limited data set."
+  },
+  {
+    "i": 125,
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px5.p1.1",
+    "text": "is a collection of portrait photos of one individual with varying emotional expressions for a total of 2,000 images. We use 1,565 for training, 200 validation, and 200 test examples."
+  },
+  {
+    "i": 126,
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px6.p1.1",
+    "text": "is a dataset from ten different biopsies of patients with cancer (e.g. lymphona, leukemia) or anemia. The dataset is originally in color with 336 x 448 pixel images. The data was processed to be 28 x 28 grayscale. The images are split in 6,800 training, 2,000 validation, and 2,000 test images. We refer to ( Tomczak and Welling, 2016 ) for exact details."
+  },
+  {
+    "i": 127,
+    "tag": "p",
+    "id": "A1.SS0.SSS0.Px6.p2.1",
+    "text": "All splitting was either given by the dataset owners or decided by a random seed of 1."
+  },
+  {
+    "i": 128,
+    "tag": "h3",
+    "id": null,
+    "text": "A.1 Evaluation Details"
+  },
+  {
+    "i": 129,
+    "tag": "p",
+    "id": "A1.SS1.p1.1",
+    "text": "To compute the test log-likelihood (in any of the experiments), we use k=100 samples to estimate the following:"
+  },
+  {
+    "i": 130,
+    "tag": "table",
+    "id": "A1.E20",
+    "text": "\\log\\mathbb{E}_{z\\sim q_{\\phi}(z|x)}[\\frac{p_{\\theta}(x,z)}{q_{\\phi}(z|x)}]\\approx\\log\\frac{1}{k}\\sum_{i=1}^{k}[\\frac{p_{\\theta}(x,z)}{q_{\\phi}(z|x)}] (20)"
+  },
+  {
+    "i": 131,
+    "tag": "p",
+    "id": "A1.SS1.p3.1",
+    "text": "where q_{\\phi}(z|x) is an amortized inference network, p_{\\theta}(x|z) is a generative model, and p(z) is a simple prior. Notably, we use (unbiased) i.i.d. samples to estimate Eqn. 20 . The final number reported is the average test log likelihood across the test split of the dataset."
+  },
+  {
+    "i": 132,
+    "tag": "h3",
+    "id": null,
+    "text": "A.2 Approximate Antithetic Sampling Algorithm"
+  },
+  {
+    "i": 133,
+    "tag": "p",
+    "id": "A1.SS2.p1.1",
+    "text": "We explicitly write out the approximate algorithm for antithetic sampling. Note the similiarity to Alg. 2 in the main text; the only distinction is that we use a derived approximation to the inverse CDF tranform for a Chi-squared random variable.. Here, we refer to this as ApproxAntitheticSample . In the main text, this algorithm is often referred to as AntitheticSample ."
+  },
+  {
+    "i": 134,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix B Proofs of Propositions"
+  },
+  {
+    "i": 135,
+    "tag": "p",
+    "id": "A2.p1.1",
+    "text": "In this section, we provide more rigor in proving (1) properties of antithetic samplers using Marsaglia’s method and (2) properties of Marsaglia’s method itself. In particular, we provide the proof of Proposition 1 (from the main text)."
+  },
+  {
+    "i": 136,
+    "tag": "h3",
+    "id": null,
+    "text": "B.1 Properties of Antithetic Sampling"
+  },
+  {
+    "i": 137,
+    "tag": "p",
+    "id": "A2.Thmtheorem1.p1.1",
+    "text": "Let p(x) be a distribution over \\mathbb{R} and let p(\\zeta)=\\prod_{i}^{k}p(x_{i}) be the distribution of k i.i.d. samples. Let T:\\mathbb{R}^{k}\\rightarrow\\mathbb{R}^{l} be a (l-dimensional) statistic of \\zeta. Let s(t) be the induced distribution of this statistic: s(t)=\\int_{\\zeta}\\delta_{T(\\zeta){=}t}p(\\zeta)d\\zeta. Let F:\\mathbb{R}^{l}\\rightarrow\\mathbb{R}^{l} be a deterministic function such that s(F(t))=s(t). We now construct a sample \\bar{\\zeta} by: sampling \\zeta\\sim p(\\zeta), computing \\bar{t}=F(T(\\zeta)), sampling \\bar{\\zeta}\\sim p(\\zeta|\\bar{t}) from the conditional given T(\\zeta)=\\bar{t}. This \\bar{\\zeta} is distributed according to p(\\zeta) and, in particular, it’s elements are i.i.d. according to p(x)."
+  },
+  {
+    "i": 138,
+    "tag": "p",
+    "id": "A2.Thmtheorem1.p2.1",
+    "text": "We begin by noting that:"
+  },
+  {
+    "i": 139,
+    "tag": "table",
+    "id": "A2.E21",
+    "text": "p(\\zeta)=\\int_{t}p(\\zeta|t)s(t) (21)"
+  },
+  {
+    "i": 140,
+    "tag": "p",
+    "id": "A2.Thmtheorem1.p2.2",
+    "text": "By assumption,"
+  },
+  {
+    "i": 141,
+    "tag": "table",
+    "id": "A2.EGx8",
+    "text": "\\displaystyle s(\\bar{t}) \\displaystyle=s(F(t)) (22) \\displaystyle=s(t). (23)"
+  },
+  {
+    "i": 142,
+    "tag": "p",
+    "id": "A2.Thmtheorem1.p2.3",
+    "text": "Thus,"
+  },
+  {
+    "i": 143,
+    "tag": "table",
+    "id": "A2.EGx9",
+    "text": "\\displaystyle p(\\bar{\\zeta}) \\displaystyle=\\int_{\\bar{t}}p(\\zeta|\\bar{t})s(\\bar{t}) (24) \\displaystyle=\\int_{t}p(\\zeta|t)s(t) (25) \\displaystyle=p(\\zeta) (26)"
+  },
+  {
+    "i": 144,
+    "tag": "p",
+    "id": "A2.Thmtheorem1.p2.4",
+    "text": "Thus \\bar{\\zeta}\\sim p(\\zeta). Since p(\\zeta) is the distribution over i.i.d. samples from p(x), the resulting elements of \\bar{\\zeta} are also i.i.d. from p(x). ∎"
+  },
+  {
+    "i": 145,
+    "tag": "p",
+    "id": "A2.SS1.p1.1",
+    "text": "We provide one example of a function F with the desired property."
+  },
+  {
+    "i": 146,
+    "tag": "p",
+    "id": "A2.Thmtheorem2.p1.1",
+    "text": "Let F(t)=\\textsc{CDF}(1-\\textsc{CDF}^{-1}(t)) where CDF is the cumulative distribution function for s(t). Then s(F(t))=s(t)."
+  },
+  {
+    "i": 147,
+    "tag": "p",
+    "id": "A2.SS1.p2.1",
+    "text": "Let X\\sim\\textsc{U}(0,1). By definition, CDF(X) will be distributed as s(t). Trivially, \\textsc{CDF}^{-1}(t)\\sim\\textsc{U}(0,1) when t\\sim s(t), and so too is 1-\\textsc{CDF}^{-1}(t). ∎"
+  },
+  {
+    "i": 148,
+    "tag": "p",
+    "id": "A2.Thmtheorem2.Thmcorollary1.p1.1",
+    "text": "Let \\theta=\\mathbb{E}_{p}[h(x)] be a function expectation of interest with respect to a distribution, p(x),x\\in\\mathbb{R}. Let \\hat{\\theta}_{1} be an unbiased Monte Carlo estimate using i.i.d. samples \\zeta\\sim p(\\zeta). Let \\hat{\\theta}_{2} be an “antithetic” estimate using samples \\bar{\\zeta} generated as in Theorem B.1 . Then the following hold,"
+  },
+  {
+    "i": 149,
+    "tag": "p",
+    "id": "A2.I1.i1.p1.1",
+    "text": "\\hat{\\theta}_{2} is unbiased estimate of \\theta"
+  },
+  {
+    "i": 150,
+    "tag": "p",
+    "id": "A2.I1.i2.p1.1",
+    "text": "\\hat{\\theta}_{3}=\\frac{\\hat{\\theta}_{1}+\\hat{\\theta}_{2}}{2} is unbiased estimate of \\theta"
+  },
+  {
+    "i": 151,
+    "tag": "p",
+    "id": "A2.I1.i3.p1.1",
+    "text": "Let F=\\textsc{CDF}(1-\\textsc{CDF}^{-1}(T)) . Then the first and second moments of \\zeta are anti-correlated to those of \\bar{\\zeta}"
+  },
+  {
+    "i": 152,
+    "tag": "p",
+    "id": "A2.SS1.p3.1",
+    "text": "By Theorem B.1 , “antithetic” samples \\bar{\\zeta}\\sim p(\\zeta) i.i.d., hence \\hat{\\theta}_{2} is unbiased (\\hat{\\theta}_{2} is equivalent to \\hat{\\theta}_{1}). \\hat{\\theta}_{3} is also unbiased as a linear combination of two unbiased estimators is itself unbiased. Anti-correlation of moments falls trivially from our choice of F. ∎"
+  },
+  {
+    "i": 153,
+    "tag": "p",
+    "id": "A2.SS1.SSS0.Px1.p1.1",
+    "text": "In the paper, we proposed the following proposition,"
+  },
+  {
+    "i": 154,
+    "tag": "p",
+    "id": "Thmprop4.p1.1",
+    "text": "For any k>2, \\mu\\in\\mathbb{R} and \\sigma^{2}\\in\\mathbb{R}^{+}, if \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and \\frac{(k-1)\\delta^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{k-1}, and \\bar{\\eta}=f(\\eta),\\bar{\\delta}^{2}=g(\\delta^{2};\\sigma^{2}) for some functions f:\\mathbb{R}\\rightarrow\\mathbb{R} and g:\\mathbb{R}\\rightarrow\\mathbb{R}, and \\epsilon=(\\epsilon_{1},...,\\epsilon_{k})\\sim\\mathcal{N}(0,1), then the “antithetic” samples \\zeta=(x_{1},...,x_{k})=\\textsc{MarsagliaSample}(\\epsilon,\\bar{\\eta},\\bar{\\delta}^{2},k) are independent normal variates sampled from \\mathcal{N}(\\mu,\\sigma^{2}) such that \\frac{1}{k}\\sum_{i}^{k}x_{i}=\\bar{\\eta} and \\frac{1}{k}\\sum_{i}^{k}(x_{i}-\\bar{\\eta})^{2}=\\bar{\\delta}^{2}."
+  },
+  {
+    "i": 155,
+    "tag": "p",
+    "id": "A2.SS1.SSS0.Px1.p2.1",
+    "text": "Define a statistic T=[\\bar{\\eta},\\bar{\\delta}^{2}], and function F=[f,g]. Marsaglia’s algorithm (or Pullin’s, Cheng’s) can be seen as a method for sampling from p(\\zeta|t) for a fixed statistic t. In Proposition 4 , we first sample t\\sim s(T(\\zeta)) where \\zeta\\sim\\mathcal{N}(\\mu,\\sigma^{2}). Then, we choose “antithetic” statistics using"
+  },
+  {
+    "i": 156,
+    "tag": "table",
+    "id": "A2.EGx10",
+    "text": "\\displaystyle f \\displaystyle=\\textsc{GaussianCDF}(1-\\textsc{GaussianCDF}^{-1}(\\eta)) (27) \\displaystyle g \\displaystyle=\\frac{\\sigma^{2}}{(k-1)}\\textsc{ChiSquaredCDF}(1-\\textsc{ChiSquaredCDF}^{-1}(\\frac{(k-1)\\delta^{2}}{\\sigma^{2}})) (28)"
+  },
+  {
+    "i": 157,
+    "tag": "p",
+    "id": "A2.SS1.SSS0.Px1.p2.2",
+    "text": "such that s(F(t))=s(t) by symmetry in \\textup{U}(0,1). By Theorem B.1 , antithetic samples \\bar{\\zeta} are distributed as \\zeta is. In practice, we use both \\zeta and \\bar{\\zeta} for stochastic estimation, as anti-correlated moments provide empirical benefits."
+  },
+  {
+    "i": 158,
+    "tag": "h3",
+    "id": null,
+    "text": "B.2 Properties of Marsaglia’s Method"
+  },
+  {
+    "i": 159,
+    "tag": "p",
+    "id": "A2.Thmtheorem3.p1.1",
+    "text": "Let \\epsilon=(\\epsilon_{1},...,\\epsilon_{k-1})\\sim\\mathcal{N}(0,1) auxiliary variables. Let \\eta,\\delta be known variables. Then \\zeta=(x_{1},...,x_{k})=\\textsc{MarsagliaSample}(\\epsilon,\\eta,\\delta^{2},k) are uniform samples from the sphere"
+  },
+  {
+    "i": 160,
+    "tag": "table",
+    "id": "A2.Ex5",
+    "text": "S=\\{(x_{1},...,x_{k})|\\sum_{i}^{k}x_{i}=k\\eta,\\sum_{i}^{k}(x_{i}-\\eta)^{2}=k\\delta^{2}\\}"
+  },
+  {
+    "i": 161,
+    "tag": "p",
+    "id": "A2.Thmtheorem3.p2.1",
+    "text": "S is the intersection of a hyperplane and the surface of a k-sphere: the surface of a (k-1)-sphere. Marsaglia uses the following to sample from S:"
+  },
+  {
+    "i": 162,
+    "tag": "p",
+    "id": "A2.Thmtheorem3.p3.1",
+    "text": "Let z=(z_{1},...,z_{k-1}) be a sample drawn uniformly from the unit (k-1)-sphere centered at the origin. (In practice, set z_{i}=\\epsilon_{i}/\\sqrt{\\sum_{j}^{k}\\epsilon_{j}^{2}}.) Let"
+  },
+  {
+    "i": 163,
+    "tag": "table",
+    "id": "A2.E29",
+    "text": "\\zeta=rzB+\\eta v (29)"
+  },
+  {
+    "i": 164,
+    "tag": "p",
+    "id": "A2.Thmtheorem3.p3.2",
+    "text": "where v=(1,1,...,1) and choose B to be a (k-1) by k matrix whose rows form an orthonormal basis with the null space of v. By definition, BB^{t}=I and Bv^{t}=0 where I is the identity matrix. We note the following consequence:"
+  },
+  {
+    "i": 165,
+    "tag": "table",
+    "id": "A2.EGx11",
+    "text": "\\displaystyle\\zeta v^{t} \\displaystyle=(rzB+\\eta v)v^{t} (30) \\displaystyle=rzBv^{t}+\\eta vv^{t} (31) \\displaystyle=0+\\eta vv^{t} (32) \\displaystyle=k\\eta (33)"
+  },
+  {
+    "i": 166,
+    "tag": "table",
+    "id": "A2.EGx12",
+    "text": "\\displaystyle(\\zeta-\\eta v)(\\zeta-\\eta v)^{t} \\displaystyle=(rzB+\\eta v-\\eta v)(rzB+\\eta v-\\eta v)^{t} (34) \\displaystyle=(rzB)(rzB)^{t} (35) \\displaystyle=r^{2}zBB^{t}z^{t} (36) \\displaystyle=r^{2}zz^{t} (37) \\displaystyle=r^{2} (38)"
+  },
+  {
+    "i": 167,
+    "tag": "p",
+    "id": "A2.Thmtheorem3.p4.1",
+    "text": "Eqn. 33 , 38 exactly match the constraints defined in S. So \\zeta\\in S. Further \\zeta is uniformly distributed in S as z is uniform over the (k-1)-sphere. ∎"
+  },
+  {
+    "i": 168,
+    "tag": "p",
+    "id": "A2.Thmtheorem4.p1.1",
+    "text": "Let \\zeta=(x_{1},...,x_{k})\\sim p(\\zeta) be a random vector of i.i.d. Gaussians \\mathcal{N}(\\mu,\\sigma^{2}). Let \\eta=\\frac{1}{k}\\sum_{i}^{k}x_{i} and \\delta^{2}=\\frac{1}{k}\\sum_{i}^{k}(x_{i}-\\eta)^{2}. Then \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and \\frac{(k-1)\\delta^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{k-1} and \\eta,\\delta^{2} are independent random variables."
+  },
+  {
+    "i": 169,
+    "tag": "p",
+    "id": "A2.Thmtheorem4.p2.1",
+    "text": "This is a known property of Gaussian distributions. Reference Statistics: An introductory analysis or any introductory statistics textbook. ∎"
+  },
+  {
+    "i": 170,
+    "tag": "p",
+    "id": "A2.Thmtheorem5.p1.1",
+    "text": "Let \\zeta=(x_{1},...,x_{k}) be a random vector of i.i.d. Gaussians \\mathcal{N}(\\mu,\\sigma^{2}). Let \\eta=\\frac{1}{k}\\sum_{i}^{k}x_{i}= and \\delta^{2}=\\frac{1}{k}\\sum_{i}^{k}(x_{i}-\\eta)^{2} and T=[\\eta,\\delta^{2}]. Let p(\\zeta,T(\\zeta))=p(\\zeta,\\eta,\\delta^{2}) denote their joint distribution."
+  },
+  {
+    "i": 171,
+    "tag": "p",
+    "id": "A2.Thmtheorem5.p2.1",
+    "text": "Then, the conditional density is of the form"
+  },
+  {
+    "i": 172,
+    "tag": "table",
+    "id": "A2.E39",
+    "text": "p(\\zeta|\\eta=\\eta,\\delta^{2}=\\delta^{2})=\\begin{cases}&a\\text{ if }\\zeta\\in S\\\\ &0\\text{ if }\\zeta\\notin S.\\end{cases} (39)"
+  },
+  {
+    "i": 173,
+    "tag": "p",
+    "id": "A2.Thmtheorem5.p2.2",
+    "text": "where S=\\{(x_{1},...,x_{k})|\\sum_{i}x_{i}=k\\eta,\\sum_{i}(x_{i}-\\eta)^{2}=k\\delta^{2}\\}, 0"
+  },
+  {
+    "i": 174,
+    "tag": "p",
+    "id": "A2.Thmtheorem5.p3.1",
+    "text": "Intuition: Level sets of a multivariate isotropic Gaussian density function are spheres. The event we are conditioning on is a sphere."
+  },
+  {
+    "i": 175,
+    "tag": "p",
+    "id": "A2.Thmtheorem5.p4.1",
+    "text": "Formal Proof: Let f(x_{1},...,x_{k})=(2\\pi\\sigma^{2})^{-k/2}e^{(-\\sum_{i}(x_{i}-\\mu)^{2}/(2\\sigma^{2}))} denote a Gaussian density. Note the following derivation:"
+  },
+  {
+    "i": 176,
+    "tag": "table",
+    "id": "A2.EGx13",
+    "text": "\\displaystyle\\sum_{i=1}^{k}(x_{i}-\\mu)^{2} \\displaystyle=\\sum_{i}(x_{i}-\\eta)^{2}+2(\\eta-\\mu)\\sum_{i}(x_{i}-\\eta)+k(\\eta-\\mu)^{2} (40) \\displaystyle=\\sum_{i}(x_{i}-\\eta)^{2}+k(\\eta-\\mu)^{2} (41) \\displaystyle=r^{2}+k(\\eta-\\mu)^{2} (42)"
+  },
+  {
+    "i": 177,
+    "tag": "p",
+    "id": "A2.Thmtheorem5.p5.1",
+    "text": "This implies f(x_{1},...,x_{k}) is equal for any (x_{1},...,x_{k})\\in S. Thus, the conditional distribution p(\\zeta|\\zeta\\in S) is the uniform distribution over S for any \\mu,\\sigma. ∎"
+  },
+  {
+    "i": 178,
+    "tag": "p",
+    "id": "A2.SS2.p1.1",
+    "text": "Finally, proof of Proposition 1 from the paper (denoted as Proposition 5 here):"
+  },
+  {
+    "i": 179,
+    "tag": "p",
+    "id": "Thmprop5.p1.1",
+    "text": "For any k>2, \\mu\\in\\mathbb{R} and \\sigma^{2}>0, if \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and \\frac{(k-1)\\delta^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{k-1} and \\boldsymbol{\\epsilon}=\\epsilon_{1},...,\\epsilon_{k-1}\\sim\\mathcal{N}(0,1) i.i.d., then the generated samples x_{1},...,x_{k}=\\textsc{MarsagliaSample}(\\boldsymbol{\\epsilon},\\eta,\\delta^{2},k) are independent normal variates sampled from \\mathcal{N}(\\mu,\\sigma^{2}) such that \\frac{1}{k}\\sum_{i}x_{i}=\\eta and \\frac{1}{k}\\sum_{i}(x_{i}-\\eta)^{2}=\\delta^{2}."
+  },
+  {
+    "i": 180,
+    "tag": "p",
+    "id": "A2.SS2.p2.1",
+    "text": "Let \\zeta=(x_{1},...,x_{k}) be a random vector of i.i.d. Gaussians \\mathcal{N}(\\mu,\\sigma^{2}). Compute \\eta=\\frac{1}{k}\\sum_{i}^{k}x_{i} and \\delta^{2}=\\frac{1}{k}\\sum_{i}^{k}(x_{i}-\\eta)^{2} and T=[\\eta,\\delta^{2}]. Let p(\\zeta,T(\\zeta))=p(\\zeta,\\eta,\\delta^{2}) denote their joint distribution. Factoring"
+  },
+  {
+    "i": 181,
+    "tag": "table",
+    "id": "A2.Ex6",
+    "text": "p(\\zeta,\\eta,\\delta^{2})=p(\\eta,\\delta^{2})p(\\zeta\\mid\\eta,\\delta^{2})"
+  },
+  {
+    "i": 182,
+    "tag": "p",
+    "id": "A2.SS2.p2.2",
+    "text": ", it is clear that we can sample from the joint by first sampling \\eta,\\delta^{2}\\sim p(\\eta,\\delta^{2}) and then \\zeta^{\\prime}\\sim p(\\zeta\\mid\\eta=\\eta,\\delta^{2}=\\delta^{2}). From Theorem B.4 , we know p(\\eta,\\delta^{2}) analytically and from Theorem B.5 we know p(\\zeta\\mid\\eta,\\delta^{2}) is a uniform distribution over the sphere. By assumption, \\eta,\\delta^{2} are sampled independently from the correct marginal distributions from Theorem B.4 . Then, from Theorem B.3 , we know \\textsc{MarsagliaSample}(\\epsilon,\\eta,\\delta^{2},k) samples from the correct conditional density (i.e. from S). Thus, samples \\zeta^{\\prime} from MarsagliaSample will have the same distribution as \\zeta, namely i.i.d. Gaussian. ∎"
+  },
+  {
+    "i": 183,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix C Additional Experiments"
+  },
+  {
+    "i": 184,
+    "tag": "h3",
+    "id": null,
+    "text": "C.1 Convolutional Architectures"
+  },
+  {
+    "i": 185,
+    "tag": "p",
+    "id": "A3.SS1.p1.1",
+    "text": "In the main text, we present results where q_{\\phi}(z|x) and p_{\\theta}(x|z) are parameterized by feedforward neural networks (multilayer perceptrons). While that architecture choice was made for simplicitly, we recognize that modern encoder/decoders have evolved beyond linear layers. Thus, we ran a subset of the experiments using DCGAN architectures ( Radford et al., 2015 ) . Specifically, we design q_{\\phi}(z|x) using 3 convolutional layers and p_{\\theta}(x|z) with 3 deconvolutional layers and 1 convolutional layer."
+  },
+  {
+    "i": 186,
+    "tag": "table",
+    "id": "A3.T2.2",
+    "text": "Model stat. MNIST dyn. MNIST FashionMNIST Omniglot Caltech Hist. VAE -90.58 -90.02 -2767.97 -108.97 -116.15 -3218.16 AntiVAE -90.25 -89.53 -2762.02 -108.40 -115.14 -3213.83 VAE+IWAE -89.19 -88.61 -2758.72 -107.52 -116.25 -3213.05 AntiVAE+IWAE -89.01 -88.13 -2751.11 -107.44 -115.04 -3209.98"
+  },
+  {
+    "i": 187,
+    "tag": "p",
+    "id": "A3.SS1.p2.1",
+    "text": "Table 2 shows log-likelihoods on a test set for a variety of image datasets. Like experiments presented in the main text, we find improvements in density estimation when using antithetics. This agrees with our intuition that more representative samples benefit learning regardless of architecture choice."
+  },
+  {
+    "i": 188,
+    "tag": "h3",
+    "id": null,
+    "text": "C.2 Variance over Independent Runs"
+  },
+  {
+    "i": 189,
+    "tag": "p",
+    "id": "A3.SS2.p1.1",
+    "text": "In the main text, we report the average test log likelihoods over 5 runs, each with a different random seed. Here, we report in Table. 3 the variance as well (which we could not fit in the main table)."
+  },
+  {
+    "i": 190,
+    "tag": "table",
+    "id": "A3.T3.2",
+    "text": "Dataset VAE AntiVAE VAE+IWAE AntiVAE+IWAE VAE+10-NF AntiVAE+10-NF StaticMNIST -90.44\\pm 0.031 -89.74\\pm 0.066 -89.78\\pm 0.080 -89.71\\pm 0.059 -90.07\\pm 0.033 -89.77\\pm 0.042 DynamicMNIST -86.96\\pm 1.398 -86.94\\pm 1.412 -86.71\\pm 1.778 -86.62\\pm 1.426 -86.93\\pm 1.132 -86.57\\pm 1.173 FashionMNIST -2819.13\\pm 1.769 -2807.06\\pm 1.591 -2797.02\\pm 1.714 -2793.01\\pm 1.174 -2803.98\\pm 1.487 -2801.90\\pm 1.459 Omniglot -110.65\\pm 0.141 -110.13\\pm 0.063 -109.32\\pm 0.134 -109.48\\pm 0.104 -110.03\\pm 0.178 -109.43\\pm 0.057 Caltech101 -127.26\\pm 0.254 -124.87\\pm 0.213 -123.99\\pm 0.262 -123.35\\pm 0.195 128.62\\pm 0.278 -126.72\\pm 0.247 FreyFaces -1778.78\\pm 4.649 -1758.66\\pm 7.581 -1772.06\\pm 7.275 -1771.47\\pm 5.783 -1780.61\\pm 4.595 -1777.26\\pm 6.467 Histopathology -3320.37\\pm 6.136 -3294.23\\pm 1.543 -3311.23\\pm 2.859 -3305.91\\pm 1.972 -3328.68\\pm 5.426 -3303.00\\pm 1.517"
+  },
+  {
+    "i": 191,
+    "tag": "h3",
+    "id": null,
+    "text": "C.3 Runtime Experiments"
+  },
+  {
+    "i": 192,
+    "tag": "p",
+    "id": "A3.SS3.p1.1",
+    "text": "To measure runtime, we compute the average wall-time of the forward and backward pass over a single epoch with fixed hyperparameters for VAE and AntiVAE. Namely, we use a minibatch size of 128 and vary the number of samples k=8,16. The measurements are in seconds using a Titan X GPU with CUDA 9.0. The implementation of the forward pass in PyTorch is vectorized across samples for both VAE and AntiVAE. Thus the comparison of runtime should be fair. We report the results in the Table. 4 ."
+  },
+  {
+    "i": 193,
+    "tag": "table",
+    "id": "A3.T4.2",
+    "text": "k Model StaticMNIST DynamicMNIST FashionMNIST OMNIGLOT Caltech101 FreyFaces Hist. Patches 8 VAE 0.0132\\pm 0.011 0.0122\\pm 0.010 0.0142\\pm 0.009 0.0144\\pm 0.015 0.0188\\pm 0.034 0.0283\\pm 0.052 0.0173\\pm 0.028 8 AntiVAE 0.0179\\pm 0.011 0.0156\\pm 0.009 0.0173\\pm 0.010 0.0164\\pm 0.017 0.0220\\pm 0.036 0.0334\\pm 0.054 0.0196\\pm 0.029 8 AntiVAE (Cheng) 0.0242\\pm 0.014 0.0210\\pm 0.010 0.0231\\pm 0.009 0.0221\\pm 0.015 0.0353\\pm 0.040 0.040\\pm 0.062 0.0303\\pm 0.026 16 VAE 0.0228\\pm 0.009 0.0182\\pm 0.011 0.0207\\pm 0.010 0.0181\\pm 0.015 0.0275\\pm 0.035 0.0351\\pm 0.049 0.0245\\pm 0.027 16 AntiVAE 0.0252\\pm 0.009 0.0240\\pm 0.011 0.0288\\pm 0.010 0.0256\\pm 0.015 0.0308\\pm 0.035 0.0384\\pm 0.049 0.0315\\pm 0.027 16 AntiVAE (Cheng) 0.0388\\pm 0.011 0.0396\\pm 0.010 0.0452\\pm 0.011 0.0399\\pm 0.015 0.0461\\pm 0.038 0.0550\\pm 0.054 0.0505\\pm 0.033"
+  },
+  {
+    "i": 194,
+    "tag": "p",
+    "id": "A3.SS3.p2.1",
+    "text": "To compute the additional cost of antithetic sampling, we divided the average runtimes of AntiVAE by the average runtimes of VAE and took the mean, resulting in 22.8% increase in running time (about 0.004 seconds). We note that AntiVAE (Cheng) is much more expensive as it is difficult to vectorize Helmert’s transformation."
+  },
+  {
+    "i": 195,
+    "tag": "h3",
+    "id": null,
+    "text": "C.4 Importance of Differentiability"
+  },
+  {
+    "i": 196,
+    "tag": "p",
+    "id": "A3.SS4.p1.1",
+    "text": "We report the numbers plotted in Fig.4e, which showed that differentiability in antithetic sampling is the driving force behind sample diversity. The numbers reported are averaged over 5 runs on Histopathology."
+  },
+  {
+    "i": 197,
+    "tag": "table",
+    "id": "A3.T5.2",
+    "text": "Epoch VAE AntiVAE (no backprop) AntiVAE (with backprop) 1 0.302\\pm 0.031 0.301\\pm 0.026 0.479\\pm 0.021 10 0.102\\pm 0.008 0.103\\pm 0.022 0.348\\pm 0.024 20 0.068\\pm 0.006 0.065\\pm 0.010 0.143\\pm 0.016 50 0.040\\pm 0.005 0.033\\pm 0.006 0.063\\pm 0.004 100 0.030\\pm 0.002 0.028\\pm 0.008 0.042\\pm 0.009"
+  },
+  {
+    "i": 198,
+    "tag": "p",
+    "id": "A3.SS4.p2.1",
+    "text": "As an aside, we provide the following remark: it is important to check that by adding differentiability, we do not introduce any unintended effects. For example, one might ask if differentiability leads to collapse of the VAE to a deterministic autoencoder (AE), thereby learning to “sample” only the mean. To confirm that this is not the case, we measure the average variance (across dimensions and examples in the test set) of the variational posterior q(z|x) when trained as a VAE versus as a AntiVAE."
+  },
+  {
+    "i": 199,
+    "tag": "table",
+    "id": "A3.T6.2",
+    "text": "Dataset VAE AntiVAE StaticMNIST 0.253 0.290 DynamicMNIST 0.269 0.290 FashionMNIST 0.049 0.049 OMNIGLOT 0.208 0.285 Caltech101 0.179 0.182 FreyFaces 0.048 0.061 Histopathology 0.029 0.028"
+  },
+  {
+    "i": 200,
+    "tag": "p",
+    "id": "A3.SS4.p3.1",
+    "text": "If differentiating through antithetic sampling led to ignoring noise, we would expect q(z—x) to be deterministic i.e. near 0 variance. This does not appear to be the case, as shown in Table. 6 ."
+  },
+  {
+    "i": 201,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix D Deriving One-Liner Transformations"
+  },
+  {
+    "i": 202,
+    "tag": "p",
+    "id": "A4.p1.1",
+    "text": "We provide a step-by-step derviation for g(\\cdot) in one-liner transformations, namely from Gaussian to Cauchy and Exponential. We skip Log Normal as its formulation from a Gaussian variate is trivial. Below, let X represent a normal variate and let Y be a random variable in the desired distribution family."
+  },
+  {
+    "i": 203,
+    "tag": "p",
+    "id": "A4.SS0.SSS0.Px1.p1.1",
+    "text": "Let F(X)=1-\\exp^{-\\lambda X}. Parameters: \\lambda."
+  },
+  {
+    "i": 204,
+    "tag": "p",
+    "id": "A4.SS0.SSS0.Px1.p2.1",
+    "text": "We start with F(F^{-1}(Y))=Y."
+  },
+  {
+    "i": 205,
+    "tag": "table",
+    "id": "A4.EGx14",
+    "text": "\\displaystyle 1-\\exp^{-(\\lambda F^{-1}(Y))} \\displaystyle=Y \\displaystyle\\exp^{-(\\lambda F^{-1}(Y))} \\displaystyle=1-Y \\displaystyle-(\\lambda F^{-1}(Y)) \\displaystyle=\\log(1-Y) \\displaystyle\\lambda F^{-1}(Y) \\displaystyle=-\\log(1-Y) \\displaystyle F^{-1}(Y) \\displaystyle=-\\frac{1}{\\lambda}\\log(1-Y)"
+  },
+  {
+    "i": 206,
+    "tag": "p",
+    "id": "A4.SS0.SSS0.Px1.p4.1",
+    "text": "Since 1-Y\\in\\text{U}(0,1) and Y\\in\\text{U}(0,1), we can replace 1-Y with Y."
+  },
+  {
+    "i": 207,
+    "tag": "table",
+    "id": "A4.Ex13",
+    "text": "F^{-1}(Y)=-\\frac{1}{\\lambda}\\log Y\\\\"
+  },
+  {
+    "i": 208,
+    "tag": "p",
+    "id": "A4.SS0.SSS0.Px2.p1.1",
+    "text": "Let F(X)=\\frac{1}{2}+\\frac{1}{\\pi}\\arctan(\\frac{X-x_{0}}{\\gamma}). Parameters: x_{0}, \\gamma."
+  },
+  {
+    "i": 209,
+    "tag": "table",
+    "id": "A4.EGx15",
+    "text": "\\displaystyle\\frac{1}{2}+\\frac{1}{\\pi}\\arctan(\\frac{F^{-1}(Y)-x_{0}}{\\gamma}) \\displaystyle=Y \\displaystyle\\arctan(\\frac{F^{-1}(Y)-x_{0}}{\\gamma}) \\displaystyle=\\pi(Y-\\frac{1}{2}) \\displaystyle F^{-1}(Y) \\displaystyle=\\gamma(\\tan(\\pi(Y-\\frac{1}{2}))+x_{0}) \\displaystyle F^{-1}(Y) \\displaystyle=\\gamma(\\tan(\\pi Y)+x_{0})"
+  },
+  {
+    "i": 210,
+    "tag": "p",
+    "id": "A4.SS0.SSS0.Px2.p3.1",
+    "text": "In practice, we only optimize over \\gamma, fixing x_{0} to be 0."
+  },
+  {
+    "i": 211,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix E Deriving Antithetic Hawkins-Wixley"
+  },
+  {
+    "i": 212,
+    "tag": "p",
+    "id": "A5.p1.1",
+    "text": "We provide the following derivation for computing an antithetic \\chi^{2} variate using a normal approximation to the \\chi^{2} distribution. We assume the reader is familiar with the inverse CDF transform (as reviewed in the main text)."
+  },
+  {
+    "i": 213,
+    "tag": "p",
+    "id": "A5.p2.1",
+    "text": "( Hawkins and Wixley, 1986 ) presented the following fourth root approximation of a \\chi^{2}_{n} variate, denoted X^{(1)} with n degrees of freedom as distributed according to the following Gaussian:"
+  },
+  {
+    "i": 214,
+    "tag": "table",
+    "id": "A5.E43",
+    "text": "(X^{(1)}/n)^{1/4}\\sim\\mathcal{N}(1-\\frac{3}{16n}-\\frac{7}{512n^{2}}+\\frac{231}{8192n^{3}},\\frac{1}{8n}+\\frac{3}{128n^{2}}-\\frac{23}{1024n^{3}}) (43)"
+  },
+  {
+    "i": 215,
+    "tag": "p",
+    "id": "A5.p4.1",
+    "text": "We can separately define a unit Gaussian variate, Z^{(1)}\\sim\\mathcal{N}(0,1) such that"
+  },
+  {
+    "i": 216,
+    "tag": "table",
+    "id": "A5.E44",
+    "text": "Z^{(1)}=((X^{(1)}/n)^{1/4}-(1-\\frac{3}{16n}-\\frac{7}{512n^{2}}+\\frac{231}{8192n^{3}}))\\cdot\\frac{1}{\\sqrt{\\frac{1}{8n}+\\frac{3}{128n^{2}}-\\frac{23}{1024n^{3}}}} (44)"
+  },
+  {
+    "i": 217,
+    "tag": "p",
+    "id": "A5.p6.1",
+    "text": "Notice this is just the standard reparameterization trick reversed ( Rezende et al., 2014 ) ."
+  },
+  {
+    "i": 218,
+    "tag": "p",
+    "id": "A5.p7.1",
+    "text": "Independently, we can define a second \\chi^{2}_{n} variate, X^{(2)} and unit Gaussian variate Z^{(2)} in the same manner."
+  },
+  {
+    "i": 219,
+    "tag": "table",
+    "id": "A5.E45",
+    "text": "Z^{(2)}=((X^{(2)}/n)^{1/4}-(1-\\frac{3}{16n}-\\frac{7}{512n^{2}}+\\frac{231}{8192n^{3}}))\\cdot\\frac{1}{\\sqrt{\\frac{1}{8n}+\\frac{3}{128n^{2}}-\\frac{23}{1024n^{3}}}} (45)"
+  },
+  {
+    "i": 220,
+    "tag": "p",
+    "id": "A5.p9.1",
+    "text": "As each Z is distributed as \\mathcal{N}(0,1), the inverse CDF transform amounts to:"
+  },
+  {
+    "i": 221,
+    "tag": "table",
+    "id": "A5.E46",
+    "text": "Z^{(2)}=-Z^{(1)} (46)"
+  },
+  {
+    "i": 222,
+    "tag": "p",
+    "id": "A5.p11.1",
+    "text": "Expanding each Z, we can derive a closed form solution:"
+  },
+  {
+    "i": 223,
+    "tag": "table",
+    "id": "A5.EGx16",
+    "text": "\\displaystyle((X^{(2)}/n)^{1/4}-(1-\\frac{3}{16n}-\\frac{7}{512n^{2}}+\\frac{231}{8192n^{3}})) \\displaystyle=((X^{(1)}/n)^{1/4}-(1-\\frac{3}{16n}-\\frac{7}{512n^{2}}+\\frac{231}{8192n^{3}})) (47) \\displaystyle(X^{(2)}/n)^{1/4} \\displaystyle=2(1-\\frac{3}{16n}-\\frac{7}{512n^{2}}+\\frac{231}{8192n^{3}}))-(X^{(1)}/n)^{1/4} (48) \\displaystyle X^{(2)} \\displaystyle=n[2(1-\\frac{3}{16n}-\\frac{7}{512n^{2}}+\\frac{231}{8192n^{3}}))-(X^{(1)}/n)^{1/4}]^{4} (49)"
+  },
+  {
+    "i": 224,
+    "tag": "p",
+    "id": "A5.p13.1",
+    "text": "This is the approximation we use in the main text. Coincidentally, ( Wilson and Hilferty, 1931 ) present a similar approximation but as a third root that is more popular. In the main text, we noted that we could not use this as it led negative antithetic variances. To see why, we first write their approximation:"
+  },
+  {
+    "i": 225,
+    "tag": "table",
+    "id": "A5.E50",
+    "text": "(X^{(1)}/n)^{1/3}\\sim\\mathcal{N}(1-\\frac{2}{9n},\\frac{2}{9n}) (50)"
+  },
+  {
+    "i": 226,
+    "tag": "p",
+    "id": "A5.p15.1",
+    "text": "Following a similar derivation, we end with the following antithetic Wilson-Hilferty equation:"
+  },
+  {
+    "i": 227,
+    "tag": "table",
+    "id": "A5.E51",
+    "text": "X^{(2)}=n[2(1-\\frac{2}{9n})-(x^{(1)}/n)^{1/3}]^{3} (51)"
+  },
+  {
+    "i": 228,
+    "tag": "p",
+    "id": "A5.p17.1",
+    "text": "The issue lies in the cube root. If (x^{(1)}/n)^{1/3}\\geq 2(1-\\frac{2}{9n}), then inference is ill-posed as a Normal distribution with 0 or negative variance does not exist."
+  },
+  {
+    "i": 229,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix F Cheng’s Solution to the Constrained Sampling Problem"
+  },
+  {
+    "i": 230,
+    "tag": "p",
+    "id": "A6.p1.1",
+    "text": "In the main text, we frequently reference a second algorithm, other than ( Marsaglia and Good, 1980 ) to solve the constrained sampling problem. Here we walk through the derivation of ( Cheng, 1984 ; Pullin, 1979 ) (which we present results for in the main text):"
+  },
+  {
+    "i": 231,
+    "tag": "p",
+    "id": "A6.p2.1",
+    "text": "We first review a few useful characteristics of Gamma variables, then review an important transformation with desirable properties, and finally apply it to draw representative samples from a Gaussian distribution."
+  },
+  {
+    "i": 232,
+    "tag": "h3",
+    "id": null,
+    "text": "F.1 Invariance of Scaling Gamma Variates"
+  },
+  {
+    "i": 233,
+    "tag": "p",
+    "id": "A6.SS1.p1.1",
+    "text": "We wish to show that Gamma random variables are closed under scaling by a constant and under normalization by independent Gamma variates."
+  },
+  {
+    "i": 234,
+    "tag": "p",
+    "id": "A6.Thmtheorem1.p1.1",
+    "text": "If x\\sim\\textup{Gamma}(\\mu,\\alpha) where \\mu>0 represents shape and \\alpha>0 represents rate, and y=cx for some constant c\\in\\mathbb{R}^{+}, y\\sim\\textup{Gamma}(\\mu,\\frac{\\alpha}{c})."
+  },
+  {
+    "i": 235,
+    "tag": "p",
+    "id": "A6.SS1.p2.1",
+    "text": "In generality, let the chain rule be f_{y}(y)=F_{x}(g^{-1}(y))|\\frac{dx}{dy}| where f is the cumulative distribution function for a random variable. Applying this to a Gamma: F_{y}(y)=\\frac{\\alpha^{\\mu}(y/k)^{\\mu-1}\\exp^{-\\alpha y/k}}{\\Gamma(\\mu)}=\\frac{(\\alpha/k)^{\\mu}Y^{\\mu-1}\\exp^{-y\\cdot\\alpha/k}}{\\Gamma(\\mu)}=\\textup{Gamma}(\\mu,\\frac{\\alpha}{k}). ∎"
+  },
+  {
+    "i": 236,
+    "tag": "p",
+    "id": "A6.Thmtheorem2.p1.1",
+    "text": "Let x_{1},x_{2},...,x_{k} be \\textup{Gamma}(\\mu,\\alpha) variates and let x_{k+1} be a \\textup{Gamma}(k\\mu,\\alpha) variate independent of x_{i}, for i=1,...,k. Then, y_{i}=x_{k+1}(\\frac{x_{i}}{\\sum_{j=1}^{k}x_{j}}) where y_{i}\\sim\\textup{Gamma}(\\mu,\\alpha)."
+  },
+  {
+    "i": 237,
+    "tag": "p",
+    "id": "A6.SS1.p3.1",
+    "text": "See Aitchison (1963) . ∎"
+  },
+  {
+    "i": 238,
+    "tag": "p",
+    "id": "A6.Thmtheorem3.p1.1",
+    "text": "If x\\sim\\mathcal{N}(0,1), then x^{2}\\sim\\chi^{2}_{1}. Additionally, x^{2}\\sim\\textup{Gamma}(\\frac{1}{2},\\frac{1}{2})."
+  },
+  {
+    "i": 239,
+    "tag": "p",
+    "id": "A6.SS1.p4.1",
+    "text": "By definition. ∎"
+  },
+  {
+    "i": 240,
+    "tag": "p",
+    "id": "A6.Thmtheorem3.Thmcorollary1.p1.1",
+    "text": "If x\\sim\\mathcal{N}(0,\\sigma^{2}), then \\frac{x^{2}}{\\sigma^{2}}\\sim\\chi^{2}_{1}. Furthermore, we can say x^{2}\\sim\\sigma^{2}\\chi^{2}_{1}=\\sigma^{2}\\cdot\\textup{Gamma}(\\frac{1}{2},\\frac{1}{2})=\\textup{Gamma}(\\frac{1}{2},\\frac{1}{2\\sigma^{2}})."
+  },
+  {
+    "i": 241,
+    "tag": "p",
+    "id": "A6.SS1.p5.1",
+    "text": "Direct application of Lemma F.1 , F.3 . ∎"
+  },
+  {
+    "i": 242,
+    "tag": "h3",
+    "id": null,
+    "text": "F.2 Helmert’s Transformation"
+  },
+  {
+    "i": 243,
+    "tag": "p",
+    "id": "A6.SS2.p1.1",
+    "text": "Given a random sample of size k from any Gaussian distribution, Helmert’s transformation ( Helmert, 1875 ; Pegoraro, 2012 ) allows us to get k-1 new i.i.d. samples normally distributed with zero mean and the same variance as the original distribution:"
+  },
+  {
+    "i": 244,
+    "tag": "p",
+    "id": "A6.SS2.p2.1",
+    "text": "Let x_{1},...,x_{k}\\sim\\mathcal{N}(\\mu,\\sigma^{2}) be k i.i.d. samples. We define the Helmert transformed variables, y_{2},...,y_{k} as:"
+  },
+  {
+    "i": 245,
+    "tag": "table",
+    "id": "A6.E52",
+    "text": "y_{j}=\\frac{\\sum_{i=j}^{k}x_{i}-(k+1-j)x_{j-1}}{[(k+1-j)(k+2-j)]^{1/2}} (52)"
+  },
+  {
+    "i": 246,
+    "tag": "p",
+    "id": "A6.SS2.p4.1",
+    "text": "for j=2,...,k. Helmert’s transformation guarantees the following for new samples:"
+  },
+  {
+    "i": 247,
+    "tag": "p",
+    "id": "Thmprop6.p1.1",
+    "text": "y_{2},...,y_{k} are independently distributed according to \\mathcal{N}(0,\\sigma^{2}) such that \\sum_{i=2}^{k}y_{i}^{2}=\\sum_{i=1}^{k}(x_{i}-\\bar{x})^{2} where \\bar{x}=\\frac{1}{k}\\sum_{i=1}^{k}x_{i}."
+  },
+  {
+    "i": 248,
+    "tag": "p",
+    "id": "A6.SS2.p5.1",
+    "text": "See Helmert (1875) or Kruskal (1946) . ∎"
+  },
+  {
+    "i": 249,
+    "tag": "p",
+    "id": "A6.SS2.p6.1",
+    "text": "Critically, Prop. 6 also informs us that (1) the sample variance of y_{2},...,y_{k} is equal to the sample variance of x_{1},...,x_{k}, and (2) y_{i},i=2,...,k can be chosen independently of \\bar{x}. These properties will be important in the next subsection."
+  },
+  {
+    "i": 250,
+    "tag": "h3",
+    "id": null,
+    "text": "F.3 Choosing Representative Samples"
+  },
+  {
+    "i": 251,
+    "tag": "p",
+    "id": "A6.SS3.p1.1",
+    "text": "We are tasked with the following problem: we wish to generate k i.i.d. samples x_{1},...,x_{k}\\sim\\mathcal{N}(\\mu,\\sigma^{2}) subject to the following constraints:"
+  },
+  {
+    "i": 252,
+    "tag": "table",
+    "id": "A6.EGx17",
+    "text": "\\displaystyle\\frac{1}{k}\\sum_{i=1}^{k}x_{i}=\\bar{x} \\displaystyle=\\eta (53) \\displaystyle\\frac{1}{k}\\sum_{i=1}^{k}(x_{i}-\\bar{x})^{2}=s^{2} \\displaystyle=\\delta^{2} (54)"
+  },
+  {
+    "i": 253,
+    "tag": "p",
+    "id": "A6.SS3.p3.1",
+    "text": "where by definition \\bar{x}\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and (k-1)s^{2}/\\sigma^{2}\\sim\\chi^{2}_{k-1}. We assume that \\eta and (k-1)\\delta^{2}/\\sigma^{2} are particular values drawn from these respective sample distributions. In other words, given all the possible sets of k samples, we wish to choose a single set such that the sample moments match a particular value, \\bar{x}=\\eta and s^{2}=\\delta^{2}. Note that this is not the same as choosing any \\eta\\in\\mathbb{R} and \\delta^{2}\\in\\mathbb{R}."
+  },
+  {
+    "i": 254,
+    "tag": "p",
+    "id": "A6.SS3.p4.1",
+    "text": "This problem is difficult as the number of sets of k samples that do not satisfy Constraints 53 and 54 is much larger than the number of sets that do. Thus, randomly choosing k samples will not work. Furthermore, preserving that the samples are i.i.d. makes this much more difficult as we cannot rely on common methods like sampling without replacement, rejecting samples, etc."
+  },
+  {
+    "i": 255,
+    "tag": "p",
+    "id": "A6.SS3.p5.1",
+    "text": "To tackle this, Pullin (1979) used the two following observations: (1) we can handle Constraint 53 independently, and (2) as a linear transformation, Helmert is invertible. First, we investigate observation 1:"
+  },
+  {
+    "i": 256,
+    "tag": "p",
+    "id": "A6.SS3.p6.1",
+    "text": "Helmert’s transformations allows us to untie Constraint 53 from Constraint 54 as y_{2},...,y_{k} are not dependent on \\mu or \\eta. Suppose we instantiate a new variable, y_{1} ( Kendall et al., 1946 ) such that"
+  },
+  {
+    "i": 257,
+    "tag": "table",
+    "id": "A6.E55",
+    "text": "\\eta=\\mu+y_{1}/\\sqrt{k} (55)"
+  },
+  {
+    "i": 258,
+    "tag": "p",
+    "id": "A6.SS3.p8.1",
+    "text": "As \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}), y_{1} is then distributed as \\mathcal{N}(0,\\sigma^{2}) by reparameterization. This means that we can deterministically choose a value for y_{1} given \\mu and \\eta to satisfy Constraint 53 ."
+  },
+  {
+    "i": 259,
+    "tag": "p",
+    "id": "A6.SS3.p9.1",
+    "text": "Next, satisfying Constraint 54 amounts to sampling y_{2},...,y_{k} according to Prop. 6 . To do this, we follow ( Cheng, 1984 ) and use the Gamma properties we introduced in Section F.1 :"
+  },
+  {
+    "i": 260,
+    "tag": "p",
+    "id": "A6.SS3.p10.1",
+    "text": "First, we draw k-1 independent samples from z_{2},...,z_{k}\\sim\\mathcal{N}(0,1). Compute c_{2},...,c_{k} where c_{i}=(z_{i}*\\sigma)^{2}. Cheng (1984) defines y_{i},i=2,...,k such that"
+  },
+  {
+    "i": 261,
+    "tag": "table",
+    "id": "A6.E56",
+    "text": "y_{i}^{2}=\\frac{(k-1)\\delta^{2}\\cdot c_{i}}{\\sum_{j=2}^{k}c_{j}} (56)"
+  },
+  {
+    "i": 262,
+    "tag": "p",
+    "id": "A6.SS3.p12.1",
+    "text": "By design, \\sum_{i}y_{i}^{2}=(k-1)\\delta^{2}, as desired by Prop. 6 . Furthermore, as c_{i}\\sim\\textup{Gamma}(\\frac{1}{2},\\frac{1}{2\\sigma^{2}}) and (k-1)\\delta^{2}\\sim\\textup{Gamma}(\\frac{k-1}{2},\\frac{1}{2\\sigma^{2}}), Lemma F.2 tells us that y_{i}^{2} are also distributed as \\textup{Gamma}(\\frac{1}{2},\\frac{1}{2\\sigma^{2}}), which crucially guarantees y_{i}\\sim\\mathcal{N}(0,\\sigma^{2}) by Corollary F.3.1 . For i=2,...,k, we do the following:"
+  },
+  {
+    "i": 263,
+    "tag": "table",
+    "id": "A6.E57",
+    "text": "y_{i}=b^{\\prime}_{i}\\cdot\\sqrt{y_{i}^{2}} (57)"
+  },
+  {
+    "i": 264,
+    "tag": "p",
+    "id": "A6.SS3.p14.1",
+    "text": "where b_{i}=\\textup{Bern}(0.5) and b^{\\prime}_{i}=2b_{i}-1 i.e. we randomly attach a sign to y_{i}. Finally, now that we know how to generate y_{1},...,y_{k}, we use Pullin (1979) ’s second observation to transform y_{i} back to x_{i}:"
+  },
+  {
+    "i": 265,
+    "tag": "p",
+    "id": "A6.SS3.p15.1",
+    "text": "Precisely, the inverse of Eqn. 52 (Helmert) is the following:"
+  },
+  {
+    "i": 266,
+    "tag": "table",
+    "id": "A6.EGx18",
+    "text": "\\displaystyle x_{1} \\displaystyle=\\frac{1}{k}(k\\eta-\\sqrt{k(k-1)}y_{2}) (58) \\displaystyle x_{j} \\displaystyle=x_{j-1}+\\frac{(k+2-j)^{1/2}y_{j}-(k-j)^{1/2}y_{j+1}}{(k+1-j)^{1/2}} (59)"
+  },
+  {
+    "i": 267,
+    "tag": "p",
+    "id": "A6.SS3.p17.1",
+    "text": "for j=2,...,k. By the “inverse” of Prop. 6 , Eqn. 59 will transform y_{1},...,y_{k} to samples x_{1},...,x_{k}\\sim\\mathcal{N}(0,\\sigma^{2}) such that the sample mean is \\eta-\\mu and the sample variance is \\delta^{2}. Lastly, adding x_{i}=x_{i}+\\mu for i=1,...,k ensures samples from the correct marginal distribution along with the correct sample moments."
+  },
+  {
+    "i": 268,
+    "tag": "p",
+    "id": "A6.SS3.p18.1",
+    "text": "We refer to this procedure as ChengSample , detailed in Alg. 5 . We summarize the properties of ChengSample in the following proposition."
+  },
+  {
+    "i": 269,
+    "tag": "p",
+    "id": "Thmprop7.p1.1",
+    "text": "Given k-1 i.i.d samples z_{1},...,z_{k-1}\\sim\\mathcal{N}(0,1); k-1 i.i.d samples b_{1},...,b_{k-1}\\sim\\textup{Bern}(0.5); population moments from a Gaussian distribution \\mu\\in\\mathbb{R},\\sigma^{2}\\in\\mathbb{R}; and desired sample moments \\eta, \\delta^{2} such that \\eta\\sim\\mathcal{N}(\\mu,\\frac{\\sigma^{2}}{k}) and (k-1)\\delta^{2}/\\sigma^{2}\\sim\\chi^{2}_{k-1}, generated samples x_{1},...,x_{k} from \\textsc{ChengSample}([z_{1},...,z_{k-1}],[b_{1},...,b_{k-1}],\\mu,\\sigma,\\eta,\\delta,k) are (1) i.i.d., (2) marginally distributed as \\mathcal{N}(\\mu,\\sigma^{2}), and (3) have a sample mean of \\eta and a sample variance of \\delta^{2}."
+  },
+  {
+    "i": 270,
+    "tag": "p",
+    "id": "A6.SS3.p19.1",
+    "text": "As a final note, we chose to use Marsaglia’s solution instead of Cheng’s as the former as a nice geometric interpretation and requires half as many random draws (no Bernoulli variables needed in Marsaglia’s algorithm)."
+  },
+  {
+    "i": 271,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix G Miscellaneous"
+  },
+  {
+    "i": 272,
+    "tag": "p",
+    "id": "A7.p1.1",
+    "text": "In the AntitheticSample proposition in the main text, we use the fact that the average of two unbiased estimators is an unbiased estimator. We provide the proof here."
+  },
+  {
+    "i": 273,
+    "tag": "p",
+    "id": "A7.Thmtheorem1.p1.1",
+    "text": "A linear combination of two unbiased estimators is unbiased."
+  },
+  {
+    "i": 274,
+    "tag": "p",
+    "id": "A7.p2.1",
+    "text": "Let e_{1} and e_{2} denote two unbiased estimators that \\mathbb{E}[e_{1}]=\\mathbb{E}[e_{2}]=\\theta for some underlying parameter \\theta. Define a third estimator e_{3}=k_{1}e_{1}+k_{2}e_{2} where k_{1},k_{2}\\in\\mathbb{R}. We note that \\mathbb{E}[e_{3}]=k_{1}\\mathbb{E}[e_{1}]+k_{2}\\mathbb{E}[e_{2}] = (k_{1}+k_{2})\\theta. Thus e_{3} is unbiased if k_{1}+k_{2}=1. ∎"
+  },
+  {
+    "i": 275,
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "i": 276,
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "i": 277,
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "i": 278,
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "i": 279,
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions ."
+  }
+]
