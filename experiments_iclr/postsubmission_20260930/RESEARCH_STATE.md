@@ -1,6 +1,6 @@
 # Current GNNM research status
 
-Updated 11 October 2026, 09:26 UTC. The goal remains active and unmet. No new manuscript review has started: the user requests substantial supported progress and a complete revision first.
+Updated 11 October 2026 after the complete 09:30 UTC Physics release. The goal remains active and unmet. No new manuscript review has started: the user requests substantial supported progress and a complete revision first.
 
 ## Complete prediction results
 
@@ -10,9 +10,11 @@ Endpoint-conditioned E on encountered WikiCS scores 81.1971%, versus 80.6282% un
 
 **Native PyG FiLM is fully complete:** 9 banks, 18 fits and 45 fixed CAL endpoints on WikiCS development. FiLM M1/shared4/I4 raw accuracy is 77.2153/79.9836/78.4161%. Existing E exceeds shared FiLM by 1.2135 points and FiLM I4 by 2.7809 points, positive in all three paired seeds. Raw/calibrated NLL and Brier also favor E. This is one fixed-recipe adaptation, not a SOTA certification, unused confirmation or capacity-matched causal comparison. FiLM sharing also improves I4 by 1.5674 points. [Complete report](native_PyG_FiLM_WikiCS_complete_summary_root_20261011_v1/REPORT.md).
 
-## Active Physics confirmation
+## Complete Physics confirmation
 
-At 09:26:30 UTC, 77 of 80 core bodies and all ten source-derived meanSAGE references are complete. Sole authorized GPU utilization is 97%. External owner 629179, core 629185 and watcher 629434 are alive, without recorded failure. All 60 banks/90 bodies, complete exports, 60 CAL endpoints and one whole heldout release remain required. No partial predictive outcome has been read. [Observation](native_SAGE_Physics_confirmation_root_20261011_v1/COHORT_OBSERVATION_V16.json). An observation timeout does not justify restarting the study or interpreting a subset.
+The whole Physics pipeline closed at 09:30:29 UTC: 60 banks, 90 training bodies and 60 fixed calibration endpoints, all finite. E scores 91.3264%, BASE 90.5403%, N 91.2982%, equipped M1 92.2233%, genuine I4 92.7891% and source-derived meanSAGE 93.0590%. E–BASE gains 0.7861 points at all ten blocks, paired 95% CI [0.5548, 1.0173]; E–I4 loses 1.4628 points at all ten, CI [−1.8744, −1.0511]. The primary conjunction fails. E–N is +0.0282 with mixed signs and a closed attribution gate. Calibrated NLL protection fails versus I4. Mean E members are 5.1747 points weaker than I4, despite 4,379 extra covered readouts, because pooling loses 9,369 more. No subset, retry, TEST-selected serving or automatic common-builder continuation. [Complete report](native_SAGE_Physics_complete_confirmation_summary_root_20261011_v1/REPORT.md).
+
+The sole authorized GPU is now free after whole-study closure. No new scientific fits have been launched. Planning/source work is distinct from predictive evidence.
 
 ## Complete analysis and prospective work
 
@@ -24,8 +26,12 @@ The broad history after Penn and FiLM supersedes a universal shared-member weakn
 
 The Rank-1 BNN acquisition proposal and native v2 port are known attributed source preparation: 21 banks/39 fits/105 CAL attempts. The fixed-noise ownership repair retains v1. Neither runtime qualification nor scientific admission has occurred. A separate original boundary comparator of 3 banks/3 fits requires an explicit roster amendment. Reader integration is underway without launch. The covariance note adds ordinary shared-random-function interpretation, not novelty or utility. Common-builder Physics attribution remains conditional and unexecuted.
 
+## Research responsibilities
+
+The user asks explicitly for dedicated architecture research beyond incremental comparisons. The new-method researcher now performs fresh primary-source search, synthesizes gaps against complete failures, and designs one distinct shared-backbone mechanism with decisive controls. The reader draft is preserved and stochastic acquisition remains inactive. The history researcher reassesses Physics/Penn/FiLM and prioritizes a capable original-GNNM anchor; the manuscript researcher integrates complete outcomes. Root owns scientific admission, representative execution and publishing. No new primitive or global improvement is established.
+
 ## Manuscript and publication
 
-Anonymous V4 is unchanged and uncompiled. Complete V5 integration of Penn and FiLM is underway, preserving the original five-dataset centerpiece and all tables/dependencies. Physics follows whole-study closure. Source cuts are not verified page reductions. Fresh Codex reviewers apply the supplied skill only after substantial complete integration, without author history or a requested verdict. No acceptance is claimed.
+Anonymous V4 is unchanged and uncompiled. Complete V5 integration of Penn and FiLM is underway, preserving the original five-dataset centerpiece and all tables/dependencies. Physics is now complete and is included in V5 integration with its failed independent-superiority and endpoint-attribution criteria. Source cuts are not verified page reductions. Fresh Codex reviewers apply the supplied skill only after substantial complete integration, without author history or a requested verdict. No acceptance is claimed.
 
-Latest exact-ref verified pushed HEAD is aaaa6943ddd22c1f4f2eb7af102a4e17249094e1 at 08:43:39 UTC. This compact result/source/history batch is pending commit/push; receipts will identify exact paths. No new 18.77 training has started. Seven-GPU access is relay only. No sudo, PDF compilation, Desktop access, GENLINK or unrelated deliberate operations. Full states/logits remain on servers; original scores are unchanged. The ledger and Git retain earlier decisions.
+Latest exact-ref verified pushed HEAD is 7b89e46a36ad4dcaf7e4857b9981c3dc7b8ddd05 at 09:31:33 UTC, including complete FiLM and earlier cross-graph history. Complete Physics and V5 are pending the next substantive publication; receipts will identify exact paths. No new 18.77 training has started. Seven-GPU access is relay only. No sudo, PDF compilation, Desktop access, GENLINK or unrelated deliberate operations. Full states/logits remain on servers; original scores are unchanged. The ledger and Git retain earlier decisions.
