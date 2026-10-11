@@ -32,3 +32,7 @@ The [quality/reference map](complete_quality_gain_reference_confirmation_evidenc
 ## Paper and goal
 
 Original reported scores remain unchanged. Complete anonymous V5 remains unchanged, uncompiled and unreviewed. Fresh Codex manuscript reviews use the requested guidance only after substantial supported progress and full revision, with immutable anonymous inputs and no requested verdict. No clear acceptance, novel winning method or overall goal completion is established. Continue the scientific comparisons, independent history/error synthesis and scoped literature research.
+
+## PubMed LM4 qualify admission
+
+Exact missing metadata was restored. Preparation closed successfully with frozen SELECT/CAL/DEV roles and three label-free landmark/BFS capsules. One material full-input qualifier is admitted; its launch and result remain to verify. No model acquisition is admitted yet.
