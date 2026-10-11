@@ -1,0 +1,43 @@
+# V5 manuscript integration after complete Physics and Penn closure
+
+V5 should connect the original sharing results to the later prediction-acquisition studies after both frozen programmes finish and their complete scorer records are released. The central claim remains a measured sharing procedure under stated graph, training and selection conditions. The completed WikiCS diagnostics sharpen that account; they do not establish a learning cause, new primitive or unused confirmation.
+
+## Keep the original benchmark central
+
+Retain the present opening sequence: context and sharing problem, concise model definition, **five-dataset benchmark first**, then Roman member analysis. Preserve the blue–red heatmap, all original absolute scores/deviations, resource table and component table. Keep the 28/40 ENS and 33/40 BASE mean comparisons with their five-graph dependence and method-specific selection limits. Roman SAGE's +2.94-point gain comes from stronger members; the mixed GAT outcome prevents extending that explanation to every backbone.
+
+Follow with concise internal F, conditional E/packed WikiCS, and a new confirmation section with separate Physics and Penn subsections. Their candidate procedures differ: Physics tests E; Penn tests internal-factor placement and serving. Do not call Penn a replication of conditional E. The broader sharing-placement failures remain after these sections.
+
+## Explain the capable references before interpreting gains
+
+Fresh BASE measures the change from the same family's unchanged sharing. Receiver N has E's parameters/action but omits source context, so it tests the endpoint increment. Equipped M1 carries the same conditional operation; genuine equipped I4 trains and selects four complete bodies independently before pooling. Their stronger members and proper scores are part of the quality comparison, even if E has a small accuracy advantage. Shared and independent procedures have different optimization/selection histories.
+
+The narrower width-59 PE reference answers a stored-parameter question; one setting gives no whole-family ranking. The Physics public mean-SAGE port and Penn LINKX provide source-derived task context with their own training/selector budgets. A method name, published score or source qualification does not by itself demonstrate that a current reference is competent. Preserve every completed reference outcome, including any stronger reference.
+
+## Exact tests and allowed claims
+
+| Study | Frozen comparison and decision | Manuscript interpretation |
+| --- | --- | --- |
+| **WikiCS E** | Three selected-development seeds: raw gains at least 0.2 points versus BASE/I4, nonnegative at every seed and at least two positive; E–N margin 0.1 with the same sign rule. Practical calibrated-NLL harm caps are 0.02 mean/0.05 each seed. | E gains 0.5688/0.3034/0.1454 points versus BASE/I4/N. I4's interval [−0.3560,0.9628] includes zero; raw/calibrated NLL and Brier favor I4. Passing the NLL allowance is not noninferiority. N explains about 74% of the BASE gain. |
+| **Physics E** | All ten custom paired mask/optimizer blocks, six arms, 60 banks/90 selected body states and 60 fixed calibration endpoints. E–BASE and E–I4: one-sided paired t tests of positive effect, Holm family of two at 0.05, both observed means at least 0.2 points. Only after primary tests pass, E–N uses one-sided 0.05 and observed margin 0.1. | Report complete raw/calibrated accuracy, NLL/Brier, vectors, ordinary paired 95% intervals, simultaneous intervals using 97.5% per contrast, and 1,024 sign-flip sensitivity. This tests the complete E procedure on one additional graph under ten custom masks, not ten graph replications or an exact published split reproduction. |
+| **Penn internal factors** | Official split-0 CONFIRM membership; ten optimizer blocks with base seeds 0/10000/…/90000. Internal shared4 versus original boundary, genuine internal I4, ordinary M1 and factor M1: all four observed means at least 0.2 points and all Holm-adjusted one-sided paired-t values at most 0.05. | Original BCE/logit-pool/native-selector versus internal CE/probability-pool compares whole recipes. The matched boundary comparison isolates the declared placement procedure under common acquisition; same-state pool contrasts isolate serving for those selected states. Those three secondary contrasts form a gated Holm family of three. LINKX remains descriptive task context. |
+
+For Physics and Penn, preserve the separate calibrated-NLL protection: mean harm at most 0.02 and every block at most 0.05 against the named primary references. Report failures or unavailable protection directly; they neither prove NLL noninferiority nor silently erase a raw-accuracy result. Penn additionally reports paired 95% and four-contrast simultaneous intervals using 98.75% per contrast, plus all 1,024 sign-flip assignments under the stated symmetry assumption. Missing pairs cannot become survivor means, substitute seeds or top-ups.
+
+Physics separates 100 TRAIN/150 SELECT/150 CAL/34,093 TEST nodes per custom block. Penn keeps official TEST membership and prospectively divides official VALID into CAL/SELECT. Full selected states precede calibration and scorer-only confirmation release. Before writing results, bind the complete generated configuration, scorer, closure and numerical-failure receipts. The located Penn prospective adoption retains final source/runtime-binding qualifications; do not infer those details from a proposal. No future score is supplied by this outline.
+
+## Integrate the completed diagnostics without expanding the headline
+
+Keep one main paragraph on member competence and pool retention: E improves BASE member accuracy by 1.0729 points while coverage falls 106 and pooling losses fall 196, leaving +90 correct readouts; E members remain 0.7632 points weaker than I4. The same 5,274 encountered nodes repeat across three seeds.
+
+Retain the exact negative head result: all 21 banks/39 bundles close; private correct-count vectors are +3/−1/+3 versus common, +3/−3/+2 versus BE, and +2/−3/0 versus untouched E. Forty newly correct alternatives on original rival errors are all lost in pooling. Fitted-head per-member NLL is unavailable. Close that recipe without claiming absent information or a global capacity limit; F's failed I4 mean-NLL rule and all earlier exact negatives remain.
+
+Add one short source-association paragraph, backed by the complete 36-bank/108-trajectory/18-restore table. Both-layer reassignment loses 0.284414 points for E and 0.082164 for I4; their mean member losses are similar. The E–I4 served gap contracts 48→16 while coverage grows 44→59 and relative pooling losses worsen −4→43. Include layer0's accuracy/NLL disagreement and all gross harms. This is dependence of selected functions under one restricted mapping, with local preservation at intervention hooks, not training causality, retrained necessity, recovered geometry or private-builder attribution.
+
+## Current novelty and appendix limits
+
+Related work should name ECC/FiLM conditional filtering, NSD/DNSD endpoint maps, BatchEnsemble ownership and **BSNN v2 dated 12 September 2025**. BSNN's shared-network/private-sampled-geometry overlap is unchanged; architecture is now §3.4. Its official publication remains unverified. GENN remains unread/unresolved and cannot be excluded. No new search or novelty clearance is needed for this integration pass.
+
+Keep V4's twenty retained original tables and all figure bytes verbatim, with numeric appendix A1–A14 anchors. Preserve the nine already relocated tables in their named text supplements and the full source archive. Add confirmation material as a new appendix section after A14 so old numbering survives. Keep absolute scores, full primary vectors, selection/preprocessing/uncertainty, costs and adverse conclusions in the paper. Put exhaustive class grids, detailed manifests, implementation narration and repeated accounting in bundled evidence; retain concise visible summaries and actual filenames. State each protocol/scope once and refer to its anchor. No page-count promise follows from source cuts.
+
+If either complete programme fails its frozen claim, narrow the corresponding section and abstract claim while retaining all outcomes; WikiCS subgroups and sensitivity do not rescue it. If a full E claim succeeds, later common-builder attribution remains conditional and unexecuted until separately admitted. Saved class-mode, training-credit and capacity proposals remain hypotheses. Substantial progress for V5 is the complete evidence integration and coherent manuscript, with no reviewer launch in this outlining pass.
