@@ -1,3 +1,23 @@
+## Actual fixed-key training and exact source publication
+
+## User-directed review milestone
+
+The user specifies fresh **Codex** reviewers applying the supplied paper-review criteria, with zero author context. Substantial scientific progress and an updated manuscript must precede that assessment. Intermediate source work is not a manuscript review milestone. No full-paper reviewer has launched in this turn. The unused Sonnet dependency tree was removed; its installation/disposition record remains. This entry supersedes the authentication/paper-review-due statements below. Scientific research continues without an authentication dependency.
+
+## Complete fixed-key closure and fresh review due, 11 October 2026
+
+This entry supersedes the earlier running statements retained below. All 48 fresh optimizer fits / 30 banks closed at 00:19:54 UTC; the complete 45-bank / 81-record reader and all 225 scalar endpoints closed at 00:25:15 UTC. Private fixed keys reach 80.533434% against unchanged shared 80.571356%: -0.037922 percentage points, negative at all three seeds. All five attribution checks fail. Wins over equipped I4 and singles remain real, but do not establish an added improvement over unchanged sharing. Both I4 mean calibrated NLL protections fail. Close this exact recipe without a rescue grid. [Complete closure](native_SAGE_fixed_key_closed_history_20261011_v1/REPORT.md).
+
+Compared with BASE, private has seven fewer covered readouts, one fewer pooling loss and six fewer pooled correct predictions. Exact gross coverage acquisition/removal is not in the compact exports; net changes must not be relabeled as gross events. No representation-collapse or projection-absorption diagnosis follows. All original scores, failures, costs and TEST restrictions remain unchanged.
+
+A fresh manuscript/evidence review is due. Individual-run source audits are not full-paper reviews. The requested skill requires three independent Sonnet CLI subprocesses; its project-local launcher is installed but reports no authentication. Zero manuscript-reviewer processes have launched, and no substitute verdict is claimed. Root is preparing an immutable historical manuscript/current-evidence snapshot while the user authentication/provider preference is pending.
+
+The leading utility work is source preparation for original-GNNM/matched-placement attribution and unused Penn94 confirmation of the promising ordinary own-CE internal shared SAGE wrapper. A separate agent checks one distinct context-dependent native-factor mechanism against saved experiments and primary prior work. Preparation establishes no accuracy or novelty. No new scientific fit or 18.77 job has launched; the user may disconnect the other Mac. The goal remains active and unmet.
+
+The frozen30-bank/48-fit study started on the verified one-GPU allocation at00:06:59UTC11October, owner625580/child625582. Actual observation finds four optimizer fits complete and a live genuineI4 fit; partial predictive values remain closed. Its source/config/input/target/admission freeze is2147e3ee98fe8390685b2c6fe0cb26345f352dc158367397bc8015fe140059f0. Qualified source/protocol/README commitdd1705ae969f4263c163b747a34cae6a305df72d was exactly pushed and verified before launch. All45banks/81records/225scalar endpoints precede interpretation. No new18.77 job is started. [Actual launch](native_SAGE_fixed_context_key_pilot_root_20261011_v1/ACTUAL_LAUNCH_V1.json).
+
+Three distinct agents now prepare the complete fixed-key reader, the source-only Penn94 original-placement/serving confirmation, and the theory/identifiability boundary of shared auxiliary projection. Root executes, interprets and publishes. No new utility, novelty or manuscript acceptance verdict follows from a running study.
+
 ## Fixed graph-key source qualified; finite comparison admitted
 
 The independently audited fixed-key source passed all16 actual full-TRAIN units /34 native trajectories in12.3665s, peak CUDA allocated1,364,625,408bytes. This verifies gradient, optimizer, target/order and restoration paths, not predictive utility. Exact original15bank33record75endpoint custody is admitted without native forward or score recalculation. The frozen ten-arm family will acquire30newbanks/48fits; all45banks/81records/225scalar endpoints precede comparative interpretation. Source, inputs, config, targets, protocol, qualification and admissions are bound before scientific launch. Primary accuracy, methodological attribution and secondary confidence are separate. [Prospective freeze](native_SAGE_fixed_context_key_pilot_root_20261011_v1/FREEZE.json).
