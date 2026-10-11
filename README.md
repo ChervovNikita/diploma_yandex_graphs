@@ -25,3 +25,9 @@ The author archive has been verified against a pinned Git blob. Custodial prepar
 Keep original scores, unsuccessful studies, costs and decisions. Use representative complete tasks, paired controls, declared selection rules and uncertainty. Stored-weight savings do not establish lower computation or peak memory. The current components have prior ancestry; a supported methodological contribution remains a research objective.
 
 Fresh independent Codex manuscript reviews follow substantial scientific progress and a complete anonymous paper revision using the requested review guidance. They are not called after individual implementation steps or small experiments, and no requested verdict is supplied. No acceptance verdict has been established.
+
+## Complete error analysis and reproducible source
+
+The fixed WikiCS prediction audit finds that69.38% of the endpoint bank's remaining dependent error readouts rank one same false rival above truth in every member. This constrains unchanged scalar averaging, without proving where the representation fails. Full repairs, harms and class/degree heterogeneity are retained in the[complete diagnostic](experiments_iclr/postsubmission_20260930/WikiCS_E_frozen_strata_diagnostic_root_20261011_v1/REPORT.md). A separately frozen head-capacity diagnostic tests final decoding on the complete selected E/M1/I4 representations, with original and equally processed controls; it supplies no from-scratch success claim.
+
+The[portable Physics source](experiments_iclr/postsubmission_20260930/portable_conditional_SAGE_source_20261011_v1/README.md) exposes prepare/acquire/export/score without cluster credentials. It preserves fixed numerical functions and whole-roster scoring gates. Clean installation and runtime portability remain unverified.
