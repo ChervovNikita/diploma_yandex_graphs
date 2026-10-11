@@ -32,3 +32,12 @@ results. Numerical tolerances, surrogate diversity and setup checks are not
 accuracy evidence or a manuscript acceptance verdict. Fresh manuscript
 reviewers receive immutable paper/evidence without author history or a
 requested verdict through the supplied paper-review guidance.
+
+Current study preparation override (12 October 2026): finish already-running
+experiments and prepare the comprehensive finite run list, code, data and
+three-GPU assignments on the allocation. New scientific fits, including
+pilots, wait for the user's verification and explicit GO. No GO has been
+received. Source/data preparation and engineering checks are authorized.
+Exclude reruns of the original GNNM paper's experiments. Original GNNM must
+remain a comparison baseline on compatible new datasets. Do not call a
+partially migrated method inventory a ready comprehensive study.

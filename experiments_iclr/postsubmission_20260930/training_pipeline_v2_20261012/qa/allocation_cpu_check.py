@@ -34,7 +34,7 @@ env=dict(os.environ,CUDA_VISIBLE_DEVICES='',TMPDIR=str(tmp),PYTHONDONTWRITEBYTEC
          OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',
          GNNM_REFERENCE_PROJECT=str(repo/'experiments_iclr/postsubmission_20260930'))
 tick=time.monotonic()
-child=subprocess.Popen([str(repo/'.venv/bin/python'),'-B','-m','unittest','discover','-s','tests','-v'],cwd=root,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+child=subprocess.Popen([str(repo/'.venv/bin/python'),'-B','-m','unittest','discover','-s','tests','-p',payload['pattern'],'-v'],cwd=root,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 fields=(Path('/proc')/str(child.pid)/'stat').read_text().rsplit(')',1)[1].split()
 (root/'START.json').write_text(json.dumps({'child_pid':child.pid,'child_start_ticks':int(fields[19]),'parent_pid':os.getpid(),'engineering_only':True,'scientific_training_runs':0})+'\n')
 try:
@@ -50,6 +50,7 @@ sys.exit(child.returncode)
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("label")
+    parser.add_argument("--pattern", default="test_*.py")
     args = parser.parse_args()
     if not args.label.replace("_", "").isalnum():
         raise ValueError("Use a plain immutable label")
@@ -69,7 +70,12 @@ def main():
     raw = source.read_bytes()
     files.append({"path": "fixtures/native_models.py", "bytes": len(raw),
                   "sha256": hashlib.sha256(raw).hexdigest(), "data": base64.b64encode(raw).decode()})
-    arg = base64.b64encode(zlib.compress(json.dumps({"label": args.label, "files": files}).encode())).decode()
+    for relative in ("docs/MATRIX_AXES_DRAFT.json", "docs/NODE_PROVIDER_ROLE_CATALOGUE.json", "start_massive.sh"):
+        raw = (PACKAGE / relative).read_bytes()
+        files.append({"path": relative, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
+                      "data": base64.b64encode(raw).decode()})
+    arg = base64.b64encode(zlib.compress(json.dumps({"label": args.label, "files": files,
+                                                  "pattern": args.pattern}).encode())).decode()
     prefix = ["ssh", "-tt", "-p", "2222", "-i", "/Users/alex/.ssh/mlspace__private_key_anogena.txt",
            "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
            "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=2",

@@ -43,6 +43,11 @@ def execute(root, study_path, run_id, registry_path, output_root, approval_path,
     except BaseException as error:
         result = {"status": "failed", "failure_type": type(error).__name__, "failure": str(error),
                   "owner": owner, "wall_seconds": time.monotonic()-tick}
+        costs = getattr(error, "endpoint_costs", None)
+        if isinstance(costs, dict):
+            # Preserve the adapter's paid work without allowing it to replace
+            # the runner's failure or owner identity.
+            result["endpoint_costs"] = costs
         out.mkdir(parents=True, exist_ok=True)
         (out / "failure.json").write_text(canonical(result)+"\n")
         registry.finish(spec["study_id"], run_id, result, success=False)
