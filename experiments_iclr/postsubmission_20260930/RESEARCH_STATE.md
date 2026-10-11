@@ -2,31 +2,41 @@
 
 Updated 11 October 2026. The scientific goal remains active and unmet: establish a defensible shared-backbone method with better prediction quality and a clear recommendation from fresh independent reviewers. Original manuscript scores are unchanged. No new manuscript review has been requested after individual experiments.
 
-## Active scientific experiment
+## Current scientific queue
 
-The full meanSAGE attribute-peer feedback study is training on the verified one-GPU allocation. Owner636808 supervises child636810. The fixed panel contains30banks,48optimizer trajectories,57physical backbones and30CALendpoints across three paired full Physics protocols. The12:17UTC metadata observation found7banks/13trajectories closed,85%GPUuse and no owner failure. No partial predictive outcomes have been opened. Full-input qualification passed once after a preserved zero-step Torch compatibility failure. The qualified state is discarded.
+The full peer-feedback family is complete:30banks/48selected optimizer trajectories/57physical bodies/30CALendpoints/15,000scalar updates. All acquisition/CAL/score owners and the watcher closed successfully. There is no active training job from this family. The exact SX4rule is closed after its fixed quality, member-gain, peer/order and pooling-retention failures; Computers confirmation is not admitted for it.
 
-Members transmit first-layer hidden states through binary node–attribute incidence. A shared rank16 nonlinear map processes donor summaries, and each recipient uses the other three before its second graph layer. Controls include capable source/factor singles, genuine independent ensembles, self-only feedback, mean-before-nonlinearity and a jointly learned unshared bank. The latter is not called genuine independent. Whole30-bank/48selected-state/57body closure precedes30fixed CALendpoints and one whole development release. Native probability pooling and its separate frozen CALlaw remain intact.
+One distinct graph-context acquisition proposal is now frozen and admitted for source preparation. It inserts a bidirectional gated state along four persistent randomized graph tours between competent source meanSAGE layers. The original graph remains unchanged. The ten-arm comparison includes capable ordinary/factorized four-tour tied learners, genuine equipped independent models, common-tour and memory-reset controls. Janossy/CRaWl/GMN/Graph-Mamba/Euler ancestry is explicit; no new primitive or quality advantage is established. The scientist retains Rademacher factors and leaves the all-ones combination inactive.
 
-- [Live full acquisition](meanSAGE_attribute_peer_feedback_acquisition_root_20261011_v1/ROOT_DECISION.json)
-- [Actual complete qualification](meanSAGE_attribute_peer_feedback_full_input_qualification_20261011_v2/COMPLETE_QUALIFICATION_BINDINGS.json)
-- [Fixed scientific proposal](shared_attribute_incidence_feedback_architecture_scout_20261011_v1/REPORT.md)
-- [Qualified frozen source](meanSAGE_attribute_peer_feedback_execution_source_20261011_v3/README.md)
+The implementation researcher prepares one source core with a vectorized first-order affine scan and independent derivative check. Root will resolve that derivative risk and one actual full-input resource/state/RNG risk, then admit full fits. Source work is preparation, not scientific performance. Baseline reuse, if exact, preserves original peer source/state/export/CAL/owner receipts and does not relabel old fits as fresh scanner work. Same graph/development roles are already encountered.
 
-## Latest complete scientific experiment
+- [Frozen architecture and ancestry](shared_graph_walk_state_architecture_scout_20261011_v1/REPORT.md)
+- [Root source-only admission and limits](graph_walk_state_root_source_admission_20261011_v1/ROOT_DECISION.json)
+- [Complete peer evidence](meanSAGE_attribute_peer_feedback_complete_development_summary_20261011_v1/REPORT.md)
+- [Bounded history after both closures](bounded_history_after_dropout_peer_scan_acquisition_20261011_v1/REPORT.md)
 
-The full dropout family has closed all42fresh banks,69selected optimizer states,42CALendpoints and21,000scalar updates. All acquisition/calibration/scoring owners exited successfully. The candidate scores90.9972% versus90.9835%same-input IIDsharing,92.5508%capable genuineI4 and92.5723%source meanSAGE. Its+0.0137point IIDgain has mixed signs and its mean members worsen0.0836points. All primary and graph-attribution criteria fail. Against genuineI4, its members lose4.8942points;716additional member-covered readouts are accompanied by2,323additional pooling losses across the three protocols. The exact sign-aware coupling rule is closed without a rescue grid. Restricted conditional variance is not predictive competence.
+## Latest complete scientific outcomes
 
-- [Complete dropout results and disposition](Physics_dropout_pilot_complete_development_summary_root_20261011_v1/REPORT_V2.md)
-- [Every whole-population contrast and frozen criterion](Physics_dropout_pilot_complete_development_summary_root_20261011_v1/SUMMARY.json)
+Source-derived sharedSAGE S4scores93.1100% versus93.1374%genuineI4 and93.2127%ordinary sourceP1. Its mean members trailI4by only.0958points, unlike the roughly5-point deficits under the older different recipes/masks. This is whole-recipe evidence; no optimizer, initialization or clipping cause is identified and no statistical-equivalence claim follows.
 
-The peer-feedback study was admitted and launched before these dropout outcomes were opened. Its independent frozen roster and scientific conditions do not depend on this negative outcome. These new studies are development on an encountered graph; any future unused confirmation remains a separately admitted study.
+The SX4candidate scores93.0914%. Every required meaningful served/member gain and peer/ordering condition fails. It supplies554 new correct alternatives on5,147S4common-wrong-argmax readouts but loses506during pooling and serves48repairs. Correct alternatives alone therefore do not satisfy the quality target. Source-factor competence and risk allowances pass; they do not rescue failed predictive utility.
 
-## Dedicated architecture research
+The predeclared SM4control offers a limited clue: averaging peers before the nonlinear map gains.1388raw/member points versusS4with allthree signs positive. It gains only.1115versusI4and.0362versusP1with mixed signs. Retain it as development evidence without selecting a replacement winner, combination or confirmation. The exact mapping-before-average candidate failed; this does not refute every peer-feedback method.
 
-We maintain three distinct research roles. The architecture researcher investigates substantially different graph-specific mechanisms and their strongest published alternatives; it has completed peer-feedback source and actual qualification and now pursues the next scientific hypothesis. The implementation researcher has delivered whole-family readout using the peer study's native probability mean and500-update selected CALrule. The actual finite watcher637442 is waiting for the complete acquisition; it then closes all30CALendpoints/15,000updates and their owner before a single complete development release. The history researcher revisits complete member/pooling errors and distinguishes shared gains from gains explained by competent singles or known graph operators. Root chooses, runs, interprets and publishes representative comparisons. This is separate from manuscript review.
+The complete dropout family retains its42banks/69states/42CAL/21,000updates. Candidate90.9972% versus90.9835%same-input IIDsharing,92.5508%genuineI4and92.5723%sourceM1 fails every primary/attribution criterion. Its exact sign-aware rule is closed without a rescue grid. Both complete families change the next scientific step toward acquired graph context with competent same-information references.
 
-Incidence propagation, recipient exclusion, nonlinear set aggregation and stream exchange have known HGNN/AllSet/CONN/TextGCN/cross-stitch ancestry. The proposed collective acquisition recipe has no established novel-primitive, accuracy or universal-wrapper claim. The restricted linear identity case can amplify common components and damp member deviations; it is not a theorem about actual nonlinear training or generalization.
+- [Every peer result, cost and limitation](meanSAGE_attribute_peer_feedback_complete_development_summary_20261011_v1/REPORT.md)
+- [Exact reconstructible compact peer summary](peer_complete_summary_publication_partitions_root_20261011_v1/README.md)
+- [Complete dropout report](Physics_dropout_pilot_complete_development_summary_root_20261011_v1/REPORT_V2.md)
+- [Root peer disposition](peer_complete_root_disposition_20261011_v1/DECISION.json)
+
+## Dedicated architecture research and review
+
+The three roles separately investigate new mechanisms/closest primary sources, implement complete controlled studies, and revisit complete error/competence evidence. Root chooses, executes, interprets and publishes. None is a manuscript reviewer. A useful method must improve final predictions, preserve competent members and show which operation adds value beyond equipped singles/genuineI4. A larger hidden distance, lower conditional variance, source qualification or new method name does not prove that.
+
+Known incidence, nonlinear set/stream communication and graph sequence methods may be ingredients. Their ancestry remains explicit. Restricted forward identities are explanations, not new accuracy or novelty theorems. The scanner R4reset changes amplitude/conditioning as well as path memory; it does not isolate a long-range-information cause alone. Stronger16-view equippedI4is an explicit later reference gap if the pilot is useful.
+
+Fresh independent Codex paper reviewers run only after substantial supported scientific progress and a complete manuscript revision. No new paper review, acceptance recommendation or genuine goal completion has been established.
 
 ## Complete prediction evidence
 
