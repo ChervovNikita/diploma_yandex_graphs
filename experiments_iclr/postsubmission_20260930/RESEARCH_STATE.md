@@ -26,7 +26,7 @@ The [quality/reference map](complete_quality_gain_reference_confirmation_evidenc
 - `private_GRU_acquisition_root_20261011_v1/CONFIG.json`, `ROOT_DECISION.json`, `ACTUAL_LAUNCH.json`, `OBSERVATION_01.json`; `monitor.py` observes only the exact owner and progress.
 - `native_meanSAGE_private_GRU_execution_source_20261011_v1/MANIFEST.json`; `native_meanSAGE_private_GRU_readout_source_20261011_v1/MANIFEST.json`.
 - `private_GRU_full_input_root_20261011_v1/QUALIFICATION.json` and `OWNER_END.json`; `private_GRU_derivative_root_20261011_v1/DERIVATIVE.json` and owner.
-- `publication/README_progress_update_20261011_v1/README_MAIN.md` is the reviewed public progress draft; default-main publication remains pending exact remote verification.
+- `publication/README_progress_update_20261011_v1/README_MAIN.md` is published on GitHub defaultmain at62618687cd00735005f0a8cc4b42ae82d2af8a02; onlyREADME.md changed, and exact remote main was verified. Research source/evidence are published at10e48fab3081843af8469fb8c22e5e6d005fe8fa.
 - `research_ledger.json` retains all decisions, outcomes, failures, costs and prior status. Earlier state text is preserved in Git and status_history.
 
 ## Paper and goal
