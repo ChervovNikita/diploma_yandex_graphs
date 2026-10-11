@@ -1,3 +1,13 @@
+## Fixed graph-key source qualified; finite comparison admitted
+
+The independently audited fixed-key source passed all16 actual full-TRAIN units /34 native trajectories in12.3665s, peak CUDA allocated1,364,625,408bytes. This verifies gradient, optimizer, target/order and restoration paths, not predictive utility. Exact original15bank33record75endpoint custody is admitted without native forward or score recalculation. The frozen ten-arm family will acquire30newbanks/48fits; all45banks/81records/225scalar endpoints precede comparative interpretation. Source, inputs, config, targets, protocol, qualification and admissions are bound before scientific launch. Primary accuracy, methodological attribution and secondary confidence are separate. [Prospective freeze](native_SAGE_fixed_context_key_pilot_root_20261011_v1/FREEZE.json).
+
+The initial code audit and its closure addendum are preserved. A local metadata preparation/admission ordering failure occurred before fits and is retained; the policy was subsequently deployed and exact admission completed, with zero training reruns. The complete reader is being prepared in parallel. A separate Penn94 published-split confirmation contract concerns the successful own-CE wrapper and original projector/serving controls; it does not assume the WikiCS-specific fixed-key dictionary transfers. No new18.77 job is launched or needed for this pilot.
+
+## Exact completed-outcome publication and prospective utility criteria
+
+The reviewed source/complete-outcome inventory was committed and pushed as a4449c7f6915d6318bb2c44e784d7fdcea911342 at23:46:50UTC, with exact SSH ref verification and a fetched server receipt. Full binary evidence remains server-side. The next fixed-key pilot is source-only; its finite ten-arm/three-seed primary accuracy, separate attribution and confidence rules are now saved in [prospective protocol](native_SAGE_fixed_context_key_prospective_root_20261011_v1/PROSPECTIVE_PROTOCOL.json). Independent source audit, actual TRAIN qualification and production admission precede all scientific fits. No new18.77 jobs are planned.
+
 ## Complete F and continuous-affinity outcomes, 11 October 2026
 
 This update supersedes earlier running/pending statements below; those records remain chronological history. Both studies and their complete readers have closed. No new scientific fit has started.

@@ -75,3 +75,9 @@ The current single active mechanism remains the frozen neighborhood-distribution
 ## One-backbone quality scope and closed distribution study
 
 The user accepts a useful improvement on one backbone. SAGE is the current quality priority; earlier frozen multi-backbone criteria and outcomes remain intact. The neighbourhood-distribution study has fully closed and fails its own raw/risk criteria. The next prospective comparison is native SAGE GNCL × within-route SupCon with capable same-objective controls and exact original anchors. No primitive novelty follows from known learning objectives. Stop optional engineering once concrete execution risks are resolved, complete the paired family, then prioritize unused confirmation for a worthwhile result.
+
+## Complete sharing benefit and one fixed-key preparation
+
+The complete F study supplies a raw SAGE accuracy gain against capable singles and genuine I4 at all three seeds, while its calibrated NLL protection narrowly fails. Preserve both facts. This is encountered development, not unused confirmation or a new primitive. The complete continuous-affinity recipe adds no accuracy beyond unchanged sharing and closes. Original projector/logit GNNM is still missing from the matched comparison.
+
+The next queue contains one fixed-key graph-context acquisition candidate with decisive controls and prospectively separated accuracy, attribution and confidence criteria. The combination role prepares its finite source; the new-method role checks graph-contrastive-distillation ancestry and conditional contribution boundaries; the history role designs a bounded original-GNNM/unused-evidence comparison. Root audits, qualifies, freezes, executes and interprets. Source preparation is not a result. No rescue coefficient grid or new serving package is admitted from the closed affinity family.

@@ -1,0 +1,11 @@
+# One fixed graph-key route-steering pilot
+
+The complete live-affinity experiment does not improve unchanged sharing. The successful native sharing result supports an accuracy-oriented direction, but supplies no novelty. The new candidate replaces moving peer targets with fixed multiscale graph-feature keys. A common train-only projector connects live route representations to these keys; the same shared backbone, own CE and probability-average serving remain.
+
+The exact target-dependent signal reduces to a weighted key mean. Fixed keys can retain a tangent gradient in a stated coincident-student configuration, but no collapse has been diagnosed and no escape or accuracy guarantee follows. Graph contrastive distillation, asymmetric keys, projection and per-head objectives have close primary precedents. Each methodological interpretation requires its own decisive control.
+
+One ten-arm, three-seed comparison is prepared: 30 new banks / 48 optimizer fits, plus 15 exact original banks / 33 native records. Every complete procedure is assessed before interpretation. Primary progress is final raw accuracy against unchanged sharing, equipped singles and both genuine I4 target policies. Confidence tradeoffs and member quality remain explicit; they do not erase an accuracy benefit. The unchanged earlier failed conjunctions are preserved.
+
+The five attribution comparisons distinguish private target assignment, fixed versus live keys, the dictionary term, nonuniform targets and target-to-key incidence. An accuracy benefit matched by an attraction control would support the simpler attributed supervision, not a dictionary novelty claim. A private/I4 gain reproduced by unchanged sharing is not evidence for this new auxiliary.
+
+No model fit or quality read is authorized by this preparation record alone. Source audit, finite actual TRAIN qualification, exact original/cache admission, deployment and production freeze must precede execution. No coefficient or temperature sweep, teacher-bank pretraining, extra native pass, RL, selective inference or new serving rule is included. Original paper scores and TEST remain unchanged. A useful result requires confirmation and a direct original-GNNM comparator before paper claims.

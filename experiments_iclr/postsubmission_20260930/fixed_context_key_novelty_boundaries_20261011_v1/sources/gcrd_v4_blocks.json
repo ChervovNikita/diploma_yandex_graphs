@@ -1,0 +1,954 @@
+[
+  {
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "class": null,
+    "text": "Content selection saved. Describe the issue below:",
+    "index": 0
+  },
+  {
+    "tag": "h1",
+    "id": null,
+    "class": "ltx_title ltx_title_document",
+    "text": "On Representation Knowledge Distillation for Graph Neural Networks",
+    "index": 1
+  },
+  {
+    "tag": "p",
+    "id": "abstract1.1",
+    "class": "ltx_p",
+    "text": "Knowledge distillation is a learning paradigm for boosting resource-efficient graph neural networks (GNNs) using more expressive yet cumbersome teacher models. Past work on distillation for GNNs proposed the Local Structure Preserving loss (LSP), which matches local structural relationships defined over edges across the student and teacher’s node embeddings. This paper studies whether preserving the global topology of how the teacher embeds graph data can be a more effective distillation objective for GNNs, as real-world graphs often contain latent interactions and noisy edges. We propose Graph Contrastive Representation Distillation (G-CRD), which uses contrastive learning to implicitly preserve global topology by aligning the student node embeddings to those of the teacher in a shared representation space. Additionally, we introduce an expanded set of benchmarks on large-scale real-world datasets where the performance gap between teacher and student GNNs is non-negligible. Experiments across 4 datasets and 14 heterogeneous GNN architectures show that G-CRD consistently boosts the performance and robustness of lightweight GNNs, outperforming LSP (and a global structure preserving variant of LSP) as well as baselines from 2D computer vision. An analysis of the representational similarity among teacher and student embedding spaces reveals that G-CRD balances preserving local and global relationships, while structure preserving approaches are best at preserving one or the other. Our code is available at https://github.com/chaitjo/efficient-gnns",
+    "index": 2
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "1 Introduction",
+    "index": 3
+  },
+  {
+    "tag": "p",
+    "id": "S1.p1.1",
+    "class": "ltx_p",
+    "text": "Graph Neural Networks (GNNs) [1, 2, 3, 4, 5] generalize convolutional networks from 2D computer vision to irregular data structures such as graphs, sets, and 3D point clouds. Recent years have seen impactful applications of GNNs in fields ranging from social networks [6, 7] to biomedicine [8, 9, 10]. While the community has recently focused on large-scale data [11, 12, 13], more expressive architectures [14, 15, 16, 17] as well as improving generalization via self-supervised learning [18, 19, 20, 21], there has been an emerging line of work on lightweight, resource-efficient GNNs [22, 23, 24, 25, 26, 27, 28, 29] that achieve high performance under computation and memory constraints. Boosting the performance and reliability of lightweight models is critical for accelerating a myriad of applications, including real-time recommendations on social networks, safety-critical 3D perception for autonomous robots, and encrypted models for proprietary biomedical data.",
+    "index": 4
+  },
+  {
+    "tag": "p",
+    "id": "S1.p2.1",
+    "class": "ltx_p",
+    "text": "A promising and generic approach for improving lightweight deep learning models is Knowledge Distillation (KD) [30]. KD is a teacher-student learning paradigm that transfers knowledge from high performance but resource-intensive teacher models to resource-efficient students. Pioneered by Hinton et al. [30], logit-based distillation trains the student to match the output logits of teachers, in addition to standard supervised learning. Recent work has attempted to go beyond logit-based distillation by transferring representational knowledge from the teacher to the student through the design of loss functions that align the latent embedding spaces of the teacher and student [31], see Fig.1(a) for an intuitive overview.",
+    "index": 5
+  },
+  {
+    "tag": "p",
+    "id": "S1.p3.1",
+    "class": "ltx_p",
+    "text": "Unlike for 2D image data, representation distillation for GNNs has largely been unexplored besides the pioneering work of Yang et al. [32] that proposes the Local Structure Preserving (LSP) objective. LSP encourages the student to mimic the pairwise similarities with immediate neighbours present in the teacher’s node embedding space. Thus, structural similarities are preserved over local graph edges. However, this is not guaranteed to preserve the global topology of how the teacher embeds graphs as this ignores latent interactions among disconnected nodes, see Fig.1(b).",
+    "index": 6
+  },
+  {
+    "tag": "p",
+    "id": "S1.p4.1",
+    "class": "ltx_p",
+    "text": "Modelling latent interactions is often critical for solving tasks on real-world graphs, which tend to be incomplete or noisy as edges are determined heuristically. Expressive and deep GNNs are able to better capture the full structure of the underlying data, including latent interactions, in their node embedding space. Learning the same information via shallow and efficient GNNs may not be possible due to be mismatch in representational capacity. Thus, the ideal representation distillation technique would transfer global structural information from expressive teachers to lightweight students.",
+    "index": 7
+  },
+  {
+    "tag": "p",
+    "id": "S1.p5.1",
+    "class": "ltx_p",
+    "text": "To preserve global relationships, it is natural to extend LSP to explicitly consider all possible pairwise similarities among node features. However, we found this Global Structure Preserving (GSP) approach to be challenging to scale as the number of possible relationships may explode, see Fig.1(c).",
+    "index": 8
+  },
+  {
+    "tag": "p",
+    "id": "S1.p6.1",
+    "class": "ltx_p",
+    "text": "Thus, we introduce a new objective that implicitly preserves global topology by aligning the student and teacher node feature vectors via contrastive learning [33, 34, 35]. We formulate our objective as a node-level contrastive task on pairwise relationships across the teacher and student embedding spaces, see Fig.1(d). We term this objective Graph Contrastive Representation Distillation (G-CRD), as it generalizes CRD [36] from sample-level 2D image classification tasks to fine-grained node-level tasks on graphs. G-CRD preserves global relationships by training the student to spatially align its node embeddings with the corresponding teacher node embedding, termed positive samples. For e.g., in Fig.1(d), the student’s embedding for node 2 is pushed to the teacher’s embedding for node 2 by maximizing the learnt similarity metric. Additionally, the student’s embedding for node 2 is repelled from all other node embeddings from the teacher, termed negative samples, by minimizing their similarities. The number of negative samples can be varied to ensure scalability.",
+    "index": 9
+  },
+  {
+    "tag": "p",
+    "id": "S1.p7.1",
+    "class": "ltx_p",
+    "text": "We compare G-CRD to LSP, its global variant GSP, and baseline techniques from 2D computer vision across a diverse range of model architectures and tasks from Open Graph Benchmarks [11] and S3DIS [37]. Crucially, our evaluation focuses on out-of-distribution generalization on real-world data, where the performance gap between cumbersome teachers and lightweight students is non-negligible. We believe this is critical for testing the efficacy and robustness of knowledge distillation, but was missing from the LSP study [32] which used small-scale and synthetic datasets with negligible performance gaps between teachers and students. In addition to our technical contributions, we hope that our expanded set of benchmarks can form the basis for comparison in future work.",
+    "index": 10
+  },
+  {
+    "tag": "p",
+    "id": "S1.p8.1",
+    "class": "ltx_p",
+    "text": "Our contributions are summarized as follows:",
+    "index": 11
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i1.p1.1",
+    "class": "ltx_p",
+    "text": "We study GNN representation distillation from the perspective of preserving global topology. We introduce Graph Contrastive Representation Distillation (G-CRD), the first contrastive distillation technique specialized for GNNs which trains students to implicitly preserve the global topology of the teacher’s node embedding space.",
+    "index": 12
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i2.p1.1",
+    "class": "ltx_p",
+    "text": "We benchmark GNN distillation on large-scale datasets which test out-of-distribution generalization. Our experiments compare 6 distillation techniques across 4 tasks and 14 architectures for teachers and students.",
+    "index": 13
+  },
+  {
+    "tag": "p",
+    "id": "S1.I1.i3.p1.1",
+    "class": "ltx_p",
+    "text": "Training lightweight GNNs with G-CRD consistently outperform the structure preserving objectives, LSP and GSP, as well as baselines adapted from 2D computer vision. We further analyze the robustness, transferability, quantizability, and representational similarity of teacher and student embeddings in order to unpack the efficacy of G-CRD.",
+    "index": 14
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "2 Preliminaries",
+    "index": 15
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "2.1 Graph Representation Learning",
+    "index": 16
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "Graph Neural Networks (GNNs) take as input an unordered set of nodes and the graph connectivity among them, and learn latent node representations for them via iterative feature aggregation or message passing across local neighborhoods [5]. Consider a graph [math: \\mathcal{G}=\\left(\\mathcal{V},\\mathcal{E}\\right)] , where [math: \\mathcal{V}] is a set of [math: n] nodes, and [math: \\mathcal{E}] is a set of edges associated with the nodes. Each node [math: i\\in\\mathcal{V}] is associated with a [math: d] -dimensional initial feature vector [math: f_{i}] , which is iteratively updated by the backbone GNN via a generic message passing or graph convolution operation:",
+    "index": 17
+  },
+  {
+    "tag": "table",
+    "id": "S2.E1",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: f_{i}^{\\ell+1}=\\textsc{Upd}\\Bigg(f_{i}^{\\ell},\\underset{(i,j)\\in\\mathcal{E}}{\\textsc{Agg}}\\Big(\\textsc{Msg}\\big(f_{i}^{\\ell},f_{j}^{\\ell},e_{ij}\\big)\\Big)\\Bigg),] (1)",
+    "index": 18
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p1.2",
+    "class": "ltx_p",
+    "text": "where [math: \\textsc{Msg},\\textsc{Upd}] are learnable transformations such as multi-layer perceptrons, [math: e_{ij}] are optional edge features, and Agg is a permutation-invariant local neighborhood aggregation function such as summation, maximization, averaging, or weighted averaging via attention.",
+    "index": 19
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "We are usually interested in making predictions for each node in the graph, e.g. node classification on social networks or semantic segmentation of 3D point clouds. Thus, the final feature vectors after [math: L] layers of message passing [math: f_{i}^{L}] are passed to a linear classifier to obtain logits [math: z_{i}] , and the neural network is trained end-to-end via a cross-entropy loss [math: \\mathcal{H}] with the groundtruth class labels [math: y_{i}] : [math: \\mathcal{L_{\\textsc{Sup}}}=\\mathcal{H}\\left(y_{i},\\text{softmax}\\left(z_{i}\\right)\\right)] . For graph-level tasks, such as molecular property prediction, the feature vectors of all nodes are pooled via a permutation-invariant function Pool to obtain a global feature vector [math: f_{G}=\\textsc{Pool}\\left(f_{i}^{L}|i\\in\\mathcal{V}\\right)] , and then passed to a linear classifier. Notably, representation learning still occurs at the node-level for graph-level prediction tasks [38], unlike 2D image classification where pooling layers learn feature vectors for entire images.",
+    "index": 20
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS1.p3.1",
+    "class": "ltx_p",
+    "text": "GNNs and 3D point clouds. The message passing framework in (1) can be used to present a unified ‘geometric’ view of deep learning on non-Euclidean data structures such as 3D point clouds, irregular voxel grids, meshes, and sets [39, 40]. In this work, we consider 3D point cloud networks [41, 42] which process sets of points as nodes. The edges originating from each point are heuristically determined by the [math: k] -nearest neighbors or radius ball queries in the 3D coordinate space. We additionally consider sparse 3D voxel networks [43, 44, 45] and use trilinear interpolation to convert voxel-level features to point-level features before distillation.",
+    "index": 21
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "2.2 Knowledge Distillation",
+    "index": 22
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "Knowledge Distillation (KD) transfers dark knowledge from high capacity teacher models (which are cumbersome to deploy) to efficient students via matching their output logits in addition to supervised learning. At each node [math: i\\in\\mathcal{V}] , logit-based KD [30] uses the cross-entropy loss or KL-divergence to match the output logits of the student [math: z_{i}^{S}] and teacher [math: z_{i}^{T}] , scaled by temperature [math: \\tau_{1}] :",
+    "index": 23
+  },
+  {
+    "tag": "table",
+    "id": "S2.E2",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: \\mathcal{L}_{\\text{KD}}=\\sum_{i\\in\\mathcal{V}}\\mathcal{H}\\left(\\text{softmax}\\left(z_{i}^{T}/\\tau_{1}\\right),\\text{softmax}\\left(z_{i}^{S}/\\tau_{1}\\right)\\right).] (2)",
+    "index": 24
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p2.1",
+    "class": "ltx_p",
+    "text": "In this work, we study auxiliary representation distillation techniques that augment or replace logit-based distillation with representational knowledge using the teacher and student features, [math: f^{T}\\in\\mathbb{R}^{d^{T}}] and [math: f^{S}\\in\\mathbb{R}^{d^{S}}] , respectively.11 1 Following best practices [36, 46], we consider feature vectors from the penultimate layer before the prediction head for representation distillation. Our overall objective function for training the student model via the logits as well as latent feature vectors of the teacher is as follows:",
+    "index": 25
+  },
+  {
+    "tag": "table",
+    "id": "S2.E3",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: \\mathcal{L}=\\left(1-\\alpha\\right)\\mathcal{L}_{\\textsc{Sup}}\\ +\\ \\alpha\\tau_{1}^{2}\\ \\mathcal{L}_{\\text{KD}}\\ +\\ \\beta\\ \\mathcal{L}_{\\text{Aux}},] (3)",
+    "index": 26
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS2.p2.2",
+    "class": "ltx_p",
+    "text": "where [math: \\alpha,\\beta] are balancing weights for the logit-based KD loss [math: \\mathcal{L}_{\\text{KD}}] and auxiliary representation distillation loss [math: \\mathcal{L}_{\\text{Aux}}] , respectively. Next, we will describe how [math: \\mathcal{L}_{\\text{Aux}}] is instantiated as different representation distillation techniques such as [math: \\mathcal{L}_{\\text{LSP}}] , [math: \\mathcal{L}_{\\text{GSP}}] , and [math: \\mathcal{L}_{\\text{G-CRD}}] .",
+    "index": 27
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "2.3 Local Structure Preserving Distillation",
+    "index": 28
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p1.1",
+    "class": "ltx_p",
+    "text": "We briefly summarize LSP [32], a GNN representation distillation objective which trains the student model to preserve the local structure of graph data from the teacher’s node embedding space. The local structure around each node is defined as the set of parameterized pairwise distances to its neighboring nodes in the latent feature space. The similarity between a pair of linked nodes can be computed by kernel functions (which we tune for):",
+    "index": 29
+  },
+  {
+    "tag": "table",
+    "id": "S2.E4",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: \\mathcal{K}\\left(f_{i},f_{j}\\right)=\\begin{cases}\\lVert f_{i}-f_{j}\\rVert_{2}^{2},&\\text{Euclidean distance},\\\\ f_{i}^{\\prime}\\cdot f_{j},&\\text{Linear kernel},\\\\ \\left(f_{i}^{\\prime}\\cdot f_{j}+c\\right)^{d},&\\text{Polynomial kernel},\\\\ e^{-\\frac{1}{2\\sigma}\\lVert f_{i}-f_{j}\\rVert^{2}},&\\text{RBF kernel}.\\end{cases}] (4)",
+    "index": 30
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS3.p1.2",
+    "class": "ltx_p",
+    "text": "Thus, the local structure around each node [math: i\\in\\mathcal{V}] is the softmax probability distribution of the similarities among [math: f_{i}] and its neighbors’ features [math: f_{j}\\ \\forall(i,j)\\in\\mathcal{E}] . LSP trains the student model to mimic the local structure from the teacher’s embedding space via KL-divergence:",
+    "index": 31
+  },
+  {
+    "tag": "table",
+    "id": "S2.E5",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: \\mathcal{L}_{\\text{LSP}}=\\sum_{i\\in\\mathcal{V}}\\mathcal{D}_{\\text{KL}}\\Big(\\underset{(i,j)\\in\\mathcal{E}}{\\text{softmax}}\\big(\\mathcal{K}(f_{i}^{S},f_{j}^{S})\\big)\\,\\|\\,\\underset{(i,j)\\in\\mathcal{E}}{\\text{softmax}}\\big(\\mathcal{K}(f_{i}^{T},f_{j}^{T})\\big)\\Big).] (5)",
+    "index": 32
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "2.4 Global Structure Preserving Distillation",
+    "index": 33
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p1.1",
+    "class": "ltx_p",
+    "text": "The purely local LSP objective over pre-defined edges does not preserve the global topology of how the teacher embeds the graph, as it does not account for latent interactions among disconnected nodes. We would like to explicitly train the student to preserve the global topology in order to better distill representational knowledge from the teacher. To achieve this, we first introduce a simple extension of LSP, the Global Structure Preserving loss (GSP), which matches all pairwise similarities among node features via mean squared error:",
+    "index": 34
+  },
+  {
+    "tag": "table",
+    "id": "S2.E6",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: \\mathcal{L}_{\\text{GSP}}=\\sum_{i\\in\\mathcal{V}}\\sum_{j\\in\\mathcal{V}}\\big\\lVert\\mathcal{K}\\left(f_{i}^{T},f_{j}^{T}\\right)-\\mathcal{K}\\left(f_{i}^{S},f_{j}^{S}\\right)\\big\\rVert^{2}_{2}.] (6)",
+    "index": 35
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p1.2",
+    "class": "ltx_p",
+    "text": "While theoretically more powerful than LSP, GSP may be computationally inefficient and involves two key design choices: (See App.F for ablation studies.)",
+    "index": 36
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p2.1",
+    "class": "ltx_p",
+    "text": "MSE over KL-divergence We omit normalizing the similarities via softmax followed by KL-divergence. Instead, we use MSE to match the raw teacher and student pairwise similarity matrices as it worked better empirically.",
+    "index": 37
+  },
+  {
+    "tag": "p",
+    "id": "S2.SS4.p3.1",
+    "class": "ltx_p",
+    "text": "Scalability and sub-sampling. For a set of [math: n] nodes, GSP needs to computer [math: n^{2}] pairwise similarities for both the teacher and student features. We often need to sub-sample large graphs or 3D point clouds when computing [math: \\mathcal{L}_{\\text{GSP}}] due to GPU memory constraints instead of storing all possible pairwise similarities. For each experiment, random sub-sampling was done to retain as many nodes as possible subject to GPU memory limitations.",
+    "index": 38
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "3 Graph Contrastive Representation Distillation",
+    "index": 39
+  },
+  {
+    "tag": "p",
+    "id": "S3.p1.1",
+    "class": "ltx_p",
+    "text": "An alternative to explicit structure preserving techniques such as LSP and GSP is to directly align the node features from the student to those of the teacher. An objective on the features would be a stronger constraint than over pairwise relationships, resulting in implicitly preserving relationships over pre-defined as well as latent edges, and thereby preserving global topology. However, we and others [32] found direct feature mimicking approaches [47, 48] from 2D computer vision to be ineffective for GNNs due to mismatch in representational capacity.",
+    "index": 40
+  },
+  {
+    "tag": "p",
+    "id": "S3.p2.1",
+    "class": "ltx_p",
+    "text": "Thus, we introduce Graph Contrastive Representation Distillation (G-CRD) which formulates representation distillation as a contrastive learning task on pairwise relationships across the teacher and student embedding spaces. Intuitively, we want to maximize the similarity among pairs of student and teacher feature vectors corresponding to the same node, i.e. [math: f_{i}^{S},f_{i}^{T}] (positive samples), while pushing away the feature vectors of pairs of unmatched nodes, i.e. [math: f_{i}^{S},f_{j}^{T}] (negative samples). To achieve this, we adapt the InfoNCE objective [33, 35] to the teacher-student paradigm and pose representation distillation as the task of classifying positive pairs among the set of distractors via a temperature-scaled softmax function:",
+    "index": 41
+  },
+  {
+    "tag": "table",
+    "id": "S3.E7",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: \\mathcal{L}_{\\text{G-CRD}}=-\\sum_{i\\in\\mathcal{V}}\\text{ log}\\frac{\\text{ exp}\\big(\\frac{h(f_{i}^{S},f_{i}^{T})}{\\tau_{2}}\\big)}{\\text{ exp}\\big(\\frac{h(f_{i}^{S},f_{i}^{T})}{\\tau_{2}}\\big)+\\sum_{j\\neq i}\\text{ exp}\\big(\\frac{h(f_{i}^{S},f_{j}^{T})}{\\tau_{2}}\\big)},] (7)",
+    "index": 42
+  },
+  {
+    "tag": "p",
+    "id": "S3.p2.2",
+    "class": "ltx_p",
+    "text": "where [math: h:\\{d^{S},d^{T}\\}\\rightarrow\\left[0,1\\right]] is a learnt similarity metric, and [math: \\tau_{2}] is a scalar temperature parameter. From an information theoretic perspective, the InfoNCE-style loss aligns the teacher and student embedding spaces by maximizing the mutual information among them. Fig.2 illustrates G-CRD.",
+    "index": 43
+  },
+  {
+    "tag": "p",
+    "id": "S3.p3.1",
+    "class": "ltx_p",
+    "text": "G-CRD generalizes Contrastive Representation Distillation [36] from sample-level 2D image classification to fine-grained node-level tasks on graphs, and involves key design choices for GNNs:",
+    "index": 44
+  },
+  {
+    "tag": "p",
+    "id": "S3.p4.1",
+    "class": "ltx_p",
+    "text": "Projection heads. We define the similarity metric as a learnt cosine similarity between teacher and student features projected to a common representation space:",
+    "index": 45
+  },
+  {
+    "tag": "table",
+    "id": "S3.E8",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: h(f^{S},f^{T})=\\frac{P^{S}\\left(f^{S}\\right)^{\\prime}\\cdot P^{T}\\left(f^{T}\\right)}{\\lVert P^{S}\\left(f^{S}\\right)\\rVert\\cdot\\lVert P^{T}\\left(f^{T}\\right)\\rVert},] (8)",
+    "index": 46
+  },
+  {
+    "tag": "p",
+    "id": "S3.p4.2",
+    "class": "ltx_p",
+    "text": "where the projection heads [math: P^{S},P^{T}] can be multi-layer perceptrons (MLPs) composed of linear transformations to a common dimension [math: d] (usually that of the student feature) followed by batch normalization and non-linear activation. However, independent MLPs on node feature vectors are ‘structure-agnostic’ [22] – they cannot adapt the shared representation space to the graph structure of the underlying data. Thus, we introduce structure-aware projection heads, which use a single GCN layer [1]22 2 We chose GCN as it is one of the most well studied and lightweight layers. followed by batch normalization and non-linear activation:",
+    "index": 47
+  },
+  {
+    "tag": "table",
+    "id": "S3.E9",
+    "class": "ltx_equation ltx_eqn_table",
+    "text": "[math: P\\left(f_{i}\\right)=\\begin{cases}\\text{GCN}\\left(f_{i},f_{j}|(i,j)\\in\\mathcal{E}\\right),&\\text{Structure-aware},\\\\ \\text{MLP}\\left(f_{i}\\right),&\\text{Structure-agnostic},\\\\ \\end{cases}] (9)",
+    "index": 48
+  },
+  {
+    "tag": "p",
+    "id": "S3.p4.3",
+    "class": "ltx_p",
+    "text": "The GCN projection can learn neighborhood-dependent projections via one message passing step, while having the same number of parameters as the structure-agnostic MLP. We tune the choice of projection head as a hyperparameter. (See App.E for ablation studies.)",
+    "index": 49
+  },
+  {
+    "tag": "p",
+    "id": "S3.p5.1",
+    "class": "ltx_p",
+    "text": "Node-level contrastive learning. We formulate G-CRD as a node-level contrastive learning task of identifying positive node correspondences across the teacher and student embedding spaces, while pushing away a set of distractors. G-CRD adapts the well-studied InfoNCE loss in (7). Contrastive Representation Distillation (CRD) [36] is a related representation distillation objective for 2D image classification models:",
+    "index": 50
+  },
+  {
+    "tag": "table",
+    "id": "S3.EGx1",
+    "class": "ltx_equationgroup ltx_eqn_eqnarray ltx_eqn_table",
+    "text": "[math: \\displaystyle\\mathcal{L}_{\\text{CRD}}=-\\underset{h}{\\text{max}}\\;\\Big(\\mathbb{E}_{q(T,S|C=1)}[\\log h(T,S)]+] (10) [math: \\displaystyle N\\mathbb{E}_{q(T,S|C=0)}[1-\\log(h(T,S))]\\Big),]",
+    "index": 51
+  },
+  {
+    "tag": "p",
+    "id": "S3.p5.2",
+    "class": "ltx_p",
+    "text": "where [math: T,S] are random variables for teacher and student features, [math: q(T,S|C=1)] is their joint distribution (positives), [math: q(T,S|C=0)] is their marginal distribution (negatives), and [math: h:\\{d^{S},d^{T}\\}\\rightarrow\\left[0,1\\right]] is an auxiliary ‘critic’ model which returns an unnormalized similarity score. Crucially, CRD is tailored for 2D image classification and contrasts among global/per-sample feature vectors. It additionally requires a specialized memory bank [34] to provide a large number [math: N] of negative samples. On the other hand, GNNs build representations at the node-level for both node-level prediction tasks as well as global-level tasks [38]. Thus, it is not possible to directly apply CRD to GNNs beyond graph-level prediction. Our experiments show how a naive application of CRD for GNNs is ineffective, and ablate the impact of our design choices in formulating G-CRD.",
+    "index": 52
+  },
+  {
+    "tag": "p",
+    "id": "S3.p6.1",
+    "class": "ltx_p",
+    "text": "Mini-batch negative sampling. Contrastive learning among GNN node features from teachers and students alleviates the need for specialized negative sampling: we simply define negative samples for each student node feature as all the other node features from the teacher within the same mini-batch. This is markedly different from recent contrastive pre-training objectives for GNNs, which rely on handcrafted data augmentation [18, 19] or sub-graph sampling procedures [21, 20] to generate multiple views of graphs. Unlike sample-level CRD, our approach does not require extremely large batch sizes or negative samples, as the combined cardinality of all nodes within a mini-batch is sufficient for boosting student performance. G-CRD is robust across a range of graph and batch sizes – from 25 nodes per graph in mini-batches of 32, up to single giant graphs with over 1.9 million nodes.",
+    "index": 53
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "4 Experimental Setup",
+    "index": 54
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "4.1 Datasets",
+    "index": 55
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "We benchmark distillation techniques across a range of tasks on single large-scale networks, batches of small graphs, as well as batches of 3D point clouds, summarized in Tab.1. As we are motivated by real-world and real-time applications involving noisy and shifting data distributions, we make the following considerations for our benchmarks:",
+    "index": 56
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "Challenging for student models. Past work on distillation for GNNs [32] used small-scale PPI [2] (node classification) and ModelNet [49] (3D point cloud classification), both of which are considered saturated by the community [11, 50]. The performance gap between cumbersome teachers and lightweight student models is negligible for these datasets, which makes them unsuitable benchmarks for comparing techniques. (See App.D for an investigation on PPI.)",
+    "index": 57
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p3.1",
+    "class": "ltx_p",
+    "text": "We evaluate node classification on ARXIV and the Microsoft Academic Graph (MAG) [51, 11], which are 70 [math: \\times] and 800 [math: \\times] larger than PPI, respectively, and consider the more challenging semantic segmentation task on 3D point cloud scenes from S3DIS [37] that are over 10 [math: \\times] denser than CAD object scans from ModelNet. We additionally evaluate graph classification on MOLHIV from OGB/MoleculeNet [52].",
+    "index": 58
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS1.p4.1",
+    "class": "ltx_p",
+    "text": "Out-of-distribution evaluation. Unlike PPI and ModelNet, all datasets involve realistic and carefully curated train-test splitting procedures to evaluate out-of-distribution generalization. ARXIV and MAG follow a temporal split, MOLHIV trains on common molecular scaffolds while testing on rare ones, and S3DIS is split according to 6 distinct areas.",
+    "index": 59
+  },
+  {
+    "tag": "table",
+    "id": "S4.T1.4.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Name #Samples Avg. #Nodes Avg. #Edges Split Scheme Split Ratio Prediction Task Metric MOLHIV 41,127 25.5 27.5 Scaffold 80/10/10 Graph-level Binary clf. ROC-AUC S3DIS 5,845 20,000 - Rooms 52/19/29 Point-level Multi-class clf. (16) mIoU, mAcc ARXIV 1 169,343 1,166,243 Time 54/18/28 Node-level Multi-class clf. (40) Accuracy MAG 1 1,939,743 21,111,007 Time 85/9/6 Node-level Multi-class clf. (349) Accuracy PPI 24 2,372 34,113 Random 84/8/8 Node-level Multi-label bin. clf. (128) F1",
+    "index": 60
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "4.2 Teacher and Student Architectures",
+    "index": 61
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "Our choice of teachers and student architectures are made with the following considerations about deploying GNNs: (1) depth – more message passing rounds allow models to access larger sub-graphs around each node, at the cost of training and inference time; (2) hidden channels – especially for giant graphs, increasing hidden channels boosts performance as well as memory consumption, and may require specialized sampling procedures; and (3) architectural complexity – principled geometric priors [42] or attention mechanisms over edges [4] improve model expressivity but tend to have higher inference latency and memory usage.",
+    "index": 62
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS2.p2.1",
+    "class": "ltx_p",
+    "text": "Unlike in [32], we benchmark distillation techniques across heterogeneous architecture families with significant mismatch in terms of parameter count, expressive power, and inference time; e.g. for social networks, we distil from Graph Attention Networks [4] to simple GCNs [1]. For 3D point clouds, we distil from Kernel Point ConvNet [42] teachers to lightweight PointNet++ [41] and voxel-based MinkowskiNet [43]. We give further rationale for our choice of teacher-student pairs for each experiment in Sec.5. Details on the configurations, inference time and latency of teacher and student models are available in App.B",
+    "index": 63
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "4.3 Training and Evaluation",
+    "index": 64
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p1.1",
+    "class": "ltx_p",
+    "text": "Our implementation is built upon PyTorch Geometric [54], PyTorch Points 3D [53], and Open Graph Benchmark [11]. We follow the best practices and guidelines for each dataset.",
+    "index": 65
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p2.1",
+    "class": "ltx_p",
+    "text": "Training. Teacher models are trained via the conventional supervised learning paradigm and the final weights for distillation are selected by early stopping. Student models are trained via the knowledge distillation pipeline described in Sec.2. For the OGB datasets, we follow their example implementations and training setups for both teacher and student models. For S3DIS, the teacher models are trained for 600 epochs following their original learning rate strategies, while the student models are trained for 300 epochs and use an exponential learning rate strategy. We use the conventional data preparation and augmentation procedures for S3DIS via PyTorch Points 3D.",
+    "index": 66
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p3.1",
+    "class": "ltx_p",
+    "text": "Evaluation. For the OGB datasets, we use the official evaluators and report the average test performance across 8/10 random seeds (each teacher-student pair is re-trained for each seed). For S3DIS, we follow best practices in the literature: all models are trained once, and we report the average mIoU and mAcc over 10 voting runs on the held-out Area-5 test set using the evaluation protocol from PyTorch Points 3D.",
+    "index": 67
+  },
+  {
+    "tag": "p",
+    "id": "S4.SS3.p4.1",
+    "class": "ltx_p",
+    "text": "Baselines and hyperparameters. Following Yang et al. [32], we compare the GNN representation distillation techniques G-CRD, GSP and LSP to logit-based KD [30] (2) as well as FitNet [47] and Attention Transfer (AT) [48], two feature mimicking baselines adapted from 2D computer vision which are formulated as: [math: \\mathcal{L}_{\\text{Aux}}=\\sum_{i\\in\\mathcal{V}}\\lVert P^{T}(f^{T}_{i})-P^{S}(f^{S}_{i})\\rVert^{2}_{2}] (FitNet uses L2 normalized projection head, AT uses attention mapping). We tune the loss balancing weights [math: \\alpha,\\beta] in (3) for all techniques on the validation set. For KD, we tune [math: \\alpha\\in\\{0.8,0.9\\},\\tau_{1}\\in\\{4,5\\}] . For FitNet, AT, LSP, and GSP, we tune [math: \\beta\\in\\{100,1000,10000\\}] and the kernel in (4) (only LSP, GSP). For G-CRD, we tune [math: \\beta\\in\\{0.01,0.05\\},\\tau_{2}\\in\\{0.05,0.075,0.1\\}] and the projection head in (9). When comparing representation distillation methods, we set [math: \\alpha] to 0 in order to ablate performance, as in [36], and reduce [math: \\beta] by one order of magnitude.",
+    "index": 68
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "5 Results",
+    "index": 69
+  },
+  {
+    "tag": "table",
+    "id": "S5.T2.8.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Teacher (#Layer,#Param): GIN-E (5L,3.3M) PNA (5L,2.4M) GIN-E (5L,3.3M) PNA (5L,2.4M) PNA (5L,2.4M) Student (#Layer,#Param): GCN (2L,15K) GCN (2L,15K) GCN (2L,40K) GCN (2L,40K) GIN (2L,10K) Sup. Supervised Teacher 77.69 [math: \\pm] 1.61 77.48 [math: \\pm] 1.71 77.69 [math: \\pm] 1.61 77.48 [math: \\pm] 1.71 77.48 [math: \\pm] 1.71 Supervised Student 73.02 [math: \\pm] 1.46 73.02 [math: \\pm] 1.46 73.65 [math: \\pm] 1.50 73.65 [math: \\pm] 1.50 73.03 [math: \\pm] 2.02 Distillation KD [30] 74.08 [math: \\pm] 1.03 74.13 [math: \\pm] 1.72 75.25 [math: \\pm] 1.71 74.45 [math: \\pm] 1.27 73.42 [math: \\pm] 2.14 FitNet [47] 73.62 [math: \\pm] 1.05 ( [math: \\downarrow] ) 73.65 [math: \\pm] 1.25 ( [math: \\downarrow] ) 74.52 [math: \\pm] 1.33 ( [math: \\downarrow] ) 74.39 [math: \\pm] 1.46 ( [math: \\downarrow] ) 72.88 [math: \\pm] 0.89 ( [math: \\downarrow] ) AT [48] 73.85 [math: \\pm] 0.85 ( [math: \\downarrow] ) 73.64 [math: \\pm] 1.50 ( [math: \\downarrow] ) 74.94 [math: \\pm] 0.97 ( [math: \\downarrow] ) 73.89 [math: \\pm] 1.92 ( [math: \\downarrow] ) 73.87 [math: \\pm] 2.28 ( [math: \\uparrow] ) LSP [32] 73.58 [math: \\pm] 1.29 ( [math: \\downarrow] ) 73.24 [math: \\pm] 1.67 ( [math: \\downarrow] ) 75.04 [math: \\pm] 1.20 ( [math: \\downarrow] ) 74.43 [math: \\pm] 1.58 ( [math: \\downarrow] ) 70.74 [math: \\pm] 1.82 ( [math: \\downarrow] ) GSP 72.83 [math: \\pm] 1.30 ( [math: \\downarrow] ) 73.74 [math: \\pm] 0.93 ( [math: \\downarrow] ) 75.12 [math: \\pm] 1.27 ( [math: \\downarrow] ) 75.09 [math: \\pm] 1.48 ( [math: \\uparrow] ) 69.68 [math: \\pm] 2.88 ( [math: \\downarrow] ) G-CRD (Ours) 74.34 [math: \\pm] 1.44 ( [math: \\uparrow] ) 75.11 [math: \\pm] 0.73 ( [math: \\uparrow] ) 75.53 [math: \\pm] 1.64 ( [math: \\uparrow] ) 75.89 [math: \\pm] 0.80 ( [math: \\uparrow] ) 75.77 [math: \\pm] 2.02 ( [math: \\uparrow] )",
+    "index": 70
+  },
+  {
+    "tag": "table",
+    "id": "S5.T3.8.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Teacher (#Param): KP-FCNN (14.0M) SPVCNN (21.8M) KP-FCNN (14.0M) SPVCNN (21.8M) Student (#Param): PointNet, SSG (1.4M) PointNet, SSG (1.4M) MinkNet, 20%cr. (0.8M) MinkNet, 20%cr. (0.8M) Sup. Supervised Teacher 62.70, 69.54 64.58, 71.71 62.70, 69.54 64.58, 71.71 Supervised Student 49.67, 57.51 49.67, 57.51 55.29, 64.14 55.29, 64.14 Distillation KD [30] 51.89, 59.48 51.81, 59.22 56.00, 64.90 55.78, 64.51 FitNet [47] 49.37, 57.35 ( [math: \\downarrow] ) 49.85, 57.78 ( [math: \\downarrow] ) 48.94, 57.26 ( [math: \\downarrow] ) 53.62, 63.14 ( [math: \\downarrow] ) AT [48] 51.82, 59.38 ( [math: \\downarrow] ) 49.57, 57.13 ( [math: \\downarrow] ) 56.02, 64.87 ( [math: \\uparrow] ) 54.84, 63.78 ( [math: \\downarrow] ) LSP [32] 50.69, 58.49 ( [math: \\downarrow] ) 51.07, 58.57 ( [math: \\downarrow] ) 54.20, 63.59 ( [math: \\downarrow] ) 55.20, 64.34 ( [math: \\downarrow] ) GSP 53.00, 61.15 ( [math: \\uparrow] ) 51.68, 60.35 ( [math: \\downarrow] ) 55.50, 65.19 ( [math: \\downarrow] ) 54.77, 63.88 ( [math: \\downarrow] ) G-CRD (Ours) 53.15, 61.15 ( [math: \\uparrow] ) 53.27, 61.29 ( [math: \\uparrow] ) 56.07, 64.87 ( [math: \\uparrow] ) 55.83, 65.03 ( [math: \\uparrow] )",
+    "index": 71
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "5.1 Molecular Graph Property Prediction",
+    "index": 72
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p1.1",
+    "class": "ltx_p",
+    "text": "We consider the graph-level property prediction task over batches of molecular graphs. Reducing the inference latency of GNNs for molecules speeds up high throughput virtual screening [52]. Additionally, virtual screening on proprietary data will require homomorphically encrypted models, which further demand low layer count and hidden size [55]. As teachers, we consider 5-layer deep GIN-E [18] and PNA [16] augmented with virtual nodes, two strong OGB baselines. Notably, PNA is the most expressive message passing GNN but explicitly materializes messages over graph edges, leading to higher memory requirement and inference latency. Our student architectures are 2-layer GCN [1] and GIN [14], which are comparatively less expressive and do not use virtual nodes (and edge features in GIN), while having low inference latency.",
+    "index": 73
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS1.p2.1",
+    "class": "ltx_p",
+    "text": "In Tab.2, we compare logit-based KD and the representation distillation techniques across a range of teacher-student pairs. We find that the implicit G-CRD technique consistently improves over the supervised student’s performance and outperforms the explicit global structure preserving approach, GSP. In turn, GSP outperforms the purely local approach, LSP. While all other distillation techniques do offer minor performance boosts over the supervised student, G-CRD is the only one which improves over the KD baseline for most teacher-student combinations.",
+    "index": 74
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "5.2 3D Point Cloud Semantic Segmentation",
+    "index": 75
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p1.1",
+    "class": "ltx_p",
+    "text": "Semantic segmentation of 3D scene graphs is a safety critical real-time task with applications in autonomous driving and robotics. Models process 3D scenes as sets of points or voxel grids, and make a dense prediction by assigning semantic categories to each point/unit. Recent state-of-the-art architectures involve strong geometric priors and complex architectures, leading to increased inference latency and GPU memory requirement. Here, we consider distilling two powerful models, Kernel Point Convolution (KP-FCNN, rigid kernel) [42] and Sparse Point-Voxel CNN (SPVCNN) [44, 45], into simpler models with low inference latency and memory usage: PointNet++ with single-scale grouping [41] and voxel-based MinkowskiNet [43] at low 20% channel ratio.",
+    "index": 76
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS2.p2.1",
+    "class": "ltx_p",
+    "text": "In Tab.3, we see trends that are consistent with the previous section: G-CRD consistently improves the performance of students compared to GSP, and is particularly effective for boosting PointNet++. Notably, due to a large mismatch in teacher-student representation capacity, feature mimicking losses, FitNet and AT, may worsen the student’s performance over purely supervised learning.",
+    "index": 77
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "5.3 Node Classification on Social Networks",
+    "index": 78
+  },
+  {
+    "tag": "table",
+    "id": "S5.T4.8.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Dataset: ARXIV ARXIV ARXIV MAG Teacher (#Layer,#Param): GAT (3L,1.4M) GAT (3L,1.4M) GAT (3L,1.4M) R-GCN (3L,5.5M) Student (#Layer,#Param): GCN (2L,44K) GraphSage (2L,87K) SIGN (3L,3.5M) R-GCN (2L,170K) Sup. Supervised Teacher 73.91 [math: \\pm] 0.12 73.91 [math: \\pm] 0.12 73.91 [math: \\pm] 0.12 49.48 [math: \\pm] 0.35 Supervised Student 71.25 [math: \\pm] 0.28 70.97 [math: \\pm] 0.23 71.98 [math: \\pm] 0.16 46.22 [math: \\pm] 0.31 Distillation KD [30] 71.55 [math: \\pm] 0.25 71.44 [math: \\pm] 0.10 72.26 [math: \\pm] 0.11 46.65 [math: \\pm] 0.20 FitNet [47] 71.38 [math: \\pm] 0.17 ( [math: \\downarrow] ) 70.78 [math: \\pm] 0.25 ( [math: \\downarrow] ) 71.98 [math: \\pm] 0.13 ( [math: \\downarrow] ) 46.15 [math: \\pm] 0.24 ( [math: \\downarrow] ) AT [48] 70.44 [math: \\pm] 0.28 ( [math: \\downarrow] ) 70.17 [math: \\pm] 0.11 ( [math: \\downarrow] ) 71.99 [math: \\pm] 0.14 ( [math: \\downarrow] ) 46.09 [math: \\pm] 0.27 ( [math: \\downarrow] ) LSP [32] 71.52 [math: \\pm] 0.22 ( [math: \\downarrow] ) 70.95 [math: \\pm] 0.22 ( [math: \\downarrow] ) - 46.23 [math: \\pm] 0.41 ( [math: \\downarrow] ) GSP 71.41 [math: \\pm] 0.31 ( [math: \\downarrow] ) 70.98 [math: \\pm] 0.33 ( [math: \\downarrow] ) 71.99 [math: \\pm] 0.12 ( [math: \\downarrow] ) 46.04 [math: \\pm] 0.15 ( [math: \\downarrow] ) G-CRD (Ours) 71.64 [math: \\pm] 0.16 ( [math: \\uparrow] ) 71.15 [math: \\pm] 0.12 ( [math: \\downarrow] ) 72.10 [math: \\pm] 0.10 ( [math: \\downarrow] ) 46.42 [math: \\pm] 0.20 ( [math: \\downarrow] ) KD + Dist. KD + FitNet [47] 71.10 [math: \\pm] 0.19 ( [math: \\downarrow] ) 71.11 [math: \\pm] 0.17 ( [math: \\downarrow] ) 72.31 [math: \\pm] 0.08 ( [math: \\uparrow] ) 46.60 [math: \\pm] 0.36 ( [math: \\downarrow] ) KD + AT [48] 70.91 [math: \\pm] 0.31 ( [math: \\downarrow] ) 71.06 [math: \\pm] 0.19 ( [math: \\downarrow] ) 72.27 [math: \\pm] 0.11 ( [math: \\uparrow] ) 46.59 [math: \\pm] 0.41 ( [math: \\downarrow] ) KD + LSP [32] 71.35 [math: \\pm] 0.23 ( [math: \\downarrow] ) 71.34 [math: \\pm] 0.17 ( [math: \\downarrow] ) - 46.73 [math: \\pm] 0.31 ( [math: \\uparrow] ) KD + GSP 71.39 [math: \\pm] 0.19 ( [math: \\downarrow] ) 71.51 [math: \\pm] 0.18 ( [math: \\uparrow] ) 72.27 [math: \\pm] 0.16 ( [math: \\uparrow] ) 46.49 [math: \\pm] 0.18 ( [math: \\downarrow] ) KD + G-CRD (Ours) 71.57 [math: \\pm] 0.23 ( [math: \\uparrow] ) 71.59 [math: \\pm] 0.15 ( [math: \\uparrow] ) 72.32 [math: \\pm] 0.11 ( [math: \\uparrow] ) 46.78 [math: \\pm] 0.32 ( [math: \\uparrow] )",
+    "index": 79
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS3.p1.1",
+    "class": "ltx_p",
+    "text": "Reducing model depth and feature dimensions boosts inference and reduces memory usage for real-time applications on large-scale graphs. For ARXIV, a homogeneous citation network where models classify the subject of each node/paper, we use a strong 3-layer GAT [4] teacher. GAT has high memory requirement during training and inference due to its attention mechanism. We distil into 2-layer GCN [1] and GraphSage [2], which are comparatively more scalable but lack the expressivity of attention. We also distil to structure-agnostic SIGN [22] designed for parallelized large-graph processing. LSP cannot be used for SIGN as it does not make use of graph structure.",
+    "index": 80
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS3.p2.1",
+    "class": "ltx_p",
+    "text": "Experiments on the giant heterogeneous Microsoft Academic Graph (MAG) of authors, papers, and institutions further tests the scalability of distillation. We distil among Relational-GCNs [56] at different depth and feature sizes. We use the GraphSAINT [29] sampler to fit GPU memory.",
+    "index": 81
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS3.p3.1",
+    "class": "ltx_p",
+    "text": "In Tab.4, when considering each technique independently, logit-based KD is the best while G-CRD is the second best. We believe this can be explained by the homophily phenomenon for node labels on social networks [57]. The soft labels from the teacher model thus providing a more informative signal for knowledge transfer than the latent representations. On combining KD with representation distillation, KD + G-CRD consistently outperforms all other pairs. GSP is the worst performing technique for MAG, demonstrating the inability of explicit global topology preservation to scale to large graphs. Note that performance gains from distillation may seem marginal, but are significant as metrics are averaged over several thousand nodes (48K for ARXIV, 42K for MAG).",
+    "index": 82
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "5.4 Does Distilation Preserve Topology?",
+    "index": 83
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS4.p1.1",
+    "class": "ltx_p",
+    "text": "Across Tab.2, 4, 3, we have observed that G-CRD, which implicitly preserves global topology from the teacher to the student embedding space, outperforms explicit structure preserving approaches LSP and GSP, as well as feature mimicking baselines FitNet and AT. In order to unpack the efficacy of G-CRD beyond performance metrics, we measure how well distillation techniques preserve both global and local topology from the teacher to the student node embedding space in Tab.5. To quantify global representational similarity between the teacher and student, we use the recently proposed Centered Kernel Alignment score (CKA) [58, 59] between two embedding sets, as well as the classical Mantel Test [60, 61]33 3 We use the implementation from scikit-bio (skbio.stats.distance.mantel). of Pearson correlation between all pairwise cosine distances from two embedding sets (as in the GSP loss). Additionally, we quantify local structural similarity via another Mantel Test which only considers distances over pre-defined edges (as in the LSP loss).",
+    "index": 84
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS4.p2.1",
+    "class": "ltx_p",
+    "text": "Our results largely follow the intuitions developed in Fig.1: In terms of global topology and representational similarity, students trained with FitNet, GSP, and G-CRD have high correlations to the teacher. On the other hand, LSP is the most correlated for local topology over existing graph edges, but relatively poorer at preserving global topology. Overall, we see that the implicit contrastive approach G-CRD strikes a balance between preserving both local and global relationships, while the explicit LSP/GSP are best at preserving only one or the other.",
+    "index": 85
+  },
+  {
+    "tag": "table",
+    "id": "S5.T5.12.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Similarity Metric: CKA Score [58] Global Mantel Test [60] Local Mantel Test [60] Teacher (#Layer,#Param): GAT (3L,1.4M) GAT (3L,1.4M) GAT (3L,1.4M) GAT (3L,1.4M) GAT (3L,1.4M) GAT (3L,1.4M) Student (#Layer,#Param): GCN (2L,44K) GraphSage (2L,87K) GCN (2L,44K) GraphSage (2L,87K) GCN (2L,44K) GraphSage (2L,87K) Sup. Teacher 1.000 [math: \\pm] 0.000 1.000 [math: \\pm] 0.000 1.000 [math: \\pm] 0.000 1.000 [math: \\pm] 0.000 1.000 [math: \\pm] 0.000 1.000 [math: \\pm] 0.000 Sup. Student 0.655 [math: \\pm] 0.011 0.609 [math: \\pm] 0.007 0.680 [math: \\pm] 0.011 0.623 [math: \\pm] 0.008 0.695 [math: \\pm] 0.005 0.521 [math: \\pm] 0.007 KD [30] 0.716 [math: \\pm] 0.011 0.721 [math: \\pm] 0.003 0.733 [math: \\pm] 0.007 0.730 [math: \\pm] 0.004 0.710 [math: \\pm] 0.006 0.589 [math: \\pm] 0.007 KD + FitNet [47] 0.740 [math: \\pm] 0.006 0.764 [math: \\pm] 0.005 0.760 [math: \\pm] 0.005 0.765 [math: \\pm] 0.005 0.736 [math: \\pm] 0.008 0.576 [math: \\pm] 0.009 KD + AT [48] 0.570 [math: \\pm] 0.020 0.696 [math: \\pm] 0.013 0.593 [math: \\pm] 0.015 0.687 [math: \\pm] 0.012 0.669 [math: \\pm] 0.009 0.478 [math: \\pm] 0.007 KD + LSP [32] 0.714 [math: \\pm] 0.006 0.708 [math: \\pm] 0.005 0.697 [math: \\pm] 0.011 0.683 [math: \\pm] 0.005 0.772 [math: \\pm] 0.006 0.648 [math: \\pm] 0.008 KD + GSP 0.746 [math: \\pm] 0.010 0.752 [math: \\pm] 0.004 0.756 [math: \\pm] 0.006 0.757 [math: \\pm] 0.003 0.722 [math: \\pm] 0.007 0.594 [math: \\pm] 0.009 KD + G-CRD (Ours) 0.725 [math: \\pm] 0.007 0.727 [math: \\pm] 0.003 0.750 [math: \\pm] 0.004 0.753 [math: \\pm] 0.003 0.742 [math: \\pm] 0.004 0.596 [math: \\pm] 0.006",
+    "index": 86
+  },
+  {
+    "tag": "table",
+    "id": "S5.T6.4.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Teacher (#Param): PNA @FP32 (2.4M) PNA @FP32 (2.4M) Student (#Param): GIN @INT8 (10K) GIN @INT8 (10K) Training Scheme: Vanilla QAT DegreeQuant [28] Sup. Teacher 77.48 [math: \\pm] 1.71 77.48 [math: \\pm] 1.71 Student 70.62 [math: \\pm] 3.05 71.38 [math: \\pm] 2.38 Distillation KD [30] 72.93 [math: \\pm] 1.14 71.74 [math: \\pm] 1.97 FitNet [47] 73.03 [math: \\pm] 1.89 ( [math: \\uparrow] ) 71.08 [math: \\pm] 3.86 ( [math: \\downarrow] ) AT [48] 72.76 [math: \\pm] 1.02 ( [math: \\downarrow] ) 69.31 [math: \\pm] 2.12 ( [math: \\downarrow] ) LSP [32] 70.91 [math: \\pm] 2.23 ( [math: \\downarrow] ) 68.94 [math: \\pm] 4.23 ( [math: \\downarrow] ) GSP 66.44 [math: \\pm] 4.06 ( [math: \\downarrow] ) 68.84 [math: \\pm] 2.29 ( [math: \\downarrow] ) G-CRD (Ours) 73.65 [math: \\pm] 2.09 ( [math: \\uparrow] ) 73.50 [math: \\pm] 1.13 ( [math: \\uparrow] )",
+    "index": 87
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "5.5 Quantizability of Distilled Representations",
+    "index": 88
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS5.p1.1",
+    "class": "ltx_p",
+    "text": "Quantization of model weights and activations to lower precision arithmetic is a complementary compression technique to distillation. Models at lower precision such as 8-bit integers have significantly faster inference latency and lower memory usage. However, quantization aware training (QAT) is known to degrade performance. In Tab.6, we explore whether distillation can improve the performance of a lightweight quantized 2-layer GIN model when trained with vanilla QAT as well as DegreeQuant [28], a GNN-specific QAT. We find that QAT with G-CRD enables quantized models to retain a large portion of their performance at 8-bit integer precision as compared to other distillation techniques. Significantly, GIN trained with G-CRD at INT8 (73.65% ROC-AUC) can still outperform its purely supervised counterpart at full 32-bit floating point precision (73.03%, see column 6 in Tab.2).",
+    "index": 89
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS5.p2.1",
+    "class": "ltx_p",
+    "text": "G-CRD is well suited for QAT because the projection heads ensure that contrastive distillation take place at full precision even when the student model is at low INT8 (the heads do not interfere with the inference phase, which always uses INT8). On the other hand, structure preserving approaches LSP and GSP are particularly ill suited as they match relationships from low INT8 feature vectors (student) to full precision (teacher).",
+    "index": 90
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "5.6 Transferability of Distilled Representations",
+    "index": 91
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS6.p1.1",
+    "class": "ltx_p",
+    "text": "In biomedical discovery, we are interested in models’ ability to generalize or extrapolate to unseen regions of chemical space. In addition to evaluating on out-of-distribution molecular scaffolds from MOLHIV’s test set, we further test the transferability of distilled models on smaller scale molecule datasets from OGB: MOLBACE (1,513 samples), MOLSIDER (1,427 samples), and MOLESOL (1,128 samples) in Tab.7. We perform linear probing on frozen node features from a 2-layer GCN model. The GCN feature extractor can either be initialized randomly, pre-trained on MOLHIV via supervised learning, or pre-trained via various distillation techniques with a 5-layer PNA teacher. Encouragingly, we find that distillation leads to more transferable representations than random or purely supervised initialization. Overall, G-CRD boosts the transferability of student models for 2 out of 3 datasets with structurally different molecules as well as task semantics.",
+    "index": 92
+  },
+  {
+    "tag": "table",
+    "id": "S5.T7.4.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Initialization MOLBACE MOLSIDER MOLESOL Random 67.03 [math: \\pm] 1.63 55.35 [math: \\pm] 1.05 2.097 [math: \\pm] 0.128 Supervised 71.32 [math: \\pm] 2.48 58.40 [math: \\pm] 1.18 1.907 [math: \\pm] 0.064 KD [30] 72.24 [math: \\pm] 2.38 59.50 [math: \\pm] 0.73 1.948 [math: \\pm] 0.084 FitNet [47] 71.82 [math: \\pm] 4.17 ( [math: \\downarrow] ) 57.31 [math: \\pm] 1.13 ( [math: \\downarrow] ) 2.032 [math: \\pm] 0.137 ( [math: \\downarrow] ) AT [48] 69.73 [math: \\pm] 3.57 ( [math: \\downarrow] ) 57.62 [math: \\pm] 0.43 ( [math: \\downarrow] ) 1.820 [math: \\pm] 0.062 ( [math: \\uparrow] ) LSP [32] 70.03 [math: \\pm] 2.12 ( [math: \\downarrow] ) 58.67 [math: \\pm] 0.71 ( [math: \\downarrow] ) 1.998 [math: \\pm] 0.058 ( [math: \\downarrow] ) GSP 70.53 [math: \\pm] 1.74 ( [math: \\downarrow] ) 58.57 [math: \\pm] 1.13 ( [math: \\downarrow] ) 1.948 [math: \\pm] 0.070 ( [math: \\uparrow] ) G-CRD (Ours) 72.46 [math: \\pm] 2.19 ( [math: \\uparrow] ) 56.81 [math: \\pm] 1.42 ( [math: \\downarrow] ) 1.812 [math: \\pm] 0.112 ( [math: \\uparrow] )",
+    "index": 93
+  },
+  {
+    "tag": "h3",
+    "id": null,
+    "class": "ltx_title ltx_title_subsection",
+    "text": "5.7 Robustness of Distilled Representations",
+    "index": 94
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS7.p1.1",
+    "class": "ltx_p",
+    "text": "Beyond clean test set performance, lightweight 3D segmentation models often have to deal with ‘dirty’ data such as sparse, occluded or noisy scans. In Fig.3, we evaluate the impact of distillation on the robustness of PointNet++ across three common challenging scenarios (we also show the KP-FCNN teacher for comparison): (1) Sparse scans – randomly dropout a percentage of points for each scan; (2) Partial and occluded scans – dropout all points sampled within a number of random spheres of fixed radius of 0.5m for each scan; and (3) Noisy scans – add independent random noise to the 3D coordinates of each point with a variance factor [math: \\sigma] .",
+    "index": 95
+  },
+  {
+    "tag": "p",
+    "id": "S5.SS7.p2.1",
+    "class": "ltx_p",
+    "text": "Training the lightweight student with G-CRD consistently improves its robustness compared to purely supervised training as well as logit-based KD [30] and LSP [32]. Promisingly, lightweight students can be more robust to sparse or noisy scans than cumbersome teachers.",
+    "index": 96
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "6 Conclusion",
+    "index": 97
+  },
+  {
+    "tag": "p",
+    "id": "S6.p1.1",
+    "class": "ltx_p",
+    "text": "In this work, we study representation distillation for GNNs by training lightweight models to preserve global topology of embeddings from more expressive teacher models. We introduce Graph Contrastive Representation Distillation (G-CRD), the first contrastive distillation technique specialized for GNNs. G-CRD uses contrastive learning to implicitly align the student node embeddings to those of the teacher, preserving structural relationships among graph edges as well as latent interactions among disconnected nodes.",
+    "index": 98
+  },
+  {
+    "tag": "p",
+    "id": "S6.p2.1",
+    "class": "ltx_p",
+    "text": "Additionally, we introduce an expanded set of benchmarks on large-scale real-world datasets where the performance gap between teacher and student GNNs is non-negligible. This was missing from the LSP study which used synthetic and saturated datasets. Our experiments reveal that training lightweight GNN models with G-CRD consistently improves their performance, robustness, and quantizability compared to explicit structure preserving approaches (LSP, GSP) as well as baselines adapted from 2D computer vision. We further unpack the efficacy of G-CRD over GSP and LSP through the lens of representational similarity of teacher and student embedding spaces.",
+    "index": 99
+  },
+  {
+    "tag": "p",
+    "id": "S6.p3.1",
+    "class": "ltx_p",
+    "text": "Currently, distillation techniques for GNNs are neither as effective nor as well understood as their counterparts in 2D computer vision. We hope that our techniques and benchmarks can form the basis for comparison in future work on this emerging research direction.",
+    "index": 100
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_section",
+    "text": "Acknowledgements",
+    "index": 101
+  },
+  {
+    "tag": "p",
+    "id": "Sx1.p1.1",
+    "class": "ltx_p",
+    "text": "This research is supported by the Agency for Science, Technology and Research (A*STAR) under its AME Programmatic Funds (Project No.A19E3b0099 and Project No. A20H6b0151). We would like to thank Efe Camci, Vijay Prakash Dwivedi, Yoon Ji Wei, Edwin Khoo, Hannes Stärk, Shyam A. Tailor and Wanyue Zhang for helpful comments and discussions.",
+    "index": 102
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_bibliography",
+    "text": "References",
+    "index": 103
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix A Related Work",
+    "index": 104
+  },
+  {
+    "tag": "p",
+    "id": "A1.p1.1",
+    "class": "ltx_p",
+    "text": "Graph Neural Networks. GNNs [1, 2, 3, 4, 5] generalize convolutional networks from 2D computer vision to graph structured data. GNNs serve as powerful feature extractors for real-world and real-time applications across diverse domains, including social networks [6, 7], biomedicine [8, 9, 10], 3D perception [3, 15], natural language processing [40, 62], and operations research [63, 64]. Our study complements an emerging line of work on efficient GNNs [65], including lightweight models [22, 23, 24], neural architecture search [25, 26] and quantization techniques [27, 28].",
+    "index": 105
+  },
+  {
+    "tag": "p",
+    "id": "A1.p2.1",
+    "class": "ltx_p",
+    "text": "Knowledge Distillation. KD [30] is a learning paradigm for improving the performance of lightweight ‘student’ models by aligning their outputs to those from cumbersome ‘teacher’ models. Recent literature has focused on augmenting Hinton et al.’s [30] logit-based approach with representational knowledge from the teacher’s latent feature vectors. Following the taxonomy in [31], feature-based distillation techniques train the student to imitate the teacher’s intermediate feature vectors or attention maps via direct regression [47, 48, 66, 46]. Due to mismatches in representational capacity between the teacher and student, feature-based distillation may not improve the performance of lightweight students. As an alternative, relation-based distillation preserves metrics among feature vectors from the teacher’s representation space to that of the student, e.g. semantic similarity graphs or pairwise distances among samples from the dataset [67, 68, 69]. The Local Structure Preserving loss (LSP) [32] and its global variant (GSP) extend relation-based distillation for graph data.",
+    "index": 106
+  },
+  {
+    "tag": "p",
+    "id": "A1.p3.1",
+    "class": "ltx_p",
+    "text": "Motivated by the success of contrastive objectives for self-supervised learning [33, 34, 35], Tian et al. [36] proposed Contrastive Representation Distillation (CRD) for 2D image classification. In this work, we found that the sample-level CRD objective is not effective for distilling node-level representations built by GNNs. We introduce Graph Contrastive Representation Distillation (G-CRD), a node-level contrastive distillation objective tailored to GNNs.",
+    "index": 107
+  },
+  {
+    "tag": "p",
+    "id": "A1.p4.1",
+    "class": "ltx_p",
+    "text": "Knowledge Distillation and GNNs. Local Structure Preserving loss (LSP) [32] is the only distillation technique specifically designed for GNNs and message passing style models, but was evaluated on small-scale synthetic datasets. This work extends the LSP study in two ways: (1) We introduce G-CRD, a new representation distillation objectives that preserve global topology and consistently outperform LSP; and (2) We benchmark GNN distillation on large-scale datasets which evaluate for out-of-distribution generalization, as well as across a wider range of teacher-student combinations.",
+    "index": 108
+  },
+  {
+    "tag": "p",
+    "id": "A1.p5.1",
+    "class": "ltx_p",
+    "text": "The original logit-based KD [30] has been applied to GNNs to improve the training of lightweight models such as graph-agnostic MLPs or label propagation [70, 71, 72, 73]. These works do not introduce new GNN-specific distillation techniques. Data-free or teacher-free self-distillation [74, 75, 76] has also been used to regularize the training of GNNs in the semi-supervised and self-supervised learning paradigm.",
+    "index": 109
+  },
+  {
+    "tag": "p",
+    "id": "A1.p6.1",
+    "class": "ltx_p",
+    "text": "Finally, concurrent works on pre-training GNNs for molecular property prediction have also successfully employed contrastive objectives similar to G-CRD to transfer knowledge about 3D molecular geometry into GNNs [77, 78], but do not focus on model compression.",
+    "index": 110
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix B Teacher and Student Models",
+    "index": 111
+  },
+  {
+    "tag": "p",
+    "id": "A2.p1.1",
+    "class": "ltx_p",
+    "text": "Tab.8 summarizes our choice of teachers and students. We benchmark distillation techniques across heterogeneous GNN architectures with significant mismatch in terms of depth, parameter count, expressive power, and inference time. Refer to Sec.4.2 for details.",
+    "index": 112
+  },
+  {
+    "tag": "table",
+    "id": "A2.T8.4.1",
+    "class": "ltx_tabular ltx_align_middle",
+    "text": "Name Type #Layer, #Parameters Peak GPU Average #Hidden Usage I.Time MOLHIV GIN-E [18] Teacher 5, 300 3,336,306 1.2GB 9ms PNA [16] Teacher 5, 150 2,433,901 1.2GB 18ms GCN [1] Student 2, 100 40,801 ( [math: \\downarrow] 98%) 1.1GB ( [math: \\downarrow] 9%) 4ms ( [math: \\downarrow] 78%) GIN [14] Student 2, 50 10,951 ( [math: \\downarrow] 99%) 1.1GB ( [math: \\downarrow] 9%) 2ms ( [math: \\downarrow] 89%) S3DIS SPVCNN [44] Teacher U-Net 21,777,421 1.8GB 88ms KP-FCNN [42] Teacher U-Net 14,082,688 4.8GB 227ms PointNet++ [41] Student U-Net, SSG 1,400,269 ( [math: \\downarrow] 90%) 1.2GB ( [math: \\downarrow] 75%) 22ms ( [math: \\downarrow] 90%) MinkNet [43] Student U-Net, 20%cr. 852,512 ( [math: \\downarrow] 94%) 1.2GB ( [math: \\downarrow] 75%) 81ms ( [math: \\downarrow] 64%) ARXIV GAT [4] Teacher 3, 750 1,441,580 6.8GB 93ms GCN [1] Student 2, 256 43,816 ( [math: \\downarrow] 97%) 2.2GB ( [math: \\downarrow] 68%) 11ms ( [math: \\downarrow] 88%) GraphSage [2] Student 2, 256 86,824 ( [math: \\downarrow] 94%) 2.1GB ( [math: \\downarrow] 69%) 5ms ( [math: \\downarrow] 95%) SIGN [22] Student 3, 512 3,566,128 ( [math: \\uparrow] 147%) 9.3GB ( [math: \\uparrow] 36%) 5ms ( [math: \\downarrow] 95%) MAG R-GCN [56] Teacher 3, 512 5,575,540 20.8GB 189ms R-GCN [56] Student 2, 32 169,428 ( [math: \\downarrow] 97%) 11.1GB ( [math: \\downarrow] 47%) 134ms ( [math: \\downarrow] 29%)",
+    "index": 113
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix C Training Time and GPU Usage",
+    "index": 114
+  },
+  {
+    "tag": "p",
+    "id": "A3.p1.1",
+    "class": "ltx_p",
+    "text": "In Tab.9, we report the average training time per epoch as well as GPU usage for distillation techniques. For the large-scale ARXIV graph, GSP uses significantly higher GPU memory than other approaches due to storing all-to-all pairwise similarity matrices for both teacher and student node embeddings. For our implementation of LSP (in PyG), the computation of a sparse softmax over local edges in the ARXIV graph is expensive in terms of time cost.",
+    "index": 115
+  },
+  {
+    "tag": "p",
+    "id": "A3.p2.1",
+    "class": "ltx_p",
+    "text": "For mini-batched training on molecular graphs from MOLHIV, GSP has a high time cost due to building pairwise similarity matrices for each sample. Although the size of molecular graphs is very small, GSP’s GPU memory cost is higher than other approaches, too.",
+    "index": 116
+  },
+  {
+    "tag": "p",
+    "id": "A3.p3.1",
+    "class": "ltx_p",
+    "text": "Compared to LSP and GSP, G-CRD is scalable in terms training time and memory usage while consistently improving the performance of student models. Naturally, G-CRD with the one-layer GCN projection head has a higher time cost than the conventional MLP projection head. As a reminder, we propose to treat the choice of projection head as a hyperparameter.",
+    "index": 117
+  },
+  {
+    "tag": "table",
+    "id": "A3.T9.4.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Dataset: ARXIV MOLHIV Teacher (#Param): GAT (1.4M) PNA (2.4M) Student (#Param): GCN (44K) GCN (40K) Avg. E.Time Avg. GPU Avg. E.Time Avg. GPU Sup. Teacher 1.190s 14.7GB 42.660s 2.3GB Student 0.003s 3.6GB 10.137s 2.0GB Distillation KD [30] 0.004s 4.2GB 24.086s 2.1GB FitNet [47] 0.006s 5.5GB 25.535s 2.1GB AT [48] 0.004s 5.0GB 24.499s 2.1GB LSP [32] 0.100s 13.1GB 26.484s 2.1GB GSP 0.027s 30.4GB 45.781s 2.3GB G-CRD (MLP Head) 0.028s 6.0GB 25.464s 2.1GB G-CRD (GCN Head) 0.066s 6.4GB 27.878s 2.1GB",
+    "index": 118
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix D Results on PPI",
+    "index": 119
+  },
+  {
+    "tag": "p",
+    "id": "A4.p1.1",
+    "class": "ltx_p",
+    "text": "In Tab.10, we attempt to reproduce the results from Yang et. al. [32], but our codebase44 4 We built our implementation upon the official PyG example for PPI. showed significant improvements over their numbers for the same teacher-student pair. We found negligible performance difference between the two models, even under supervised learning. Thus, we redo the experiment with a more reasonable student architecture (a 2 layer GAT instead of 5 layers) and find that G-CRD leads to the best performance, followed by LSP. We believe small-scale and saturated datasets such as PPI with random splits are not suitable for benchmarking distillation techniques.",
+    "index": 120
+  },
+  {
+    "tag": "table",
+    "id": "A4.T10.4.1",
+    "class": "ltx_tabular ltx_align_middle",
+    "text": "Teacher (#Layer,#Param): GAT (3L,3.6M) GAT (3L,3.6M) Student (#Layer,#Param): GAT (5L,160K) GAT (2L,180K) Reported Our Codebase Our Codebase Sup. Supervised Teacher 97.6 97.95 [math: \\pm] 0.10 97.95 [math: \\pm] 0.10 Supervised Student 95.7 97.90 [math: \\pm] 0.45 87.55 [math: \\pm] 1.33 Distillation KD [30] - 97.93 [math: \\pm] 0.26 88.30 [math: \\pm] 1.81 FitNet [47] 95.6 97.74 [math: \\pm] 0.34 ( [math: \\downarrow] ) 87.46 [math: \\pm] 0.78 ( [math: \\downarrow] ) AT [48] 95.4 97.02 [math: \\pm] 0.76 ( [math: \\downarrow] ) 86.82 [math: \\pm] 1.27 ( [math: \\downarrow] ) LSP [32] 96.1 97.81 [math: \\pm] 0.31 ( [math: \\downarrow] ) 88.37 [math: \\pm] 1.89 ( [math: \\uparrow] ) GNN-SD [74] 96.2 - - G-CRD (Ours) - 98.42 [math: \\pm] 0.14 ( [math: \\uparrow] ) 88.38 [math: \\pm] 1.36 ( [math: \\uparrow] )",
+    "index": 121
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix E Ablation Study for G-CRD",
+    "index": 122
+  },
+  {
+    "tag": "p",
+    "id": "A5.p1.1",
+    "class": "ltx_p",
+    "text": "This section highlights the key design choices that distinguish G-CRD from Contrastive Representation Distillation (CRD) [36], which introduced a contrastive distillation objective for 2D image classification. CRD is specialized for global per-sample level tasks: it contrasts linearly projected global representations and uses the loss in (10). On the other hand, G-CRD performs contrastive learning at the node-level using an InfoNCE-style loss (7) and a non-linear projection head design (9); it is flexible to handle both node and global-level tasks.",
+    "index": 123
+  },
+  {
+    "tag": "p",
+    "id": "A5.p2.1",
+    "class": "ltx_p",
+    "text": "In Tab.11, we compare G-CRD and our adaptation of CRD to GNNs. In the first set of rows, we see that contrasting representations at the node-level (as in G-CRD) significantly outperforms global-level contrastive learning (as in CRD) as well as sample-wise node-level (only contrasting among nodes belonging to the same sample). In the second set of rows, we find that the G-CRD loss outperforms the CRD objective across graph as well as node-level tasks when fixing the contrastive learning at the node-level. In the third set of rows, we show that the structure-aware GCN projection head boosts performance over a structure-agnostic MLP projection. Finally, we show that the full G-CRD implementation consistently outperforms a naive CRD implementation at graph-level tasks.",
+    "index": 124
+  },
+  {
+    "tag": "table",
+    "id": "A5.T11.4.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Dataset: MOLHIV MOLHIV ARXIV Repr. Loss Proj. PNA (2.4M) PNA (2.4M) GAT (1.4M) GCN (15K) GCN (40K) GCN (44K) Nodes [math: \\mathcal{L}_{\\text{G-CRD}}] MLP 74.72 [math: \\pm] 0.64 75.47 [math: \\pm] 0.79 71.56 [math: \\pm] 0.13 Nodes (s.w.) [math: \\mathcal{L}_{\\text{G-CRD}}] MLP 74.09 [math: \\pm] 1.65 74.74 [math: \\pm] 0.86 N.A. Global [math: \\mathcal{L}_{\\text{G-CRD}}] MLP 73.32 [math: \\pm] 1.24 73.87 [math: \\pm] 1.43 N.A. Nodes [math: \\mathcal{L}_{\\text{G-CRD}}] MLP 74.72 [math: \\pm] 0.64 75.47 [math: \\pm] 0.79 71.56 [math: \\pm] 0.13 Nodes [math: \\mathcal{L}_{\\text{CRD}}] MLP 73.62 [math: \\pm] 1.97 75.20 [math: \\pm] 1.18 71.48 [math: \\pm] 0.15 Nodes [math: \\mathcal{L}_{\\text{G-CRD}}] GCN 75.11 [math: \\pm] 0.73 75.89 [math: \\pm] 0.80 71.64 [math: \\pm] 0.16 Nodes [math: \\mathcal{L}_{\\text{G-CRD}}] MLP 74.72 [math: \\pm] 0.64 75.47 [math: \\pm] 0.79 71.56 [math: \\pm] 0.13 Full G-CRD: Nodes + [math: \\mathcal{L}_{\\text{G-CRD}}] + GCN Proj. 75.11 [math: \\pm] 0.73 75.89 [math: \\pm] 0.80 71.64 [math: \\pm] 0.16 Full CRD: Global + [math: \\mathcal{L}_{\\text{CRD}}] + Lin. Proj. 73.67 [math: \\pm] 1.55 73.37 [math: \\pm] 2.08 N.A.",
+    "index": 125
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix F Ablation Study for GSP",
+    "index": 126
+  },
+  {
+    "tag": "p",
+    "id": "A6.p1.1",
+    "class": "ltx_p",
+    "text": "In Tab.12, we ablate the choice of kernel and metric for GSP, which was proposed as a global structure preserving extension of LSP [32]. Like LSP, the RBF kernel lead to the best overall performance. Unlike LSP, we found directly matching teacher and student pairwise similarity matrices via MSE to perform better than normalizing the similarities via softmax followed by KL-divergence. We attribute this to the sparsity of the signal in the resulting matrices after the softmax.",
+    "index": 127
+  },
+  {
+    "tag": "table",
+    "id": "A6.T12.4.1",
+    "class": "ltx_tabular ltx_guessed_headers ltx_align_middle",
+    "text": "Dataset: MOLHIV MOLHIV ARXIV Kernel Metric GIN-E (3.3M) GIN-E (3.3M) GAT (1.4M) GCN (15K) GCN (40K) GraphSage (87K) Euclidean MSE 62.73 [math: \\pm] 3.30 68.67 [math: \\pm] 2.42 70.89 [math: \\pm] 0.22 Linear MSE 73.01 [math: \\pm] 1.00 74.90 [math: \\pm] 1.60 70.98 [math: \\pm] 0.33 Polynomial MSE 72.58 [math: \\pm] 0.82 74.07 [math: \\pm] 1.60 71.00 [math: \\pm] 0.18 RBF MSE 72.83 [math: \\pm] 1.30 75.12 [math: \\pm] 1.27 71.05 [math: \\pm] 0.20 RBF KL-div. 72.46 [math: \\pm] 0.81 74.33 [math: \\pm] 2.24 70.96 [math: \\pm] 0.08 RBF MSE 72.83 [math: \\pm] 1.30 75.12 [math: \\pm] 1.27 71.05 [math: \\pm] 0.20",
+    "index": 128
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": "ltx_title ltx_title_appendix",
+    "text": "Appendix G Pseudocode",
+    "index": 129
+  },
+  {
+    "tag": "p",
+    "id": "A7.p1.1",
+    "class": "ltx_p",
+    "text": "Listings 1 and 2, provide PyTorch-style pseudocode for the GSP and G-CRD objectives, respectively. Our code is available at https://github.com/chaitjo/efficient-gnns",
+    "index": 130
+  },
+  {
+    "tag": "h2",
+    "id": null,
+    "class": null,
+    "text": "Instructions for reporting errors",
+    "index": 131
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "class": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:",
+    "index": 132
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "class": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report.",
+    "index": 133
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "class": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all.",
+    "index": 134
+  },
+  {
+    "tag": "p",
+    "id": null,
+    "class": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.",
+    "index": 135
+  }
+]
