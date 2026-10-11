@@ -20,7 +20,8 @@ assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).st
 os.chdir(repo)
 phase=repo/'experiments_iclr/postsubmission_20260930'
 stage=sys.argv[1];assert stage in ('prepare','qualify','acquire')
-root=phase/'pubmed_private_landmark_memory_activation_root_20261011_v1'/stage
+attempt=sys.argv[4];assert attempt==stage or attempt==stage+'_recovery01'
+root=phase/'pubmed_private_landmark_memory_activation_root_20261011_v1'/attempt
 source=phase/'pubmed_private_landmark_memory_execution_source_20261011_v1'
 config_path=root/'CONFIG.json'
 assert hashlib.sha256(config_path.read_bytes()).hexdigest()==sys.argv[3]
@@ -62,10 +63,12 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('stage',choices=('prepare','qualify','acquire'))
     parser.add_argument('expected_commit')
+    parser.add_argument('--attempt')
     args=parser.parse_args();assert re.fullmatch(r'[0-9a-f]{40}',args.expected_commit)
-    root=HERE/args.stage;target=root/'LAUNCH_TRANSPORT.json';assert not target.exists()
+    attempt=args.attempt or args.stage;assert attempt==args.stage or attempt==args.stage+'_recovery01'
+    root=HERE/attempt;target=root/'LAUNCH_TRANSPORT.json';assert not target.exists()
     digest=hashlib.sha256((root/'CONFIG.json').read_bytes()).hexdigest()
-    argv=['ssh','-tt','-p','2222','-i','/Users/alex/.ssh/mlspace__private_key_anogena.txt','-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','ConnectTimeout=15','-o','StrictHostKeyChecking=yes','-o','UpdateHostKeys=no','anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru',shlex.join(['/usr/bin/python3','-I','-S','-B','-c',REMOTE,args.stage,args.expected_commit,digest])]
+    argv=['ssh','-tt','-p','2222','-i','/Users/alex/.ssh/mlspace__private_key_anogena.txt','-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','ConnectTimeout=15','-o','StrictHostKeyChecking=yes','-o','UpdateHostKeys=no','anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru',shlex.join(['/usr/bin/python3','-I','-S','-B','-c',REMOTE,args.stage,args.expected_commit,digest,attempt])]
     result=subprocess.run(argv,capture_output=True,text=True,timeout=45)
     with target.open('x') as stream:json.dump(dict(UTC=datetime.now(timezone.utc).isoformat(),exit_code=result.returncode,stdout=result.stdout,stderr=result.stderr),stream,indent=2);stream.write('\n')
     assert result.returncode==0,'Observe the existing exact stage before any further action; no retry on transport failure'
