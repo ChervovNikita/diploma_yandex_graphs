@@ -36,3 +36,7 @@ Fresh independent Codex reviewers apply the requested peer-review guidance after
 
 
 The [closest BSNN primary update](experiments_iclr/postsubmission_20260930/BSNN_primary_version_publication_update_20261011_v1/REPORT.md) verifies its September 2025 v2. Its shared-network and conditional sampled-geometry ensemble overlap is unchanged. Official publication remains unverified. This is a versioned method revisit, not a new paper or novelty clearance. The ten-bank common-builder attribution consumer is source-ready, conditional on full Physics support and a separate future admission.
+
+### 11 October TRAIN gradient analysis preparation
+
+The complete encountered WikiCS model family now has a fixed TRAIN-only gradient diagnostic:15 banks,24 checkpoint restores and51 route backwards, with no updates or new predictive scores. This measures whether routes oppose one another in the same shared coordinates at selected checkpoints; it does not establish harmful interference or an accuracy improvement. All zero/absent cases and capable M1/I4 size-only references are retained. Physics and Penn94 training remain active; FiLM is queued behind physical acquisition closure. Manuscript reviewers will run after substantial supported results and a complete paper revision.

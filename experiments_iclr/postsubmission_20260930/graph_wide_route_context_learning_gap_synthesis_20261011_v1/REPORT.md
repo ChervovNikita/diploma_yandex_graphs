@@ -1,0 +1,46 @@
+# Graph-wide route contexts versus conditional incidence sampling
+
+11 October 2026. Bounded source/prior synthesis while existing complete studies run. **Scoped no-go for a new-method nomination.** There is a real dependence-family distinction from BSNNv2, but neither a distinct learning operation nor a task failure that requires a new coherent-context construction is identified. This does not reject the saved, unexecuted utility question for an attributed graph-coherent Rank-1 BNN. No new study or implementation is nominated.
+
+## The actual difference
+
+[BSNNv2](https://arxiv.org/html/2410.09590v2#S3.SS2) explicitly assumes a product variational distribution over node-edge incidences (§3.2, paragraph S3.SS2.p1). Eq21 predicts each factor's distribution parameters from ordered endpoint features using one learned MLP. Its architecture uses projected input features to construct those parameters, draws iid sheaves with one per layer, and jointly learns the network and distribution learner by a Monte Carlo ELBO. Test predictions ensemble sampled sheaf-conditioned forwards (§3.1, Eqs18–20; [§3.4, S3.SS4.p1–p6](https://arxiv.org/html/2410.09590v2#S3.SS4)). These locators use the newly verified v2 packet; the old architecture locator §3.3 is obsolete.
+
+Conditioned on the fitted parameters and input graph, that product family cannot represent arbitrary correlated incidence noise or a mixture of mutually exclusive whole-graph geometries. Its shared MLP ties how distribution parameters are predicted, but that parameter sharing does not itself make independent noise draws correlated. Conversely, conditional incidence independence does **not** imply independent node predictions: shared/overlapping message paths and geometry-dependent normalization can couple their responses. Calling BSNN incoherent would confuse the sampled latent field with the resulting predictor.
+
+E uses a fixed bank of trained fast factors. Each route's factors are reused throughout the graph at their registered sites; its current source/receiver states drive the endpoint VALUE builders before aggregation. A route therefore defines one coherent complete computation, with its own learned states and optimizer history. It does not draw independent incidence noise or fit a posterior. The inspected E source retains identity-plus-tanh block actions, the original native body, mean own CE and fixed probability-mean serving.
+
+As an interpretive device, selecting one entire trained route uniformly gives a finite point mixture over complete geometries/computations, rather than a product of independently selected incidence maps. This is **not** a Bayesian interpretation of E or a new algorithm. For a fixed trained bank, choosing the route globally or independently per node produces the same marginal probability average at each node if one only changes the readout interpretation. A benefit for ordinary node accuracy must come from changed factual propagation or acquisition, not from attaching a graph-wide latent name to unchanged marginals.
+
+## Why the proposed extension does not survive as new work
+
+A coherent latent extension could be written
+
+\[
+q(\mathcal F\mid X,A)=\int q(z\mid X,A)\prod_a q(\mathcal F_a\mid X,A,z)\,dz.
+\]
+
+After integrating the shared z, incidence maps can be dependent. That is a legitimate enlargement of the inspected BSNN product family. It supplies no reason for the dependence to align with useful classification alternatives. It also supplies no new acquisition law: the question still needs an objective, permissible evidence, posterior/prior semantics, mixture identity across layers and a fixed serving rule.
+
+| Proposed content of the route context | Closest saved collision and consequence |
+| --- | --- |
+| A fixed learned route code generating compact factors for all nodes | E already supplies persistent factors; the 6/11 October conditional-factor proposals already specify private context generators around shared matrices. A generator changes the parameterization and possibly capacity, without identifying a new corrective operation. |
+| A random compact code/factor draw held fixed for the whole graph | [Efficient and Scalable Bayesian Neural Nets with Rank-1 Factors](https://arxiv.org/abs/2005.07186), saved §§3.1–3.5, already supplies deterministic shared W, stochastic rank-1 factors, multimodal variational components and mode/mixture acquisition distinctions. The 10 October scout expressly retained graph-coherent draws and cross-layer mixture identity. This is the strongest existing-method control and the strongest local repeat. |
+| A graph-wide context inferred from observed TRAIN labels | [Message Passing Neural Processes](https://arxiv.org/abs/2009.13895), saved main method/ELBO/generative scope, already supplies graph-label context, a common latent and a conditional decoder. BE factor generation replaces the conditioning parameterization; it is not a new inference principle. Query exclusion and a capable same-information label-aware single/I4 would be essential. Its inspected native output likelihood differs from categorical CE. |
+| Endpoint/live-state context that changes geometry before summation | The saved conditional-factor/E questions and [GNN-FiLM](https://arxiv.org/abs/1906.12192)/ECC already occupy conditional incoming-message modulation/filter generation. E is already an attributed native placement of such geometry learning. |
+| Persistent route-specific typed or ordered context | [GTN/FastGTN](https://arxiv.org/abs/2106.06218), saved §§3.2–3.5/Eqs2–21, already learns typed path mixtures and graph channels; GTN Eq8 shares dense maps before channel nonlinearity/fusion. [MUG](https://arxiv.org/abs/2602.22645), saved Method/Eq10, explicitly applies one shared encoder to multiple meta-path views. The saved private typed-path question concerns allocation and competence, not a newly discovered graph operation. |
+| TRAIN covariance/tangent directions chosen to initialize coherent route codes | The 7/10 October internal prediction-tangent and functional-covariance assessments already retain orientation versus matched random directions. Curvature/head, LoRA-GA and NTKGP ancestry remain. This would rename an existing initializer question; sensitivity or spread does not establish useful alternatives. |
+
+The Rank-1 BNN and MPNP scopes are reused saved primary conclusions, not fresh full reads or assertions about their latest revisions. No exact full-pipeline duplicate or global literature absence is certified.
+
+## The learning gap that remains unsupported
+
+Mean own CE trains each route to explain every TRAIN item. It does not reward distinct competent graph interpretations; a collapsed bank can satisfy that objective. Changing it to the likelihood of one shared graph-mode label configuration is an ordinary latent-mixture inference choice, with component starvation and one-graph identifiability risks. Changing to nodewise responsibilities recovers familiar mixture routing and weakens the claimed graph-wide interpretation. Neither change establishes that missing geometry correlations caused a served prediction error.
+
+Extra coherent variation could cause correlated wrong rivals, erase useful local alternatives, weaken members through a restrictive generator, overfit a consumed graph, or destabilize confidence and geometry scales. A learned distribution could also improve a capable single or untied stochastic paths equally. Those possibilities make same-information stochastic M1, genuine independently initialized/optimized/selected I4 and the direct Rank-1 BNN control indispensable for any later utility work. BSNN alone would be an insufficient control because its operator, posterior and acquisition differ. A four-path structured single exactly compiling the same private trajectories is an equivalent predictor, not an independent confirmation arm.
+
+**Stop this new-method branch.** The source difference supports an attributed dependence/learning comparison, not another renamed stochastic-factor, typed-path or initialization family. The existing Rank-1 BNN utility question remains under its saved identity and unexecuted status; the actual E/FiLM/confirmation studies retain priority. Reopening a distinct branch would require one explicit allowed-information acquisition/conditioning operation, a reason that its useful alternatives are not explained by the direct stochastic-factor/global-latent controls, and a modest complete-task falsifier. None is supplied by this pass, so no representative-study roster or compute is added.
+
+## Reading and action limits
+
+Consulted saved stochastic-factor, conditional-factor, private typed-path and initialization conclusions first. Revisited only the retained BSNNv2 method passages needed for conditional factorization, acquisition and architecture; inspected two E transport source files as text. Zero new primary identities, public retrievals, full papers, author-code/proof audits, arrays, predictions, checkpoints, SSH, scientific compute, reviewer work or sealed-paper edits. The prior read of completed-history conclusions did not recalculate any score; current study outcomes were not opened. The companion bindings record source custody and bounded scopes.
