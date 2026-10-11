@@ -48,3 +48,7 @@ Exact missing metadata was restored. Preparation closed successfully with frozen
 ## PubMed LM4 acquire admission
 
 The single material full-input qualifier passed all8 interfaces,4 discarded source/26 stage2 updates, second-step memory gradients, exact state restoration and full equipped I4 serving within finite caps. The unchanged complete36-bank/54-trajectory comparison is admitted; actual launch remains to verify. No partial development outcomes were used and no quality/novelty conclusion follows from qualification.
+
+## Actual PubMed acquisition and whole-family reader
+
+PubMed LM4v2 acquisition actually started at19:57:50UTC from93f40b2f1b118e1da830ad74349ee3a086172c8b: owner642451/start6055792987 and child642453/start6055793005. First source body is training. All36freshgroups/54trajectories/39endpoints remain fixed; no predictive result is opened. Root has admitted the sealed source-matched whole-family watcher; its launch remains to verify. It will run39fresh temperatures/19,500updates and unconditional whole DEV only after exact acquisition closure. Both scientific cohorts run on allocation only.
