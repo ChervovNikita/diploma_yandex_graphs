@@ -13,7 +13,7 @@ We are studying shared-backbone graph ensembles for better predictions. Original
 
 ## Active scientific queue
 
-One new architecture is in source implementation: a common acquired local GNN representation plus private state-dependent recurrent graph memory. The [v2 nomination](common_native_private_GRU_memory_nomination_20261011_v2/REPORT.md) fixes strong same-memory singles and genuine independent references, including factorized independent learners. Known GRUBE and graph-memory ancestry prevents a claim of primitive novelty. This proposal has no numerical qualification or scientific results yet.
+One new architecture is in source implementation: a common acquired local GNN representation plus private state-dependent recurrent graph memory. The [v2 nomination](common_native_private_GRU_memory_nomination_20261011_v2/REPORT.md) fixes strong same-memory singles and genuine independent references, including factorized independent learners. Known GRUBE and graph-memory ancestry prevents a claim of primitive novelty. The sole derived-weight CUDA gradient fixture passed. Full-input qualification and all scientific fits remain unstarted; there is no predictive result for this architecture.
 
 The dedicated roles are architecture/prior-work research, exact implementation/combination, and completed-history/error synthesis. Root chooses and runs the fixed comparisons. No new 18.77 training job has been launched. The completed graph-tour family has no active training or readout owner.
 
