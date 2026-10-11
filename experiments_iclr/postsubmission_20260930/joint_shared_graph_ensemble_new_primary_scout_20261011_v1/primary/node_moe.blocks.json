@@ -1,0 +1,836 @@
+[
+  {
+    "index": 0,
+    "tag": "p",
+    "id": "selectedTextModalDescription",
+    "text": "Content selection saved. Describe the issue below:"
+  },
+  {
+    "index": 1,
+    "tag": "h1",
+    "id": null,
+    "text": "Node-wise Filtering in Graph Neural Networks: A Mixture of Experts Approach"
+  },
+  {
+    "index": 2,
+    "tag": "p",
+    "id": "abstract1.1",
+    "text": "Graph Neural Networks (GNNs) have proven to be highly effective for node classification tasks across diverse graph structural patterns. Traditionally, GNNs employ a uniform global filter—typically a low-pass filter for homophilic graphs and a high-pass filter for heterophilic graphs. However, real-world graphs often exhibit a complex mix of homophilic and heterophilic patterns, rendering a single global filter approach suboptimal. In this work, we theoretically demonstrate that a global filter optimized for one pattern can adversely affect performance on nodes with differing patterns. To address this, we introduce a novel GNN framework Node-MoE that utilizes a mixture of experts to adaptively select the appropriate filters for different nodes. Extensive experiments demonstrate the effectiveness of Node-MoE on both homophilic and heterophilic graphs."
+  },
+  {
+    "index": 3,
+    "tag": "h3",
+    "id": null,
+    "text": "1 Introduction"
+  },
+  {
+    "index": 4,
+    "tag": "p",
+    "id": "S1.p1.1",
+    "text": "Graph Neural Networks (GNNs) [1, 2] have emerged as powerful tools in representation learning for graph structure data, and have achieved remarkable success on various graph learning tasks [3, 4], especially the node classification task. GNNs usually can be designed and viewed from two domains, i.e., spatial domain and spectral domain. In the spatial domain, GNNs [1, 5, 6] typically follow the message passing mechanism [7], which propagate messages between neighboring nodes. In the spectral domain, GNNs [8, 9] apply different filters on the graph signals in the spectral domain of the graph Laplacian matrix."
+  },
+  {
+    "index": 5,
+    "tag": "p",
+    "id": "S1.p2.1",
+    "text": "Most GNNs have shown great effectiveness in the node classification task of homophilic graphs [2, 10, 6, 11], where connected nodes tend to share the same labels. These GNNs usually leverage the low-pass filters, where the smoothed signals are preserved. However, the heterophilic graphs exhibit the heterophilic patterns, where the connected nodes tend to have different labels. As a result, several GNNs [12, 13, 14] designed for heterophilic graphs introduce the high-pass filter to better handle such diversity. To adapt to both homophilic and heterophilic graphs, GNNs with learnable graph convolution [9, 15, 16, 17] can automatically learn different types of filters for different types of graphs. Despite the great success, these GNNs usually apply a uniform global filter across all nodes."
+  },
+  {
+    "index": 6,
+    "tag": "p",
+    "id": "S1.p3.1",
+    "text": "However, real-world graphs often display a complex interplay of homophilic and heterophilic patterns [18, 19], challenging this one-size-fits-all filtering approach. Specifically, while some nodes tend to connect with others that share similar labels, reflecting homophilic patterns, others are more inclined to form connections with nodes that have differing labels, indicative of heterophilic patterns. Applying a uniform type of filter, tailored for just one of these patterns, across all nodes may hurt the performance of other patterns. To illustrate this, we provide an example as shown in Figure 1(a), where different colors represent distinct node features, and numbers indicate node labels. The nodes are marked as either solid or dotted circles to denote homophilic and heterophilic patterns, respectively. Applying a global low-pass filter, such as the adjacency matrix 𝐀{\\mathbf{A}}, uniformly across all nodes results in a scenario where nodes on the left possess the same feature, while those on the right possess another. Therefore, all the left nodes or the right nodes will have the same prediction. However, nodes on the left or right don’t share the same label. Consequently, this global filtering approach leads to misclassification of nodes."
+  },
+  {
+    "index": 7,
+    "tag": "p",
+    "id": "S1.p4.1",
+    "text": "This toy example clearly illustrates the limitations of a one-size-fits-all filtering strategy and motivates the need for a more tailored approach. To address this, we propose applying different filters to nodes based on their specific structural patterns. Figure 1(b) provides an example that we apply a low-pass filter, such as 𝐀{\\mathbf{A}}, to homophilic nodes, and a high-pass filter, such as −𝐀-{\\mathbf{A}}, to heterophilic nodes. From the results, nodes in the same class would have the same features. Therefore, this node-wise filtering approach allows for the perfect classification of all nodes in this example."
+  },
+  {
+    "index": 8,
+    "tag": "p",
+    "id": "S1.p5.1",
+    "text": "Present work. In this work, we observe that nodes in many real-world graphs not only exhibit diverse structural patterns but also that these patterns vary significantly among different communities within the same graph. Utilizing the CSBM model to generate graphs with mixed structural patterns, we theoretically demonstrate that a global filter optimized for one pattern may incur significant losses for nodes with other patterns, while node-wise filtering can achieve linear separability for all nodes under mild conditions. Building on these insights, we propose a Node-wise filtering method - Node-MoE, which leverages a Mixture of Experts framework to adaptively select appropriate filters for different nodes. Extensive experiments validate the effectiveness of the proposed Node-MoE on both homophilic and heterophilic graphs, illustrating significant performance improvement."
+  },
+  {
+    "index": 9,
+    "tag": "h3",
+    "id": null,
+    "text": "2 Preliminary"
+  },
+  {
+    "index": 10,
+    "tag": "p",
+    "id": "S2.p1.1",
+    "text": "In this section, we explore the structural patterns present in various graph datasets, which usually exhibit mixed homophilic and heterophilic patterns. Then, we theoretically demonstrate that a global filter often fails in graphs characterized by such mixed structural patterns. In contrast, node-wise filtering can achieve linear separability under mild conditions. Before we start, we first define the notations used in this paper and background knowledge."
+  },
+  {
+    "index": 11,
+    "tag": "p",
+    "id": "S2.p2.1",
+    "text": "Notations. We use bold upper-case letters such as 𝐗\\mathbf{X} to denote matrices. 𝐗i\\mathbf{X}_{i} denotes its ii-th row and 𝐗i​j{\\mathbf{X}}_{ij} indicates the ii-th row and jj-th column element. We use bold lower-case letters such as 𝐱\\mathbf{x} to denote vectors. Let 𝒢=(𝒱,ℰ)\\mathcal{G}=(\\mathcal{V},\\mathcal{E}) be a graph, where 𝒱\\mathcal{V} is the node set, ℰ\\mathcal{E} is the edge set, and |𝒱|=n|\\mathcal{V}|=n. 𝒩i\\mathcal{N}_{i} denotes the neighborhood node set for node viv_{i}. The graph can be represented by an adjacency matrix 𝐀∈ℝn×n\\mathbf{A}\\in\\mathbb{R}^{n\\times n}, where 𝐀i​j>0\\mathbf{A}_{ij}>0 indices that there exists an edge between nodes viv_{i} and vjv_{j} in 𝒢\\mathcal{G}, or otherwise 𝐀i​j=0\\mathbf{A}_{ij}=0. For a node viv_{i}, we use 𝒩⁡(vi)={vj:𝐀i​j>0}\\mathcal{N}(v_{i})=\\{v_{j}:{\\mathbf{A}}_{ij}>0\\} to denote its neighbors. Let 𝐃=d​i​a​g​(d1,d2,…,dn){\\mathbf{D}}=diag(d_{1},d_{2},\\dots,d_{n}) be the degree matrix, where di=∑j𝐀i​jd_{i}=\\sum_{j}\\mathbf{A}_{ij} is the degree of node viv_{i}. Furthermore, suppose that each node is associated with a dd-dimensional feature 𝐱\\mathbf{x} and we use 𝐗=[𝐱1,…,𝐱n]⊤∈Rn×d\\mathbf{X}=[\\mathbf{x}_{1},\\dots,\\mathbf{x}_{n}]^{\\top}\\in\\mathrm{R}^{n\\times d} to denote the feature matrix. Besides, the label matrix is 𝐘∈Rn×c{\\mathbf{Y}}\\in\\mathrm{R}^{n\\times c}, where cc is the number of classes. We use yuy_{u} to denote the label of node uu."
+  },
+  {
+    "index": 12,
+    "tag": "p",
+    "id": "S2.p3.1",
+    "text": "Graph Laplacian. The graph Laplacian matrix is defined as 𝐋=𝐃−𝐀\\mathbf{L}=\\mathbf{D}-\\mathbf{A}. We define the normalized adjacency matrix as 𝐀~=𝐃−12​𝐀𝐃−12{\\tilde{{\\mathbf{A}}}}={\\mathbf{D}}^{-\\frac{1}{2}}{\\mathbf{A}}{\\mathbf{D}}^{-\\frac{1}{2}} and the normalized Laplacian matrix as 𝐋~=𝐈−𝐀~{\\tilde{{\\mathbf{L}}}}={\\mathbf{I}}-{\\tilde{{\\mathbf{A}}}}. Its eigendecomposition can be represented by 𝐋~=𝐔​𝚲​𝐔⊤{\\tilde{{\\mathbf{L}}}}={\\mathbf{U}}{\\mathbf{\\Lambda}}{\\mathbf{U}}^{\\top}, where the 𝐔∈ℝn×n{\\mathbf{U}}\\in\\mathbb{R}^{n\\times n} is the eigenvector matrix and 𝚲=d​i​a​g​(λ1,λ2,…,λn){\\mathbf{\\Lambda}}=diag(\\lambda_{1},\\lambda_{2},\\dots,\\lambda_{n}) is the eigenvalue matrix. Specifically, 0≤λ1≤λ2≤⋯≤λn<20\\leq\\lambda_{1}\\leq\\lambda_{2}\\leq\\dots\\leq\\lambda_{n}<2. The filtered signals can be represented by 𝐗^=𝐔​f​(𝚲)​𝐔⊤​𝐗\\hat{{\\mathbf{X}}}={\\mathbf{U}}f({\\mathbf{\\Lambda}}){\\mathbf{U}}^{\\top}{\\mathbf{X}}, where ff is the filter function. As a result, the graph convolution 𝐀~​𝐗{\\tilde{{\\mathbf{A}}}}{\\mathbf{X}} can be viewed as a low-pass filter, with the filter f⁡(λi)=1−λif(\\lambda_{i})=1-\\lambda_{i}. Similarly, the graph convolution −𝐀~​𝐗-{\\tilde{{\\mathbf{A}}}}{\\mathbf{X}} is a high-pass filter with filter f⁡(λi)=λi−1f(\\lambda_{i})=\\lambda_{i}-1."
+  },
+  {
+    "index": 13,
+    "tag": "p",
+    "id": "S2.p4.1",
+    "text": "Homophily metrics. Homophily metrics in graphs measure the tendency of edges to connect nodes with similar labels [20]. There are several commonly used homophily metrics, such as edge homophily [21], node homophily [22], and class homophily [23]. In this paper, we adopt the node homophily H⁡(𝒢)=1|𝒱|​∑vi∈𝒱h⁡(vi)H(\\mathcal{G})=\\frac{1}{|\\mathcal{V}|}\\sum_{v_{i}\\in\\mathcal{V}}h(v_{i}), where h(vi)=|{u∈𝒩⁡(vi):yu=yv}|dih(v_{i})=\\frac{\\left|\\left\\{u\\in\\mathcal{N}\\left(v_{i}\\right):y_{u}=y_{v}\\right\\}\\right|}{d_{i}} measures the label similarity between node viv_{i} with its neighbors. A node with higher h⁡(v)h(v) exhibits a homophilic pattern while a low h⁡(v)h(v) indicates a heterophilic pattern."
+  },
+  {
+    "index": 14,
+    "tag": "h4",
+    "id": null,
+    "text": "2.1 Structural Patterns in Existing Graphs"
+  },
+  {
+    "index": 15,
+    "tag": "p",
+    "id": "S2.SS1.p1.1",
+    "text": "In this subsection, we examine the structural patterns present in existing graph datasets. Specifically, we select two widely used homophilic datasets, i.e., Cora and CiteSeer [24], and two heterophilic datasets, i.e., chameleon and squirrel [25]."
+  },
+  {
+    "index": 16,
+    "tag": "p",
+    "id": "S2.SS1.p2.1",
+    "text": "We first calculate the homophily distribution for all nodes in the graph. As shown in Figure 3, while the majority of nodes in homophilic graphs predominantly exhibit homophilic patterns, and those in heterophilic graphs display heterophilic patterns, exceptions are evident. Notably, some nodes in homophilic graphs show heterophilic tendencies, and conversely, some nodes in heterophilic graphs demonstrate homophilic patterns. Consequently, all these graphs exhibit a mixture of homophilic and heterophilic patterns, which aligns with the findings in the previous works [18, 19]."
+  },
+  {
+    "index": 17,
+    "tag": "p",
+    "id": "S2.SS1.p3.1",
+    "text": "We further analyze the position of nodes with different structural patterns within the graphs. To do this, we divide each graph into several subgraphs using community detection algorithms [26]. We focus on the largest 10 communities and calculate the homophily level for each subgraph. The results, as shown in Figure 3, reveal significant variations in homophily across different communities. For instance, in the Cora dataset, homophily levels in some communities approach 1, indicating strong homophily, while in some communities it drops below 0.5. Similarly, in the chameleon dataset, the lowest homophily levels are near 0, with the highest reaching above 0.6. These findings highlight the considerable diversity in node interaction patterns, even within the same graph, underscoring the complexity of graph structures in real-world datasets. The variability in homophily levels clearly illustrates that nodes in various parts of the graph may require distinct processing approaches. Therefore, applying the same global filter to all nodes may lead to suboptimal performance."
+  },
+  {
+    "index": 18,
+    "tag": "h4",
+    "id": null,
+    "text": "2.2 Analysis based on CSBM model"
+  },
+  {
+    "index": 19,
+    "tag": "p",
+    "id": "S2.SS2.p1.1",
+    "text": "To further illustrate why applying a global filter may result in suboptimal performance, we utilize the Contextual Stochastic Block Model (CSBM) [27], which has been widely applied to graph analysis [28, 29], such as analyzing the behavior of GNNs [30, 11, 31]. The CSBM is a generative model, which is often used to generate graph structures and node features. Typically, CSBMs are based on the assumption that graphs are generated following a uniform patter, such as nodes with the same label are connected with probability pp while nodes with different labels are connected with probability qq [31]. However, the real-world complexity of graphs features a mixture of homophilic and heterophilic patterns, as illustrated in section 2.1. We adapt the CSBM by mixing two CSBMs to generate one graph, mirroring the approach [19]."
+  },
+  {
+    "index": 20,
+    "tag": "p",
+    "id": "Thmdefinition1.p1.1",
+    "text": "C​S​B​M​(n,𝝁,𝝂,(p0,q0),(p1,q1),P)CSBM(n,\\boldsymbol{\\mu},\\boldsymbol{\\nu},(p_{0},q_{0}),(p_{1},q_{1}),P). The generated nodes consist of two classes, C0={i∈[n]:yi=0}C_{0}=\\left\\{i\\in[n]:y_{i}=0\\right\\} and C1={j∈[n]:yj=1}C_{1}=\\left\\{j\\in[n]:y_{j}=1\\right\\}. For each node, consider 𝐗∈ℝn×d{\\mathbf{X}}\\in\\mathbb{R}^{n\\times d} to be the feature matrix such that each row 𝐗i{\\mathbf{X}}_{i} is an independent dd-dimensional Gaussian random vectors with 𝐗i∼N⁡(𝛍,1d​𝐈){\\mathbf{X}}_{i}\\sim N\\left(\\boldsymbol{\\mu},\\frac{1}{d}{\\mathbf{I}}\\right) if i∈C0i\\in C_{0} and 𝐗j∼N⁡(𝛎,1d​𝐈){\\mathbf{X}}_{j}\\sim N\\left(\\boldsymbol{\\nu},\\frac{1}{d}{\\mathbf{I}}\\right) if j∈C1j\\in C_{1}. Here 𝛍,𝛎\\boldsymbol{\\mu},\\boldsymbol{\\nu} are the fixed class mean vector with ‖𝛍‖2,‖𝛎‖2≤1\\|\\boldsymbol{\\mu}\\|_{2},\\|\\boldsymbol{\\nu}\\|_{2}\\leq 1 and 𝐈{\\mathbf{I}} is the identity matrix. Suppose there are two patterns of nodes in the adjacency matrix 𝐀=(ai​j){\\mathbf{A}}=(a_{ij}), i.e., the homophilic pattern: H0={i∈[n]:ai​j=Ber(p0)H_{0}=\\{i\\in[n]:a_{ij}=\\operatorname{Ber}(p_{0}) if yi=yjy_{i}=y_{j} and ai​j=Ber⁡(q0)a_{ij}=\\operatorname{Ber}(q_{0}) if yi≠yj,p0>q0}y_{i}\\neq y_{j},p_{0}>q_{0}\\} and the heterophilic pattern: H1={i∈[n]:ai​j=Ber(p1)H_{1}=\\{i\\in[n]:a_{ij}=\\operatorname{Ber}(p_{1}) if yi=yjy_{i}=y_{j} and ai​j=Ber⁡(q1)a_{ij}=\\operatorname{Ber}(q_{1}) if yi≠yj,p1<q1}y_{i}\\neq y_{j},p_{1}<q_{1}\\}. PP denotes the probability that a node is in the homophilic pattern. We also assume the nodes follow the same degree distribution p0+q0=p1+q1p_{0}+q_{0}=p_{1}+q_{1}."
+  },
+  {
+    "index": 21,
+    "tag": "p",
+    "id": "S2.SS2.p2.1",
+    "text": "For simplification, we consider a linear model with parameters 𝐰∈ℝd{\\mathbf{w}}\\in\\mathbb{R}^{d} and b∈ℝb\\in\\mathbb{R}, following the approach [11]. The predicted label for nodes is given by 𝐲^=σ⁡(𝐗~​𝐰+b​𝟏)\\hat{{\\mathbf{y}}}=\\sigma(\\tilde{{\\mathbf{X}}}{\\mathbf{w}}+b\\mathbf{1}), where σ⁡(x)=(1+e−x)−1\\sigma(x)=(1+e^{-x})^{-1} is the sigmoid function, and 𝐗~\\tilde{{\\mathbf{X}}} represents the features after filtering. The binary cross-entropy loss over nodes 𝒱\\mathcal{V} is formulated as L(𝒱,𝐰,b)=−1|𝒱|∑i∈𝒱yilog(yi^)+(1−yi)log(1−yi^)L(\\mathcal{V},{\\mathbf{w}},b)=-\\frac{1}{|\\mathcal{V}|}\\sum_{i\\in\\mathcal{V}}y_{i}\\log(\\hat{y_{i}})+(1-y_{i})\\log(1-\\hat{y_{i}})."
+  },
+  {
+    "index": 22,
+    "tag": "p",
+    "id": "Thmtheorem1.p1.1",
+    "text": "Suppose nn is relatively large, the graph is not too sparse with pi,qi=ω⁡(log2⁡(n)/n)p_{i},q_{i}=\\omega(\\log^{2}(n)/n) and the feature center distance is not too small with ‖𝛍−𝛎‖=ω⁡(log⁡ndn⁡(p0+q0))\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|=\\omega(\\frac{\\log n}{\\sqrt{\\operatorname{dn}(p_{0}+q_{0})}}) and ‖𝐰‖≤R\\|{\\mathbf{w}}\\|\\leq R. For the graph G⁡(𝒱,ℰ,𝐗)∼C​S​B​M​(n,𝛍,𝛎,(p0,q0),(p1,q1),P)G(\\mathcal{V},\\mathcal{E},{\\mathbf{X}})\\sim CSBM(n,\\boldsymbol{\\mu},\\boldsymbol{\\nu},(p_{0},q_{0}),(p_{1},q_{1}),P), we have the following:"
+  },
+  {
+    "index": 23,
+    "tag": "p",
+    "id": "Thmtheorem1.p2.1",
+    "text": "1. If the low-pass global filter, i.e., 1−λ1-\\lambda, is applied to the whole graph GG, we can find a optimal 𝐰∗,b∗{\\mathbf{w}}^{*},b^{*} that achieve near linear separability for the homophilic node set H0H_{0}. However, the loss for the heterophilic node set H1H_{1} can be relatively large with:"
+  },
+  {
+    "index": 24,
+    "tag": "table",
+    "id": "S2.EGx1",
+    "text": "L⁡(H1,𝐰∗,b∗)≥R⁡(q1−p1)2​(q1+p1)​‖𝝁−𝝂‖​(1+od​(1)).\\displaystyle L(H_{1},{\\mathbf{w}}^{*},b^{*})\\geq\\frac{R(q_{1}-p_{1})}{2(q_{1}+p_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|\\left(1+o_{d}(1)\\right)."
+  },
+  {
+    "index": 25,
+    "tag": "p",
+    "id": "Thmtheorem1.p3.1",
+    "text": "2. If different filters are applied to homophilic and heterophilic sets separately, we can find an optimal 𝐰∗,b∗{\\mathbf{w}}^{*},b^{*} that all the nodes are linear separable with the probability:"
+  },
+  {
+    "index": 26,
+    "tag": "table",
+    "id": "S2.EGx2",
+    "text": "ℙ⁡((𝐗~i)i∈𝒱​ is linearly separable )=1−od​(1).\\displaystyle\\mathbb{P}\\left(\\left(\\tilde{{\\mathbf{X}}}_{i}\\right)_{i\\in\\mathcal{V}}\\text{ is linearly separable }\\right)=1-o_{d}(1)."
+  },
+  {
+    "index": 27,
+    "tag": "p",
+    "id": "S2.SS2.p3.1",
+    "text": "The proof of these results is detailed in Appendix A. Theorem 1 reveals critical insights into the filtering strategies for graphs with mixed homophilic and heterophilic patterns, as generated by the CSBM model. The first part of the theorem illustrates that applying a global low-pass filter can create an optimal classifier for homophilic nodes, achieving near-linear separability. However, this classifier may result in a substantial loss for heterophilic nodes, highlighting the limitations of a uniform filtering strategy. Conversely, the second part of the theorem demonstrates that by applying different filters to different patterns of nodes separately, it is possible to achieve linear separability across all nodes. These findings strongly motivate the exploration of a node-wise filtering method, which can automatically apply different filters to distinct nodes based on their specific patterns, to improve the overall performance."
+  },
+  {
+    "index": 28,
+    "tag": "h3",
+    "id": null,
+    "text": "3 The Proposed Method"
+  },
+  {
+    "index": 29,
+    "tag": "p",
+    "id": "S3.p1.1",
+    "text": "The investigations presented in Section 2 underscore the complex nature of real-world datasets, revealing a mixture of homophilic and heterophilic patterns within them. Additionally, these patterns are not uniformly distributed throughout the graph; rather, the level of homophily varies significantly across different communities. Our theoretical analysis further demonstrates that global filtering, as commonly employed in numerous GNNs, may not effectively capture such complex patterns, often leading to suboptimal performance. In contrast, node-wise filtering, which applies distinct filters to individual nodes based on their specific patterns, shows great promise in handling the intricacies of such complex graphs."
+  },
+  {
+    "index": 30,
+    "tag": "p",
+    "id": "S3.p2.1",
+    "text": "However, implementing the node-wise filtering approach presents two significant challenges. First, how can we incorporate various filters into a single unified framework? It requires a flexible architecture that can seamlessly accommodate multiple filtering mechanisms without compromising the efficiency and scalability of the model. Second, without ground truth on node patterns, how can we select the appropriate filters for different nodes? In the following subsections, we aim to address these challenges."
+  },
+  {
+    "index": 31,
+    "tag": "h4",
+    "id": null,
+    "text": "3.1 Node-MoE: Node-wise Filtering via Mixture of Experts"
+  },
+  {
+    "index": 32,
+    "tag": "p",
+    "id": "S3.SS1.p1.1",
+    "text": "Mixture of Experts (MoE) [32, 33], which follows the divide-and-conquer principle to divide the complex problem space into several subspaces so that each one can be easily addressed by specialized experts, have been successfully adopted across various domains [34, 35, 36]. For node classification tasks in graphs exhibiting a mixture of structural patterns, the diversity of node interactions necessitates applying distinct filters to different nodes as we discussed in Sections 2. This necessity aligns well with the MoE methodology, which processes different samples with specific experts. Building on this principle, we introduce a flexible and efficient Node-wise Filtering via Mixture of Experts (Node-MoE) framework, designed to dynamically apply appropriate filters to nodes based on their structural characteristics."
+  },
+  {
+    "index": 33,
+    "tag": "p",
+    "id": "S3.SS1.p2.1",
+    "text": "The overall Node-MoE framework is illustrated in Figure 4, which consists of two primary components: the gating model and the multiple expert models. With the graph data as input, the gating model g⁡(⋅)g(\\cdot) computes the weight assigned to each expert for every node, reflecting the relevance of each expert’s contribution to that specific node. Each expert model, implemented as any GNN with different filters, generates node representations independently. The final node classification is determined by a weighted sum of these representations, where the weights are those assigned by the gating model. The prediction for node ii can be represented by:"
+  },
+  {
+    "index": 34,
+    "tag": "table",
+    "id": "S3.EGx3",
+    "text": "y^i=h⁡(∑o=1mg​(𝐀,𝐗)i,o​Eo​(𝐀,𝐗)i),\\displaystyle\\hat{y}_{i}=h\\left(\\sum_{o=1}^{m}g({\\mathbf{A}},{\\mathbf{X}})_{i,o}E_{o}(\\mathbf{A},\\mathbf{X})_{i}\\right), (1)"
+  },
+  {
+    "index": 35,
+    "tag": "p",
+    "id": "S3.SS1.p4.1",
+    "text": "where mm is the number of experts, EoE_{o} denotes the oo-th expert, g​(𝐀,𝐗)i,og(\\mathbf{A},\\mathbf{X})_{i,o} represents the weight assigned to the oo-th expert for node ii by the gating model, and hh is a classifier, which could be a model like a neural network or a simple activation function like Softmax. In the following, we will delve into the specific designs of the gating model and the expert models within the proposed Node-MoE framework."
+  },
+  {
+    "index": 36,
+    "tag": "h4",
+    "id": null,
+    "text": "3.2 Gating Model"
+  },
+  {
+    "index": 37,
+    "tag": "p",
+    "id": "S3.SS2.p1.1",
+    "text": "The gating model is a pivotal component of the Node-MoE framework, aimed at selecting the most appropriate experts for each node. Its primary function is to dynamically assign higher weights to experts whose filtering characteristics best match the node’s patterns. For instance, an expert utilizing a high-pass filter may receive a higher weight for a node that exhibits heterophilic patterns. However, a significant challenge arises as there is no explicit ground truth indicating which pattern each node belongs to. In traditional MoE models, the gating model often utilizes a straightforward feed-forward network that processes the features of the sample as input [35, 36, 37, 38]. Nevertheless, the nodes with different patterns may share similar node features, making this method ineffective."
+  },
+  {
+    "index": 38,
+    "tag": "p",
+    "id": "S3.SS2.p2.1",
+    "text": "To address this challenge, we estimate node patterns by incorporating the contextual features surrounding each node. If a node’s features significantly differ from those of its neighboring nodes, it is likely that this node exhibits a heterophilic pattern. Specifically, the input to our gating model includes a composite vector [𝐗,|𝐀𝐗−𝐗|,|𝐀2​𝐗−𝐗|][{\\mathbf{X}},|{\\mathbf{A}}{\\mathbf{X}}-{\\mathbf{X}}|,|{\\mathbf{A}}^{2}{\\mathbf{X}}-{\\mathbf{X}}|]. This vector combines the node’s original features with the absolute differences between its features and those of its neighbors over one and two hops, respectively, to indicate the node’s structural patterns. Moreover, as discussed in Section 2.1, different structural patterns are not uniformly distributed across the graph, and distinct communities may exhibit varying structural characteristics. To capitalize on this phenomenon, we employ GNNs with low-pass filters, such as GIN [39], for the gating model. These networks are chosen due to their strong community detection capabilities [40, 41], ensuring that neighboring nodes are likely to receive similar expert selections. Experimental results in Section 4.3 clearly demonstrate the proposed gating can efficiently assign different nodes to their suitable filters."
+  },
+  {
+    "index": 39,
+    "tag": "h4",
+    "id": null,
+    "text": "3.3 Expert Models"
+  },
+  {
+    "index": 40,
+    "tag": "p",
+    "id": "S3.SS3.p1.1",
+    "text": "The mixed structural patterns observed in real-world graphs necessitate that the expert models in our Node-MoE framework possess diverse capabilities. To achieve this, we consider multiple existing GNNs equipped with different filters. Traditional GNNs often utilize fixed filters, which may not adequately capture the complexity of diverse structural patterns. To address this limitation, we opt for GNNs with learnable graph convolutions [9, 15, 16, 17], which are capable of adapting their filters to better fit the graph structural patterns. However, the same experts would make the gating model hard to learn the right features [42] and may result in all experts’ filters being optimized in the same direction. To encourage diversity and ensure that each expert is adept at handling specific structural patterns, we adopt a differentiated initialization strategy for the filters in the experts. Instead of using a fixed filter initialization, we initialize different experts with distinct types of filters, such as low-pass, constant, and high-pass filters."
+  },
+  {
+    "index": 41,
+    "tag": "p",
+    "id": "S3.SS3.p2.1",
+    "text": "Filter Smoothing Loss. While integrating multiple experts with diverse filters significantly enhances the expressive capacity of our Node-MoE framework, this complexity can also make the model more challenging to fit. For example, training multiple filters simultaneously may lead to oscillations in the spectral domain for each filter as shown in Appendix B. This not only complicates fitting the model to the data but also impacts its explainability. The specific role and function of each oscillating filter become difficult to discern, making it harder to understand and interpret the model’s behavior. To mitigate these issues, we introduce a filter smoothing loss designed to ensure that the learned filters exhibit smooth behavior in the spectral domain. This loss is defined as follows:"
+  },
+  {
+    "index": 42,
+    "tag": "table",
+    "id": "S3.EGx4",
+    "text": "Lso=∑i=1K|fo​(xi)−fo​(xi−1)|2,\\displaystyle L_{s}^{o}=\\sum_{i=1}^{K}|f_{o}(x_{i})-f_{o}(x_{i-1})|^{2}, (2)"
+  },
+  {
+    "index": 43,
+    "tag": "p",
+    "id": "S3.SS3.p2.2",
+    "text": "where fo​(⋅)f_{o}(\\cdot) is the learnable filter function of the oo-th expert, x0≤x1≤⋯≤xKx_{0}\\leq x_{1}\\leq\\cdots\\leq x_{K} are K+1K+1 values spanning the spectral domain. The overall training loss is then given by L=Lt​a​s​k+γ​∑o=1mLsoL=L_{task}+\\gamma\\sum_{o=1}^{m}L_{s}^{o}, where the Lt​a​s​kL_{task} is the node classification loss and γ\\gamma is a hyperparameter that adjusts the influence of the filter smoothing loss."
+  },
+  {
+    "index": 44,
+    "tag": "h4",
+    "id": null,
+    "text": "3.4 Top-K gating"
+  },
+  {
+    "index": 45,
+    "tag": "p",
+    "id": "S3.SS4.p1.1",
+    "text": "The soft gating that integrates all experts in the Node-MoE framework significantly enhances its modeling capabilities, but it also increases computational complexity since each expert must process all samples. To improve computational efficiency while maintaining performance, we introduce a variant of Node-MoE by leveraging the Top-K gating mechanism [35]. In this variant, the Node-MoE with Top-K gating selectively activates only the top k experts with the highest relevance for each node. Specifically, the gating function for a node viv_{i} is defined as g⁡(vi)=Softmax⁡(TopK⁡(g​(𝐀,𝐗)i,k))g(v_{i})=\\operatorname{Softmax}\\left(\\operatorname{TopK}\\left(g\\left({\\mathbf{A}},{\\mathbf{X}}\\right)_{i},k\\right)\\right). To prevent the gating model from consistently favoring a limited number of experts, we incorporate a load-balancing loss as suggested by [35]. In the experiments detailed in Section 4.4, we set k=1k=1 to ensure that the computational complexity of our Node-MoE is comparable to that of an individual expert model."
+  },
+  {
+    "index": 46,
+    "tag": "h3",
+    "id": null,
+    "text": "4 Experiment"
+  },
+  {
+    "index": 47,
+    "tag": "p",
+    "id": "S4.p1.1",
+    "text": "In this section, we conduct comprehensive experiments to validate the effectiveness of the proposed Node-MoE. Specifically, we aim to address the following research questions:"
+  },
+  {
+    "index": 48,
+    "tag": "p",
+    "id": "S4.I1.i1.p1.1",
+    "text": "RQ1: How does Node-MoE perform compared with the state-of-the-art baselines on both homophilic and heterophilic graphs?"
+  },
+  {
+    "index": 49,
+    "tag": "p",
+    "id": "S4.I1.i2.p1.1",
+    "text": "RQ2: Do the experts within Node-MoE learn diverse structural patterns and does the gating model accurately assign each node to its most suitable experts?"
+  },
+  {
+    "index": 50,
+    "tag": "p",
+    "id": "S4.I1.i3.p1.1",
+    "text": "RQ3: How do different factors affect the performance of Node-MoE?"
+  },
+  {
+    "index": 51,
+    "tag": "h4",
+    "id": null,
+    "text": "4.1 Experimental settings."
+  },
+  {
+    "index": 52,
+    "tag": "p",
+    "id": "S4.SS1.p1.1",
+    "text": "Datasets. To evaluate the efficacy of our proposed Node-MoE, we conduct experiments across seven widely used datasets. These include four homophilic datasets: Cora, CiteSeer, Pubmed [24], and ogbn-arxiv [43]; along with three heterophilic datasets: Chameleon, Squirrel, and Actor [22]. For Cora, CiteSeer, and Pubmed, we generate ten random splits, distributing nodes into 60% training, 20% validation, and 20% testing partitions. For the heterophilic datasets, we utilize the ten fixed splits as specified in [22]. The ogbn-arxiv dataset is evaluated using its standard split [43]. We run the experiments 3 times for each split and report the average performance and standard deviation. More details about these datasets are shown in Appendix C.1."
+  },
+  {
+    "index": 53,
+    "tag": "p",
+    "id": "S4.SS1.p2.1",
+    "text": "Baselines. We compare our method with a diverse set of baselines, which can be divided into five categories: (1) Non-GNN methods like MLP and Label Propagation (LP) [44]; (2) Homophilic GNNs utilizing fixed low-pass filters such as GCN [1], GAT [2], APPNP [6], and GCNII [45]; (3) Heterophilic GNNs including WRGCN [46], GloGNN [18] and LinkX [47]; (4) GNNs with learnable filters like GPRGNN [9] and ChebNetII [17]; (5) MoE-based GNNs such as GMoE [38]."
+  },
+  {
+    "index": 54,
+    "tag": "p",
+    "id": "S4.SS1.p3.1",
+    "text": "Node-MoE settings. The proposed Node-MoE framework is highly flexible, allowing for a wide range of choices in both gating and expert models. In this work, we employ the GIN [39] as the gating model due to its exceptional expressive power and ability to leverage community properties as discussed in Section 2. As for the expert models, we utilize ChebNetII [17], known for its efficiency in learning filters. Specifically, we experiment with configurations of 2, 3, and 5 ChebNetII experts, each initialized with different filters. More details and parameter settings are in Appendix C.2."
+  },
+  {
+    "index": 55,
+    "tag": "h4",
+    "id": null,
+    "text": "4.2 Performance Comparison on Benchmark Datasets"
+  },
+  {
+    "index": 56,
+    "tag": "p",
+    "id": "S4.SS2.p1.1",
+    "text": "In this section, we evaluate the efficacy of the proposed Node-MoE across both homophilic and heterophilic datasets. The results of node classification experiments are detailed in Table 1. From the results, we can have the following observations:"
+  },
+  {
+    "index": 57,
+    "tag": "p",
+    "id": "S4.I2.i1.p1.1",
+    "text": "The proposed Node-MoE demonstrates robust performance across both homophilic and heterophilic datasets, achieving the best average rank among all baselines. This indicates its effectiveness in handling diverse graph structures."
+  },
+  {
+    "index": 58,
+    "tag": "p",
+    "id": "S4.I2.i2.p1.1",
+    "text": "The GNNs and methods like LP that use fixed low-pass filters generally do well on homophilic datasets but tend to underperform on heterophilic datasets. Conversely, specialized models like GloGNN and LinkX, designed for heterophilic graphs, do not perform as well on homophilic datasets such as the ogbn-arxiv dataset."
+  },
+  {
+    "index": 59,
+    "tag": "p",
+    "id": "S4.I2.i3.p1.1",
+    "text": "The GNNs equipped with learnable filters generally perform well on both types of datasets, as they can adapt their filters to the dataset’s structural patterns. However, their performance is still not optimal. The proposed Node-MoE, which utilizes multiple ChebNetII as experts, significantly outperforms a single ChebNetII, especially on heterophilic datasets. This result validates the effectiveness of our node-wise filtering approach."
+  },
+  {
+    "index": 60,
+    "tag": "p",
+    "id": "S4.I2.i4.p1.1",
+    "text": "We also compare the proposed Node-MoE with GMoE, which adapts the receptive field for each node but still applies traditional graph convolution with low-pass filters. We can find Node-MoE consistently outperforms GMoE across all datasets."
+  },
+  {
+    "index": 61,
+    "tag": "table",
+    "id": "S4.T1.2.1",
+    "text": "Homophilic Datasets Heterophilc Datasets Avg. Rank Cora CiteSeer PubMed ogbn-arxiv Chameleon Squirrel Actor / MLP 76.49 ± 1.13 73.15 ± 1.36 86.14 ± 0.64 55.68 ± 0.11 48.11 ± 2.23 31.68 ± 1.90 36.17 ± 1.09 10.71 LP 86.05 ± 1.35 69.39 ± 2.01 83.38 ± 0.64 68.14 ± 0.00 44.10 ± 4.10 31.92 ± 0.82 24.62 ± 0.51 12 GCN 88.60 ± 1.19 76.88 ± 1.78 88.48 ± 0.46 71.91 ± 0.15 67.96 ± 1.82 54.47 ± 1.17 30.31 ± 0.98 6 GAT 88.68 ± 1.13 76.70 ± 1.81 86.52 ± 0.56 71.92 ± 0.17 65.29 ± 2.54 49.46 ± 1.69 28.95 ± 1.08 7.29 APPNP 88.49 ± 1.28 77.42 ± 1.47 87.56 ± 0.52 71.61 ± 0.30 54.32 ± 2.61 36.41 ± 1.94 36.05 ± 0.91 7.43 GCNII 88.12± 1.05 77.30 ±1.58 90.17 ± 0.57 72.74 ± 0.16 55.54 ± 2.02 56.63 ± 1.17 34.36 ± 0.77 5.43 GloGNN 88.78 ± 1.21 75.21 ± 1.17 87.93 ± 0.63 65.68 ± 0.04 69.78 ± 2.42 57.54 ± 1.39 37.35 ± 1.30 5.43 LinkX 82.89 ± 1.27 70.05 ± 1.88 84.81 ± 0.65 66.54 ± 0.52 68.42 ± 1.38 61.81 ± 1.80 36.10 ± 1.55 8.14 WRGCN 88.06 ± 1.50 76.28 ± 1.98 86.39 ± 0.55 OOM 65.24 ± 0.87 48.85 ± 0.78 34.89 ± 1.11 9.57 GPR-GNN 88.54 ± 0.67 76.44 ± 1.89 88.46 ± 0.31 71.78 ± 0.18 62.85 ± 2.90 54.35 ± 0.87 33.12 ± 0.57 7.29 ChebNetII 88.71 ± 0.93 76.93 ± 1.57 88.93 ± 0.29 72.32 ± 0.23 71.14 ± 2.13 57.12 ± 1.13 35.67 ± 1.19 3.86 GMoE 87.27 ± 1.74 76.56 ± 1.57 88.14 ± 0.56 71.74 ± 0.29 71.88 ± 1.60 51.97 ± 3.16 35.75 ± 1.31 6.57 Node-MoE 89.38 ± 1.26 77.78 ± 1.36 89.58 ± 0.60 73.19 ± 0.22 73.64 ± 1.80 62.31 ± 1.98 36.28 ± 1.01 1.29"
+  },
+  {
+    "index": 62,
+    "tag": "h4",
+    "id": null,
+    "text": "4.3 Analysis of Node-MoE"
+  },
+  {
+    "index": 63,
+    "tag": "p",
+    "id": "S4.SS3.p1.1",
+    "text": "In this section, we delve into an in-depth analysis of the behaviors of Node-MoE to demonstrate its rationality and effectiveness. We aim to uncover several key aspects of how Node-MoE operates and performs: What specific types of filters does Node-MoE learn? Are nodes appropriately assigned to these diverse filters by the gating model? We conduct experiments on both CiteSeer and Chameleon datasets using configurations with 2 experts. The results for the Chameleon dataset are presented below. For more results and analysis, please refer to Appendix D."
+  },
+  {
+    "index": 64,
+    "tag": "p",
+    "id": "S4.SS3.p2.1",
+    "text": "Figure 6 showcases the two filters learned by Node-MoE on the Chameleon dataset, where filter 0 functions as a low-pass filter and filter 1 as a high-pass filter. To analyze the behavior of the gating model in Node-MoE, we split nodes into different groups based on their homophily levels. Figure 6 displays the weights assigned by the gating model to these two experts. The results reveal that nodes with lower homophily levels predominantly receive higher weights for the high-pass filter (filter 1), and as the homophily level increases, the weight for this filter correspondingly decreases. This pattern confirms our design that nodes with varying structural patterns require different filters, demonstrating the effectiveness of the proposed gating model."
+  },
+  {
+    "index": 65,
+    "tag": "h4",
+    "id": null,
+    "text": "4.4 Ablation studies"
+  },
+  {
+    "index": 66,
+    "tag": "p",
+    "id": "S4.SS4.p1.1",
+    "text": "In this section, we conduct ablation studies to further investigate the effectiveness of two key components within the Node-MoE framework: the gating model and the filter smoothing loss. For the gating model, we explore two variants: a traditional MLP-based gating mechanism that utilizes the input features 𝐗{\\mathbf{X}}, and the Top-k gating approach as detailed in Section 3.4. Specifically, we choose k=1k=1 to ensure the proposed Node-MoE has similar efficiency with the single expert. Figure 8 presents the results on CiteSeer, ogbn-arxiv, Chameleon, and Squirrel datasets. We observe two findings: (1) Traditional gating does not perform as well as the proposed gating in Node-MoE and only achieves results comparable to an individual ChebNetII expert. (2) The Top-1 gating, which selects only one expert, can achieve similar results to those of the soft gating Node-MoE that utilizes all experts. This indicates that the proposed Node-MoE can effectively enhance performance while maintaining a complexity level comparable to that of an individual expert model."
+  },
+  {
+    "index": 67,
+    "tag": "p",
+    "id": "S4.SS4.p2.1",
+    "text": "We also investigate the impact of the weight parameter, γ\\gamma, of the filter smoothing loss on the overall performance. Specifically, we conduct experiments on the Citeseer and Squirrel datasets and the γ\\gamma is chosen in [0,0.1,0.5,1,5][0,0.1,0.5,1,5]. As shown in Figure 8, incorporating the filter smoothing loss generally enhances performance, especially for the Citeseer dataset. The reason is that the filter smoothing loss can mitigate filter oscillation, which may lead to the model being hard to learn. For more detailed insights into the effects of the filter smoothing loss, please refer to Appendix B."
+  },
+  {
+    "index": 68,
+    "tag": "h3",
+    "id": null,
+    "text": "5 Related Works"
+  },
+  {
+    "index": 69,
+    "tag": "p",
+    "id": "S5.p1.1",
+    "text": "Graph Neural Networks (GNNs) [1, 2] have achieved remarkable success in graph representation learning across a wide range of tasks [48]. The design of GNN architectures is majorly motivated in the spatial domain [1, 5, 6, 49] and spectral domain [8, 9, 50, 15]. The GNNs in the spatial domain usually follow the message-passing mechanism [7], which can be regarded as low-pass graph filters [51, 52]. As a result, these GNNs are usually suitable for homophilic graphs. To address heterophilic graphs, specialized models like GloGNN [18], LinkX [47], MixHop [53], and ACM-GNN [54] have been developed. Additionally, models such as Bernnet [16], GPRGNN [9], and ChebNetII [17] feature learnable filters that adapt to various graph types. Recent studies have highlighted that real-world graphs often exhibit a mixture of structural patterns [18, 19], with [19] specifically exploring GNN generalization under mixed patterns. Traditional GNNs typically apply the same global filter across all nodes, which can be suboptimal for such mixed scenarios. In response, our proposed Node-MoE introduces a node-wise filtering approach, applying distinct filters to nodes based on their individual patterns, enhancing adaptability and performance."
+  },
+  {
+    "index": 70,
+    "tag": "p",
+    "id": "S5.p2.1",
+    "text": "Mixture of Experts (MoE) [32, 33] architecture has been widely used in NLP [37, 55] and Computer Vision [36] to improve efficiency of large models. In graph domain, GraphMETRO [56] leverage MoE to address the graph distribution shift issue. GMoE [38] utilizes MoE to adaptive select propagation hops for different nodes. Despite these advancements, these method still face challenges in handling complex graph patterns with the same efficacy as our proposed Node-MoE."
+  },
+  {
+    "index": 71,
+    "tag": "h3",
+    "id": null,
+    "text": "6 Conclusion"
+  },
+  {
+    "index": 72,
+    "tag": "p",
+    "id": "S6.p1.1",
+    "text": "In this paper, we explored the complex structural patterns inherent in real-world graph datasets, which typically showcase a mixture of homophilic and heterophilic patterns. Notably, these patterns exhibit significant variability across different communities within the same dataset, highlighting the intricate and diverse nature of graph structures. Our theoretical analysis reveals that the conventional single global filter, commonly used in many GNNs, is often inadequate for capturing such complex structural patterns. To address this limitation, we proposed the Node-wise filtering method, Node-MoE, a flexible and effective solution that adaptively selects appropriate filters for different nodes. Extensive experiments demonstrate the proposed Node-MoE demonstrated robust performance on both homophilic and heterophilic datasets. Further, our behavioral analysis and ablation studies validate the design and effectiveness of the proposed Node-MoE."
+  },
+  {
+    "index": 73,
+    "tag": "h3",
+    "id": null,
+    "text": "References"
+  },
+  {
+    "index": 74,
+    "tag": "h2",
+    "id": null,
+    "text": "Appendix"
+  },
+  {
+    "index": 75,
+    "tag": "h3",
+    "id": null,
+    "text": "Appendix A Proof of Theorem 1"
+  },
+  {
+    "index": 76,
+    "tag": "p",
+    "id": "A1.p1.1",
+    "text": "In this section, we present the proof of Theorem 1. This theorem analyzes the separability when different filters are applied to graphs generated by a mixed CSBM model in Defination 1-C​S​B​M​(n,𝝁,𝝂,(p0,q0),(p1,q1),P)CSBM(n,\\boldsymbol{\\mu},\\boldsymbol{\\nu},(p_{0},q_{0}),(p_{1},q_{1}),P) using a linear classifier."
+  },
+  {
+    "index": 77,
+    "tag": "p",
+    "id": "A1.p2.1",
+    "text": "Notably, the following proof is derived based on [11], which analyzes the linear separability of a single graph convolution under a single CSBM model with only one pattern - C​S​B​M​(n,𝝁,𝝂,(p,q))CSBM(n,\\boldsymbol{\\mu},\\boldsymbol{\\nu},(p,q)). We extend the analysis to graphs with mixed CSBM models. Besides, we analyze the scenarios in which different filters are applied to the same graph."
+  },
+  {
+    "index": 78,
+    "tag": "p",
+    "id": "A1.p3.1",
+    "text": "We follow the assumption 1 and 2 in [11]: The graph size n should be relatively large with ω⁡(d​log⁡d)≤n≤O⁡(poly⁡(d))\\omega(d\\log d)\\leq n\\leq O(\\operatorname{poly}(d)), and the graph is not too sparse with p0,q0,p1,q1=ω⁡(log2⁡(n)/n)p_{0},q_{0},p_{1},q_{1}=\\omega\\left(\\log^{2}(n)/n\\right)."
+  },
+  {
+    "index": 79,
+    "tag": "h4",
+    "id": null,
+    "text": "A.1 Proof of part 1 of Theorem 1"
+  },
+  {
+    "index": 80,
+    "tag": "p",
+    "id": "A1.SS1.p1.1",
+    "text": "For the low-pass filter, consider the filtered feature 𝐗~=𝐃−1​𝐀𝐗\\tilde{{\\mathbf{X}}}={\\mathbf{D}}^{-1}{\\mathbf{A}}{\\mathbf{X}}. Then, the filtered feature of node ii still follows the normal distribution, the mean can be represented by:"
+  },
+  {
+    "index": 81,
+    "tag": "p",
+    "id": "A1.SS1.p2.1",
+    "text": "m(i)=E(𝐗~i)={p0​𝝁+q0​𝝂p0+q0​(1+o⁡(1))for​i∈C0​and​i∈H0q0​𝝁+p0​𝝂p0+q0​(1+o⁡(1))for​i∈C1​and​i∈H0p1​𝝁+q1​𝝂p1+q1​(1+o⁡(1))for​i∈C0​and​i∈H1q1​𝝁+p1​𝝂p1+q1​(1+o⁡(1))for​i∈C1​and​i∈H1,m(i)=E(\\tilde{{\\mathbf{X}}}_{i})=\\left\\{\\begin{aligned} \\frac{p_{0}\\boldsymbol{\\mu}+q_{0}\\boldsymbol{\\nu}}{p_{0}+q_{0}}(1+o(1))\\quad\\text{for}\\,i\\in C_{0}\\,\\text{and}\\,i\\in H_{0}\\\\ \\frac{q_{0}\\boldsymbol{\\mu}+p_{0}\\boldsymbol{\\nu}}{p_{0}+q_{0}}(1+o(1))\\quad\\text{for}\\,i\\in C_{1}\\,\\text{and}\\,i\\in H_{0}\\\\ \\frac{p_{1}\\boldsymbol{\\mu}+q_{1}\\boldsymbol{\\nu}}{p_{1}+q_{1}}(1+o(1))\\quad\\text{for}\\,i\\in C_{0}\\,\\text{and}\\,i\\in H_{1}\\\\ \\frac{q_{1}\\boldsymbol{\\mu}+p_{1}\\boldsymbol{\\nu}}{p_{1}+q_{1}}(1+o(1))\\quad\\text{for}\\,i\\in C_{1}\\,\\text{and}\\,i\\in H_{1}\\\\ \\end{aligned}\\right.,"
+  },
+  {
+    "index": 82,
+    "tag": "p",
+    "id": "A1.SS1.p3.1",
+    "text": "where C0C_{0} and C1C_{1} represent the class 0 and class 1, respectively; H0H_{0} and H1H_{1} are the homophilic and heterophilic node sets, respectively. The covariance matrix can be represented by: C​o​v​(𝐗~i)=1d​𝐃i​i​𝐈.Cov(\\tilde{{\\mathbf{X}}}_{i})=\\frac{1}{d{\\mathbf{D}}_{ii}}{\\mathbf{I}}.. Lemma 2 in [11] demostrate that for any unit vector 𝐰{\\mathbf{w}}, we have: |(𝐗~i−m⁡(i))⋅𝐰|=O⁡(log⁡nd​n​(p0+q0)).\\left|\\left(\\tilde{{\\mathbf{X}}}_{i}-m(i)\\right)\\cdot\\mathbf{w}\\right|=O\\left(\\sqrt{\\frac{\\log n}{dn(p_{0}+q_{0})}}\\right)."
+  },
+  {
+    "index": 83,
+    "tag": "p",
+    "id": "A1.SS1.p4.1",
+    "text": "If we only consider the nodes with homophilic patterns, i.e., i∈H0i\\in H_{0}, we can find the optimal linear classifier with 𝐰∗=R​𝝂−𝝁‖𝝂−𝝁‖{\\mathbf{w}}^{*}=R\\frac{\\boldsymbol{\\nu}-\\boldsymbol{\\mu}}{\\|\\boldsymbol{\\nu}-\\boldsymbol{\\mu}\\|} and 𝐛∗=−12​⟨𝝂+𝝁,𝐰∗⟩{\\mathbf{b}}^{*}=-\\frac{1}{2}\\langle\\boldsymbol{\\nu}+\\boldsymbol{\\mu},{\\mathbf{w}}^{*}\\rangle. We also have the assumption that the distance between 𝝁\\boldsymbol{\\mu} and 𝝂\\boldsymbol{\\nu} are relatively large, with ‖𝝂−𝝁‖=Ω⁡(log⁡nd​n​(p0+q0))\\|\\boldsymbol{\\nu}-\\boldsymbol{\\mu}\\|=\\Omega\\left(\\frac{\\log n}{dn(p_{0}+q_{0})}\\right)."
+  },
+  {
+    "index": 84,
+    "tag": "p",
+    "id": "A1.SS1.p5.1",
+    "text": "Then, for i∈C0​and​i∈H0i\\in C_{0}\\,\\text{and}\\,i\\in H_{0}, we have:"
+  },
+  {
+    "index": 85,
+    "tag": "table",
+    "id": "A1.EGx5",
+    "text": "⟨𝐗~i,𝐰∗⟩+b∗\\displaystyle\\langle\\tilde{{\\mathbf{X}}}_{i},{\\mathbf{w}}^{*}\\rangle+b^{*} =⟨p0​𝝁+q0​𝝂,𝐰∗⟩p0+q0​(1+o⁡(1))+O⁡(‖𝐰∗‖​log⁡nd​n​(p+q))−12​⟨𝝂+𝝁,𝐰∗⟩\\displaystyle=\\frac{\\langle p_{0}\\boldsymbol{\\mu}+q_{0}\\boldsymbol{\\nu},{\\mathbf{w}}^{*}\\rangle}{p_{0}+q_{0}}(1+o(1))+O\\left(\\|{\\mathbf{w}}^{*}\\|\\sqrt{\\frac{\\log n}{dn(p+q)}}\\right)-\\frac{1}{2}\\langle\\boldsymbol{\\nu}+\\boldsymbol{\\mu},{\\mathbf{w}}^{*}\\rangle =⟨2​p0​𝝁+2​qo​𝝂−(p0+q0)​(𝝁+𝝂),𝐰∗⟩p0+q0​(1+o⁡(1))+o⁡(‖𝐰∗‖)\\displaystyle=\\frac{\\langle 2p_{0}\\boldsymbol{\\mu}+2q_{o}\\boldsymbol{\\nu}-(p_{0}+q_{0})(\\boldsymbol{\\mu}+\\boldsymbol{\\nu}),{\\mathbf{w}}^{*}\\rangle}{p_{0}+q_{0}}(1+o(1))+o(\\|{\\mathbf{w}}^{*}\\|) =p0−q02​(p0+q0)⟨𝝁−𝝂,𝐰∗⟩(1+o(1))+o(∥𝐰∗∥)\\displaystyle=\\frac{p_{0}-q_{0}}{2(p_{0}+q_{0})}\\langle\\boldsymbol{\\mu}-\\boldsymbol{\\nu},{\\mathbf{w}}*\\rangle(1+o(1))+o(\\|{\\mathbf{w}}^{*}\\|) =−R⁡(p0−q0)2​(p0+q0)​‖𝝁−𝝂‖​(1+o⁡(1))<0\\displaystyle=-\\frac{R(p_{0}-q_{0})}{2(p_{0}+q_{0})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))<0"
+  },
+  {
+    "index": 86,
+    "tag": "p",
+    "id": "A1.SS1.p7.1",
+    "text": "Similarly, for i∈C1​and​i∈H0i\\in C_{1}\\,\\text{and}\\,i\\in H_{0}, we have:"
+  },
+  {
+    "index": 87,
+    "tag": "table",
+    "id": "A1.EGx6",
+    "text": "⟨𝐗~i,𝐰∗⟩+b∗\\displaystyle\\langle\\tilde{{\\mathbf{X}}}_{i},{\\mathbf{w}}^{*}\\rangle+b^{*} =−R⁡(q0−p0)2​(p0+q0)​‖𝝁−𝝂‖​(1+o⁡(1))>0\\displaystyle=-\\frac{R(q_{0}-p_{0})}{2(p_{0}+q_{0})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))>0"
+  },
+  {
+    "index": 88,
+    "tag": "p",
+    "id": "A1.SS1.p8.1",
+    "text": "Therefore, the linear classifier with w∗w^{*} and b∗b^{*} can separate class C0C_{0}."
+  },
+  {
+    "index": 89,
+    "tag": "p",
+    "id": "A1.SS1.p9.1",
+    "text": "However, if we apply this linear classifier to the heterophilic node set H1H_{1}, we have:"
+  },
+  {
+    "index": 90,
+    "tag": "p",
+    "id": "A1.SS1.p10.1",
+    "text": "⟨𝐗~i,𝐰∗⟩+b∗={−R⁡(p1−q1)2​(p1+q1)​‖𝝁−𝝂‖​(1+o⁡(1))>0for​i∈C0​and​i∈H1−R⁡(q1−p1)2​(p1+q1)​‖𝝁−𝝂‖​(1+o⁡(1))<0for​i∈C1​and​i∈H1\\langle\\tilde{{\\mathbf{X}}}_{i},{\\mathbf{w}}^{*}\\rangle+b^{*}=\\left\\{\\begin{aligned} -\\frac{R(p_{1}-q_{1})}{2(p_{1}+q_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))>0\\quad\\text{for}\\,i\\in C_{0}\\,\\text{and}\\,i\\in H_{1}\\\\ -\\frac{R(q_{1}-p_{1})}{2(p_{1}+q_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))<0\\quad\\text{for}\\,i\\in C_{1}\\,\\text{and}\\,i\\in H_{1}\\\\ \\end{aligned}\\right."
+  },
+  {
+    "index": 91,
+    "tag": "p",
+    "id": "A1.SS1.p11.1",
+    "text": "Therefore, all nodes in H1H_{1} are misclassified. The binary cross-entropy over node set H1H_{1} can be represented by:"
+  },
+  {
+    "index": 92,
+    "tag": "table",
+    "id": "A1.EGx7",
+    "text": "L⁡(H1,𝐰∗,b∗)\\displaystyle L(H_{1},{\\mathbf{w}}^{*},b^{*}) =1|H1|∑i∈H1−yilog(σ(⟨𝐗~i,𝐰∗⟩+b~))−(1−yi)log(1−σ(⟨𝐗~i,𝐰∗⟩+b∗))\\displaystyle=\\frac{1}{|H_{1}|}\\sum_{i\\in H_{1}}-y_{i}\\log\\left(\\sigma\\left(\\left\\langle\\tilde{{\\mathbf{X}}}_{i},{\\mathbf{w}}^{*}\\right\\rangle+\\tilde{b}\\right)\\right)-\\left(1-y_{i}\\right)\\log\\left(1-\\sigma\\left(\\left\\langle\\tilde{{\\mathbf{X}}}_{i},{\\mathbf{w}}^{*}\\right\\rangle+b^{*}\\right)\\right) =1|H1|​∑i∈H1log⁡(1+exp⁡((1−2​yi)​(⟨X~i,𝐰~⟩+b∗)))\\displaystyle=\\frac{1}{|H_{1}|}\\sum_{i\\in H_{1}}\\log\\left(1+\\exp\\left(\\left(1-2y_{i}\\right)\\left(\\left\\langle\\tilde{X}_{i},\\tilde{\\mathbf{w}}\\right\\rangle+b^{*}\\right)\\right)\\right) =log⁡(1+exp⁡(−R⁡(p1−q1)2​(p1+q1)​‖𝝁−𝝂‖​(1+o⁡(1))))\\displaystyle=\\log\\left(1+\\exp\\left(-\\frac{R(p_{1}-q_{1})}{2(p_{1}+q_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))\\right)\\right)"
+  },
+  {
+    "index": 93,
+    "tag": "p",
+    "id": "A1.SS1.p12.1",
+    "text": "As for x=−R⁡(p1−q1)2​(p1+q1)​‖𝝁−𝝂‖>0x=-\\frac{R(p_{1}-q_{1})}{2(p_{1}+q_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|>0, we have ex≥xe^{x}\\geq x. As a result, we have"
+  },
+  {
+    "index": 94,
+    "tag": "table",
+    "id": "A1.EGx8",
+    "text": "L⁡(H1,𝐰∗,b∗)≥R⁡(q1−p1)2​(p1+q1)​‖𝝁−𝝂‖​(1+o⁡(1))\\displaystyle L(H_{1},{\\mathbf{w}}^{*},b^{*})\\geq\\frac{R(q_{1}-p_{1})}{2(p_{1}+q_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))"
+  },
+  {
+    "index": 95,
+    "tag": "p",
+    "id": "A1.SS1.p13.1",
+    "text": "∎"
+  },
+  {
+    "index": 96,
+    "tag": "h4",
+    "id": null,
+    "text": "A.2 Proof of part 2 of Theorem 1"
+  },
+  {
+    "index": 97,
+    "tag": "p",
+    "id": "A1.SS2.p1.1",
+    "text": "Suppose we apply a high-pass filter to the heterophilic nodes H1H_{1} and the filtered features are 𝐗~=−𝐃−1​𝐀𝐗\\tilde{{\\mathbf{X}}}=-{\\mathbf{D}}^{-1}{\\mathbf{A}}{\\mathbf{X}}. For nodes in H1H_{1},"
+  },
+  {
+    "index": 98,
+    "tag": "p",
+    "id": "A1.SS2.p2.1",
+    "text": "m(i)=E(𝐗~i)={−p1​𝝁+q1​𝝂p1+q1​(1+o⁡(1))for​i∈C0​and​i∈H1−q1​𝝁+p1​𝝂p1+q1​(1+o⁡(1))for​i∈C1​and​i∈H1m(i)=E(\\tilde{{\\mathbf{X}}}_{i})=\\left\\{\\begin{aligned} -\\frac{p_{1}\\boldsymbol{\\mu}+q_{1}\\boldsymbol{\\nu}}{p_{1}+q_{1}}(1+o(1))\\quad\\text{for}\\,i\\in C_{0}\\,\\text{and}\\,i\\in H_{1}\\\\ -\\frac{q_{1}\\boldsymbol{\\mu}+p_{1}\\boldsymbol{\\nu}}{p_{1}+q_{1}}(1+o(1))\\quad\\text{for}\\,i\\in C_{1}\\,\\text{and}\\,i\\in H_{1}\\\\ \\end{aligned}\\right."
+  },
+  {
+    "index": 99,
+    "tag": "p",
+    "id": "A1.SS2.p3.1",
+    "text": "Therefore, if we apply the same linear classifier with 𝐰∗{\\mathbf{w}}^{*} and b∗b^{*}, then we have:"
+  },
+  {
+    "index": 100,
+    "tag": "p",
+    "id": "A1.SS2.p4.1",
+    "text": "⟨𝐗~i,𝐰∗⟩+b∗={R⁡(p1−q1)2​(p1+q1)​‖𝝁−𝝂‖​(1+o⁡(1))<0for​i∈C0​and​i∈H1R⁡(q1−p1)2​(p1+q1)​‖𝝁−𝝂‖​(1+o⁡(1))>0for​i∈C1​and​i∈H1\\langle\\tilde{{\\mathbf{X}}}_{i},{\\mathbf{w}}^{*}\\rangle+b^{*}=\\left\\{\\begin{aligned} \\frac{R(p_{1}-q_{1})}{2(p_{1}+q_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))<0\\quad\\text{for}\\,i\\in C_{0}\\,\\text{and}\\,i\\in H_{1}\\\\ \\frac{R(q_{1}-p_{1})}{2(p_{1}+q_{1})}\\|\\boldsymbol{\\mu}-\\boldsymbol{\\nu}\\|(1+o(1))>0\\quad\\text{for}\\,i\\in C_{1}\\,\\text{and}\\,i\\in H_{1}\\\\ \\end{aligned}\\right."
+  },
+  {
+    "index": 101,
+    "tag": "p",
+    "id": "A1.SS2.p5.1",
+    "text": "As a result, the same linear classifier can separate both the homophilic set H0H_{0} and heterophilic set H1H_{1}."
+  },
+  {
+    "index": 102,
+    "tag": "p",
+    "id": "A1.SS2.p6.1",
+    "text": "∎"
+  },
+  {
+    "index": 103,
+    "tag": "h3",
+    "id": null,
+    "text": "Appendix B The Impact of Filter Smoothing Loss"
+  },
+  {
+    "index": 104,
+    "tag": "p",
+    "id": "A2.p1.1",
+    "text": "In this section, we explore the impact of the proposed filter smoothing loss on the behavior of the learned filters in our Node-MoE framework. Figures 10 and 10 display the effects of the Node-MoE framework without and with the application of filter smoothing loss, respectively. Without the filter smoothing loss, as shown in Figure 10, the learned filters exhibit significant oscillations, making it challenging to discern their specific functions. In contrast, with the filter smoothing loss applied, as illustrated in Figure 10, the behavior of the filters becomes more distinct: filter 0 clearly functions as a low-pass filter, and filter 1 as a high-pass filter."
+  },
+  {
+    "index": 105,
+    "tag": "p",
+    "id": "A2.p2.1",
+    "text": "Additionally, we assessed the training dynamics of the proposed Node-MoE framework by comparing performance with and without the filter smoothing loss, while keeping other hyperparameters constant. For the Citeseer dataset, applying the filter smoothing loss resulted in a higher average training accuracy of 99.37 ± 0.17, compared to 93.51 ± 1.27 when the loss was not applied. A similar pattern was observed on the Squirrel dataset, where the training accuracy was 96.54 ± 1.42 with the filter smoothing loss, versus 95.54 ± 0.94 without it. These results suggest that oscillations in the filters without the smoothing loss can hinder the model’s ability to fit the data effectively, resulting in suboptimal performance as shown in Section 4.4."
+  },
+  {
+    "index": 106,
+    "tag": "h3",
+    "id": null,
+    "text": "Appendix C Datasets and Experimental Settings"
+  },
+  {
+    "index": 107,
+    "tag": "p",
+    "id": "A3.p1.1",
+    "text": "In this section, we detail the datasets used and the experimental settings for both the baseline models and the proposed Node-MoE framework."
+  },
+  {
+    "index": 108,
+    "tag": "h4",
+    "id": null,
+    "text": "C.1 Datasets"
+  },
+  {
+    "index": 109,
+    "tag": "p",
+    "id": "A3.SS1.p1.1",
+    "text": "We conduct experiments across seven widely recognized datasets, which encompass both homophilic and heterophilic types. The homophilic datasets include Cora, CiteSeer, and Pubmed [24], along with ogbn-arxiv [43]; the heterophilic datasets comprise Chameleon, Squirrel, and Actor [22]. For Cora, CiteSeer, and Pubmed, we generate ten random splits, allocating nodes into training, validation, and testing sets with proportions of 60%, 20%, and 20%, respectively. For the heterophilic datasets, we adhere to the ten fixed splits as defined in [22]. The ogbn-arxiv dataset is assessed using its standard split as established by [43]. Detailed statistics of these datasets are shown in Table 2."
+  },
+  {
+    "index": 110,
+    "tag": "p",
+    "id": "A3.T2.2.1",
+    "text": "Homophilic Datasets Heterophilc Datasets Cora CiteSeer PubMed ogbn-arxiv Chameleon Squirrel Actor #Nodes 2,708 3,327 19,717 169, 343 2,277 5,201 7,600 #Edges 5,429 4,732 44,338 1, 166, 243 31,421 198,493 26,752 #Classes 7 6 3 40 5 5 5 #Node Features 1,433 3,703 500 128 2,325 2,089 931 #Split Ratio 60/20/20 60/20/20 60/20/20 54/18/28 60/20/20 60/20/20 60/20/20"
+  },
+  {
+    "index": 111,
+    "tag": "h4",
+    "id": null,
+    "text": "C.2 Experimental Settings"
+  },
+  {
+    "index": 112,
+    "tag": "p",
+    "id": "A3.SS2.p1.1",
+    "text": "For the baseline models, we adopt the same parameter setting in their original paper. For the proposed Node-MoE, we adopt the GIN as gating and GCNII as experts. Notably, the GCNII model has different learning rates and weight decay for the filters and other parameters. All the hyperparameters are tuned based on the validation accuracy from the following search space:"
+  },
+  {
+    "index": 113,
+    "tag": "p",
+    "id": "A3.I1.i1.p1.1",
+    "text": "Gating Learning Rate: {0.0001, 0.001, 0.01 }"
+  },
+  {
+    "index": 114,
+    "tag": "p",
+    "id": "A3.I1.i2.p1.1",
+    "text": "Gating Dropout: {0, 0.5, 0.8}"
+  },
+  {
+    "index": 115,
+    "tag": "p",
+    "id": "A3.I1.i3.p1.1",
+    "text": "Gating Weight Decay: {0, 5e-5, 5e-4}"
+  },
+  {
+    "index": 116,
+    "tag": "p",
+    "id": "A3.I1.i4.p1.1",
+    "text": "Expert Learning Rate for Filters: {0.001, 0.01, 0.1}"
+  },
+  {
+    "index": 117,
+    "tag": "p",
+    "id": "A3.I1.i5.p1.1",
+    "text": "Expert Weight Decay for Filters: {0, 5e-5, 5e-3, 5e-2 }"
+  },
+  {
+    "index": 118,
+    "tag": "p",
+    "id": "A3.I1.i6.p1.1",
+    "text": "Expert Learning Rate: {0.001, 0.01, 0.1, 0.5}"
+  },
+  {
+    "index": 119,
+    "tag": "p",
+    "id": "A3.I1.i7.p1.1",
+    "text": "Expert Dropout: {0, 0.5, 0.8}"
+  },
+  {
+    "index": 120,
+    "tag": "p",
+    "id": "A3.I1.i8.p1.1",
+    "text": "Filter Smoothing loss weight: {0, 0.01, 0.1, 1}"
+  },
+  {
+    "index": 121,
+    "tag": "p",
+    "id": "A3.I1.i9.p1.1",
+    "text": "Load balancing weight for top-k gating: {0, 0.001, 0.01, 0.1, 1}"
+  },
+  {
+    "index": 122,
+    "tag": "p",
+    "id": "A3.I1.i10.p1.1",
+    "text": "Number of experts: {2, 3, 5}"
+  },
+  {
+    "index": 123,
+    "tag": "p",
+    "id": "A3.SS2.p2.1",
+    "text": "For the initialization of filters in ChebNetII, which uses a K-order approximation, we employ a set of initialization strategies for the polynomial coefficients. These strategies include: decreasing powers [α0,α1,⋯,αK][\\alpha^{0},\\alpha^{1},\\cdots,\\alpha^{K}], increasing powers [αK,αK−1,⋯,α0][\\alpha^{K},\\alpha^{K-1},\\cdots,\\alpha^{0}], and uniform values [1,1,⋯,1][1,1,\\cdots,1]. For configurations with 2 or 3 experts, we set α=0.9\\alpha=0.9. When expanding to 5 experts, we use two values of α\\alpha, setting them at 0.90.9 and 0.80.8, respectively, to diversify the response characteristics of the filters."
+  },
+  {
+    "index": 124,
+    "tag": "p",
+    "id": "A3.SS2.p3.1",
+    "text": "We use a single GPU of NVIDIA RTX A5000 24Gb, to run the experiments."
+  },
+  {
+    "index": 125,
+    "tag": "h3",
+    "id": null,
+    "text": "Appendix D Analysis of the proposed Node-MoE"
+  },
+  {
+    "index": 126,
+    "tag": "p",
+    "id": "A4.p1.1",
+    "text": "In this section, we provide more analysis of the proposed Node-MoE by comprehensive experiments."
+  },
+  {
+    "index": 127,
+    "tag": "h4",
+    "id": null,
+    "text": "D.1 The behavior of Node-MoE with 2 experts"
+  },
+  {
+    "index": 128,
+    "tag": "p",
+    "id": "A4.SS1.p1.1",
+    "text": "The learned filters and the corresponding gating weights for nodes with different homophily levels are illustrated below. For the Chameleon dataset, these are displayed in Figure 12 for the filters and Figure 12 for the gating weights. Similarly, for the Citeseer dataset, the filters are shown in Figure 14 and the gating weights in Figure 14."
+  },
+  {
+    "index": 129,
+    "tag": "p",
+    "id": "A4.SS1.p2.1",
+    "text": "For both datasets, the learned filters demonstrate distinct characteristics: filter 0s function as low-pass filters, effectively smoothing signals, while filter 1s respond more strongly to high-frequency signals, characteristic of high-pass filters. Specifically, for the heterophilic dataset, such as Chameleon, the gating model generally assigns higher weights to filter 1, indicating a preference for high-pass filtering to accommodate the less homophilic nature of the dataset. Conversely, for the homophilic dataset, such as Citeseer, higher weights are typically assigned to filter 0, emphasizing low-pass filtering."
+  },
+  {
+    "index": 130,
+    "tag": "p",
+    "id": "A4.SS1.p3.1",
+    "text": "Moreover, within the Chameleon dataset, the weight assigned to the high-pass filter (filter 1) decreases as the homophily level increases. In contrast, in the Citeseer dataset, the weight to the low-pass filter (filter 0) increases with rising homophily levels. This pattern supports our initial hypothesis: nodes with lower homophily are better served by high-pass filters to capture the dissimilarity among neighbors, while nodes with higher homophily benefit from low-pass filters to reinforce the similarity among neighboring nodes."
+  },
+  {
+    "index": 131,
+    "tag": "h4",
+    "id": null,
+    "text": "D.2 Accuracy analysis between the Node-MoE with the individual expert"
+  },
+  {
+    "index": 132,
+    "tag": "p",
+    "id": "A4.SS2.p1.1",
+    "text": "In this section, we evaluate the performance differences between the proposed Node-MoE framework and a single expert model, specifically ChebNetII, across nodes with varying homophily levels in the Chameleon dataset."
+  },
+  {
+    "index": 133,
+    "tag": "p",
+    "id": "A4.SS2.p2.1",
+    "text": "The filter characteristics learned by the individual ChebNetII are depicted in Figure 16, which shows that this filter responds strongly to both low and high-frequency components. The comparative performance analysis is presented in Figure 16. From these results, it is evident that ChebNetII only outperforms Node-MoE when the node homophily level is exceptionally high. These findings indicate that the reliance on a single global filter, such as with ChebNetII, can lead to suboptimal performance. While such a filter might fit exceptionally well for nodes of a particular type, it may not adequately address the needs of nodes in other groups, thereby limiting overall effectiveness across diverse node types."
+  },
+  {
+    "index": 134,
+    "tag": "h2",
+    "id": null,
+    "text": "Instructions for reporting errors"
+  },
+  {
+    "index": 135,
+    "tag": "p",
+    "id": null,
+    "text": "We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the methods listed below:"
+  },
+  {
+    "index": 136,
+    "tag": "p",
+    "id": null,
+    "text": "Tip: You can select the relevant text first, to include it in your report."
+  },
+  {
+    "index": 137,
+    "tag": "p",
+    "id": null,
+    "text": "Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability should not be a barrier to accessing research. Thank you for your continued support in championing open access for all."
+  },
+  {
+    "index": 138,
+    "tag": "p",
+    "id": null,
+    "text": "Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions."
+  }
+]
