@@ -1,3 +1,17 @@
+## Current state — complete graph-tour closure and private-memory source preparation
+
+The fixed graph-tour study has finished all 30 banks, 48 optimizer trajectories, calibration and whole development scoring. The exact SW4 candidate is closed: accuracy 93.0132% versus 93.1100% for unchanged sharing, 93.2127% for its ordinary single reference and 93.2850% for the equipped genuine independent ensemble. Its mean members also miss the fixed retention allowance. Raw quality, mechanism attribution and calibrated-confidence conjunctions fail. These are three protocols on encountered Physics, not independent graph replications. Costs and failures remain preserved.
+
+The complete error synthesis finds both weaker members and extra losses during probability averaging. Correct alternatives alone did not improve the final predictions. No rescue grid, scanner confirmation or inactive GNCL combination is launched.
+
+The sole next mechanism is the sealed v2 common-local-feature/private-GRU-memory package. It learns one ordinary source GNN, freezes its first local feature computation, then trains a common decoder and recurrent memory with private gate factors and biases. All-tour ordinary/factorized singles, genuine independent ordinary/factorized ensembles, native-factor placement and decoder-only references are fixed before outcomes. Known recurrent BatchEnsemble and graph-memory ancestry is explicit; novelty and quality are unproven. The implementation agent is preparing source. No numerical check or scientific fit for this proposal is admitted yet. The allocation observation at 17:12 UTC found 0% GPU utilization; no new 18.77 job is running from this queue.
+
+The history audit confirms a narrow heldout Penn94 gain of +2.8542 points over genuine internal-factor I4, positive in all ten optimizer repeats. Original boundary GNNM remains +0.9799 points better, so this gain does not establish a superior new method. WikiCS F retains a +0.5372-point encountered-development gain with its confidence limits. Keep original GNNM as a quality reference before promoting a substantial extension. See `complete_quality_gain_reference_confirmation_evidence_map_20261011_v1/REPORT.md`.
+
+Three distinct researchers are active: architecture/prior work, exact implementation/combination, and whole-family history/errors. Root reviews and executes the prospective comparisons. Fresh manuscript review waits for substantial supported progress and a complete revision. V5 remains unchanged, uncompiled and unreviewed. Original paper scores remain unchanged; the goal is unmet.
+
+Authority: `graph_walk_closure_and_GRU_queue_root_20261011_v1/ROOT_CLOSURE_AND_NEXT.json`, complete readout/history packets and `common_native_private_GRU_memory_nomination_20261011_v2`. Earlier sections below are retained history; their running-state descriptions are superseded by this section.
+
 # Current GNNM research status
 
 Updated 11 October 2026. The scientific goal remains active and unmet: establish a defensible shared-backbone method with better prediction quality and a clear recommendation from fresh independent reviewers. Original manuscript scores are unchanged. No new manuscript review has been requested after individual experiments.

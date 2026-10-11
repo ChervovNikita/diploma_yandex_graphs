@@ -1,32 +1,30 @@
 # GNNM post-submission research
 
-We are studying how shared-backbone graph ensembles can improve predictive quality. Original paper scores remain unchanged. A defensible new methodological advantage, unused confirmation and fresh manuscript acceptance remain unmet.
+We are studying shared-backbone graph ensembles for better predictions. Original paper scores remain unchanged. A defensible new methodological advantage, unused confirmation and fresh manuscript acceptance remain unmet.
 
-## Current evidence and work
+## Current evidence
 
-| Direction | Task/backbone | Actual state |
-|---|---|---|
-| Query/key steering | WikiCS/Polynormer | All36 fresh groups complete. Original-route selected prediction collection is being prepared; comparative outcomes remain unopened. |
-| Ensemble credit for private attention | WikiCS/Polynormer | All12 fits and18-bank selected readout complete. Frozen primary/placement both fail; relation credit changes accuracy−0.095pp versus member supervision. |
-| Class alignment and route embedding contrast | WikiCS/Polynormer | Complete15-state comparison shows no stable gain; combined-minus-plain mean−0.070pp. |
-| Assigned graph-source supply | IMDB/SeHGNN | Complete negative: candidate trails independent4 by1.151micro-F1pp and changes no deployed decisions versus own-only. |
-| Private propagation and internal ensemble credit | Tolokers/Neural Sheaf Diffusion; MolHIV/GINE | Complete fixed recipes do not improve the practical independent references. Failures and costs remain retained. |
+| Study | Complete finding | Interpretation |
+| --- | --- | --- |
+| Internal-factor SAGE on WikiCS | +0.5372 accuracy points versus genuine factorized I4; positive at all three seeds | Selected development; descriptive 95% interval crosses zero and calibrated-NLL allowance fails |
+| Heldout Penn94 | +2.8542 points versus genuine factorized I4, positive in ten optimizer repeats | Narrow sharing gain; original GNNM remains +0.9799 points better and LINKX leads; full primary fails |
+| Heldout Physics | Endpoint-conditioned candidate loses to capable equipped I4 | No confirmed new superiority; full primary fails |
+| Graph-tour architecture on Physics | SW4 93.0132% versus equipped independent WI4 93.2850% | Exact candidate closed; weaker members and pooling losses outweigh acquired alternatives |
 
-The [complete attention interpretation](relation18_completed_scientific_decision_root_20261010_v1/INTERPRETATION.md) separates individual competence from complementary predictions. Attention-credit members remain almost unanimous and offer little pooling lift. Historical independent members have much broader any-correct coverage; provider/selector differences remain disclosed. This does not identify a latent or gradient cause.
+## Active scientific queue
 
-## Next mechanisms
+One new architecture is in source implementation: a common acquired local GNN representation plus private state-dependent recurrent graph memory. The [v2 nomination](common_native_private_GRU_memory_nomination_20261011_v2/REPORT.md) fixes strong same-memory singles and genuine independent references, including factorized independent learners. Known GRUBE and graph-memory ancestry prevents a claim of primitive novelty. This proposal has no numerical qualification or scientific results yet.
 
-A standard independently drawn private local-scorer start control is in source preparation. It tests copied starts while preserving the shared native weights and full task; it is known initialization practice. The pending Q/K comparison may supply a stronger direction before any new fit is admitted.
-
-The [wrong-class prediction contrast assessment](P_internal_BE_wrong_class_prediction_contrast_assessment_20261010_v1/METHOD_ASSESSMENT.md) retains ADP/CDLG ancestry and class-bias shortcuts. Output-visible contrast alone does not establish graph specialization or novelty.
-
-The implemented additive/source-restoration method passed engineering qualification, but scientific fits are paused because its absent-peer training committee differs from the full-input serving committee. [Mechanistic critique](joint_source_credit_mechanistic_assessment_20261010_v1/MECHANISTIC_CRITIQUE.md). Typed-contributor covariance initialization is deferred: native SeHGNN already preserves its typed inputs through residual attention and concatenation.
+The dedicated roles are architecture/prior-work research, exact implementation/combination, and completed-history/error synthesis. Root chooses and runs the fixed comparisons. No new 18.77 training job has been launched. The completed graph-tour family has no active training or readout owner.
 
 ## Evidence and history
 
 - [Current execution and decisions](RESEARCH_STATE.md)
 - [Research ledger](research_ledger.json)
+- [Latest closure and queue](graph_walk_closure_and_GRU_queue_root_20261011_v1/ROOT_CLOSURE_AND_NEXT.json)
+- [Complete graph-tour results](graph_walk_complete_readout_root_20261011_v1/SUMMARY.json)
+- [Whole-family error synthesis](graph_walk_complete_family_history_synthesis_20261011_v1/REPORT.md)
+- [Quality gains and capable-reference limits](complete_quality_gain_reference_confirmation_evidence_map_20261011_v1/REPORT.md)
 - [Canonical literature memory](literature_memory/index_v72/LITERATURE_INDEX.json) and [scoped supplement](literature_memory/CURRENT_SUPPLEMENT.json)
-- [Representative experiment requirements](canonical_SupCon_and_attention_integration_root_20261008_v1/REPRESENTATIVE_EXPERIMENT_STANDARD.md)
 
-All declared outcomes, failures, costs and decisions are preserved. Raw datasets, selected checkpoints and prediction arrays remain on authorized research servers. Source review and engineering qualification provide no manuscript acceptance or accuracy verdict.
+Preserve all declared failures, costs and decisions. Source checks and literature hypotheses supply no predictive gain or acceptance verdict. Full datasets/checkpoints/prediction arrays remain on authorized research servers. The anonymous V5 draft is unchanged, uncompiled and unreviewed; paper reviewers are called only after substantial supported progress and revision.
