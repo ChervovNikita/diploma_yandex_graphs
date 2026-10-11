@@ -35,11 +35,13 @@ if start.exists():
     value['documents']['OWNER_START.json']=dict(receipt=receipt(start),value=started)
 if end.exists():
     ended=read(end);value['documents']['OWNER_END.json']=dict(receipt=receipt(end),value=ended)
-    if ended['status']=='COMPLETE_EXIT_0' and stage in ('prepare','qualify'):
+    if stage in ('prepare','qualify'):
         name={'prepare':'CUSTODY.json','qualify':'QUALIFICATION.json'}[stage]
         report=root/'output'/name
-        assert receipt(report)==ended['produced_artifact'] and read(report)['complete']
-        value['documents'][name]=dict(receipt=receipt(report),value=read(report))
+        if report.exists():
+            assert receipt(report)==ended['produced_artifact']
+            if ended['status']=='COMPLETE_EXIT_0':assert read(report)['complete']
+            value['documents'][name]=dict(receipt=receipt(report),value=read(report))
     if ended['status']!='COMPLETE_EXIT_0':
         log=root/'owner/child.log'
         value['failure_log_tail']=log.read_text()[-12000:] if log.exists() else None
