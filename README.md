@@ -35,9 +35,13 @@ The complete native PyG GNN-FiLM WikiCS comparison has closed 9 banks, 18 fits a
 - [Whole-result compact evidence](experiments_iclr/postsubmission_20260930/native_PyG_FiLM_WikiCS_comparator_execution_root_20261011_v1/complete_closed_evidence_v1)
 - [Cross-graph member/retention synthesis](experiments_iclr/postsubmission_20260930/broad_shared_training_history_after_Penn_FiLM_20261011_v1/REPORT.md)
 
-The fixed Physics protocol compares BASE, endpoint E4, receiver N4, equipped M1, genuine I4 and a source-derived meanSAGE reference across ten paired protocols on one graph: 60 banks and 90 actual training bodies. At 09:26 UTC, 77 of 80 core bodies and all ten meanSAGE references are complete. The GPU is active and no failure is recorded. Full acquisition, exports, all 60 calibrations and one complete heldout release precede interpretation; no partial predictive outcome is read.
+The complete Physics confirmation has finished all 60 banks, 90 training bodies and 60 fixed calibration endpoints. E scores 91.3264%, versus 90.5403% unchanged sharing, 91.2982% receiver conditioning, 92.2233% equipped M1, 92.7891% genuine I4 and 93.0590% the source-derived meanSAGE single. E improves BASE by 0.7861 points in all ten blocks but loses 1.4628 points to I4 in all ten. Its endpoint increment is only 0.0282 points with mixed signs. The full primary criterion fails, endpoint attribution stays closed, and calibrated-NLL protection fails against I4. Complete vectors, intervals, errors, every class and paid cost scope remain available. These ten paired mask/optimizer protocols use one graph, not ten independent domains.
 
-The attributed Rank-1 BNN acquisition proposal and native v2 source are unexecuted. They test learned versus fixed Gaussian fast-factor noise with capable point/stochastic single and independent references. A separate exact original boundary-GNNM comparator is prepared but requires an explicit prospective roster amendment and complete reader before any launch. Source preparation is not an accuracy or novelty result. No new 18.77 training has started while the paired Mac is offline.
+- [Complete Physics confirmation and failed criteria](experiments_iclr/postsubmission_20260930/native_SAGE_Physics_complete_confirmation_summary_root_20261011_v1/REPORT.md)
+- [Complete Physics scalar evidence](experiments_iclr/postsubmission_20260930/native_SAGE_Physics_confirmation_root_20261011_v1/complete_closed_evidence_v1)
+- [Updated decisions after Physics](experiments_iclr/postsubmission_20260930/Physics_complete_shared_training_history_decision_synthesis_20261011_v1/REPORT.md)
+
+The attributed Rank-1 BNN acquisition proposal and native v2 source are unexecuted. They test learned versus fixed Gaussian fast-factor noise with capable point/stochastic single and independent references. A separate exact original boundary-GNNM WikiCS comparator is prepared but requires an explicit prospective roster amendment and complete reader before any launch. After Physics, source work prioritizes a new original-GNNM reference on its full TRAIN/SELECT development roles. This is encountered-graph exploration and cannot rescue the closed confirmation. Source preparation is not an accuracy or novelty result. No new 18.77 training has started while the paired Mac is offline.
 
 ## Research and review practice
 
@@ -52,4 +56,8 @@ The [closest BSNN primary update](experiments_iclr/postsubmission_20260930/BSNN_
 
 The complete TRAIN-only diagnostic has 15 banks, 24 restored states and 51 route backwards, zero updates and no new VALID/TEST scores. It finishes in 71.40 seconds. Shared-gradient signs vary by seed and do not support uniform overwhelming opposing gradients; no gradient-surgery fit follows. This selected-state/dropout measurement does not establish training dynamics or causality.
 
-Complete anonymous V5 integration of Penn94 and FiLM is underway; Physics will be included only after whole-study closure. Original five-dataset scores and dependencies remain central and unchanged. Fresh manuscript review follows substantial complete integration, not each experiment. The scientific goal remains unmet.
+Complete anonymous V5 integration of Penn94, native FiLM and the whole Physics outcome is underway, with all original scores and dependencies preserved. Original five-dataset scores and dependencies remain central and unchanged. Fresh manuscript review follows substantial complete integration, not each experiment. The scientific goal remains unmet.
+
+### Dedicated method research
+
+One researcher is assigned ongoing primary-source architecture research and one distinct shared-backbone mechanism with decisive controls; another prepares the missing original reference, and another integrates complete evidence into the paper. Root decides and runs representative paired comparisons. No new primitive or general architecture improvement has yet been established. The Gaussian-reader draft is saved but remains unqualified and inactive. No new training has been launched after Physics closure.
