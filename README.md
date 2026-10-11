@@ -1,6 +1,17 @@
 # GNNM: shared propagation in graph ensembles
 
-## Current research — 11 October 2026
+## New complete result — 11 October 2026
+
+A new shared SAGE model learns endpoint-conditioned neighbor values before native averaging. Its large graph-layer and builder matrices remain shared, with private BatchEnsemble factors and four continuing member states. It reaches **81.1971%** WikiCS development accuracy, versus **80.6282%** unchanged sharing, **80.8937%** for equally equipped genuine independent4, **81.0517%** for an equally parameterized receiver-conditioned control, and **80.2174%** for the equally equipped single model. All three raw paired differences against the two primary references and receiver control are positive.
+
+The complete fixed15-bank/24-fit/75-calibration comparison passes its prospective development screens. The independent4 accuracy interval still includes zero, and independent4 has better raw and calibrated probability scores. The calibrated NLL harm of+.0160 is within the fixed allowance; that is not NLL superiority. E4 improves its members over unchanged sharing but they remain individually weaker than the equally equipped independent models. The operation has known conditional-filter, sheaf and BatchEnsemble ancestry. **Unused confirmation and a methodological contribution remain unproved.** [Complete result, repairs/harms and measured costs](experiments_iclr/postsubmission_20260930/native_SAGE_endpoint_value_closed_interpretation_root_20261011_v1/REPORT.md).
+
+A fixed parameter-budget Packed-Ensembles point has completed all three seed banks; joined quality interpretation follows whole custody and the existing complete E readout. Current Penn94 confirmation retains its original frozen protocol. Confirmation of the newly promising endpoint method takes priority over new path fits. [Current status](experiments_iclr/postsubmission_20260930/PUBLIC_STATUS.md).
+
+The [complete anonymous writing draft](experiments_iclr/postsubmission_20260930/complete_anonymous_quality_draft_20261011_v2/main.tex) retains the original five-dataset benchmark and the preceding F result. New endpoint outcomes are not yet inserted as paper claims. No PDF was compiled. Fresh Codex peer review follows substantial supported progress and complete revision, without per-step manuscript reviews.
+
+
+## Preceding completed comparison
 
 The current native shared SAGE ensemble reaches **80.6219%** WikiCS development accuracy, versus **80.0847%** for four independently trained factorized SAGE models and **79.3199%** for ordinary single SAGE. Sharing wins at all three paired optimizer seeds. Its members are individually weaker, but collectively provide more correct alternatives; the final average retains enough of them to improve accuracy. [Complete matched comparison](experiments_iclr/postsubmission_20260930/SAGE_matched_joint_reference_77_closed_history_20261011_v1/REPORT.md).
 

@@ -1,27 +1,39 @@
 # Current GNNM research status
 
-Updated 11 October 2026, 02:45 UTC. The scientific goal remains unmet; no fresh manuscript review is running.
+Updated 11 October 2026, 03:00 UTC. The goal remains active. No manuscript reviewer is running.
 
-## Running scientific studies
+## A positive complete development result
 
-The fixed endpoint-conditioned VALUE comparison is training on the authorized one-GPU allocation. The latest exact metadata observation at02:45UTC confirms20of24 optimizer units complete, with no whole-family closure. It compares unchanged shared SAGE, endpoint-conditioned shared SAGE, a receiver-conditioned capacity control, and capable same-information single/I4 references. All15banks and75fixed calibration attempts precede comparative interpretation. No partial predictive metric has been read. [Observation](native_SAGE_endpoint_value_execution_root_20261011_v1/JOINT_SCIENTIFIC_OBSERVATION_V8.json).
+The endpoint-conditioned VALUE study closed all 15 banks /24 fits and 75 fixed calibration attempts. On encountered WikiCS development:
 
-Penn94 confirmation is in its third paired block. The same owner/child remain live. The fixed seven-arm/ten-block comparison contains70banks/100optimizer bodies, including original GNNM, matched boundary factors, internal factors, capable singles, genuineI4 and fixed LINKX context. A finite watcher advances only after whole native closure to90fixed calibration attempts, then one complete CONFIRM release. Four paired primary contrasts, practical margins, uncertainty and Holm correction were fixed before fits. No comparative result is available yet. [Frozen confirmation](native_SAGE_Penn94_confirmation_protocol_root_20261011_v1/PROSPECTIVE_INFERENCE_ADOPTION_V1.json).
+| Method | Raw accuracy% |
+| --- | ---: |
+| Endpoint-conditioned shared SAGE |81.1971|
+| Unchanged shared SAGE |80.6282|
+| Same-operator genuine independent4 |80.8937|
+| Receiver-conditioned shared SAGE |81.0517|
+| Same-operator single |80.2174|
 
-## Stronger comparator and paper preparation
+All three raw paired differences against unchanged sharing, independent4 and the receiver control are positive. The frozen accuracy, attribution and confidence-allowance criteria pass. The independent4 contrast has a descriptive interval of[−.356,.963]pp, which includes zero; independent4 still has better raw and calibrated NLL/Brier. This is supported development progress, not unused confirmation or certified novelty. [Complete interpretation](native_SAGE_endpoint_value_closed_interpretation_root_20261011_v1/REPORT.md).
 
-Native Packed-Ensembles M4/gamma1 at width59 has215508parameters, below unchanged shared SAGE's216674cap. One actual full-TRAIN qualification passed:22.703s,1.023GB CUDA peak,0.948GBRSS; live gradients, ownership and model/optimizer/member-stream restoration were checked. All work was discarded, without VALID payload access. The fixed three-seed comparison is prepared to follow successful current endpoint native closure; it is not yet a scientific fit or predictive finding. It uses fresh current-runtime endpoints and preserves the full-width equippedI4 as the decisive quality reference. [Qualification receipt](native_SAGE_PE4_execution_root_20261011_v1/qualification_receipts_v1/qualify_v1/QUALIFICATION.json) · [Prospective comparison](native_SAGE_PE4_execution_root_20261011_v1/PROSPECTIVE_COMPARISON.json).
+Average members improve 1.073 pp over unchanged sharing. Across three dependent readouts, covered alternatives decrease 106 while pooling losses decrease 196, producing 90 more correct predictions. Against equally equipped independent4, members remain .763 pp weaker; 44 more covered readouts and 4 fewer pooling losses produce 48 more correct pooled predictions. Every gross repair/harm, confidence limitation, cost and original score is retained. The endpoint-message operation has known conditional-filter/sheaf/BatchEnsemble ancestry.
 
-A separate researcher is preparing one three-edge path residual with shared maps and private factors, capable same-information single/I4 references and a depth3 capacity control. It remains source-only. Existing path aggregation is prior work; neither source readiness nor parameter counts establish novelty or useful accuracy.
+## Confirmation takes priority
 
-The complete paper is being assembled from preserved historical round18 sources, original five-dataset heatmap and the supported F finding. Round18 is not verified to be the final submitted source. Pending results are not inserted as claims. Fresh Codex reviewers will apply the supplied paper-review criteria only after substantial supported results and a complete revision. No per-step paper reviews are planned.
+Penn94's original fixed 70-bank/100-body study remains in training without partial comparisons. Its watcher retains 90 calibration attempts before one complete heldout release. This running protocol stays fixed. Confirmation of the newly supported endpoint method now takes priority over new path fits. Full four-route autograd memory on Penn94 is unqualified; a sequential member-backward schedule or another representative unused graph needs a prospective protocol before training. [Original confirmation freeze](native_SAGE_Penn94_confirmation_protocol_root_20261011_v1/PROSPECTIVE_INFERENCE_ADOPTION_V1.json).
 
-## Supported preceding finding
+The fixed parameter-budget Packed-Ensembles comparison acquired all 3 banks /3 optimizer bundles /12 private-body records and closed successfully at 02:56 UTC. The joined raw reader is source-ready and awaits publication/execution. All E/PE custody and E's 75 endpoints precede joined interpretation. No PE quality result has been interpreted. [Acquisition closure](native_SAGE_PE4_execution_root_20261011_v1/PE_NATIVE_OBSERVATION_V1.json).
 
-The complete encountered-WikiCS F bank reaches80.6219% against80.0847% genuine factorizedI4 and79.3199% ordinaryM1. The shared bank has weaker average members but broader correct-alternative coverage. All three paired accuracy differences againstI4 are positive; the descriptive95% interval[-.265,1.340]pp crosses zero. Mean calibrated NLL harm+.021448 exceeds the frozen.02 cap. This is a development accuracy signal with a confidence tradeoff, not unused confirmation or primitive novelty. Affinity and fixed-key additions closed negative against unchanged sharing. All failures, costs and original five-dataset scores remain preserved.
+## Paper and parallel research
 
-## Execution and publication
+[Complete anonymous source V2](complete_anonymous_quality_draft_20261011_v2/main.tex) preserves the original five-dataset benchmark and the preceding F result, with a simpler abstract, an explanatory figure and concise secondary studies. New endpoint results have not yet been inserted. Original scores, source versions, assets and material limitations remain preserved. Pagination is unverified; no PDF was compiled.
 
-Latest verified allocation/GitHub commit:3647ad9bfe5bb2f5036fd30f67ca1438e111d50f,02:23:14UTC. New comparator execution/source receipts and this status are pending the next exact-inventory publication. Full datasets, selected logits and checkpoints remain on the server. No new18.77 job is launched; the other Mac can remain disconnected. Seven-GPU allocation is relay-only. Normal runtime caches are allowed; no sudo, PDF compilation, GENLINK or unrelated-data access.
+Distinct researchers handle the deferred path source, one public primary literature lead, and the complete-result/confirmation synthesis. Root handles execution and publication. Fresh Codex reviewers using the supplied skill receive the complete revised manuscript after substantial supported progress. There are no requested verdicts or per-step paper reviews.
 
-Previous state is preserved at[status snapshot](status_refresh_PE_qualified_root_20261011_v1/PUBLIC_STATUS.md), in versioned reports and research_ledger.json.
+## Publication and execution scope
+
+Latest verified allocation/GitHub head: 3deecb13f94fce3859874ea33bbfdf2c18322a86, 02:46:11 UTC, 39 explicit files. Complete endpoint outcomes, the joined reader and new paper drafts are next for exact publication. Datasets, checkpoints and logits stay server-side.
+
+MacLink reports the other Mac offline. No new 18.77 job was launched and no reconnection action is requested. The seven-GPU allocation is a relay only. Ordinary runtime caches are permitted. No sudo, PDF compilation, GENLINK, unrelated-data access or host-setting changes.
+
+[Previous status](status_refresh_E_positive_closed_root_20261011_v1/PUBLIC_STATUS.md). Full decisions and failures remain in research_ledger.json and versioned reports.

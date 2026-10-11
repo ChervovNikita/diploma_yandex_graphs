@@ -1,0 +1,190 @@
+\documentclass{article}
+\usepackage{iclr2027_conference,times}
+\usepackage{amsmath,amssymb,booktabs,graphicx}
+\usepackage{hyperref}
+\usepackage{url}
+\graphicspath{{figures/}}
+\hypersetup{pdftitle={GNNM: Shared Propagation for Graph Neural Network Ensembles},pdfauthor={Anonymous Authors}}
+% Override only the title/status display in this working draft. The packaged
+% recovered conference style remains byte-identical to its archived source.
+\makeatletter
+\def\@maketitle{\vbox{\hsize\textwidth
+{\LARGE\sc\@title\par}
+\lhead{Anonymous working draft}
+\begin{tabular}[t]{l}\bf\rule{\z@}{24pt}Anonymous authors\\Working draft\end{tabular}
+\vskip 0.3in minus 0.1in}}
+\makeatother
+
+% Keep \iclrfinalcopy commented out for anonymous review.
+\title{GNNM: Shared Propagation for Graph Neural Network Ensembles}
+\author{Anonymous Authors}
+\begin{document}
+\maketitle
+\begin{center}
+\footnotesize Working draft assembled from recovered historical source and completed development evidence. The recovered round-18 source is not verified as the submitted manuscript.
+\end{center}
+
+\begin{abstract}
+Graph neural network ensembles combine several predictions to improve predictive quality. We study GNNM, which retains four member paths through shared graph-layer weights. In the original five-dataset benchmark, its recorded means exceed a four-model ensemble in 28 of 40 backbone--dataset comparisons, with positive differences for SAGE and both graph-transformer variants on every dataset. Each method uses its intended training and validation-selection procedure. A matched Roman Empire SAGE study gives a 2.94-point accuracy gain with stronger individual members despite lower disagreement. A separate internal-factor SAGE study on encountered WikiCS development gains 0.721 points over matched joint untied models and 0.537 points over a genuine independent ensemble. Its average members are weaker, but cover more correct alternatives. Mean calibrated negative log-likelihood harm to the independent ensemble is 0.021448, exceeding the study's 0.02 allowance. This three-seed development result retains an accuracy benefit and confidence tradeoff; it is not unused confirmation. The evidence supports sharing as a graph- and recipe-dependent prediction-quality option without identifying a general learning mechanism. Fewer stored weights are a secondary benefit, and multiple graph passes remain necessary.
+\end{abstract}
+
+\input{sections/introduction}
+
+\section{The GNNM model}\label{sec:method}
+\paragraph{Input and member paths.}
+For a graph with $n$ nodes, the input is a feature matrix $X\in\mathbb{R}^{n\times d}$ and an edge list. Each row of $X$ contains the $d$ features of one node. An input projector maps these features to $h$ hidden coordinates. GNNM creates $M$ versions of this map using a common weight matrix and short learned vectors for each member. We use $M=4$ in the main benchmark.
+
+For any input or output projector, the member-specific operation is
+\begin{equation}\label{eq:be}
+\operatorname{BE}_m(U;W)=((U\odot r_m)W)\odot s_m+b_m.
+\end{equation}
+Here $U$ is the input to the projector, $W$ is its shared matrix, and $\odot$ means coordinatewise multiplication. The vector $r_m$ rescales input coordinates, $s_m$ rescales output coordinates, and $b_m$ adds a member-specific bias. These vectors are learned during training. A member changes the map using vectors rather than storing another full matrix.
+
+\paragraph{Shared graph layers.}
+After input projection, every member has an $n\times h$ table of hidden states. Each graph layer combines a node's state with information from its neighbors. All members use the same learned graph-layer parameters, but apply them to their own states. In attention backbones, the different states can also produce different attention coefficients. The graph layers are therefore evaluated once per member. Figure~\ref{fig:sharing} distinguishes the shared weights from the separate computations.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{architecture_sharing_compact.png}
+\caption{BASE produces one prediction. ENS stores and runs four complete models. GNNM stores one graph stack but applies it to four member-specific hidden states. The input and output matrices are each shared, with lightweight factors distinguishing the members' projectors. ENS and GNNM average the four raw output scores.}
+\label{fig:sharing}
+\end{figure}
+
+\paragraph{Training and prediction.}
+The output projector produces one raw score per class and node for each member. For binary tasks it produces one score. Training minimizes the average of the members' cross-entropy losses on the training nodes. Errors from all members update the common graph weights, while each member's factors also receive their own gradients. Dropout masks are drawn separately for the members.
+
+At inference, dropout is disabled and the $M$ raw score arrays are averaged. Multiclass prediction chooses the class with the largest averaged score. For binary ROC-AUC, the averaged score ranks nodes. We average raw logits, rather than class probabilities or majority votes. The input features and graph are the same for every member. Test labels are used only to evaluate the selected predictions.
+
+\paragraph{Stored model size.}
+The input and output matrices are stored once, and the member factors grow linearly with input and hidden width. Together the two projectors contain $dh+hq+M(d+3h+2q)$ parameters, where $q$ is the output width. All graph-layer and final-normalization parameters are also stored once. An ordinary $M$-model ensemble stores $M$ complete copies. This reduces weight storage but leaves the member activations and graph computations. Appendix~\ref{app:implementation} gives initialization and the exact backbone operations.
+
+\section{Five-dataset benchmark}\label{sec:original-benchmark}
+\subsection{Experimental setup}
+The benchmark uses the five datasets introduced by \citet{platonov2023critical} to evaluate learning on graphs where neighboring nodes need not share labels. Roman Empire and Amazon Ratings are multiclass tasks evaluated by accuracy. Minesweeper, Questions and Tolokers are binary tasks evaluated by ROC-AUC. Each dataset supplies ten official train/validation/test splits.
+
+We use seven graph backbones: GCN, SAGE, GAT, GAT-sep, GT, GT-sep and TAG, plus a graph-free ResNet control. GT denotes the TransformerConv-based implementation specified in the appendix. For every backbone, BASE is one ordinary model, ENS is four independent ordinary models, and GNNM uses four member paths. This compares sharing within each architecture instead of combining different backbones into one ensemble.
+
+All benchmark models use hidden width 512, learning rate $3\cdot10^{-5}$, AdamW with zero weight decay, LayerNorm, GELU and dropout 0.2. Depths 1--5 are evaluated, and validation chooses a depth separately for each method and official split. Runs have a 5,000-step cap and validation stopping. The supplement reconstructs the complete grid from 6,000 original run records and identifies all 1,200 selected records.
+
+Each method uses its intended validation procedure. ENS trains its members independently and selects each member's checkpoint using its own validation score, then chooses depth using their averaged prediction. GNNM trains its four paths jointly and selects one model checkpoint using their averaged validation prediction. Both procedures use validation data to select predictions evaluated on the test split. The benchmark compares these complete methods as designed. To study the effect of shared graph weights by itself, we use separate matched comparisons below. Projector initialization also differs in the original benchmark, and its launch-time code and data fingerprints were not preserved. Appendix~\ref{app:protocol} gives the exact reconstruction rule and provenance limits.
+
+\subsection{Predictive results}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{gnnm_vs_ens_heatmap.png}
+\caption{GNNM minus the four-model ensemble on all five datasets and eight backbones. Each cell averages the paired differences over ten official splits, in percentage points of that dataset's metric. Blue favors GNNM and red favors ENS. The two metric families are shown separately. Each method uses its intended validation-selection rule. Appendix Table~\ref{tab:benchmark-absolute} gives all absolute scores and deviations.}
+\label{fig:benchmark-main}
+\end{figure}
+
+Figure~\ref{fig:benchmark-main} shows every dataset and backbone. GNNM exceeds BASE in 33 of 40 mean comparisons and ENS in 28. Relative to ENS, it improves on six of eight backbones on Roman Empire, five on Amazon Ratings, three on Minesweeper, all eight on Questions, and six on Tolokers. These counts summarize the suite. The 40 cells share five graphs and are not 40 independent tasks.
+
+The most consistent backbone results are SAGE, GT and GT-sep, which improve over ENS on all five datasets. For SAGE, Roman Empire rises from 87.47\% to 90.04\%, and Questions from 74.39 to 77.02 ROC-AUC points. Gains are smaller on Minesweeper and Tolokers. GAT behaves differently: it improves on Questions but loses on the other four datasets. GCN also loses on Amazon Ratings, Minesweeper and Tolokers. Sharing therefore depends on the backbone as well as the dataset.
+
+The ResNet control ignores graph edges and improves over ENS on two datasets. Its behavior confirms that the boundary factorization can affect predictions without message passing. The graph results need additional comparisons to determine the contribution of sharing graph weights specifically. We provide those comparisons next. The appendix retains paired split differences and selection sensitivities, including the small and negative effects.
+
+\subsection{Storage and execution cost}
+In the original resource sweep, GNNM stores roughly one quarter of ENS's parameters. Its measured training-step time is 0.3--2.5\% higher. This is expected from the implementation: four different hidden-state tables still pass through the graph. Parameter storage is the measured benefit, while compute and peak memory must be assessed separately.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Original resource sweep, averaged over eight backbones and five depths. Parameter counts are millions, step times are milliseconds, and peak allocation is MiB. These configurations are not necessarily the depth selected for prediction. Both methods use four paths.}
+\label{tab:resource-main}
+\begin{tabular}{lrrr}
+\toprule
+& Parameters & Step time & Peak allocation\\
+Dataset & ENS / GNNM & ENS / GNNM & ENS / GNNM\\
+\midrule
+Roman Empire & 16.04 / 4.02 & 204.4 / 209.6 & 2228 / 2164\\
+Amazon Ratings & 16.01 / 4.01 & 300.7 / 306.5 & 3706 / 3636\\
+Minesweeper & 15.40 / 3.86 & 126.8 / 128.5 & 1679 / 1543\\
+Questions & 16.00 / 4.01 & 542.1 / 552.8 & 6385 / 6420\\
+Tolokers & 15.41 / 3.86 & 658.7 / 660.6 & 12953 / 12818\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:resource-main} separates these costs. The sweep uses 50 warmup steps and 200 synchronized optimization steps. It processes members sequentially and uses weight decay 0.01 for all methods, whereas predictive runs use zero decay. The original sweep records do not independently identify the device model. Later profiles use an identified A100 and saved timing samples. Appendix~\ref{app:cost-details} gives the protocols and full measurements. We do not claim lower latency or lower peak memory from fewer stored parameters.
+
+\section{Analysis of the member paths}\label{sec:analysis}
+The benchmark measures the complete GNNM recipe, which changes both the projectors and the sharing of graph weights. To examine the contribution of sharing itself, we start with GNNM and give each member its own copy of the graph stack. The copies initially contain the same values, so the member functions are matched before training. During training, the copies can change independently. Both versions choose a checkpoint using the same averaged validation prediction. Their difference measures what happens when the requirement to share graph weights is removed, under this training recipe.
+
+We make this comparison on a favorable benchmark setting: five-layer SAGE, width 512, on Roman Empire masks 0--4. Every four-member method in Table~\ref{tab:component-main} uses the common checkpoint rule. The setting was chosen after the benchmark, so the study examines one observed success. It does not estimate the effect of sharing across new graphs.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{5pt}
+\caption{Roman Empire component study. Accuracy is mean $\pm$ standard deviation over five overlapping official masks. All four-member rows use a pooled checkpoint rule. The first two rows form the matched-initialization sharing comparison. The remaining component comparisons have the initialization relationships specified in Appendix~\ref{app:controls}.}
+\label{tab:component-main}
+\begin{tabular}{lrr}
+\toprule
+Method & Accuracy (\%) & Parameters ($10^6$)\\
+\midrule
+GNNM & $89.50\pm0.29$ & 6.738\\
+Private propagation for every member & $86.56\pm0.57$ & 26.437\\
+\midrule
+Four ordinary models (pooled ENS) & $87.52\pm0.26$ & 26.923\\
+Four independent input/output maps & $86.99\pm0.38$ & 7.221\\
+Input factors only & $89.35\pm0.32$ & 6.736\\
+Output factors only & $84.96\pm0.47$ & 6.733\\
+Four output heads & $84.97\pm0.56$ & 6.758\\
+Frozen output factors & $89.48\pm0.28$ & 6.736\\
+Factors also inside graph layers & $89.66\pm0.14$ & 6.871\\
+One-member GNNM & $85.47\pm0.64$ & 6.732\\
+BASE & $86.21\pm0.47$ & 6.731\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+GNNM exceeds the version with private graph stacks by 2.94 accuracy points on average, with positive differences on all five masks. It also exceeds the ordinary ensemble under the common checkpoint rule by 1.99 points. The private-stack model can reproduce any GNNM prediction by keeping its four graph stacks identical. GNNM's higher accuracy here therefore cannot come from access to a larger set of prediction functions. It concerns what this training and checkpoint-selection procedure finds under the sharing constraint. Giving members private weights changes both capacity and optimizer histories, which this comparison does not separate. Repeating the matched sharing comparison on mask 0 with three optimization seeds gives a gain of $3.33\pm0.63$ points (sample SD), positive for every seed. This remains evidence from one graph and a finite training budget.
+
+Sharing weights is only part of GNNM: its members also enter the graph layers with different hidden states. To examine this distinction, we compare varying the input map with varying only the output map. The latter makes several predictions from one common propagated representation. The input-only variant scores close to GNNM, whereas output-only and heads-only variants score lower in this case. Freezing the output factors barely changes the mean, while adding factors inside every graph layer gives a small increase. This pattern is consistent with useful input variation in this setting. Several variants start from different functions, so these comparisons do not isolate a single component or establish that both boundary projectors are necessary or optimal.
+
+A higher ensemble score can arise because its members become more accurate, because averaging corrects more of their errors, or both. We therefore return to the saved predictions from the matched sharing comparison. For each method, we calculate the mean accuracy of its four members and then the additional accuracy obtained by averaging their raw scores. This divides the observed ensemble difference into two quantities without changing any predictions.
+
+For the Roman SAGE comparison, GNNM's members are 3.08 points more accurate than the untied members on average. Its gain from averaging is 0.14 points smaller. Together these changes give the 2.94-point pooled advantage. Pairwise class disagreement falls from 8.00\% to 6.07\%. Thus this favorable result comes from better members despite lower measured disagreement. More disagreement alone is not a sufficient explanation of ensemble quality.
+
+A parallel comparison with Roman GAT checks whether this SAGE pattern also appears in an attention backbone. The mean shared-minus-private difference is only 0.04 points, with mixed signs across masks. The original GAT losses therefore do not reproduce as a large penalty from sharing in this case. Together, these results locate a favorable SAGE effect and prevent its member-accuracy explanation from being applied to every backbone. They describe the selected predictions, without establishing why training finds them. Appendix~\ref{app:gat-pair} gives the GAT masks and decision counts.
+
+\input{sections/internal_sage_methods_results}
+
+\section{Scope across sharing placements and budgets}\label{sec:additional}
+An ordinary ensemble can also store fewer weights by making each member narrower. A useful storage comparison must therefore give this smaller ensemble a similar parameter budget. On Roman SAGE, we choose its width by parameter count before scoring: four width-256 models contain 6.908 million parameters, close to width-512 GNNM's 6.738 million. GNNM scores 89.50\% versus 88.14\%, but inference takes 109.7 ms versus 39.9 ms. In this setting, sharing allows wider member states and higher accuracy within a similar weight budget, at the cost of longer computation. A wider single model chosen by training-step time also scores lower, although its complete training finishes sooner (Appendices~\ref{app:param-matched} and~\ref{app:strong-base}).
+
+The next issue is how much of the graph stack to share. Full sharing requires every member to use the same learned graph-layer weights, applied to its own hidden states. Allowing private weights in one layer could retain some storage saving while giving members more freedom. We test this extension with two SAGE blocks. One version gives each member a private first block and shares the second. The other shares the first block and gives each member a private second block, called \emph{private-last}. Both retain the member input and output projectors and perform four graph passes. They are partial-sharing variants, distinct from the fully shared GNNM used in the five-dataset benchmark.
+
+We compare these variants with full sharing, fully private propagation, BASE and ENS on Cora, WikiCS, Actor and filtered Chameleon \citep{yang2016revisiting,mernyei2020wikics,pei2020geomgcn,platonov2023critical}. Each model uses width 128 and receives the same six learning-rate and weight-decay combinations with three seeds. This lets each model use its own validation-selected optimizer setting instead of requiring all models to work best with one setting. Choosing between the two partial placements gives that family twice the configuration search of ENS. Validation traces are locked before test scoring.
+
+Under this protocol, full sharing exceeds ENS on WikiCS by 0.17 points and loses on the other three graphs. The validation-selected partial variant nearly ties ENS on raw Cora, gains 0.74 points on WikiCS, and loses 0.44 and 3.09 points on Actor and filtered Chameleon. Extensions to CiteSeer and PubMed lose 1.83 and 0.87 points. Normalizing the Cora input features changes the partial-sharing comparison to a 2.43-point gain. These results show why neither a single sharing placement nor one preprocessing recipe can be recommended from the benchmark alone. Three seeds on one split measure training variation. In particular, filtered Chameleon's 194 test nodes make one changed prediction worth about 0.52 accuracy points. The appendix gives every selected and default result, including the unresolved raw-Cora repeat discrepancy and the changed normalized-Cora outcome.
+
+The favorable WikiCS and normalized-Cora results motivate the same budget check used on Roman Empire. At equal width, private-last stores fewer weights than ENS. Narrowing ENS to the same weight budget could change which model performs better. We therefore hold the chosen private-last model at width 128 and match its parameter count by narrowing ENS and widening BASE. Widths are fixed from parameter counts before training, and all three models receive the same six optimizer candidates and three seeds. This comparison tests different uses of a similar weight budget. Because the datasets and placement were chosen after earlier outcomes, it is exploratory evidence about these settings.
+
+On WikiCS, parameter counts agree within 0.5\%, and private-last exceeds ENS by 0.684 accuracy points while taking 11.13 versus 8.56 ms for inference. On normalized Cora, counts agree within 0.31\%, and the gain is 1.63 points with inference taking 4.22 versus 3.77 ms. All three paired seed differences are positive in both cases, although Cora's nominal interval includes zero. Appendix~\ref{app:matched-budget} gives the absolute scores, widths, seed differences and profiles. These two studies show local gains at comparable stored size for partial sharing, with higher latency. They do not establish gains for fully shared GNNM on these graphs.
+
+The follow-up studies therefore clarify three aspects of the benchmark: shared members are more accurate in the matched Roman SAGE recipe, changing which layers share weights changes the result, and similar parameter counts can still lead to different accuracy and execution costs. The appendix retains depth, optimizer and larger-graph checks that bound these conclusions. Complete planned cells and diagnostic records remain in the code supplement. No rule for choosing sharing on a new graph has yet been validated independently.
+
+\section{Related work}
+Deep ensembles train and average independent predictors \citep{lakshminarayanan2017simple}. TreeNets share early computation before branching \citep{lee2015heads}. GNNM instead creates distinct member states before graph propagation and shares the weights applied to those states. BatchEnsemble provides the multiplicative factorization \citep{wen2020batchensemble}, and TabM studies related models for tabular data \citep{gorishniy2025tabm}. Kim's master's thesis applies BatchEnsemble inside GNN layers \citep{kim2023efficient}. Its bibliographic record is supplied, and our added-factor comparison is not an exact reproduction of that implementation.
+
+Other approaches target different costs. GEENI approximates constituent GNNs to reduce ensemble latency \citep{nagarajan2022geeni}, and ensembles can be distilled into one predictor \citep{zhang2024e2gnn}. Graph mixtures learn how to choose or weight experts \citep{wang2023graph,deng2025mixture}, whereas GNNM uniformly averages member scores. MIMO trains multiple predictions within one forward pass \citep{havasi2021training}, while Packed-Ensembles use grouped operations to run structured ensembles together \citep{laurent2023packed}. These are relevant alternatives that we have not compared empirically. Our experiments do not establish a ranking against every efficient ensemble method. The supplement gives the tested alternatives, including a local MC Dropout comparison, and documents their scope.
+
+\section{Limitations and conclusion}
+The original five-dataset benchmark favors GNNM most consistently for SAGE and the two graph-transformer variants, while other backbones include losses. The matched Roman SAGE comparison locates a quality gain through stronger individual members. The internal SAGE development comparison shows a different pattern: broader correct-alternative coverage offsets weaker average members and more pooling losses. Its raw accuracy advantage over capable ensembles accompanies a failed mean NLL protection. These findings support evaluating sharing by the combined prediction and its probability quality, without identifying a universal optimization mechanism or factor placement.
+
+The historical benchmark compares intended selection procedures and has incomplete launch-time source/data fingerprints. The recovered historical manuscript has not been verified as the submitted source. Follow-up studies were motivated by earlier outcomes; the internal-SAGE result uses the same development nodes for native selection and subsequent calibration. Overlapping graph splits and a few optimizer seeds do not establish an average effect across unseen graph tasks. Additional sharing placements and budgets include failures, and some selected checkpoints remain late in training. Stored-weight savings do not eliminate repeated graph computation or imply lower latency. Prediction quality, confidence and measured costs therefore retain separate scopes.
+
+\section*{Reproducibility statement}
+The appendix records model definitions, selection rules, complete historical benchmark tables and the completed internal-SAGE development results. Numerical claims use preserved run records or completed experiments. Supporting code, validation traces, selection locks and prediction artifacts remain separate evidence; this source draft does not include dataset arrays or trained checkpoints. The historical launch-time model/environment and exact data fingerprints are incomplete, so the original training runs cannot be replayed exactly. The recovered round-18 source is historical draft material, not a verified submitted manuscript. No fresh training replication or PDF compilation is claimed by this assembly.
+
+\section*{AI use statement}
+OpenAI Codex assisted with literature search, manuscript editing, independent draft critique, the architecture figure, experimental implementation and data preparation, and artifact audits. Numerical claims were checked against the original run records or completed new experiments. The authors are responsible for the final text, code, analyses and citations.
+
+\bibliographystyle{iclr2027_conference}
+\bibliography{references}
+\clearpage
+\appendix
+\renewcommand{\thesection}{A\arabic{section}}
+\renewcommand{\theHsection}{appendix.\arabic{section}}
+\renewcommand{\thefootnote}{\arabic{footnote}}
+\input{appendix}
+\end{document}

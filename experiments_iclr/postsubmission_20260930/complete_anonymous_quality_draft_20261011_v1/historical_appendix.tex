@@ -1,0 +1,801 @@
+\section*{Appendix guide}
+This appendix records the exact model, selection rules, per-setting results,
+resource measurements, and provenance limits. All tables report the stated
+repeated unit: seeds on one split or official masks on one graph. Neither is a
+sample of independent graph tasks. The accompanying anonymous code supplement
+holds the complete validation matrices, selected records, prediction
+artifacts, source hashes, and verifiers; the compact upload does not include
+all trained checkpoints. The paper and this appendix form one submission PDF.
+
+\section{Method, implementation, and exact scope}\label{app:implementation}
+The input and output BatchEnsemble projectors use shared bias-free matrices
+with Xavier-uniform initialization. An input factor $r_m$ starts with
+independent equiprobable signs; its output scale starts at one and bias at
+zero. All output-projector factors start at identity scale and zero bias.
+Input-projector output receives dropout $0.2$ and GELU. LayerNorm precedes
+the output projector. Four member losses are averaged during training;
+raw member logits are averaged for checkpoint selection and inference.
+Multiclass tasks use cross-entropy and binary tasks use binary
+cross-entropy with logits. Each member propagates a distinct hidden state.
+
+The supplied implementation uses external residual blocks at hidden width
+$h$. Let $D$ be dropout $0.2$ and let $F_k(z)=D(A_2(\operatorname{GELU}(D(A_1(z)))))$,
+where $A_1:\mathbb R^{kh}\to\mathbb R^h$ and
+$A_2:\mathbb R^h\to\mathbb R^h$ are biased learned maps. With
+$u=\operatorname{LayerNorm}(h)$, ResNet sets $h'=h+F_1(u)$ and has
+\emph{no graph operation}. GCN, GAT, and TAG set
+$h'=h+F_1(C(u))$; SAGE and GAT-sep set
+$h'=h+F_2([u,C(u)])$. Here $C$ is the corresponding PyTorch Geometric
+convolution \citep{kipf2017semi,hamilton2017inductive,velickovic2018graph,du2017topology,brody2022how,fey2019pyg}.
+TAG uses three hops. GT and GT-sep use a TransformerConv residual
+addition, followed by a separate $F_1$ residual addition
+\citep{shi2021masked}. GT projects the convolution output with an
+$h\to h$ map; GT-sep projects its concatenation with $u$ using a
+$2h\to h$ map. At width 512, attention variants have eight heads and coefficient dropout
+$0.2$. GT variants also use TransformerConv's internal root skip. The original benchmark width is
+512; the primary matched SAGE study uses width 128. In the historical loader, added self-loops are not added a second time
+by the configured convolutions. The newer SAGE grid adds no self-loops.
+These equations describe the supplied code; historical launch-time
+model-source hashes were not retained.
+
+BASE uses ordinary dense projectors with PyTorch default initialization
+and bias. An $M=1$ BatchEnsemble model therefore is not an exactly
+initialization-matched BASE. A four-member explicit ensemble can represent
+every deterministic GNNM inference function by copying the common graph
+weights into four ordinary models and replacing each boundary projector
+with its member's effective dense map. This inclusion concerns function
+representation and says nothing about what training finds.
+
+\section{Equal-grid node comparisons and matched sensitivities}\label{app:validation-tuning}
+The primary four-graph grid covers public Cora, WikiCS split 0, Actor
+split 0, and official filtered Chameleon split 0. We retain source
+features and masks, coalesce and symmetrize edges, and add no self-loops.
+Symmetrizing filtered Chameleon changes its directed-edge convention.
+TIED denotes GNNM with all graph blocks shared. UNTIED retains the
+boundary projectors but makes every graph block private. The two partial
+variants make only the first or last block private. Each arm has two
+residual SAGE blocks, width 128, LayerNorm and dropout
+$0.2$. BASE and ENS use ordinary initializations. TIED, private-first,
+private-last and UNTIED copy a canonical projector initialization, match
+post-construction random-generator states, and pass a numerical initial
+member-logit check. Private-first and private-last store equal numbers
+of parameters. UNTIED copies both graph blocks for every member.
+
+Every graph--arm pair receives learning rates
+$\{0.0003,0.001,0.003\}$ crossed with AdamW decay $\{0,0.01\}$.
+Three seeds and exactly 1,000 full epochs give $4\cdot6\cdot6\cdot3=432$
+planned cells. A nonfinite seed invalidates its three-seed candidate.
+Whole-model checkpoints maximize pooled validation accuracy, then
+minimize validation cross-entropy, then choose the earliest epoch. Each
+arm's six candidates are ranked by mean selected validation accuracy,
+mean cross-entropy, lower learning rate and lower decay. Both partial
+placements receive the complete six-candidate search before one is
+chosen by validation; that family has twice the configuration search
+of ENS. The complete validation grid was audited and locked before
+selected/default test scoring. The default is learning rate $0.001$,
+zero decay. All 141 allowed selected/default score records and the
+original float32 selected test member logits are in the supplement.
+The three seeds quantify optimization variation on a single published
+split. Graphs were chosen after earlier work and are not untouched
+holdouts. Cora and WikiCS used the original A100 runtime; Actor and
+filtered Chameleon used a second A100 runtime. Within-graph arms share
+a runtime, while exact equality of software stacks across hosts is not
+claimed. Selected epochs near the cap limit convergence claims.
+
+\begin{table}[t]
+\centering
+\caption{Validation-tuned comparison on Cora. Test accuracy is mean $\pm$ sample standard deviation over three optimization seeds on one published split. Every arm receives six optimizer candidates. Default uses learning rate 0.001 and zero decay. The star marks the partial placement chosen using validation, after tuning both partial arms (12 configurations). Parameters are in millions.}
+\label{tab:tuned-cora}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%) & Params\\
+\midrule
+BASE & 0.001 & 0.01 & 70.933 & $71.167 \pm 0.404$ & 71.200 & 0.349831\\
+ENS & 0.0003 & 0.01 & 72.533 & $73.600 \pm 0.400$ & 73.233 & 1.399324\\
+TIED & 0.001 & 0.01 & 67.400 & $67.700 \pm 2.524$ & 67.733 & 0.357020\\
+Private first$^{\star}$ & 0.003 & 0 & 73.533 & $73.667 \pm 1.021$ & 72.967 & 0.604700\\
+Private last & 0.003 & 0.01 & 71.800 & $70.833 \pm 2.732$ & 72.867 & 0.604700\\
+UNTIED & 0.003 & 0 & 72.867 & $73.633 \pm 0.289$ & 72.567 & 0.852380\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Validation-tuned comparison on WikiCS. Test accuracy is mean $\pm$ sample standard deviation over three optimization seeds on one published split. Every arm receives six optimizer candidates. Default uses learning rate 0.001 and zero decay. The star marks the partial placement chosen using validation, after tuning both partial arms (12 configurations). Parameters are in millions.}
+\label{tab:tuned-wikics}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%) & Params\\
+\midrule
+BASE & 0.003 & 0.01 & 80.724 & $77.977 \pm 0.526$ & 78.143 & 0.205194\\
+ENS & 0.003 & 0.01 & 81.440 & $78.867 \pm 0.121$ & 78.736 & 0.820776\\
+TIED & 0.001 & 0.01 & 82.231 & $79.038 \pm 0.528$ & 79.043 & 0.207872\\
+Private first & 0.001 & 0.01 & 81.967 & $78.610 \pm 0.366$ & 78.610 & 0.455552\\
+Private last$^{\star}$ & 0.001 & 0 & 82.514 & $79.608 \pm 0.195$ & 79.608 & 0.455552\\
+UNTIED & 0.001 & 0.01 & 81.948 & $79.043 \pm 0.294$ & 79.055 & 0.703232\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Validation-tuned comparison on Actor. Test accuracy is mean $\pm$ sample standard deviation over three optimization seeds on one published split. Every arm receives six optimizer candidates. Default uses learning rate 0.001 and zero decay. The star marks the partial placement chosen using validation, after tuning both partial arms (12 configurations). Parameters are in millions.}
+\label{tab:tuned-actor}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%) & Params\\
+\midrule
+BASE & 0.003 & 0.01 & 37.185 & $37.193 \pm 1.396$ & 36.228 & 0.285445\\
+ENS & 0.003 & 0.01 & 38.268 & $37.632 \pm 0.648$ & 37.610 & 1.141780\\
+TIED & 0.003 & 0.01 & 37.760 & $36.469 \pm 0.790$ & 37.303 & 0.290616\\
+Private first$^{\star}$ & 0.003 & 0.01 & 38.144 & $37.193 \pm 1.096$ & 36.645 & 0.538296\\
+Private last & 0.003 & 0.01 & 38.021 & $37.522 \pm 0.428$ & 37.522 & 0.538296\\
+UNTIED & 0.003 & 0.01 & 38.062 & $36.447 \pm 0.863$ & 37.390 & 0.785976\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Validation-tuned comparison on official filtered Chameleon. Test accuracy is mean $\pm$ sample standard deviation over three optimization seeds on one published split. Every arm receives six optimizer candidates. Default uses learning rate 0.001 and zero decay. The star marks the partial placement chosen using validation, after tuning both partial arms (12 configurations). Parameters are in millions.}
+\label{tab:tuned-chameleon-filtered}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%) & Params\\
+\midrule
+BASE & 0.0003 & 0.01 & 42.393 & $37.113 \pm 2.247$ & 37.973 & 0.463749\\
+ENS & 0.001 & 0.01 & 46.225 & $41.924 \pm 2.543$ & 41.924 & 1.854996\\
+TIED & 0.001 & 0.01 & 44.832 & $37.113 \pm 0.515$ & 38.832 & 0.474492\\
+Private first & 0.003 & 0.01 & 42.276 & $39.347 \pm 2.146$ & 39.863 & 0.722172\\
+Private last$^{\star}$ & 0.003 & 0.01 & 43.554 & $38.832 \pm 3.274$ & 39.691 & 0.722172\\
+UNTIED & 0.003 & 0.01 & 42.509 & $36.082 \pm 2.362$ & 41.409 & 0.969852\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Paired decisions and additional graphs}\label{app:paired-decisions}
+For the validation-selected partial placement versus selected ENS, each
+test node and seed belongs to one of four mutually exclusive groups:
+both correct, partial only correct, ENS only correct, or neither correct.
+The signed accuracy difference is the difference between the two
+exclusive counts divided by the number of seed--node decisions. Counts
+show where a score difference comes from; reused nodes and seeds are not
+independent observations, so no node-level significance test is used.
+
+\begin{table}[t]
+\centering\small
+\caption{Illustrative paired optimizer-seed intervals for selected partial sharing minus selected ENS. Each row uses three paired seeds on one fixed graph split. The interval is the mean plus or minus $t_{0.975,2}\,\mathrm{SD}/\sqrt{3}$, with $t_{0.975,2}=4.30265$. It assumes independent approximately normal optimizer-seed differences and conditions on the frozen setting. Candidate selection used these seeds' validation outcomes, which this calculation does not account for. These are not intervals over graph tasks or nodes, or simultaneous intervals.}
+\label{tab:conditional-seed-intervals}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrl}
+\toprule
+Setting & Mean $\Delta$, pp & SD, pp & Conditional 95\% interval, pp\\
+\midrule
+Primary Cora raw & $+0.067$ & 1.041 & $[-2.519,+2.652]$\\
+Primary WikiCS & $+0.741$ & 0.240 & $[+0.146,+1.336]$\\
+Primary Actor & $-0.439$ & 1.259 & $[-3.567,+2.689]$\\
+Filtered Chameleon & $-3.093$ & 5.809 & $[-17.523,+11.338]$\\
+CiteSeer & $-1.833$ & 1.168 & $[-4.734,+1.067]$\\
+PubMed & $-0.867$ & 0.643 & $[-2.464,+0.730]$\\
+Cora raw repeat & $-0.133$ & 1.002 & $[-2.622,+2.355]$\\
+Cora normalized & $+2.433$ & 1.801 & $[-2.040,+6.907]$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Two further citation graphs}\label{app:planetoid-confirmation}
+After the primary four-graph results, the same six-arm grid was frozen
+for CiteSeer and PubMed public splits with row-normalized features.
+These 216 additional runs use the same candidate and checkpoint rules.
+The selected partial model loses to ENS on every seed in each graph;
+it improves over full tying but does not reach explicit-ensemble
+accuracy. Candidate tables and seedwise records are in the supplement.
+
+\begin{table}[t]
+\centering\small
+\caption{Complete CiteSeer extension. Accuracy is mean $\pm$ sample SD in percent over three optimizer seeds on its public split. Selected and default candidates are both reported. A star marks the partial placement chosen on validation after 12 configurations, versus six per individual arm.}
+\label{tab:confirmation-citeseer}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%) & Params (M)\\
+\midrule
+BASE & 0.003 & 0.01 & 62.600 & $60.100 \pm 2.390$ & 59.467 & 0.640262\\
+ENS & 0.0003 & 0.01 & 66.200 & $63.500 \pm 0.173$ & 63.000 & 2.561048\\
+TIED & 0.0003 & 0.01 & 55.867 & $54.833 \pm 4.524$ & 53.700 & 0.656524\\
+Private first$^{\star}$ & 0.003 & 0.01 & 63.133 & $61.667 \pm 1.041$ & 62.667 & 0.904204\\
+Private last & 0.001 & 0 & 61.333 & $60.300 \pm 2.629$ & 60.300 & 0.904204\\
+UNTIED & 0.001 & 0 & 64.067 & $63.400 \pm 1.735$ & 63.400 & 1.151884\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\caption{Complete PubMed extension. Accuracy is mean $\pm$ sample SD in percent over three optimizer seeds on its public split. Selected and default candidates are both reported. A star marks the partial placement chosen on validation after 12 configurations, versus six per individual arm.}
+\label{tab:confirmation-pubmed}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%) & Params (M)\\
+\midrule
+BASE & 0.0003 & 0.01 & 75.267 & $74.467 \pm 1.595$ & 72.500 & 0.229891\\
+ENS & 0.0003 & 0.01 & 76.400 & $75.833 \pm 0.351$ & 75.067 & 0.919564\\
+TIED & 0.001 & 0 & 75.067 & $72.867 \pm 0.945$ & 72.867 & 0.233320\\
+Private first & 0.0003 & 0.01 & 76.800 & $74.733 \pm 0.635$ & 74.567 & 0.481000\\
+Private last$^{\star}$ & 0.001 & 0 & 77.133 & $74.967 \pm 0.404$ & 74.967 & 0.481000\\
+UNTIED & 0.001 & 0 & 75.467 & $74.400 \pm 0.624$ & 74.400 & 0.728680\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Cora preprocessing and placement sensitivity}\label{app:cora-preprocessing}
+A separate matched 216-run sensitivity repeats all six arms on raw and
+row-normalized Cora in one runtime. Both conditions use the same public
+split and selection rules. Normalization is a post hoc recipe change,
+not another independent graph. The raw repeat places selected partial
+sharing near ENS; normalized features favor private-last by $2.433$
+points over ENS. The TIED candidate in this raw repeat matches the primary raw grid,
+but differs from a separate same-runtime TIED repeat used for the
+factor-placement study: the latter scores 66.900\% rather than 67.700\%. Effective features, labels,
+masks, and training edges match the corresponding raw setting and model
+source bodies match, but initial member-logit byte hashes differ. The
+cause of that discrepancy remains unresolved; both outcomes are retained. At the common optimizer default, the
+three TIED test scores and selected epochs reproduce exactly. We report both complete
+conditions and their default scores.
+
+\begin{table}[t]
+\centering\small
+\caption{Cora with raw features. Test accuracy is mean $\pm$ sample SD over three optimizer seeds on the same public split. Each arm receives six optimizer candidates. A star marks the partial family selected on validation, after twelve configurations.}
+\label{tab:cora-raw}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%)\\
+\midrule
+BASE & 0.001 & 0.01 & 70.933 & $71.167 \pm 0.404$ & 71.200\\
+ENS & 0.0003 & 0.01 & 72.533 & $73.600 \pm 0.400$ & 73.233\\
+TIED & 0.001 & 0.01 & 67.400 & $67.700 \pm 2.524$ & 67.733\\
+Private first$^{\star}$ & 0.003 & 0 & 73.533 & $73.467 \pm 0.850$ & 72.967\\
+Private last & 0.003 & 0.01 & 71.733 & $72.500 \pm 1.015$ & 72.867\\
+UNTIED & 0.003 & 0 & 72.933 & $73.800 \pm 0.700$ & 72.567\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\caption{Cora with row-normalized features. Test accuracy is mean $\pm$ sample SD over three optimizer seeds on the same public split. Each arm receives six optimizer candidates. A star marks the partial family selected on validation, after twelve configurations.}
+\label{tab:cora-normalized}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Arm & LR & Decay & Val. (\%) & Test (\%) & Default (\%)\\
+\midrule
+BASE & 0.001 & 0 & 71.600 & $70.567 \pm 0.702$ & 70.567\\
+ENS & 0.0003 & 0 & 72.933 & $72.800 \pm 1.778$ & 71.767\\
+TIED & 0.0003 & 0 & 68.667 & $69.300 \pm 2.464$ & 69.667\\
+Private first & 0.001 & 0 & 72.667 & $74.267 \pm 1.150$ & 74.267\\
+Private last$^{\star}$ & 0.001 & 0 & 73.467 & $75.233 \pm 0.586$ & 75.233\\
+UNTIED & 0.001 & 0 & 73.133 & $73.733 \pm 1.159$ & 73.733\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Additional optimization checks}\label{app:optimizer-history}
+An exploratory diagnostic keeps every member's graph weights equal
+but gives each member its own AdamW moment history. After each update,
+the proposed graph weights are averaged and copied back to all members.
+This SYNC variant uses the same stored inference model as full sharing,
+with more state during training. It adapts the separate-moment idea of
+AdaTask \citep{yang2023adatask}. A further NORM-SYNC diagnostic matches
+the length of each graph update to a mean-gradient AdamW reference
+on its own current trajectory. It does not reproduce the separately
+trained TIED trajectory.
+
+The common-default results are below. The complete six-candidate SYNC
+search, default controls, norm checks, and implementation details remain
+in the code supplement. The 96-cell validation grid and separate
+12-cell norm study were locked before their allowed test scores.
+Neither intervention supplies a consistent accuracy improvement, so
+we draw no recommendation for a new optimizer from these diagnostics.
+
+\begin{table}[t]
+\centering
+\caption{One fixed optimizer recipe on each graph. Test accuracy is mean $\pm$ sample SD over three optimization seeds on one split. All arms use learning rate 0.001, zero decay, and 1,000 epochs. TIED, SYNC and NORM-SYNC have the same inference function class. UNTIED has separate graph stacks. Each graph's comparison uses one runtime.}
+\label{tab:optimizer-default}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrr}
+\toprule
+Graph & TIED & SYNC & NORM-SYNC & UNTIED\\
+\midrule
+Cora & $67.733 \pm 2.558$ & $66.367 \pm 2.290$ & $67.167 \pm 1.955$ & $72.567 \pm 0.808$\\
+WikiCS & $79.043 \pm 0.532$ & $78.901 \pm 0.420$ & $79.095 \pm 0.326$ & $79.055 \pm 0.288$\\
+Actor & $37.303 \pm 0.822$ & $37.215 \pm 1.133$ & $37.193 \pm 1.238$ & $37.390 \pm 1.395$\\
+Filtered Chameleon & $38.832 \pm 2.543$ & $39.003 \pm 2.083$ & $37.629 \pm 2.728$ & $41.409 \pm 3.432$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Roman component and backbone checks}\label{app:depth-grid}
+A post hoc Roman SAGE depth grid found a local change in the
+sign of tied-minus-untied accuracy between shallow and deep
+models. Additional overlapping masks and longer budgets check
+that setting. The complete grid and seedwise values are in the
+code supplement. This is one graph and does not supply a depth
+rule for unseen data.
+
+\subsection{Width-512 component control}\label{app:controls}
+A distinct post hoc SAGE study uses Roman masks 0--4, depth five,
+width 512, learning rate $3\cdot10^{-5}$, up to 5,000 steps and one
+pooled-validation checkpoint per four-member arm. The tied and untied
+stacks, frozen output factors, and added in-layer factors start from
+matched constructor values; the untied arm copies the graph stack.
+Validation is checked at step 1 and every ten steps, with 300-step
+patience. Other component variants do not all match the initial function.
+Consequently, Table~\ref{tab:component-main} describes components under one favorable
+setting; it is not a one-factor causal decomposition. Population
+standard deviations across overlapping masks are descriptive.
+
+\subsection{Fixed-mask optimization repeat}\label{app:fixed-mask-v4}
+The width-512, depth-five Roman SAGE pair is repeated on official mask 0
+with seeds 0--2. Tied test accuracies are 89.234, 89.552 and 89.287\%,
+and untied accuracies are 85.634, 85.775 and 86.675\%. The paired gain
+is $3.330\pm0.628$ points, using sample SD across seeds. The untied
+seed-2 checkpoint selects step 4,840 of 5,000, so this does not establish
+convergence. Initial parameter values and random-generator states match.
+A training-free calibration fixed an initial-logit tolerance of
+$2.19345\cdot10^{-5}$ before the final six-run matrix, to accommodate
+measured CUDA scatter variation. Earlier attempts that failed their
+numeric gates are preserved and excluded from this complete matrix.
+All six final checkpoints pass replay. The supplement retains the full
+protocol, calibration, traces and selected decisions.
+
+\subsection{Roman optimizer and width controls}\label{app:roman-optimizer}
+A 24-cell comparison at depths two and five changes adaptive moment
+histories while maintaining equal graph weights within each SYNC arm.
+The shallow negative and deep positive tying contrast survive this
+optimizer intervention. A separate approximately equal-parameter
+narrow UNTIED comparison changes the shallow mean's sign. Width
+changes both capacity and initialization, so the latter is a budget
+sensitivity rather than an isolated capacity effect.
+\label{app:roman-narrow}
+
+\subsection{Matched GAT diagnosis}\label{app:gat-pair}
+The original benchmark GAT model loses to ENS on four of five graphs. A post hoc
+Roman GAT pair copies the entire attention, feed-forward and internal
+normalization stack at initialization, then ties or unties it for
+training on masks 0--4. Depths are 5, 5, 4, 4 and 4, width 512; each
+mask has one optimizer seed and a pooled validation checkpoint.
+Untying raises correct-member coverage and pooling gain on every mask,
+while reducing mean member accuracy on every mask. The pooled effect
+is mixed and nearly zero on average. This cannot attribute the original benchmark
+ENS gap to attention or to any one cause. Selected-logit and official
+node-label audits are in the supplement.
+
+\begin{table}[h]
+\centering
+\caption{Post hoc Roman Empire GAT pair. Pooled columns are selected test accuracy in percent. The four differences are untied minus tied in percentage points. Member is mean individual-member accuracy, gain is pooled minus member accuracy, and oracle is the fraction of test nodes for which at least one member predicts the correct class. All statistics use the same official test nodes within each mask.}
+\label{tab:gat-pair}
+\setlength{\tabcolsep}{4pt}
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Mask & Tied & Untied & $\Delta$ pooled & $\Delta$ member & $\Delta$ gain & $\Delta$ oracle\\
+\midrule
+0 & 82.757 & 82.351 & $-0.406$ & $-1.077$ & $+0.671$ & $+0.706$\\
+1 & 82.298 & 82.527 & $+0.229$ & $-0.856$ & $+1.085$ & $+1.412$\\
+2 & 81.874 & 81.592 & $-0.282$ & $-1.050$ & $+0.768$ & $+0.176$\\
+3 & 82.404 & 82.439 & $+0.035$ & $-0.357$ & $+0.393$ & $+1.377$\\
+4 & 82.404 & 82.633 & $+0.229$ & $-0.154$ & $+0.384$ & $+0.176$\\
+\midrule
+Mean & 82.347 & 82.309 & $-0.039$ & $-0.699$ & $+0.660$ & $+0.770$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Other matched comparators}\label{app:param-matched}
+A parameter-count-matched explicit ENS chooses width 256 from five
+candidates by trainable-parameter count before scoring; a wider BASE
+chooses width 1152 by measured step time. Both keep the other Roman
+SAGE settings fixed. The width choices change representation and
+initialization. A fixed MC Dropout comparison likewise changes the
+inference sampling rule. They are contextual resource and recipe
+sensitivities, not exact causal alternatives to propagation tying.
+\label{app:mc-dropout}\label{app:strong-base}
+
+\paragraph{MC Dropout.}
+Four fixed dropout draws at probability 0.2 are taken from each of the
+five selected Roman BASE checkpoints, keeping other modules in evaluation
+mode and updating no weights \citep{gal2016dropout}. Deterministic BASE
+scores 86.209\%, mean-logit pooling 85.362\%, and mean-probability pooling
+85.295\%. Both pooling rules use every original draw and score below
+BASE on every mask. Probability pooling was analyzed after logit pooling.
+This is one untuned four-draw setting, not a general comparison with
+optimized MC Dropout. The supplement gives all mask values and seeds.
+
+\section{OGB node classification and link prediction}\label{app:ogb-pilot}
+The OGB tasks use the official data and splits \citep{hu2020open}.
+\texttt{ogbn-arxiv} uses one official temporal split, citation edges
+made bidirectional, two residual SAGE blocks of width 128, dropout
+$0.2$, AdamW learning rate $0.001$ and zero decay. BASE has 187,048
+weights; pooled ENS 748,192; GNNM 189,248. All arms use the same
+pooled validation checkpoint rule. The 100-, 300-, and 1,000-epoch
+budgets each restart from initialization and run all epochs; longer
+budgets were specified after shorter-budget results. Three seeds
+vary optimization on one split. At 1,000 epochs, selected checkpoints
+remain late, so the order is finite-budget rather than converged.
+\label{app:ogb-1000}
+
+\begin{table}[t]
+\centering
+\caption{Fixed \texttt{ogbn-arxiv} SAGE configuration on one official temporal split. Test accuracy is in percent. The mean $\pm$ sample standard deviation describes three optimization seeds on the same graph. Each longer budget was specified after earlier results were known. All nine runs at each budget use pooled-validation checkpoint selection.}
+\label{tab:ogb-pilot}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{llrrrrr}
+\toprule
+Budget & Variant & Seed 0 & Seed 1 & Seed 2 & Mean $\pm$ SD & Params, $10^6$\\
+\midrule
+100 & BASE & 67.58 & 67.70 & 68.07 & $67.78\pm0.25$ & 0.187\\
+100 & Pooled ENS & 68.12 & 68.08 & 68.32 & $68.17\pm0.13$ & 0.748\\
+100 & GNNM & 64.92 & 64.05 & 64.16 & $64.37\pm0.47$ & 0.189\\
+\midrule
+300 & BASE & 70.84 & 70.27 & 70.81 & $70.64\pm0.32$ & 0.187\\
+300 & Pooled ENS & 71.28 & 71.01 & 71.00 & $71.10\pm0.16$ & 0.748\\
+300 & GNNM & 69.42 & 68.79 & 68.87 & $69.03\pm0.34$ & 0.189\\
+\midrule
+1,000 & BASE & 71.68 & 71.29 & 71.53 & $71.50\pm0.20$ & 0.187\\
+1,000 & Pooled ENS & 72.08 & 72.25 & 72.09 & $72.14\pm0.10$ & 0.748\\
+1,000 & GNNM & 71.03 & 70.65 & 70.79 & $70.82\pm0.19$ & 0.189\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Frozen \texttt{ogbl-collab} extension}\label{app:collab}
+The official temporal edge split uses training collaborations through
+2017 to build one bidirectional propagation graph. Validation edges
+from 2018 and test edges from 2019 are never added. Node features'
+own temporal construction was not independently established. Four
+boundary-factor paths use two residual width-128 SAGE blocks, a
+128-coordinate node output and one shared three-layer decoder on the
+elementwise product of endpoint vectors. UNTIED copies the initialized
+graph stack. ENS has four ordinary encoder--decoder models; BASE one.
+
+A fixed 400-step recipe uses 65,536 sampled observed training edges
+and the same number of pairs absent from the training graph per step.
+These candidate negatives may include future true collaborations.
+All arms of a seed see the same batches. Every 20 steps a whole-model
+checkpoint is ranked by official validation Hits@50, validation BCE,
+then earliest step. There is no task-specific hyperparameter search.
+The official test comparison is one recipe on one temporal split.
+Untuned graph-only Common Neighbors and Adamic--Adar are included on
+the same training graph and candidate pools. They score 41.700\% and
+52.401\% Hits@50, respectively. Adamic--Adar exceeds all learned means. This study does not measure
+recommendation quality.
+
+\begin{table}[h]
+\centering
+\caption{Official \texttt{ogbl-collab} test Hits@50 in percent after one fixed 400-step recipe. The standard deviation is across three optimizer seeds on one temporal split. Selected steps and parameter counts are shown to expose budget and capacity differences.}
+\label{tab:collab-hits}
+\setlength{\tabcolsep}{4pt}
+\small
+\begin{tabular}{lrrrrrl}
+\toprule
+Variant & Seed 0 & Seed 1 & Seed 2 & Mean $\pm$ SD & Params, $10^6$ & Selected steps\\
+\midrule
+Tied & 48.540 & 46.662 & 46.910 & $47.371\pm1.020$ & 0.234 & 360, 360, 360\\
+Untied & 47.113 & 46.196 & 47.307 & $46.872\pm0.594$ & 0.730 & 380, 360, 400\\
+ENS & 43.882 & 45.688 & 44.216 & $44.596\pm0.961$ & 0.926 & 400, 400, 400\\
+BASE & 37.948 & 37.331 & 40.368 & $38.549\pm1.605$ & 0.232 & 400, 360, 380\\
+\midrule
+Tied $-$ untied & $+1.427$ & $+0.466$ & $-0.397$ & $+0.499$ & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Resource measurement}\label{app:tuning-resources}
+All 24 primary validation-selected seed-0 checkpoints were profiled
+on one otherwise idle A100. Each graph--arm profile uses three rotated
+blocks, each with 20 warmups and 100 CUDA-synchronized full-graph
+inference calls. The 7,200 retained calls include all member forwards
+and raw-logit pooling, excluding loading and host transfers. Each
+block also measures peak allocated GPU memory after warmup. Latency
+quartiles describe repeated calls on one checkpoint and device, not
+run-to-run or machine variability. MB denotes $10^6$ bytes; allocated
+memory excludes allocator-reserved and external process memory.
+
+\section{Original benchmark provenance}\label{app:protocol}
+The historical five-graph suite uses one seed on each of ten official
+masks for eight backbones and three methods. For each graph and method,
+we selected the unique saved result folder containing eight backbones,
+five depths, ten masks, fixed width 512 and learning rate
+$3\cdot10^{-5}$: 400 rows per method. This completeness rule does not
+inspect test scores. The saved records do not document whether those
+folders were fixed before any test inspection. For each method,
+backbone and mask, the highest-validation depth supplies its test
+score; validation ties within $10^{-12}$ choose the smaller depth.
+The table reports mean and population standard deviation of the ten
+selected scores. BASE and GNNM use the split index as the seed. ENS uses
+$1000\cdot\mathrm{split}+\{0,1,2,3\}$. The runs have a 5,000-step cap
+and validation stopping after approximately 300 steps without a new best.
+Masks reuse nodes and are not independent graphs.
+
+The original ENS procedure selected each independent member checkpoint
+separately; GNNM selected one joint checkpoint by pooled validation.
+These are the intended selection rules for the two complete methods.
+BASE and ENS also use different projector initializations from GNNM.
+Launch-time model-source hashes,
+full software environment, and exact historical data bytes were not
+preserved. In the current checkout, the Amazon Ratings file was an
+HTML error; it was replaced by the official public NPZ for future
+runs, with both hashes recorded. That repair does not prove the exact
+historical bytes. The main benchmark is a reconstruction of the two
+complete methods as run, rather than an isolated sharing intervention.
+New controls use
+their own stated rules. The current generic training runner's split-0
+width/depth/rate search does not reproduce the original benchmark.
+
+\subsection{Depth-selection sensitivity}\label{app:depth-sensitivity}
+Retrospective alternatives select one depth by mean validation over
+ten masks or mask-0 validation and reuse it. Because masks overlap,
+these single-depth rules can transfer validation labels across nominal
+test masks. They diagnose selection sensitivity and are not replacement
+performance estimates. The main table selects depth separately within
+each mask. The five datasets have two metric families: Roman Empire
+and Amazon Ratings report accuracy; Minesweeper, Questions and Tolokers
+report ROC-AUC, each multiplied by 100.
+
+\begin{table}[h]
+\centering
+\caption{Retrospective sensitivity of the mean GNNM-minus-ENS test difference to depth selection. Each entry is a percentage-point difference, averaged over eight backbones and ten official masks within one dataset. The first row is the main protocol. The other rows can transfer validation-label information across overlapping masks and are diagnostic only.}
+\label{tab:depth-sensitivity}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Depth chosen using & Roman & Amazon & Minesweeper & Questions & Tolokers\\
+\midrule
+Each mask's validation & $+1.122$ & $+0.088$ & $-0.339$ & $+1.010$ & $+0.170$\\
+Mean validation & $+1.101$ & $+0.085$ & $-0.406$ & $+1.012$ & $+0.165$\\
+Mask 0 validation & $+1.072$ & $-0.074$ & $-0.352$ & $+1.005$ & $+0.009$\\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+
+
+\section{Complete original benchmark results}\label{app:full-results}
+The main figure summarizes the paired differences for eight backbones
+on five graphs. Table~\ref{tab:benchmark-absolute} supplies all absolute
+means and deviations. The following tables give paired GNNM-minus-ENS
+differences and per-mask win counts after validation-based depth selection.
+They reuse five graphs, not 40 independent tasks.
+
+\begin{table}[t]
+\centering\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Complete absolute results for the five-dataset benchmark. Entries are mean $\pm$ standard deviation over ten official splits. Roman Empire and Amazon Ratings use accuracy, and the other datasets use ROC-AUC, all multiplied by 100. Bold marks the best mean within each backbone and dataset. ENS has four complete models. GNNM has four member paths with shared graph weights. Each method uses its intended checkpoint selection as stated in the text.}
+\label{tab:benchmark-absolute}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{llrrrrr}
+\toprule
+Backbone & Method & \shortstack{Roman\\Empire} & \shortstack{Amazon\\Ratings} & Minesweeper & Questions & Tolokers\\
+\midrule
+GCN & BASE & $73.36 \pm 0.73$ & $50.30 \pm 0.39$ & $89.64 \pm 0.53$ & $76.33 \pm 0.93$ & $84.10 \pm 0.99$\\
+ & ENS & $75.25 \pm 0.73$ & $\mathbf{50.68} \pm 0.47$ & $\mathbf{89.90} \pm 0.55$ & $76.73 \pm 1.08$ & $\mathbf{84.11} \pm 0.81$\\
+ & GNNM & $\mathbf{77.74} \pm 0.54$ & $49.98 \pm 0.57$ & $88.77 \pm 0.62$ & $\mathbf{77.50} \pm 1.02$ & $83.31 \pm 0.65$\\
+\addlinespace[2pt]
+SAGE & BASE & $86.68 \pm 0.55$ & $53.78 \pm 0.61$ & $93.72 \pm 0.54$ & $73.66 \pm 0.86$ & $82.97 \pm 0.41$\\
+ & ENS & $87.47 \pm 0.47$ & $54.93 \pm 0.44$ & $93.87 \pm 0.44$ & $74.39 \pm 0.97$ & $83.04 \pm 0.40$\\
+ & GNNM & $\mathbf{90.04} \pm 0.46$ & $\mathbf{55.41} \pm 0.45$ & $\mathbf{94.01} \pm 0.47$ & $\mathbf{77.02} \pm 1.12$ & $\mathbf{83.47} \pm 0.46$\\
+\addlinespace[2pt]
+GAT & BASE & $82.78 \pm 0.87$ & $51.71 \pm 0.51$ & $92.36 \pm 0.49$ & $77.17 \pm 0.67$ & $84.02 \pm 0.58$\\
+ & ENS & $\mathbf{83.89} \pm 0.40$ & $\mathbf{53.02} \pm 0.62$ & $\mathbf{92.77} \pm 0.58$ & $78.00 \pm 0.91$ & $\mathbf{84.53} \pm 0.58$\\
+ & GNNM & $82.71 \pm 0.48$ & $52.89 \pm 0.44$ & $91.11 \pm 0.74$ & $\mathbf{79.13} \pm 0.89$ & $83.97 \pm 0.75$\\
+\addlinespace[2pt]
+GAT-sep & BASE & $89.23 \pm 0.58$ & $54.43 \pm 0.47$ & $93.39 \pm 0.48$ & $77.57 \pm 0.63$ & $84.04 \pm 0.53$\\
+ & ENS & $90.14 \pm 0.42$ & $55.58 \pm 0.51$ & $\mathbf{93.71} \pm 0.41$ & $78.04 \pm 0.84$ & $84.35 \pm 0.54$\\
+ & GNNM & $\mathbf{91.19} \pm 0.33$ & $\mathbf{55.77} \pm 0.44$ & $93.70 \pm 0.46$ & $\mathbf{79.10} \pm 0.92$ & $\mathbf{84.83} \pm 0.65$\\
+\addlinespace[2pt]
+GT & BASE & $88.25 \pm 0.53$ & $53.82 \pm 0.44$ & $92.30 \pm 0.52$ & $77.78 \pm 0.75$ & $82.92 \pm 0.70$\\
+ & ENS & $89.01 \pm 0.43$ & $55.11 \pm 0.39$ & $92.59 \pm 0.55$ & $78.18 \pm 0.86$ & $83.80 \pm 0.59$\\
+ & GNNM & $\mathbf{90.25} \pm 0.31$ & $\mathbf{55.53} \pm 0.43$ & $\mathbf{92.83} \pm 0.44$ & $\mathbf{78.66} \pm 0.94$ & $\mathbf{84.19} \pm 0.63$\\
+\addlinespace[2pt]
+GT-sep & BASE & $87.46 \pm 0.48$ & $53.75 \pm 0.29$ & $92.00 \pm 0.60$ & $77.27 \pm 0.72$ & $83.02 \pm 0.81$\\
+ & ENS & $88.21 \pm 0.37$ & $54.90 \pm 0.44$ & $92.48 \pm 0.50$ & $77.83 \pm 0.85$ & $83.79 \pm 0.86$\\
+ & GNNM & $\mathbf{89.81} \pm 0.44$ & $\mathbf{55.32} \pm 0.46$ & $\mathbf{92.50} \pm 0.28$ & $\mathbf{78.62} \pm 0.74$ & $\mathbf{84.42} \pm 0.79$\\
+\addlinespace[2pt]
+ResNet & BASE & $65.88 \pm 0.34$ & $48.21 \pm 0.45$ & $50.69 \pm 1.19$ & $70.52 \pm 0.67$ & $72.91 \pm 1.12$\\
+ & ENS & $\mathbf{66.16} \pm 0.49$ & $\mathbf{49.52} \pm 0.61$ & $\mathbf{50.95} \pm 1.08$ & $70.83 \pm 0.78$ & $73.25 \pm 1.02$\\
+ & GNNM & $66.01 \pm 0.45$ & $49.44 \pm 0.44$ & $50.67 \pm 1.18$ & $\mathbf{71.52} \pm 0.86$ & $\mathbf{73.80} \pm 1.04$\\
+\addlinespace[2pt]
+TAG & BASE & $87.42 \pm 0.52$ & $52.25 \pm 0.20$ & $94.00 \pm 0.55$ & $78.32 \pm 1.16$ & $84.81 \pm 0.81$\\
+ & ENS & $88.33 \pm 0.60$ & $53.72 \pm 0.42$ & $\mathbf{94.14} \pm 0.54$ & $78.61 \pm 1.12$ & $84.81 \pm 0.71$\\
+ & GNNM & $\mathbf{89.68} \pm 0.27$ & $\mathbf{53.83} \pm 0.37$ & $94.11 \pm 0.46$ & $\mathbf{79.15} \pm 0.93$ & $\mathbf{85.04} \pm 0.76$\\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Paired accuracy differences for Roman Empire and Amazon Ratings.}
+\label{tab:paired}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lcc}
+\toprule
+Backbone & Roman & Amazon \\
+\midrule
+GCN & $+2.49\,(10)$ & $-0.70\,(2)$ \\
+SAGE & $+2.58\,(10)$ & $+0.48\,(9)$ \\
+GAT & $-1.18\,(0)$ & $-0.13\,(4)$ \\
+GAT-sep & $+1.05\,(10)$ & $+0.18\,(6)$ \\
+GT & $+1.24\,(10)$ & $+0.42\,(8)$ \\
+GT-sep & $+1.60\,(10)$ & $+0.42\,(8)$ \\
+ResNet & $-0.15\,(4)$ & $-0.07\,(4)$ \\
+TAG & $+1.35\,(10)$ & $+0.10\,(6)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Paired ROC-AUC differences for Minesweeper, Questions, and Tolokers.}
+\label{tab:paired-auc}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lccc}
+\toprule
+Backbone & Minesweeper & Questions & Tolokers \\
+\midrule
+GCN & $-1.13\,(0)$ & $+0.77\,(9)$ & $-0.80\,(1)$ \\
+SAGE & $+0.14\,(9)$ & $+2.63\,(10)$ & $+0.43\,(9)$ \\
+GAT & $-1.66\,(0)$ & $+1.13\,(9)$ & $-0.56\,(1)$ \\
+GAT-sep & $-0.01\,(4)$ & $+1.05\,(9)$ & $+0.48\,(7)$ \\
+GT & $+0.24\,(7)$ & $+0.48\,(8)$ & $+0.39\,(8)$ \\
+GT-sep & $+0.02\,(5)$ & $+0.79\,(8)$ & $+0.63\,(9)$ \\
+ResNet & $-0.28\,(1)$ & $+0.69\,(7)$ & $+0.55\,(9)$ \\
+TAG & $-0.03\,(5)$ & $+0.53\,(9)$ & $+0.24\,(8)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+\section{Original resource sweep}\label{app:cost-details}
+The historical cost sweep averages eight backbones and five depths
+per graph. It measures 50 warmups and 200 synchronized optimization
+steps on mask 0. Its timing script uses AdamW's default weight decay
+$0.01$, whereas predictive runs use zero decay. ENS and GNNM paths
+are processed sequentially, explaining nearly linear step-time growth
+with member count. Peak allocated memory is specific to this
+implementation and graph. The historical cost CSVs do not
+independently record the GPU model. These aggregates need not describe
+the selected predictive configuration.
+
+
+\section{Comparisons at matched stored size}\label{app:matched-budget}
+The WikiCS comparison was designed after the primary results, on the
+same public split 0. It fixes private-last at width 128 and chooses
+the nearest ordinary BASE and ENS widths using parameter counts only.
+The search spans integer widths 32--512 for BASE and 32--128 for each
+ENS member, breaking equal count gaps toward smaller widths. It selects
+BASE198 (456,004 weights) and ENS92 (457,464), versus private-last128
+(455,552). The gaps are 0.10\% and 0.42\%. Matching stored weights does
+not match compute, activation memory or the initial functions.
+
+Every arm receives the same six optimizer candidates, three seeds,
+two SAGE blocks, dropout 0.2 and 1,000 epochs as the primary grid.
+This complete 54-cell matrix runs in one software environment.
+An independent validation audit locks all cells before selected and
+declared-default test scoring. All 18 allowed test checkpoints pass
+independent forward replay. Both selection rules are retained below.
+The setting and placement were selected after earlier outcomes,
+so this is a post hoc sensitivity on a reused split.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{WikiCS at approximately equal parameter count. Accuracy is mean $\pm$ sample SD over three optimizer seeds on split 0. Candidate is learning rate and weight decay. Each arm receives six candidates. The default is $(0.001,0)$.}
+\label{tab:wikics-matched-budget}
+\begin{tabular}{llrrrl}
+\toprule
+Choice & Arm & Width & Parameters & Accuracy (\%) & Candidate\\
+\midrule
+Selected & BASE & 198 & 456,004 & $77.926 \pm 0.218$ & $0.003, 0.01$\\
+Selected & ENS & 92 & 457,464 & $78.770 \pm 0.131$ & $0.0003, 0.01$\\
+Selected & Private last & 128 & 455,552 & $79.454 \pm 0.188$ & $0.001, 0.01$\\
+Default & BASE & 198 & 456,004 & $78.610 \pm 0.138$ & $0.001, 0$\\
+Default & ENS & 92 & 457,464 & $78.753 \pm 0.128$ & $0.001, 0$\\
+Default & Private last & 128 & 455,552 & $79.454 \pm 0.188$ & $0.001, 0$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Selected private-last minus selected ENS is $+0.479$, $+0.650$ and
+$+0.924$ points across seeds, with mean $+0.684$ and sample SD $0.224$.
+The default mean contrast is $+0.701$ points. Under the nominal paired-seed
+interval calculation described in Table~\ref{tab:conditional-seed-intervals},
+the selected contrast gives $[+0.127,+1.241]$ points. The interval does
+not adjust for configuration selection or multiple comparisons and does
+not quantify uncertainty across graphs.
+
+Selected seed-0 checkpoints were profiled on one otherwise idle A100,
+after the study's training and checkpoint audits finished. Each of three
+blocks used 20 warmups and 100 synchronized full-graph forwards.
+Median latency for BASE, ENS and private-last was 4.481, 8.562 and
+11.133 ms. Peak allocated memory was 410.4, 210.1 and 277.8 MB.
+Thus the private-last accuracy gain over the ensemble accompanies
+higher latency and allocation at almost equal weight count.
+The exact timing records and profile source accompany the supplement.
+
+The public study retains all 54 validation traces, selection locks,
+validation member/pooled classes, and the exact pooled float32 test
+logits and member classes for all 18 scores. Test accuracy and
+cross-entropy can be recomputed. Validation cross-entropy remains in
+the complete traces but cannot be recovered from hard classes.
+Full checkpoints and member float logits remain author evidence.
+
+
+\subsection{Normalized Cora at matched stored size}
+A separately frozen 54-cell study repeats the three-arm comparison on
+row-normalized Cora's public split. The feature transformation divides
+each nonnegative feature row by its sum, with a denominator floor of
+one for empty rows. The frozen features, labels, masks and effective
+training edges match the earlier normalized-Cora study. The same
+integer count-only scans choose BASE184 and ENS70, within 0.31\% of
+private-last128's 604,700 weights. All arms use one runtime, the same
+six candidates, three seeds and 1,000-epoch budget. The full validation
+matrix is independently locked before all 18 allowed test checkpoints
+are scored and replayed.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Normalized Cora at approximately equal parameter count. Accuracy is mean $\pm$ sample SD over three optimizer seeds on the public split. Candidate is learning rate and weight decay. Both selected and default outcomes are retained.}
+\label{tab:cora-matched-budget}
+\begin{tabular}{llrrrl}
+\toprule
+Choice & Arm & Width & Parameters & Accuracy (\%) & Candidate\\
+\midrule
+Selected & BASE & 184 & 605,919 & $70.267 \pm 1.724$ & $0.0003, 0.01$\\
+Selected & ENS & 70 & 602,868 & $72.867 \pm 1.060$ & $0.0003, 0.01$\\
+Selected & Private last & 128 & 604,700 & $74.500 \pm 0.361$ & $0.001, 0.01$\\
+Default & BASE & 184 & 605,919 & $67.167 \pm 2.673$ & $0.001, 0$\\
+Default & ENS & 70 & 602,868 & $73.200 \pm 1.493$ & $0.001, 0$\\
+Default & Private last & 128 & 604,700 & $75.200 \pm 0.529$ & $0.001, 0$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Private-last minus ENS is $+2.500$, $+2.200$ and $+0.200$ points for
+the selected candidates, with mean $+1.633$. The common-default
+contrast is $+2.000$ points. The selected result differs from the
+earlier six-arm normalized-Cora study: validation now chooses
+$(0.001,0.01)$ and test accuracy is 74.500\%, rather than the earlier
+75.233\% at $(0.001,0)$. We retain both results and do not claim exact
+numerical replication. The cause of the changed training outcome has
+not been established. This is another post hoc check on the same graph,
+not an independent task. The public artifact retains the same
+validation/test evidence types as the WikiCS comparison.
+
+The nominal paired-seed interval for the selected private-last-minus-ENS
+contrast is $[-1.473,+4.739]$ points (sample SD 1.250).
+It has the same selection and distributional limitations as the other
+seed intervals. Its width reflects the uncertainty from only three seeds.
+
+For normalized Cora, the same three-block timing recipe gives selected
+seed-0 latencies of 1.009, 3.769 and 4.218 ms for BASE, ENS and
+private-last. Peak allocated memory is 43.30, 33.72 and 44.39 MB.
+All 900 timing samples and selected-checkpoint bindings are supplied.
+These are resident-graph measurements on one A100 after training.
