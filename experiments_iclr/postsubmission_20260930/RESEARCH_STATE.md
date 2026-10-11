@@ -44,3 +44,7 @@ The first full-input qualifier failed on an unsupported PyTorch2.1.2 Xavier init
 ## PubMed LM4 qualify admission
 
 Exact missing metadata was restored. Preparation closed successfully with frozen SELECT/CAL/DEV roles and three label-free landmark/BFS capsules. One material full-input qualifier is admitted; its launch and result remain to verify. No model acquisition is admitted yet.
+
+## PubMed LM4 acquire admission
+
+The single material full-input qualifier passed all8 interfaces,4 discarded source/26 stage2 updates, second-step memory gradients, exact state restoration and full equipped I4 serving within finite caps. The unchanged complete36-bank/54-trajectory comparison is admitted; actual launch remains to verify. No partial development outcomes were used and no quality/novelty conclusion follows from qualification.
