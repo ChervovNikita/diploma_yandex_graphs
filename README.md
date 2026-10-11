@@ -21,19 +21,21 @@ BatchEnsemble is established prior work ([Wen et al., 2020](https://arxiv.org/ab
 
 ## Research status — 11 October 2026
 
-**The recurrent-memory experiment is training.** All nine new source ancestors and the first decoder-only control are complete; the recurrent single-model reference is in progress. Its full-graph implementation check passed one complete training update plus checkpoint and RNG restoration. A separate small GPU fixture verified derivatives to the private factors with a nonzero readout. These checks establish execution readiness; prediction results are pending.
+**Both memory studies are training.** Physics GRU has completed 11 of its 30 new fit groups and remains live. Its full-graph implementation check passed one complete training update plus checkpoint and RNG restoration. A separate small GPU fixture verified derivatives to the private factors with a nonzero readout. PubMed LM4's v2 full-input qualifier passed all eight interfaces, with four source and 26 stage2 updates, in 21.137 seconds with 4.45 GB peak CUDA reserved memory. Its fresh acquisition was verified live at 19:57:50 UTC. These checks establish execution readiness; prediction results are pending.
 
 | Direction | Dataset / backbone | Current state | Scientific purpose |
 | --- | --- | --- | --- |
 | Common local representation + private recurrent graph memory | Coauthor Physics / source meanSAGE | Training: 9 new ordinary ancestors, then 21 candidate/control groups containing 39 further training runs | Test whether privately adapted graph history adds useful correct predictions beyond capable singles and independent ensembles |
-| Parallel landmark memory | PubMed / factorized [PolyFormer (KDD 2024)](https://doi.org/10.1145/3637528.3671849) | Prospective design and implementation; training has not started | Supply nonlocal graph evidence where every current member makes the same error; compare equally equipped singles and independent ensembles |
+| Parallel landmark memory | PubMed / factorized [PolyFormer (KDD 2024)](https://doi.org/10.1145/3637528.3671849) | Training: 12 fresh source ancestors, then 24 candidate/control groups containing 42 further training runs | Supply nonlocal graph evidence where every current member makes the same error; compare equally equipped singles and independent ensembles |
 | Complete-family error analysis | All completed studies | Updated after each family closes | Separate weak member predictions, missing correct alternatives and alternatives lost during averaging |
 
-Research currently uses the authorized one-GPU allocation. The second architecture is being prepared for a separate process on that allocation. Current status distinguishes preparation, training and completed prediction evidence.
+Both studies run as separate processes on the authorized one-GPU allocation. Current status distinguishes preparation, training and completed prediction evidence.
 
 - [Live research state](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md) and [research ledger](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/research_ledger.json)
 - [Current recurrent-memory protocol and source](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/native_meanSAGE_private_GRU_execution_source_20261011_v1/README.md)
 - [Actual training launch](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/private_GRU_acquisition_root_20261011_v1/ACTUAL_LAUNCH.json)
+- [Current PubMed landmark-memory protocol and v2 source](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/pubmed_private_landmark_memory_execution_source_20261011_v2/README.md)
+- [Actual PubMed acquisition launch](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/pubmed_private_landmark_memory_activation_root_20261011_v2/acquire/ACTUAL_LAUNCH.json)
 - [Complete outcomes and their reference limits](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/complete_quality_gain_reference_confirmation_evidence_map_20261011_v1/REPORT.md)
 
 ### Current recurrent-memory architecture
@@ -60,6 +62,12 @@ All four memory routes use the same slow GRU weights. Each traverses the complet
 The fixed comparison includes decoder-only continuation, ordinary and factorized single learners using all four traversals, private native-factor placement, and genuine ordinary/factorized independent ensembles. Each independent learner has its own optimizer, validation selection and four traversals. Member competence compares four private candidate routes with four independent body-average predictions. All runs and calibration endpoints must finish before development outcomes are released together.
 
 Recurrent BatchEnsemble, gated graph models and graph memory have prior literature. [Closest primary comparisons and conditional follow-up controls](https://github.com/ChervovNikita/diploma_yandex_graphs/blob/codex/postsubmission-research-20260930/experiments_iclr/postsubmission_20260930/common_P1_private_memory_primary_comparison_20261011_v1/REPORT.md) describe those overlaps. A new methodological advantage remains unproven. A worthwhile prediction result must survive stronger references, mechanism controls and an unused confirmation pipeline before paper promotion.
+
+### Current landmark-memory architecture
+
+LM4 uses one freshly learned native PolyFormer source. Its raw representation immediately before the class head is frozen. Four groups of fixed, label-free graph landmarks use private learned address offsets to collect remote node evidence. Graph-distance biases condition this exchange. Shared attention maps read that memory back into the common representation, and a shared native class head produces four route predictions whose class probabilities are averaged.
+
+S64 and FS64 equip single learners with all 64 landmarks and ordinary or factorized memory maps. Their I4 references contain four complete, independently selected equipped learners, each using its own fresh source ancestor. Competence compares four private LM4 routes with four independent bodies. All 36 fresh fit groups, 54 optimizer trajectories and 39 calibration endpoints must close before one complete development release. PubMed is an encountered graph; fresh roles do not establish unused confirmation. No quality or novelty advantage is claimed.
 
 ## Strongest complete quality evidence
 
