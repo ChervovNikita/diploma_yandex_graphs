@@ -2,6 +2,14 @@
 
 ## Comprehensive study preparation — 13 October 2026
 
+**Audit update:** source contracts for the four copied-native relation-credit policies and the complete six-condition private-hop panel are closed. The relation successor adds 12 fits; the complete hop panel adds 42. Source budgets remain 1,100/local100 and 2,000/patience250 respectively. The relation18 record reuses the relation12 banks and six references. Current source ports do not use historical checkpoints or scores.
+
+The actual checkpoint writer exposed NumPy RNG serialization and Single8 delegated-clock restoration bugs. Narrow successors repair these paths without changing the learning procedures. Fourteen synthetic CPU cases verify source model/Adam/RNG replay, handoff and stopping; these are engineering checks with no benchmark score. Failed attempts and their costs remain recorded. The cumulative controller passes 2,601 metadata pre-fit dispatch cases and rejects 270 altered contracts.
+
+The full source coverage join, additional postfit procedures, resource/retention budget and final bundle are still being completed. Candidate24 counts below are the earlier frozen snapshot, not final approval counts. Massive scientific training remains disabled pending the user's verification and GO.
+
+- [Root source audit and preserved failures](experiments_iclr/postsubmission_20260930/all_method_gap_ports_root_20261013_v3/AUDIT_CLOSURE.md)
+
 The current disabled source union has **79,485 model-fit groups in 92 study specifications**, across **12 distinct datasets and 16 named backbone architectures**. These include tuning, repeated seeds, independent member fits and paid stages. No new massive-study training has started and no GO exists.
 
 The exact-source coverage audit is **not yet complete**. Candidate24 contains 249 prepared recipe rows (221 scientific variants and 28 references/controls), while 14 implemented procedure/control rows still need source ports. Hidden-state head refits, learned graph aggregation, affine head-capacity controls, configured relation/private-hop variants, structural/cardinality and count-conditioned procedures are being integrated. A named nonlinear-head alias has no nonlinear implementation in its claimed source; it remains an explicit source mismatch.
