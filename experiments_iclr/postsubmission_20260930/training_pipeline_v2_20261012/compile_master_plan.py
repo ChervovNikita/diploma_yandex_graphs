@@ -25,11 +25,14 @@ from spec import canonical, fingerprint, validate
 MIB = 1024 ** 2
 CONTROLLER_FILES = ('engine.py', 'metrics.py', 'spec.py', 'registry.py', 'partition.py',
                     'run_study.py', 'run_endpoint.py', 'launcher.py', 'phase_closure.py',
-                    'author_cli_spec.py', 'run_author_cli.py')
+                    'author_cli_spec.py', 'run_author_cli.py', 'phase_rendezvous.py', 'start_massive.sh',
+                    'compile_master_plan.py', 'prepare_node_data.py')
 STAGE_KIND = {'search': 'model_fit', 'comparative': 'model_fit', 'search_selection': 'selection',
               'bank_export': 'ensemble_assembly', 'calibration': 'calibration', 'evaluation': 'evaluation',
               'author_cli': 'author_cli_group'}
 SCOPES = {'measured', 'measured_proxy', 'provisional', 'mixed', 'unknown'}
+POLYFORMER_MODES = {'polyformer_single', 'polyformer_factorized_single', 'polyformer_internal_be',
+                    'polyformer_original_boundary_own', 'polyformer_boundary_equipped_M1_own'}
 
 
 def safe_path(root, value):
@@ -96,21 +99,36 @@ def fit_semantics(run):
     unit, maximum = budget['unit'], budget['maximum']
     if budget['policy'] != 'full_budget':
         raise ValueError('Master only supports the registered full-budget controller')
-    if 'source_arm' in config and 'source_optimizer_count' in config:
+    if ('source_arm' in config and 'source_optimizer_count' in config
+            and 'link_inputs' not in config and 'molecular_inputs' not in config):
         objects = number(config['source_optimizer_count'], 'source optimizer objects', integer=True)
         bodies = 4 if config['source_arm'] == 'untied' else 1
         if objects != (4 if config['source_arm'] == 'untied' else 1) or unit != 'epochs':
             raise ValueError('Coordinate four-object source cycles require epochs and the exact ownership count')
         calls = objects * maximum
         law = 'coordinate_full_graph_source_cycles'
+    elif 'molecular_inputs' in config:
+        objects, bodies, calls, law = 1, 1, None, 'molecular_minibatch_updates_per_epoch_unresolved'
+        if 'train_minibatches_per_epoch' in config:
+            if unit != 'epochs':
+                raise ValueError('Molecular minibatch accounting requires an epoch budget')
+            batches = number(config['train_minibatches_per_epoch'], 'bound TRAIN minibatches per epoch', integer=True)
+            calls, law = batches * maximum, 'molecular_bound_minibatch_calls_per_full_epoch'
+    elif 'link_inputs' in config:
+        objects, bodies, calls, law = 1, 1, None, 'link_native_minibatch_updates_per_epoch_unresolved'
+        if 'train_minibatches_per_epoch' in config:
+            if unit != 'epochs':
+                raise ValueError('Link native minibatch accounting requires full epochs')
+            batches = number(config['train_minibatches_per_epoch'], 'bound link TRAIN minibatches per epoch', integer=True)
+            calls, law = batches * maximum, 'link_bound_native_drop_tail_minibatch_calls_per_full_epoch'
+    elif config.get('polyformer_mode') in POLYFORMER_MODES:
+        if unit != 'optimizer_updates':
+            raise ValueError('Pinned PolyFormer controller owns one grouped optimizer per declared update')
+        objects, bodies, calls, law = 1, 1, maximum, 'polyformer_one_grouped_optimizer_one_shared_slow_body'
     elif config.get('architecture') in {'single', 'factorized_single', 'original_gnnm', 'internal_be', 'joint_untied'}:
         objects, bodies = 1, 4 if config['architecture'] == 'joint_untied' else 1
         calls = maximum if unit == 'optimizer_updates' else None
         law = 'native_one_optimizer_per_declared_update'
-    elif 'molecular_inputs' in config:
-        objects, bodies, calls, law = 1, 1, None, 'molecular_minibatch_updates_per_epoch_unresolved'
-    elif 'link_inputs' in config:
-        objects, bodies, calls, law = 1, 1, None, 'link_native_minibatch_updates_per_epoch_unresolved'
     else:
         raise ValueError('Unknown fit optimizer/body semantics; prepare an exact source-specific packet first')
     if unit == 'optimizer_updates' and objects != 1:
@@ -164,7 +182,25 @@ def bank_roster(study):
                     or any(routes(r) != 1 or fit_semantics(r)['optimizer_objects'] != 1 for r in parents)
                     or len({actual_seed(r) for r in parents}) != 4):
                 raise ValueError('Genuine I4 requires four separately initialized one-route optimizer trajectories')
-            configs = [{k: v for k, v in r['config'].items() if k not in excluded} for r in parents]
+            if any(any(r.get(key) != parents[0].get(key)
+                       for key in ('method', 'adapter', 'split', 'seed', 'budget', 'selection'))
+                   for r in parents[1:]):
+                raise ValueError('Equipped I4 members differ in their method/source/budget/selector contract')
+            rng_excluded = set(excluded)
+            if parents[0]['config'].get('polyformer_mode') in POLYFORMER_MODES:
+                streams = [r['config'].get('dropout_seeds') for r in parents]
+                if (any(not isinstance(seeds, list) or not seeds
+                        or any(type(seed) is not int for seed in seeds)
+                        or len(set(seeds)) != len(seeds) for seeds in streams)
+                        or any(set(streams[i]) & set(streams[j]) for i in range(4) for j in range(i))):
+                    raise ValueError('Pinned PolyFormer I4 requires disjoint explicit private dropout seeds')
+                rng_excluded.add('dropout_seeds')
+                if parents[0]['config'].get('factor_initialization') == 'first_rademacher':
+                    seeds = [r['config'].get('factor_seed') for r in parents]
+                    if any(type(seed) is not int for seed in seeds) or len(set(seeds)) != 4:
+                        raise ValueError('Pinned PolyFormer I4 requires distinct explicit factor seeds')
+                    rng_excluded.add('factor_seed')
+            configs = [{k: v for k, v in r['config'].items() if k not in rng_excluded} for r in parents]
             if any(c != configs[0] for c in configs[1:]):
                 raise ValueError('Equipped I4 members have different learning/data/selection contracts')
         banks.append({'run_id': row['run_id'], 'method': row['method'], 'split': row['split'], 'seed': row['seed'],
@@ -478,7 +514,11 @@ def assemble(root, packets, ready, controller, controller_files, resources, outp
         raise ValueError('Resource profile names an absent study')
     merge_bindings(*(s['source']['files'] for s in studies))
     records, deps = graph_check(studies, barriers)
-    parents = {s['study_id']: s['study_id'] for s in studies}
+    granularity = resources.get('group_granularity', 'study')
+    if granularity not in {'study', 'dependency'}:
+        raise ValueError('Use explicit study or actual dependency-component grouping')
+    parents = ({key: key for key in records} if granularity == 'dependency' else
+               {s['study_id']: s['study_id'] for s in studies})
     def find(identifier):
         while parents[identifier] != identifier:
             parents[identifier] = parents[parents[identifier]]
@@ -488,19 +528,31 @@ def assemble(root, packets, ready, controller, controller_files, resources, outp
         a, b = find(left), find(right)
         if a != b:
             parents[max(a, b)] = min(a, b)
-    for group in original_groups:
-        names = {records[key]['study'] for key in group['run_keys']}
-        for name in names:
-            union(min(names), name)
-    for key, values in deps.items():
-        for value in values:
-            union(records[key]['study'], records[value]['study'])
     components = {}
-    for study in studies:
-        components.setdefault(find(study['study_id']), []).append(study['study_id'])
+    if granularity == 'dependency':
+        for key, values in deps.items():
+            for value in values:
+                union(key, value)
+        for group in original_groups:
+            if group.get('must_remain_together'):
+                for key in group['run_keys']:
+                    union(min(group['run_keys']), key)
+        for key in records:
+            components.setdefault(find(key), []).append(key)
+    else:
+        for group in original_groups:
+            names = {records[key]['study'] for key in group['run_keys']}
+            for name in names:
+                union(min(names), name)
+        for key, values in deps.items():
+            for value in values:
+                union(records[key]['study'], records[value]['study'])
+        for key, value in records.items():
+            components.setdefault(find(value['study']), []).append(key)
     groups = []
-    for identifier, names in sorted(components.items()):
-        keys = sorted(key for key, value in records.items() if value['study'] in names)
+    for identifier, component_keys in sorted(components.items()):
+        keys = sorted(component_keys)
+        names = {records[key]['study'] for key in keys}
         cost = sum(records[key]['run']['config']['estimated_seconds'] for key in keys)
         memory = max(records[key]['run']['config']['reservation_mib'] for key in keys) * MIB
         group = {'id': identifier, 'study_ids': sorted(names), 'run_keys': keys,
@@ -538,6 +590,13 @@ def assemble(root, packets, ready, controller, controller_files, resources, outp
         'host_bindings': copy.deepcopy(host_bindings or {'allocation': {'status': 'pending_live_verification_before_launch'},
             'server77': {'status': 'pending_live_verification_before_launch'}}),
         'scientific_launch_enabled': False, 'human_GO_required': True, 'approval_receipt_created': False}
+    plan['group_granularity'] = granularity
+    if 'phase_rendezvous' in resources:
+        from phase_rendezvous import transport_policy, capacity_report
+        plan['phase_rendezvous'] = copy.deepcopy(resources['phase_rendezvous'])
+        transport_policy(plan, plan['phase_rendezvous'].get('remote_name'))
+        plan['phase_rendezvous_capacity'] = capacity_report(plan, records,
+            {key: {'worker': worker} for key, worker in assigned.items()})
     summary = {'schema': 'disabled-master-summary-v1', 'status': 'PREPARED_DISABLED_REQUIRES_COVERAGE_RESOURCE_REFERENCE_QA_AND_HUMAN_GO',
         'counts': typed_counts(studies), 'input_readiness': ready, 'input_packet_summaries': {p['id']: p['summary'] for p in packets},
         'input_packet_coverages': {p['id']: p['coverage'] for p in packets}, 'per_study': [], 'per_worker': {},
@@ -547,19 +606,27 @@ def assemble(root, packets, ready, controller, controller_files, resources, outp
         'actual_model_fits': 0, 'actual_predictive_scores': 0, 'source_data_arrays_opened': 0,
         'source_data_fingerprint_policy': 'preserved immutable packet declarations; controller rechecks files at admitted execution',
         'unknown_costs_are_not_zero': True, 'remote_capacities_are_planning_bounds_not_live_host_proofs': True}
+    if 'phase_rendezvous_capacity' in plan:
+        summary['phase_rendezvous_capacity'] = plan['phase_rendezvous_capacity']
     for study in studies:
         keys = [key for key, value in records.items() if value['study'] == study['study_id']]
         references = reference_matches(study)
         if any(not row['matched'] for row in references):
             raise ValueError('Rewritten master lost a matched reference cohort')
+        workers = sorted({assigned[key] for key in keys})
         summary['per_study'].append({'study_id': study['study_id'], 'dataset': study['dataset'], 'origin': origins[study['study_id']],
             'counts': typed_counts([study]), 'references': references,
-            'worker': assigned[keys[0]], 'estimated_gpu_seconds': sum(records[k]['run']['config']['estimated_seconds'] for k in keys),
+            'worker': workers[0] if len(workers) == 1 else None, 'workers': workers,
+            'estimated_gpu_seconds': sum(records[k]['run']['config']['estimated_seconds'] for k in keys),
             'reservation_mib': max(records[k]['run']['config']['reservation_mib'] for k in keys),
             'resource_scope': study['resources']['master_resource_scope'],
             'preserved_comparison_contracts': study['comparisons'], 'preserved_data_evidence': study['data']['evidence']})
     for worker in DEFAULT_WORKERS:
-        own = [s for s in studies if assigned[s['study_id'] + '/' + s['runs'][0]['run_id']] == worker]
+        own = []
+        for study in studies:
+            own_runs = [run for run in study['runs'] if assigned[study['study_id'] + '/' + run['run_id']] == worker]
+            if own_runs:
+                own.append({**study, 'runs': own_runs})
         reservations = sorted((r['config']['reservation_mib'] for s in own for r in s['runs']), reverse=True)
         pair = sum(reservations[:2]) * MIB
         summary['per_worker'][worker] = {'study_ids': [s['study_id'] for s in own], 'counts': typed_counts(own),

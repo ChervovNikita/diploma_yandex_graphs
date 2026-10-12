@@ -6,9 +6,29 @@ The collector cannot invent missing host results or waive failed comparisons.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import tempfile
 
 from spec import canonical, confined, fingerprint
+
+
+def install_proof(path, value):
+    """Publish complete bytes atomically; never replace a retained proof."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw = (canonical(value) + '\n').encode()
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix='.phase-close-', delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def expected_keys(plan, runs, placement, gate_name, host):
@@ -57,9 +77,7 @@ def write_host_receipts(root, plan, digest, runs, placement, registry, host, alr
                  "plan_hash": digest, "run_keys": keys, "results": results,
                  "closure_authority": "whole_assigned_host_registry",
                  "terminal_roster": True, "all_successful": all(states[key] == 'complete' for key in keys)}
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("x") as stream:
-            stream.write(canonical(value)+"\n")
+        install_proof(path, value)
         already_closed.add(name)
 
 
@@ -95,8 +113,7 @@ def collect(root, plan, digest, runs, placement, gate_name):
     value = {"status": "complete", "plan_hash": digest, "closed_phase": gate_name,
              "host_receipts": proofs, "closure_authority": "all_declared_hosts_with_exact_contracts",
              "terminal_roster": True, "all_successful": all_successful}
-    with target.open("x") as stream:
-        stream.write(canonical(value)+"\n")
+    install_proof(target, value)
     return value
 
 

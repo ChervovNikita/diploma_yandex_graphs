@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -316,6 +317,121 @@ def worker_script(kind):
     raise ValueError('Unsupported execution kind: ' + str(kind))
 
 
+def process_identity(pid):
+    """Linux process identity; a recycled PID never establishes custody."""
+    try:
+        value = (Path('/proc') / str(pid) / 'stat').read_text().rsplit(')', 1)[1].split()
+    except FileNotFoundError:
+        return None
+    if value[0] == 'Z':
+        return None
+    return {'pid': pid, 'start_ticks': int(value[19]), 'pgid': int(value[2])}
+
+
+def live_owned(value):
+    if not isinstance(value, dict) or set(value) != {'pid', 'start_ticks', 'pgid'}:
+        raise ValueError('Incomplete startup process custody')
+    return process_identity(value['pid']) == value
+
+
+def receipt_authentication(root, plan):
+    """Check the approved existing remote before starting scientific children."""
+    from phase_rendezvous import transport_policy
+    policy = transport_policy(plan, plan.get('phase_rendezvous', {}).get('remote_name'))
+    if plan.get('phase_rendezvous_capacity', {}).get('all_hosts_fit_fixed_limits') is not True:
+        raise ValueError('The approved plan must qualify every host phase proof against transport limits')
+    env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
+    if 'GIT_SSH_COMMAND' not in env:
+        env['GIT_SSH_COMMAND'] = 'ssh -o BatchMode=yes -o StrictHostKeyChecking=yes'
+    def command(args):
+        result = subprocess.run(['git', '-C', str(root), *args], env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                timeout=60, check=False)
+        if result.returncode:
+            # Git diagnostics may echo private URLs. Never print them.
+            raise RuntimeError('Existing Git authentication is unavailable for phase synchronization')
+        return result.stdout.strip()
+    repository = Path(command(['rev-parse', '--show-toplevel']).decode()).resolve()
+    if not Path(root).resolve().is_relative_to(repository):
+        raise ValueError('Receipt source must be the project Git repository')
+    remote = command(['remote', 'get-url', policy['remote_name']])
+    if hashlib.sha256(remote).hexdigest() != policy['remote_url_sha256']:
+        raise ValueError('Existing Git remote differs from the approved receipt destination')
+    command(['ls-remote', '--heads', policy['remote_name'],
+             'refs/heads/codex/phase-receipts/' + fingerprint(plan) + '/*'])
+    return repository, policy
+
+
+def install_startup_owner(path, value):
+    temporary = path.with_name(path.name + '.' + str(os.getpid()) + '.tmp')
+    try:
+        with temporary.open('x') as stream:
+            stream.write(canonical(value) + '\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def detach_host(root, plan_path, approval_path, host, python):
+    """Start one detached supervisor and one GO-bound receipt sidecar per host."""
+    plan, digest, _, _, _, _ = load_plan(root, plan_path, approval_path)
+    host_check(host, plan)
+    repository, policy = receipt_authentication(root, plan)
+    output = confined(root, plan['output_root'])
+    output.mkdir(parents=True, exist_ok=True)
+    owner_path = output / (host + '.startup-owner.json')
+    with (output / (host + '.startup.lock')).open('a+') as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        previous = json.loads(owner_path.read_text()) if owner_path.exists() else None
+        alive = {}
+        if previous is not None:
+            if previous.get('host') != host or previous.get('plan_hash') != digest:
+                raise ValueError('Startup custody belongs to a different plan or host')
+            if any(name not in previous for name in ('supervisor', 'rendezvous')):
+                raise RuntimeError('Partial startup custody remains; inspect it before continuing')
+            alive = {name: live_owned(previous[name]) for name in ('supervisor', 'rendezvous')}
+            if any(alive.values()) and not all(alive.values()):
+                raise RuntimeError('Only one startup process remains alive; inspect custody before continuing')
+            if all(alive.values()):
+                return {'status': 'already_running', **previous,
+                        'scientific_children_restarted': False, 'slots_per_gpu': 2}
+        # Check the actual runtime scripts before either detached process starts.
+        package = Path(__file__).resolve().parent
+        sidecar = package / 'phase_rendezvous.py'
+        if not sidecar.is_file():
+            raise ValueError('Missing frozen phase synchronization runtime')
+        commands = {
+            'rendezvous': [str(python), '-B', '-u', str(sidecar), '--project-root', str(root),
+                '--plan', str(Path(plan_path).resolve()), '--approval', str(Path(approval_path).resolve()),
+                '--host', host, '--source-repository', str(repository),
+                '--remote', policy['remote_name'], '--watch'],
+            'supervisor': [str(python), '-B', '-u', str(package / 'launcher.py'),
+                '--project-root', str(root), '--plan', str(Path(plan_path).resolve()),
+                '--approval', str(Path(approval_path).resolve()), '--host', host, '--python', str(python)]}
+        owner = {'host': host, 'plan_hash': digest}
+        for name in ('rendezvous', 'supervisor'):
+            log_path = output / (host + '.' + name + '.startup.log')
+            with log_path.open('a') as log:
+                child = subprocess.Popen(commands[name], cwd=root, stdin=subprocess.DEVNULL,
+                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            identity = process_identity(child.pid)
+            if identity is None:
+                raise RuntimeError(name + ' exited before startup custody could be recorded')
+            owner[name] = identity
+            # Preserve partial startup custody even if the second process fails.
+            partial = output / (host + '.startup-attempt-' + str(child.pid) + '.json')
+            with partial.open('x') as stream:
+                stream.write(canonical(owner) + '\n')
+            install_startup_owner(owner_path, owner)
+            time.sleep(1)
+            if child.poll() is not None:
+                raise RuntimeError(name + ' exited during startup; inspect ' + str(log_path))
+        return {'status': 'started', **owner, 'survives_SSH_or_MacLink_disconnect': True,
+                'slots_per_gpu': 2, 'phase_sync_requires_MacLink': False}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", required=True)
@@ -338,23 +454,7 @@ def main():
     if args.detach:
         if args.preflight_only:
             raise ValueError("A preflight does not start a supervisor")
-        plan, digest, _, _, _, _ = load_plan(root, args.plan, args.approval)
-        host_check(args.host, plan)
-        output = confined(root, plan["output_root"])
-        output.mkdir(parents=True, exist_ok=True)
-        log = (output / (args.host + ".startup.log")).open("a")
-        command = [str(python), "-B", "-u", str(Path(__file__).resolve()),
-                   "--project-root", str(root), "--plan", str(Path(args.plan).resolve()),
-                   "--approval", str(Path(args.approval).resolve()), "--host", args.host,
-                   "--python", str(python)]
-        child = subprocess.Popen(command, cwd=root, stdin=subprocess.DEVNULL, stdout=log,
-                                 stderr=subprocess.STDOUT, start_new_session=True)
-        log.close()
-        time.sleep(1)
-        if child.poll() is not None:
-            raise RuntimeError("Supervisor exited during startup; inspect " + str(output / (args.host + ".startup.log")))
-        print(canonical({"supervisor_pid": child.pid, "host": args.host, "plan_hash": digest,
-                         "survives_SSH_or_MacLink_disconnect": True, "slots_per_gpu": 2}))
+        print(canonical(detach_host(root, args.plan, args.approval, args.host, python)))
     else:
         run_supervisor(root, Path(args.plan), Path(args.approval) if args.approval else None,
                        args.host, python, preflight_only=args.preflight_only)

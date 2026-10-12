@@ -17,7 +17,7 @@ Use a project-relative JSON index with schema `disabled-master-input-index-v1`. 
 }
 ```
 
-Pending rows may bind a `manifest` receipt; their source/data blockers and prospective formulas remain visible, but **unmaterialized forecasts are not added to registered fit totals**. The current link TRAIN/SELECT qualification does not supply final TEST custody. Native resource qualification remains incomplete until its complete measured roster is retained. The molecular four-study/24,560-fit disabled packet is an input scope, not a migration or ALL249 claim.
+Pending rows may bind a `manifest` receipt; their source/data blockers and prospective formulas remain visible, but **unmaterialized forecasts are not added to registered fit totals**. The current link packets have sealed query/target custody; the new126-fit boundary reference is a declared link-task adaptation. Native maximum-shape qualification is closed but does not qualify the full practical factories or concurrent throughput. Molecular v4 and all original unrestricted packets remain separate immutable input scopes, not an ALL249 claim.
 
 `--mode dry-run` is the default. It verifies metadata receipts, canonical study hashes, schema, disabled/no-GO flags, run assignments/dependency DAG, known optimizer/body semantics, bank ancestry, and required reference cohorts, then prints readiness. Invalid inputs are listed and return exit2. Duplicate study IDs across packets, conflicting immutable source/data bindings, and ambiguous identities fail; nothing is silently deduplicated. Run IDs are scoped by study, so legitimate repeated names in different studies remain distinct `study_id/run_id` identities. Repeated run IDs within a study fail.
 
@@ -51,7 +51,7 @@ All totals are **registered maxima, not executed work**. No model update, scalar
 
 ## Placement and measured/provisional cost scopes
 
-`--resources` supplies positive byte capacities for exactly `allocation/gpu0`, `server77/gpu0`, `server77/gpu1`. These are planning bounds, not live hardware proofs or permission for remote execution. Two slots per GPU are retained. Every whole study remains one dependency group; original multi-study groups and cross-study barriers join connected studies onto the same GPU. Missing parents, repeated assignments and cycles fail.
+`--resources` supplies positive byte capacities for exactly `allocation/gpu0`, `server77/gpu0`, `server77/gpu1`. These are planning bounds, not live hardware proofs or permission for remote execution. Two slots per GPU are retained. Explicit `group_granularity=dependency` balances actual connected run dependencies, retaining declared `must_remain_together` locks. Every parent/child component stays on one GPU/host; independent method components can use different GPUs within one study. Default study grouping remains available. Missing parents, repeated assignments and cycles fail.
 
 Source reservations and estimated seconds are retained by default. Optional `study_profiles` classify memory/time separately using `kind` in `measured`, `measured_proxy`, `provisional`, `mixed`, `unknown`, a plain `scope`, and evidence for measured claims. A profile may override specified runs only:
 

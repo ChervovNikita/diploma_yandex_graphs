@@ -13,8 +13,11 @@ This package replaces fragmented training loops with explicit data, source, budg
 - Pinned PolyFormer mono model/preprocessing/Adam groups and molecular GINE connections. Source attribution stays distinct from an author-protocol replication.
 - Two slots per GPU, fixed assignments across three GPUs, memory-aware admission, and distributed phase closure before later training/scoring.
 - One detached startup command per host after approval; frozen runtime packages prevent subsequent source edits from changing an admitted run.
+- The startup command also detaches a metadata-only Git phase sidecar, so phase completion does not depend on the paired Mac staying connected. Exact process custody prevents duplicate launches.
 
 Allocation CPU snapshot `qa/cpu_multitask_source_v7` passes66 engineering checks with no skips. Later molecular endpoint extension passes32 targeted checks in `qa/cpu_molecular_endpoints_v8`. Fixtures establish software behavior, not predictive quality or convergence. The pipeline does not claim universal compatibility.
+
+Frozen common controller `master_controller_source_20261012_v1/runtime` passes41focused allocation checks in `qa/cpu_controller_final_v25`. Actual packet metadata checks identified and corrected PolyFormer/context comparison labels in new immutable versions. Source-specific optimizer, private RNG and I4 budget/selector contracts are counted explicitly; auxiliary parameter groups are not extra optimizers. Receipt sizes are bounded before GO.
 
 ## Data prepared on the allocation
 
