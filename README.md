@@ -2,39 +2,20 @@
 
 ## Comprehensive study preparation — 12 October 2026
 
-The current disabled roster contains **74,340 model-fit groups across 75 studies**. It registers 353,780,448–353,781,960 model optimizer calls; the range includes finite paid curvature trials. Two source-author tracks add 88 process groups/160 trajectories with a 4,428,000-call upper bound. These are planned costs, not completed experiments.
+The current **intermediate, disabled** roster contains **78,279 model-fit groups across 84 studies**, with 383,325,702–507,067,560 committed model optimizer calls registered as bounds. Native author CLI tracks are counted separately. These are planned costs; no new massive-study fit has started and no approval receipt exists.
 
-Original GNNM is a baseline on compatible new data. Roman Empire, Amazon Ratings, Minesweeper, Questions and Tolokers are excluded for every method, and original reported scores stay unchanged. The current work covers node classification, molecular graph classification, link prediction and raw-attribute Twitch-DE. New scientific runs remain disabled pending the user's review and GO.
+The latest additions close the retained NCNC private versus pooled-completion methods, BUDDY shared-cache predictors, typed HGT and mixed objectives, FiLM, and Bayesian rank-one factors. Their native/source controls, genuine independent ensembles and explicit original-GNNM task adaptations are registered. Original GNNM paper scores are unchanged. Roman Empire, Amazon Ratings, Minesweeper, Questions and Tolokers are excluded for every method.
 
-The source packets now include native/independent controls, SAGE joint and ordered paths, Polynormer alignment/credit/views, link frames/pooling, paid growth, sheaf transport/geometry and paid curvature initialization. The full native heterogeneous packet is being merged. Sources and failed preparations remain preserved; none of these preparation checks establishes a new accuracy gain or novelty.
+This is not the final proposal for approval. An exact source join found **27 further variants whose full training procedures still need ports or explicit mappings**. Those are being prepared; the final counts will change. Remaining resource work includes source-family memory/storage envelopes, two-slot concurrency admission, selected-checkpoint and replay lifetimes, and verification of 18.77 after the user restores access. Scheduling weights are not a runtime estimate.
 
-Within each study, all comparisons use one GPU. Startup supports one command per GPU under one supervisor per host, with at most two concurrent fits per GPU and memory-aware single-job admission. Existing allocation-only authorization remains active; no 18.77 connection was attempted.
+The source-specific training protocols retain full-budget runs or native patience/caps as declared, save selected and terminal states separately, preserve failed attempts and charge paid stages. Large fits run alone when two cannot fit safely. A separate source-only replay proposal may remove duplicated model-free integer tapes; it is not adopted before full-source equivalence and RNG checks.
 
-All 67 neighborhood/feature/message/hop resource cases closed after correcting one missing input declaration and repeating only 14 failed cases. A lossless shared-tensor checkpoint fix passed 6 CPU restore/mutation tests. Storage is still a material gate: current strictly priced v17 checkpoints project to 733 GB for 13,928 fits, with 56,764 fits unpriced; the full native heterogeneous source projects about 12.2 TB even after the clone fix. These are partial projections, not storage admission or ETA.
+- [Exact intermediate method roster](experiments_iclr/postsubmission_20260930/human_master_v22_roster_root_20261012_v1/METHOD_ROSTER.csv)
+- [Registered hyperparameters and source learning contracts](experiments_iclr/postsubmission_20260930/human_master_v22_roster_root_20261012_v1/EXACT_PROTOCOLS.json)
+- [Study descriptions and immutable source references](experiments_iclr/postsubmission_20260930/human_master_v22_roster_root_20261012_v1/STUDIES.json)
+- [Lossless reviewed source and metadata archive](experiments_iclr/postsubmission_20260930/publication/Expanded_native_ports_master_v22_20261012_v1/SOURCE_ARCHIVE_INDEX.json)
 
-See [current source/data roster](experiments_iclr/postsubmission_20260930/training_pipeline_v2_20261012/docs/INTEGRATED_RUN_ROSTER_20261012_V18.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md) and [exact source archive index](experiments_iclr/postsubmission_20260930/publication/Master_v18_source_storage_20261012_v2/ARCHIVE_INDEX.json). Verify archived source with `python3 experiments_iclr/postsubmission_20260930/publication/Master_v18_source_storage_20261012_v2/rehydrate_source_archives.py`; `--restore` restores missing source/metadata only and refuses overwrites. Dataset/checkpoint payloads are not included in Git.
-
-The final approval package will state the remaining methods, architectures, hyperparameters, costs and GPU assignments. This intermediate roster is not comprehensive-ready.
-
-
-GNNM learns several graph predictors with shared graph-layer weights. Small, trainable BatchEnsemble factors change each member's input and output projectors. Members keep separate hidden states throughout message passing, train on the mean member loss, and average their raw class logits at inference.
-
-Sharing reduces stored weights. Each member still performs its own graph propagation. Our research priority is prediction quality: accurate members whose different predictions improve the final ensemble.
-
-```text
-node features and graph edges
-             |
-  four member input projectors
-             |
-  four separate hidden-state paths
-  using shared graph-layer weights
-             |
-  four member output projectors
-             |
-       average raw logits
-```
-
-BatchEnsemble is established prior work ([Wen et al., 2020](https://arxiv.org/abs/2002.06715)); [Kim, 2023](https://koasas.kaist.ac.kr/handle/10203/308201) previously placed its factors inside GNN layers. Original GNNM uses boundary projectors. The later internal-factor and conditional-message procedures below change that placement or the information supplied to members. Every reported original paper score remains unchanged.
+The existing Physics experiment continues under its original protocol. These preparation checks establish engineering behavior, not a new predictive advantage or methodological novelty.
 
 ## Research status — 12 October 2026
 
