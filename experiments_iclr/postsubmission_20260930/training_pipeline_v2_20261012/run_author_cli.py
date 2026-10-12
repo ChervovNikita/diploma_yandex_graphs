@@ -359,6 +359,10 @@ def execute(root, study_path, run_id, registry_path, output, approval_path, devi
         if path and not Path(path).resolve().is_relative_to(root):
             raise ValueError("Author study, registry, outputs and approval must remain inside the project")
     value,digest = load_author_spec(study_path,root)
+    if value.get("source", {}).get("author_family") == "snap_stanford_ogb_molecular_batchnorm_v1":
+        from run_ogb_author_cli import execute as execute_ogb
+        return execute_ogb(root, study_path, run_id, registry_path, output, approval_path,
+                           device=device, preflight_only=preflight_only)
     rows = [r for r in value["runs"] if r["run_id"]==run_id]
     if len(rows)!=1 or device!="cuda:0":
         raise ValueError("Declare one author CLI group on visible cuda0")

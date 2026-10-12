@@ -27,7 +27,8 @@ CONTROLLER_FILES = ('engine.py', 'metrics.py', 'spec.py', 'registry.py', 'partit
                     'run_study.py', 'run_endpoint.py', 'launcher.py', 'phase_closure.py',
                     'author_cli_spec.py', 'run_author_cli.py', 'phase_rendezvous.py', 'start_massive.sh',
                     'compile_master_plan.py', 'prepare_node_data.py',
-                    'prepare_sync_environment.py', 'prepare_sync_bundle.py')
+                    'prepare_sync_environment.py', 'prepare_sync_bundle.py',
+                    'ogb_author_cli_spec.py', 'run_ogb_author_cli.py', 'ogb_declared_seed_entry.py')
 STAGE_KIND = {'search': 'model_fit', 'comparative': 'model_fit', 'search_selection': 'selection',
               'bank_export': 'ensemble_assembly', 'calibration': 'calibration', 'evaluation': 'evaluation',
               'author_cli': 'author_cli_group'}

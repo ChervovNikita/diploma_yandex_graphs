@@ -44,6 +44,9 @@ def verify_receipt(root, row):
 
 
 def validate_author_spec(value):
+    if isinstance(value, dict) and value.get("source", {}).get("author_family") == "snap_stanford_ogb_molecular_batchnorm_v1":
+        from ogb_author_cli_spec import validate_ogb_author_spec
+        return validate_ogb_author_spec(value)
     if set(value) != AUTHOR_SPEC_FIELDS or value["schema_version"] != 1:
         raise ValueError("Incomplete author CLI study")
     if value["stage"] not in {"development", "engineering"} or not value["hypothesis"]:
@@ -109,6 +112,9 @@ def validate_author_spec(value):
 
 
 def bind_author_files(root, value):
+    if value.get("source", {}).get("author_family") == "snap_stanford_ogb_molecular_batchnorm_v1":
+        from ogb_author_cli_spec import bind_ogb_author_files
+        return bind_ogb_author_files(root, value)
     for row in value["source"]["files"]:
         verify_receipt(root, row)
     for run in value["runs"]:
@@ -148,6 +154,9 @@ def register_author_spec(registry, value):
 
 
 def author_counts(value):
+    if value.get("source", {}).get("author_family") == "snap_stanford_ogb_molecular_batchnorm_v1":
+        from ogb_author_cli_spec import ogb_author_counts
+        return ogb_author_counts(value)
     validate_author_spec(value)
     groups = len(value["runs"])
     return {"author_cli_groups": groups, "author_sequential_repeat_trajectories": groups*10,
