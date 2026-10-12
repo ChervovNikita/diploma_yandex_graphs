@@ -15,7 +15,7 @@ paths=['massive_native_practical_packet_20261012_v1',
  'practical_molecular_packet_20261012_v1','link_boundary_packet_20261012_v3',
  'retained_pt_packet_20261012_v2','gru_memory_packet_20261012_v3',
  'massive_continuous_affinity_packet_20261012_v2','landmark_memory_packet_20261012_v3']
-paths += ['massive_private_source_packets_20261012_v1/'+name
+paths += ['massive_private_source_packets_20261012_v2/'+name
           for name in ('private_cmcl','private_adam','masked_core')]
 missing=[name for name in paths if not (phase/name/'MASTER_INPUT_ENTRY.json').is_file()]
 assert not missing, 'Packets must finish before master materialization: '+str(missing)
