@@ -12,7 +12,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from engine import (AdapterStepError, capture_checkpoint, inspect_independence,
                     inspect_ownership, restore_checkpoint, resume_trajectory, run_trajectory,
-                    _equal_tree)
+                    _equal_tree, checkpoint_receipt)
 
 torch = None
 if importlib.util.find_spec("torch") is not None:
@@ -162,6 +162,8 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(adapter.calls, [1, 2, 3, 4, 5, 6])
             self.assertEqual(result["operation_counts"]["optimizer_updates"], 6)
             self.assertEqual(result["selected"]["step"], 5)
+            self.assertEqual(result['selected_checkpoint'], checkpoint_receipt(
+                output / 'selected.pt', fit_id=result['fit_id'], step=5))
             self.assertEqual(result["first_selector_stop"], 3)
             legacy, cap = result["prefixes"]
             self.assertEqual((legacy["closure_step"], legacy["selected"]["step"]), (3, 1))

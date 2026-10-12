@@ -26,13 +26,18 @@ MIB = 1024 ** 2
 CONTROLLER_FILES = ('engine.py', 'metrics.py', 'spec.py', 'registry.py', 'partition.py',
                     'run_study.py', 'run_endpoint.py', 'launcher.py', 'phase_closure.py',
                     'author_cli_spec.py', 'run_author_cli.py', 'phase_rendezvous.py', 'start_massive.sh',
-                    'compile_master_plan.py', 'prepare_node_data.py')
+                    'compile_master_plan.py', 'prepare_node_data.py',
+                    'prepare_sync_environment.py', 'prepare_sync_bundle.py')
 STAGE_KIND = {'search': 'model_fit', 'comparative': 'model_fit', 'search_selection': 'selection',
               'bank_export': 'ensemble_assembly', 'calibration': 'calibration', 'evaluation': 'evaluation',
               'author_cli': 'author_cli_group'}
 SCOPES = {'measured', 'measured_proxy', 'provisional', 'mixed', 'unknown'}
 POLYFORMER_MODES = {'polyformer_single', 'polyformer_factorized_single', 'polyformer_internal_be',
                     'polyformer_original_boundary_own', 'polyformer_boundary_equipped_M1_own'}
+PT_ARMS = {'ordinary_p1', 'factor_f1', 'factor_s4', 'original_gnnm', 'head_only',
+           'mixed_single', 'bias_coordinate_single', 'private4', 'middle_state_mean',
+           'separable4', 'continued_p1', 'continued_f1'}
+PT_SOURCE_ARMS = {'ordinary_p1', 'factor_f1', 'factor_s4', 'original_gnnm'}
 
 
 def safe_path(root, value):
@@ -99,7 +104,18 @@ def fit_semantics(run):
     unit, maximum = budget['unit'], budget['maximum']
     if budget['policy'] != 'full_budget':
         raise ValueError('Master only supports the registered full-budget controller')
-    if ('source_arm' in config and 'source_optimizer_count' in config
+    if 'pt_stage' in config:
+        arm = config.get('pt_arm')
+        bodies = 4 if arm == 'separable4' else 1
+        if (arm not in PT_ARMS or config['pt_stage'] not in {'source', 'continuation'}
+                or (arm in PT_SOURCE_ARMS) != (config['pt_stage'] == 'source')
+                or config.get('source_optimizer_count') != 1
+                or config.get('physical_slow_bodies') != bodies or unit != 'optimizer_updates'
+                or config.get('architecture') != ('original_gnnm' if arm == 'original_gnnm' else 'retained_pt_routes')):
+            raise ValueError('PT owns explicitly typed source/continuation bodies and one fresh optimizer')
+        objects, calls = 1, maximum
+        law = 'retained_PT_' + config['pt_stage'] + '_one_fresh_optimizer_full_updates'
+    elif ('source_arm' in config and 'source_optimizer_count' in config
             and 'link_inputs' not in config and 'molecular_inputs' not in config):
         objects = number(config['source_optimizer_count'], 'source optimizer objects', integer=True)
         bodies = 4 if config['source_arm'] == 'untied' else 1
@@ -201,6 +217,21 @@ def bank_roster(study):
                         raise ValueError('Pinned PolyFormer I4 requires distinct explicit factor seeds')
                     rng_excluded.add('factor_seed')
             configs = [{k: v for k, v in r['config'].items() if k not in rng_excluded} for r in parents]
+            if parents[0]['config'].get('pt_stage') == 'continuation':
+                from run_study import paid_parent_ids
+                ancestors = [runs.get(paid_parent_ids(r)[0]) for r in parents]
+                if (any(a is None or a['kind'] != 'model_fit'
+                        or a['config'].get('pt_stage') != 'source'
+                        or any(a.get(k) != r.get(k) for k in ('body', 'split', 'seed'))
+                        for a, r in zip(ancestors, parents))
+                        or len({a['run_id'] for a in ancestors}) != 4
+                        or len({actual_seed(a) for a in ancestors}) != 4):
+                    raise ValueError('Continued I4 requires four distinct matching paid source acquisitions')
+                for config, ancestor in zip(configs, ancestors):
+                    config['lifecycle'] = {**config['lifecycle'], 'parent_fit_ids': ['member_paid_source'],
+                        'matching_paid_source_contract': {
+                            **{k: ancestor[k] for k in ('method', 'adapter', 'split', 'seed', 'budget', 'selection')},
+                            'config': {k: v for k, v in ancestor['config'].items() if k not in rng_excluded}}}
             if any(c != configs[0] for c in configs[1:]):
                 raise ValueError('Equipped I4 members have different learning/data/selection contracts')
         banks.append({'run_id': row['run_id'], 'method': row['method'], 'split': row['split'], 'seed': row['seed'],
@@ -254,9 +285,30 @@ def graph_check(studies, barriers):
         deps[key] = [row['study'] + '/' + identifier for identifier in row['run']['parents']] + barriers.get(key, [])
         if len(deps[key]) != len(set(deps[key])) or any(p not in records for p in deps[key]):
             raise ValueError('Missing/repeated master dependency for ' + key)
-        if row['run']['kind'] == 'model_fit' and (row['run']['budget'].get('prefixes')
-                or any(records[row['study'] + '/' + p]['run']['kind'] == 'model_fit' for p in row['run']['parents'])):
-            raise ValueError('Source/warm-start/continuation lifecycle requires its explicit typed adapter contract')
+        if row['run']['kind'] == 'model_fit':
+            from run_study import paid_parent_ids
+            run = row['run']
+            model_parents = [p for p in run['parents']
+                             if records[row['study'] + '/' + p]['run']['kind'] == 'model_fit']
+            paid = paid_parent_ids(run)
+            if run['budget'].get('prefixes') or set(model_parents) != set(paid):
+                raise ValueError('Source/warm-start/continuation lifecycle requires its explicit typed adapter contract')
+            if run['config'].get('pt_stage') == 'continuation':
+                if not paid:
+                    raise ValueError('PT continuation must pay for its own declared source acquisition')
+                parent = records[row['study'] + '/' + paid[0]]['run']
+                expected_arm = 'factor_f1' if run['config']['pt_arm'] == 'continued_f1' else 'ordinary_p1'
+                if (parent['config'].get('pt_stage') != 'source'
+                        or parent['config'].get('pt_arm') != expected_arm
+                        or any(parent.get(k) != run.get(k) for k in ('split', 'seed', 'body'))
+                        or parent['config'].get('stage') != run['config']['stage']
+                        or parent['selection'].get('checkpoint0') is not False
+                        or run['selection'].get('checkpoint0') is not False
+                        or parent['budget']['policy'] != 'full_budget'
+                        or parent['budget']['unit'] != 'optimizer_updates'):
+                    raise ValueError('PT continuation has mismatched or ineligible paid source ancestry')
+            elif paid:
+                raise ValueError('Only the explicitly typed PT continuation lifecycle is admitted')
     if set(barriers) - set(records):
         raise ValueError('Barrier addresses an unknown run')
     done, visiting = set(), set()
@@ -297,7 +349,9 @@ def typed_counts(studies):
             if run['kind'] == 'model_fit':
                 semantics = fit_semantics(run)
                 quantities = {'atomic_fit_run_groups': 1, 'paid_optimizer_starts': semantics['optimizer_objects'],
-                    'physical_slow_body_instances': semantics['physical_slow_bodies'], 'initial_training_segments': 1,
+                    'physical_slow_body_instances': semantics['physical_slow_bodies'],
+                    'initial_training_segments': int(run['config'].get('pt_stage') != 'continuation'),
+                    'paid_continuation_segments': int(run['config'].get('pt_stage') == 'continuation'),
                     'multi_optimizer_cohort_groups': int(semantics['optimizer_objects'] > 1),
                     'multi_route_one_optimizer_groups': int(routes(run) > 1 and semantics['optimizer_objects'] == 1)}
                 units = run['budget']['maximum']
@@ -587,6 +641,8 @@ def assemble(root, packets, ready, controller, controller_files, resources, outp
         'output_root': output_relative + '/execution', 'studies': [], 'groups': placement['groups'],
         'estimated_gpu_seconds': placement['estimated_gpu_seconds'], 'worker_capacities_cuda_bytes': capacities,
         'estimates_are_measurements': False, 'barriers': barriers, 'global_gates': gates,
+        'runtime_compatibility_required': True,
+        'runtime_requirements': copy.deepcopy(resources.get('runtime_requirements')),
         'host_bindings': copy.deepcopy(host_bindings or {'allocation': {'status': 'pending_live_verification_before_launch'},
             'server77': {'status': 'pending_live_verification_before_launch'}}),
         'scientific_launch_enabled': False, 'human_GO_required': True, 'approval_receipt_created': False}

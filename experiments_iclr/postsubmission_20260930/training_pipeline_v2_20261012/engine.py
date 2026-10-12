@@ -7,6 +7,7 @@ adapters must return sample-weighted epoch metrics, not their last minibatch.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
 import re
@@ -14,6 +15,19 @@ import shutil
 import time
 from collections.abc import Mapping
 from pathlib import Path
+
+
+def checkpoint_receipt(path, *, fit_id, step):
+    """Bind a completed selected checkpoint without decoding its tensors."""
+    path = Path(path)
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            size += len(chunk)
+            digest.update(chunk)
+    return {"path": path.name, "bytes": size, "sha256": digest.hexdigest(),
+            "fit_id": fit_id, "step": step}
 
 
 class AdapterStepError(RuntimeError):
@@ -589,6 +603,11 @@ def run_trajectory(torch, adapter, spec, output_dir, *, resource_check=None, _re
             finally:
                 result["costs"]["restore_seconds"] += time.perf_counter() - before
             resource("after_restore")
+            before = time.perf_counter()
+            result["selected_checkpoint"] = checkpoint_receipt(
+                output / "selected.pt", fit_id=spec["fit_id"], step=result["selected"]["step"])
+            result["costs"]["checkpoint_seconds"] += time.perf_counter() - before
+            result["checkpoint_bytes_hashed"] = result["selected_checkpoint"]["bytes"]
             result["status"] = "complete"
         except BaseException as exc:
             if phase == "validation" and not validation_counts_recorded:

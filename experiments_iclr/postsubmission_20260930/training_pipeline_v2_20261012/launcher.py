@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import signal
 import socket
+import sqlite3
 import subprocess
 import sys
 import time
@@ -89,6 +90,33 @@ def host_check(host, plan):
     else:
         raise ValueError("Use allocation or server77")
     return rows
+
+
+def runtime_preflight(plan, python):
+    """Check the actual worker interpreter before starting scientific workers."""
+    if not plan.get('runtime_compatibility_required'):
+        return {'status': 'legacy_plan_without_runtime_preflight', 'scientific_fits': 0}
+    expected = plan.get('runtime_requirements')
+    if not isinstance(expected, dict):
+        raise ValueError('Final master requires captured numerical runtime compatibility pins')
+    package = Path(__file__).resolve().parent
+    for name in ('prepare_sync_environment.py', 'prepare_sync_bundle.py'):
+        if not (package / name).is_file():
+            raise ValueError('Missing frozen runtime compatibility source')
+    code = ('import json,sys;sys.path.insert(0,sys.argv[1]);'
+            'from prepare_sync_environment import verify_runtime_compatibility;'
+            'print(json.dumps(verify_runtime_compatibility(json.loads(sys.argv[2]))))')
+    raw = subprocess.check_output([str(python), '-B', '-c', code, str(package), canonical(expected)],
+                                  text=True, timeout=120)
+    value = json.loads(raw)
+    if (value.get('status') != 'required_runtime_compatibility_passed'
+            or value.get('source_environment_hash') != fingerprint(expected)
+            or value.get('mandatory_numerical_pins_verified') is not True
+            or value.get('native_binary_compatibility_verified') is not True
+            or value.get('CUDA_initialized') is not False
+            or value.get('scientific_fits') != 0):
+        raise ValueError('Runtime compatibility probe did not verify the approved numerical environment')
+    return value
 
 
 def validate_plan(root, plan):
@@ -192,9 +220,11 @@ def run_supervisor(root, plan_path, approval_path, host, python, *, preflight_on
     plan, digest, studies, runs, placement, dependencies = load_plan(
         root, plan_path, None if preflight_only else approval_path)
     observed = host_check(host, plan)
+    runtime = runtime_preflight(plan, python)
     if preflight_only:
         print(canonical({"preflight": "passed", "host": host, "hardware": observed,
-                         "plan_hash": digest, "jobs": len(runs), "scientific_training_runs": 0}))
+                         "plan_hash": digest, "jobs": len(runs), "scientific_training_runs": 0,
+                         "runtime_compatibility": runtime}))
         return
     output = confined(root, plan["output_root"])
     output.mkdir(parents=True, exist_ok=True)
@@ -374,9 +404,36 @@ def install_startup_owner(path, value):
         temporary.unlink(missing_ok=True)
 
 
+def local_terminal_roster(output, host, studies, runs, placement):
+    """Read existing terminal custody without registering, resuming or refitting."""
+    database = output / (host + '.sqlite')
+    expected = {key for key in runs if placement[key]['worker'].startswith(host + '/')}
+    if not database.is_file() or not expected:
+        return None
+    connection = sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)
+    try:
+        actual_specs = dict(connection.execute('SELECT id,spec_hash FROM studies'))
+        for name in {runs[key]['study'] for key in expected}:
+            if actual_specs.get(name) != studies[name]['hash']:
+                raise ValueError('Existing host registry belongs to changed study contracts')
+        states = {study + '/' + identifier: state
+                  for study, identifier, state in connection.execute('SELECT study,id,state FROM runs')}
+    finally:
+        connection.close()
+    if not all(states.get(key) in {'complete', 'failed'} for key in expected):
+        return None
+    return {'terminal_records': len(expected), 'all_successful': all(states[key] == 'complete' for key in expected)}
+
+
+def all_global_gates_closed(root, plan, digest):
+    from phase_rendezvous import verify_global
+    gates = plan.get('global_gates', {})
+    return bool(gates) and all(verify_global(root, plan, digest, name) for name in gates)
+
+
 def detach_host(root, plan_path, approval_path, host, python):
     """Start one detached supervisor and one GO-bound receipt sidecar per host."""
-    plan, digest, _, _, _, _ = load_plan(root, plan_path, approval_path)
+    plan, digest, studies, runs, placement, _ = load_plan(root, plan_path, approval_path)
     host_check(host, plan)
     repository, policy = receipt_authentication(root, plan)
     output = confined(root, plan['output_root'])
@@ -392,12 +449,20 @@ def detach_host(root, plan_path, approval_path, host, python):
             if any(name not in previous for name in ('supervisor', 'rendezvous')):
                 raise RuntimeError('Partial startup custody remains; inspect it before continuing')
             alive = {name: live_owned(previous[name]) for name in ('supervisor', 'rendezvous')}
+            if alive['supervisor'] and not alive['rendezvous'] and all_global_gates_closed(root, plan, digest):
+                return {'status': 'already_running', **previous, 'phase_sync_finished': True,
+                        'scientific_children_restarted': False, 'slots_per_gpu': 2}
+            terminal = local_terminal_roster(output, host, studies, runs, placement)
+            if terminal is not None:
+                return {'status': 'host_roster_terminal', **previous, **terminal,
+                        'phase_sync_alive': alive['rendezvous'], 'scientific_children_restarted': False}
             if any(alive.values()) and not all(alive.values()):
                 raise RuntimeError('Only one startup process remains alive; inspect custody before continuing')
             if all(alive.values()):
                 return {'status': 'already_running', **previous,
                         'scientific_children_restarted': False, 'slots_per_gpu': 2}
         # Check the actual runtime scripts before either detached process starts.
+        runtime = runtime_preflight(plan, python)
         package = Path(__file__).resolve().parent
         sidecar = package / 'phase_rendezvous.py'
         if not sidecar.is_file():
@@ -410,7 +475,7 @@ def detach_host(root, plan_path, approval_path, host, python):
             'supervisor': [str(python), '-B', '-u', str(package / 'launcher.py'),
                 '--project-root', str(root), '--plan', str(Path(plan_path).resolve()),
                 '--approval', str(Path(approval_path).resolve()), '--host', host, '--python', str(python)]}
-        owner = {'host': host, 'plan_hash': digest}
+        owner = {'host': host, 'plan_hash': digest, 'runtime_compatibility': runtime}
         for name in ('rendezvous', 'supervisor'):
             log_path = output / (host + '.' + name + '.startup.log')
             with log_path.open('a') as log:

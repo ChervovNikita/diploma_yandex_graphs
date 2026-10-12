@@ -36,3 +36,11 @@ No GO receipt is generated during preparation. Final exact counts, methods, arch
 ## Protocol details
 
 `docs/TRAINING_AUDIT.md` records earlier training/selector issues and unknowns. `docs/MASSIVE_STUDY_DESIGN.md` defines the prospective study. `ENGINE_README.md` documents checkpoint custody and recovery. Native, PolyFormer, molecular and link packet notes describe their actual applicability and outstanding gates.
+
+## Current disabled finite master
+
+Expanded master v3 contains15studies,11,581model-fit groups and64,497,200registered model optimizer calls, plus8source author groups/80trajectories. Original GNNM is retained on compatible new datasets; original-paper dataset experiments are excluded. Retained PT uses paid source acquisitions and separate full-budget continuations, with fresh native/factorized continuation controls and explicit unequal capacity/forward costs. See `docs/PAID_SOURCE_CONTINUATION.md` and `preparation/practical_master_20261012_v3/COMPACT_SUMMARY.json`.
+
+Frozen controller v2 includes numerical/compiled-runtime compatibility checks without requiring exact Python micro or system-library versions.59focused controller checks,14engine checks and7PT checks pass on allocation CPU. Six actual random-weight node factory resource checks passed; the finite remaining248-case engineering queue is running. No scientific optimizer updates or predictive scores were produced by these checks.
+
+This is an expanded representative stage, not complete migration of every historical approach. Resource admission/ETA, remaining methods and final synchronization remain pending. No human GO or benchmark launch exists.

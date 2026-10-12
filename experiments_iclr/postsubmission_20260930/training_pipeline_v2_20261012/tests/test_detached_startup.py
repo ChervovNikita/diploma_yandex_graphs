@@ -8,12 +8,46 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from launcher import detach_host, receipt_authentication
+from launcher import detach_host, receipt_authentication, local_terminal_roster, runtime_preflight
 from phase_rendezvous import MAX_COMPRESSED_BYTES, MAX_PROOF_BYTES
 from spec import fingerprint
 
 
 class DetachedStartupTests(unittest.TestCase):
+    def test_required_worker_runtime_is_checked_before_detach(self):
+        plan, _ = self.fixture()
+        plan['runtime_compatibility_required'] = True
+        plan['runtime_requirements'] = {'packages': {'torch': 'pinned-engineering-version'}}
+        digest = fingerprint(plan)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch('launcher.load_plan', return_value=(plan, digest, {}, {}, {}, {})), \
+                 patch('launcher.host_check'), \
+                 patch('launcher.receipt_authentication', return_value=(root, plan['phase_rendezvous'])), \
+                 patch('launcher.runtime_preflight', side_effect=ValueError('Wrong numerical pins')), \
+                 patch('launcher.subprocess.Popen') as spawn:
+                with self.assertRaisesRegex(ValueError, 'numerical pins'):
+                    detach_host(root, root/'plan', root/'approval', 'allocation', Path('/python'))
+                spawn.assert_not_called()
+
+    def test_runtime_probe_uses_worker_python_and_rejects_unbound_receipt(self):
+        expected = {'packages': {'torch': 'pinned-engineering-version'}}
+        plan = {'runtime_compatibility_required': True, 'runtime_requirements': expected}
+        receipt = {'status': 'required_runtime_compatibility_passed',
+                   'source_environment_hash': fingerprint(expected),
+                   'mandatory_numerical_pins_verified': True,
+                   'native_binary_compatibility_verified': True,
+                   'CUDA_initialized': False, 'scientific_fits': 0}
+        with patch('launcher.subprocess.check_output', return_value=json.dumps(receipt)) as probe:
+            self.assertEqual(runtime_preflight(plan, '/explicit/worker/python'), receipt)
+            self.assertEqual(probe.call_args.args[0][0], '/explicit/worker/python')
+        receipt['source_environment_hash'] = 'wrong'
+        with patch('launcher.subprocess.check_output', return_value=json.dumps(receipt)):
+            with self.assertRaisesRegex(ValueError, 'approved numerical'):
+                runtime_preflight(plan, '/explicit/worker/python')
+        with self.assertRaisesRegex(ValueError, 'captured numerical'):
+            runtime_preflight({'runtime_compatibility_required': True}, '/explicit/worker/python')
+
     def fixture(self):
         plan = {'output_root': 'outputs', 'phase_rendezvous_capacity': {'all_hosts_fit_fixed_limits': True}, 'phase_rendezvous': {
             'schema': 'phase-git-rendezvous-v1', 'remote_name': 'origin',
@@ -92,6 +126,44 @@ class DetachedStartupTests(unittest.TestCase):
                     with self.assertRaisesRegex(RuntimeError, 'Only one startup process'):
                         detach_host(root, root/'plan', root/'approval', 'allocation', Path('/python'))
                 spawn.assert_not_called()
+
+    def test_sidecar_may_finish_while_supervisor_completes_evaluation(self):
+        plan, digest = self.fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); output = root/'outputs'; output.mkdir()
+            owner = {'host': 'allocation', 'plan_hash': digest,
+                     'rendezvous': {'pid': 101, 'start_ticks': 10100, 'pgid': 101},
+                     'supervisor': {'pid': 102, 'start_ticks': 10200, 'pgid': 102}}
+            (output/'allocation.startup-owner.json').write_text(json.dumps(owner))
+            with patch('launcher.load_plan', return_value=(plan, digest, {}, {}, {}, {})), \
+                 patch('launcher.host_check'), \
+                 patch('launcher.receipt_authentication', return_value=(root, plan['phase_rendezvous'])), \
+                 patch('launcher.live_owned', side_effect=[True, False]), \
+                 patch('launcher.all_global_gates_closed', return_value=True), \
+                 patch('launcher.subprocess.Popen') as spawn:
+                value = detach_host(root, root/'plan', root/'approval', 'allocation', Path('/python'))
+                self.assertEqual(value['status'], 'already_running')
+                self.assertTrue(value['phase_sync_finished'])
+                spawn.assert_not_called()
+
+    def test_terminal_registry_preserves_failures_and_checks_study_hashes(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            database = output/'allocation.sqlite'
+            connection = sqlite3.connect(database)
+            connection.executescript('CREATE TABLE studies(id,spec_hash); CREATE TABLE runs(study,id,state);')
+            connection.execute('INSERT INTO studies VALUES (?,?)', ('fixture','a'*64))
+            connection.executemany('INSERT INTO runs VALUES (?,?,?)', [('fixture','done','complete'), ('fixture','fail','failed')])
+            connection.commit(); connection.close()
+            studies = {'fixture': {'hash': 'a'*64}}
+            runs = {key: {'study': 'fixture'} for key in ('fixture/done','fixture/fail')}
+            placement = {key: {'worker': 'allocation/gpu0'} for key in runs}
+            value = local_terminal_roster(output, 'allocation', studies, runs, placement)
+            self.assertEqual(value, {'terminal_records': 2, 'all_successful': False})
+            studies['fixture']['hash'] = 'b'*64
+            with self.assertRaisesRegex(ValueError, 'changed study contracts'):
+                local_terminal_roster(output, 'allocation', studies, runs, placement)
 
     @unittest.skipUnless(shutil.which('git'), 'Git is unavailable')
     def test_existing_remote_digest_and_read_access_are_checked_without_push(self):

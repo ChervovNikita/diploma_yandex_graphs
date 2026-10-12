@@ -5,6 +5,7 @@ import argparse
 import copy
 import hashlib
 import importlib.util
+import inspect
 import json
 import os
 from pathlib import Path
@@ -124,6 +125,62 @@ def resolve_selected_config(spec, run, registry):
     return actual
 
 
+def construct_adapter(factory, *, execution_context, **arguments):
+    """Pass lifecycle context only when a frozen factory explicitly opts in."""
+    if "execution_context" in inspect.signature(factory).parameters:
+        return factory(execution_context=execution_context, **arguments)
+    if paid_parent_ids(arguments["run"]):
+        raise ValueError("Paid-parent continuation requires an explicit context-aware factory")
+    return factory(**arguments)
+
+
+def paid_parent_ids(run):
+    lifecycle = run["config"].get("lifecycle")
+    if lifecycle is None:
+        return []
+    if (not isinstance(lifecycle, dict) or set(lifecycle) != {
+            "schema", "parent_fit_ids", "new_optimizer", "parameter_initialization"}
+            or lifecycle.get("schema") != "paid-parent-continuation-v1"
+            or lifecycle.get("new_optimizer") is not True
+            or lifecycle.get("parameter_initialization") != "selected_parent_no_optimizer_reuse"
+            or not isinstance(lifecycle.get("parent_fit_ids"), list)
+            or len(lifecycle["parent_fit_ids"]) != 1
+            or not isinstance(lifecycle["parent_fit_ids"][0], str)):
+        raise ValueError("Unsupported paid-parent lifecycle")
+    return lifecycle["parent_fit_ids"]
+
+
+def paid_parent_checkpoints(root, spec, run, registry, output_root):
+    """Require completed, paid, directly declared selected-state ancestors."""
+    identifiers = paid_parent_ids(run)
+    model_parents = [identifier for identifier in run["parents"]
+                     if registry.run(spec["study_id"], identifier)["contract"]["kind"] == "model_fit"]
+    if (not isinstance(identifiers, list) or len(identifiers) != len(set(identifiers))
+            or set(identifiers) != set(model_parents)):
+        raise ValueError("Declare every and only direct paid model-fit ancestor")
+    result = {}
+    from engine import checkpoint_receipt
+    for identifier in identifiers:
+        parent = registry.run(spec["study_id"], identifier)
+        value = parent["result"] or {}
+        bound = value.get("selected_checkpoint")
+        if (parent["state"] != "complete" or value.get("status") != "complete"
+                or value.get("completed_steps") != parent["contract"]["budget"]["maximum"]
+                or not isinstance(bound, dict) or bound.get("fit_id") != identifier
+                or bound.get("path") != "selected.pt" or type(bound.get("step")) is not int
+                or bound["step"] <= 0 or bound["step"] != value.get("selected", {}).get("step")):
+            raise ValueError("Paid source lacks a complete, positive-step selected checkpoint")
+        path = Path(output_root) / spec["study_id"] / identifier / "selected.pt"
+        if not path.resolve().is_relative_to(Path(root).resolve()) or path.is_symlink():
+            raise ValueError("Paid source checkpoint escapes the repository")
+        observed = checkpoint_receipt(path, fit_id=identifier, step=bound["step"])
+        if observed != bound:
+            raise ValueError("Paid source checkpoint differs from completed byte authority")
+        result[identifier] = {"checkpoint": path, "receipt": observed,
+                              "contract": parent["contract"], "result": value}
+    return result
+
+
 def execute(project_root, study_path, run_id, registry_path, output_root, approval_path, device,
             recover=False):
     project_root = Path(project_root).resolve()
@@ -160,7 +217,11 @@ def execute(project_root, study_path, run_id, registry_path, output_root, approv
         from engine import run_trajectory, resume_trajectory
         torch.set_num_threads(int(os.environ.get("GNNM_TORCH_THREADS", "2")))
         factory = load_factory(project_root, run["adapter"])
-        adapter = factory(torch=torch, project_root=project_root, study=spec, run=run, device=device)
+        context = {"registry": registry, "output_root": Path(output_root),
+                   "paid_parent_checkpoints": paid_parent_checkpoints(
+                       project_root, spec, run, registry, output_root)}
+        adapter = construct_adapter(factory, execution_context=context, torch=torch,
+                                    project_root=project_root, study=spec, run=run, device=device)
         engine_spec = {"fit_id": run_id, "budget_steps": run["budget"]["maximum"],
                        "budget_unit": run["budget"]["unit"],
                        "validation_interval": run["selection"]["evaluation_interval"],
