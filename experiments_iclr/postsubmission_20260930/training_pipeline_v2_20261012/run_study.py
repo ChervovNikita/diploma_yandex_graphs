@@ -168,7 +168,8 @@ def paid_parent_checkpoints(root, spec, run, registry, output_root):
                 or value.get("completed_steps") != parent["contract"]["budget"]["maximum"]
                 or not isinstance(bound, dict) or bound.get("fit_id") != identifier
                 or bound.get("path") != "selected.pt" or type(bound.get("step")) is not int
-                or bound["step"] <= 0 or bound["step"] != value.get("selected", {}).get("step")):
+                or not 1 <= bound["step"] <= parent["contract"]["budget"]["maximum"]
+                or bound["step"] != value.get("selected", {}).get("step")):
             raise ValueError("Paid source lacks a complete, positive-step selected checkpoint")
         path = Path(output_root) / spec["study_id"] / identifier / "selected.pt"
         if not path.resolve().is_relative_to(Path(root).resolve()) or path.is_symlink():

@@ -38,6 +38,39 @@ PT_ARMS = {'ordinary_p1', 'factor_f1', 'factor_s4', 'original_gnnm', 'head_only'
            'mixed_single', 'bias_coordinate_single', 'private4', 'middle_state_mean',
            'separable4', 'continued_p1', 'continued_f1'}
 PT_SOURCE_ARMS = {'ordinary_p1', 'factor_f1', 'factor_s4', 'original_gnnm'}
+GRU_ARMS = PT_SOURCE_ARMS | {'B4', 'G1', 'GF1', 'GM4', 'GN4', 'continued_p1', 'continued_f1'}
+LANDMARK_SOURCE_ARMS = {'ordinary_m1', 'factor_m1', 'shared_factor4', 'original_boundary'}
+LANDMARK_ARMS = LANDMARK_SOURCE_ARMS | {
+    'B1', 'B4', 'T16', 'S64', 'FS64', 'LM4', 'continued_m1', 'continued_f1'}
+LANDMARK_FOUR_VIEW_ARMS = {'shared_factor4', 'original_boundary', 'B4', 'T16', 'LM4'}
+# Counts are source TRAIN calls per complete update/cycle. Assignment CMCL
+# includes the four no-tape responsibility forwards and their exact replay.
+CMCL_WORK = {'own_floor': (4, 4), 'private_cmcl': (8, 8),
+             'all_block_cmcl': (8, 4), 'vanilla_cmcl': (8, 4),
+             'private_uniform': (4, 8), 'private_constant_credit': (4, 8)}
+# optimizer owners/calls, slow bodies, served members, forwards, backwards
+CORE_WORK = {'shared4_own': (1, 1, 4, 4, 4),
+             'shared4_masked_ce': (1, 1, 4, 8, 4),
+             'shared4_core': (2, 1, 4, 8, 4),
+             'shared4_core_shuffled': (2, 1, 4, 8, 4),
+             'shared4_core_rewired': (2, 1, 4, 8, 4),
+             'single_native': (1, 1, 1, 1, 1),
+             'independent4_native': (4, 4, 4, 4, 4),
+             'single_four_view_core': (2, 1, 1, 5, 5),
+             'untied4_shared_decoder_core': (5, 4, 4, 8, 4)}
+
+
+def source_parent_arm(family, arm):
+    if family == 'landmark':
+        return 'ordinary_m1' if arm == 'continued_m1' else 'factor_m1'
+    return 'factor_f1' if arm == 'continued_f1' else 'ordinary_p1'
+
+
+def staged_family(config):
+    fields = [name for name in ('pt', 'gru', 'landmark') if name + '_stage' in config]
+    if len(fields) > 1:
+        raise ValueError('A model fit cannot belong to two staged source families')
+    return fields[0] if fields else None
 
 
 def safe_path(root, value):
@@ -104,17 +137,56 @@ def fit_semantics(run):
     unit, maximum = budget['unit'], budget['maximum']
     if budget['policy'] != 'full_budget':
         raise ValueError('Master only supports the registered full-budget controller')
-    if 'pt_stage' in config:
-        arm = config.get('pt_arm')
-        bodies = 4 if arm == 'separable4' else 1
-        if (arm not in PT_ARMS or config['pt_stage'] not in {'source', 'continuation'}
-                or (arm in PT_SOURCE_ARMS) != (config['pt_stage'] == 'source')
+    family = staged_family(config)
+    train_calls = {}
+    if family:
+        arm = config.get(family + '_arm')
+        bodies = 4 if family == 'pt' and arm == 'separable4' else 1
+        valid_arms = {'pt': PT_ARMS, 'gru': GRU_ARMS, 'landmark': LANDMARK_ARMS}[family]
+        source_arms = LANDMARK_SOURCE_ARMS if family == 'landmark' else PT_SOURCE_ARMS
+        architecture = {'pt': 'retained_pt_routes', 'gru': 'private_gru_memory',
+                        'landmark': 'landmark_memory'}[family]
+        original = arm == ('original_boundary' if family == 'landmark' else 'original_gnnm')
+        if (arm not in valid_arms or config[family + '_stage'] not in {'source', 'continuation'}
+                or (arm in source_arms) != (config[family + '_stage'] == 'source')
                 or config.get('source_optimizer_count') != 1
                 or config.get('physical_slow_bodies') != bodies or unit != 'optimizer_updates'
-                or config.get('architecture') != ('original_gnnm' if arm == 'original_gnnm' else 'retained_pt_routes')):
-            raise ValueError('PT owns explicitly typed source/continuation bodies and one fresh optimizer')
+                or config.get('architecture') != ('original_gnnm' if original else architecture)):
+            raise ValueError('PT owns explicitly typed source/continuation bodies and one fresh optimizer; '
+                             'GRU and landmark are separately typed')
+        if family == 'landmark' and (config.get('members') != (4 if arm in LANDMARK_FOUR_VIEW_ARMS else 1)
+                                    or original and config.get('is_original_gnnm') is not True):
+            raise ValueError('Landmark route counts and actual original-GNNM boundary must be explicit')
         objects, calls = 1, maximum
-        law = 'retained_PT_' + config['pt_stage'] + '_one_fresh_optimizer_full_updates'
+        law = family + '_' + config[family + '_stage'] + '_one_fresh_optimizer_full_updates'
+    elif config.get('architecture') == 'private_cmcl':
+        work = CMCL_WORK.get(config.get('cmcl_condition'))
+        if (work is None or unit != 'optimizer_updates' or config.get('source_optimizer_count') != 1
+                or config.get('physical_slow_bodies') != 1 or config.get('members') != 4):
+            raise ValueError('Private CMCL requires its exact condition, one coupled optimizer and four shared routes')
+        objects, bodies, calls, law = 1, 1, maximum, 'private_cmcl_one_coupled_source_Adam_per_update'
+        train_calls = {'known_source_TRAIN_forward_calls': maximum * work[0],
+                       'known_source_TRAIN_backward_calls': maximum * work[1]}
+    elif config.get('architecture') == 'private_adam':
+        if (unit != 'optimizer_updates' or config.get('source_optimizer_count') != 1
+                or config.get('physical_slow_bodies') != 1 or config.get('members') != 4
+                or config.get('core_condition') != 'shared4_own'
+                or config.get('private_adam_normalization') != 'private_R_S_epsilon_and_weight_decay_divided_by_M'):
+            raise ValueError('Private Adam changes private R/S epsilon and weight decay; gradient scaling is unchanged')
+        objects, bodies, calls, law = 1, 1, maximum, 'private_Adam_one_source_owner_per_update'
+        train_calls = {'known_source_TRAIN_forward_calls': maximum * 4,
+                       'known_source_TRAIN_backward_calls': maximum * 4}
+    elif config.get('architecture') == 'masked_core':
+        work = CORE_WORK.get(config.get('core_condition'))
+        if (work is None or unit != 'epochs'
+                or config.get('macro_cycle_law') != 'one_complete_old_state_all_owner_cycle'
+                or config.get('source_optimizer_count') != work[0]
+                or config.get('optimizer_calls_per_cycle') != work[0]
+                or config.get('physical_slow_bodies') != work[1] or config.get('members') != work[2]):
+            raise ValueError('Masked CORE must charge every distinct source optimizer in a complete old-state macro cycle')
+        objects, bodies, calls, law = work[0], work[1], maximum * work[0], 'masked_CORE_all_source_owner_macro_cycles'
+        train_calls = {'known_source_TRAIN_forward_calls': maximum * work[3],
+                       'known_source_TRAIN_backward_calls': maximum * work[4]}
     elif ('source_arm' in config and 'source_optimizer_count' in config
             and 'link_inputs' not in config and 'molecular_inputs' not in config):
         objects = number(config['source_optimizer_count'], 'source optimizer objects', integer=True)
@@ -151,7 +223,7 @@ def fit_semantics(run):
         raise ValueError('Optimizer-update budget cannot hide multiple paid optimizer calls')
     return {'optimizer_objects': objects, 'physical_slow_bodies': bodies,
             'known_optimizer_step_calls': calls, 'budget_unit': unit,
-            'registered_budget_units': maximum, 'law': law}
+            'registered_budget_units': maximum, 'law': law, **train_calls}
 
 
 def routes(run):
@@ -193,9 +265,18 @@ def bank_roster(study):
         if not set(fits) <= set(row['parents']):
             raise ValueError('Bank fit custody must also be a dependency')
         independent = len(fits) == 4
+        grouped = row['config'].get('independent_bank_contract')
+        views_per_body = 1
+        if grouped is not None:
+            if (not independent or grouped != {'schema': 'four-own-four-view-v1', 'bodies': 4,
+                    'views_per_body': 4, 'served_views': 16}
+                    or any(r['config'].get('gru_stage') != 'continuation'
+                           or r['config'].get('gru_arm') not in {'G1', 'GF1'} for r in parents)):
+                raise ValueError('Only four complete four-view GRU learners may declare the sixteen-view bank')
+            views_per_body = 4
         if independent:
             if (parents[0]['body'] != 0 or sorted(r['body'] for r in parents) != [0, 1, 2, 3]
-                    or any(routes(r) != 1 or fit_semantics(r)['optimizer_objects'] != 1 for r in parents)
+                    or any(routes(r) != views_per_body or fit_semantics(r)['optimizer_objects'] != 1 for r in parents)
                     or len({actual_seed(r) for r in parents}) != 4):
                 raise ValueError('Genuine I4 requires four separately initialized one-route optimizer trajectories')
             if any(any(r.get(key) != parents[0].get(key)
@@ -217,11 +298,12 @@ def bank_roster(study):
                         raise ValueError('Pinned PolyFormer I4 requires distinct explicit factor seeds')
                     rng_excluded.add('factor_seed')
             configs = [{k: v for k, v in r['config'].items() if k not in rng_excluded} for r in parents]
-            if parents[0]['config'].get('pt_stage') == 'continuation':
+            family = staged_family(parents[0]['config'])
+            if family and parents[0]['config'][family + '_stage'] == 'continuation':
                 from run_study import paid_parent_ids
                 ancestors = [runs.get(paid_parent_ids(r)[0]) for r in parents]
                 if (any(a is None or a['kind'] != 'model_fit'
-                        or a['config'].get('pt_stage') != 'source'
+                        or a['config'].get(family + '_stage') != 'source'
                         or any(a.get(k) != r.get(k) for k in ('body', 'split', 'seed'))
                         for a, r in zip(ancestors, parents))
                         or len({a['run_id'] for a in ancestors}) != 4
@@ -235,8 +317,11 @@ def bank_roster(study):
             if any(c != configs[0] for c in configs[1:]):
                 raise ValueError('Equipped I4 members have different learning/data/selection contracts')
         banks.append({'run_id': row['run_id'], 'method': row['method'], 'split': row['split'], 'seed': row['seed'],
-            'fit_parents': fits, 'routes': 4 if independent else routes(parents[0]),
-            'genuine_I4': independent, 'member0_reused': independent and fits[0] in singles})
+            'fit_parents': fits, 'routes': 4 * views_per_body if independent else routes(parents[0]),
+            'genuine_I4': independent, 'independent_bodies': 4 if independent else 1,
+            'views_per_body': views_per_body if independent else routes(parents[0]),
+            'genuine_I16': independent and views_per_body == 4,
+            'member0_reused': independent and fits[0] in singles})
     return banks
 
 
@@ -293,22 +378,23 @@ def graph_check(studies, barriers):
             paid = paid_parent_ids(run)
             if run['budget'].get('prefixes') or set(model_parents) != set(paid):
                 raise ValueError('Source/warm-start/continuation lifecycle requires its explicit typed adapter contract')
-            if run['config'].get('pt_stage') == 'continuation':
+            family = staged_family(run['config'])
+            if family and run['config'][family + '_stage'] == 'continuation':
                 if not paid:
                     raise ValueError('PT continuation must pay for its own declared source acquisition')
                 parent = records[row['study'] + '/' + paid[0]]['run']
-                expected_arm = 'factor_f1' if run['config']['pt_arm'] == 'continued_f1' else 'ordinary_p1'
-                if (parent['config'].get('pt_stage') != 'source'
-                        or parent['config'].get('pt_arm') != expected_arm
+                expected_arm = source_parent_arm(family, run['config'][family + '_arm'])
+                if (parent['config'].get(family + '_stage') != 'source'
+                        or parent['config'].get(family + '_arm') != expected_arm
                         or any(parent.get(k) != run.get(k) for k in ('split', 'seed', 'body'))
                         or parent['config'].get('stage') != run['config']['stage']
                         or parent['selection'].get('checkpoint0') is not False
                         or run['selection'].get('checkpoint0') is not False
                         or parent['budget']['policy'] != 'full_budget'
                         or parent['budget']['unit'] != 'optimizer_updates'):
-                    raise ValueError('PT continuation has mismatched or ineligible paid source ancestry')
+                    raise ValueError('Staged continuation has mismatched or ineligible paid source ancestry')
             elif paid:
-                raise ValueError('Only the explicitly typed PT continuation lifecycle is admitted')
+                raise ValueError('Only an explicitly typed staged continuation lifecycle is admitted')
     if set(barriers) - set(records):
         raise ValueError('Barrier addresses an unknown run')
     done, visiting = set(), set()
@@ -348,10 +434,12 @@ def typed_counts(studies):
             totals['run_records'] += 1
             if run['kind'] == 'model_fit':
                 semantics = fit_semantics(run)
+                family = staged_family(run['config'])
+                continuation = family is not None and run['config'][family + '_stage'] == 'continuation'
                 quantities = {'atomic_fit_run_groups': 1, 'paid_optimizer_starts': semantics['optimizer_objects'],
                     'physical_slow_body_instances': semantics['physical_slow_bodies'],
-                    'initial_training_segments': int(run['config'].get('pt_stage') != 'continuation'),
-                    'paid_continuation_segments': int(run['config'].get('pt_stage') == 'continuation'),
+                    'initial_training_segments': int(not continuation),
+                    'paid_continuation_segments': int(continuation),
                     'multi_optimizer_cohort_groups': int(semantics['optimizer_objects'] > 1),
                     'multi_route_one_optimizer_groups': int(routes(run) > 1 and semantics['optimizer_objects'] == 1)}
                 units = run['budget']['maximum']
@@ -361,6 +449,9 @@ def typed_counts(studies):
                     unknown_updates.append(study['study_id'] + '/' + run['run_id'])
                 else:
                     quantities['known_registered_optimizer_step_calls'] = semantics['known_optimizer_step_calls']
+                for name in ('known_source_TRAIN_forward_calls', 'known_source_TRAIN_backward_calls'):
+                    if name in semantics:
+                        quantities['partial_registered_' + name] = semantics[name]
                 count.update(quantities)
                 totals.update(quantities)
             else:
@@ -375,6 +466,8 @@ def typed_counts(studies):
         banks = bank_roster(study)
         totals.update({'served_banks': len(banks), 'served_route_views': sum(b['routes'] for b in banks),
             'genuine_separately_selected_I4_banks': sum(b['genuine_I4'] for b in banks),
+            'genuine_four_body_one_view_I4_banks': sum(b['genuine_I4'] and not b['genuine_I16'] for b in banks),
+            'genuine_four_body_four_view_I16_banks': sum(b['genuine_I16'] for b in banks),
             'reused_exact_member0_fit_references': sum(b['member0_reused'] for b in banks)})
     return {'scope': 'exact_registered_contract_roster_not_executed', 'totals': dict(totals),
         'by_stage': {key: dict(value) for key, value in sorted(stages.items())},

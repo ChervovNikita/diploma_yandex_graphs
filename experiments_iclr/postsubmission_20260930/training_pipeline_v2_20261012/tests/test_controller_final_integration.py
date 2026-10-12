@@ -7,7 +7,8 @@ def load_tests(loader, existing, pattern):
                'test_phase_closure', 'test_phase_rendezvous', 'test_master_plan',
                'test_master_polyformer_ownership', 'test_dependency_grouping',
                'test_author_master_integration', 'test_execution_receipts', 'test_paid_continuation',
-               'test_sync_bundle']
+               'test_sync_bundle', 'test_landmark_accounting', 'test_gradient_owner_accounting',
+               'test_original_paper_scope', 'test_runtime_compatibility']
     return loader.loadTestsFromNames(modules)
 
 

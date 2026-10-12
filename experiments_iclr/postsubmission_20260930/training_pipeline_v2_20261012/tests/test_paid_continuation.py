@@ -116,5 +116,33 @@ class PaidContinuationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'different learning'):
             bank_roster(study)
 
+    def test_sixteen_views_require_four_distinct_complete_GRU_learners(self):
+        study = self.continued_bank()
+        for row in study['runs']:
+            if row['kind'] == 'model_fit':
+                row['config']['gru_stage'] = row['config'].pop('pt_stage')
+                arm = row['config'].pop('pt_arm')
+                row['config']['gru_arm'] = 'G1' if arm == 'continued_p1' else arm
+                row['config']['architecture'] = 'private_gru_memory'
+                row['config']['members'] = 4 if row['config']['gru_stage'] == 'continuation' else 1
+        bank = study['runs'][-1]
+        with self.assertRaisesRegex(ValueError, 'one-route'):
+            bank_roster(study)
+        bank['config']['independent_bank_contract'] = {'schema': 'four-own-four-view-v1',
+            'bodies': 4, 'views_per_body': 4, 'served_views': 16}
+        graph_check([study], {})
+        records = bank_roster(study)
+        self.assertEqual(records[-1]['routes'], 16)
+        self.assertEqual(records[-1]['views_per_body'], 4)
+        self.assertTrue(records[-1]['genuine_I16'])
+        self.assertTrue(records[-1]['member0_reused'])
+        counts = typed_counts([study])
+        self.assertEqual(counts['totals']['genuine_four_body_four_view_I16_banks'], 1)
+        self.assertEqual(counts['totals']['initial_training_segments'], 4)
+        self.assertEqual(counts['totals']['paid_continuation_segments'], 4)
+        bank['config']['independent_bank_contract']['served_views'] = 4
+        with self.assertRaisesRegex(ValueError, 'sixteen-view'):
+            bank_roster(study)
+
 
 if __name__ == '__main__': unittest.main()

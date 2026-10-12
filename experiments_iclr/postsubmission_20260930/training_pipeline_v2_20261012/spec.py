@@ -36,6 +36,8 @@ def confined(root, relative):
 
 def validate(spec):
     """Validate decisions, not their scientific adequacy or data provenance."""
+    if isinstance(spec, dict) and normalized_id(spec.get("dataset", "")) in ORIGINAL_PAPER_DATASETS:
+        raise ValueError("Original GNNM paper experiments are excluded by the user")
     if isinstance(spec, dict) and spec.get('runs') and all(
             isinstance(run, dict) and run.get('kind') == 'author_cli_group' for run in spec['runs']):
         from author_cli_spec import validate_author_spec
@@ -77,12 +79,6 @@ def validate(spec):
         if not safe_identifier(run["run_id"]):
             raise ValueError("Run identifiers must be single safe directory names")
         seen.add(run["run_id"])
-        method_id = normalized_id(run["method"])
-        original = (method_id in {"originalgnnm", "gnnmoriginal", "boundarygnnm"}
-                    or method_id.startswith("originalboundarygnnm")
-                    or run["config"].get("is_original_gnnm", False))
-        if original and normalized_id(spec["dataset"]) in ORIGINAL_PAPER_DATASETS:
-            raise ValueError("Original GNNM paper experiments are excluded by the user")
         if type(run["seed"]) is not int or type(run["body"]) is not int:
             raise ValueError("Use explicit seed and independent-body identifiers")
         if run["kind"] == "model_fit":
