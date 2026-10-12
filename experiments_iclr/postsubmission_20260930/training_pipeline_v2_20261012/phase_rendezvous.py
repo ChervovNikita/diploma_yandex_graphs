@@ -28,7 +28,9 @@ except ImportError:
     from spec import canonical, confined, fingerprint
 
 
-MAX_COMPRESSED_BYTES = 8 * 1024**2
+# The new Coauthor split cohorts require an 11.1 MiB conservative host-tree
+# bound. This cap governs hash-only phase metadata, never model/data artifacts.
+MAX_COMPRESSED_BYTES = 16 * 1024**2
 MAX_PROOF_BYTES = 64 * 1024**2
 ALLOWED_STAGES = {"search", "search_selection", "comparative", "calibration"}
 HOSTS = {"allocation", "server77"}

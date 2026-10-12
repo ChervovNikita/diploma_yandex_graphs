@@ -2,7 +2,7 @@
 
 Status: **preparation in progress; no approved run manifest and no benchmark launch**.
 
-This package replaces fragmented training loops with explicit data, source, budget and selection contracts. Original GNNM's five original datasets are excluded. Its unchanged model family is retained as a required reference on new compatible node datasets. Original reported scores remain unchanged.
+This package replaces fragmented training loops with explicit data, source, budget and selection contracts. Roman Empire, Amazon Ratings, Minesweeper, Questions and Tolokers are excluded for every method. Original GNNM remains a required reference on compatible new datasets; molecular and link adaptations are labeled explicitly. Original reported scores remain unchanged.
 
 ## Available components
 
@@ -39,11 +39,11 @@ No GO receipt is generated during preparation. Final exact counts, methods, arch
 
 ## Current disabled finite master
 
-Integrated master v5 contains27studies,24,953model-fit groups and138,287,200registered model optimizer calls, plus8source author groups/80trajectories. Original GNNM is retained on compatible new datasets; all original-paper dataset experiments are excluded. Source acquisitions and full-budget continuations are charged separately, including genuine independent-member controls. It is an actual disabled finite stage, not complete migration of every historical method. See `docs/INTEGRATED_RUN_ROSTER_20261012_V5.md` for exact component counts, horizons and three-GPU assignments.
+Integrated master v7 contains 29 studies, 31,829 model-fit groups and 152,039,200 planned model optimizer calls, plus eight source author groups with 80 trajectories. Nine standardized datasets are registered: WikiCS, Amazon Photo, CiteSeer, PubMed, Coauthor CS, Coauthor Physics, MolHIV, MolBACE and ogbl-collab. Original GNNM has 1,444 planned baseline fit records across the 28 standardized studies. These are prospective counts; none of the new study's scientific fits has started. Source acquisitions and continuations are charged separately. See `docs/INTEGRATED_RUN_ROSTER_20261012_V7.md` for counts, training horizons and three-GPU assignments.
 
-The frozen controller v3 includes GRU I16, landmark paid ancestry, CMCL/reconstruction optimizer ownership and hard exclusion of all original-five dataset cells. All90 allocation CPU controller/engine checks pass without skips. GRU, continuous-affinity, landmark and three private-source families are integrated in v5. The private-source packets v3 correct selected-dropout propagation and pass10 CPU source checks, including actual non-default selected construction, optimizer groups and checkpoint restore. Older packets and manifests remain preserved.
+Frozen controller v4 inherits the 90 passing CPU checks from v3 and adds eight focused phase-transport checks. Its only change increases the bounded hash-metadata transport capacity from eight to sixteen MiB for the enlarged plan. Learning and selection code remain byte-identical. The private-source packets v3 correct selected-dropout propagation and pass ten CPU source checks, including non-default selected construction, optimizer groups and checkpoint restore. Older packets, the failed v6 assembly and all failures remain preserved.
 
-All254 random-weight node factory resource checks have closed without optimizer updates or predictive scores. The largest observed Torch allocation was24.86GiB; reserved memory was25.375GiB. The first MolHIV full-TRAIN pass proxy took about112seconds, and the first source NCN link pass about8.61seconds. These replace short placeholders only within their measured scope. Remaining factories, optimizer kernels, selectors, endpoints, concurrency and transfer readiness remain explicit gates; proxy pass times are not a full-study ETA.
+All 254 initial random-weight node resource checks, eight representative staged-memory checks and twelve private-gradient checks have closed without optimizer updates or predictive scores. Coauthor maximum-shape measurements remain pending. The first MolHIV full-TRAIN pass proxy took about 112 seconds, and the first source NCN link pass about 8.61 seconds. The measured WikiCS GRU callback took about seven seconds, so its 5,000-callback stage alone could cost roughly 9.8 hours before acquisition, validation and optimizer work. These measurements are resource estimates, not a full-study ETA. Two jobs per GPU will require memory admission and measured throughput.
 
 This is an expanded representative stage, not complete migration of every historical approach. Resource admission/ETA, remaining methods and final synchronization remain pending. No human GO or benchmark launch exists.
 
