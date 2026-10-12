@@ -1,5 +1,22 @@
 # GNNM: shared propagation in graph ensembles
 
+## Comprehensive study preparation — 12 October 2026
+
+The current disabled roster contains **74,340 model-fit groups across 75 studies**. It registers 353,780,448–353,781,960 model optimizer calls; the range includes finite paid curvature trials. Two source-author tracks add 88 process groups/160 trajectories with a 4,428,000-call upper bound. These are planned costs, not completed experiments.
+
+Original GNNM is a baseline on compatible new data. Roman Empire, Amazon Ratings, Minesweeper, Questions and Tolokers are excluded for every method, and original reported scores stay unchanged. The current work covers node classification, molecular graph classification, link prediction and raw-attribute Twitch-DE. New scientific runs remain disabled pending the user's review and GO.
+
+The source packets now include native/independent controls, SAGE joint and ordered paths, Polynormer alignment/credit/views, link frames/pooling, paid growth, sheaf transport/geometry and paid curvature initialization. The full native heterogeneous packet is being merged. Sources and failed preparations remain preserved; none of these preparation checks establishes a new accuracy gain or novelty.
+
+Within each study, all comparisons use one GPU. Startup supports one command per GPU under one supervisor per host, with at most two concurrent fits per GPU and memory-aware single-job admission. Existing allocation-only authorization remains active; no 18.77 connection was attempted.
+
+All 67 neighborhood/feature/message/hop resource cases closed after correcting one missing input declaration and repeating only 14 failed cases. A lossless shared-tensor checkpoint fix passed 6 CPU restore/mutation tests. Storage is still a material gate: current strictly priced v17 checkpoints project to 733 GB for 13,928 fits, with 56,764 fits unpriced; the full native heterogeneous source projects about 12.2 TB even after the clone fix. These are partial projections, not storage admission or ETA.
+
+See [current source/data roster](experiments_iclr/postsubmission_20260930/training_pipeline_v2_20261012/docs/INTEGRATED_RUN_ROSTER_20261012_V18.md), [research decisions](experiments_iclr/postsubmission_20260930/RESEARCH_STATE.md) and [exact source archive index](experiments_iclr/postsubmission_20260930/publication/Master_v18_source_storage_20261012_v2/ARCHIVE_INDEX.json). Verify archived source with `python3 experiments_iclr/postsubmission_20260930/publication/Master_v18_source_storage_20261012_v2/rehydrate_source_archives.py`; `--restore` restores missing source/metadata only and refuses overwrites. Dataset/checkpoint payloads are not included in Git.
+
+The final approval package will state the remaining methods, architectures, hyperparameters, costs and GPU assignments. This intermediate roster is not comprehensive-ready.
+
+
 GNNM learns several graph predictors with shared graph-layer weights. Small, trainable BatchEnsemble factors change each member's input and output projectors. Members keep separate hidden states throughout message passing, train on the mean member loss, and average their raw class logits at inference.
 
 Sharing reduces stored weights. Each member still performs its own graph propagation. Our research priority is prediction quality: accurate members whose different predictions improve the final ensemble.
