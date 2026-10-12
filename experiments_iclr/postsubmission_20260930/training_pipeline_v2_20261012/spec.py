@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 STAGES = {"development", "confirmation", "engineering"}
-KINDS = {"model_fit", "selection", "calibration", "ensemble_assembly", "evaluation"}
+KINDS = {"model_fit", "selection", "calibration", "ensemble_assembly", "evaluation", "author_cli_group"}
 ORIGINAL_PAPER_DATASETS = {"romanempire", "amazonratings", "minesweeper", "questions", "tolokers"}
 
 
@@ -36,6 +36,10 @@ def confined(root, relative):
 
 def validate(spec):
     """Validate decisions, not their scientific adequacy or data provenance."""
+    if isinstance(spec, dict) and spec.get('runs') and all(
+            isinstance(run, dict) and run.get('kind') == 'author_cli_group' for run in spec['runs']):
+        from author_cli_spec import validate_author_spec
+        return validate_author_spec(spec)
     required = {
         "schema_version", "study_id", "stage", "hypothesis", "dataset",
         "data", "source", "runs", "comparisons", "release", "resources",

@@ -34,6 +34,46 @@ def hardware():
     return rows
 
 
+def admission_capacities(host, observed, active, plan, owned_usage_mib):
+    """Reserve future fit memory without subtracting owned live memory twice.
+
+    Recovered owned usage is actual process memory, never the reservation.
+    Unidentified usage remains external and therefore conservatively excluded.
+    """
+    result = {}
+    for row in observed:
+        worker = host + '/gpu' + str(row['index'])
+        live = max(0, row['free_mib'] + owned_usage_mib.get(worker, 0) - 1024)
+        declared = plan.get('worker_capacities_cuda_bytes', {}).get(worker)
+        result[worker] = min(live, declared // 1024**2) if declared is not None else live
+    return result
+
+
+def owned_gpu_usage(host, observed, active):
+    """Only exact active process groups contribute recoverable live VRAM."""
+    if not active:
+        return {}
+    known_groups = {item['process'].pid for item in active.values()}
+    uuid_workers = {row['uuid']: host + '/gpu' + str(row['index']) for row in observed}
+    output = subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid,gpu_uuid,used_memory',
+                                      '--format=csv,noheader,nounits'], text=True, timeout=15)
+    used = {}
+    for line in output.splitlines():
+        fields = [part.strip() for part in line.split(',')]
+        if len(fields) != 3 or not fields[0].isdigit() or not fields[2].isdigit():
+            continue
+        pid, uuid, memory = int(fields[0]), fields[1], int(fields[2])
+        stat = Path('/proc') / str(pid) / 'stat'
+        try:
+            state = stat.read_text().rsplit(')', 1)[1].split()
+        except FileNotFoundError:
+            continue
+        if int(state[2]) in known_groups and state[0] != 'Z' and uuid in uuid_workers:
+            worker = uuid_workers[uuid]
+            used[worker] = used.get(worker, 0) + memory
+    return used
+
+
 def host_check(host, plan):
     rows = hardware()
     if host == "allocation":
@@ -146,6 +186,8 @@ def schedule_ready(runs, states, placement, dependencies, active, capacities, ho
 
 
 def run_supervisor(root, plan_path, approval_path, host, python, *, preflight_only=False):
+    if host == 'allocation':
+        host_check(host, {})  # Route identity before any project metadata read.
     plan, digest, studies, runs, placement, dependencies = load_plan(
         root, plan_path, None if preflight_only else approval_path)
     observed = host_check(host, plan)
@@ -194,8 +236,8 @@ def run_supervisor(root, plan_path, approval_path, host, python, *, preflight_on
                 return
             if not stop["requested"]:
                 current = hardware()
-                capacities = {host + "/gpu" + str(row["index"]): max(0, row["free_mib"] - 1024)
-                              for row in current}
+                capacities = admission_capacities(host, current, active, plan,
+                                                 owned_gpu_usage(host, current, active))
                 stages = {row["run"]["config"].get("stage", "search") for row in runs.values()}
                 phase_allowed = {stage: gate_ready(root, plan, digest, stage) for stage in stages}
                 admissible_states = {key: state if phase_allowed[runs[key]["run"]["config"].get("stage", "search")]
@@ -208,7 +250,7 @@ def run_supervisor(root, plan_path, approval_path, host, python, *, preflight_on
                     worker = placement[key]["worker"]
                     index = int(worker.rsplit("gpu", 1)[1])
                     kind = run["kind"]
-                    script = Path(__file__).with_name("run_study.py" if kind == "model_fit" else "run_endpoint.py")
+                    script = Path(__file__).with_name(worker_script(kind))
                     if not script.is_file():
                         raise ValueError("Missing executable endpoint runner")
                     log_path = output / "logs" / row["study"] / (run["run_id"] + ".log")
@@ -264,6 +306,16 @@ def gate_ready(root, plan, digest, stage):
     return True
 
 
+def worker_script(kind):
+    if kind == 'model_fit':
+        return 'run_study.py'
+    if kind == 'author_cli_group':
+        return 'run_author_cli.py'
+    if kind in {'selection', 'ensemble_assembly', 'calibration', 'evaluation'}:
+        return 'run_endpoint.py'
+    raise ValueError('Unsupported execution kind: ' + str(kind))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", required=True)
@@ -274,6 +326,8 @@ def main():
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--detach", action="store_true", help="Start a session-independent supervisor after GO verification")
     args = parser.parse_args()
+    if args.host == 'allocation':
+        host_check(args.host, {})
     root = Path(args.project_root).resolve()
     if not args.preflight_only and not args.approval:
         raise ValueError("Explicit GO receipt is required")

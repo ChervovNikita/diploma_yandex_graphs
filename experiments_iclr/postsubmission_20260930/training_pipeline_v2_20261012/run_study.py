@@ -11,6 +11,7 @@ from pathlib import Path
 import socket
 import sys
 import time
+import types
 
 from registry import Registry
 from spec import confined, load
@@ -60,7 +61,25 @@ def load_factory(root, entry):
     if not separator or not function.isidentifier():
         raise ValueError("Use project-relative adapter_file.py:factory")
     path = confined(root, relative)
-    name = "gnnm_adapter_" + hashlib.sha256(str(path).encode()).hexdigest()[:16]
+    if not path.stem.isidentifier():
+        raise ValueError("Adapter filenames must be Python identifiers")
+    # Each frozen packet owns its relative imports. An anonymous module name
+    # would make `.classifier` fall back to whichever `adapters` directory
+    # happens to be on the launcher's sys.path, possibly another packet.
+    package_root = path.parent
+    components = [path.stem]
+    while (package_root / "__init__.py").is_file():
+        if not package_root.name.isidentifier() or package_root == Path(root).resolve():
+            break
+        components.insert(0, package_root.name)
+        package_root = package_root.parent
+    namespace = "gnnm_packet_" + hashlib.sha256(str(package_root).encode()).hexdigest()[:16]
+    if namespace not in sys.modules:
+        package = types.ModuleType(namespace)
+        package.__path__ = [str(package_root)]
+        package.__package__ = namespace
+        sys.modules[namespace] = package
+    name = namespace + "." + ".".join(components)
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module

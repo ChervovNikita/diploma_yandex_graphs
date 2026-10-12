@@ -140,6 +140,32 @@ def resource_for(profiles, dataset, backbone):
     return value
 
 
+def native_cell_admission(datasets, profiles, capacities, deferred):
+    """An explicit disabled subset may defer infeasible cells, never hide them."""
+    requested = {dataset + '/' + backbone for dataset in datasets for backbone in BACKBONES}
+    if not isinstance(deferred, dict) or set(deferred) - requested:
+        raise ValueError('Deferred cells must belong to the exact requested native roster')
+    if any(not isinstance(reason, str) or not reason.strip() for reason in deferred.values()):
+        raise ValueError('Every resource deferral needs an explicit reason')
+    admitted, blocked = [], {}
+    maximum_capacity = max(capacities.values())
+    for key in sorted(requested):
+        profile = profiles.get(key)
+        reason = ('missing_or_failed_resource_qualification' if profile is None else
+                  'reservation_exceeds_all_declared_workers' if
+                  profile['reservation_mib'] * 1024**2 > maximum_capacity else None)
+        if key in deferred:
+            if reason is None:
+                raise ValueError('Do not resource-defer an admitted cell: ' + key)
+            blocked[key] = {'resource_reason': reason, 'declared_reason': deferred[key],
+                            'study_materialized': False, 'predictive_scores': 0}
+        elif reason:
+            raise ValueError('Resource-blocked requested cell requires explicit preserved deferral: ' + key)
+        else:
+            admitted.append(key)
+    return admitted, blocked
+
+
 def make_study(root, custody, data_dir, backbone, recipe, sources, profile, mode,
                runtime_package=ENGINE, native_model_source=NATIVE_SOURCE, validator=validate):
     dataset = custody['dataset_id']
@@ -297,6 +323,7 @@ def main():
     parser.add_argument('--host-bindings')
     parser.add_argument('--scalar-coefficients', choices=['neighbors', 'native_fixed'], default='neighbors')
     parser.add_argument('--plain-json', action='store_true')
+    parser.add_argument('--resource-deferred-cells', help='Explicit JSON cell/reason map; preserves pending cells outside the disabled admitted subset')
     args = parser.parse_args()
     verify_allocation()
     root = Path(args.project_root).resolve()
@@ -350,6 +377,13 @@ def main():
     dataset_inputs = [bind_custody(root, local(p)) for p in args.custody]
     if len({c['dataset_id'] for c, _, _ in dataset_inputs}) != len(dataset_inputs):
         raise ValueError('A dataset may have only one prepared custody roster in this packet')
+    deferred = {}
+    if args.resource_deferred_cells:
+        deferred_path = local(args.resource_deferred_cells)
+        deferred = json.loads(deferred_path.read_text())
+        common_bindings.append(file_binding(root, deferred_path))
+    admitted_cells, resource_blocked_cells = native_cell_admission(
+        [c['dataset_id'] for c, _, _ in dataset_inputs], profiles, capacities, deferred)
     prepared = []
     for custody, data_dir, data_bindings in dataset_inputs:
         source = {'git_commit': commit, 'files': common_bindings + data_bindings,
@@ -358,6 +392,8 @@ def main():
                   'generator_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   'official_author_protocol_replication': False}
         for backbone in BACKBONES:
+            if custody['dataset_id'] + '/' + backbone not in admitted_cells:
+                continue
             profile = resource_for(profiles, custody['dataset_id'], backbone)
             spec, counts, banks = make_study(root, custody, data_dir, backbone, recipes[backbone], source, profile,
                                            args.scalar_coefficients, runtime_relative, native_relative, frozen_schema.validate)
@@ -427,6 +463,10 @@ def main():
        'status': 'PREPARED_ESTIMATED_RESOURCE_PROFILE_REQUIRES_RUNTIME_QUALIFICATION',
        'plan_hash': fingerprint(plan), 'studies': len(prepared), 'datasets': len(dataset_inputs),
        'native_backbones': list(BACKBONES), 'base_configurations_per_search_cell': 100,
+       'requested_native_cells': len(dataset_inputs) * len(BACKBONES),
+       'materialized_native_cells': len(admitted_cells),
+       'resource_deferred_cells': resource_blocked_cells,
+       'complete_requested_native_matrix_materialized': not resource_blocked_cells,
        'scalar_coefficient_policy': args.scalar_coefficients, 'search_split': 0,
        'search_seed_ids': list(SEARCH_SEEDS), 'comparative_seed_ids': list(COMPARATIVE_SEEDS),
        'required_hosts': required_hosts, 'fresh_fit_counts': dict(totals), 'per_study': summaries,

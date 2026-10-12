@@ -310,7 +310,8 @@ def run_trajectory(torch, adapter, spec, output_dir, *, resource_check=None, _re
         "trajectory_operation_counts": {"optimizer_updates": 0}, "actual_costs_incomplete": False,
         "costs": {key: 0.0 for key in ("train_seconds", "validation_seconds", "selector_seconds",
                                          "checkpoint_seconds", "restore_seconds", "resource_seconds")},
-        "validation_calls": 0, "checkpoint_writes": 0, "checkpoint_bytes_written": 0,
+        "validation_calls": 0, "validation_attempts": 0,
+        "checkpoint_writes": 0, "checkpoint_bytes_written": 0,
         "resource_observations": [],
         "attempts": [], "attempt_index": 1, "resume_admissions": [],
     }
@@ -470,15 +471,26 @@ def run_trajectory(torch, adapter, spec, output_dir, *, resource_check=None, _re
             trace.write(json.dumps(value, allow_nan=False) + "\n")
             trace.flush()
 
+        validation_counts_recorded = False
+
         def validate():
-            nonlocal phase, last_validation, last_decision
+            nonlocal phase, last_validation, last_decision, validation_counts_recorded
             phase = "validation"
+            validation_counts_recorded = False
             resource("before_validation")
             before = time.perf_counter()
+            result["validation_attempts"] = result.get("validation_attempts", 0) + 1
             try:
                 raw = adapter.validate(step)
             finally:
                 result["costs"]["validation_seconds"] += time.perf_counter() - before
+            if "operation_counts" in raw:
+                counts = _counts(raw["operation_counts"], positive_updates=False)
+                add_counts(counts)
+                validation_counts_recorded = True
+                if counts["optimizer_updates"] != 0:
+                    raise ValueError("Validation must not perform optimizer updates")
+            validation_counts_recorded = True
             result["validation_calls"] += 1
             last_validation = _metrics(torch, raw)
             _finite_tree(torch, adapter.model.state_dict(), "model after validation")
@@ -513,7 +525,8 @@ def run_trajectory(torch, adapter, spec, output_dir, *, resource_check=None, _re
                     if prefix["selected"] is None:
                         raise RuntimeError("Prefix closed without an eligible validation checkpoint")
                     _atomic_json(output / "prefixes" / prefix["prefix_id"] / "certificate.json", prefix)
-            record({"kind": "validation", "step": step, "metrics": last_validation, "decision": last_decision})
+            record({"kind": "validation", "step": step, "metrics": last_validation,
+                    "decision": last_decision, "operation_counts": raw.get("operation_counts")})
 
         try:
             result["ownership"] = inspect_ownership(adapter)
@@ -578,6 +591,15 @@ def run_trajectory(torch, adapter, spec, output_dir, *, resource_check=None, _re
             resource("after_restore")
             result["status"] = "complete"
         except BaseException as exc:
+            if phase == "validation" and not validation_counts_recorded:
+                if hasattr(exc, "operation_counts"):
+                    try:
+                        add_counts(_counts(exc.operation_counts, positive_updates=False))
+                    except (TypeError, ValueError) as accounting_error:
+                        result["partial_validation_operation_counts_unknown"] = True
+                        result["failure_accounting_error"] = str(accounting_error)
+                else:
+                    result["partial_validation_operation_counts_unknown"] = True
             if phase == "training" and not counts_recorded:
                 if hasattr(exc, "operation_counts"):
                     try:

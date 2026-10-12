@@ -35,8 +35,9 @@ def write_host_receipts(root, plan, digest, runs, placement, registry, host, alr
         # endpoint succeeds. A failed comparative/calibration bank blocks it.
         def acceptable(key):
             row = runs[key]["run"]
-            return states[key] == "complete" or (row["kind"] == "model_fit"
-                and row["config"].get("stage") == "search" and states[key] == "failed")
+            allowed_failure = ((row['kind'] == 'model_fit' and row['config'].get('stage') == 'search')
+                               or (name == 'whole_author' and row['kind'] == 'author_cli_group'))
+            return states[key] == 'complete' or (allowed_failure and states[key] == 'failed')
         if not all(acceptable(key) for key in keys):
             continue
         path = confined(root, str(Path(gate["path"]).parent / (host + "_" + name + ".json")))
@@ -54,7 +55,8 @@ def write_host_receipts(root, plan, digest, runs, placement, registry, host, alr
                             "contract_hash": fingerprint(row["contract"])}
         value = {"status": "complete", "host": host, "closed_phase": name,
                  "plan_hash": digest, "run_keys": keys, "results": results,
-                 "closure_authority": "whole_assigned_host_registry"}
+                 "closure_authority": "whole_assigned_host_registry",
+                 "terminal_roster": True, "all_successful": all(states[key] == 'complete' for key in keys)}
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x") as stream:
             stream.write(canonical(value)+"\n")
@@ -68,6 +70,7 @@ def collect(root, plan, digest, runs, placement, gate_name):
     if target.exists():
         raise ValueError("A global phase closure already exists; retain it unchanged")
     proofs = {}
+    all_successful = True
     for host in gate["required_hosts"]:
         path = target.parent / (host + "_" + gate_name + ".json")
         raw = path.read_bytes()
@@ -80,15 +83,18 @@ def collect(root, plan, digest, runs, placement, gate_name):
         for key in keys:
             row = runs[key]["run"]
             result = value["results"][key]
-            failed_search = row["kind"] == "model_fit" and row["config"].get("stage") == "search"
-            if result["state"] != "complete" and not (failed_search and result["state"] == "failed"):
+            allowed_failure = ((row['kind'] == 'model_fit' and row['config'].get('stage') == 'search')
+                               or (gate_name == 'whole_author' and row['kind'] == 'author_cli_group'))
+            if result["state"] != "complete" and not (allowed_failure and result["state"] == "failed"):
                 raise ValueError("Phase receipt contains an incomplete required comparison")
+            all_successful = all_successful and result['state'] == 'complete'
             if result["contract_hash"] != fingerprint(row) or not result["result_hash"]:
                 raise ValueError("Host proof has different run contracts")
         proofs[host] = {"path": str(path.relative_to(Path(root))), "bytes": len(raw),
                         "sha256": hashlib.sha256(raw).hexdigest()}
     value = {"status": "complete", "plan_hash": digest, "closed_phase": gate_name,
-             "host_receipts": proofs, "closure_authority": "all_declared_hosts_with_exact_contracts"}
+             "host_receipts": proofs, "closure_authority": "all_declared_hosts_with_exact_contracts",
+             "terminal_roster": True, "all_successful": all_successful}
     with target.open("x") as stream:
         stream.write(canonical(value)+"\n")
     return value

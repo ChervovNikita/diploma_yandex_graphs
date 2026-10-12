@@ -33,6 +33,8 @@ tmp=root/'tmp';tmp.mkdir()
 env=dict(os.environ,CUDA_VISIBLE_DEVICES='',TMPDIR=str(tmp),PYTHONDONTWRITEBYTECODE='1',
          OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',
          GNNM_REFERENCE_PROJECT=str(repo/'experiments_iclr/postsubmission_20260930'))
+if payload.get('coordinate_cpu_fixtures'):
+ env['GNNM_COORDINATE_CPU_FIXTURES']='1'
 tick=time.monotonic()
 child=subprocess.Popen([str(repo/'.venv/bin/python'),'-B','-m','unittest','discover','-s','tests','-p',payload['pattern'],'-v'],cwd=root,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 fields=(Path('/proc')/str(child.pid)/'stat').read_text().rsplit(')',1)[1].split()
@@ -51,6 +53,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("label")
     parser.add_argument("--pattern", default="test_*.py")
+    parser.add_argument("--coordinate-fixtures", action="store_true")
     args = parser.parse_args()
     if not args.label.replace("_", "").isalnum():
         raise ValueError("Use a plain immutable label")
@@ -70,12 +73,19 @@ def main():
     raw = source.read_bytes()
     files.append({"path": "fixtures/native_models.py", "bytes": len(raw),
                   "sha256": hashlib.sha256(raw).hexdigest(), "data": base64.b64encode(raw).decode()})
+    for source_relative, fixture in (
+            ("coordinate_ensemble_source_v1/models.py", "fixtures/coordinate_models.py"),
+            ("coordinate_stage1_assessment_source_v2/SPECIFICATION_v2.json", "fixtures/coordinate_specification.json")):
+        raw = (PACKAGE.parent / source_relative).read_bytes()
+        files.append({"path": fixture, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
+                      "data": base64.b64encode(raw).decode()})
     for relative in ("docs/MATRIX_AXES_DRAFT.json", "docs/NODE_PROVIDER_ROLE_CATALOGUE.json", "start_massive.sh"):
         raw = (PACKAGE / relative).read_bytes()
         files.append({"path": relative, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
                       "data": base64.b64encode(raw).decode()})
     arg = base64.b64encode(zlib.compress(json.dumps({"label": args.label, "files": files,
-                                                  "pattern": args.pattern}).encode())).decode()
+                                                  "pattern": args.pattern,
+                                                  "coordinate_cpu_fixtures": args.coordinate_fixtures}).encode())).decode()
     prefix = ["ssh", "-tt", "-p", "2222", "-i", "/Users/alex/.ssh/mlspace__private_key_anogena.txt",
            "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
            "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=2",

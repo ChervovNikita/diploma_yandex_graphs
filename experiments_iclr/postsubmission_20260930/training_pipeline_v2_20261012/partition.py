@@ -21,8 +21,11 @@ def assign(groups, capacities=None):
         if group["id"] in seen or group["estimated_seconds"] < 0:
             raise ValueError("Unique groups and nonnegative cost estimates required")
         seen.add(group["id"])
+        allowed = group.get('allowed_workers', list(capacities))
+        if not allowed or set(allowed) - set(capacities):
+            raise ValueError('Explicit allowed worker bindings must belong to declared capacities')
         eligible = [name for name, memory in capacities.items()
-                    if memory is None or group["maximum_cuda_bytes"] <= memory]
+                    if name in allowed and (memory is None or group["maximum_cuda_bytes"] <= memory)]
         if not eligible:
             raise ValueError("No GPU can accommodate group: " + group["id"])
         worker = min(eligible, key=lambda name: (loads[name], name))

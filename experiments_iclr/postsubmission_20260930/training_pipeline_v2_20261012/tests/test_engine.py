@@ -115,6 +115,37 @@ def contract(**changes):
 
 @unittest.skipIf(torch is None, "Torch unavailable; do not install a runtime for these tests")
 class EngineTests(unittest.TestCase):
+    def test_validation_costs_are_counted_without_training_updates(self):
+        class CountedValidation(TinyAdapter):
+            def validate(self, step):
+                return {**super().validate(step), "operation_counts": {
+                    "optimizer_updates": 0, "select_query_passes": 3}}
+        with tempfile.TemporaryDirectory() as directory:
+            result = run_trajectory(torch, CountedValidation(),
+                contract(budget_steps=2, prefixes=[]), Path(directory)/"run")
+            self.assertEqual(result["operation_counts"]["optimizer_updates"], 2)
+            self.assertEqual(result["operation_counts"]["select_query_passes"], 9)
+            self.assertEqual(result["validation_attempts"], 3)
+            self.assertEqual(result["validation_calls"], 3)
+
+    def test_failed_validation_retains_known_partial_operation_costs(self):
+        class FailedValidation(TinyAdapter):
+            def validate(self, step):
+                raise AdapterStepError("partial SELECT query failure", operation_counts={
+                    "optimizer_updates": 0, "select_query_passes": 2})
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)/"run"
+            with self.assertRaisesRegex(AdapterStepError, "SELECT"):
+                run_trajectory(torch, FailedValidation(),
+                    contract(budget_steps=2, validate_initial=False, prefixes=[]), output)
+            result = json.loads((output/"result.json").read_text())
+            self.assertEqual(result["failure"]["phase"], "validation")
+            self.assertEqual(result["operation_counts"]["optimizer_updates"], 1)
+            self.assertEqual(result["operation_counts"]["select_query_passes"], 2)
+            self.assertEqual(result["validation_attempts"], 1)
+            self.assertEqual(result["validation_calls"], 0)
+            self.assertNotIn("partial_validation_operation_counts_unknown", result)
+
     def test_full_budget_and_immutable_prefixes(self):
         adapter = TinyAdapter()
         snapshots = []
