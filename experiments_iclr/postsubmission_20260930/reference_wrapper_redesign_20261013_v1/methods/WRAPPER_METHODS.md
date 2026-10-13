@@ -1,0 +1,66 @@
+# Fixed-boundary training-only GNNM methods
+
+## Scope
+
+This proposal replaces the large extension catalogue with **four finite training rules on the original GNNM boundary wrapper**. The primary comparison has exactly three references: published/native M1, original boundary GNNM, and genuine ordinary I4. I4 has four complete native bodies, each fitted and selected independently. There are no extra reference arms here.
+
+For each underlying model, retain its published/native graph, features, target channels, propagation equations, width, depth, attention, dropout, sampler, optimizer, learning rates, training duration, and checkpoint-selection rule. Use the fixed paper settings already assigned to that model; these methods introduce no hyperparameter search. A method changes only the original wrapper's initialization/loss/gradient treatment, as specified below. None adds a new parameter site or new native capacity.
+
+The historical original source has two boundary maps with shared W and member-private R/S/B, but its TABMModel creates new bias-free maps inside a generic scaffold. It is **not an implemented paper-native-preserving wrapper** and cannot be copied wholesale. The required new adaptation keeps every native W/b and module intact and uses **S_m ⊙ native_affine(R_m ⊙ x) + Δb_m** only at two exact predeclared boundary sites. Its neutral R/S=1, Δb=0 state must recover the native function. The adopted first input R now uses fixed Rademacher signs from an isolated Torch CPU generator; other R/S are one and Δb is zero. This common initializer is implemented for all four methods and is not native-equal at the sign start. Native initialization remains untouched; no initializer search is added. See [PRESERVATION_CONTRACT.md](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/reference_wrapper_redesign_20261013_v1/methods/PRESERVATION_CONTRACT.md>) for encoding, BN, optimizer and aggregation requirements.
+
+Sources: [original boundary maps and initializer](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/common_wrapper_native_source_20261010_v1/models.py>); [original own-loss update and serving](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/common_wrapper_native_source_20261010_v1/run_tabm.py>).
+
+## Common loss and update notation
+
+Let **θ** contain every shared native parameter, including the native weights at boundary maps. Let **ψ** contain only the predeclared boundary R/S/Δb banks; existing native b remains in θ. Let **F** be the mean of the four members' own **native task losses**, using unchanged target masks and reductions, plus the unchanged native regularizer R_native once. Let **S_original** be the inherited original GNNM serving rule and **L = native_loss(S_original(Z), TRAIN truth) + R_native**. Define **J = 0.5 F + 0.5 L**.
+
+The cited original GNNM serves the mean of raw member logits. On that source, L is CE/BCE applied to the mean logits. Another adopted original GNNM source may have a different declared fusion; its fixed law must be preserved. The existing GNCL multiclass primitive uses the mean of probabilities, so copying that loss directly would change this definition. The proposed port must explicitly use the inherited serving law. The fixed coefficient 0.5 is borrowed from the implemented half-own/half-pool source; this is an attributed training adaptation, not a claim to reproduce its whole source recipe.
+
+Every route's forward and every required gradient collection occur at the same old parameter state. There is one original optimizer transition per update, with the paper optimizer settings and groups. A different gradient can change subsequent native parameter values; “same backbone” means the architecture and learning settings are preserved, not an identical learned trajectory. All four methods use one predetermined mean-raw-logit aggregation shared with ordinary I4, followed by unchanged native output activation/interpretation where required. Raw logits are captured passively from the native forward without removing its activation. Native M1 keeps its source prediction path unaltered; historical original scores remain unchanged.
+
+## Finite roster
+
+| Method | Shared θ receives | Boundary-private ψ receives | Fixed choices | Existing implementation / required port |
+| --- | --- | --- | --- | --- |
+| **1. Half own / half served-pool** | J | J | λ=0.5 | Half-own/half-pool scalar loss exists; boundary-only attachment and inherited fusion need a port |
+| **2. Private half-pool credit** | F | J | λ=0.5 | Same-state block gradients exist; exact boundary R/S/Δb partition needs a port |
+| **3. Fixed private example responsibility** | F | Weighted F | One Exp(1) draw, class mean-one normalization | Fixed weight table and two-block gradients exist; boundary R/S/Δb and task reductions need a port |
+| **4. Own loss plus within-route hidden SupCon** | F+0.05A | F+0.05A | α=0.05, τ=0.2 | Loss and passive native hidden hooks exist; original-boundary hook/attachment needs a port; categorical tasks only |
+
+Methods are separate arms. There is no Cartesian product, combined method, coefficient sweep, postfit stage, or added comparison family. Method 4 is eligible only where its existing hidden/target contract can be preserved. Its absence on an unsupported task does not trigger a substitute architecture or extra reference.
+
+### 1. Half own / half served-pool
+
+The own term asks every member to remain individually predictive. The served-pool term directly asks the prediction that will be returned to improve. J supplies the same scalar loss to all parameters. This is the simplest loss-only departure from original GNNM and works independently of the backbone's attention or message internals.
+
+**Source:** [implemented half-own/half-probability-pool objective](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_GNCL_SupCon_2x2_source_20261010_v1/run_family.py>); [task-specific served-pool loss primitive](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/public_internal_be_private_steering_adapter_20261007_v1/adapter.py>). These sources demonstrate the loss mechanics. The original-boundary executable with inherited mean-logit fusion is a new port requirement.
+
+### 2. Private half-pool credit
+
+The shared native body receives its ordinary mean-own loss F. Only original boundary R/S/Δb receive J. This asks whether small private coordinates can take responsibility for the combined prediction while the common body continues to receive individual-prediction credit. The two block gradients are collected before any parameter update. This field need not be the gradient of one scalar objective; it is not two successive optimizer updates.
+
+**Source:** [implemented O/I/P/G block-gradient collection](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/public_internal_be_allocation_controls_20261007_v1/method.py>). Its P policy already gives J to boundary-private factors while shared weights receive F, but it also has internal factors and an alignment term. Both internal-factor machinery and the alignment auxiliary must be removed from the boundary port. Private Δb is an added residual. Existing native b remains shared and stays in its original optimizer group; neither historical member-B replacement nor a prototype bias law is silently adopted.
+
+### 3. Fixed private example responsibility
+
+Draw a positive weight w_mi from Exp(1) once for each member and observed TRAIN record. Within each existing native reduction group and observed TRAIN class, scale each member's weights to have mean one. Shared θ receives ordinary F; private ψ receives the same per-record native losses multiplied by those fixed weights. This creates different private emphasis without changing the shared body's immediate supervision rule. There is no state-dependent expert router, inference router, redraw, clipping, floor or strength parameter.
+
+**Source:** [implemented fixed class-normalized weights and shared/private gradients](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/common_wrapper_private_bootstrap_native_family_source_20261010_v1/bootstrap.py>). That source is exact for four-route multiclass node CE with 580 records and 10 classes. Its numerical shape and FactorLinear/private-correction recognition cannot be used as a generic wrapper. The portable draw uses an isolated Torch CPU Exp(1) generator, explicitly differing from the historical NumPy PCG64 draws while preserving the fixed weight law. The port must preserve each task's original reduction, including distinct positive/negative groups where native link losses use them. A missing target remains missing. This arm is viable for categorical/binary losses with existing per-record terms; it is not automatically a published-method replica for every task.
+
+### 4. Own loss plus within-route hidden SupCon
+
+A is the mean of four within-route supervised contrastive losses on the **live native prehead hidden tensor**. Normalize vectors with the source epsilon 1e-12; use temperature 0.2. For each TRAIN anchor, all nonself same-class TRAIN rows are positives and every nonself TRAIN row is in the denominator. Add 0.05A to F. All gradients remain live. The existing classification head receives its ordinary loss; no new projection head is introduced.
+
+Use the original forward's hidden tensor once, without extra stochastic views or dropout draws. A passive hook immediately before the existing boundary output map can capture this tensor. The source already captures native output-map inputs for its supported native layouts. A new model needs an explicit passive hook at its own native prehead site; no guessed intermediate feature or model rewrite is allowed. Every anchor needs a nonself same-class positive under the source law. This variant is restricted to single-label categorical classification; source support does not justify treating different positive links as same-class representation positives or inventing a multilabel target law.
+
+**Source:** [implemented within-route SupCon and fixed coefficients](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/native_SAGE_GNCL_SupCon_2x2_source_20261010_v1/run_family.py>); [native forward-pre-hook capture](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/shared_fast_graph_model_interface_20261010_v1/common_routes.py>). The source executable invokes an all-map factor installer, so its construction cannot enter this proposal unchanged. Only the existing loss and passive hidden-capture mechanisms are reused.
+
+## Implementation status and bounded next step
+
+All four algorithm primitives are implemented in the cited local sources. The portable [boundary core](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/reference_wrapper_redesign_20261013_v1/runtime/boundary_core.py>) and [four training helpers](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/reference_wrapper_redesign_20261013_v1/runtime/training_rules.py>) now implement removable boundary hooks, native optimizer-group assignment, passive prehead/logit capture, the fixed losses and old-state gradient assignment. **This core does not qualify the adopted native recipe adapters or data providers.** Their present constructors/partitions use all-map factors, architecture-specific audited roles, fixed source shapes, or a probability-pool law. Those are explicit port requirements, not a reason to reintroduce the removed methods.
+
+The historical boundary scaffold, mean-own trainer and raw-logit serving are implemented already. The caller now supplies its original native model to the core. Every adopted source preset still needs an exact input/output binding and capture-site map, native source construction/settings/frontend, native buffer/RNG/checkpoint semantics, and complete native data/loss/selection provider. The core only supports exact nn.Linear leaves and nn.Embedding input leaves; PyG/custom/multiple-embedding/fused-head interfaces need explicit ports. Existing native bias and categorical IDs remain intact. The work is source plumbing and loss/gradient attachment; it does not require choosing graph sites, growing widths, changing attention, exposing new labels or constructing a new head. Native settings come from the paper/native recipe assigned by the parent plan; the method layer cannot replace them with the earlier study's optimizer or search domains.
+
+No fits, probes, numerical imports, remote reads, tuning, publication action or frozen-plan edit were performed for this proposal.
+
+Implementation receipt: [STATIC_CHECKS.json](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/reference_wrapper_redesign_20261013_v1/runtime/STATIC_CHECKS.json>). Syntax/AST checks only; no Torch/runtime-module imports, models, numerical probes or fits. See [runtime README](</Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/reference_wrapper_redesign_20261013_v1/runtime/README.md>) for API and remaining frontend/provider gaps.

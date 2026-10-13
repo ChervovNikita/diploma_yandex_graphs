@@ -41,3 +41,20 @@ received. Source/data preparation and engineering checks are authorized.
 Exclude reruns of the original GNNM paper's experiments. Original GNNM must
 remain a comparison baseline on compatible new datasets. Do not call a
 partially migrated method inventory a ready comprehensive study.
+
+User redesign override (13 October 2026): the v29 exploratory union is
+superseded for new launches. Prepare a reference-backbone wrapper campaign
+under reference_wrapper_redesign_20261013_v1. Preserve the previous proposal,
+sources and decisions as history. Use documented paper/release settings,
+without hyperparameter search. Keep each native backbone's operators,
+dimensions, inputs, graph preprocessing, split, evaluator, regularization and
+optimizer intact. The primary comparisons are native M1, boundary GNNM and
+four genuinely independent native models. Remove factorized-single,
+internal/all-map placement, joint-untied, equipped and capacity controls from
+this campaign. Extra GNNM hypotheses may change only wrapper factors,
+initialization, training credit or the loss, with fixed declared settings.
+Separate exact source replication from any extended training controller;
+never call a different split/schedule/selection protocol paper-equivalent.
+Use generous training limits with moderate stopping patience where compatible
+with source warmup/schedules; retain convergence traces. Scientific fits still
+await explicit GO. Do not use or reauthorize the previous v29 run commands.
