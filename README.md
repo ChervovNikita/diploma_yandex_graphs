@@ -1,31 +1,32 @@
 # GNNM: shared propagation in graph ensembles
 
-## Comprehensive study preparation — 13 October 2026
+## Final massive study preparation — 13 October 2026
 
-**Audit update:** source contracts for the four copied-native relation-credit policies and the complete six-condition private-hop panel are closed. The relation successor adds 12 fits; the complete hop panel adds 42. Source budgets remain 1,100/local100 and 2,000/patience250 respectively. The relation18 record reuses the relation12 banks and six references. Current source ports do not use historical checkpoints or scores.
+**The finite source and protocol inventory is complete; resource admission and scientific launch approval remain incomplete.** The exact frozen v29 master contains **80,850 model-fit groups in 98 study specifications**, supplied by **51 packets**, across **12 datasets and 21 named architecture recipes**. The earlier count of 16 named architectures was incomplete; source/protocol configurations retain their alias mappings.
 
-The actual checkpoint writer exposed NumPy RNG serialization and Single8 delegated-clock restoration bugs. Narrow successors repair these paths without changing the learning procedures. Fourteen synthetic CPU cases verify source model/Adam/RNG replay, handoff and stopping; these are engineering checks with no benchmark score. Failed attempts and their costs remain recorded. The cumulative controller passes 2,601 metadata pre-fit dispatch cases and rejects 270 altered contracts.
+The final canonical coverage audit records **273 canonical rows and 361 aliases**: **263 prepared selected recipe rows** (228 scientific variants and 35 references/controls), and **10 explicit inactive, nonbenchmark, or source-only rows**. No canonical source-port row is missing and no row is excluded because of historical outcome. This establishes source/protocol preparation, not an accuracy result or a count of executed methods.
 
-The full source coverage join, additional postfit procedures, resource/retention budget and final bundle are still being completed. Candidate24 counts below are the earlier frozen snapshot, not final approval counts. Massive scientific training remains disabled pending the user's verification and GO.
+The final source ports include the copied-native relation policies and complete private-hop panel, literal structural/cardinality and conditional-pattern procedures, direct hidden-state head refits, affine head-capacity controls, and learned graph-serving operators. The named nonlinear-head alias remains an explicit unimplemented source disposition. Namespace import successors preserve numerical bodies. Protected76, bounded HPO, per-GPU commands, and checkpoint-retention helpers are bound to the final controller. All engineering failures and their costs remain recorded.
 
-- [Root source audit and preserved failures](experiments_iclr/postsubmission_20260930/all_method_gap_ports_root_20261013_v3/AUDIT_CLOSURE.md)
+The publication includes reviewable authored source files, compact coverage proofs, and a sealed **13,038,922-byte source archive with 3,060 exact repository-relative source/metadata paths**. The final PLAN and SUMMARY and all 98 study specifications are compressed. The archive manifest records per-file bytes and SHA256 hashes; its restore helper uses exclusive writes and rejects unequal existing files. Datasets, checkpoints, banks, private keys, installed dependency trees, `.venv`, and transport payloads are excluded from publication. Large scientific artifacts remain on the server; installed libraries stay in the environment provenance.
 
-The current disabled source union has **79,485 model-fit groups in 92 study specifications**, across **12 distinct datasets and 16 named backbone architectures**. These include tuning, repeated seeds, independent member fits and paid stages. No new massive-study training has started and no GO exists.
+**Resource admission, server77 live admission, and ETA are incomplete. No GO has been received. This is not a claim that the study is ready to run.** Current preparation uses the allocation only; 18.77 has not been accessed. Source scheduling weights are planning bounds and do not establish execution time or concurrent GPU feasibility. Original paper scores and all completed outcomes remain unchanged. Original GNNM remains a comparison on compatible new datasets, and the original five paper datasets are excluded from the proposed massive study.
 
-The exact-source coverage audit is **not yet complete**. Candidate24 contains 249 prepared recipe rows (221 scientific variants and 28 references/controls), while 14 implemented procedure/control rows still need source ports. Hidden-state head refits, learned graph aggregation, affine head-capacity controls, configured relation/private-hop variants, structural/cardinality and count-conditioned procedures are being integrated. A named nonlinear-head alias has no nonlinear implementation in its claimed source; it remains an explicit source mismatch.
+- [Exact final proposal and prepared wrapper commands](experiments_iclr/postsubmission_20260930/final_massive_audit_20261013_v1/PROPOSAL_V2.md)
+- [Exact registered counts](experiments_iclr/postsubmission_20260930/final_massive_audit_20261013_v1/EXACT_COUNTS.json)
+- [Dataset family map](experiments_iclr/postsubmission_20260930/final_sync_master_v29_20261013_v1/DATASET_FAMILY_MAP.json)
+- [Architecture family map](experiments_iclr/postsubmission_20260930/final_sync_master_v29_20261013_v1/ARCHITECTURE_FAMILY_MAP.json)
+- [Final audit and manifest/bundle/resource bindings](experiments_iclr/postsubmission_20260930/final_massive_audit_20261013_v1/AUDIT_REPORT.md)
+- [Final resource report and remaining physical admission limits](experiments_iclr/postsubmission_20260930/final_v29_resource_status_20261013_v1/FINAL_RESOURCE_REPORT.md)
+- [Final finite run census](experiments_iclr/postsubmission_20260930/final_census_master_v29_20261013_v1/RUN_CENSUS.md)
+- [Closed canonical source audit](experiments_iclr/postsubmission_20260930/final_canonical_coverage_audit_20261013_v1/CLOSED_SOURCE_AUDIT_v3.json)
+- [All 273 source dispositions](experiments_iclr/postsubmission_20260930/final_canonical_coverage_audit_20261013_v1/source_port_successor_review_v3/ALL273_REVIEW_TABLE.csv)
+- [Exact final v29 audit binding](experiments_iclr/postsubmission_20260930/final_canonical_coverage_audit_20261013_v1/FINAL_MASTER_V29_BINDING.json)
+- [Explicit source publication inventory and restoration instructions](experiments_iclr/postsubmission_20260930/publication_inventory_v29_20261013_v1/README.md)
+- [Final packet input index](experiments_iclr/postsubmission_20260930/practical_master_inputs_20261013_v29/INPUT_INDEX.json)
+- [Preserved predecessor README at expected HEAD](experiments_iclr/postsubmission_20260930/publication_inventory_v29_20261013_v1/ROOT_README_AT_EXPECTED_HEAD.md)
 
-Two actual launch issues are corrected: the typed-context stopping policy now enters the current dispatcher/spec/engine, and the bank-export phase gate can synchronize digest-only closure. The bounded compressed receipt-tree cap is 64MiB. Allocation author `.venv` receipts retain their execution-repository authority rather than being misclassified as phase files; final transfer verification remains pending.
-
-HGT engineering checks completed 13 cases/26 denied-update TRAIN callbacks with zero optimizer updates and no heldout scores. These establish resource/state behavior, not prediction quality. Remaining work covers maximum source geometries, cohort checkpoint retention, full storage/compute budgets and final GPU assignment. Source scheduling weights are not an ETA. 18.77 remains unaccessed during allocation-only preparation.
-
-Original paper scores remain unchanged. Roman Empire, Amazon Ratings, Minesweeper, Questions and Tolokers are excluded for every method. Original GNNM, capable single models and genuinely independent ensembles remain new-data comparisons. The existing Physics experiment continues unchanged.
-
-- [Current audit findings](experiments_iclr/postsubmission_20260930/training_pipeline_v2_20261012/docs/AUDIT_FINDINGS_20261013.md)
-- [Readable source-union roster](experiments_iclr/postsubmission_20260930/human_master_v24_roster_root_20261013_v1/README.md)
-- [Exact current method/configuration roster](experiments_iclr/postsubmission_20260930/human_master_v24_roster_root_20261013_v1/METHOD_ROSTER.csv)
-- [Registered protocols and hyperparameters](experiments_iclr/postsubmission_20260930/human_master_v24_roster_root_20261013_v1/EXACT_PROTOCOLS.json)
-
-This is an audit-progress snapshot, not the final comprehensive proposal for approval.
+The dated research history below preserves its recorded outcomes and observation times.
 
 ## Research status — 12 October 2026
 

@@ -1,0 +1,529 @@
+--- /dev/null
++++ runtime/checkpoint_retention.py
+@@ -0,0 +1,125 @@
++"""Prospective serving authority + release-plan draft, never delete any file.
++
++This module is not installed into a live controller. Training/recovery always
++requires a complete resumable checkpoint. Serving export creates a separate
++immutable authority and keeps the input untouched.
++"""
++import copy
++import hashlib
++import json
++from pathlib import Path
++
++SCHEMA='gnnm-prospective-selected-serving-checkpoint-v1'
++KEYS=('fit_id','step','validation','decision','model_state','module_modes','requires_grad','adapter_state')
++
++
++def confined(root,path):
++    root=Path(root).resolve();path=Path(path)
++    path=path if path.is_absolute() else root/path
++    if path.is_symlink() or not path.resolve().is_relative_to(root):
++        raise ValueError('Checkpoint operation must stay inside the explicit project root')
++    return path
++
++
++def receipt(path,project_root=None):
++    path=Path(path);h=hashlib.sha256()
++    with path.open('rb') as f:
++        for b in iter(lambda:f.read(1048576),b''):h.update(b)
++    return {'path':str(path) if project_root is None else str(path.resolve().relative_to(Path(project_root).resolve())),
++        'bytes':path.stat().st_size,'sha256':h.hexdigest()}
++
++
++def export_serving_checkpoint(torch,engine,source,target,*,project_root,expected_source_receipt,expected_fit_id):
++    """Lossless selected inference state without optimizer/recovery snapshots."""
++    source,target=confined(project_root,source),confined(project_root,target)
++    if target.exists() or target.with_suffix(target.suffix+'.receipt.json').exists():
++        raise FileExistsError('Serving authority is immutable; choose a fresh target')
++    if receipt(source,project_root)!=expected_source_receipt:
++        raise ValueError('Exact independently bound selected authority required')
++    payload=torch.load(source,map_location='cpu',weights_only=False)
++    if payload.get('schema_version')!=1 or payload.get('fit_id')!=expected_fit_id:
++        raise ValueError('Only a complete checkpoint from this paid fit can supply serving state')
++    if any(k not in payload for k in KEYS) or 'optimizer_state' not in payload:
++        raise ValueError('Complete native source checkpoint required')
++    result={'serving_schema':SCHEMA,'source_full_checkpoint':copy.deepcopy(expected_source_receipt),
++        'resumable':False,**{k:engine._clone_tree(torch,payload[k]) for k in KEYS}}
++    engine._finite_tree(torch,result,'serving export')
++    target.parent.mkdir(parents=True,exist_ok=True)
++    engine._atomic_checkpoint(torch,target,result)
++    restored=torch.load(target,map_location='cpu',weights_only=False)
++    if not engine._equal_tree(torch,result,restored) or receipt(source,project_root)!=expected_source_receipt:
++        raise ValueError('Serving serialization/source preservation differs')
++    manifest={'schema':SCHEMA,'source_full_checkpoint':expected_source_receipt,
++        'serving_checkpoint':receipt(target,project_root),'exact_preserved_fields':list(KEYS),
++        'optimizer_state_omitted':True,'recovery_snapshot_bytes_omitted':True,
++        'source_modified':False,'full_checkpoint_released':False,'resumable':False}
++    mp=target.with_suffix(target.suffix+'.receipt.json')
++    mp.write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
++    return manifest
++
++
++def restore_serving_checkpoint(torch,engine,path,adapter,*,project_root,expected_receipt,expected_fit_id):
++    """Restore exact inference/model/adapter state; reject training authority."""
++    path=confined(project_root,path)
++    if receipt(path,project_root)!=expected_receipt:raise ValueError('Immutable serving authority changed')
++    value=torch.load(path,map_location='cpu',weights_only=False)
++    if (value.get('serving_schema')!=SCHEMA or value.get('fit_id')!=expected_fit_id
++            or value.get('resumable') is not False or 'optimizer_state' in value or 'recovery' in value):
++        raise ValueError('Serving checkpoints are explicit inference authorities only')
++    modules=dict(adapter.model.named_modules());parameters=dict(adapter.model.named_parameters())
++    if set(modules)!=set(value['module_modes']) or set(parameters)!=set(value['requires_grad']):
++        raise ValueError('Serving topology differs')
++    optimizer_before=engine._clone_tree(torch,adapter.optimizer.state_dict())
++    adapter.model.load_state_dict(value['model_state'],strict=True)
++    for name,flag in value['requires_grad'].items():parameters[name].requires_grad_(flag)
++    for p in adapter.model.parameters():p.grad=None
++    for name,flag in value['module_modes'].items():modules[name].training=flag
++    adapter.restore_state(engine._clone_tree(torch,value['adapter_state']))
++    actual={'model_state':engine._clone_tree(torch,adapter.model.state_dict()),
++        'module_modes':{n:bool(m.training) for n,m in adapter.model.named_modules()},
++        'requires_grad':{n:bool(p.requires_grad) for n,p in adapter.model.named_parameters()},
++        'adapter_state':engine._clone_tree(torch,adapter.capture_state())}
++    if not engine._equal_tree(torch,actual,{k:value[k] for k in actual}):
++        raise ValueError('Serving restore did not reproduce exact selected state')
++    if not engine._equal_tree(torch,optimizer_before,adapter.optimizer.state_dict()):
++        raise ValueError('Serving restore changed unrelated optimizer authority')
++    return {'fit_id':value['fit_id'],'step':value['step'],'source_full_checkpoint':value['source_full_checkpoint'],
++        'purpose':'inference_only','resumable':False}
++
++
++def label_free_export_ready(record):
++    """Prospective gate proposal: labels stay under the global endpoint gate."""
++    return (record.get('phase')=='label_free_bank_export'
++        and record.get('all_fit_parents_complete') is True
++        and record.get('selected_authorities_verified') is True
++        and record.get('reads_CAL_or_EVALUATE_targets') is False
++        and record.get('emits_predictive_scores') is False
++        and record.get('registered_endpoint_ids_only') is True)
++
++
++def release_plan(record):
++    """Return explicit bounded lifetime decisions; performs no filesystem IO."""
++    required=('fit_id','purpose','stage','fit_status','owner_terminal','history_closed','serving_equivalence_verified',
++        'HPO_group_closed','SELECT_history_saved','label_free_bank_closed','unfinished_state_dependents',
++        'continuation_admissions_closed','full_checkpoint_receipts','serving_receipt')
++    if any(k not in record for k in required):raise ValueError('Explicit complete retention lifecycle required')
++    if record['purpose'] not in ('prospective_scientific','synthetic_engineering'):
++        raise ValueError('Historical evidence cannot be released by this prospective proposal')
++    blockers=[]
++    if record['fit_status']!='complete' or record['owner_terminal'] is not True: blockers.append('fit_or_owner_unfinished')
++    if record['history_closed'] is not True: blockers.append('history_not_closed')
++    if record['serving_equivalence_verified'] is not True: blockers.append('selected_serving_not_equivalent')
++    if record.get('stage')=='search' and (record['HPO_group_closed'] is not True or record['SELECT_history_saved'] is not True):blockers.append('whole_HPO_or_SELECT_history_open')
++    if record.get('stage')!='search' and record['label_free_bank_closed'] is not True:blockers.append('selected_label_free_bank_open')
++    if record['unfinished_state_dependents']:blockers.append('paid_state_dependents_open')
++    if record['continuation_admissions_closed'] is not True:blockers.append('retry_or_continuation_admission_open')
++    if not isinstance(record['full_checkpoint_receipts'],list) or not record['full_checkpoint_receipts']:
++        raise ValueError('Individually bound complete checkpoint release candidates required')
++    if record['serving_receipt'] in record['full_checkpoint_receipts']:
++        raise ValueError('Preserved serving authority cannot be a release candidate')
++    return {'schema':'gnnm-prospective-checkpoint-lifetime-draft-v1','fit_id':record['fit_id'],
++        'eligible':not blockers,'blockers':blockers,'full_state_candidates':copy.deepcopy(record['full_checkpoint_receipts']),
++        'preserved_selected_serving':copy.deepcopy(record['serving_receipt']),
++        'preserve':['run_spec','source_and_data_custody','train_and_SELECT_curves','all_costs','result_and_failure_history',
++            'selected_receipt_and_exact_serving_state','member_prediction_bank_and_export_receipt'],
++        'delete_executed':False,'source_policy_installed':False,'GO':False}
+--- runtime/compile_master_plan.py
++++ runtime/compile_master_plan.py
+@@ -938,6 +938,8 @@
+             study['source']['master_input_identity'] = origins[study['study_id']]
+             study['release']['global_plan_gates_required'] = True
+             study['release']['master_gate_scope'] = 'all materialized packets, matched reference cohorts and assigned hosts'
++            from retention_lifecycle import declare_policy
++            declare_policy(root,study)
+             validate(study)
+             studies.append(study)
+     if set(resources.get('study_profiles', {})) - set(origins):
+@@ -1012,6 +1014,8 @@
+             'receipt_contract': 'status=complete;plan_hash=current_plan_hash;closed_phase=gate_name;host_receipts_keys=required_hosts'}
+     plan = {'schema_version': 1, 'slots_per_gpu': 2, 'torch_threads_per_fit': 2,
+         'runtime_package': controller, 'runtime_launcher': controller + '/launcher.py',
++        'label_free_export_run_keys':sorted(s['study_id']+'/'+key for s in studies for key in s['release'].get('checkpoint_retention_policy',{}).get('audited_label_free_exports',{})),
++        'checkpoint_retention_schema':'gnnm-prospective-checkpoint-lifetimes-v1',
+         'immutable_source_bundle': {'package': controller, 'files': controller_files,
+             'model_worker_entrypoint': controller + '/run_study.py', 'endpoint_worker_entrypoint': controller + '/run_endpoint.py'},
+         'output_root': output_relative + '/execution', 'studies': [], 'groups': placement['groups'],
+--- runtime/launcher.py
++++ runtime/launcher.py
+@@ -166,6 +166,8 @@
+         done.add(key)
+     for key in runs:
+         visit(key)
++    from retention_lifecycle import validate_plan_policy
++    validate_plan_policy(root,plan,runs,studies)
+     return studies, runs, placement, dependencies
+ 
+ 
+@@ -289,6 +291,9 @@
+                 event("child_terminal", {"key": key, "exit_code": code, "pid": item["process"].pid})
+                 del active[key]
+                 row = runs[key]
++                from retention_lifecycle import sweep_closed_owner
++                releases=sweep_closed_owner(root,studies[row["study"]]["spec"],registry,row["run"]["run_id"])
++                if releases:event("prospective_retention_release",{"key":key,"receipts":releases})
+                 if registry.run(row["study"], row["run"]["run_id"])["state"] == "registered":
+                     raise RuntimeError("Child terminated before its registry claim; inspect its log before retrying")
+             all_states = registry.states()
+@@ -309,7 +314,7 @@
+                 capacities = {worker: value for worker, value in capacities.items() if worker in enabled}
+                 stages = {row["run"]["config"].get("stage", "search") for row in runs.values()}
+                 phase_allowed = {stage: gate_ready(root, plan, digest, stage) for stage in stages}
+-                admissible_states = {key: state if phase_allowed[runs[key]["run"]["config"].get("stage", "search")]
++                admissible_states = {key: state if key in plan.get("label_free_export_run_keys",[]) or phase_allowed[runs[key]["run"]["config"].get("stage", "search")]
+                                      else "phase_wait" for key, state in states.items()}
+                 ready = schedule_ready(runs, admissible_states, placement, dependencies,
+                                        list(active.values()), capacities, host)
+--- runtime/registry.py
++++ runtime/registry.py
+@@ -117,6 +117,27 @@
+             if cursor.rowcount != 1:
+                 raise ValueError("Only the claimed running record may finish")
+             self._event(study, run_id, state, result)
++            if success and result.get("retention_authority"):
++                self._event(study,run_id,"selected_serving_authority_closed",{
++                    "retention_authority":result["retention_authority"],"serving_checkpoint":result["selected_serving_checkpoint"]})
++
++    def consumer_records(self, study, run_id):
++        """Derive direct/transitive leases from the immutable registered DAG."""
++        raw=self.db.execute("SELECT spec FROM studies WHERE id=?",(study,)).fetchone()
++        if raw is None:raise ValueError("Unknown study for retention leases")
++        spec=json.loads(raw[0]);runs={r["run_id"]:r for r in spec["runs"]}
++        if run_id not in runs:raise ValueError("Unknown fit for retention leases")
++        children={k:[] for k in runs}
++        for r in runs.values():
++            for p in r["parents"]:children[p].append(r["run_id"])
++        seen=set();todo=list(children[run_id])
++        while todo:
++            k=todo.pop()
++            if k in seen:continue
++            seen.add(k);todo.extend(children[k])
++        states=dict(self.db.execute("SELECT id,state FROM runs WHERE study=?",(study,)))
++        return {"direct_ids":children[run_id],"transitive_ids":sorted(seen),
++            "contracts":{k:runs[k] for k in seen},"states":{k:states[k] for k in seen}}
+ 
+     def release_ready(self, study):
+         rows = self.db.execute("SELECT id,state FROM runs WHERE study=?", (study,)).fetchall()
+--- /dev/null
++++ runtime/retention_lifecycle.py
+@@ -0,0 +1,272 @@
++"""Prospective compact authorities, conservative DAG leases and audited exports.
++
++Only the new frozen release schema opts in. No existing output is migrated.
++CAL/EVALUATE remain global-gated. All removal candidates have independent byte
++receipts; ordinary training and recovery do not understand the serving schema.
++"""
++import builtins
++from contextlib import contextmanager,ExitStack
++import copy
++import hashlib
++import json
++from pathlib import Path
++import sys
++from unittest.mock import patch
++
++from checkpoint_retention import receipt,confined,export_serving_checkpoint,restore_serving_checkpoint
++
++SCHEMA='gnnm-prospective-checkpoint-lifetimes-v1'
++AUDITED={
++ '5571953847f054b01e1784efb0cb35330794af0f3f8ea1cbee24a0afda5c121e':'node',
++ '20144e4ca7cdc9304cf12becc1984b974e1c7ed99371ab2bc19c5ad86abbd981':'sehgnn',
++ 'f53a108553b1058af706270675ccab99802e4c0d15d1a0e191202b5f2b7a46a6':'nsd'}
++
++
++def exporter_binding(root,run):
++    if run['kind']!='ensemble_assembly' or run['config'].get('stage')!='bank_export':return None
++    file,_,function=run['adapter'].partition(':')
++    if function!='export_bank':return None
++    binding=receipt(confined(root,file),root);family=AUDITED.get(binding['sha256'])
++    return None if family is None else {'family':family,'factory':run['adapter'],'file':binding}
++
++
++def declare_policy(root,study):
++    exports={r['run_id']:b for r in study['runs'] if (b:=exporter_binding(root,r)) is not None}
++    study['release']['checkpoint_retention_policy']={'schema':SCHEMA,'compact_selected_for_every_engine_fit':True,
++        'audited_label_free_exports':exports,'unsupported_exporters_keep_full_states':True,
++        'full_parent_and_recovery_authorities_required':True,'existing_output_migration':False}
++    return study
++
++
++def enabled(study):
++    policy=study['release'].get('checkpoint_retention_policy')
++    if policy is None:return False
++    if policy.get('schema')!=SCHEMA or policy.get('existing_output_migration') is not False:
++        raise ValueError('Only a newly frozen prospective retention policy is supported')
++    return True
++
++
++def early_export_key(study,run):
++    return study['study_id']+'/'+run['run_id'] if enabled(study) and run['run_id'] in study['release']['checkpoint_retention_policy']['audited_label_free_exports'] else None
++
++
++def validate_plan_policy(root,plan,runs,studies):
++    keys=set(plan.get('label_free_export_run_keys',[]))
++    for key in keys:
++        if key not in runs:raise ValueError('Unknown prospective export exception')
++        item=runs[key];study=studies[item['study']]['spec'];run=item['run']
++        if early_export_key(study,run)!=key or exporter_binding(root,run)!=study['release']['checkpoint_retention_policy']['audited_label_free_exports'][run['run_id']]:
++            raise ValueError('Only the exact hash-audited label-free export can bypass the comparative phase barrier')
++
++
++def close_fit(root,study,run,folder,result):
++    if not enabled(study):return result
++    import torch,engine
++    folder=confined(root,folder)
++    if result['status']!='complete':raise ValueError('Only complete selected trajectories compact')
++    selected=folder/'selected.pt'
++    source=receipt(selected,root)
++    if any(source[k]!=result['selected_checkpoint'][k] for k in ('bytes','sha256')):raise ValueError('Closed selected authority changed before compaction')
++    manifest=export_serving_checkpoint(torch,engine,selected,folder/'selected_serving.pt',project_root=root,
++        expected_source_receipt=source,expected_fit_id=run['run_id'])
++    diagnostic=[]
++    for prefix in result.get('prefixes',[]):
++        if prefix.get('selected') is not None:
++            p=folder/prefix['selected']['path']
++            diagnostic.append({'prefix_id':prefix['prefix_id'],'selected_step':prefix['selected']['step'],
++                'full_checkpoint':receipt(p,root),'certificate':receipt(folder/'prefixes'/prefix['prefix_id']/'certificate.json',root),
++                'diagnostic_only':bool(run['config'].get('prefixes_are_not_additional_heldout_endpoints'))})
++    full=[receipt(p,root) for p in [selected,folder/'final_training.pt',folder/'latest_trajectory.pt'] if p.is_file()]
++    full += [d['full_checkpoint'] for d in diagnostic]
++    record={'schema':SCHEMA,'fit_id':run['run_id'],'source_full_selected':source,'serving':manifest,
++        'prefixes':diagnostic,'full_state_receipts':full,'history_source_result':receipt(folder/'result.json',root),
++        'source_policy':study['release']['checkpoint_retention_policy'],'source_modified':False,
++        'existing_output_migration':False,'released':False}
++    path=folder/'RETENTION_AUTHORITY.json'
++    if path.exists():raise FileExistsError('Retained authority already exists; inspect owner/retry history')
++    path.write_text(json.dumps(record,indent=2,sort_keys=True)+'\n')
++    value=copy.deepcopy(result);value['retention_authority']=receipt(path,root)
++    value['selected_serving_checkpoint']=manifest['serving_checkpoint']
++    return value
++
++
++def authority(root,registry,study,identifier):
++    row=registry.run(study['study_id'],identifier)
++    if row['state']!='complete' or row['contract']['kind']!='model_fit':raise ValueError('Complete fitted parent required for serving')
++    binding=row['result'].get('retention_authority')
++    if binding is None:raise ValueError('This fit has no prospective serving authority')
++    path=confined(root,binding['path'])
++    if receipt(path,root)!=binding:raise ValueError('Immutable retention authority changed')
++    value=json.loads(path.read_text())
++    if value['schema']!=SCHEMA or value['fit_id']!=identifier:raise ValueError('Retention fit/schema differs')
++    selected=row['result']['selected_checkpoint']
++    if any(value['source_full_selected'][k]!=selected[k] for k in ('bytes','sha256')):raise ValueError('Serving authority did not descend from the actual selected state')
++    compact=value['serving']['serving_checkpoint']
++    if receipt(confined(root,compact['path']),root)!=compact:raise ValueError('Selected serving checkpoint changed')
++    return row,value
++
++
++def consumer_leases(study,registry,identifier):
++    """Immutable within-study DAG, not timestamps or inferred stopped jobs."""
++    runs={r['run_id']:r for r in study['runs']};children={k:[] for k in runs}
++    for r in runs.values():
++        for p in r['parents']:children[p].append(r['run_id'])
++    seen=set();todo=list(children[identifier])
++    while todo:
++        k=todo.pop()
++        if k in seen:continue
++        seen.add(k);todo.extend(children[k])
++    registered=registry.consumer_records(study['study_id'],identifier)
++    if set(registered['transitive_ids'])!=seen or set(registered['direct_ids'])!=set(children[identifier]):raise ValueError('Retention DAG differs from registered immutable study')
++    states=registered['states']
++    paid_children=[k for k in children[identifier] if runs[k]['kind']=='model_fit']
++    # A source parent stays full through every transitive fit/endpoint consumer
++    # and open failure/retry. Unknown endpoint families remain conservative.
++    if paid_children:
++        outstanding=sorted(k for k in seen if states[k]!='complete')
++    else:
++        direct=children[identifier]
++        supported=study['release']['checkpoint_retention_policy']['audited_label_free_exports']
++        outstanding=sorted(k for k in direct if states[k]!='complete' or (runs[k]['kind']=='ensemble_assembly' and k not in supported))
++    if runs[identifier]['config'].get('stage')=='search':
++        hpo=[r['run_id'] for r in study['runs'] if r['config'].get('stage') in ('search','search_selection')]
++        outstanding+=['HPO:'+k for k in hpo if registry.run(study['study_id'],k)['state']!='complete']
++    return {'fit_id':identifier,'transitive_consumer_ids':sorted(seen),'outstanding_full_state_consumers':sorted(set(outstanding)),
++        'paid_source_parent':bool(paid_children),'states':states,'closed':not outstanding}
++
++
++@contextmanager
++def inference_export(root,study,run,registry,output_root,factory):
++    """Scoped endpoint-only authority selection; source/paid parents stay full."""
++    import torch,engine
++    binding=exporter_binding(root,run)
++    expected=study['release']['checkpoint_retention_policy']['audited_label_free_exports'].get(run['run_id'])
++    if binding!=expected:raise ValueError('Endpoint source is not the frozen audited exporter')
++    fits=run['config']['fit_parents'];selected={}
++    for identifier in fits:
++        row,value=authority(root,registry,study,identifier)
++        selected[(Path(output_root)/study['study_id']/identifier/'selected.pt').resolve()]=(identifier,row,value)
++    module=sys.modules[factory.__module__];old_restore=engine.restore_checkpoint
++    def restore(t,path,adapter,*,expected_fit_id=None,verify=True):
++        item=selected.get(Path(path).resolve())
++        if item is None:return old_restore(t,path,adapter,expected_fit_id=expected_fit_id,verify=verify)
++        identifier,row,value=item
++        if expected_fit_id!=identifier:raise ValueError('Selected inference authority belongs to another fit')
++        b=value['serving']['serving_checkpoint']
++        restore_serving_checkpoint(t,engine,confined(root,b['path']),adapter,project_root=root,expected_receipt=b,expected_fit_id=identifier)
++        return {'fit_id':identifier,'step':row['result']['selected']['step'],
++            'validation':row['result']['selected']['validation'],'decision':{},'authority_type':'selected_serving_inference_only'}
++    old_receipt=getattr(module,'receipt',None)
++    def selected_receipt(*args):
++        path=next((Path(a) for a in args if isinstance(a,(str,Path)) and Path(a).resolve() in selected),None)
++        if path is not None:return selected[path.resolve()][2]['serving']['serving_checkpoint']
++        return old_receipt(*args)
++    def sehgnn_selected(project_root,output,unused_study,row):
++        result=row['result'];contract=row['contract']
++        if (row['state']!='complete' or result['status']!='complete' or result['completed_steps']!=1000
++                or contract['budget']['maximum']!=1000 or result['selected_checkpoint']['path']!='selected.pt'
++                or not 0<result['selected']['step']<=1000 or result['selected_checkpoint']['step']!=result['selected']['step']):
++            raise ValueError('Complete independently selected native1000-epoch authority required')
++        identifier=row['contract']['run_id'];item=selected[(Path(output)/study['study_id']/identifier/'selected.pt').resolve()]
++        value=item[2];diagnostics=[]
++        for p in value['prefixes']:
++            cp=confined(root,p['certificate']['path'])
++            original=next(q for q in row['result']['prefixes'] if q['prefix_id']==p['prefix_id'])
++            if (receipt(cp,root)!=p['certificate'] or json.loads(cp.read_text())!=original
++                    or original['cap_step'] not in (200,500) or original['closed'] is not True
++                    or original['closure_step']!=original['cap_step'] or original['closure_reason']!='cap'
++                    or not 0<p['selected_step']<=original['cap_step']):raise ValueError('Source diagnostic prefix certificate changed')
++            diagnostics.append({'cap':next(q['cap_step'] for q in row['result']['prefixes'] if q['prefix_id']==p['prefix_id']),
++                'certificate':p['certificate'],'checkpoint':p['full_checkpoint'],'selected_step':p['selected_step'],
++                'checkpoint_authority':'preserved original full-state byte receipt; diagnostic-only; serving does not read this full state',
++                'heldout_predictions_computed':False})
++        return Path(output)/study['study_id']/identifier/'selected.pt',value['serving']['serving_checkpoint'],diagnostics
++    forbidden={confined(root,p).resolve() for k,p in run['config']['endpoint_inputs'].items() if k.endswith('_targets')}
++    original_load=torch.load;original_open=builtins.open;original_path_open=Path.open
++    def guard_path(value):
++        if isinstance(value,(str,Path)) and Path(value).resolve() in forbidden:raise ValueError('Label-free export cannot access CAL/EVALUATE targets')
++    def guarded_load(value,*a,**kw):guard_path(value);return original_load(value,*a,**kw)
++    def guarded_open(value,*a,**kw):guard_path(value);return original_open(value,*a,**kw)
++    def guarded_path_open(value,*a,**kw):guard_path(value);return original_path_open(value,*a,**kw)
++    with ExitStack() as stack:
++        stack.enter_context(patch.object(engine,'restore_checkpoint',restore))
++        if hasattr(module,'restore_checkpoint'):stack.enter_context(patch.object(module,'restore_checkpoint',restore))
++        if old_receipt is not None:stack.enter_context(patch.object(module,'receipt',selected_receipt))
++        if binding['family']=='sehgnn':stack.enter_context(patch.object(module,'selected_authority',sehgnn_selected))
++        stack.enter_context(patch.object(torch,'load',guarded_load));stack.enter_context(patch.object(builtins,'open',guarded_open));stack.enter_context(patch.object(Path,'open',guarded_path_open))
++        yield
++
++
++def release_candidates(root,study,registry,identifier,*,owner_terminal):
++    """Bound prospective actions; callers prove child termination before removal."""
++    if not enabled(study):return None
++    row,value=authority(root,registry,study,identifier);leases=consumer_leases(study,registry,identifier)
++    full=value['full_state_receipts'];selected=value['source_full_selected']
++    completed_releases=[]
++    folder=confined(root,row['result']['retention_authority']['path']).parent
++    for p in folder.glob('RETENTION_RELEASE_*_COMPLETE.json'):
++        completed=json.loads(p.read_text())
++        if completed.get('schema')!=SCHEMA:raise ValueError('Unknown checkpoint release completion schema')
++        intent=completed['intent'];ip=confined(root,intent['path'])
++        if receipt(ip,root)!=intent:raise ValueError('Checkpoint release intent changed')
++        completed_releases.extend(completed['released'])
++    candidates=[]
++    for r in full:
++        name=Path(r['path']).name
++        primary=r==selected or (name=='final_training.pt' and leases['paid_source_parent'])
++        if primary and not leases['closed']:continue
++        if name=='selected.pt' and '/prefixes/' in r['path']:
++            p=next(p for p in value['prefixes'] if p['full_checkpoint']==r)
++            if not p['diagnostic_only']:continue  # Unsupported served prefixes retain full authority.
++        if not owner_terminal:continue
++        path=confined(root,r['path'])
++        if path.is_file():
++            if receipt(path,root)!=r:raise ValueError('Complete-state release candidate changed')
++            candidates.append(r)
++        elif r not in completed_releases:
++            raise ValueError('Checkpoint disappeared without a closed release receipt; inspect interrupted or foreign mutation')
++    return {'schema':SCHEMA,'fit_id':identifier,'authority':row['result']['retention_authority'],
++        'owner_terminal':owner_terminal,'leases':leases,'release_candidates':candidates,
++        'preserved_serving':value['serving']['serving_checkpoint'],'scientific_history_preserved':True,'delete_executed':False}
++
++
++def sweep_closed_owner(root,study,registry,trigger_id):
++    """Future supervisor hook, only after its exact child has exited.
++
++    Outputs without the new prospective authority are never migration targets.
++    Immutable intent/completion receipts preserve every released byte authority.
++    """
++    if not enabled(study):return []
++    runs={r['run_id']:r for r in study['runs']};affected=set();todo=[trigger_id]
++    while todo:
++        k=todo.pop()
++        if k in affected:continue
++        affected.add(k);todo.extend(runs[k]['parents'])
++    reports=[]
++    for identifier in sorted(affected):
++        if runs[identifier]['kind']!='model_fit':continue
++        row=registry.run(study['study_id'],identifier)
++        if row['state']!='complete' or not row['result'].get('retention_authority'):continue
++        # The triggering child is known exited by the supervisor. Earlier
++        # complete fits are verified by Linux process identity, never status alone.
++        from run_study import terminal_owner
++        termination=terminal_owner(row['owner'])
++        plan=release_candidates(root,study,registry,identifier,owner_terminal=termination['previous_owner_terminal'])
++        if not plan['release_candidates']:continue
++        folder=confined(root,row['result']['retention_authority']['path']).parent
++        index=0
++        while (folder/('RETENTION_RELEASE_'+str(index)+'.json')).exists():index+=1
++        intent=folder/('RETENTION_RELEASE_'+str(index)+'.json')
++        plan['owner_termination']=termination;plan['existing_output_migration']=False
++        intent.write_text(json.dumps(plan,indent=2,sort_keys=True)+'\n')
++        removed=[]
++        for r in plan['release_candidates']:
++            p=confined(root,r['path'])
++            if receipt(p,root)!=r:raise ValueError('Release candidate changed after intent closure')
++            p.unlink();removed.append(r)
++        done=folder/('RETENTION_RELEASE_'+str(index)+'_COMPLETE.json')
++        done.write_text(json.dumps({'schema':SCHEMA,'intent':receipt(intent,root),'released':removed,
++            'preserved_serving':plan['preserved_serving'],'scientific_history_preserved':True,
++            'existing_output_migration':False},indent=2,sort_keys=True)+'\n')
++        binding=receipt(done,root);registry.event(study['study_id'],identifier,'prospective_full_state_release',binding);reports.append(binding)
++    return reports
+--- runtime/run_endpoint.py
++++ runtime/run_endpoint.py
+@@ -32,8 +32,16 @@
+             raise ValueError("An endpoint output already exists; retain it for inspection")
+         out.mkdir(parents=True, exist_ok=True)
+         factory = load_factory(root, run["adapter"])
+-        result = factory(project_root=root, study=spec, run=run, output_root=Path(output_root),
+-                         output_dir=out, registry=registry, device=device)
++        from retention_lifecycle import early_export_key,inference_export
++        if early_export_key(spec,run):
++            with inference_export(root,spec,run,registry,Path(output_root),factory):
++                result = factory(project_root=root, study=spec, run=run, output_root=Path(output_root),output_dir=out, registry=registry, device=device)
++            if result.get("CAL_targets_read") is not False or result.get("evaluation_targets_read") is not False:
++                raise ValueError("Audited label-free export emitted an invalid custody receipt")
++            result["checkpoint_authority_type"]="selected_serving_inference_only"
++        else:
++            result = factory(project_root=root, study=spec, run=run, output_root=Path(output_root),
++                             output_dir=out, registry=registry, device=device)
+         if not isinstance(result, dict) or result.get("status") != "complete":
+             raise ValueError("Endpoint did not return a complete custody receipt")
+         result.update(wall_seconds=time.monotonic()-tick, owner=owner)
+--- runtime/run_study.py
++++ runtime/run_study.py
+@@ -53,7 +53,12 @@
+         raise ValueError("The distributed assignment plan changed after GO")
+     if not any(row["spec_hash"] == fingerprint(spec) for row in plan["studies"]):
+         raise ValueError("Study is outside the approved distributed plan")
+-    if not gate_ready(root, plan, digest, run["config"].get("stage", "search")):
++    from retention_lifecycle import early_export_key,exporter_binding
++    key=early_export_key(spec,run)
++    exception=key in plan.get("label_free_export_run_keys",[]) if key else False
++    if exception and exporter_binding(root,run)!=spec["release"]["checkpoint_retention_policy"]["audited_label_free_exports"][run["run_id"]]:
++        raise ValueError("Early export source changed after approval")
++    if not exception and not gate_ready(root, plan, digest, run["config"].get("stage", "search")):
+         raise ValueError("The whole distributed phase has not closed")
+ 
+ 
+@@ -342,6 +347,8 @@
+                                        admission=admission, resource_check=guard)
+         else:
+             result = run_trajectory(torch, adapter, engine_spec, destination, resource_check=guard)
++        from retention_lifecycle import close_fit
++        result=close_fit(project_root,spec,run,destination,result)
+         registry.finish(spec["study_id"], run_id, result, success=True)
+         return result
+     except BaseException as error:

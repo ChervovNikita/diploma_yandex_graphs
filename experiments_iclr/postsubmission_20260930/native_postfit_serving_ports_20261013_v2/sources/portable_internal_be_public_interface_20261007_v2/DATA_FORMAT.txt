@@ -1,0 +1,88 @@
+Public input contract (arrays supplied by the researcher)
+========================================================
+
+Two separate numeric-only NPZ files: TRAIN and VALID. Exactly the named arrays,
+no pickled/object arrays or extra TEST fields. ZIP inventories and NPY headers
+are checked before values load. NPZ paths can be anywhere chosen by the user.
+The reader hashes input files for provenance and checks shapes/domains; it
+cannot certify official source authenticity, official split membership or labels
+from those checks alone. No private author manifest/approval is required.
+
+WikiCS: official split0; 11701 public nodes,300 features,10 labels.
+TRAIN:
+  x             float32 [11701,300], finite
+  edge_index    int64 [2,442907], endpoints0..11700; exact prepared public graph
+  ids           int64 [580], unique official TRAIN IDs
+  y             int64 [580], corresponding labels0..9
+VALID:
+  ids           int64 [5274], unique official VALID IDs, disjoint from TRAIN
+  y             int64 [5274], corresponding labels0..9
+Batch: {'x': full_features, 'edge_index': fixed_graph, 'ids': selected_ids}.
+Full graph is transductive public input; VALID labels never train. The shape
+alone does not specify topology: upstream-to-prepared graph preprocessing and
+source-array hashes are reproduced by export.py and checked against public
+reference fingerprints. Actual portable numeric parity remains unverified. One complete
+full-graph TRAIN update/epoch; complete VALID is one full-graph batch. Never infer
+the 442907-edge graph by truncating/filtering to this count.
+
+Collab:235868 nodes,128 features; official temporal events through2017 TRAIN,
+2018 VALID. Preserve all event records and multiplicity, not unique pair counts.
+TRAIN:
+  x              float32 [235868,128], finite
+  positive       int64 [1179052,2], node domain; positive records nonself
+  positive_year  int64 [1179052],1963..2017
+VALID:
+  positive       int64 [60084,2], node domain; positive records nonself
+  positive_year  int64 [60084], every record2018
+  negative       int64 [100000,2], exact official shared list INCLUDING1 self-pair
+Batch: {'x': full_features, 'adj': torch_sparse.SparseTensor, 'query': [B,2]}.
+Each TRAIN batch has at most65536 positive events plus equal TRAIN-only sampled
+negative targets. Preserve the complete tail (18 updates/epoch). Before both
+views, remove every duplicate/reversed occurrence of each supervised positive
+canonical pair from message and NCN structural support. VALID uses complete
+TRAIN-only support and all60084 positive/100000 shared-negative targets, batched
+131072 query rows. Historical TRAIN pair overlap with VALID is permitted; do
+not use VALID pair IDs to filter history. Do not reject TRAIN negatives using
+future positive labels. OGB Hits@50 uses the shared complete negative list.
+
+Molhiv: official scaffold TRAIN32901/VALID4113 out of41127 molecule IDs.
+Both NPZ roles have:
+  x             int64 [total_nodes,9], original OGB atom categories
+  edge_index    int64 [2,total_directed_edges], graph-LOCAL endpoints
+  edge_attr     int64 [total_directed_edges,3], original OGB bond categories
+  node_ptr      int64 [number_of_graphs+1], starts0, complete nonempty graph nodes
+  edge_ptr      int64 [number_of_graphs+1], starts0, complete graph edge partitions
+  ids           int64 [number_of_graphs], original unique molecule IDs0..41126
+  y             float32 [number_of_graphs], finite binary original labels
+TRAIN/VALID IDs are disjoint. Concatenate atoms/bonds per graph in official role
+order, while edge endpoints remain LOCAL per graph. Preserve the OGB reciprocal
+interleaving of raw bonds and aligned duplicated edge_attr; do not normalize or
+multiply categorical integer indices. Raw selected graph/role packing
+is implemented by export.py using unchanged frozen packing helpers. Actual
+portable conversion parity remains unverified; this input API does not read mixed raw labels.
+Batch: {'graph': torch_geometric.data.Batch}, labels float32 [graphs].
+Full TRAIN grouping: seeded randperm using seed+19709+1000*epoch,128 graphs per
+batch, complete tail (258 updates/epoch). VALID: all4113 graphs, sequential128
+graph batches (33 batches), original complete OGB ROC AUC. The model uses bond-
+aware residual GINE+virtual node with per-node LayerNorm; it is a specified
+adaptation and not an OGB author's BatchNorm benchmark reproduction.
+
+Minimal full-data update usage (after official arrays have been prepared):
+
+  from portable import Session
+  from data_interface import load_train_valid, train_batches, validation_batches
+  train, valid, origin = load_train_valid('molhiv', 'train.npz', 'valid.npz')
+  session = Session('molhiv', 'be_init_contrastive',6101,'cpu')
+  for batch, labels in train_batches('molhiv',train,epoch=1,seed=6101,device=session.device):
+      session.train_step(batch,labels)
+  session.model.eval()
+  with session.torch.no_grad():
+      for batch, labels in validation_batches('molhiv',train,valid,device=session.device):
+          logits, representations = session.forward(batch)
+          pooled = session.serving(logits)
+          # Accumulate ALL VALID outputs, then evaluate/perform the declared selector.
+
+This snippet demonstrates the library boundary. train.py supplies the complete
+fixed-horizon TRAIN/VALID driver with the declared selector/local transition.
+README.txt distinguishes continuation primitives, selected snapshots and
+evaluation-only mixed-epoch independent banks.
