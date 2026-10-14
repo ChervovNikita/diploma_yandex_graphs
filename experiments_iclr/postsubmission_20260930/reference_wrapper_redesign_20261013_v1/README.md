@@ -15,11 +15,14 @@ The former v29 80,850-fit proposal is withdrawn for new execution. Its sources,
 decisions and evidence remain preserved. No scientific GO exists.
 
 **This is a frozen proposed design, not an executable or completed benchmark.**
-The portable boundary wrapper and training rules are implemented and have
-passed static checks. The native data/training adapters, exact boundary maps
-and checkpoint/evaluator integration still need implementation and runtime
-qualification. Resource admission and the 18.77 runtime also remain pending.
-No new models have been trained by this redesign.
+The portable boundary wrapper, training rules and native TRAIN/VALID smoke
+adapters are implemented. Real-data checks are recorded in
+`smoke_20261014/`; they include optimizer updates, native parameter ownership,
+checkpoint restoration and a physical two-job memory probe. Individual failures
+and source repairs remain in the receipts. Short checks do not qualify complete
+epochs, independent checkpoint selectors, stopping, final TEST serving or the
+three-GPU launcher. The 18.77 runtime remains pending. No benchmark fits have
+been launched; the authorized engineering updates are separate from the study.
 
 ## Fixed experimental coverage
 
@@ -67,8 +70,8 @@ The four additional GNNM hypotheses use the same boundary wrapper:
    are not silently given a different auxiliary objective.
 
 The auxiliary definitions are fixed method rules from retained implementations,
-not tuned native hyperparameters. Their portable training helpers exist; their
-source-specific boundary ports remain pending. These are separately declared
+not tuned native hyperparameters. Their portable training helpers and the
+eligible native boundary smoke ports exist. These are separately declared
 candidate methods, not a claim that every candidate is already better or novel.
 The common inference rule for GNNM and I4 is the arithmetic mean of native raw
 logits, followed by the native output interpretation. No learned aggregator,
