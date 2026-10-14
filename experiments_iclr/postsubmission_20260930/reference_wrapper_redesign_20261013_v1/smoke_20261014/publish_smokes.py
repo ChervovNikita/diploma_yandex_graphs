@@ -48,6 +48,9 @@ def main():
         (report / 'RESULTS.json').read_bytes(), mtime=0))
     (SMOKE / 'MANIFEST.json.gz').write_bytes(gzip.compress(
         (SMOKE / 'MANIFEST.json').read_bytes(), mtime=0))
+    if (SMOKE / 'NONNODE_MANIFEST.json').exists():
+        (SMOKE / 'NONNODE_MANIFEST.json.gz').write_bytes(gzip.compress(
+            (SMOKE / 'NONNODE_MANIFEST.json').read_bytes(), mtime=0))
     counts = data['counts']
     functional = data['functional_completion_counts']
     block = f'''## Real-data smoke checks — 14 October 2026
@@ -101,7 +104,7 @@ The old v29 launcher remains retired; no full-campaign GO has been received.
     names = [p for p in sorted(SMOKE.rglob('*')) if p.is_file()
              and not (EXCLUDED & set(p.relative_to(SMOKE).parts))
              and p.suffix in {'.py', '.md', '.json', '.csv', '.gz', '.txt', '.sh'}
-             and p.name != 'MANIFEST.json']
+             and p not in {SMOKE / 'MANIFEST.json', SMOKE / 'NONNODE_MANIFEST.json'}]
     names += sorted(p for p in publication.iterdir() if p.is_file())
     release = {'schema': 'smoke-source-release-v1', 'client_date': '2026-10-14',
                'scientific_GO': False, 'accuracy_results': 0,
