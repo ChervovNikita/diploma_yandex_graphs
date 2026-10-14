@@ -58,3 +58,27 @@ never call a different split/schedule/selection protocol paper-equivalent.
 Use generous training limits with moderate stopping patience where compatible
 with source warmup/schedules; retain convergence traces. Scientific fits still
 await explicit GO. Do not use or reauthorize the previous v29 run commands.
+
+User smoke-check authorization (14 October 2026): implement and execute real
+data smoke tests for the redesigned campaign on the authorized allocation.
+Two TRAIN optimizer updates, TRAIN/VALID forward checks, checkpoint
+save/reload/resume, and two-job memory checks are authorized engineering work.
+Charge resume/replay updates and preserve each failure. No TEST scoring,
+hyperparameter search, benchmark conclusion or full-campaign GO is authorized
+by these checks. Prepare/source-port fixes stay inside the project folders.
+
+User research-expansion override (15 October 2026): retain the separate native
+paper-reproduction baselines. Broaden the proposed benchmark beyond the four
+selected boundary-training variants by auditing the retained research history
+and primary literature. Keep a shared native backbone; private adapters,
+initialization, objectives and aggregation may be extended with explicit method
+definitions and matched controls. Task-specific contrastive or specialization
+methods require their own meaningful targets and reductions, rather than
+automatic exclusion or copying an incompatible node objective. The user now
+authorizes bounded, representative exploratory training and prediction/
+embedding analysis on the dedicated one-GPU allocation only. Freeze each pilot's
+question, settings, controls, convergence rule and validation-only selection
+before execution; preserve negative outcomes and actual costs. This supersedes
+the earlier prohibition on new pilots. The giant campaign still awaits the
+user's verification and GO. No 18.77 access, new scientific run on the original
+five paper datasets, or change to original paper scores is authorized here.
