@@ -119,16 +119,18 @@ identities, positive/negative roles, extension dependencies, and the selected
 learned prediction alongside its uniform-average comparison. Its actual native
 lifecycle remains a separate qualification gate.
 
-The v5 source passed its synthetic contracts, but review against authentic
-native metadata found a prelaunch receipt-comparison error: a native receipt
-includes an extra verification annotation. A successor is being prepared.
-No native v5 lifecycle ran, and the synthetic checks do not qualify that path.
+The v5 synthetic checks missed a receipt annotation present in native metadata.
+The v6 successor fixes this comparison and passes checks against 84 authentic
+dependency receipts. Its two-epoch native lifecycle is prepared and remains
+unlaunched at release07. No native v5 lifecycle ran. The finite v6 check must
+pass before that runtime can qualify campaign jobs.
 
 The [launch preparation](expanded_launch_preparation_v1/HANDOFF.json) accounts
 for 6,460 fit tasks and 270 I4 exports in 540 cohort groups. It is a dry run and
-started no child processes. The actual dispatcher, remaining runtime checks,
-BUDDY production provider, and measured resource profiles are still required
-before the promised one-command campaign launch. All execution remains disabled
+started no child processes. The separate production dispatcher is implemented
+and passed 38 fake subprocess checks. Native runtime, BUDDY production method
+coverage and measured resource profiles are still required before the promised
+one-command campaign launch. All execution remains disabled
 without user GO. Only the allocation is authorized. The two future 18.77 GPU
 workers are disabled and have not been probed.
 

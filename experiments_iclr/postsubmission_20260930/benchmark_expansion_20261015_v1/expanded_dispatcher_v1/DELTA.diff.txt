@@ -1,0 +1,942 @@
+--- expanded_launch_preparation_v1/worker.py
++++ expanded_dispatcher_v1/dispatcher.py
+@@ -1,105 +1,112 @@
+-"""One-command physical-GPU queue dry-run and execution-interface skeleton.
+-
+-This source generation has no Popen/fit/aggregation dispatch. It proves the
+-finite queue, restart decisions and missing admissions before a production
+-successor is reviewed. No model/data/tensor imports or numerical tests.
+-"""
++"""Production interface: one guarded supervisor per authorized physical GPU."""
+ from __future__ import annotations
+ import argparse
+-from collections import Counter
++import hashlib
++import json
++import os
+ from pathlib import Path
++import subprocess
+ import sys
+-from launch_contracts import (HERE,WORKERS,guard,read,receipt,verify,write,require,digest,
+-                             qualification_blocks,durable_action,legacy,fixed_argv)
++# CLI route guard runs before importing any project module or reading a manifest.
++if __name__=='__main__':
++    import socket
++    requested=sys.argv[sys.argv.index('--worker')+1]if '--worker'in sys.argv and sys.argv.index('--worker')+1<len(sys.argv)else'allocation/gpu0'
++    if requested!='allocation/gpu0':
++        print('{"status":"BLOCKED","reason":"Server77 disabled before project/host access","children_started":0}');raise SystemExit(2)
++    if socket.gethostname()!='anogena-2-0' or subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()!=['GPU-44039938-fd82-41d2-fefd-de71514e2fac']:
++        print('{"status":"BLOCKED","reason":"Wrong allocation identity;no project access","children_started":0}');raise SystemExit(2)
++
++from contracts import (ROOT,PHASE,HERE,UUID,WORKERS,GATES,guard,inside,read,pin,verify,require,
++                       compile_release,authority)
++from engine import Engine
+ 
+ 
+-def go_blocks(pin,manifest_pin,worker,source_manifest):
+-    if not pin:return ['human_full_campaign_GO_missing']
+-    value=read(pin['path'],pin)
+-    checks=(value.get('schema')=='expanded-finite-human-GO-v1',value.get('user_explicit_GO')is True,
+-        value.get('manifest_sha256')==manifest_pin['sha256'],value.get('source_manifest_sha256')==source_manifest['sha256'],
+-        worker in value.get('allowed_workers',[]),bool(value.get('human_instruction_evidence')))
+-    if not all(checks):return ['human_GO_does_not_bind_this_manifest_source_worker']
+-    verify(value['human_instruction_evidence'])
+-    # Root/human custody must authenticate intent; this package creates no GO.
+-    return []
++class AllocationBackend:
++    def __init__(self,legacy,budget,recheck):self.legacy=legacy;self.budget=budget;self.recheck=recheck
++    def admit(self,task,active):
++        probe=self.legacy.probe_system(ROOT,active)
++        return self.legacy.admissible({'resources':task['binding']['resources']},'allocation/gpu0',active,probe,self.budget)
++    def start(self,task,output,checkpoint,log,states):
++        execution=task['binding']['execution'];entry=execution['runtime_entrypoint'];verify(entry)
++        argv=[execution['python_executable'],'-B','-u',entry['path'],'--project-root',str(ROOT)]
++        if task['kind']=='fit':
++            descriptor=execution['job_descriptor'];verify(descriptor)
++            argv+=['--job',descriptor['path'],'--output',str(output)]
++            if checkpoint:verify(checkpoint);argv+=['--resume',checkpoint['path']]
++        else:
++            members=[states[x]['selected_VALID_export']for x in task['dependencies']]
++            require(len(members)==4,'I4 requires four own selected exports')
++            for value in members:verify(value)
++            argv+=['--members',*[v['path']for v in members],'--output',str(output)]
++        env=dict(os.environ,CUDA_VISIBLE_DEVICES='0',OMP_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',MKL_NUM_THREADS='2',PYTHONDONTWRITEBYTECODE='1')
++        return subprocess.Popen(argv,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
++    def identity(self,child):
++        folder=Path('/proc')/str(child.pid);raw=(folder/'stat').read_text();fields=raw[raw.rfind(')')+2:].split()
++        return {'pid':child.pid,'UID':folder.stat().st_uid,'linux_start_ticks':fields[19],
++                'cmdline_sha256':hashlib.sha256((folder/'cmdline').read_bytes()).hexdigest()}
++    def alive(self,identity):
++        pid=identity['pid'];folder=Path('/proc')/str(pid)
++        if not folder.exists():return False
++        if identity.get('identity_unavailable'):return True  # Fail closed; never kill/adopt a possibly reused PID.
++        try:return self.identity(type('Recorded',(),{'pid':pid})())==identity
++        except FileNotFoundError:return False
++    @staticmethod
++    def poll(child):return child.poll()
++    @staticmethod
++    def wait(child):return child.wait()
+ 
+ 
+-def inspect(manifest_path,worker,state_path=None,go_path=None):
+-    guard()  # Current task executes only on allocation; no remote host is contacted.
+-    manifest_pin=receipt(manifest_path);manifest=read(manifest_path)
+-    require(manifest['schema']=='expanded-finite-launch-skeleton-v1','Expanded source skeleton manifest required')
+-    require(worker in WORKERS,'One named physical GPU worker required')
+-    hosts=read(manifest['host_policy']['path'],manifest['host_policy'])
+-    admissions=read(manifest['admissions']['path'],manifest['admissions'])
+-    own=[t for t in manifest['tasks']if t['worker']==worker]
+-    require(len({t['id']for t in manifest['tasks']})==6730,'Finite unique queue task IDs required')
+-    if not hosts['workers'][worker]['assignment_enabled']:
+-        require(not own,'Disabled host must remain unassigned')
+-        return {'schema':'expanded-physical-GPU-dry-run-v1','status':'DISABLED_UNPROBED_UNASSIGNED','worker':worker,
+-                'assigned_tasks':0,'host_contacted':False,'children_started':0}
+-    source_manifest=receipt(HERE/'MANIFEST.json')
+-    global_blocks=['source_execution_bridge_not_enabled_in_this_generation']
+-    go_pin=receipt(go_path)if go_path else None
+-    global_blocks+=go_blocks(go_pin,manifest_pin,worker,source_manifest)
+-    state={}
+-    if state_path:
+-        document=read(state_path)
+-        require(document['schema']=='expanded-worker-durable-state-v1'and document['manifest_sha256']==manifest_pin['sha256']and document['worker']==worker,
+-                'State must bind exact immutable queue/worker')
+-        state=document['tasks'];require(set(state).issubset({t['id']for t in own}),'State contains foreign worker IDs')
+-    decisions={};counts=Counter();blocks=Counter();queued_commands=[];dependencies=Counter()
+-    for task in own:
+-        action=durable_action(task,state);decisions[task['id']]=action;counts[action['action']]+=1
+-    for task in own:
+-        action=decisions[task['id']]
+-        if action['action'].startswith('skip_'):continue
+-        reasons=list(global_blocks)+qualification_blocks(task,admissions['tasks'].get(task['id'],{}),hosts['workers'][worker])
+-        if action['action'].startswith('blocked_'):reasons.append(action['action'])
+-        for dep in task['dependencies']:
+-            require(dep in decisions,'Dependency assigned to another physical GPU')
+-            dep_action=decisions[dep]['action']
+-            if dep_action=='skip_no_selected_state':reasons.append('I4_dependency_has_no_selected_state')
+-            elif dep_action!='skip_complete':reasons.append('I4_waits_for_own_selected_VALID_dependency')
+-            elif not state[dep].get('own_selected_VALID_export_receipt'):
+-                reasons.append('I4_dependency_selected_export_authority_missing')
+-            else:
+-                metadata=state[dep]['own_selected_VALID_export_receipt']
+-                require(Path(metadata['path']).name=='selected_VALID.pt'and len(metadata['sha256'])==64,'Exact own selected VALID receipt required')
+-        if task['dependencies']:dependencies['export_tasks_waiting_on_four_own_fits']+=1
+-        reasons=sorted(set(reasons));blocks.update(reasons)
+-        if not reasons:
+-            # Typed proposal only; production successor must retain claim/lease/
+-            # STOP/resume/admission rules described in ADAPTATION_PLAN.md.
+-            queued_commands.append({'id':task['id'],'argv':fixed_argv(task,task['execution_binding'],manifest['output_root'],action.get('resume_checkpoint'))})
+-    reviewed=legacy(manifest['legacy_supervisor_sources'])
+-    require(callable(reviewed.admissible)and callable(reviewed.probe_system)and callable(reviewed.terminal_record),'Reviewed reservation/probe/terminal mechanisms must remain available')
+-    require(not queued_commands,'This source generation cannot admit or dispatch children')
+-    require(not any(k in sys.modules for k in ('torch','numpy','ogb','torch_geometric','scipy')),'No numerical source imports')
+-    return {'schema':'expanded-physical-GPU-dry-run-v1','status':'BLOCKED_SOURCE_PREPARATION_ONLY','worker':worker,'manifest':manifest_pin,
+-        'maximum_owned_children_per_physical_GPU':2,'currently_compatible_admissions':0,
+-        'assigned_tasks':len(own),'assigned_physical_fit_intentions':sum(t['kind']=='fit'for t in own),
+-        'assigned_I4_export_only_tasks':sum(t['kind']=='aggregate_I4_exports'for t in own),
+-        'protocol_fit_counts':{track:sum(t['kind']=='fit'and t['protocol_track']==track for t in own)for track in('native_replica','long_convergence')},
+-        'durable_queue_actions':dict(counts),'blocking_reason_task_counts':dict(blocks),'dependency_summary':dict(dependencies),
+-        'case_prior_weight_coverage_fit_intentions':sum(t.get('cost_case_prior')is not None for t in own),
+-        'case_priors_are_target_fit_measurements':False,'queue_order':'source-reference-first followed by matched cohort groups;all protocols/controller pins remain explicit',
+-        'completed_physical_fits_would_be_skipped':True,'interrupted_claims_require_reviewed_same_fit_resume_disposition':True,
+-        'claim_stealing_or_automatic_retries':False,'live_or_orphan_workers_are_not_relaunched':True,
+-        'main_M1_and_shared_mean_extra_scoring_tasks':0,'I4_member_prediction_forwards':0,
+-        'legacy_mechanisms_pinned_and_reusable':['admissible','probe_system','terminal_record','worker lease/permanent claims/shared STOP'],
+-        'server77_contacted':False,'host_resource_probe_performed':False,'resource_profiles_invented':False,'ETA':None,
+-        'commands_dispatched':0,'children_started':0,'models_constructed':0,'data_or_prediction_tensors_opened':0,'TEST_accessed':False,
+-        'required_production_successor':'Implement reviewed dispatch/resume journal adapter after exact profiles/source/provider/lifecycle/GO gates;v1 has no child dispatch path'}
++def run(release_path,go_path,readiness_path,worker,resumes_path=None,continuation_path=None,reconciliations_path=None):
++    release,release_pin,old,budget,recheck=authority(release_path,go_path,readiness_path,worker)
++    resumes={};extra=[]
++    if resumes_path:
++        resume_map=pin(inside(resumes_path));verify(resume_map);value=read(resumes_path)
++        require(value['schema']=='expanded-reviewed-resume-map-v1'and value['manifest_sha256']==release_pin['sha256'],'Resume map must bind unchanged release')
++        resumes=value['tasks'];require(set(resumes).issubset({t['id']for t in release['tasks']if t['worker']==worker}),'Resume map has foreign IDs');extra.append(resume_map)
++    reconciliations={}
++    if reconciliations_path:
++        reconciliation_map=pin(inside(reconciliations_path));value=read(reconciliations_path)
++        require(value['schema']=='expanded-reviewed-reconciliation-map-v1'and value['manifest_sha256']==release_pin['sha256'],'Reconciliation map must bind unchanged release')
++        reconciliations=value['tasks'];require(set(reconciliations).issubset({t['id']for t in release['tasks']if t['worker']==worker}),'Reconciliation map has foreign IDs');extra.append(reconciliation_map)
++    continuation=pin(inside(continuation_path))if continuation_path else None
++    if continuation:extra.append(continuation)
++    original_recheck=recheck
++    def full_recheck(task):
++        original_recheck(task)
++        for value in extra:verify(value)
++    backend=AllocationBackend(old,budget,full_recheck)
++    # Coordinate with both this successor and the predecessor's allocation lease.
++    leases=[inside(PHASE/'.expanded_dispatcher_leases'/f'{UUID}.lock'),inside(PHASE/'.campaign_worker_leases/allocation_gpu0.lock')]
++    tasks=[t for t in release['tasks']if t['worker']==worker]
++    return Engine(tasks,release['output_root'],release_pin['sha256'],worker,backend,leases,resumes=resumes,continuation=continuation,reconciliations=reconciliations,allowed_root=ROOT).run()
++
++
++def inspect_release(path,worker):
++    guard(worker);release=read(inside(path))
++    require(release['schema']=='expanded-production-dispatch-release-v1','Production release required')
++    own=[t for t in release['tasks']if t['worker']==worker]
++    return {'schema':'expanded-production-dispatch-preflight-v1','status':'BLOCKED_QUALIFICATION_AND_GO',
++        'release':pin(path),'physical_fit_intentions':sum(t['kind']=='fit'for t in own),
++        'I4_export_only_tasks':sum(t['kind']!='fit'for t in own),'qualified_tasks':sum(t['binding']is not None for t in own),
++        'blocked_tasks':sum(t['binding']is None for t in own),'actual_production_dispatch_path_implemented':True,
++        'native_runtime_qualification_by_fake_tests':False,'user_GO_received':False,'resource_profiles_invented':False,
++        'source_reference_and_matched_protocols_preserved':True,'maximum_owned_children':2,'server77_enabled':False,
++        'unresolved_gates':list(GATES)+['human_full_campaign_GO','worker_route_environment_claim_STOP_resume_evidence'],
++        'models_constructed':0,'children_started':0,'TEST_accessed':False}
+ 
+ 
+ if __name__=='__main__':
+-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['dry-run','run']);p.add_argument('--manifest',required=True);p.add_argument('--worker',choices=WORKERS,required=True);p.add_argument('--state');p.add_argument('--go');p.add_argument('--output')
++    p=argparse.ArgumentParser(description=__doc__);s=p.add_subparsers(dest='action',required=True)
++    c=s.add_parser('compile');c.add_argument('--skeleton',required=True);c.add_argument('--bindings',required=True);c.add_argument('--output',required=True);c.add_argument('--output-root',required=True)
++    for action in ('run','dry-run'):
++        q=s.add_parser(action);q.add_argument('--release',required=True);q.add_argument('--worker',choices=WORKERS,required=True)
++        if action=='run':q.add_argument('--go',required=True);q.add_argument('--readiness',required=True);q.add_argument('--resumes');q.add_argument('--continuation');q.add_argument('--reconciliations')
+     a=p.parse_args()
+-    if a.mode=='run':
+-        # This is a source skeleton, not an accidentally usable campaign launcher.
+-        print('{"status":"BLOCKED","reason":"This reviewed source generation is dry-run only;production dispatch successor,qualification and human GO are required","children_started":0}')
+-        raise SystemExit(2)
+-    value=inspect(a.manifest,a.worker,a.state,a.go)
+-    if a.output:write(Path(a.output),value)
+-    import json;print(json.dumps(value,sort_keys=True))
++    try:
++        if a.action=='compile':
++            guard('allocation/gpu0');value=compile_release(pin(a.skeleton),a.bindings,a.output,a.output_root)
++        elif a.action=='dry-run':value=inspect_release(a.release,a.worker)
++        else:value=run(a.release,a.go,a.readiness,a.worker,a.resumes,a.continuation,a.reconciliations)
++        print(json.dumps(value,sort_keys=True));raise SystemExit(0 if value.get('status')in(None,'complete')else 2)
++    except (ValueError,OSError)as error:
++        print(json.dumps({'status':'BLOCKED','reason':str(error),'children_started':0}));raise SystemExit(2)
+--- campaign_launcher_v1/contracts.py
++++ expanded_dispatcher_v1/contracts.py
+@@ -1,266 +1,197 @@
+-"""Finite source-bound campaign contracts. Stdlib only; no scientific imports."""
++"""Production allocation contracts; no model or numerical imports."""
+ from __future__ import annotations
+ import hashlib
++import importlib.util
+ import json
+ import math
++import os
+ from pathlib import Path
++import socket
++import subprocess
++import sys
+ 
+-WORKERS = ("allocation/gpu0", "server77/gpu0", "server77/gpu1")
+-BASE = "benchmark_expansion_20261015_v1"
+-RUNTIME = f"{BASE}/runtime_v2"
+-LAUNCHER = f"{BASE}/campaign_launcher_v1"
+-RUNTIME_FILES = ("run_fit.py", "common.py", "adapters.py", "bookkeeping.py", "controllers.py", "source_rng.py", "aggregate_selected.py")
+-GATES = ("reviewed_finite_roster", "source_and_data_binding", "native_runtime_and_controller",
+-         "checkpoint_resume_and_rng", "validation_only_selection", "resource_mature_and_two_slot",
+-         "complete_failure_and_cost_reporting", "campaign_scope_bridge")
+-RETIRED_V29 = "0a35daf95e7f1ad8e8df1037923a5a38638ed37e8c0a65c9dbcc3bf73f55488b"
+-EXCLUDED = {"roman-empire", "amazon-ratings", "minesweeper", "questions", "tolokers"}
+-MAX_JOBS = 20_000
++ROOT=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
++PHASE=ROOT/'experiments_iclr/postsubmission_20260930'
++EXPANSION=PHASE/'benchmark_expansion_20261015_v1'
++HERE=EXPANSION/'expanded_dispatcher_v1'
++UUID='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
++WORKERS=('allocation/gpu0','server77/gpu0','server77/gpu1')
++GATES=('source_context','provider_split_evaluator','native_epoch_controller','selected_export_resume_rng',
++       'mature_target_resource','reporting_statistics_access','source_reference_policy_or_matched_controller','campaign_scope_bridge')
+ 
+ 
+-def require(condition, message):
+-    if not condition:
+-        raise ValueError(message)
++def require(ok,message):
++    if not ok:raise ValueError(message)
++
++def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()
++def digest(value):return hashlib.sha256(canonical(value)).hexdigest()
++
++def inside(path,root=ROOT):
++    path=Path(path).resolve();require(path.is_relative_to(Path(root).resolve()),'Path escapes approved root')
++    return path
++
++def pin(path):
++    raw=Path(path).read_bytes();return {'path':str(Path(path).resolve()),'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
++
++def verify(value,root=ROOT):
++    actual=pin(inside(value['path'],root))
++    require(all(actual[k]==value[k]for k in('bytes','sha256')if k in value),'Receipt changed: '+value['path'])
++    return actual
++
++def read(path):return json.loads(Path(path).read_text())
++
++def guard(worker):
++    # Reject disabled routes before any project reads or host/device access.
++    require(worker=='allocation/gpu0','Server77 disabled; explicit reauthorization and new route/runtime/shared-ledger qualification required')
++    require(socket.gethostname()=='anogena-2-0','Wrong scientific allocation; no project access')
++    require(subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()==[UUID],'Wrong allocation GPU')
++    require(Path(__file__).resolve().parent==HERE,'Use the allocation source copy')
+ 
+ 
+-def canonical(value):
+-    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
++def load_legacy(pins):
++    """Load exactly pinned stdlib reservation code, never old execute()."""
++    for value in pins.values():verify(value)
++    folder=Path(pins['supervisor.py']['path']).parent
++    # The source module imports `contracts`; this package has a different module
++    # name in that namespace. Load the old contract under its expected name only
++    # during import, then restore this module's binding.
++    previous=sys.modules.get('contracts')
++    spec=importlib.util.spec_from_file_location('contracts',folder/'contracts.py');old=importlib.util.module_from_spec(spec)
++    sys.modules['contracts']=old;spec.loader.exec_module(old)
++    spec2=importlib.util.spec_from_file_location('_expanded_dispatcher_old_supervisor',folder/'supervisor.py')
++    supervisor=importlib.util.module_from_spec(spec2);spec2.loader.exec_module(supervisor)
++    if previous is None:sys.modules.pop('contracts',None)
++    else:sys.modules['contracts']=previous
++    return supervisor,old
+ 
+ 
+-def digest(value):
+-    return hashlib.sha256(canonical(value).encode()).hexdigest()
++def validate_resources(resources,cost,legacy_contract):
++    # Reuse predecessor's exact measured-resource and scoped-cost contract.
++    def relative_pin(value):
++        verify(value);return {'path':str(inside(value['path']).relative_to(ROOT)),'sha256':value['sha256']}
++    r=dict(resources);r['evidence']=relative_pin(r['evidence'])
++    c=dict(cost);c['evidence']=relative_pin(c['evidence'])
++    legacy_contract.resource_contract(ROOT,r,c)
+ 
+ 
+-def sha(path):
+-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
++def source_hook_pins(job):
++    required=[{'path':job['callback_module'],'sha256':job['callback_sha256']}]
++    if job.get('session_transform'):required.append({k:job['session_transform'][k]for k in('path','sha256')})
++    if job.get('link_policy_module'):required.append({'path':job['link_policy_module'],'sha256':job['link_policy_sha256']})
++    if job.get('source_rng_emulation'):required.append({'path':job['source_rng_emulation']['audit'],'sha256':job['source_rng_emulation']['audit_sha256']})
++    return required
+ 
+ 
+-def inside(root, relative):
+-    require(isinstance(relative, str) and relative and not Path(relative).is_absolute(), "Project-relative path required")
+-    require(".." not in Path(relative).parts, "Parent path components are forbidden")
+-    path = (Path(root) / relative).resolve()
+-    require(path.is_relative_to(Path(root).resolve()), "Path escapes project root")
+-    return path
++def validate_binding(task,binding,source_files,old_contract):
++    require(set(binding)=={'execution','resources','measured_cost','gates'},'Exact reviewed binding fields required')
++    execution=binding['execution'];kind=task['kind']
++    require(set(execution)=={'runtime_entrypoint','python_executable','python_sha256','job_descriptor','scope'},'Typed runtime/Python/job binding required')
++    entry=verify(execution['runtime_entrypoint']);require(entry['path']in source_files,'Runtime entrypoint missing from reviewed closure')
++    require(Path(entry['path']).name==('run_fit.py'if kind=='fit'else'aggregate_selected.py'),'Fixed native fit/export handler only')
++    require(execution['scope']=='expanded_finite_campaign','Bounded-pilot runtime requires an explicit campaign-scope bridge')
++    require(Path(execution['python_executable']).is_absolute()and len(execution['python_sha256'])==64,'Qualified interpreter bytes required')
++    validate_resources(binding['resources'],binding['measured_cost'],old_contract)
++    for gate in GATES:
++        require(gate in binding['gates'],'Missing per-task qualification: '+gate)
++        value=binding['gates'][gate];verify(value);evidence=read(value['path'])
++        require(evidence.get('status')=='PASS'and evidence.get('task_id')==task['id']and evidence.get('science_contract_hash')==task['science_contract_hash'],
++                'Gate must bind this exact task/science contract: '+gate)
++    if kind=='fit':
++        original=read(task['source_descriptor']['path']);verify(task['source_descriptor'])
++        descriptor=execution['job_descriptor'];verify(descriptor);job=read(descriptor['path'])
++        require(job['schema']=='native-full-epoch-fit-v1'and job['TEST_access']is False,'Explicit native no-TEST job only')
++        require(job['id']==task['id']and job['expanded_contract_hash']==task['science_contract_hash'],'Runtime job/science identity changed')
++        require(digest(job['expanded_contract'])==task['science_contract_hash'],'Expanded contract bytes changed')
++        # Same allocation path binding: no implicit relocation/provider mutation.
++        require(job==original and digest(job)==task['runtime_job_hash'],'Allocation execution must use unchanged exact compiled descriptor')
++        require(job['policy']['track']==('source_reference'if task['protocol_track']=='native_replica'else'matched_extended'),'Source and matched policies cannot be exchanged')
++        require(job['device']=='cuda:0','Only actual allocation GPU0 target')
++        for value in source_hook_pins(job):
++            verify(value);require(source_files.get(value['path'])==value['sha256'],'Callback/transform/policy/RNG source absent from closure')
++        require(not task.get('source_blocked_reason'),'Native source/context-blocked intention cannot be compiled as executable')
++    else:
++        require(execution['job_descriptor']is None and len(task['dependencies'])==4,'I4 uses exactly four existing exports, no job/model factory')
++    return binding
+ 
+ 
+-def read(root, relative):
+-    return json.loads(inside(root, relative).read_text())
++def compile_release(skeleton_pin,bindings_path,output_path,output_root):
++    guard('allocation/gpu0');verify(skeleton_pin);skeleton=read(skeleton_pin['path']);bindings=read(inside(bindings_path));output_path=inside(output_path)
++    require(skeleton['schema']=='expanded-finite-launch-skeleton-v1','Expanded finite skeleton required')
++    require(bindings['schema']=='expanded-production-bindings-v1'and bindings['skeleton']==skeleton_pin,'Bindings must pin exact skeleton')
++    require(len(skeleton['tasks'])==6730 and sum(t['kind']=='fit'for t in skeleton['tasks'])==6460,'Exact expanded inventory required')
++    source_files={}
++    for value in bindings['source_files']:
++        verify(value);source_files[value['path']]=value['sha256']
++    old,old_contract=load_legacy(skeleton['legacy_supervisor_sources'])
++    for name in ('contracts.py','engine.py','dispatcher.py'):
++        value=pin(HERE/name);require(source_files.get(value['path'])==value['sha256'],'Dispatcher source closure incomplete')
++    require(set(bindings['tasks']).issubset({t['id']for t in skeleton['tasks']}),'Unknown execution binding task')
++    tasks=[]
++    for source in skeleton['tasks']:
++        task=dict(source);binding=bindings['tasks'].get(task['id']);task['binding']=binding
++        if binding:
++            require(task['worker']=='allocation/gpu0','Disabled77 cannot receive executable binding')
++            validate_binding(task,binding,source_files,old_contract)
++        task['execution_status']='qualified'if binding else'blocked_missing_qualification'
++        tasks.append(task)
++    require(len({t['id']for t in tasks})==6730,'Disjoint task IDs required')
++    outputs=[t['output_relative']for t in tasks];require(len(set(outputs))==6730,'Disjoint immutable task outputs required')
++    indexed={t['id']:t for t in tasks}
++    for task in tasks:
++        for dep in task['dependencies']:require(indexed[dep]['worker']==task['worker'],'I4 dependencies must share physical worker')
++    release={'schema':'expanded-production-dispatch-release-v1','skeleton':skeleton_pin,'source_files':bindings['source_files'],
++        'source_bundle_sha256':digest(source_files),'tasks':tasks,'workers':list(WORKERS),'enabled_workers':['allocation/gpu0'],
++        'maximum_owned_children':2,'output_root':str(inside(output_root)),'legacy_supervisor_sources':skeleton['legacy_supervisor_sources'],
++        'all_tasks_qualified':all(t['binding']for t in tasks),'full_inventory_count':6730,'physical_fits':6460,'I4_exports':270,
++        'human_GO':False,'automatic_retries':0,'TEST_access':False,'campaign_ETA':None}
++    require(not Path(output_path).exists(),'Preserve prior release')
++    Path(output_path).write_text(json.dumps(release,indent=2,sort_keys=True)+'\n')
++    return {'release':pin(output_path),'qualified_tasks':sum(t['binding']is not None for t in tasks),'blocked_tasks':sum(t['binding']is None for t in tasks)}
+ 
+ 
+-def pin(root, relative):
+-    return {"path": relative, "sha256": sha(inside(root, relative))}
++def authority(release_path,go_path,readiness_path,worker):
++    guard(worker)
++    release_pin=pin(inside(release_path));release=read(release_path)
++    require(release['schema']=='expanded-production-dispatch-release-v1','Reviewed production release required; skeleton is not executable')
++    require(release['enabled_workers']==['allocation/gpu0']and worker=='allocation/gpu0','Only allocation execution authorized')
++    require(release['maximum_owned_children']==2 and len(release['tasks'])==6730,'Finite/two-slot contract changed')
++    inside(release['output_root']);verify(release['skeleton'])
++    skeleton=read(release['skeleton']['path']);original={t['id']:t for t in skeleton['tasks']}
++    require(len({t['id'] for t in release['tasks']})==6730 and set(original)=={t['id'] for t in release['tasks']},'Release must preserve exact disjoint skeleton IDs')
++    for task in release['tasks']:
++        require({k:v for k,v in task.items() if k not in ('binding','execution_status')}==original[task['id']],'Release changed science/placement/dependency contract')
++    require(release['all_tasks_qualified']is True,'Full expanded campaign still has source/provider/runtime/resource qualification gaps')
++    require(go_path and readiness_path,'Exact human GO and readiness required')
++    go_pin=pin(inside(go_path));ready_pin=pin(inside(readiness_path));go=read(go_path);ready=read(readiness_path)
++    record,budget=validate_reviewed_authority(release,release_pin,go,go_pin,ready,ready_pin,worker)
++    old,old_contract=load_legacy(release['legacy_supervisor_sources'])
++    files={v['path']:v['sha256']for v in release['source_files']}
++    require(digest(files)==release['source_bundle_sha256'],'Source closure hash changed')
++    for value in release['source_files']:verify(value)
++    for task in release['tasks']:
++        require(task['execution_status']=='qualified'and task['binding'],'Executable release contains blocked task')
++        validate_binding(task,task['binding'],files,old_contract)
++    own=[t for t in release['tasks']if t['worker']==worker]
++    require(own and all(t['binding']['execution']['python_executable']==str(Path(sys.executable).resolve())and
++        t['binding']['execution']['python_sha256']==pin(Path(sys.executable).resolve())['sha256']for t in own),'Actual qualified interpreter differs')
++    def recheck(task):
++        guard(worker)
++        for value in (release_pin,go_pin,ready_pin):verify(value)
++        verify(go['human_instruction_evidence'])
++        for value in release['source_files']:verify(value)
++        for evidence in record['gates'].values():verify(evidence['evidence'])
++        validate_binding(task,task['binding'],files,old_contract)
++    return release,release_pin,old,budget,recheck
+ 
++def validate_reviewed_authority(release,release_pin,go,go_pin,ready,ready_pin,worker):
++    require(go.get('schema')=='expanded-production-human-GO-v1'and go.get('user_explicit_GO')is True,'Explicit human campaign GO required')
++    require(go['manifest_sha256']==release_pin['sha256']and go['source_bundle_sha256']==release['source_bundle_sha256'],'GO binds different manifest/source')
++    require(go['readiness']==ready_pin and worker in go['allowed_workers'],'GO readiness/worker mismatch')
++    verify(go['human_instruction_evidence']);require(bool(go.get('review_evidence')),'GO must cite actual human instruction;root/human custody authenticates it')
++    require(ready['schema']=='expanded-production-readiness-v1'and ready['manifest_sha256']==release_pin['sha256']and ready['source_bundle_sha256']==release['source_bundle_sha256'],'Readiness differs from exact release')
++    record=ready['workers'][worker];budget=record['budget']
++    require(set(budget)=={'gpu_headroom_bytes','host_ram_headroom_bytes','disk_headroom_bytes'}and all(type(v)is int and v>=0 for v in budget.values()),'Measured headroom budget required')
++    for gate in ('route_identity_environment','complete_per_task_qualification','shared_claim_and_STOP_custody','failure_cost_and_resume_custody'):
++        evidence=record['gates'][gate];require(evidence['status']=='PASS','Worker gate is not PASS: '+gate);verify(evidence['evidence'])
++    return record,budget
+ 
+-def verify_pin(root, value):
+-    require(isinstance(value, dict) and set(value) == {"path", "sha256"}, "Exact path/SHA256 receipt required")
+-    require(pin(root, value["path"]) == value, "Receipt bytes changed: " + str(value["path"]))
+-
+-
+-def source_inventory(plan):
+-    require(plan.get("schema") == "reference-wrapper-campaign-v2", "Current redesign plan schema required; no v29")
+-    require(plan.get("workers") == list(WORKERS) and plan.get("slots_per_gpu") == 2, "Explicit three-worker/two-slot plan required")
+-    require(plan.get("automatic_retries") == 0 and plan.get("human_GO_required") is True, "No retries; explicit review GO required")
+-    require(digest(plan) != RETIRED_V29, "Retired v29 plan rejected")
+-    jobs = {item["id"]: item for item in plan["jobs"]}
+-    require(0 < len(jobs) == len(plan["jobs"]) <= MAX_JOBS, "Finite unique source jobs required")
+-    assignments = {}
+-    for group in plan["groups"]:
+-        require(group["worker"] in WORKERS, "Unknown source worker")
+-        for job_id in group["job_ids"]:
+-            require(job_id in jobs and job_id not in assignments, "Missing/duplicate source assignment")
+-            assignments[job_id] = group["worker"]
+-    require(set(assignments) == set(jobs), "Source groups must partition all source jobs")
+-    fits = {key: item for key, item in jobs.items() if item["kind"] == "fit"}
+-    require(fits and all(item["kind"] in ("fit", "evaluate_roster") for item in jobs.values()), "Unknown source job kind")
+-    for item in fits.values():
+-        require(item["contract_hash"] == digest(item["contract"]), "Source fit contract changed")
+-        dataset = item["contract"]["dataset"].lower().replace("_", "-").replace(" ", "-")
+-        require(dataset not in EXCLUDED, "Original paper dataset remains excluded")
+-    return fits, assignments
+-
+-
+-def resource_contract(root, resources, cost):
+-    require(set(resources) == {"vram_bytes", "ram_bytes", "disk_bytes", "measured", "mature_optimizer", "pair_qualified", "profile", "qualified_peer_profiles", "max_concurrent_owned_children", "evidence"}, "Explicit measured resource reservation required")
+-    for field in ("vram_bytes", "ram_bytes", "disk_bytes"):
+-        require(type(resources[field]) is int and resources[field] > 0, "Positive byte reservation required")
+-    require(all(resources[key] is True for key in ("measured", "mature_optimizer")), "Measured mature resource qualification required")
+-    require(resources["max_concurrent_owned_children"] in (1, 2) and type(resources["max_concurrent_owned_children"]) is int
+-        and isinstance(resources["profile"], str) and resources["profile"], "Explicit serial/two-slot resource profile required")
+-    require(isinstance(resources["qualified_peer_profiles"], list) and all(isinstance(value, str) and value for value in resources["qualified_peer_profiles"]), "Qualified peer profile list required")
+-    require(type(resources["pair_qualified"]) is bool and (resources["max_concurrent_owned_children"] == 1 or
+-        (resources["pair_qualified"] is True and resources["qualified_peer_profiles"])), "Explicit pair qualification required for two-slot work")
+-    verify_pin(root, resources["evidence"])
+-    require(set(cost) == {"measured", "observed_wall_seconds", "observed_optimizer_calls", "scope", "evidence"}, "Measured cost with scope and evidence required")
+-    require(cost["measured"] is True and type(cost["observed_wall_seconds"]) in (int, float)
+-            and math.isfinite(cost["observed_wall_seconds"]) and cost["observed_wall_seconds"] > 0, "Positive observed wall cost required")
+-    require(type(cost["observed_optimizer_calls"]) is int and cost["observed_optimizer_calls"] >= 0
+-            and isinstance(cost["scope"], str) and cost["scope"], "Observed work and measurement scope required")
+-    verify_pin(root, cost["evidence"])
+-
+-
+-def validate_native_job(job, source):
+-    contract = source["contract"]
+-    require(job.get("schema") == "native-full-epoch-fit-v1" and job.get("TEST_access") is False, "Only explicit no-TEST native fits")
+-    require(job.get("family") in ("node", "ogb", "link") and job.get("device") == "cuda:0", "Explicit native family/cuda:0 descriptor required")
+-    expected = {"id": source["id"], "procedure": contract["model_procedure"], "seed": contract["initialization_seed"],
+-                "split": contract["split"], "body": contract["body"]}
+-    require(all(job.get(key) == value for key, value in expected.items()), "Runtime job differs from source fit identity")
+-    require(job["recipe"]["id"] == contract["recipe_id"] and job["recipe"]["dataset"] == contract["dataset"], "Runtime recipe differs from source contract")
+-    require(job["recipe"]["native_fixed_config"] == contract["native_config"], "Native settings differ from source contract")
+-    require(job["policy"]["track"] == ("source_reference" if contract["track"] == "native_replica" else "matched_extended"), "Source and matched tracks must remain separate")
+-    require(job["policy"]["maximum_epochs"] == contract["training"]["maximum"]
+-            and contract["training"]["unit"] == "epochs", "Native source clock/horizon bridge missing")
+-    require("command" not in job and "argv" not in job, "No arbitrary command fields")
+-
+-
+-def validate_source_hooks(job, sources):
+-    require(sources.get(job["callback_module"]) == job.get("callback_sha256"), "Native callback must be explicitly source-pinned")
+-    require(not any(name in job for name in ("extension_factory", "session_extension")), "Compiled jobs use the explicit session_transform object only")
+-    if job.get("session_transform") is not None:
+-        hook = job["session_transform"]
+-        require(isinstance(hook, dict) and set(hook) == {"path", "function", "sha256"}
+-            and sources.get(hook["path"]) == hook["sha256"], "Private session transform must be explicitly source-pinned")
+-    if job.get("family") == "link":
+-        require(sources.get(job.get("link_policy_module")) == job.get("link_policy_sha256")
+-            and job.get("link_policy_sha256") is not None, "Link policy source pin missing")
+-    if job.get("source_rng_emulation") is not None:
+-        audit = job["source_rng_emulation"]
+-        require(sources.get(audit["audit"]) == audit["audit_sha256"], "Source RNG audit must be in the pinned bundle")
+-
+-
+-def compile_manifest(root, source_plan, bindings, release_id, output_root):
+-    """Exact complete fit mapping; never turn abstract factories into commands."""
+-    plan = read(root, source_plan)
+-    fits, workers = source_inventory(plan)
+-    require(bindings.get("schema") == "finite-campaign-execution-bindings-v1", "Explicit execution binding schema required")
+-    require(bindings.get("source_plan") == pin(root, source_plan), "Bindings refer to different source plan bytes")
+-    require(isinstance(release_id, str) and release_id and release_id.replace("-", "").replace("_", "").isalnum(), "Simple immutable release ID required")
+-    inside(root, output_root)
+-    fit_bindings = bindings["fits"]
+-    require(set(fit_bindings) == set(fits), "Every declared fit needs exactly one immutable runtime binding; no omissions")
+-    sources = dict(bindings["source_sha256"])
+-    python_pins = bindings["python_executable_sha256_by_worker"]
+-    require(set(python_pins) == set(WORKERS) and all(isinstance(value, str) and len(value) == 64
+-        and set(value) <= set("0123456789abcdef") for value in python_pins.values()), "All worker Python executable hashes required")
+-    for relative in [f"{RUNTIME}/{name}" for name in RUNTIME_FILES] + [f"{LAUNCHER}/contracts.py", f"{LAUNCHER}/supervisor.py"]:
+-        require(sources.get(relative) == sha(inside(root, relative)), "Complete pinned runtime/supervisor source bundle required")
+-    for relative, expected_sha in sources.items():
+-        require(sha(inside(root, relative)) == expected_sha, "Pinned source changed")
+-    jobs = []
+-    for job_id, source in fits.items():
+-        binding = fit_bindings[job_id]
+-        require(set(binding) == {"job", "resources", "measured_cost"}, "Unknown execution binding fields")
+-        verify_pin(root, binding["job"])
+-        job = read(root, binding["job"]["path"])
+-        validate_native_job(job, source)
+-        validate_source_hooks(job, sources)
+-        resource_contract(root, binding["resources"], binding["measured_cost"])
+-        jobs.append({"id": job_id, "kind": "fit", "handler": "native_train_v2", "worker": workers[job_id],
+-            "job": binding["job"], "job_canonical_sha256": digest(job), "source_contract_sha256": source["contract_hash"],
+-            "output": f"{output_root}/fits/{digest(job_id)}", "dependencies": [],
+-            "resources": binding["resources"], "measured_cost": binding["measured_cost"]})
+-    # Explicit native-I4 VALID aggregation only. It is conservatively charged
+-    # a slot, even though this current handler loads saved tensors on CPU.
+-    banks = {bank["id"]: bank for bank in plan["logical_banks"] if bank["id"].endswith("/native-I4")}
+-    for entry in bindings.get("VALID_analyses", []):
+-        require(set(entry) == {"bank_id", "resources", "measured_cost"}, "Unknown analysis binding fields")
+-        bank = banks[entry["bank_id"]]
+-        dependencies = bank["fit_ids"]
+-        require(len(dependencies) == 4 and len(set(dependencies)) == 4 and all(key in fits for key in dependencies), "Four own native I4 fits required")
+-        require(len({workers[key] for key in dependencies}) == 1, "Cross-worker analysis bridge not supplied")
+-        resource_contract(root, entry["resources"], entry["measured_cost"])
+-        jobs.append({"id": bank["id"] + "/selected-VALID-aggregate", "kind": "analysis", "handler": "aggregate_VALID_v2",
+-            "worker": workers[dependencies[0]], "output": f"{output_root}/analyses/{digest(bank['id'])}",
+-            "dependencies": dependencies, "resources": entry["resources"], "measured_cost": entry["measured_cost"]})
+-    require(len({job["id"] for job in jobs}) == len(jobs) <= MAX_JOBS, "Unique finite executable jobs required")
+-    return {"schema": "finite-two-slot-campaign-v1", "status": "compiled_requires_GO_and_readiness",
+-        "release_id": release_id, "source_plan": pin(root, source_plan), "source_plan_canonical_sha256": digest(plan),
+-        "source_sha256": sources, "source_bundle_sha256": digest(sources), "workers": list(WORKERS),
+-        "python_executable_sha256_by_worker": python_pins,
+-        "slots_per_worker": 2, "automatic_retries": 0, "TEST_access": False, "output_root": output_root,
+-        "jobs": jobs, "statistical_evaluate_roster_jobs_not_executed_here": sum(item["kind"] == "evaluate_roster" for item in plan["jobs"]),
+-        "planning_note": "Measured observations and reservations are carried unchanged; no balancing or ETA inferred"}
+-
+-
+-def validate_manifest(root, manifest):
+-    require(manifest.get("schema") == "finite-two-slot-campaign-v1", "Only compiled finite campaign manifests")
+-    require(manifest.get("status") == "compiled_requires_GO_and_readiness" and manifest.get("TEST_access") is False, "Prepared inventory is not executable")
+-    require(manifest["workers"] == list(WORKERS) and manifest["slots_per_worker"] == 2 and manifest["automatic_retries"] == 0, "Finite worker policy changed")
+-    verify_pin(root, manifest["source_plan"])
+-    plan = read(root, manifest["source_plan"]["path"])
+-    fits, assignments = source_inventory(plan)
+-    require(digest(plan) == manifest["source_plan_canonical_sha256"], "Source plan canonical hash changed")
+-    require(digest(manifest["source_sha256"]) == manifest["source_bundle_sha256"], "Source bundle hash changed")
+-    for relative in [f"{RUNTIME}/{name}" for name in RUNTIME_FILES] + [f"{LAUNCHER}/contracts.py", f"{LAUNCHER}/supervisor.py"]:
+-        require(relative in manifest["source_sha256"], "Required source pin missing")
+-    for relative, expected_sha in manifest["source_sha256"].items():
+-        require(sha(inside(root, relative)) == expected_sha, "Source changed: " + relative)
+-    jobs = manifest["jobs"]
+-    require(0 < len({job["id"] for job in jobs}) == len(jobs) <= MAX_JOBS, "Finite unique jobs required")
+-    outputs = []
+-    ids = {job["id"] for job in jobs}
+-    require({job["id"] for job in jobs if job["kind"] == "fit"} == set(fits), "Compiled fit set omits/adds source fits")
+-    bank_index = {bank["id"] + "/selected-VALID-aggregate": bank for bank in plan["logical_banks"] if bank["id"].endswith("/native-I4")}
+-    for job in jobs:
+-        require(job["worker"] in WORKERS and job["handler"] in ("native_train_v2", "aggregate_VALID_v2"), "Unknown worker/handler; arbitrary commands rejected")
+-        require("command" not in job and "argv" not in job and "entrypoint" not in job, "No arbitrary executable commands")
+-        require(set(job["dependencies"]) <= ids and job["id"] not in job["dependencies"], "Invalid dependencies")
+-        require(inside(root, job["output"]).is_relative_to(inside(root, manifest["output_root"])), "Fit output outside campaign")
+-        outputs.append(job["output"])
+-        resource_contract(root, job["resources"], job["measured_cost"])
+-        if job["handler"] == "native_train_v2":
+-            require(job["kind"] == "fit" and job["id"] in fits and job["worker"] == assignments[job["id"]]
+-                and not job["dependencies"], "Training fit source identity/worker/dependencies changed")
+-            verify_pin(root, job["job"])
+-            native = read(root, job["job"]["path"])
+-            require(digest(native) == job["job_canonical_sha256"], "Runtime job changed")
+-            validate_native_job(native, fits[job["id"]])
+-            require(job["source_contract_sha256"] == fits[job["id"]]["contract_hash"], "Source contract hash changed")
+-            validate_source_hooks(native, manifest["source_sha256"])
+-        else:
+-            require(job["kind"] == "analysis" and job["id"] in bank_index, "Only declared native-I4 VALID analysis")
+-            dependencies = bank_index[job["id"]]["fit_ids"]
+-            require(job["dependencies"] == dependencies and len(dependencies) == 4
+-                and len({assignments[key] for key in dependencies}) == 1
+-                and job["worker"] == assignments[dependencies[0]], "Analysis dependency/worker bridge changed")
+-    require(len(set(outputs)) == len(outputs), "Output paths must be unique")
+-    return jobs
+-
+-
+-def verify_admission_snapshot(root, manifest, job, authority_pins):
+-    """Recheck the frozen authority/source/selected job, without N² job scans."""
+-    for value in authority_pins:
+-        verify_pin(root, value)
+-    verify_pin(root, manifest["source_plan"])
+-    for relative, expected_sha in manifest["source_sha256"].items():
+-        require(sha(inside(root, relative)) == expected_sha, "Source changed before admission: " + relative)
+-    resource_contract(root, job["resources"], job["measured_cost"])
+-    if job["kind"] == "fit":
+-        verify_pin(root, job["job"])
+-
+-
+-def require_go(root, manifest_path, manifest, go_path, readiness_path, worker):
+-    require(go_path and readiness_path, "Actual --run requires explicit reviewed GO and readiness receipts")
+-    def snapshot(relative):
+-        raw = inside(root, relative).read_bytes()
+-        return json.loads(raw), {"path": relative, "sha256": hashlib.sha256(raw).hexdigest()}
+-    observed_manifest, manifest_pin = snapshot(manifest_path)
+-    go, go_pin = snapshot(go_path)
+-    readiness, readiness_pin = snapshot(readiness_path)
+-    require(digest(observed_manifest) == digest(manifest), "Loaded manifest differs from reviewed manifest bytes")
+-    require(go.get("schema") == "finite-campaign-human-GO-v1" and go.get("user_explicit_GO") is True, "Explicit human GO receipt required")
+-    require(go.get("manifest_sha256") == manifest_pin["sha256"] and go.get("source_bundle_sha256") == manifest["source_bundle_sha256"], "GO manifest/source hashes mismatch")
+-    require(go.get("readiness") == readiness_pin and worker in go.get("allowed_workers", []), "GO readiness/worker mismatch")
+-    require(isinstance(go.get("review_evidence"), str) and go["review_evidence"].strip(), "GO must cite the actual human review evidence")
+-    require(readiness.get("schema") == "finite-campaign-readiness-v1"
+-            and readiness.get("manifest_sha256") == manifest_pin["sha256"]
+-            and readiness.get("source_bundle_sha256") == manifest["source_bundle_sha256"], "Readiness binds different manifest/source bytes")
+-    record = readiness["workers"][worker]
+-    for name in GATES:
+-        gate = record["gates"][name]
+-        require(gate.get("status") == "PASS", "Readiness gate is not PASS: " + name)
+-        verify_pin(root, gate["evidence"])
+-    budget = record["budget"]
+-    require(set(budget) == {"gpu_headroom_bytes", "host_ram_headroom_bytes", "disk_headroom_bytes"}
+-            and all(type(value) is int and value >= 0 for value in budget.values()), "Explicit measured headroom budget required")
+-    return go, record, [manifest_pin, go_pin, readiness_pin]
+--- /dev/null
++++ expanded_dispatcher_v1/engine.py
+@@ -0,0 +1,287 @@
++"""Durable two-slot dispatcher engine. Backend injection is for bounded tests.
++
++Production CLI supplies only its fixed allocation backend. No fake/backend
++selection flag exists in production. This module imports no model libraries.
++"""
++from __future__ import annotations
++import fcntl
++import hashlib
++import json
++import os
++from pathlib import Path
++import time
++import traceback
++
++
++def require(ok,message):
++    if not ok:raise ValueError(message)
++
++def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
++def pin(path):
++    path=Path(path);raw=path.read_bytes();return {'path':str(path.resolve()),'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
++def verify(value):
++    actual=pin(value['path']);require(all(actual[k]==value[k]for k in('bytes','sha256')if k in value),'Receipt changed: '+value['path'])
++def read(path):return json.loads(Path(path).read_text())
++def exclusive(path,value):
++    with Path(path).open('x')as out:json.dump(value,out,indent=2,sort_keys=True);out.write('\n');out.flush();os.fsync(out.fileno())
++def atomic(path,value):
++    temporary=Path(str(path)+'.tmp-'+str(os.getpid())+'-'+str(time.time_ns()));exclusive(temporary,value);temporary.replace(path)
++
++
++class Engine:
++    def __init__(self,tasks,output_root,manifest_sha256,worker,backend,lease_paths,*,resumes=None,continuation=None,reconciliations=None,allowed_root=None,poll_seconds=.2):
++        self.tasks=tasks;self.root=Path(output_root).resolve();self.allowed_root=Path(allowed_root or output_root).resolve();require(self.root.is_relative_to(self.allowed_root),'Output root escapes approved repository');self.manifest=manifest_sha256;self.worker=worker;self.backend=backend
++        self.leases=lease_paths;self.resumes=resumes or {};self.continuation=continuation;self.reconciliations=reconciliations or {};self.poll_seconds=poll_seconds
++        self.index={t['id']:t for t in tasks};require(len(self.index)==len(tasks),'Duplicate physical task IDs')
++        self.control=self.root/'control';self.task_control=self.control/'tasks';self.stops=self.control/'stops'
++        self.active={};self.states={};self.records=[];self.max_active=0;self.started_children=0;self.stopped=False
++        self.extra_authorities=[];self.lease_handles=[];self.owns_leases=False
++        for t in tasks:
++            require(t['worker']==worker and len(t['dependencies'])in(0,4),'Foreign worker or invalid dependency count')
++            require(set(t['dependencies']).issubset(self.index),'Dependencies must remain on physical worker')
++            p=self.output(t);require(p.is_relative_to(self.root)and p!=self.root,'Output escapes reviewed release root')
++        require(len({str(self.output(t))for t in tasks})==len(tasks),'Duplicate task output paths')
++
++    def output(self,task):return (self.root/task['output_relative']).resolve()
++    def folder(self,task):
++        folder=self.task_control/digest(task['id']);require(folder.resolve().is_relative_to(self.root),'Task control folder escapes output root');return folder
++    def verify(self,value):
++        require(Path(value['path']).resolve().is_relative_to(self.allowed_root),'Receipt escapes approved repository')
++        verify(value)
++    def save_state(self,task,value):
++        self.states[task['id']]=value;atomic(self.folder(task)/'STATE.json',value)
++    def stop(self,reason):
++        self.stopped=True
++        path=self.stops/(str(time.time_ns())+'-'+str(os.getpid())+'.json')
++        exclusive(path,{'schema':'expanded-dispatch-STOP-v1','manifest_sha256':self.manifest,'worker':self.worker,'reason':reason,'UTC_unix':time.time(),'live_children_drained_not_killed':True})
++    def latest_stops(self):return {str(p)for p in self.stops.glob('*.json')}
++
++    def establish(self):
++        require(self.task_control.resolve().is_relative_to(self.root)and self.stops.resolve().is_relative_to(self.root),'Control paths escape output root')
++        self.task_control.mkdir(parents=True,exist_ok=True);self.stops.mkdir(exist_ok=True)
++        for path in self.leases:
++            path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);handle=path.open('a+')
++            try:fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
++            except BaseException:handle.close();raise
++            self.lease_handles.append(handle)
++        self.owns_leases=True
++        previous=self.latest_stops()
++        if previous:
++            require(self.continuation,'Existing STOP requires a reviewed continuation; it is never cleared')
++            self.verify(self.continuation);value=read(self.continuation['path'])
++            require(value['schema']=='expanded-reviewed-continuation-v1'and value['reviewed_continue']is True and value['manifest_sha256']==self.manifest,'Continuation must bind unchanged release')
++            require(set(x['path']for x in value['STOP_receipts'])==previous,'Continuation must account for every retained STOP')
++            for value_pin in value['STOP_receipts']:self.verify(value_pin)
++            self.verify(value['human_review_evidence']);self.extra_authorities+=[self.continuation,value['human_review_evidence']]+value['STOP_receipts']
++        self.baseline_stops=previous
++
++    def immutable_claim(self,task):
++        return {'schema':'expanded-permanent-task-claim-v1','id':task['id'],'runtime_job_hash':task.get('runtime_job_hash'),
++                'science_contract_hash':task['science_contract_hash'],'manifest_sha256':self.manifest,'worker':self.worker,'output':str(self.output(task))}
++
++    def reconcile(self,task):
++        folder=self.folder(task);claim=folder/'CLAIM.json';output=self.output(task)
++        if not claim.exists():
++            require(not output.exists(),'Unclaimed existing output; never repeat or overwrite: '+task['id'])
++            self.states[task['id']]={'status':'pending'};return
++        require(read(claim)==self.immutable_claim(task),'Permanent claim belongs to changed job/release/worker')
++        state_path=folder/'STATE.json'
++        require(state_path.exists(),'Claim without state requires reviewed reconciliation')
++        state=read(state_path)
++        if state['status']in('complete','no_selected_state','blocked_dependency_no_selected_state'):
++            self.verify(state['attempt_terminal'])
++            if state['status']!='blocked_dependency_no_selected_state':
++                self.verify(state['native_result']);self.verify(state['live_native_result_receipt']);raw=read(state['native_result']['path'])
++                self.validate_terminal(task,raw)
++                if state['status']=='complete'and task['kind']=='fit':self.verify(state['selected_VALID_export'])
++            self.states[task['id']]=state;self.records.append({'id':task['id'],'action':'skip_already_'+state['status'],'extra_fits':0});return
++        if state['status']=='running'and self.backend.alive(state['child_identity']):
++            raise ValueError('Live/orphan child identity remains; no duplicate admission: '+task['id'])
++        require(state['status']in('running','failed','interrupted','launch_failed','claimed'),'Unknown durable task state')
++        if state['status']=='running' and self.recover_terminal(task,state):return
++        if state['status']=='running':
++            state=dict(state,status='interrupted',partial_work_after_last_checkpoint='unknown;prior attempt retained',exit_code='unknown_after_supervisor_loss')
++            self.save_state(task,state)
++        self.resume_for(task,state)  # Every interrupted/failed attempt needs explicit review before restarting queue.
++        self.states[task['id']]=state
++
++    def recover_terminal(self,task,state):
++        directory=self.folder(task)/'attempts'/f"{state['attempt']:04d}"
++        existing=directory/'TERMINAL.json'
++        if existing.exists():
++            record=read(existing)
++            if record.get('status')in('complete','no_selected_state')and record.get('exit_code')==0:
++                self.verify(record['native_result']);raw=read(record['native_result']['path']);self.validate_terminal(task,raw)
++                if record['status']=='complete'and task['kind']=='fit':self.verify(record['selected_VALID_export'])
++                recovered={k:record[k]for k in('status','attempt','native_result','selected_VALID_export','live_native_result_receipt')}
++                self.verify(recovered['live_native_result_receipt']);recovered['attempt_terminal']=pin(existing)
++                self.save_state(task,recovered);self.records.append({'id':task['id'],'action':'recovered_own_reaped_terminal_transaction','extra_scoring':0});return True
++        approval=self.reconciliations.get(task['id'])
++        if approval:require(not existing.exists(),'Known failed reap cannot be adopted as an unknown-exit completion')
++        if not approval:return False
++        self.verify(approval);value=read(approval['path'])
++        require(value['schema']=='expanded-native-terminal-reconciliation-v1'and value['reviewed_accept_terminal']is True,'Reviewed lost-supervisor terminal reconciliation required')
++        require(value['manifest_sha256']==self.manifest and value['task_id']==task['id']and value['runtime_job_hash']==task['runtime_job_hash']and value['science_contract_hash']==task['science_contract_hash'],'Reconciliation cannot change job/science/release')
++        require(value['previous_attempt']==pin(directory/'START.json'),'Reconcile exact orphaned attempt')
++        terminal=value['native_terminal'];self.verify(terminal)
++        require(Path(terminal['path']).resolve()==self.output(task)/'RESULT.json','Reconcile only own native terminal')
++        raw=read(terminal['path']);self.validate_terminal(task,raw);require(raw['status']in('complete','no_selected_state'),'Only complete/no-selected terminals can be adopted without scoring')
++        selected=raw.get('selected_VALID_export')
++        if raw['status']=='complete'and task['kind']=='fit':
++            self.verify(selected);require(Path(selected['path']).resolve()==self.output(task)/'selected_VALID.pt','Own selected export required')
++        self.verify(value['human_review_evidence']);self.extra_authorities.extend([approval,value['human_review_evidence']])
++        archive=directory/'RECONCILED_NATIVE_RESULT.json'
++        with archive.open('xb')as out:out.write(Path(terminal['path']).read_bytes())
++        record={'schema':'expanded-reconciled-attempt-terminal-v1','id':task['id'],'attempt':state['attempt'],'status':raw['status'],
++                'exit_code':'unknown_after_supervisor_loss','native_result':pin(archive),'live_native_result_receipt':terminal,'selected_VALID_export':selected,
++                'native_invocation_wall_seconds':raw.get('invocation_wall_seconds'),'native_optimizer_calls_this_invocation':raw.get('optimizer_calls_this_invocation'),
++                'partial_work_after_terminal':'not_inferred','reconciliation':approval,'new_children':0,'extra_scoring':0}
++        target=directory/'TERMINAL_RECONCILED.json';exclusive(target,record)
++        recovered={k:record[k]for k in('status','attempt','native_result','live_native_result_receipt','selected_VALID_export')};recovered['attempt_terminal']=pin(target)
++        self.save_state(task,recovered);self.records.append(record);return True
++
++    def resume_for(self,task,state):
++        value_pin=self.resumes.get(task['id']);require(value_pin,'Interrupted/failed/claimed task requires reviewed same-fit disposition: '+task['id'])
++        require(task['kind']=='fit','Export failure needs separately reviewed reconciliation; no automatic repeat scoring')
++        self.verify(value_pin);value=read(value_pin['path'])
++        require(value['schema']=='expanded-same-fit-resume-v1'and value['explicit_reviewed_resume']is True,'Explicit same-fit resume required')
++        require(value['task_id']==task['id']and value['runtime_job_hash']==task['runtime_job_hash']and value['science_contract_hash']==task['science_contract_hash']and value['manifest_sha256']==self.manifest,'Resume cannot change physical job/science/release')
++        previous=self.folder(task)/'attempts'/f"{state['attempt']:04d}"/'START.json'
++        require(value['previous_attempt']==pin(previous),'Resume must bind exact previous attempt')
++        checkpoint=value['complete_epoch_checkpoint'];self.verify(checkpoint)
++        require(Path(checkpoint['path']).resolve()==self.output(task)/'recovery.pt','Only own unchanged complete-epoch recovery file may resume')
++        require(value['prior_partial_work_is_preserved']is True,'Preserve unknown partial work and all failed attempt costs')
++        self.verify(value['human_review_evidence']);self.extra_authorities.extend([value_pin,value['human_review_evidence']])
++        return checkpoint
++
++    def validate_terminal(self,task,raw):
++        require(raw.get('TEST_accessed')is False,'Terminal TEST role violation')
++        if task['kind']=='fit':
++            require(raw.get('schema')=='native-full-epoch-fit-result-v1'and raw.get('job_id')==task['id']and raw.get('job_hash')==task['runtime_job_hash'],'Native terminal belongs to another fit')
++        else:
++            require(raw.get('schema')=='independent-own-selected-VALID-bank-result-v1','I4 export terminal schema mismatch')
++            require(sorted(m['job_id']for m in raw.get('members',[]))==sorted(task['dependencies']),'I4 terminal members changed')
++            expected={dep:self.index[dep]['runtime_job_hash']for dep in task['dependencies']}
++            require(all(m.get('job_hash')==expected[m['job_id']]for m in raw['members']),'I4 member job hashes changed')
++        require(raw.get('status')in('complete','no_selected_state','failed'),'Unknown native terminal status')
++
++    def collect(self,task,code,attempt,elapsed):
++        output=self.output(task);native_path=output/'RESULT.json';raw=read(native_path)if native_path.is_file()else None
++        error=None;status='failed';selected=None
++        try:
++            require(raw is not None,'Missing native terminal');self.validate_terminal(task,raw)
++            require(code==0 and raw['status']in('complete','no_selected_state'),'Child failed or native terminal is failed')
++            status=raw['status']
++            if status=='complete'and task['kind']=='fit':
++                selected=raw.get('selected_VALID_export');require(selected,'Complete fit must retain own selected VALID authority');self.verify(selected)
++                require(Path(selected['path']).resolve()==output/'selected_VALID.pt','Selected export escapes own physical fit')
++        except Exception as exc:
++            status='failed';selected=None;error=type(exc).__name__+': '+str(exc)
++        archive=self.folder(task)/'attempts'/f'{attempt:04d}'/'NATIVE_RESULT.json'
++        if native_path.is_file():
++            with archive.open('xb')as out:out.write(native_path.read_bytes())
++        record={'schema':'expanded-attempt-terminal-v1','id':task['id'],'attempt':attempt,'status':status,'exit_code':code,
++            'observed_launch_to_reap_seconds':elapsed,'native_claimed_status':None if raw is None else raw.get('status'),'native_result':pin(archive)if archive.is_file()else None,'live_native_result_receipt':pin(native_path)if native_path.is_file()else None,
++            'native_invocation_wall_seconds':None if raw is None else raw.get('invocation_wall_seconds'),
++            'native_optimizer_calls_this_invocation':None if raw is None else raw.get('optimizer_calls_this_invocation'),
++            'native_resources':None if raw is None else raw.get('resources'),'failure':error,
++            'unknown_native_costs':raw is None or raw.get('optimizer_calls_this_invocation')is None,
++            'selected_VALID_export':selected,'automatic_retries':0,'TEST_accessed':False}
++        terminal=self.folder(task)/'attempts'/f'{attempt:04d}'/'TERMINAL.json';exclusive(terminal,record)
++        state={k:record[k]for k in('status','attempt','native_result','selected_VALID_export','live_native_result_receipt')};state['attempt_terminal']=pin(terminal)
++        self.save_state(task,state);self.records.append(record)
++        return status
++
++    def launch(self,task):
++        previous=self.states[task['id']];checkpoint=None
++        if previous['status']!='pending':checkpoint=self.resume_for(task,previous)
++        folder=self.folder(task);folder.mkdir(exist_ok=True);claim=folder/'CLAIM.json'
++        if not claim.exists():exclusive(claim,self.immutable_claim(task))
++        attempt=previous.get('attempt',0)+1;directory=folder/'attempts'/f'{attempt:04d}';directory.mkdir(parents=True,exist_ok=False)
++        start={'schema':'expanded-attempt-start-v1','id':task['id'],'attempt':attempt,'manifest_sha256':self.manifest,
++               'resume':checkpoint,'native_state_reused_only_from_same_fit':checkpoint is not None,'previous_attempts_preserved':True,'UTC_unix':time.time()}
++        exclusive(directory/'START.json',start);self.save_state(task,{'status':'claimed','attempt':attempt})
++        log=(directory/'STDOUT.log').open('x');started=time.monotonic()
++        try:
++            child=self.backend.start(task,self.output(task),checkpoint,log,self.states)
++        except BaseException as exc:
++            log.close();record={'id':task['id'],'attempt':attempt,'status':'launch_failed','children_started':0,'optimizer_transitions':0,'failure':str(exc)}
++            exclusive(directory/'TERMINAL.json',record);self.save_state(task,{'status':'launch_failed','attempt':attempt,'attempt_terminal':pin(directory/'TERMINAL.json')})
++            raise
++        self.started_children+=1
++        self.active[child.pid]={'child':child,'task':task,'attempt':attempt,'log':log,'started':started}
++        self.max_active=max(self.max_active,len(self.active));require(len(self.active)<=2,'Two-slot invariant violated')
++        try:identity=self.backend.identity(child)
++        except Exception as error:identity={'pid':child.pid,'identity_unavailable':str(error)}
++        exclusive(directory/'PID.json',identity)
++        self.save_state(task,{'status':'running','attempt':attempt,'child_identity':identity,'started_UTC_unix':time.time()})
++
++    def dependency(self,task):
++        if not task['dependencies']:return 'ready'
++        states=[self.states[x]['status']for x in task['dependencies']]
++        if 'no_selected_state'in states or 'blocked_dependency_no_selected_state'in states:return 'no_selected_state'
++        if not all(x=='complete'for x in states):return 'wait'
++        for dep in task['dependencies']:self.verify(self.states[dep]['selected_VALID_export'])
++        return 'ready'
++
++    def block_export(self,task):
++        folder=self.folder(task);folder.mkdir(exist_ok=True);exclusive(folder/'CLAIM.json',self.immutable_claim(task))
++        record={'id':task['id'],'status':'blocked_dependency_no_selected_state','dependencies':task['dependencies'],'extra_training_fits':0,'model_forwards':0}
++        terminal=folder/'DEPENDENCY_TERMINAL.json';exclusive(terminal,record)
++        self.save_state(task,{'status':record['status'],'attempt_terminal':pin(terminal)});self.records.append(record)
++
++    def drain(self):
++        for pid,entry in list(self.active.items()):
++            code=self.backend.wait(entry['child']);entry['log'].close()
++            self.collect(entry['task'],code,entry['attempt'],time.monotonic()-entry['started']);self.active.pop(pid)
++
++    def run(self):
++        outcome='complete';blocked=[];started=time.monotonic()
++        try:
++            self.establish()
++            for task in self.tasks:self.reconcile(task)
++            pending=[t for t in self.tasks if self.states[t['id']]['status']not in('complete','no_selected_state','blocked_dependency_no_selected_state')]
++            while pending or self.active:
++                for pid,entry in list(self.active.items()):
++                    code=self.backend.poll(entry['child'])
++                    if code is None:continue
++                    entry['log'].close();self.active.pop(pid)
++                    status=self.collect(entry['task'],code,entry['attempt'],time.monotonic()-entry['started'])
++                    if status=='failed':self.stop({'reason':'child_failed','id':entry['task']['id']})
++                if self.latest_stops()-self.baseline_stops:self.stopped=True
++                admitted=False;last_reason=None
++                if not self.stopped:
++                    for task in list(pending):
++                        if len(self.active)>=2:break
++                        dependency=self.dependency(task)
++                        if dependency=='wait':continue
++                        if dependency=='no_selected_state':self.block_export(task);pending.remove(task);continue
++                        self.backend.recheck(task)
++                        for value in self.extra_authorities:self.verify(value)
++                        active=[{'pid':pid,'worker':self.worker,'resources':entry['task']['binding']['resources']}for pid,entry in self.active.items()]
++                        ok,reason=self.backend.admit(task,active)
++                        if not ok:
++                            last_reason=reason
++                            if reason=='untracked_owned_GPU_process':self.stop({'reason':reason});break
++                            continue
++                        self.launch(task);pending.remove(task);admitted=True
++                atomic(self.control/('PROGRESS-'+self.worker.replace('/','_')+'.json'),{'manifest_sha256':self.manifest,
++                    'active':[e['task']['id']for e in self.active.values()],'pending':[t['id']for t in pending],
++                    'states':self.states,'maximum_owned_children_observed':self.max_active,'automatic_retries':0})
++                if self.stopped:
++                    self.drain();outcome='stopped_drained';blocked=[t['id']for t in pending];break
++                if pending and not self.active and not admitted:
++                    outcome='blocked_resources_or_dependencies';blocked=[t['id']for t in pending];self.records.append({'status':outcome,'reason':last_reason or 'dependency_not_terminal'});break
++                if pending or self.active:time.sleep(self.poll_seconds)
++        except BaseException as exc:
++            outcome='blocked_or_failed_drained'
++            if self.owns_leases and self.stops.is_dir():self.stop({'type':type(exc).__name__,'message':str(exc),'traceback':traceback.format_exc(limit=6)})
++            self.drain();blocked=[t['id']for t in self.tasks if self.states.get(t['id'],{}).get('status')not in('complete','no_selected_state','blocked_dependency_no_selected_state')];self.records.append({'status':'dispatcher_error','type':type(exc).__name__,'message':str(exc)})
++        finally:
++            for handle in self.lease_handles:fcntl.flock(handle,fcntl.LOCK_UN);handle.close()
++        result={'schema':'expanded-dispatch-worker-result-v1','status':outcome,'manifest_sha256':self.manifest,'worker':self.worker,
++            'children_started_this_invocation':self.started_children,'maximum_owned_children_observed':self.max_active,
++            'elapsed_seconds':time.monotonic()-started,'records':self.records,'not_admitted':blocked,'states':self.states,
++            'automatic_retries':0,'TEST_accessed':False,'native_model_qualification_claim':False}
++        if self.control.is_dir():exclusive(self.control/('WORKER_RESULT-'+str(time.time_ns())+'.json'),result)
++        return result

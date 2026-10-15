@@ -1,0 +1,31 @@
+--- runtime_link_v5/adapters.py
++++ runtime_link_v6/adapters.py
+@@ -640,13 +640,25 @@
+         if declaration is None:
+             raise ValueError('Extended link provider needs an explicit authenticated source declaration')
+         rows += [adapter.extension_receipt, *declaration['source_receipts']]
+-    unique = {}
++    identity_fields = {'path', 'bytes', 'sha256'}
++    manifest = native['adapter_manifest_receipt']
++    if manifest.get('adapter_hashes_verified') is not True:
++        raise ValueError('Native adapter manifest must retain its verified source annotation')
++    unique, annotations = {}, {}
+     for row in rows:
+         actual = receipt(inside(row['path'], root))
+-        if actual != row or (row['path'] in unique and unique[row['path']] != row):
++        extra = {key: value for key, value in row.items() if key not in identity_fields}
++        if extra:
++            if row['path'] != manifest['path'] or extra != {'adapter_hashes_verified': True} \
++                    or extra['adapter_hashes_verified'] is not True:
++                raise ValueError('Unrecognized or unverified native dependency annotation')
++            annotations[row['path']] = copy.deepcopy(extra)
++        identity = {key: row[key] for key in identity_fields}
++        if actual != identity or (row['path'] in unique and unique[row['path']] != actual):
+             raise ValueError('Native/outer link dependency receipt differs or conflicts')
+-        unique[row['path']] = row
++        unique[row['path']] = actual
+     adapter.dependency_receipts = [unique[name] for name in sorted(unique)]
++    adapter.dependency_annotations = annotations  # Native metadata/checkpoint annotation is also preserved unchanged.
+     return adapter
+ 
+ 

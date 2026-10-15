@@ -1,4 +1,4 @@
-# Continuation state — release 06, 15 October 2026
+# Continuation state — release 07, 15 October 2026
 
 ## Scope and Git
 
@@ -11,8 +11,8 @@ Bounded representative pilots and engineering checks are authorized. The full
 campaign still requires the user's review and GO.
 
 The remote branch is codex/postsubmission-research-20260930. The verified
-release05 parent is 7f83932007fc4d7d7502c9032a7592ce03ca4be0. This document is
-prepared for release06. Read COMMIT_RECEIPT_06.json and PUSH_RECEIPT_06.json to
+release06 parent is 70c132ac86b40eecaefdb245c336731cef232c42. This document is
+prepared for release07. Read COMMIT_RECEIPT_07.json and PUSH_RECEIPT_07.json to
 establish whether publication finished. Missing receipts mean pending, not
 success. Never reuse a published release identity. Root owns Git. Exclude raw
 datasets, checkpoints, logits, tensor contexts and full generated descriptors.
@@ -157,3 +157,34 @@ Preserve historical exposure. Sign-test claim concerns repeat-training win
 probability, not mean effect or graph-population uncertainty. Fresh Codex paper
 review through supplied skill follows substantial supported manuscript progress,
 not each engineering check. Never request a preferred verdict.
+
+## Release07 continuation update
+
+This update supersedes the preparation status in older sections above. The real
+expanded_dispatcher_v1 is frozen and passed38fake subprocess checks, including
+rejecting a malformed selected export reported as complete by a child. All6730
+campaign tasks remain blocked pending native/source/resource qualification and
+humanGO. No campaign or77job launched. Its full14.7MBrelease stays on allocation.
+Only20explicit source/compact report files enter publication.
+
+BUDDY production successors for11method bindings are staged. Input/provider
+parity was already measured atseed1. The new conditional-interaction gate is
+frozen at2updates/3wholeVALID/2constructions/32forwards onCPU2,600seconds.
+The earlier unexecuted mapper version is preserved and excluded. No automatic
+repetition across methods is authorized. Compiler overlayv3 remains pending.
+
+Runtime_link_v6 is frozen with a narrow native dependency-annotation repair.
+12receipt contracts,84actual native metadata dependencies and10driver source
+checks passed. Its finiteCUDA lifecycle has not run at publication:2epochs,
+34updates,3constructions,4wholeVALID,2selectedexports and exact RNG/state
+restoration. Root will fill an actual admission with the release07commit after
+publication. The frozen template carries the older parent and is not an
+admission. A40GiBGPU envelope is an estimate based on actual baseNCNC18.81GiB
+reserved memory, with an explicit allowance for conditional-J. No claim of
+measured conditional-J resources is made.
+
+The read-only readiness audit must distinguish tiny float replay differences
+from actual source/state defects and reuse valid functional/full-epoch evidence.
+Do not multiply numerical reruns. A separate nine-fitBN×geometry×correction
+source/spec is being prepared from the completed molecular diagnosis. It is not
+part of6460 and has not launched. Root owns all Git and native admissions.

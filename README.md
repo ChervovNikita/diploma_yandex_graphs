@@ -68,8 +68,11 @@ retain the required native/GNNM/independent-ensemble comparisons.
 The compiler now provides **6,370 concrete job descriptions**, with 90 blocked
 on BUDDY's nonzero-seed input construction. Native NCNC/BUDDY context and
 interaction checks, BUDDY private-BN checks, and NCN context CUDA restoration
-checks have passed. Complete runtime execution, provider coverage, resource
-profiles and production dispatch still have explicit gates.
+checks have passed. The production dispatcher now implements durable claims, resume and at most two
+admitted jobs per GPU. Its 38 subprocess tests passed. Native execution and
+resource qualification remain incomplete. BUDDY production successors and the
+link runtime repair are prepared for finite native checks. These source and
+engineering results are not new accuracy measurements.
 
 **The full campaign is awaiting preparation and user GO.** The launch plan
 contains 6,460 fit tasks and 270 export-only tasks but has started none. Only
