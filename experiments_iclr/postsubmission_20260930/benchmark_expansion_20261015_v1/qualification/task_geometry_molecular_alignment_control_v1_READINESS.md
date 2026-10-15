@@ -1,0 +1,9 @@
+# Molecular C1 alignment-only control: bounded qualification
+
+The separate frozen callback supplies `task_graph_class_alignment_v1` using the exact existing molecular helper with `mode="alignment"`, coefficient 0.05, temperature 0.2 and ordinary all-block native BCE plus auxiliary. The helper still computes variance diagnostics, but they have no contribution to this method's training gradient. No source operator, parameter, optimizer group, sampler, native batch/skip rule, shared sequential BN policy or mean-logit readout changes.
+
+The actual MolBACE GIN descriptor passed two total CPU optimizer updates, using the same 32 real native TRAIN graphs for this finite check, two native constructions, fresh-session checkpoint restore and three complete 151-graph VALID passes. All two optimizer attempts completed. Initial and restored output differences were zero. Original optimizer groups/options/owners and native Parameter identity were retained, and a checkpoint changed to alignment+variance was rejected. Wall time was 5.25 seconds, Torch 2.1.2+cu118, two CPU threads, CUDA hidden. The checkpoint remains on the allocation, with its hash in the JSON receipt.
+
+`MAPPING.json` preserves the exact existing `gnnm_graph_alignment_variance` method row and its parent/spec/helper hashes. Its callback, helper, runtime and running pilot were not modified. A variance ingredient comparison must use matching native backbone, split, seed, batches/order, controller and BN behavior. This alignment-only callback supplies that missing ingredient control; the engineering check does not establish a variance benefit.
+
+No TEST scoring, GPU model, scientific fit, publication, convergence or predictive/novelty claim is included. Other source cells, CUDA and paired-resource admission, full workers and final-serving reconstruction remain unqualified.

@@ -1,0 +1,9 @@
+# Molecular C1 alignment-only ingredient control
+
+`task_graph_class_alignment_v1` supplies the alignment-only control missing from the active molecular parent callback, which always constructs alignment+variance. This separate callback imports the exact pinned molecular helper with `ObjectiveConfig(mode="alignment", temperature=.2, coefficient=.05, std_fraction=.5, gradient_scope="all")`. It does not edit that helper, the parent callback, runtime or active pilot.
+
+The training criterion is the original four-member mean native FP32 observed-label BCE plus.05times class-balanced alignment. Source batches, sampler, skip rules, all9categorical atom fields, message passing, native weights, private factors, shared BN buffers with sequential route forwards, optimizer groups/options, TRAIN/VALID roles and mean-logit readout are unchanged. No auxiliary cohort reduction, projector, parameters or forward calls are added. The exact frozen helper still computes variance diagnostics, but variance contributes no training gradient. It logs missing/one-class/singleton and positive/variance support under its original semantics. The auxiliary uses live preheads and has no direct gradient to the final output bank.
+
+`MAPPING.json` freezes the existing `gnnm_graph_alignment_variance` method row and parent/helper/spec hashes without changing that method. A future variance-ingredient comparison must match backbone, seed, split, batch/order, controller and BN policy; this control does not fix or silently change BN behavior. Original molecular scores and every active source remain unchanged.
+
+Qualification is bounded actual MolBACE GIN CPU engineering only: the same32real native TRAIN graphs for two total optimizer updates, complete151-graph VALID, fresh-session checkpoint restore, two threads and hidden CUDA. No TEST, GPU, convergence study, scientific fit, publication or predictive/novelty claim is included.

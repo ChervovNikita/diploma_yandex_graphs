@@ -21,12 +21,13 @@ Every suitable source preset retains these comparisons:
    node-only implementation is not a scientific reason to exclude molecules
    or links; their objectives need appropriate task targets and reductions.
 
-The frozen 13 October proposal remains intact: 7 datasets, 8 architectures,
-27 fixed paper/source presets, 270 separate source-horizon reference fits and
-2,210 matched fits (2,480 total). This is the predecessor design, not the final
-expanded count. New candidates and task ports are being specified. The old
-80,850-fit launcher remains retired. The expanded giant campaign has not been
-approved or launched.
+The first [expanded scientific roster](expanded_study_design_v1/README.md)
+proposes **6,460 physical fits** across7 datasets,8 architecture families and27
+fixed source presets:270 source references,1,080 matched independent bodies and
+5,110 shared-method fits. It preserves all predecessor rules and avoids counting
+M1/body0 or exact mean-J aliases twice. This is a prospective design, with native
+integration/resource/statistical gates still open; it is not ready or approved
+for launch. The old2,480-fit proposal and retired80,850-fit launcher remain history.
 
 ## Running representative pilot
 
@@ -97,9 +98,12 @@ control; group normalization still changes its marginal law and is explicitly
 part of the comparison. Neither ingredient is declared novel or successful.
 
 Per-route selected-checkpoint analysis runs separately from training and changes
-no selection. Native and base-GNNM exports have completed. The latest saved
-observation11 has three completed fits, no failures and the private-input fit
-training. There is no complete paired cohort or candidate advantage yet.
+no selection. [Observation12 and its partial diagnostic](pilot_20261015_molbace_v1/PARTIAL_SEED101_DIAGNOSTIC.md)
+record four completed seed101 fits. Graph alignment/variance has selected-VALID
+AUC0.71062 versus base0.62784; the input correction has0.67729 and nativeM1
+has0.73846. Both candidates have higher BCE than base. The combined fit and
+remaining seeds/I4 bodies are unfinished; no full-cohort benefit, novelty or
+confirmation claim follows. Complete curves and all costs remain preserved.
 
 The proposed statistical policy also needs revision before the full launch:
 ten trials with exact two-sided sign flips and Holm across226 contrasts cannot
@@ -142,10 +146,12 @@ A CPU-only analysis watcher will report every paired selected-VALID difference
 after all three candidates finish. No BN quality result is available yet.
 
 The [campaign supervisor](campaign_launcher_v1/README.md) has a concrete finite
-source-job interface and eighteen passing synthetic scheduling checks. The
-three historical worker dry runs remain **blocked, not compiled**: executable
-job bindings and measured resource profiles are missing, and18.77 is not
-currently authorized. This source preparation is not three-GPU launch readiness.
+source-job interface and eighteen passing synthetic scheduling checks. All2,480
+[predecessor descriptors](job_binding_preparation_v1/REPORT.md) now pass metadata
+validation, with actual pinned source/data paths and exact I4/M1 ownership.
+Those checks neither execute a native epoch nor qualify the expanded roster.
+Measured resource profiles, full-runtime coverage and prospective confirmation
+remain open;18.77 is not currently authorized. Three-GPU readiness is not claimed.
 
 - [Mechanisms and current scientific rationale](RESEARCH_SYNTHESIS_20261015.md)
 - [First-seed prediction diagnostic and its limits](pilot_20261015_molbace_v1/FIRST_SEED_DIAGNOSTIC.md)
@@ -166,3 +172,29 @@ mechanism diagnostic. Three seeds on one split do not establish statistical
 significance. The final benchmark needs paired uncertainty and predeclared
 heldout confirmation, rather than judging success by separated standard
 deviations or by the best observed seed. Original paper scores stay unchanged.
+
+## Newly completed native bridges
+
+- Node class alignment and alignment+variance passed actual fullTRAIN/VALID/restore
+  CPU checks on CiteSeer/Cheb, with the fixed512-node auxiliary support recorded.
+- Structural responsibilities and their exact classwise permutation control
+  passed the same native node lifecycle; the earlier guard failure is preserved.
+- Molecular alignment-only now has both a preserved one-class lifecycle check
+  and a separate active mixed-class check with nonzero shared/private gradients.
+- [NCN native extensions](link_expansion_ports_v1/REPORT.md) passed8actualCPU cases:
+  mean/global/conditional aggregation, unit/query/endpoint responsibility, and
+  BE+residual/residual-only. Native65536positive+65536negative updates and complete
+ 160084-query VALID were retained. NCNC/BUDDY and full-runtime work are separate.
+- [Fixed context target source](context_affinity_v1/README.md) and exact task
+  definitions prepare common versus split information targets; tensor semantics
+  passed, while native task ports are being completed.
+
+These are execution and mechanism checks, not additional trained accuracy
+results. The latest reviewed source addition was pushed and exact-ref verified
+as`eb6ddd1c58789a88261d81976c65323ce425b6a2`. Subsequent work is recorded under
+a new source addition, preserving all prior releases and outcomes.
+
+Observation13 records the completed seed101 combination: VALID AUC0.68352 and
+BCE0.51682, versus alignment-alone AUC0.71062. The combination does not improve
+on its strongest ingredient in this seed. Other seeds and I4 remain unfinished;
+this result and its costs are retained without changing any frozen setting.

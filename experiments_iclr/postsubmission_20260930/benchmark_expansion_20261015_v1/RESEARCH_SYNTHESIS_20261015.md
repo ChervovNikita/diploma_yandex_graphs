@@ -8,7 +8,7 @@ Separate source-reference reproductions remain in the design.
 
 ## Mechanisms being made testable
 
-**Preserve a competent starting function, then learn different corrections.**
+**Preserve the native initial function, then learn different corrections.**
 The residual-only four-route candidate initializes every route at exactly the
 native evaluation function. Each route has a different low-rank down projection
 and a zero up projection. Initially, task gradients can update the up matrices

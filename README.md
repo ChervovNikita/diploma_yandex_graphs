@@ -1,54 +1,62 @@
 # GNNM: shared propagation in graph ensembles
 
-## Expanded benchmark and representative training — 15 October 2026
+## Shared-backbone ensemble research — 15 October 2026
 
-The target is improved prediction quality with a shared backbone. Every compatible
-setting retains separate paper-reference single-model reproductions, matched
-single models, base GNNM and a genuine independent four-model ensemble. Published
-backbone settings and LR/WD remain fixed. The2,480-fit predecessor proposal is
-preserved below; the broadened campaign's final count is not yet frozen.
+The aim is better predictions from several learned routes through one shared
+native GNN. Every compatible setting compares a native single model, original
+GNNM and four genuinely independent native models. Separate reference-setting
+runs check the source papers. Native operators, features, LR and WD stay fixed;
+source ambiguities and longer training controllers are disclosed.
 
-**The24-fit molecular pilot is running on the dedicated one-GPU allocation.**
-Three paired MolBACE/GIN trials compare base GNNM, private nonlinear input
-corrections, class-aware graph embedding supervision, their combination and
-four independently trained native models. Every fit uses complete TRAIN/VALID,
-cap1000/minimum100/patience50 and its own selected state. TEST stays closed.
-Three fits have completed in saved observation11; no complete paired cohort
-or method advantage is available. Full curves, failures and costs stay
-on the server.
+### Expanded benchmark proposal
 
-New source includes explicit link epoch/selection integration, versioned
-resume finalization, a corrected structured-responsibility control and
-route-private BatchNorm running state with shared learned weights. The latter
-passed actual native GIN TRAIN-batch semantics with zero optimizer steps;
-it has no prediction-quality result yet. Portable BE+input and residual-only variants passed real MolBACE and full
-CiteSeer CPU update/VALID/checkpoint checks. Mean/global/conditional aggregation
-passed real molecular CPU checks under the same own/pool loss. Native link
-ports and CUDA/full-runtime qualification remain pending. A finite campaign
-launcher is prepared; historical worker dry runs remain blocked without concrete
-job bindings and measured profiles. Prepared code, semantic checks and
-scientific results are reported separately. No new novelty claim is made.
+The proposed roster contains **6,460 physical training fits across 7 datasets,
+8 architecture families and 27 fixed source presets**. It includes 270 separate
+source references, 1,080 independent native bodies and 5,110 shared-method fits.
+The matched single reuses independent body 0. Exact aliases are counted once.
 
-The old226-contrast exact-test policy has insufficient p-value resolution with
-ten trials and Holm correction. Its audit and prospective alternatives are
-saved before the large launch. The full comparison matrix remains in scope.
+Beyond the required comparisons, the design tests task-specific embedding
+supervision, persistent structural responsibilities, private nonlinear input
+corrections, common versus route-specific context targets, learned aggregation
+and native BN state ownership. Selected ingredient combinations test whether
+these mechanisms help together. These are hypotheses and controls, with known
+prior-work ancestry; no new successful method is declared.
 
-A frozen three-fit route-private BN follow-up waits for the current24 fits to
-finish, then reuses their exact base/M1/I4 controls. No BN quality gain has been
-measured. A prediction-only analysis watcher waits for all three outcomes.
+**The giant campaign is not approved, executable or launched.** Missing native
+integrations, full-runtime/serving checks, a prospective confirmation policy
+and measured resource assignments must be completed before the user's GO.
+Only the dedicated one-GPU allocation is currently authorized.
 
-**The giant campaign remains disabled pending the exact design, measured
-resource assignments and the user's GO.** Only the dedicated allocation is
-currently authorized. No original-paper dataset reruns or score changes occur.
+### Current bounded study
 
-- [Current methods, pilot, code readiness and open work](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/README.md)
-- [Frozen24-fit pilot](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_molbace_v1/SPEC.json)
-- [Current scientific direction](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/RESEARCH_SYNTHESIS_20261015.md)
-- [Reviewed method catalogue](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/catalogue/CATALOGUE.md)
-- [Saved literature conclusions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/literature/SCOPED_CONCLUSIONS.md)
-- [Statistical design audit and alternatives](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/statistics_proposal_v1/AMENDMENT_PROPOSAL.md)
+The frozen 24-fit MolBACE/GIN pilot uses three paired seeds and genuine native
+independent-model controls. Each fit traverses complete TRAIN and VALID, uses
+its own selected state, and has a minimum of 100 epochs, a cap of 1,000 and
+patience of 50. TEST remains closed; all curves, failures and costs are kept.
 
-The dated sections below record earlier states and proposals.
+Five fits from the first seed are complete. Selected VALID AUC is 0.73846 for
+native M1, 0.62784 for base GNNM, 0.71062 for graph alignment/variance and
+0.67729 for the private input correction. Their combination has AUC 0.68352
+and BCE 0.51682, below alignment alone on AUC. All three candidates worsen BCE
+versus base. The remaining seeds and independent ensemble are unfinished.
+This partial development signal is not a reliable method advantage, heldout
+confirmation, novelty result or significance claim.
+
+A separate frozen three-fit BN follow-up waits for successful completion of
+the parent study and reuses its controls. It has no quality result yet. Native
+node, molecular and NCN bridges have passed bounded update/validation/restore
+checks; broader native/runtime/GPU readiness is recorded separately.
+
+- [Expanded design, exact counts and comparisons](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_study_design_v1/README.md)
+- [Exact native settings and replication limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_study_design_v1/NATIVE_SETTINGS.json)
+- [Current methods, code and open work](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/README.md)
+- [Partial first-seed diagnostic](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_molbace_v1/PARTIAL_SEED101_DIAGNOSTIC.md)
+- [Mechanisms and saved scientific decisions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/RESEARCH_SYNTHESIS_20261015.md)
+- [Method catalogue and historical dispositions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/catalogue/CATALOGUE.md)
+- [Scoped literature conclusions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/literature/SCOPED_CONCLUSIONS.md)
+- [Statistical design audit](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/statistics_proposal_v1/AMENDMENT_PROPOSAL.md)
+
+The dated sections below preserve earlier states and proposals.
 
 ## Real-data smoke checks — 14 October 2026
 

@@ -1,135 +1,150 @@
-# Continuation state
-
-Client date 15 October 2026; preserve server UTC timestamps as emitted.
+# Continuation state: benchmark expansion
 
 ## Scope
 
-Only the authorized one-GPU allocation. Verify hostname `anogena-2-0` and sole
-UUID `GPU-44039938-fd82-41d2-fefd-de71514e2fac` before repository actions.
-The literal SSH route and project root are in `remote_control.py` and phase
-AGENTS.md. No 18.77, scientific seven-GPU execution, sudo, PDF compilation,
-original-five reruns or original-score changes. Bounded representative pilots
-are authorized. The giant expanded campaign still requires user verification
-and GO. Incidental standard caches are permitted.
+Use only the dedicated allocation. Before any remote project operation verify
+hostname `anogena-2-0` and sole GPU UUID
+`GPU-44039938-fd82-41d2-fefd-de71514e2fac` through `remote_control.py`.
+The literal authorized login and repository are in phase AGENTS.md. No77 or
+MacLink, scientific seven-GPU work, sudo, host/mount changes, unrelated files,
+PDF compilation, GENLINK, original-five reruns or original-score changes.
+Standard incidental caches are allowed. Bounded representative pilots and
+engineering checks are authorized; the giant campaign still needs review/GO.
 
-## Active jobs
+## Running scientific studies
 
-Under remote `experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/results/molbace_pilot_v1`:
+Remote `results/molbace_pilot_v1`: frozen24fits, seeds101/202/303, MolBACE GIN.
+Supervisor824297, analysis monitor824564. Existing private-GRU worker640428
+reserves one of two training slots while live. Do not touch unrelated jobs.
 
-- Supervisor PID 824297; fixed 24 fits, three trials. Its initial older-worker
-  reservation is private-GRU child 640428. Never stop unrelated processes.
-- Analysis monitor PID 824564; finite 36 hour wait, no training/TEST. Exports
-  selected VALID route logits/preheads once per completed fit.
-- `QUEUE_PROGRESS.json`, `QUEUE_RESULT.json`, `COSTS.json` and per-fit
-  `PROGRESS.json`/`RESULT.json` are authoritative. `selected_analysis_v1/`
-  contains analysis receipts, raw route exports and `COMPARISON.json`.
-- Native body 0 / seed 101 completed 149 epochs by patience; selected-state analysis
-  completed. Base GNNM also finished149 epochs. Observation10 records graph
-  alignment/variance at epoch91,21 fits still queued, no failures. Native/base
-  selected analyses completed. No complete paired cohort exists; do not claim
-  a method advantage from partial data.
-
-The exact SPEC SHA is
+Parent SPEC SHA:
 `8a1a004369e5c15de2254323a9f4e17d7b5c4e648566e15afaef519fc3bfbb1c`.
-Do not edit its source, method settings, seeds, policies, native callback or
-pinned objective/adapter. No automatic training retries. Explicit resume after
-an already-triggered stopping condition needs a later guarded finalization fix;
-current queue has no auto-resume.
+Never edit running v1 runtime/callback/helper/adapter/spec or relaunch its
+monitor. No automatic training retries. Queue/progress/result/cost files and
+own per-fit results are authoritative. TEST remains closed.
 
-## Research preparation
+Observation13 has five completed seed101 fits; nativebody1 is training.
+NativeM1 AUC.73846, baseGNNM.62784, graph alignment/variance.71062, input
+correction.67729. Both candidates worsen BCE versus base and remain below M1.
+Combined AUC.68352/BCE.51682 is below alignment alone on AUC.
+No complete I4 or three-seed cohort exists. This partial selected-VALID signal
+cannot promote a method, establish uncertainty or change any frozen decision.
+`PARTIAL_SEED101_DIAGNOSTIC.md` and compact curve artifacts retain all limits.
+Patience-stop metadata is controller evidence, not optimization stationarity.
 
-The reviewed catalogue accounts for 30 selected prior result records and 73
-canonical v29 families. It preserves the separate 270 source references and all
-native single/base GNNM/genuine independent4 comparisons. F1, equipped,
-joint-untied and capacity-control fits remain excluded. Internal placement and
-operator-changing programmes are deferred. Task-specific objective definitions
-are broader than their currently implemented native ports.
+BN follow-up: supervisor826667, analysis watcher826681. Exactly3fits after
+successful parent24 completion, sequential, with parent controls reused.
+SPEC SHA:
+`df726ef6f9fdfc01a859f9d3fe536120113d5e0e10da3bde609b5f9898d69986`.
+Latest state waiting_for_parent24, zero new BN fits. Finite waits, no retries.
+Do not relaunch watchers or change their sources.
 
-Do not call the old 2,480-fit design the final expanded count. Link numerical
-helpers passed synthetic CPU checks; actual native link integration, source
-policies/dispatch and resource qualification remain separate gates. Selected
-analysis or geometry is not a manuscript review. Use a fresh Codex reviewer
-through the supplied review guidance only after substantive paper/evidence
-revision, not after each experiment.
+Older private-GRU acquisition is still live and finite (7-day wall cap).
+Latest own metadata: stage2,28/30new fit banks,40optimizer trajectories.
+Child640428/owner640426. Its old excluded arms/inherited references are history,
+not restored into the new benchmark. Preserve costs/provenance and inspect
+only own progress if needed.
+
+## Current scientific design
+
+`expanded_study_design_v1/README.md` and PROPOSED_ROSTER.json define a proposed
+6,460 physical fits:270source references,1,080matched native bodies,5,110shared
+fits across7datasets/27source presets.25exact recipe definitions include base
+rules/controls, not25novel methods. M1 is I4body0; global-J mean aliases the
+old global half-pool. Every predecessor method remains where applicable.
+
+This roster is NOT executable/approved or three-GPU-ready. The predecessor
+2,480descriptors now all pass metadata validation, with exact source custody
+and I4 ownership. That is not a trained result, all-split/provider proof or
+a measured resource/epoch/serving qualification. Full descriptor files stay
+remote; compact source/receipts are in `job_binding_preparation_v1`.
+
+NATIVE_SETTINGS.json exports unchanged native configurations/Adam settings,
+source horizons and matched controllers from the old PLAN. It discloses
+reference ambiguities/adaptations; do not call whole-paper trajectories exact.
+Old factorized-single/equipped/joint-untied/capacity/internal-placement grids
+remain excluded. No HPO or giant launch.
+
+## Source and qualification
+
+- Portable input v2: BE+residual and residual-only four-route methods. Actual
+  MolBACE and CiteSeer CPU lifecycle passed; original v1 defect preserved.
+- C6: mean/global/conditional share all-block half-own/half-served J, adding
+  0/4/20parameters. Actual molecular/node/NCN CPU lifecycle passed. Source
+  gradient/input controls remain explicit; weights are not accuracy guarantees.
+- C2: structural classwise degree/atom-count quartiles versus exact whole-vector
+  classwise permutation. Molecular and nodev2 CPU lifecycle passed. Nodev1
+  guard failure preserved. Native risk/optimizer semantics remain unchanged.
+- C1 node: `task_geometry_node_port_v1`, alignment and alignment+variance,
+  fixed512TRAINcohort, all native TRAINCE. CiteSeer CPU lifecycle/active support
+  passed. Other nodes/CUDA/full runtime remain separate gates.
+- C1 molecular alignment-only: separate source control, existing variance
+  candidate unchanged. Initial all-one-class check had zero auxiliary and is
+  preserved. A separate actual shuffled mixed-class batch passed active
+  shared/private gradients,2updates/wholeVALID/restore. See AUDIT03 readiness.
+- `link_expansion_ports_v1`: NCN only,8actual CPU cases/16updates/24fullVALID
+  calls(160084queries each). C6x3,corrected responsibilityx3,inputx2. NCNC/BUDDY
+  follow-up is separate and ongoing. No all-link/CUDA/full-epoch claim.
+- `context_affinity_v1`: frozen tensor core,8allocation semantic checks,
+  targetspec under expanded_study_design_v1. Manifest
+  `fe6b26f875ece1173be06d8656b2d6442ac216e7afcef0e6d40fb7a5b36cf448`.
+  Common/split factual targets are specific hypotheses; native molecular
+  histogram extraction/bridge is being completed. No accuracy evidence.
+- `selected_valid_reconstruction_v1`: source frozen with known runtime/source
+  registry; bounded zero-step CPU qualification is running. Original run-fit
+  selected states versus engineering fresh/fresh checks must stay distinct.
+  BN selected replay waits for its future real checkpoint. No TEST backend.
+
+All old sources/failures remain. New source packages must not alter any frozen
+parent. runtime_v2 still needs full real stop/resume/epoch/model qualification;
+its hash and native original callbacks remain untouched.
+
+## Science and statistics
+
+The scoped primary reading report/addendum records TabM, graph expert domains
+and GraphDIVE; no full-paper count is inflated. Three new Crossref keyword
+queries were metadata discovery only and low precision, not novelty evidence.
+The context mechanism note distinguishes assignment of target information from
+indiscriminate latent repulsion. Native initialization is untrained; preserving
+its function is not preserving an already competent model.
+
+The old226/ten-trial exact signflip+Holm family cannot reject anything. Its audit
+and prospective alternatives are preserved, not retroactively adopted. The
+new broad matrix is exploratory; choose a frozen confirmation estimand, method,
+data/heldout policy and multiplicity rule before launch. SD separation is not
+a significance test; presets of one dataset are not independent datasets.
+
+No new manuscript, novelty, statistical success or reviewer verdict is claimed.
+Fresh Codex paper-review agents through the supplied skill are appropriate only
+after substantive supported paper revision, with immutable evidence and no
+requested verdict/author history.
 
 ## Publication
 
-Source addition02 is committed and exact-ref-verified pushed as
-`57803be70ecb5841c9fbbfb2fa1615a3bfd1cbff`. Its commit/push/source receipts are
-local and remote. `publish_selected.py` is now the explicit-file publisher;
-use a NEW selection, expected parent and receipt names for later publication.
-Its preflight failures (missing CSV, marker-only self-match, receipt newline)
-were engineering publication issues, not training retries or scientific edits.
-Keep exact remote receipt bytes when generating a source selection.
+Source addition03 committed/pushed/exact-ref verified:
+`eb6ddd1c58789a88261d81976c65323ce425b6a2`, parent57803be. Exact local/remote
+SOURCE_ADDITION_03/COMMIT_RECEIPT_03/PUSH_RECEIPT_03 bytes are preserved.
+Remote branch `codex/postsubmission-research-20260930` is authoritative.
 
-Commit `5b69e41774b4aff12adf3ec6d3c28b9d4902838f` was pushed and exact-ref verified
-on `codex/postsubmission-research-20260930`. It includes the bounded runtime,
-24-fit specification/launch, molecular/link helpers, selected analysis, reviewed
-catalogue, literature conclusions and README/ledger updates. Large artifacts
-stay on the server. The one-shot `publish_expansion.py` has already performed
-its mutations; do not rerun it. Initial formatting-only publication attempts
-are recorded; no numerical source or training was changed to resolve them.
-Later native link integration and planning notes need their own reviewed commit.
-Push with the existing named-key generic publisher and new receipt identities;
-never store or print its passphrase.
+Next publication uses a NEW selection/release/commit/push receipt04 and expected
+parenteb6ddd1c58789a88261d81976c65323ce425b6a2. Source03 selection was already
+used; do not rerun one-shot publication. Root/E docs have input hashes in
+planning/DOC_UPDATE_04_INPUT_HASHES.json for the pending guarded update.
+Do not add datasets/checkpoints or entire workspace. Explicit source/compact
+notes only; completed curve SVG stays server/local and can be regenerated from
+committed source+CSV. Never print or store the Git key passphrase.
 
-## Prepared later source, distinct from the running pilot
+## Next actions
 
-- runtime_v2 is staged, with stopped-checkpoint finalization and explicit
-  source/link dispatch. Its model/resume paths are not yet qualified. Exact
-  allocation RNG audit is now local under qualification/runtime_v2_source_rng_v1.json.
-- link_native_integration_v1,link_policy_v1 and final_test_serving_v1/link are
-  source-prepared with static checks. Actual native link fits, full-VALID parity,
-  BUDDY cache/context provenance and final TEST serving remain pending.
-- structured_responsibility_control_v2 fixes raw query marginal variance, loops
-  and full131072-row acceptance. Eleven synthetic CPU checks passed. Do not
-  claim normalized marginals match or original risk is unbiased.
-- private_bn_state_v3 is the current guarded candidate. V1 lacked bypass/active
-  state guards. V2 failed actual Torch2.1 registration before native forwards.
-  V3 passed seven allocation CPU tests and actual GIN32-TRAIN-graph semantics,
-  zero optimizer steps, no VALID/TEST scoring. All failures/old sources remain.
-  Private stats cannot be reconstructed from frozen pilot shared EMAs. Direct
-  native forwards are rejected; serving must use the active run_member context.
-- statistics_proposal_v1 proves the old226/ten-trial/Holm policy cannot reject
-  at alpha.05. GLOBAL_PRIMARY_OPTION.md is a concrete different prospective
-  estimand, still a proposal. No existing family or outcome is reclassified.
-- Agents are completing portable private-input adapters, scientific task-method
-  matrix audit and a fail-closed campaign supervisor. These are not final
-  scientifically qualified giant-run artifacts until reviewed and published.
-
-## Next work
-
-Additional active finite follow-up: supervisor826667 at
-results/bn_state_followup_v1 waits for the parent24 queue, then executes exactly
-three prospectively frozen private-BN candidate fits sequentially using runtime
-v1. SPEC SHA `df726ef6f9fdfc01a859f9d3fe536120113d5e0e10da3bde609b5f9898d69986`.
-It reuses parent base/M1/I4 controls and launches nothing if the parent fails.
-Analysis watcher826681 at results/bn_state_followup_analysis_v1 is CPU/export-only,
-waits48hours, and requires all three own candidate/parent banks. No automatic
-training retry. No BN candidate fit has started in the saved watcher status.
-The current parent source and24-fit queue remain immutable.
-
-Portable input v2 (current, preserving v1) has real CPU MolBACE and full CiteSeer
-qualification for both BE+residual and residual-only. Exact source manifest
-`21ad8f2c644a1833f0015dfc4c0c0193bcfc9598b6f84d98b9d686330bed8115`.
-Mean/global/conditional aggregation source has actual molecular CPU qualification;
-manifest `edef4b1f552a495e09e64855afbd96c7eb14ce5ef02d26cc13ec530d80e9805f`.
-Their final-serving reconstruction and actual link/CUDA/mature resources remain
-pending. Refer to each qualification readiness document instead of inferring
-all-cell coverage from a passing toy or two-update check.
-
-The launcher prototype has18 passing synthetic checks, but0 compiled historical
-full-campaign jobs. It deliberately blocks77 before metadata access and keeps
-runtime_v2 unchanged. It is source preparation, not an authorized giant launch.
-Agents are preparing structural within-class responsibility, native node C6
-and focused quality-architecture literature. Do not count unfinished cells.
-
-1. Monitor existing full fits and preserve failures/costs. Complete all paired
-   trials before promotion; keep TEST closed in exploration.
-2. Finish native link full-epoch/selector integration and source-specific policy
-   verification. Run real qualification when an own training slot is available.
-3. Specify actual task recipes/ablations for the catalogue, convergence and
-   source-reference fidelity, then generate the expanded finite run list and
-   measured resource-based three-GPU assignments. Keep full launch disabled.
-4. If useful pilot signals survive independent confirmation, update the paper
-   with supported claims and request a fresh independent skill-based review.
+1. Finish current native ports/replay handoffs and preserve every failed/limited
+   check with its actual support/cost. Current agents handle NCNC/BUDDY, C3
+   molecular context, and selected replay/fixed probability-pool diagnostics.
+2. Publish reviewed source addition04, including the finite proposed roster,
+   exact native settings, C1node/molecular controls, NCN ports and partial
+   pilot diagnostics. Exclude unfinished agent sources.
+3. Monitor parent24/BN watchers and the old own acquisition. Complete paired
+   cohorts before scientific interpretation. Do not promote partial seeds.
+4. Finish missing task composition, native full-epoch/stop/resume/serving and
+   all-split/provider qualification, measure real job costs, then produce final
+   source-bound roster/assignments/commands for user review.77 remains blocked.
+5. Preserve giant GO requirement; do not silently extend its count or launch.
