@@ -119,11 +119,25 @@ The resulting priorities are small native-initialized additive routes with
 BatchEnsemble optional, identifiable task responsibilities, and matched learned
 aggregation when useful alternatives exist. None is a supported novelty claim.
 
-The next diagnostic will measure actual shared and private Adam displacements
-on complete TRAIN epochs. It tests whether the shared update harms routes after
-accounting for their private progress. This adds no serving parameters. In
-parallel, a minimal residual-only comparison is being prepared using paid
-controls. Both remain separate from the unlaunched broad campaign.
+The complete TRAIN diagnostic found **0/456 harmful-interference events** under
+its predefined criterion. Actual shared and joint Adam updates lowered each
+measured member loss, despite 34/684 negative pairwise gradient dot products.
+This covers three selected states and their next full TRAIN epoch; it does not
+exclude conflicts earlier in training or establish generalization. Gradient
+projection is not prioritized on this evidence. The audit took 186.40 seconds,
+114 temporary updates and no VALID/TEST scoring.
+
+[Completed gradient audit and limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/shared_gradient_shadow_completed_v1/REPORT.md).
+
+The next candidate removes BatchEnsemble and adds four small residual routes
+that initially preserve the native GNN predictions. It adds 19,200 trainable
+parameters and uses matched private BN. Its exact composition passed two CPU
+updates, normalization isolation and fresh checkpoint reconstruction across
+three full VALID passes. Three full fits are prepared, reusing paid controls;
+the source check is not evidence of prediction improvement. All three seeds
+and every negative result will be retained.
+
+[Residual-only pilot protocol](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_residual_only_private_bn_v1/PROTOCOL.md).
 
 ### Proposed broad benchmark
 
@@ -176,9 +190,16 @@ checks, including restart, failure and interrupted-readiness recovery. These
 used standard-library fixtures, with zero model work. An initial driver failure
 is preserved with its repair.
 
-Three finite CUDA checks remain queued: NCN and BUDDY lifecycles plus a MolHIV
-GIN-VN resource measurement. They retain the previously fixed jobs and total
-4,233 optimizer updates. The MolHIV check is now running in the released slot; NCN/BUDDY remain queued.
+The MolHIV GIN-VN resource check passed: 1,029 updates, one complete TRAIN epoch
+and two full VALID passes in 614.00 seconds. TRAIN used 582.45 seconds; peak
+CUDA allocated memory was 410.94 MB. At this measured rate, 100 epochs alone
+would take about 16.18 worker-hours before validation costs, for this specific
+configuration. This is no campaign ETA or prediction-quality result.
+
+The two already queued NCN/BUDDY lifecycle checks remain: 34 and 3,170 updates.
+Their host-memory admission now accounts for clean active as well as inactive
+file cache, with conservative exclusions and reserves. No host cache or setting
+is changed; native jobs and GPU/peer reservations remain unchanged.
 Native final-serving qualification and measured three-GPU placement remain
 incomplete. Source-setting training and validation scores alone do not verify
 a paper's reported test metric.

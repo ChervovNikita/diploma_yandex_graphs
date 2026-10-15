@@ -127,3 +127,20 @@ nor their combination improves mean AUC over I4. The proposal will keep
 original GNNM and use explicit matched normalization controls; the exact
 source-policy update is pending review. No benchmark fit count or source
 hyperparameter has been changed by this finding.
+
+## 15 October update: completed gradient diagnostic and residual-only pilot
+
+The matched-BN factorial is complete. A follow-up using the actual Adam
+updates found 0/456 qualifying harmful-interference events; finite shared and
+joint updates lowered every measured member loss. Negative gradient-pair dots
+were insufficient to diagnose harmful training updates. See
+`analysis/shared_gradient_shadow_completed_v1/REPORT.md` for scope and costs.
+The next frozen three-fit candidate removes BE and retains native-initialized
+additive routes with private BN. Its exact CPU lifecycle passed two optimizer
+updates and three full VALID passes, without scientific selection. Neither
+this candidate nor gradient projection has an established accuracy advantage.
+
+MolHIV resource measurement passed:1029updates,582.446sTRAIN,613.996soverall.
+At this one setting,100TRAINepochs imply16.18worker-hours before validation;
+there is no whole-campaign ETA. The two NCN/BUDDY lifecycle jobs remain queued.
+The large6460-fit campaign still requires user verification and GO.
