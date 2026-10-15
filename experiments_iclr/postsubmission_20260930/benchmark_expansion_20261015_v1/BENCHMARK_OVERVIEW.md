@@ -6,9 +6,9 @@ training rules and private components improve prediction quality, and whether
 they can outperform four separately trained copies of the same native model.
 
 The current proposal contains **6,460 training runs**. It is being implemented
-and checked; the full campaign waits for your review and GO. The completed
-24-run molecular pilot, completed three-run BN follow-up and completed nine-fit
-normalization/ingredient study are separate development studies. They do not replace any of the proposed benchmark runs.
+and checked; the full campaign waits for your review and GO. The 39 completed molecular development fits and the running six-fit structural
+specialization study are separate from this proposal. They do not replace any
+of the proposed benchmark runs.
 
 ## The comparisons made in every setting
 
@@ -144,3 +144,18 @@ MolHIV resource measurement passed:1029updates,582.446sTRAIN,613.996soverall.
 At this one setting,100TRAINepochs imply16.18worker-hours before validation;
 there is no whole-campaign ETA. The two NCN/BUDDY lifecycle jobs remain queued.
 The large6460-fit campaign still requires user verification and GO.
+
+## 15 October, 16:21 UTC: current execution
+
+The original BUDDY execution check passed two whole TRAIN epochs, 3,170 updates,
+four VALID calls and three constructions, including selected-state export.
+The repaired NCN and composed-normalization molecular checks also passed.
+The separate composed-normalization BUDDY check remains pending.
+
+The new six-fit study now trains structural and shuffled private
+responsibilities on the same residual-only MolBACE model. Each runs to the
+frozen training rule and reuses the 39 completed controls. This study tests
+useful differences between predictions after the uniform residual model
+improved member ranking but supplied almost no averaging benefit. The original
+GNNM and independent ensemble comparisons remain visible in the full reports.
+No complete new result or large-campaign GO is implied by this launch.

@@ -1,4 +1,4 @@
-# Continuation state — release21 preparation, 15 October 2026
+# Continuation state — release22 preparation, 15 October 2026
 
 Goal active and unachieved. Read ../AGENTS.md. Literal -2 allocation only;
 no77/MacLink, sudo, PDF, GENLINK, original-five reruns or changed original scores.
@@ -7,10 +7,11 @@ Root owns Git; explicit selected source/scalar notes only.
 
 ## Publication
 
-Release20 committed/pushed6a6cc7c01650cdc0f5791b149bb6adbe30b9cf03 at15:29UTC.
-Release21 is preparation until COMMIT_RECEIPT_21/PUSH_RECEIPT_21 exist.
-DOC_UPDATE_RECEIPT_20 pins prior mutable documents; replace ROOT_README_BLOCK_20
-with21 exactly. Preserve all frozen packages and failed attempts.
+Release21 committed and pushed 7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f
+at 16:19:36 UTC. COMMIT_RECEIPT_21 and PUSH_RECEIPT_21 confirm publication.
+Release22 is preparation until its own commit/push receipts exist.
+DOC_UPDATE_RECEIPT_21 pins remote mutable documents. Replace root README
+block21 with block22 exactly. Preserve all frozen packages and failed attempts.
 
 ## Completed new scientific result
 
@@ -31,7 +32,7 @@ alpha=.05+.8softmax gate, optimistic label-aware endpoints78.681/75.421/74.505AU
 No learned gate/new scores;0forwards/updates,3.766s. Seed303ceiling belowI4.
 Do not interpret common pair reversals as an absolute input-dependent gate limit.
 
-## Next six-fit scientific study — source ready, NOT launched in this snapshot
+## Current six-fit scientific study — RUNNING
 
 pilot_20261015_structural_private_risk_v1.
 MANIFEST d2bb359dcfd43f945749bf38c57fd6dc82fc14a16499dc1ae370fff4099fc67c;
@@ -47,10 +48,17 @@ Primary descriptive signal is positive meanAUC versusBOTH uniform andpermuted;
 report allsignedBCE, member quality, commonerror repairs/harms and full costs.
 No independent confirmation, significance or novelty claim from this6fitpilot.
 
-Root must publish, bind actual commit/currentresources in fresh ADMISSION_TEMPLATE,
-and launch run.py --mode launch with its admissionSHA. One new GPUworker,4h/fit,
-stop-onfailure/noautomaticretry. BUDDY currently occupies second slot; wait for
-terminal before this launch. OriginalGRU may remain sole admitted peer.
+Source published in release21. Root launched the exact six-fit queue at
+16:21 UTC after BUDDY passed and released the second slot.
+Owner PID 848485 / start ticks 6089052668. First worker PID 848490 / start ticks
+6089052732. STRUCTURAL_LAUNCH_22, STRUCTURAL_TRAINING_ADMISSION_22 and
+STRUCTURAL_RESOURCE_ADMISSION_22 retain actual launch, resources and source.
+STRUCTURAL_PROGRESS_22 verifies first worker completed 76 native updates.
+One new GPU worker, four-hour cap per fit, stop on failure, no automatic retry.
+Do not relaunch. GRU 640428 is the sole older admitted GPU peer.
+The slot lock is analysis_outputs/selected_VALID_collection_gpu_slot.lock.
+Reserved 16 GiB GPU / 12 GiB host for this worker, GRU growth envelope retained.
+Do not read partial quality or change methods based on incomplete seeds.
 Afterall6successfulterminal,selected_VALID.py commands/collect/analyze gives6new
 banks,39totalbanks/45unique fits. Reuseold33anduniform3savedpredictiontensors;
 no old control recollection. Templates defer actual END/OUTCOMES/resultpins.
@@ -68,13 +76,13 @@ OldGRU owner640426/start6055039154,worker640428/start6055039165;
 last15:41UTCstage2,29/30banks,44/48trajectories. Seven-daycap, original16GiBhost/
 32GiBGPUgrowth. No partialquality reads/restart.
 
-BUDDY original queued2epoch3170update lifecycle launched16:02UTC.
-Owner847975/start6088937989;worker847979/start6088938049.
-Source qualification/portablev4_link_queued_parent_authority_repair_v1;
-output qualification/portablev3_BUDDY_queued_lifecycle_attempt01;
-current admission qualification/portablev4_BUDDY_queued_ADMISSION_21.json.
-BUDDY_LIFECYCLE_LAUNCH_21.json and OBSERVATION_21.json retain latestsnapshot.
-No new thirdCUDAworker. Actual supervisor samplesresources and caps3600s.
+BUDDY original queued lifecycle PASSED. Two complete TRAIN epochs, 3170
+updates, four whole VALID calls, three constructions and restore/export.
+BUDDY_LIFECYCLE_TERMINAL_22.json records 1066.694 child seconds.
+Original output qualification/portablev3_BUDDY_queued_lifecycle_attempt01
+and all failed/source history retained. Former PIDs 847975/847979 are terminal.
+No rerun. BUDDY_LIFECYCLE_FINAL_OBSERVATION_21 is an earlier RUNNING snapshot
+despite its unfortunate filename. Use TERMINAL_22 for the terminal outcome.
 
 RepairedNCNlifecycle passed:2epochs,34updates,4VALID,3constructors,
 136TRAIN+16VALIDforwards,53.198s childwall,peakreserved8409579520bytes.
@@ -110,3 +118,43 @@ justified. MolHIVGINVN1TRAIN582.446s,100epochproxy16.18hbeforeVALID; notcampaign
 wouldchange,3570unchanged; migrationnotapplied. Broadreadiness/serving/3GPUmeasured
 placement/cost remainincomplete. No manuscriptreviewuntilsubstantialsupported
 paperimprovement. No acceptanceclaim. Continue research after the bounded queue.
+
+## Current parallel preparation
+
+Agent buddy_completion_20261015 completed a deduplicated literature/mechanism
+synthesis in research/quality_specialization_synthesis_v1. Two scoped primary
+reads address proper scoring and opinion pools. Its proposed own-risk plus
+probability-mixture objective addresses probability quality. NLL alone cannot
+meet the main accuracy-over-I4 objective. The short target-shift derivation
+is prospective theory with standard ancestry, not a new method result.
+No source change to the running pilot follows.
+
+research/second_setting_protocol_v1 is complete, manifest
+6b80f43b2ae866d5d643f5e130d079597901c76e22a4974acec1d592917d0add.
+PubMed/Cheb selected for next SOURCE PREPARATION ONLY. Root's actual provider
+read completed in 6.412s with TRAIN [3943,3943,3943], VALID [72,1919,1952].
+PUBMED_PROVIDER_CLASS_SUPPORT_22 retains source/role evidence. No model,
+forward, optimizer or CUDA context. Minority VALID support is 1.83%. PubMed is
+outside the original five, but repeatedly exposed. Old Mono/internal-factor/
+other-split scores cannot serve as controls. The new complete setting needs
+24 cold trajectories over three seeds: twelve independent native bodies plus
+four shared banks per seed. Native M1 reuses I4 body0. No fit launch admitted.
+
+Agent combination_study_reuse_20261010 is now implementing ONLY the new
+PubMed/Cheb residual composition in research/pubmed_cheb_residual_composition_v1.
+Root must review before source publication, actual engineering execution or
+scientific fits. It uses lin1-output rank8 residuals, no BE/BN, native groups,
+TRAIN-degree responsibility and the same-operation uniform/permuted controls.
+No SSH, data/model/tensor execution, GPU or Git delegated. Do not publish its
+in-progress files in release22. Root owns all Git and launches.
+
+STRUCTURAL_PROGRESS_LATE_22 verifies first fit reached 53 full epochs / 2014
+Adam transitions at 16:33 UTC. Observed peak allocated CUDA 373115392 bytes,
+reserved 509607936 bytes. No partial quality interpreted. Future cost estimates
+must use the new two-reverse timing, not uniform-parent time alone.
+
+Immediate next steps: finish release22 notes/publication, keep six-fit study
+running, perform source work while both GPU slots are occupied. After all-six
+success use the frozen collection procedure, then evaluate every signed result
+under the existing protocol. Review the exact next-setting composition and
+qualify it when resources allow. The giant campaign still has no GO.

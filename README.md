@@ -51,16 +51,17 @@ is useful specialization while preserving member quality.
 - [Earlier complete factorial and error analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_bn_geometry_correction_v1/complete_results_v1/INTERPRETATION.md)
 - [Convergence audit of the preceding 36 fits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_molbace_convergence_v1/FINAL_INTERPRETATION.md)
 
-### Next controlled question
+### Current specialization study
 
-The next bounded study compares uniform route supervision with graph-size
+The running six-fit study compares uniform route supervision with graph-size
 responsibilities and a within-class shuffled-assignment control. Shared
 parameters receive the native unweighted loss; only the small private
 corrections receive the weighted loss. The same mean-logit serving rule and
-native training settings are retained. Six new fits reuse all paid controls. The frozen package passed twelve source
-checks and its allocation preflight; both finite CPU execution checks passed,
-including restore and the actual gradient partition. Launch waits for the
-current BUDDY execution check to release the second worker slot.
+native training settings are retained. Six new fits reuse all paid controls. The source was published in commit
+`7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`, and training started on the
+authorized allocation at 16:21 UTC. The first worker has completed training
+updates. We will interpret the comparison after all six fits finish. No partial
+accuracy result is used to change the methods or stopping rules.
 
 ACE (ICCV 2021) already separates shared and specialist gradient credit. That
 principle is attributed to prior work. Our empirical question is whether the
@@ -71,7 +72,17 @@ room, without demonstrating a trainable gate.
 - [Frozen six-fit protocol](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_structural_private_risk_v1/PROTOCOL.md)
 - [Closest prior work and claim limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/literature/structural_private_credit_followup_v1/NOTE.md)
 - [Why route quality precedes more diversity](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/next_quality_mechanism_20261015_v1/RECOMMENDATION.md)
-- [Second-setting assessment: Coauthor-CS / PolyFormer-Cheb](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/second_setting_decision_v1/NOTE.md)
+- [Next setting: PubMed / PolyFormer-Cheb, 24-fit preparation](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/second_setting_protocol_v1/DECISION.md)
+- [Probability-quality hypothesis and its limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/quality_specialization_synthesis_v1/SYNTHESIS.md)
+
+The next source preparation uses the native PubMed/Cheb setting, without BN.
+Its fixed VALID split has class counts 72, 1,919 and 1,952. All classes occur,
+but the smallest has only 1.83% of the records. We retain the source split and
+selection, report per-class results, and disclose prior PubMed development.
+The proposed comparison requires 24 new fits because previous PubMed methods
+used different native settings. No transfer fits have started. A separate
+proper-loss/readout hypothesis addresses probability quality, with no claim
+that an NLL gain alone would meet the accuracy-over-I4 goal.
 
 ### Broad benchmark preparation
 
@@ -84,8 +95,9 @@ New research pilots are separate from this unlaunched roster.
 The 27 contracts, 99 split proofs and 43 evaluation populations are prepared.
 The genuine composed-normalization molecular pipeline passed 38 updates,
 restore, selection and serving. The repaired NCN pipeline passed two epochs,
-34 updates and four whole-VALID calls. The original BUDDY two-epoch lifecycle
-is now running; composed-normalization BUDDY serving remains unqualified.
+34 updates and four whole-VALID calls. The original BUDDY pipeline also passed two epochs, 3,170 updates, four VALID
+calls, restore and selected-state export. Its child wall time was 1,066.69
+seconds. The separate composed-normalization BUDDY check remains pending.
 These are execution checks, not scientific model-quality results.
 
 Final serving coverage, measured three-GPU placement and a reliable total

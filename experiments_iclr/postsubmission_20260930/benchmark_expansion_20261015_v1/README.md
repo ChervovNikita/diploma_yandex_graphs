@@ -1,4 +1,4 @@
-# Current research snapshot — 15 October 2026, release 21 preparation
+# Current research snapshot — 15 October 2026, release 22 preparation
 
 The residual-only three-seed study is complete: mean VALID AUC **74.518 ± 2.660%**,
 versus genuine I4 **74.847 ± 0.500%**, and BCE **1.952 versus 0.890**. Removing
@@ -15,19 +15,30 @@ The [six-fit specialization protocol](pilot_20261015_structural_private_risk_v1/
 is frozen. Three structural and three within-class permutation fits use the
 same residual/private-BN architecture, native settings and selection. The exact
 CPU producers and source/preflight checks passed. No new control fits or
-campaign roster additions are included. Launch waits for the BUDDY execution
-check to finish and a fresh root resource admission.
+campaign roster additions are included. The source was published in commit
+`7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`. All six fits were admitted as a serial
+study at 16:21 UTC. Owner PID 848485, start ticks 6089052668, runs one new
+GPU worker alongside the previously admitted GRU worker. The first fit has
+completed native training updates. TEST remains closed. No partial accuracy
+results are used to modify this study.
 
 The [literature follow-up](literature/structural_private_credit_followup_v1/NOTE.md)
 identifies ACE as direct prior work for different shared/private training credit.
-The [second-setting assessment](research/second_setting_decision_v1/NOTE.md)
-recommends Coauthor-CS/PolyFormer-Cheb preparation, with its native split's
-missing VALID classes and unmeasured exact-method time explicitly retained.
+The [next-setting protocol](research/second_setting_protocol_v1/DECISION.md)
+now selects PubMed/PolyFormer-Cheb for source preparation. The actual
+TRAIN/VALID-only provider check found VALID counts 72/1919/1952. Its
+minority support, prior PubMed exposure and 24 cold trajectories are explicit.
+The new composition is being implemented. No transfer fit has launched.
+The separate [proper-loss synthesis](research/quality_specialization_synthesis_v1/SYNTHESIS.md)
+addresses probability quality and distinguishes that from the main objective
+of improving task accuracy over the independent ensemble.
 
 Genuine composed-normalization molecular execution passed 38 updates and its
 selected-state serving path. Repaired NCN execution passed two full epochs,
-34 updates and four VALID calls. The original queued BUDDY two-epoch check is
-running; composed-normalization BUDDY qualification remains pending. These are
+34 updates and four VALID calls. The original queued BUDDY check
+passed two epochs, 3,170 updates, four VALID calls and three constructions in
+1,066.69 child seconds. Composed-normalization BUDDY qualification remains
+pending. These are
 engineering checks, not scientific accuracy results. The older GRU acquisition
 is the only other GPU worker. Only the dedicated allocation is authorized.
 
