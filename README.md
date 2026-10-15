@@ -77,7 +77,7 @@ parameters receive the native unweighted loss; only the small private
 corrections receive the weighted loss. The same mean-logit serving rule and
 native training settings are retained. Six new fits reuse all paid controls. The source was published in commit
 `7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`, and training started on the
-authorized allocation at 16:21 UTC. At 18:47 UTC, four of six fits had completed and the fifth had reached 48 full epochs. We will interpret the comparison after all six fits finish. No partial
+authorized allocation at 16:21 UTC. At 19:39 UTC, five of six fits had completed and the sixth had reached 131 full epochs. We will interpret the comparison after all six fits finish. No partial
 accuracy result is used to change the methods or stopping rules.
 
 ACE (ICCV 2021) already separates shared and specialist gradient credit. That
@@ -182,12 +182,20 @@ PubMed transfer remains next.
 
 - [Stochastic-adapter hypothesis, controls and limitations](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/stochastic_private_adapter_audit_v1/NOTE.md)
 
-A reviewed metadata generator now applies the existing private-normalization
-decision to 2,890 proposed candidate fits while retaining 3,570 other fit
-definitions and 270 ensemble-export dependencies. Generation and subsequent
-reporting/dispatch integration are preparation; the 6,460-fit campaign remains
-unlaunched. The composed scorer also has a narrow checkpoint-metadata repair;
-its prediction rule is unchanged.
+The normalization migration, reporting tables and dispatch plan have now been
+generated on the allocation. They retain 6,460 fit definitions and 270 ensemble
+exports, with 2,890 composed candidates. All 27 reporting profiles agree with
+the dispatch descriptors and native dependencies. These are preparation
+results: native runtime coverage, measured resource placement and user GO
+remain outstanding. No campaign worker has started. The composed scorer
+preserves its original prediction rule.
+
+Both private-noise implementations passed real CPU checks on the full native
+TRAIN/VALID roles: two optimizer updates and fresh state/noise restoration per
+arm. The checks confirm that learning signals reach the noise scales after
+the initially zero residual becomes active. They provide no accuracy evidence.
+
+- [Actual fixed/learned-noise implementation checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/STOCHASTIC_CPU_SUMMARY_30.json)
 ## Real-data smoke checks — 14 October 2026
 
 Completed **167 distinct configuration checks** across the redesigned study:

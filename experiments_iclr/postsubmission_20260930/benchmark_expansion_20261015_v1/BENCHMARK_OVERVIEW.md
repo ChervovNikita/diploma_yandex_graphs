@@ -182,3 +182,22 @@ score ordering, while retaining classification loss. Common ranking loss,
 shuffled pair responsibilities and independent models trained with the same
 auxiliary are required controls. It is not part of the6,460-fit roster and
 has no implementation or launch yet. Accuracy gains remain to be demonstrated.
+
+## Release30: actual preparation and private-noise qualification
+
+The normalization migration, reporting registry and dispatch plan were generated
+on the allocation with zero model work. The current roster remains 6,460 fits
+and 270 I4 export tasks; 2,890 fit descriptors use composed normalization.
+All 27 reporting profiles cross-check against the complete dispatch roster.
+Actual generation took 34.73, 49.02 and 55.11 seconds respectively. The initial
+migration attempt failed before creating outputs because two decision files
+were absent; the dependency repair and failure remain recorded.
+
+The fixed- and learned-private-noise implementations both passed two genuine
+CPU updates, fresh VALID restore and next-noise replay. This is engineering
+evidence only. New stochastic training remains unlaunched; the prepared
+PubMed transfer comparison remains the next scientific priority.
+
+No massive-run admission follows from metadata success. Composed BUDDY, NCNC
+selected serving, runtime reporting witnesses, custody review and measured
+resource placement still require completion. All 18.77 execution is disabled.

@@ -1,0 +1,116 @@
+--- benchmark_reporting_integration_v2/observe_exports.py
++++ benchmark_reporting_normalization_rebind_v1/observe_exports.py
+@@ -10,6 +10,7 @@
+ import os
+ from pathlib import Path
+ import time
++from composed_authority import runtime_witness, verify_sources
+ 
+ 
+ def digest(value):
+@@ -57,6 +58,10 @@
+         if binding_spec is not None:
+             if binding_spec["job_hash"] != self.job_hash:
+                 raise ValueError("Observer binding spec belongs to another job")
++            if job.get('normalization_composition') is not None:
++                if 'composed_runtime_authority' not in binding_spec:
++                    raise ValueError('Composed job requires explicit genuine reporting authority')
++                verify_sources(binding_spec['composed_runtime_authority'])
+             for pin in binding_spec["observed_input_files"]:
+                 now = file_receipt(pin["path"])
+                 if any(now[k] != pin[k] for k in ("path", "bytes", "sha256")):
+@@ -82,6 +87,9 @@
+             "selected_checkpoint": scalar_copy(payload["selected_checkpoint"]),
+             "selected_epoch": payload["selected_epoch"], "actual_validation": scalar_copy(payload["validation"]),
+             "extra_native_calls": 0, "payload_mutated": False, "RNG_calls": 0}
++        if self.binding_spec is not None and 'composed_runtime_authority' in self.binding_spec:
++            row['composed_runtime_witness'] = runtime_witness(self.job, self.binding_spec,
++                (payload.get('source_metadata') or {}).get('genuine_runtime_binding'))
+         mean = payload.get("same_bank_mean_VALID")
+         if mean is not None:
+             if mean.get("job_hash") != self.job_hash or mean.get("selected_checkpoint") != payload["selected_checkpoint"] \
+@@ -102,7 +110,7 @@
+     def record_invocation(self, result, label):
+         if result.get("job_hash") != self.job_hash or result.get("job_id") != self.job["id"]:
+             raise ValueError("Invocation result is not the observed job")
+-        bindings, reasons = {}, []
++        bindings, reasons, composed = {}, [], None
+         if self.binding_spec is None:
+             reasons.append("No campaign binding spec attached; engineering observation only")
+         else:
+@@ -113,6 +121,11 @@
+             actual = result.get("runtime_binding") or {}
+             if actual.get("callback_sha256") != self.job.get("callback_sha256") or result.get("policy") != self.job["policy"]:
+                 reasons.append("Actual callback/controller metadata differs from the verified descriptor")
++            if 'composed_runtime_authority' in self.binding_spec:
++                try:
++                    composed = runtime_witness(self.job, self.binding_spec, actual)
++                except ValueError as error:
++                    reasons.append(str(error))
+             if not reasons:
+                 bindings = scalar_copy(self.binding_spec["bindings"])
+         selected = result.get("selected_VALID_export")
+@@ -128,6 +141,11 @@
+                 "resources": scalar_copy(result.get("resources")), "automatic_retries": result.get("automatic_retries"),
+                 "resume_requested": result.get("resume_requested"), "finalization_only_resume": result.get("finalization_only_resume")},
+             "extra_model_forwards_or_updates": 0, "RNG_calls": 0, "tensor_deserializations": 0}
++        if self.binding_spec is not None and 'composed_runtime_authority' in self.binding_spec:
++            row['composed_runtime_witness'] = composed
++            if row['selected_sidecar'] is not None and row['selected_sidecar'].get('composed_runtime_witness') != composed:
++                row['bindings'] = {}
++                row['binding_unresolved_reasons'].append('Selected scalar export and invocation composed identities differ')
+         self.invocations.append(row)
+         atomic_json(self.output / ("INVOCATION_" + str(len(self.invocations)).zfill(3) + ".json"), row)
+         return row
+--- benchmark_reporting_integration_v2/collect_campaign.py
++++ benchmark_reporting_normalization_rebind_v1/collect_campaign.py
+@@ -21,6 +21,7 @@
+ 
+ 
+ def main():
++    from composed_authority import runtime_witness
+     if socket.gethostname() != "anogena-2-0" or subprocess.check_output(
+             ["nvidia-smi", "--query-gpu=uuid", "--format=csv,noheader"], text=True).splitlines() != [
+                 "GPU-44039938-fd82-41d2-fefd-de71514e2fac"]:
+@@ -38,6 +39,11 @@
+     if not index_path.is_relative_to(root) or not output.is_relative_to(root) or output.exists():
+         raise ValueError("Own pinned metadata input and fresh report output required")
+     index = json.loads(index_path.read_text())
++    source_binding = index.get('normalization_rebind') or {}
++    for key, filename in [('observer_source', 'observe_exports.py'), ('collector_source', 'collect_campaign.py'),
++                          ('runtime_entry_source', 'runtime_entry.py'), ('composed_authority_source', 'composed_authority.py')]:
++        if source_binding.get(key) != r.pin(here / filename):
++            raise ValueError('Frozen normalization reporting source differs: ' + key)
+     if r.pin(expansion / "benchmark_reporting_implementation_v1/reporter.py") != index["parent_reporter_source"]:
+         raise ValueError("Registry's accepted reporter source changed")
+     campaign = Path(args.campaign_output_root or index["campaign_output_root"]).resolve()
+@@ -60,6 +66,8 @@
+         if r.pin(preset_pin["path"]) != preset_pin:
+             raise ValueError("Frozen preset registry changed")
+         preset = read(preset_pin["path"])
++        if preset.get('selected_serving_source') != index.get('selected_serving_source'):
++            raise ValueError('Profile selected-serving source differs from the normalization index')
+         observations, normalized_fits, ledger = [], {}, []
+         for fit_id, spec in preset["fit_specs"].items():
+             folder = campaign / spec["output_relative"]
+@@ -102,6 +110,11 @@
+                         if attached and not inv.get("binding_unresolved_reasons"):
+                             if inv["bindings"] != spec["bindings"]:
+                                 raise ValueError("Observed common/source/readout fingerprint differs from the frozen registry")
++                            if 'composed_runtime_authority' in spec:
++                                witness = runtime_witness(job, spec, raw.get('runtime_binding'))
++                                if inv.get('composed_runtime_witness') != witness or sidecar is None \
++                                        or sidecar.get('composed_runtime_witness') != witness:
++                                    raise ValueError('Actual composed runtime/export witness differs from the frozen profile')
+                             evidence = inv
+                 elapsed = observed_index.get("observer_elapsed_seconds")
+                 if r.numeric(elapsed):
+@@ -167,6 +180,8 @@
+             observations.append(r.extract_i4(raw, spec["identity"], components, evidence))
+             total["I4_RESULTS"] += 1
+         result = r.report(preset["registry"], observations, ledger, preset["contrast_plan"])
++        result['normalization_control_attribution'] = preset.get('normalization_control_attribution')
++        result['selected_serving_source'] = preset.get('selected_serving_source')
+         result["campaign_outputs_exist"] = campaign.exists()
+         result["source_preset_registry"] = preset_pin
+         preset_id = preset["registry"]["presets"][0]["id"]

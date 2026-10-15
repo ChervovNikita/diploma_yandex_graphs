@@ -1,0 +1,123 @@
+--- portable_dispatcher_v3/contracts.py
++++ normalization_portable_dispatch_v1/contracts.py
+@@ -10,7 +10,10 @@
+ import subprocess
+ import sys
+ 
++import bootstrap
++from binding_rules import expected_entrypoint, normalized_execution_binding, verify_composed_job
+ from host_binding import load_config, guard as host_guard, config_path, HERE, WORKERS
++SUCCESSOR_HERE=Path(__file__).resolve().parent
+ CONFIG, CONFIG_PIN = load_config()
+ ROOT=Path(CONFIG['project_root'])
+ PHASE=ROOT/CONFIG['phase_relative']
+@@ -109,7 +112,7 @@
+     require(set(execution)=={'runtime_entrypoint','python_executable','python_sha256','job_descriptor','scope','python_environment'},'Typed runtime/Python/job binding required')
+     entry=verify(execution['runtime_entrypoint']);require(entry['path']in source_files,'Runtime entrypoint missing from reviewed closure')
+     family=task.get('family') if kind=='fit' else 'I4'
+-    expected_entry=HERE/('runtime_link/run_fit.py' if family=='link' else 'runtime_I4/aggregate_selected.py' if family=='I4' else 'runtime_node_molecular/run_fit.py')
++    expected_entry=expected_entrypoint(task, ROOT)
+     require(entry['path']==str(expected_entry),'Only bundled reviewed native entrypoints are executable')
+     require(Path(entry['path']).name==('run_fit.py'if kind=='fit'else'aggregate_selected.py'),'Fixed native fit/export handler only')
+     require(execution['scope']=='expanded_finite_campaign','Bounded-pilot runtime requires an explicit campaign-scope bridge')
+@@ -127,9 +130,13 @@
+         require(job['schema']=='native-full-epoch-fit-v1'and job['TEST_access']is False,'Explicit native no-TEST job only')
+         require(job['id']==task['id']and job['expanded_contract_hash']==task['science_contract_hash'],'Runtime job/science identity changed')
+         require(digest(job['expanded_contract'])==task['science_contract_hash'],'Expanded contract bytes changed')
+-        from descriptor_binding import rebind_job
+-        from host_binding import ALLOCATION_ROOT, PHASE_RELATIVE
+-        bound,receipt=rebind_job(original,ALLOCATION_ROOT,PHASE_RELATIVE,str(ROOT),CONFIG['phase_relative'])
++        if original.get('normalization_composition') is not None:
++            verify_composed_job(original, ROOT, source_files)
++            bound,receipt=original,normalized_execution_binding(original, ROOT, CONFIG['phase_relative'])
++        else:
++            from descriptor_binding import rebind_job
++            from host_binding import ALLOCATION_ROOT, PHASE_RELATIVE
++            bound,receipt=rebind_job(original,ALLOCATION_ROOT,PHASE_RELATIVE,str(ROOT),CONFIG['phase_relative'])
+         require(digest(original)==task['canonical_runtime_job_hash'],'Canonical descriptor identity changed')
+         require(job==bound and digest(job)==task['runtime_job_hash'],'Only explicit runtime path binding is allowed')
+         require(task['runtime_binding']==receipt,'Exact relocation receipt required')
+@@ -157,7 +164,8 @@
+     require(release['ordinary_failure_policy']=='retain_failure_continue_other_admissible_tasks','Explicit reviewed failure policy required')
+     require(release['host_config_pins'][worker]==CONFIG_PIN,'Exact worker configuration required')
+     verify(release['canonical_skeleton']);skeleton=read(release['canonical_skeleton']['path'])
+-    require(release['canonical_skeleton']['sha256']==read(HERE/'PARENT_GENERATION.json')['skeleton']['sha256'],'Projection must use exact compiler4 canonical inventory bytes')
++    from prepare_projection import verify_canonical_plan
++    verify_canonical_plan(release,skeleton)
+     owners=validate_ownership(ownership,skeleton['tasks'])
+     require(ownership['hosts'][release['host']]['project_root']==str(ROOT),'Immutable host root changed')
+     require(ownership['hosts'][release['host']]['phase_relative']==CONFIG['phase_relative'],'Immutable host phase changed')
+@@ -197,6 +205,11 @@
+         require(files.get(str(HERE/row['path']))==row['sha256'],'Portable package closure incomplete')
+     require(files.get(str(HERE/'MANIFEST.json'))==pin(HERE/'MANIFEST.json')['sha256'],'Package manifest missing from reviewed closure')
+     require(files.get(str(HERE/'run_gpu.py'))==pin(HERE/'run_gpu.py')['sha256'],'Launcher missing from reviewed closure')
++    successor=read(SUCCESSOR_HERE/'MANIFEST.json')
++    for row in successor['files']:
++        require(files.get(str(SUCCESSOR_HERE/row['path']))==row['sha256'],'Normalization dispatcher closure incomplete')
++    require(files.get(str(SUCCESSOR_HERE/'MANIFEST.json'))==pin(SUCCESSOR_HERE/'MANIFEST.json')['sha256'],
++            'Normalization dispatcher manifest missing from reviewed closure')
+     from qualified_python_entry import validate_runtime_environment
+     own=[t for t in release['tasks'] if t['worker']==worker]
+     require(own,'Worker has no explicit owned tasks')
+--- portable_dispatcher_v3/run_gpu.py
++++ normalization_portable_dispatch_v1/run_gpu.py
+@@ -4,6 +4,7 @@
+ import json
+ import os
+ from pathlib import Path
++import bootstrap
+ from host_binding import config_path, load_config, guard, require, confined, verify
+ 
+ 
+@@ -53,23 +54,48 @@
+             continue
+         require(read(claim).get('id') not in own_ids, 'Prior permanent claim in another namespace')
+     transform = reporting_entry = None
++    require(spec.get('reporting') is not None, 'Normalization campaign requires the exact rebound reporting hook')
+     require(spec.get('reporting') == release.get('reporting'), 'Reporting hook must be bound in reviewed release')
+     if spec.get('reporting'):
+         import importlib.util
+         reporting = spec['reporting']
+         require(set(reporting) == {'bridge', 'entrypoint', 'registry', 'manifest'}, 'Exact reporting closure binding required')
+         require(args.worker == 'allocation/gpu0', 'Reporting observer is currently allocation-only')
+-        expected = root / config['phase_relative'] / 'benchmark_expansion_20261015_v1/benchmark_reporting_integration_v2'
++        expected = root / config['phase_relative'] / 'benchmark_expansion_20261015_v1/benchmark_reporting_normalization_rebind_v1'
+         require(reporting['bridge']['path'] == str(expected / 'backend_bridge.py') and reporting['entrypoint']['path'] == str(expected / 'runtime_entry.py'), 'Fixed reviewed reporting integration required')
+         closure = {p['path']: p['sha256'] for p in release['source_files']}
+         for value in reporting.values():
+             verify(value, root, parse_json=False)
+             require(closure.get(value['path']) == value['sha256'], 'Reporting source/registry missing from reviewed closure')
+             extra.append(value)
+-        require(reporting['manifest']['path'] == str(expected / 'MANIFEST.json'), 'Fixed reporting manifest required')
+-        for row in read(reporting['manifest']['path'])['files']:
++        require(reporting['manifest']['path'] == str(expected / 'MANIFEST.json')
++                and reporting['manifest']['bytes'] == 3686
++                and reporting['manifest']['sha256'] == 'e7056159aa1e4f88c0b71595a3822edf687bed9b0e1c472f84af88dee7161420',
++                'Fixed exact reporting manifest required')
++        reporting_manifest = read(reporting['manifest']['path'])
++        require(reporting_manifest.get('schema') == 'normalization-reporting-rebind-source-v1',
++                'Exact normalization reporting source schema required')
++        for row in reporting_manifest['files']:
+             source_path = str(root / config['phase_relative'] / row['path_relative_to_phase'])
+             require(closure.get(source_path) == row['sha256'], 'Reporting dependency absent from release closure')
++        registry = read(reporting['registry']['path'])
++        normalization = registry.get('normalization_rebind', {})
++        require(normalization.get('schema') == 'normalization-reporting-registry-rebind-v1'
++                and normalization.get('source_manifest') == reporting['manifest'],
++                'Reject old callback-only registry/profile authority')
++        current_inputs = read(Path(__file__).resolve().parent / 'INPUTS.json')
++        require(normalization.get('migration_preparation') == current_inputs['normalization_preparation'],
++                'Reporting must bind the exact normalized scientific generation')
++        scorer = registry.get('selected_serving_source', {})
++        require(scorer.get('path') == str(root / config['phase_relative'] / 'benchmark_expansion_20261015_v1/composable_normalization_final_scoring_v2/MANIFEST.json')
++                and scorer.get('sha256') == 'af692038bec60bbb54e9ed45d659289af98a0cb844ab0637c8923ee6ce70b67b',
++                'Require the repaired composed selected-serving source')
++        verify(scorer, root, parse_json=False)
++        require(closure.get(scorer['path']) == scorer['sha256'], 'Selected-serving source absent from reviewed closure')
++        extra.append(scorer)
++        from reporting_binding import validate_registry_identity
++        validate_registry_identity(registry, reporting['manifest'], current_inputs['normalization_preparation'], scorer)
++        require(reporting['registry'] == current_inputs['actual_reporting_index'], 'Exact root-observed reporting INDEX required')
+         module_spec = importlib.util.spec_from_file_location('_portable_reporting_bridge', reporting['bridge']['path'])
+         module = importlib.util.module_from_spec(module_spec)
+         module_spec.loader.exec_module(module)
