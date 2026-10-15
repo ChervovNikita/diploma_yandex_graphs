@@ -68,12 +68,45 @@ hashes bind checkpoints and selected predictions. There are no automatic
 scientific retries. A later resume-finalization guard is still required for
 failure after a stopping condition but before final export; v1 is preserved.
 
-The current full-epoch frontend supports node and molecular tasks. Link
-objective definitions, query-order capture and gradient helpers are implemented
-in [link](link/README.md); native full-epoch link integration and numerical
-qualification remain pending. Standalone synthetic tests do not count as native
-model results. Per-route selected-checkpoint analysis is being added separately
-so it does not change the running fits or checkpoint selection.
+The running v1 frontend supports node and molecular fits. Prepared
+[runtime_v2](runtime_v2/API.md) adds explicit source-specific link dispatch,
+endpoint-aligned I4 exports, and finalization of already-stopped checkpoints
+without another TRAIN epoch. It does not silently migrate v1 checkpoints.
+Its actual model/resume/link qualification remains pending. A separate allocation
+audit verified the narrow omitted OGB TEST-iterator RNG effect without accessing
+TEST data; this is not whole-paper trajectory reproduction.
+
+[Native link integration](link_native_integration_v1/README.md) and
+[link policy](link_policy_v1/README.md) now define real source epoch boundaries
+and selectors. The selected-state inference source is prepared for NCN, NCNC
+and BUDDY, including source-specific role graphs. Native numerical, data/cache,
+resource and final runtime qualification remain open. No link fit or TEST score
+is created by these preparation checks.
+
+## Additional concrete methods under preparation
+
+| Candidate | Purpose | Current evidence |
+| --- | --- | --- |
+| Route-private BN running state, shared affine | Test whether using one running-state bank for different routes harms evaluation | [v3 source](private_bn_state_v3/README.md); seven allocation CPU checks and an actual GIN TRAIN-batch forward/gradient audit passed, zero optimizer steps. No predictive fit yet. |
+| Structured private responsibility | Test endpoint-correlated training credit against a raw-marginal-matched query control | [v2 source](structured_responsibility_control_v2/README.md); eleven synthetic CPU checks, including the complete native NCN batch shape. Native integration remains pending. |
+
+The BN candidate preserves every learned native parameter and adds only running
+buffers. Its first two prepared versions and the real Torch2.1 API failure are
+retained. The responsibility correction fixes a variance mismatch in the earlier
+control; group normalization still changes its marginal law and is explicitly
+part of the comparison. Neither ingredient is declared novel or successful.
+
+Per-route selected-checkpoint analysis runs separately from training and changes
+no selection. Native and base-GNNM exports have completed. The latest saved
+observation has two completed fits, no failures and the graph-objective fit
+training. There is no complete paired cohort or candidate advantage yet.
+
+The proposed statistical policy also needs revision before the full launch:
+ten trials with exact two-sided sign flips and Holm across226 contrasts cannot
+reject any cell at alpha.05. The [audit and prospective options](statistics_proposal_v1/AMENDMENT_PROPOSAL.md)
+preserve the full comparison matrix. A [specific global-primary option](statistics_proposal_v1/GLOBAL_PRIMARY_OPTION.md)
+would test a different, explicitly dataset-weighted question; it is a proposal,
+not an adopted rule or a significance claim.
 
 ## Evidence and decisions
 
@@ -81,6 +114,8 @@ so it does not change the running fits or checkpoint selection.
 - [Molecular objective and scoped readings](molecular/README.md)
 - [Link-specific candidates and integration limits](link/README.md)
 - [Literature-to-experiment decisions](literature/SCOPED_CONCLUSIONS.md)
+- [Reviewed method catalogue and all historical dispositions](catalogue/CATALOGUE.md)
+- [Current execution progress](PROGRESS_20261015.md)
 - [Selected prior outcome index](prior_result_index.json), not an exhaustive
   experiment census or a new paper-reading count
 
