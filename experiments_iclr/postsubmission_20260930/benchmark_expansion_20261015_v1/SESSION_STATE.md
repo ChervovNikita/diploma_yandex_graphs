@@ -1,222 +1,201 @@
-# Continuation state — release 08, 15 October 2026
+# Continuation state — release 09 preparation, 15 October 2026
 
-## Scope and Git
+## Scope and immediate objective
 
-Read phase AGENTS.md. Only the dedicated one-GPU allocation is authorized.
-Use remote_control.py's literal anogena-2 route and hostname/sole-GPU guard
-before project operations. No 18.77/MacLink, seven-GPU science, sudo, host or
-mount changes, unrelated data, original-five reruns, original-score changes,
-GENLINK, Desktop output or PDF compilation. Normal incidental caches are allowed.
-Bounded representative pilots and engineering checks are authorized. The full
-campaign still requires the user's review and GO.
+Read phase AGENTS.md. Use only the authorized one-GPU allocation through
+remote_control.py, which verifies literal anogena-2 destination, hostname and
+sole GPU UUID before project operations. No 18.77/MacLink, seven-GPU science,
+sudo, host changes, unrelated data, original-five reruns, original-score changes,
+GENLINK, Desktop output or PDF compilation. Ordinary caches are allowed.
 
-The remote branch is codex/postsubmission-research-20260930. The verified
-release06 parent is 70c132ac86b40eecaefdb245c336731cef232c42. This document is
-prepared for release07. Read COMMIT_RECEIPT_07.json and PUSH_RECEIPT_07.json to
-establish whether publication finished. Missing receipts mean pending, not
-success. Never reuse a published release identity. Root owns Git. Exclude raw
-datasets, checkpoints, logits, tensor contexts and full generated descriptors.
-Use explicit byte-pinned source selections. Publisher limit is 2,000,000 bytes
-per file. Exact unified-diff data needs its declared whitespace exclusion.
+Prepare the expanded executable study and final review package. Bounded pilots
+and engineering checks are authorized. The full campaign requires user review
+and GO; no such GO has been received. Preserve failures and costs, and do not
+repeat native checks solely for small floating-point replay differences.
 
-## Completed scientific work
+## Publication
 
-MolBACE24 completed at 06:56:18 UTC. Official scaffold0, native GIN5/width300,
-dropout0.5, Adam LR0.001/WD0, seeds101/202/303. Each seed has four independent
-bodies, G0, alignment+variance, private input correction and their combination.
-TRAIN1210/VALID151, TEST closed. Minimum100/cap1000/patience50. All24 fits stopped
-by patience at149–210epochs. Total3,680epochs/139,840updates,7.81elapsedhours.
-Parent source/spec/output immutable. Complete compact audit is under
+Remote branch: codex/postsubmission-research-20260930.
+Last exact-ref verified commit: 8e0e737ed4f256e9a3b27b7d9bc0248d7d2e5efa (release08).
+Read COMMIT_RECEIPT_09.json and PUSH_RECEIPT_09.json to determine whether the next
+publication completed. Their absence means pending. Root owns Git. Use explicit
+byte-pinned selections and reviewed source/compact results only. Exclude datasets,
+checkpoints, logits, tensor contexts, full generated descriptors and fake fixture
+trees. Each publication file must be below 2,000,000 bytes. Diff-data files require
+their explicit whitespace exclusions. Named-key push uses the existing interactive
+helper and ssh.github.com:443; keep credentials private. Never reuse a release ID.
+
+README, SESSION_STATE and BENCHMARK_OVERVIEW updates must verify the previous
+published hashes in DOC_PREVIOUS_PINS_09.json. The root README previously had SHA
+2502cb81af84fbb84d457cc1b2fcd1436863bd49dc50b67bde83e22aedfc6909.
+Replace only the current research block; preserve prior dated history.
+
+## Completed scientific evidence
+
+MolBACE24: official scaffold0, native GIN5/width300/dropout0.5, Adam LR.001/WD0,
+TRAIN1210/VALID151, seeds101/202/303. Per seed four independent bodies, G0,
+alignment+variance, nonlinear private correction and their combination.
+Minimum100/cap1000/patience50; all24 stopped by patience at149–210epochs.
+3,680epochs/139,840updates,7.81elapsedh. No failed/cap-stopped fit. TEST closed.
+
+Selected VALID AUC mean±sampleSD(%), mean BCE:
+M1 73.32±1.17/.779; I4 74.85±.50/.890; G0 67.78±4.39/.719;
+geometry71.17±2.66/.551; correction71.76±3.91/.941;
+combination69.28±1.80/.882. Complete results and selection/convergence audit:
 pilot_20261015_molbace_v1/complete_analysis_v1.
+Combination interaction negative in all3, mean−5.873pp, approximate paired-t95%
+[−12.251,+.505]; selected VALID only. Retain negative outcomes.
 
-Selected VALID AUC mean±SD(%): M1 73.32±1.17, I4 74.85±0.50, G0 67.78±4.39,
-geometry71.17±2.66, correction71.76±3.91, combination69.28±1.80. Corrections improve
-G0 in3/3 but do not beat I4 on average and worsen BCE. Combination is weaker
-than either ingredient's mean AUC. Retain all outcomes.
+PrivateBN3: only route running buffers are private; learned native affine weights
+stay shared. AUC73.61416±1.05742%, BCE1.085523. Improvement overG0 in3/3,
+mean+5.83639pp; belowI4 by1.23321pp.464epochs/17,632updates, no cap stop.
+pilot_20261015_bn_state_v1/complete_analysis_v1. Known normalization control,
+not novelty. Different selected epochs preclude buffer-only causal attribution.
 
-Private-BN follow-up3 also completed. Frozen SPEC
- df726ef6f9fdfc01a859f9d3fe536120113d5e0e10da3bde609b5f9898d69986.
-AUC73.61416±1.05742%, meanBCE1.085523. Deltas vsG0 +12.0513,+3.47985,+1.97802pp,
-mean+5.83639. Mean delta vsI4−1.23321pp.464epochs/17,632updates, no cap stop.
-Only running buffers are private. Learned native affine parameters stay shared.
-Known normalization control, no novelty claim. Complete result and limitations:
-pilot_20261015_bn_state_v1/complete_analysis_v1.
+Route diagnosis uses all24 parent saved banks plus3 reconstructedBN banks.
+Mean member→pool AUC: I4 73.40965→74.84737; G0 62.00549→67.77778;
+geometry64.24→71.17; correction66.07→71.76; both61.00→69.28;
+BN72.62821→73.61416. Diverse errors alone did not improve the combination.
+Remaining BN–I4 gap equals0.78144pp mean-member gap+0.45177pp smaller pooling
+gain, descriptive arithmetic only. See analysis/member_pool_gap_decomposition_v1.
 
-Complete parent route diagnosis is under analysis/complete_route_diagnostic_v1.
-It used24 saved route banks, no forwards/training/TEST. I4 meanmember→pool AUC
-73.41→74.85, G0 62.01→67.78, geometry64.24→71.17, correction66.07→71.76,
-combination61.00→69.28. Combination reduced common ranking failures while
-weakening route quality. Diverse errors alone are insufficient.
+New source/algebra note analysis/bn_state_mechanism_scope_v1 states that private
+buffers also change EMA time scale and route-order weighting. At illustrative
+native momentum.1, shared four-call update replaces34.39% of its state versus10%
+per private bank. No new data, training, literature read or diagnostic is implied.
 
-New analysis/bn_route_diagnostic_v1 completed all3 selected BN checkpoints:
-3constructions/60VALIDrouteforwards/0updates,21.70seconds,0sanitywarnings.
-MeanmemberAUC72.63→pool73.61. Member AUC improves overG0 in3/3 but remains below
-I4 in3/3. Meanmember improvement+10.62pp. MeanmemberBCE1.122, pool1.086. Different
-selected epochs preclude a buffer-only causal claim. A BN×geometry×correction
-follow-up is proposed in REPORT.md (nine new fits, existing matchedBN control),
-but no source/plan or launch for that future study is implied.
+Complete fixed aggregation analysis now covers all27completed fits/21banks
+(7methods×3seeds), CPU only,7.810s,0newfits/forwards. Probability averaging:
+M1AUC73.321,I474.896,G069.011,geometry70.256,correction71.587,both70.317,
+BN73.468. I4BCE.820,correction.638,BN1.007. The simple rule does not close
+I4rankinggap; no original or campaign serving rule changed. See
+analysis/complete_fixed_aggregation_v1/REPORT.md and all paired scalar outcomes.
 
-No heldout/confirmed/general/novelty claim follows from these selected-VALID
-studies. Raw curves, checkpoints and tensors stay inside the allocation repo.
+## Running scientific work
 
-## Remaining old training
+Nine-fit pilot: pilot_20261015_bn_geometry_correction_v1.
+SPEC SHA eacd22be19a1cc108d816cd062f87dde902a4ad67aab6fe31301730c663c2d6b.
+Manifest SHA8b0e915319b77b64e9ed17f7f995a020ef9492f67697ed7d4ee3ddfa394769d2.
+Launched09:36:19UTC, owner840429/study840431, one new scientific fit at a time,
+12h queue cap, no automatic retries. Output results/bn_geometry_followup_v1;
+owner results/bn_geometry_followup_v1_owner/OWNER.json.
+Qualification/BN_GEOMETRY_ROOT_ADMISSION_v1.json and BN_GEOMETRY_LAUNCH_v1.json
+record admission. Three new arms (BN+geometry, BN+correction, BN+both)×three seeds,
+15 completed factorial controls reused. Same native settings/controller as
+MolBACE24. Frozen reporting covers all cells, AUC/BCE, conditional effects,
+interaction moderation, seeds and costs. Selected VALID exploration only.
+At10:01UTC first fit000_c53897a759a16a32 reached128epochs/4864updates; no terminal
+fit yet. Do not promote partial scores. Nine fits are separate from6460.
 
-private_GRU_acquisition_root_20261011_v1 has owner640426/worker640428 and a finite
-7day cap. Last compact observation08:04:52UTC:28/30fitbanks,40trajectories,
-block10949_GI16/fit3 update590, selected587, stale3. At08:46:16UTC it had advanced
-to update762, selected756, stale6, still28/30banks. It was the only
-scientific GPU worker at08:32UTC. Do not restart, change frozen criteria, expose
-partial DEV or reinstate previously excluded arms. Verify current terminal files
-before describing its status. It is separate from the expanded campaign.
+Older GRU acquisition remains separate:
+phase/private_GRU_acquisition_root_20261011_v1/acquisition_v1.
+Owner640426/worker640428,7-day cap. At09:49UTC29/30fitbanks and44/48trajectories,
+no acquisition terminal. Do not restart, change criteria, expose partialDEV or
+revive excluded arms. Read actual terminal files before interpreting outcomes.
 
-## Expanded design and compiler
+## Expanded study
 
-6,460 proposed fits: node1,920, molecule3,840, link700. Seven datasets, eight
-architecture families,27source presets,25recipe definitions including controls.
-270reference fits +1,080 independent native bodies +5,110 shared fits. M1 is I4
-body0. No HPO, dummy backbones or original-five paper reruns. Native source
-settings and ambiguities are in expanded_study_design_v1/NATIVE_SETTINGS.json.
-BENCHMARK_OVERVIEW.md explains counts and methods.
+All6,460 source descriptors prepared by expanded_job_binding_v1 overlayv3:
+100new/6360reused;90remaining source-context blocks closed;2480ancestor contracts
+retained. READINESS SHA dacf157ffa7bebc52acafbe1021cac1eaeffc1eac2d1326c9c821b0bb48eb374.
+VERIFICATION SHA9a9a192a6cd30701f72f58ecb9a10bf49e4557bed4415bc77227e9a42484acb8.
+Full descriptors stay on allocation. This is source readiness, not full launch
+admission. Handoff expanded_job_binding_v1/HANDOFF_v3.json.
 
-expanded_job_binding_v1/HANDOFF.json: v1 had6366concrete/94blocked. V2 has6370
-concrete/90blocked, all intentions retained. All2480ancestor contracts and270
-M1/I4ownership groups verified.270half-pool aliases:261concrete/9blocked.
-Remaining blocks:45BUDDY C6/responsibility,36BUDDY interaction,9BUDDYBN, all
-nonzero-seed contexts. Full descriptors stay allocation-only. Do not overwrite
-v1/v2 or count a source port as full runtime qualification.
+Counts: node1920 (80reference+320native+1520shared), molecule3840
+(160+640+3040), link700 (30+120+550). Seven datasets; eight architecture families;
+27source presets;25recipe definitions including controls. M1 reuses I4body0.
+NoHPO, dummy backbones or original-five reruns. Exact native settings and
+applicability in expanded_study_design_v1; plain explanation BENCHMARK_OVERVIEW.md.
+Nodes use ten paired split/seed rows; OGB/link use fixed official splits with
+independent seeds. Do not call them ten independent dataset samples.
 
-expanded_launch_preparation_v1 is dry-run preparation:6460fits+270exports,
-540cohortgroups,0children. Its worker refuses execution. Actual production
-dispatch is now being implemented separately in expanded_dispatcher_v1.
-Only allocation/gpu0 is enabled in principle. Both77workers disabled/unprobed.
-At most two owned compatible jobs/GPU requires measured admission. Cost priors
-cover only60 exactly matched MolBACE intentions. No campaign ETA supported.
+The dispatcher has38passed fake-subprocess tests, permanent claims, resume,
+completed skipping, I4 dependencies, STOP/drain and two-slot resource admission.
+Its original full release remains allocation-only, all6730tasks blocked.
+A metadata-only successor is being built from compiler v3. Reuse source-family
+functional coverage; do not manufacture literal per-seed native PASS receipts.
+Missing branch checks, resource profiles, reporting/access freeze and humanGO
+remain explicit. Both future77workers are disabled/unprobed.
 
-## New engineering results
+## Engineering evidence, no repeats needed
 
-- NCNC C3:4updates/6wholeVALID/4constructions,780.73s,peak12.89GiB.
-- NCNC interactions:4cases/8updates/12VALID/8constructions/12backwards,
-  1571.54s,peak13.55GiB. Sharedcgroup pressure recorded, no new OOM.
-- BUDDY C3:4updates/6VALID/4constructions/8backwards,200.898s.
-- BUDDYBN:2updates/3VALID/3constructions/3backwards,115.425s.
-- BUDDY interactions:8updates/12VALID/8constructions/12backwards,436.094s.
-- NCN C3 CUDA v2:3updatesincludingreplay/4VALID/2constructions,24.697s,
-  peakallocated8.451GB,0numericalwarnings. Exact checkpoint/RNG identity retained.
-- BUDDY compact provider seed1 parity: corrected gate passed2constructions,
-  3170sampler calls,6TRAIN+4VALIDhydrations,0forward/update,43.775s. First gate
-  failed because it omitted runner global seeding. Both attempts and86.796s
-  total retained. Provider source unchanged. Only native-base input parity is
-  established. Candidate production binding/lifecycle still pending.
+BUDDY production conditional seed1:2updates/3wholeVALID/2constructions/32forwards,
+111.36sCPU2. Actual production provider and same-call mean passed; no full epoch.
+qualification/BUDDY_PRODUCTION_SEED1_QUALIFICATION_07.json.
+Other production recipes have source-equivalence evidence, not independent runs.
 
-BUDDY release handoff: qualification/BUDDY_RELEASE06_HANDOFF_v1.json.
-Source manifests and compact evidence are pinned. No ten duplicate1.230GB
-contexts. Seed0materialized context remains a smoke oracle on the allocation.
+NCNC runtime_link_v6:2epochs/34updates/4wholeVALID/3constructions/2meanexports,
+181.32sCUDA. Completed-epoch interruption recovery and stopped finalization passed.
+Peakallocated12,673,890,304B/reserved26,698,842,112B.
+qualification/NCNC_RUNTIME_V6_QUALIFICATION_07.json. v5 blocker is preserved;
+it never had a native run. Do not rerun either generation.
 
-runtime_link_v5 frozen manifest
-bfb796eef480d20662ad66db4f56ce6fce241f6f561e25e2dfff59fbca695831.
-29contract checks passed. Four producer files unchanged fromv4. New code
-preserves extension/policy/dependency authority and query identities and exports
-actual+uniformmean from the same selected VALID call. Explicit engineering
-policy permits finite2epochs without weakening production source policy.
-Native lifecycle plan frozen:2epochs/34updates/3constructions/4wholeVALID/
-2selectedexports, NCNC conditionalJ, interruptedcompletedepoch+stoppedresume.
-No native lifecycle launch yet. Authentic metadata review found a v5 blocker:
-native adapter_manifest_receipt includes adapter_hashes_verified:true, so whole
-dict equality with a plain file receipt rejects it. Synthetic fixtures missed
-this annotation. Source-only blocker evidence is retained. Runtime_link_v6 and
-successor finite lifecycle bindings are now being prepared. Keep v5 unchanged.
+Molecular runtime_v4:2epochs/76updates/4wholeVALID/3constructions/2meanexports,
+45.760sCPU2, noCUDA initialization. Actual selected mean, own checkpoint authority,
+completed-epoch recovery and zero-update stopped finalization passed.
+qualification/MOLECULAR_RUNTIME_V4_QUALIFICATION_09.json pins fetched RESULT
+SHA3038c0e76fb8f3c863684560cb2e4e8c0364d20f4e96fc05f91a4b5c0783441d.
+Raw checkpoints stay allocation. Alternative CUDA gate not run and not required
+as an automatic repeat. The BN pilot cannot replace this mean-finalizer evidence.
 
-## Active responsibilities and next work
+Earlier node runtime, NCN context, BUDDYBN/context/interactions and NCNC
+context/interactions passed with costs under their exact original receipts.
+Coverage audit:38evidence units/511bindings/28source signatures/25methods.
+Its19obligations are not19newruns.73old selected-smoke failures were recorded
+floating-replay tolerance failures; exact initial state/RNG restoration and
+post-replay RNG checks passed. Preserve statuses, do not mass-rerun them.
 
-- root: scientific interpretation, publication06, source/plan review and resource
-  admission. No giant launch or77access. Finished brief BN route diagnosis.
-- link_completion_20261015: narrow runtime_link_v6 receipt repair, authentic
-  metadata contract check and qualifier/supervisor against unchanged work bounds.
-  Source-only until publication and explicit root admission.
-- buddy_completion_20261015: compact-provider callback successors for production
-  C6/responsibility/BN/interactions. Source/contract checks only. Propose bounded
-  nonzero-seed lifecycle before running it. Do not rewrite existing descriptors.
-- combination_study_reuse_20261010: real guarded dispatcher successor with fake
-  child tests only. Reuse claims/resume/GO/resource gates. No native training.
+## Literature and reporting
 
-Collect immutable handoffs before publication. Then admit bounded native link
-lifecycle on the free GPU slot after resource review. Integrate qualified BUDDY
-successors in a new compiler overlay. Complete remaining real full-epoch,
-selected-serving,provider and resource gates. Deliver exact final counts,
-settings, measured budget and one-command workers for user review before GO.
+Saved flow-method readings: FlowMatching2210.02747v2 methods/theorem statements;
+CARD2206.07275v4 method/setup; ContrastiveFlowMatchingICCV2025 method/setup.
+One-step endpoint residual regression is not novel supervision merely by naming
+it flow matching. Conditional one-step loss algebra and deferred method are in
+literature/flow_matching_shared_backbone_method_v1. No additional method entered
+6460. Raw sources were hash-verified offloaded,51.84MB local duplicates removed.
+Compact offload/publication receipts need release09. XBM scoped source read and
+rare-class support limitations remain in their existing notes; no queue method
+is implemented. Do not inflate reading counts or reread without a concrete need.
 
-Literature: literature/xbm_support_followup_v1 records a scoped primary read of
-Cross-Batch Memory (CVPR2020),Sections3.1–3.3/Eq1–6/Algorithm1, not full-paper or
-proof/code review. Detached memory can supply previous comparisons without
-changing native sampler, but does not create live positive anchors/variance
-support. A possible256molecule queue is unimplemented and absent from6460.
+The broad matrix is exploratory. No separated SD bars or selected validation
+win establishes superiority. The existing separate confirmation proposal of
+20freshpairedcohorts/120fits remains a proposal requiring its own reviewed budget.
+Exact sign tests there concern repeat-training win probability, not mean effect
+or graph-population uncertainty. Historical exposure must be explicit. A fresh
+Codex manuscript review through the requested skill follows substantial supported
+paper progress, never each check and never with a requested verdict.
 
-confirmation_protocol_proposal_v1 remains a separate PROPOSAL: at most one
-candidate/setting,20freshpairedcohorts/120fits, its own reviewed budget and GO.
-Preserve historical exposure. Sign-test claim concerns repeat-training win
-probability, not mean effect or graph-population uncertainty. Fresh Codex paper
-review through supplied skill follows substantial supported manuscript progress,
-not each engineering check. Never request a preferred verdict.
+Exploratory reporting now root-reviewed in benchmark_reporting_protocol_v1:
+ROOT_REVIEW.json accepts the paired descriptive protocol, all31sourcepinschecked.
+EXPOSURE_ADDENDUM_01.json adds completed all27bank aggregation use. Historical
+Physics TEST exposure verified; other6historiesunknown. Newseeds do not erase
+prior exposure. HumanGO remains absent; later fullGOmayauthorize finalscoring
+prospectively without a redundant later approval prompt for the same action.
 
-## Release07 continuation update
+## Current division and next work
 
-This update supersedes the preparation status in older sections above. The real
-expanded_dispatcher_v1 is frozen and passed38fake subprocess checks, including
-rejecting a malformed selected export reported as complete by a child. All6730
-campaign tasks remain blocked pending native/source/resource qualification and
-humanGO. No campaign or77job launched. Its full14.7MBrelease stays on allocation.
-Only20explicit source/compact report files enter publication.
+- Root: collect terminal evidence, scientific interpretation, publication09,
+  monitor the two running scientific queues without partial favorable claims.
+- combination_study_reuse_20261010: metadata-only v3 dispatcher binding and minimal
+  real remaining functional branch plan. No native work or Git.
+- massive_preparation_resource_admission_20261012: metadata-only cost/scenario and
+  resource ledger. Earlier gates finished; do not revive stale task ownership.
+- buddy_completion_20261015: readable exact methods/applicability/cohort review
+  package and reporting/statistics/access proposals. No native work or Git.
 
-BUDDY production successors for11method bindings are staged. Input/provider
-parity was already measured atseed1. The new conditional-interaction gate is
-frozen at2updates/3wholeVALID/2constructions/32forwards onCPU2,600seconds.
-The earlier unexecuted mapper version is preserved and excluded. No automatic
-repetition across methods is authorized. Compiler overlayv3 remains pending.
+Resource budget complete: matched minimum237,211,000optimizer maps; source caps
+plus matched minima247,526,000; allcaps2,364,025,000. No full ETA. Staged approval
+option646+5814fits preserves roster. Resource agent now prepares one MolHIV
+GIN-VN GPU full-epoch cost gate using unchanged runtime, two realVALIDcalls,
+no replay or newtraining study, unlaunched pending root resource review.
+Dispatcher agent found/fixes genuine noninteraction-extension metadata and
+lexicalvenv execution issues in successors, originalsources/tests preserved.
+Reporting agent prepares explicit descriptive paired protocol and initial
+exposure ledger; future confirmation requirements do not block exploration.
 
-Runtime_link_v6 is frozen with a narrow native dependency-annotation repair.
-12receipt contracts,84actual native metadata dependencies and10driver source
-checks passed. Its finiteCUDA lifecycle has not run at publication:2epochs,
-34updates,3constructions,4wholeVALID,2selectedexports and exact RNG/state
-restoration. Root will fill an actual admission with the release07commit after
-publication. The frozen template carries the older parent and is not an
-admission. A40GiBGPU envelope is an estimate based on actual baseNCNC18.81GiB
-reserved memory, with an explicit allowance for conditional-J. No claim of
-measured conditional-J resources is made.
-
-The read-only readiness audit must distinguish tiny float replay differences
-from actual source/state defects and reuse valid functional/full-epoch evidence.
-Do not multiply numerical reruns. A separate nine-fitBN×geometry×correction
-source/spec is being prepared from the completed molecular diagnosis. It is not
-part of6460 and has not launched. Root owns all Git and native admissions.
-
-
-## Release08 update (supersedes earlier launch status)
-
-Release07 exact-ref verified commit:c58a59ffe00c75e81082973139234a41b907c09b.
-RootBUDDY gate839910 passed111.36s. RootNCNC gate840005/child840009 passed181.32s.
-See qualification/BUDDY_PRODUCTION_SEED1_QUALIFICATION_07.json and
-qualification/NCNC_RUNTIME_V6_QUALIFICATION_07.json plus their fetched reports.
-NCNC peak allocated12,673,890,304B/reserved26,698,842,112B. No retries or TEST.
-The only earlier scientific queue progressed to29/30fitbanks and44/48trajectories
-at09:22UTC. Its full output is private_GRU_acquisition_root_20261011_v1/acquisition_v1.
-Read only progress until the complete family is ready under its frozen criteria.
-
-The nine newBN/geometry/correction fits are prepared and staged in
-pilot_20261015_bn_geometry_correction_v1. SPEC:eacd22be19a1cc108d816cd062f87dde902a4ad67aab6fe31301730c663c2d6b.
-Source review completed by root: unchanged parent ingredient train_update,
-privateBNv3 around run_member, shared native model/optimizer identities, exact
-state binding. Fifteen completed controls reused. No extra learnedBN weights.
-Its default is source-only preflight. Read future ROOT_ADMISSION and launch
-receipts before calling it running. Do not add9 to6460.
-
-Readiness coverage found73oldsmoke failures all recorded floating replay
-tolerance failures with exact initial state/RNG restore and post-replay RNG
-checks passed. No mass rerun. Actual coverage and19obligations(not19newruns)
-are under expanded_readiness_coverage_v1. Remaining molecularv4 lifecycle source
-and BUDDY compiler overlay are assigned to combination_study_reuse_20261010.
-Flow-matching method reading is retained separately, with one-stepprototype
-regression equivalence and no unsupported experiment/novelty claim.
-
-This document is prepared for release08. Check COMMIT_RECEIPT_08.json and
-PUSH_RECEIPT_08.json to establish publication. Root owns Git. Full benchmark
-continues to require completed preparation, user review and explicitGO.
+Collect agent handoffs, verify source/policy scope, then publish09 with completed
+molecular evidence, v3 compiler, pilot admission and compact literature receipts.
+Deliver the final count/settings/methods, measured-versus-estimated cost and
+one-command launch preparation for user review before giantGO. Do not silently
+shrink the roster to avoid revealing its compute cost.

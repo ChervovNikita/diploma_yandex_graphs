@@ -43,11 +43,16 @@ must consider individual prediction quality as well as diversity.
 
 Reconstructing all three private-BN checkpoints gave mean member AUC 72.63%,
 followed by a 0.99-point gain from averaging. The member-quality gap to I4 was
-smaller in each seed. A separate nine-fit study is now frozen: geometry, private
+smaller in each seed. A separate nine-fit study started on the allocation at 09:36 UTC: geometry, private
 correction, and both together under private BN, each at the same three seeds.
-It reuses all15 completed factorial controls. Source and settings are ready,
-with launch status recorded separately. No result for this combination is
-implied. The original6,460-fit benchmark count is unchanged.
+It reuses all 15 completed factorial controls and runs one new fit at a time.
+No completed-family result for this combination is available yet. The original 6,460-fit benchmark count is unchanged.
+
+A completed saved-prediction check compared logit and probability averaging
+for every completed method across all three seeds. Probability averaging raised
+base GNNM AUC to 69.01%, while I4 reached 74.90%; it did not close the gap.
+No model was trained or evaluated again. All seven-bank comparisons and losses
+are retained in the [aggregation report](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/complete_fixed_aggregation_v1/REPORT.md).
 
 These are selected validation results on one scaffold split. Three seeds do
 not establish a confirmed advantage or transfer. Test scores remain closed.
@@ -68,21 +73,22 @@ route-specific context targets, learned aggregation, and native BN state.
 Four combinations measure interactions. Node, molecule and link tasks all
 retain the required native/GNNM/independent-ensemble comparisons.
 
-The compiler now provides **6,370 concrete job descriptions**, with 90 blocked
-on BUDDY's nonzero-seed input construction. Native NCNC/BUDDY context and
-interaction checks, BUDDY private-BN checks, and NCN context CUDA restoration
-checks have passed. The production dispatcher implements durable claims, resume and at most two
-admitted jobs per GPU. Its 38 subprocess tests passed. The production BUDDY
-provider passed its two-update/whole-validation/restore check. NCNC completed
-two native epochs, interruption/resume and selected-checkpoint exports on CUDA
-(34 updates, four validations). Other runtime/resource coverage remains open.
-These checks are not accuracy measurements.
+The compiler now provides **all 6,460 concrete source descriptions**, with no
+remaining source/context blocks. Existing exact descriptions are reused.
+The production BUDDY input provider passed its two-update/whole-validation/
+restore check at a nonzero seed. NCNC completed two native CUDA epochs with
+interruption/resume and selected exports (34 updates, four validations).
+The molecular runtime completed the corresponding CPU lifecycle (76 updates,
+four validations). These are execution checks, not accuracy measurements.
+The dispatcher passed 38 subprocess checks; remaining functional coverage,
+resource assignments and final source bindings are being consolidated.
 
 **The full campaign is awaiting preparation and user GO.** The launch plan
 contains 6,460 fit tasks and 270 export-only tasks but has started none. Only
 the dedicated allocation is authorized. Both future 18.77 workers are disabled.
-Measured costs cover only a small subset, so a campaign-wide ETA is not yet
-supported.
+The [budget review](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/resource_budget_draft_v1/README.md) separates exact update counts from measured time and unknown costs.
+A staged approval option is 646 fits across every setting and method, then the
+remaining 5,814. The complete roster is retained; no campaign-wide ETA is claimed.
 
 - [Plain-language benchmark design](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/BENCHMARK_OVERVIEW.md)
 - [Complete 24-fit results](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_molbace_v1/complete_analysis_v1/REPORT.md)

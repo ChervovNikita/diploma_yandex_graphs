@@ -7,8 +7,8 @@ they can outperform four separately trained copies of the same native model.
 
 The current proposal contains **6,460 training runs**. It is being implemented
 and checked; the full campaign waits for your review and GO. The completed
-24-run molecular pilot and three-run BN follow-up are separate development
-studies. They do not replace any of the proposed benchmark runs.
+24-run molecular pilot, completed three-run BN follow-up and running nine-fit
+normalization/ingredient study are separate development studies. They do not replace any of the proposed benchmark runs.
 
 ## The comparisons made in every setting
 

@@ -61,7 +61,21 @@ all three selected checkpoints without training. Mean member AUC reached 72.63%,
 with a 0.99-point gain from averaging. Each seed improved mean member AUC over
 base GNNM while remaining below its independent control. This motivates checking
 geometry and corrections under matched private normalization before rejecting
-their combination. That additional study is proposed, not launched.
+their combination. The nine-fit follow-up started on the allocation at 09:36 UTC on 15 October. It
+tests geometry, corrections and both together under private BN, with the same
+three seeds and 15 completed factorial controls. It runs one new fit at a time.
+No completed-family result is available yet. The scope and reporting criteria
+were frozen before launch; it remains separate from the 6,460-fit campaign.
+
+The [completed fixed-aggregation comparison](analysis/complete_fixed_aggregation_v1/REPORT.md)
+now includes all three seeds and all completed methods, including I4. Averaging
+probabilities raises base GNNM AUC from 67.78% to 69.01%, while I4 reaches 74.90%
+under the same rule. Private BN reaches 73.47% with probability averaging versus
+73.61% with the original logit average. No fixed readout closes the ranking gap.
+Probability averaging reduces correction-model BCE from 0.941 to 0.638, showing
+why probability loss and ranking should both be retained. This uses saved selected
+VALID predictions, seven banks per seed, zero new fits or forwards, and 7.81 CPU
+seconds. It changes no original score or proposed primary serving rule.
 
 [Native molecular label support](molecular/RARE_CLASS_SUPPORT_NOTE.md) also
 shows why a cross-task port needs more than a callable loss: with the unchanged
@@ -98,47 +112,58 @@ No hyperparameter search or original-five paper rerun is included.
 
 ## Execution readiness
 
-The [expanded compiler](expanded_job_binding_v1/HANDOFF.json) retains all 6,460
-fit intentions. Its second version prepares **6,370 concrete descriptions** and
-marks 90 as blocked. Those 90 require BUDDY input construction for the correct
-nonzero seed. A seed-zero materialized smoke context cannot stand in for them.
-The compiler preserves the 2,480 predecessor contracts and verifies 270 paired
-M1/I4 ownership groups. These are preparation counts, not completed training.
+The [third compiler version](expanded_job_binding_v1/HANDOFF_v3.json) prepares
+**all 6,460 source descriptions**, with zero remaining source/context blocks.
+It creates 100 descriptions and reuses 6,360, preserving the 2,480 predecessor
+contracts. The 270 paired M1/I4 groups retain separate native bodies. These are
+preparation counts, not completed training runs.
 
-Real-data update checks now cover the NCNC and BUDDY context objectives,
-their four interaction recipes, and BUDDY private BN. Each uses native input
-construction and whole VALID scoring within a finite engineering workload.
-The NCN context CUDA check also passed checkpoint/optimizer/sampler restoration
-and replay with no floating-point diagnostic warning. All failures and costs
-are retained. These short checks establish execution behavior, not accuracy.
+Real-data checks cover the additional NCNC and BUDDY objectives, interactions
+and private BN, including BUDDY production input construction at a nonzero seed.
+The source-equivalent BUDDY recipes inherit scoped coverage; they are not
+misreported as individually executed checks. All failed attempts remain saved.
 
-Runtime v4 passed two complete CiteSeer/Cheb TRAIN epochs, interruption and
-recovery, export from its own selected checkpoint, and recovery after stopping
-without additional training. The link successor must also preserve query
-identities, positive/negative roles, extension dependencies, and the selected
-learned prediction alongside its uniform-average comparison. Its actual native
-lifecycle remains a separate qualification gate.
-
-The v5 synthetic checks missed a receipt annotation present in native metadata.
-The v6 successor fixes this comparison and passes checks against 84 authentic
-dependency receipts. Its two-epoch native lifecycle is prepared and remains
-unlaunched at release07. No native v5 lifecycle ran. The finite v6 check must
-pass before that runtime can qualify campaign jobs.
+The production runtime has passed two complete node epochs with recovery and
+selected predictions. Its molecular counterpart also passed two complete epochs
+on CPU: 76 updates, four whole validations, three constructions and two exports
+in 45.76 seconds. The NCNC successor passed two complete epochs on CUDA:
+34 updates, four whole validations, three constructions and two exports in
+181.32 seconds. These checks cover interrupted epoch-boundary recovery and
+finalization from the selected checkpoint. They are execution evidence only.
 
 The [launch preparation](expanded_launch_preparation_v1/HANDOFF.json) accounts
-for 6,460 fit tasks and 270 I4 exports in 540 cohort groups. It is a dry run and
-started no child processes. The separate production dispatcher is implemented
-and passed 38 fake subprocess checks. Native runtime, BUDDY production method
-coverage and measured resource profiles are still required before the promised
-one-command campaign launch. All execution remains disabled
-without user GO. Only the allocation is authorized. The two future 18.77 GPU
-workers are disabled and have not been probed.
+for 6,460 fits plus 270 I4 prediction exports. Exports require no training.
+The dispatcher implements durable work claims, restart handling, completed-run
+skipping and at most two resource-compatible jobs per GPU. Its 38 subprocess
+checks passed. The new source descriptions still need to be attached to the
+final qualified runtime and resource assignments. Remaining source-policy and
+callback coverage is being consolidated from existing evidence.
 
-The molecular pilot supplies measured costs for only 60 exactly matching
-proposed fits. It cannot supply a campaign-wide ETA. Source changes prevent
-transferring some pilot timings even when a recipe name sounds similar.
+The full campaign has not launched. Only the dedicated allocation is authorized;
+the two future 18.77 workers are disabled and have not been probed. The measured
+costs cover only a subset of the proposed settings. A campaign-wide completion
+time is not yet supported, and two concurrent jobs do not imply twice the
+throughput. Resource measurements, extrapolations and missing timings will be
+listed separately in the review package.
+
+The [resource budget](resource_budget_draft_v1/README.md) gives exact workloads
+and measured-versus-unknown costs for all 27 presets. The matched training
+minimums alone require 237,211,000 optimizer steps across the proposed fits.
+Shared steps include several routes, so this is not a FLOP or elapsed-time
+estimate. The proposal remains unchanged. A staged approval option would run
+one cohort across all settings and methods first (646 fits plus 27 exports),
+then the remaining nine cohorts (5,814 fits plus 243 exports). This is a review
+option, not permission to prune methods after seeing favorable results.
 
 ## Statistical design and launch
+
+The [reviewed reporting protocol](benchmark_reporting_protocol_v1/README.md)
+keeps paired seed/split differences, complete outcome counts and descriptive
+95% paired bootstrap intervals within each preset. Missing or unresolved pairs
+withhold the complete-preset interval. No significant-win label or cross-preset
+winner substitution is permitted. The [initial exposure ledger](benchmark_reporting_protocol_v1/EXPOSURE_LEDGER.json)
+records verified historical Physics TEST exposure; the other six histories
+remain unknown. Current development uses TRAIN/VALID with TEST scoring closed.
 
 The broad matrix is exploratory. The [confirmation proposal](confirmation_protocol_proposal_v1/README.md)
 would select at most one method/setting using development VALID, then freeze
@@ -160,20 +185,3 @@ paper progress; no acceptance verdict is requested or promised.
 - [Selected prior-result index](prior_result_index.json)
 - [Current continuation state](SESSION_STATE.md)
 
-
-## Release08 preparation update
-
-The actual BUDDY production conditional seed1 check passed:2updates,3wholeVALID,
-2constructions,32forwards and111.36seconds. The actual NCNCv6CUDA lifecycle also
-passed:2wholeepochs,34updates,4wholeVALID,3constructions,2selectedexports and
-181.32seconds. Both preserve zeroTEST access and zero giant-campaign launches.
-The remaining molecular/current-runtime and other source/resource branches are
-mapped in expanded_readiness_coverage_v1. The90BUDDY context descriptions still
-await the new compiler overlay at this snapshot.
-
-The nine-fitBN×geometry×correction source/spec is frozen in
-pilot_20261015_bn_geometry_correction_v1, with15completed factorial controls
-reused. This representative development study is separate from6,460. Consult
-its root admission and START/END receipts for actual launch state. Its outcomes
-will be preserved even if the combination is worse. The new descriptive
-member/pooling gap calculation is in analysis/member_pool_gap_decomposition_v1.
