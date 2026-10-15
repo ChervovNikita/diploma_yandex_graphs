@@ -91,3 +91,16 @@ the earlier prohibition on new pilots. The giant campaign still awaits the
 user's verification and GO. The later scheduling override above reauthorizes
 18.77. No new scientific run on the original five paper datasets or change to
 original paper scores is authorized here.
+
+User execution authorization (16 October 2026, latest): run one or two actual
+training iterations for EVERY fit in the explained 6,460-fit campaign, fix
+technical failures, and then start the full training campaign. This is explicit
+conditional GO, superseding all earlier statements that full-campaign GO is
+absent. Preserve the frozen scientific design, every failure, and separate
+smoke outputs from research outputs. Every fit must have a passing smoke
+record; representative class coverage alone does not satisfy this request.
+Use the allocation plus server51 (the replacement for occupied server77).
+Run the new queue owners inside tmux so disconnects cannot stop their work.
+Keep already-running pilot sources/HEADs and ownership intact. Use ordinary
+resource-aware execution, up to two compatible jobs per GPU; no extra user
+approval is required after the requested checks pass.
