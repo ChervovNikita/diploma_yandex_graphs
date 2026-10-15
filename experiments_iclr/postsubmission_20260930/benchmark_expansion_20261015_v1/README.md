@@ -89,6 +89,14 @@ found separate running statistics with shared affine weights in the author
 implementation of universal slimmable networks. This strengthens the reason
 to treat private BN as a necessary control rather than the claimed novelty.
 
+The [normalization design note](research_next_decision_v1/DESIGN_IMPLICATION.md)
+identifies a decision to resolve before committing the large compute budget.
+Original GNNM stays unchanged. If private BN is adopted for an extension, its
+mechanism controls must use the same policy, and private-BN GNNM must remain a
+reference. The complete nine-fit study will inform that decision. The current
+roster is unchanged; three seeds on one molecular setting do not justify a
+universal normalization rule.
+
 [Native molecular label support](molecular/RARE_CLASS_SUPPORT_NOTE.md) also
 shows why a cross-task port needs more than a callable loss: with the unchanged
 batch size32, only33.81% of random MolHIV batches have two distinct positive
@@ -159,11 +167,25 @@ exports per case. They remain unlaunched while both permitted GPU slots are
 occupied. MolHIV resource measurement and final resource assignments are also
 pending. Earlier node, molecular and NCNC lifecycle evidence is reused.
 
-The [portable runner](portable_dispatcher_v2/README.md) now has a single command
+The [portable runner](portable_dispatcher_v3/README.md) has a single command
 interface per GPU, permanent task ownership and shared host resource accounting.
-Thirty local checks cover its added process and failure-handling rules. This is
-source readiness: actual allocation projection, reporting rebinding and remaining
-native/resource checks are still required. Both future 18.77 workers stay disabled.
+Its actual allocation metadata generation now succeeds for all 6,730 tasks.
+The complete 6,460-descriptor audit preserved every scientific configuration.
+Two earlier preparation failures are retained: a host-config pin mismatch and
+an omitted native-callback path declaration affecting link jobs. The coherent
+repair uses the same path rules during preparation and execution; all 16 native
+runtime modules remain byte-identical to the preceding portable package.
+
+The [reporting rebind](benchmark_reporting_portable_rebind_v1/README.md) also
+completed against that actual generation. It preserves all 6,190 expected
+prediction rows and the native/data/controller/evaluator identities. The build
+used no models or datasets. Full generated files stay on the allocation;
+[generation](PORTABLE_PROJECTION_RUN_13.json) and
+[reporting](REPORTING_REBIND_RUN_12.json) receipts record their exact locations.
+These are successful metadata builds; native/resource admission remains pending.
+The default ownership puts all tasks on the allocation for preparation and is
+not the final efficient three-GPU assignment. Both future 18.77 workers remain
+disabled.
 
 The full campaign has not launched. Only the dedicated allocation is authorized;
 the two future 18.77 workers are disabled and have not been probed. The measured
@@ -190,6 +212,12 @@ withhold the complete-preset interval. No significant-win label or cross-preset
 winner substitution is permitted. The [initial exposure ledger](benchmark_reporting_protocol_v1/EXPOSURE_LEDGER.json)
 records verified historical Physics TEST exposure; the other six histories
 remain unknown. Current development uses TRAIN/VALID with TEST scoring closed.
+
+Training a source-reference model does not itself verify the paper's reported
+TEST metric. The final review package must also specify selected-checkpoint
+scoring with the original split, evaluator and task-specific test inputs. That
+scoring stage remains an explicit preparation item; no validation number will
+be presented as a reproduced test result.
 
 A [runnable metadata reporter](benchmark_reporting_implementation_v1/README.md)
 now preserves all planned pairs, failures and capped outcomes, and generates
@@ -219,4 +247,3 @@ paper progress; no acceptance verdict is requested or promised.
 - [Retained method catalogue](catalogue/CATALOGUE.md)
 - [Selected prior-result index](prior_result_index.json)
 - [Current continuation state](SESSION_STATE.md)
-

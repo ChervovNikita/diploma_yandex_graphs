@@ -16,8 +16,10 @@ A setting fixes the dataset, reference backbone and one documented source
 configuration. For each of its ten trials we train:
 
 1. **Reference reproduction:** one native model with the source paper/release
-   training horizon and selection protocol. This checks the reported baseline;
-   any ambiguity in the published configuration is disclosed.
+   training horizon and selection protocol. Its selected checkpoint must also
+   be scored with the source test protocol to check the reported baseline.
+   Final test scoring is still being prepared; validation results alone do not
+   establish reproduction. Any source-configuration ambiguity is disclosed.
 2. **Matched native single and independent ensemble:** four separate native
    models, each with its own weights, optimizer and selected checkpoint. Model0
    is also the single-model comparison. Their averaged predictions form I4.

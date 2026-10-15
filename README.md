@@ -97,6 +97,19 @@ propagate the corrected BUDDY shared-body metadata without changing scientific
 settings. The final NCN/BUDDY lifecycle checks are prepared but await a free
 GPU slot; resource measurement and offline three-GPU deployment remain pending.
 
+The portable allocation metadata and reporting registry now build successfully
+for all 6,730 tasks, preserving every scientific configuration and all 6,190
+expected prediction rows. No campaign training was started. Two earlier
+metadata failures and their repairs are retained. All native runtime modules
+are unchanged by the latest repair. The default ownership is a preparation
+map, not the final three-GPU workload division.
+
+Before the large run, the complete nine-fit study will inform a consistent
+normalization policy for the extensions and their controls. Original GNNM
+remains unchanged. Final selected-checkpoint test scoring is also a required
+preparation item: source-setting training and validation scores alone do not
+verify a paper's reported test metric.
+
 **The full campaign is awaiting preparation and user GO.** The launch plan
 contains 6,460 fit tasks and 270 export-only tasks but has started none. Only
 the dedicated allocation is authorized. Both future 18.77 workers are disabled.
@@ -104,7 +117,7 @@ The [budget review](experiments_iclr/postsubmission_20260930/benchmark_expansion
 A staged approval option is 646 fits across every setting and method, then the
 remaining 5,814. The complete roster is retained; no campaign-wide ETA is claimed.
 
-- [One-command runner source and remaining execution checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v2/README.md)
+- [One-command runner source and remaining execution checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/README.md)
 - [Exact method-by-task coverage and controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/benchmark_review_map_v1/README.md)
 - [Plain-language benchmark design](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/BENCHMARK_OVERVIEW.md)
 - [Complete 24-fit results](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_molbace_v1/complete_analysis_v1/REPORT.md)

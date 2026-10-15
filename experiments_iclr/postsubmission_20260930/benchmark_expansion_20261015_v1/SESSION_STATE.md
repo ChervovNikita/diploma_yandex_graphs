@@ -1,4 +1,110 @@
-# GNNM continuation state — release 11 preparation, 15 October 2026
+# GNNM continuation state — release 12 snapshot, 15 October 2026
+
+## Current continuation override
+
+The older release11 snapshot below is retained as history. This section takes
+precedence for current source, publication and next actions. Allocation only;
+AGENTS.md constraints unchanged. Two scientific workers remain active; no third
+CUDA process and no giant-campaign GO. Source/data/checkpoints remain in scope.
+
+Release11 was actually committed and pushed at11:09:10UTC:
+c862c5ca71da9f3b70f281048bbb4588fdb35cfd. This is release12's expected parent.
+Consult COMMIT_RECEIPT_12.json and PUSH_RECEIPT_12.json when present for its actual
+publication. Root owns Git; explicit selected source/compact evidence only.
+DOC_UPDATE_RECEIPT_12.json will pin current mutable docs and remote root README.
+Future root README edits must replace exact ROOT_README_BLOCK_12.md, preserving
+older dated sections. A source package's frozen status is not its latest run
+status; use the separate execution receipts below.
+
+### Successful metadata repair and reporting integration
+
+portable_dispatcher_v3/MANIFEST.json:
+8cd1e0dd4d92bc22dab6a39be21a5dfa7c591f741e69fcde502e3dfb8bcf9cc5.
+42package files/38parent pins verified in ROOT_PORTABLE_REVIEW_12.json. Full
+actual6460-descriptor scan found only /recipe/_native_callback unclassified,
+in700linkfits; no path violations. The exact field is now shared between the
+preparer and execution guard. Host-config metadata uses each own pin. Full
+prewrite audit precedes output creation. All16native modules and8core modules
+are byte-identical to v2; no broad native retesting is needed for this patch.
+
+PORTABLE_PROJECTION_RUN_11.json preserves the config-pin failure; _12.json
+preserves the callback-pointer failure and partialv2/generated_v3_config_pin.
+Keep portable_projection_preparer_v3 as failed-attempt source history. The
+first v3 source-transfer connection timed out before files were present;
+SOURCE_TRANSFER_FAILURE_12.json retains it, and the immutable retry succeeded.
+
+PORTABLE_PROJECTION_RUN_13.json records actual successful corrected preparation:
+140.699s,maxRSS736844KiB, no native jobs. Output is remote
+portable_dispatcher_v3/generated_v3. Actual pins:
+
+- PREPARATION.json:3b9362e18f79bbb79c58ec0a173becddc6e518856a8d2ce5e56631b000cc59eb
+- allocation/CANDIDATES.json:f6305ae783376687ebf28df3a0e226af0388b0801d0d70d361ea75cb6f2277fe
+- allocation/RELEASE_UNADMITTED.json:bb9de04230e15b4b5ba0e17daa1320bb5aa4a49cd902e63fbafe89d3595f02bf
+
+All6730 tasks default to allocation for preparation, not as the efficient final
+three-GPU placement.77remains disabled. No task has runtime/resource admission.
+The existing detached runner, host reservation/Popen ownership, permanent claims,
+retained failures, cgroup-aware RAM and STOP rules remain. No host changes.
+
+benchmark_reporting_portable_rebind_v1 source manifest:
+0ad9d6d4172090e6a9e423265d80ccd1df16be7e975122ae5f54725729817b9c.
+Root review ROOT_REPORTING_REVIEW_12.json. Actual build REPORTING_REBIND_RUN_12.json
+succeeded in41.159s,maxRSS232636KiB; verified all6730 tasks,6190expected predictors,
+270source rows and270same-bank mean rows. Remote generated_v1/INDEX.json SHA:
+7df83c231a2a7d7e24f745988549a872784bf81fd7e006d708b492a6d69d66e9.
+Canonical native/data/controller/evaluator identities and observer inputs remain
+unchanged.16module equality binds existing v2 runtime delta; original aggregator
+authority retained with exact successor readout. Observer/collector unchanged;
+ObservedArgvTransform stays under reserving backend.start/Popen. Full generated
+metadata stays remote. Expected bindings are not observed native admission.
+
+### Scientific/design continuation
+
+PROGRESS_METADATA_12.json at11:22:41UTC:3/9 BN-factorial fits complete
+(149/152/149epochs, patience); fit003had4256completed optimizer calls. No partial
+quality read. Older GRU still29/30banks,44/48trajectories. Owners/workers live;
+GPU98%,2022MiB. Newer PROGRESS_METADATA_13.json at11:35:49UTC shows4/9complete,
+fit004at1330completed optimizer calls, GRU unchanged andGPU80%,2022MiB.
+Do not restart these queues or interpret partial quality.
+
+research_next_decision_v1/DESIGN_IMPLICATION.md is a new compact addendum,
+SHA5000ce39983250aa917be5035daad6922bde86e1d1f3af7e7d0104faca96a312.
+It makes normalization an explicit pre-GO choice, conditional on complete nine-fit
+outcomes. Retain original GNNM and a private-BN reference wherever extensions
+use private BN; compare mechanism controls under the same policy. No silent
+roster edit, universal claim or partial-outcome choice. Existing6,460count unchanged.
+
+pilot_20261015_bn_geometry_correction_v1/complete_route_analysis_source_v1 is an
+analysis plan, not executed analysis. Manifest
+7f6125fc8ee676a91e25b8c6655473ce6d8fde36ff3834ecfd867153005b17d8.
+Nine-fit exports have pooled logits only. Member diagnostics need9 selected-model
+VALID collections through existing selected_molecular.py after complete-terminal
+gate; no retraining/TEST. Plan joins24factorial banks plus M1/I4, retains mean/worst
+member quality, repaired/introduced errors, BCE, convergence and costs. It does
+not duplicate study.py's all-cell AUC/BCE/interaction report.
+
+An additional required preparation gap was identified and documented in
+benchmark_reporting_portable_rebind_v1/IMPLEMENTATION_GAP_NOTE.md:
+5cb373500ec262411d48e7ce8ce0edc962260cf6c39919f68e03e36c6aa7adde.
+Current6460fit/report chain is VALID-only. Source-training reproduction alone
+does not reproduce reported TEST metrics. Existing final_test_serving_v1 link
+backend has correct intended source topology but old callback restrictions and
+no full current-extension integration; node/molecular serving is missing. Do not
+reuse old CAL/TRAIN-only topology routes. Resource agent is implementing source
+under final_selected_scoring_v2, with no data/model/TEST/native work. One eventual
+review should cover training plus frozen selected-checkpoint scoring; add no new
+permission ceremony or extra fits. Final scorer is not ready merely because the
+training metadata now succeeds. Freeze all selections/readouts before scoring,
+retain complete matrices and source reproduction limitations.
+
+Next actions: finish reviewed12 publication; review final-scoring source when
+ready. When one GPU slot frees, perform only prepared finite NCN/BUDDY/MolHIV
+checks with actual admission. Integrate all nine fits only at terminal, then
+resolve normalization and the next bounded scientific comparison. Final reviewer
+package still needs measured resources, efficient future assignments, exact
+scoring and runnable commands. Do not call the giant campaign ready yet.
+
+## Retained release11 snapshot
 
 ## Scope
 
