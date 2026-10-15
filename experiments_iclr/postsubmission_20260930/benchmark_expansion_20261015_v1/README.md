@@ -38,11 +38,30 @@ its recorded first-best AUC selection. Validation stopping is not proof of
 optimization stationarity. The curves stay on the allocation; compact results
 and reproducible analysis source are committed.
 
-The [three-fit private-BN follow-up](pilot_20261015_bn_state_v1/README.md) has
-started after the parent completed. It shares native affine weights and isolates
-route running buffers, reusing all parent controls. No complete BN result is
-available yet. Another previously running GRU acquisition still occupies the
-other reserved training slot. No third GPU worker is admitted.
+The [three-fit private-BN follow-up](pilot_20261015_bn_state_v1/complete_analysis_v1/INTERPRETATION.md)
+also finished. Each route keeps its own running statistics while all learned
+native affine weights remain shared. Mean selected VALID AUC was **73.61 ± 1.06%**,
+up 5.84 points from base GNNM and 1.23 points below I4. All three seeds improved
+over base GNNM. Mean BCE increased to 1.086, so the ranking improvement came with
+a worse probability-loss score. Training used 464 complete epochs and 17,632
+updates, with no cap stop. This is a known normalization control, not a novelty
+claim. Different selected epochs prevent an inference-only causal explanation.
+
+The [complete route diagnosis](analysis/complete_route_diagnostic_v1/REPORT.md)
+uses saved predictions from all 24 parent fits. Mean member AUC was 73.41% for
+I4, 62.01% for base GNNM, 64.24% with geometry, 66.07% with private corrections,
+and 61.00% with both. The combined method had fewer ranking mistakes shared by
+every route but weaker individual predictions and a weaker average than either
+ingredient alone. Increasing diversity is therefore insufficient in this study.
+We need to preserve route quality as well. These are selected-validation
+diagnostics, not independent confirmation results.
+
+The [BN route follow-up](analysis/bn_route_diagnostic_v1/REPORT.md) reconstructed
+all three selected checkpoints without training. Mean member AUC reached 72.63%,
+with a 0.99-point gain from averaging. Each seed improved mean member AUC over
+base GNNM while remaining below its independent control. This motivates checking
+geometry and corrections under matched private normalization before rejecting
+their combination. That additional study is proposed, not launched.
 
 [Native molecular label support](molecular/RARE_CLASS_SUPPORT_NOTE.md) also
 shows why a cross-task port needs more than a callable loss: with the unchanged
@@ -79,32 +98,43 @@ No hyperparameter search or original-five paper rerun is included.
 
 ## Execution readiness
 
-[Source binding audit](expanded_binding_audit_v1/README.md) accounts for all511
-method/preset entries. At that audit's freeze,494 entries had prepared source and
-17 needed new native ports, representing4,940 and170 shared fits. Prepared
-source does not imply a qualified training run; later port results are recorded
-separately. This audit is a snapshot, so new code does not silently change it.
+The [expanded compiler](expanded_job_binding_v1/HANDOFF.json) retains all 6,460
+fit intentions. Its second version prepares **6,370 concrete descriptions** and
+marks 90 as blocked. Those 90 require BUDDY input construction for the correct
+nonzero seed. A seed-zero materialized smoke context cannot stand in for them.
+The compiler preserves the 2,480 predecessor contracts and verifies 270 paired
+M1/I4 ownership groups. These are preparation counts, not completed training.
 
-Completed checks include native node/molecular/NCN updates and checkpoint
-restoration, the8-case NCNC CPU bridge, node/molecular interaction checks, and
-all40 native node dataset/split providers (covering80 Mono/Cheb bindings).
-Provider checks construct no model and score no test labels. BUDDY's native
-year2007 context and all8 native CPU variant checks passed. Four NCN interaction
-recipes also passed their finite update/VALID/restore checks.
+Real-data update checks now cover the NCNC and BUDDY context objectives,
+their four interaction recipes, and BUDDY private BN. Each uses native input
+construction and whole VALID scoring within a finite engineering workload.
+The NCN context CUDA check also passed checkpoint/optimizer/sampler restoration
+and replay with no floating-point diagnostic warning. All failures and costs
+are retained. These short checks establish execution behavior, not accuracy.
 
-Runtimev3 has a real complete-epoch/interruption/stop-resume qualification.
-Its metadata issue is preserved, and runtimev4 repairs that reporting and adds
-same-call selected-bank mean export. Runtimev4 has separate source and saved-tensor checks. Its real CiteSeer/Cheb
-CPU gate now passed2 complete TRAIN epochs, interruption/recovery, own selected
-actual/mean export, and stopped recovery with no additional training. Molecular,
-link and GPU scopes remain separate qualification work. Frozen running sources are not modified.
+Runtime v4 passed two complete CiteSeer/Cheb TRAIN epochs, interruption and
+recovery, export from its own selected checkpoint, and recovery after stopping
+without additional training. The link successor must also preserve query
+identities, positive/negative roles, extension dependencies, and the selected
+learned prediction alongside its uniform-average comparison. Its actual native
+lifecycle remains a separate qualification gate.
 
-The remaining work includes NCNC/BUDDY context and interaction ports, BUDDY
-private BN, native full epochs and selected-serving checks, CUDA resume where
-relevant, measured costs/resources, and the expanded executable descriptors.
-The predecessor2,480 descriptors pass metadata validation; that does not qualify
-the proposed6,460-fit matrix. The three-GPU scheduler exists, but77 deployment
-and measured three-GPU assignments remain pending authorization and readiness.
+The v5 source passed its synthetic contracts, but review against authentic
+native metadata found a prelaunch receipt-comparison error: a native receipt
+includes an extra verification annotation. A successor is being prepared.
+No native v5 lifecycle ran, and the synthetic checks do not qualify that path.
+
+The [launch preparation](expanded_launch_preparation_v1/HANDOFF.json) accounts
+for 6,460 fit tasks and 270 I4 exports in 540 cohort groups. It is a dry run and
+started no child processes. The actual dispatcher, remaining runtime checks,
+BUDDY production provider, and measured resource profiles are still required
+before the promised one-command campaign launch. All execution remains disabled
+without user GO. Only the allocation is authorized. The two future 18.77 GPU
+workers are disabled and have not been probed.
+
+The molecular pilot supplies measured costs for only 60 exactly matching
+proposed fits. It cannot supply a campaign-wide ETA. Source changes prevent
+transferring some pilot timings even when a recipe name sounds similar.
 
 ## Statistical design and launch
 
@@ -123,6 +153,7 @@ paper progress; no acceptance verdict is requested or promised.
 
 - [Scientific rationale](RESEARCH_SYNTHESIS_20261015.md)
 - [Literature conclusions](literature/SCOPED_CONCLUSIONS.md)
+- [Cross-Batch Memory and rare-class supervision](literature/xbm_support_followup_v1/READING_AND_DECISION.md)
 - [Retained method catalogue](catalogue/CATALOGUE.md)
 - [Selected prior-result index](prior_result_index.json)
 - [Current continuation state](SESSION_STATE.md)

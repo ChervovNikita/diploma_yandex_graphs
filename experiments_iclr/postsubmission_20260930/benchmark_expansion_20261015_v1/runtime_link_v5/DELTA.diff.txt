@@ -1,0 +1,391 @@
+--- runtime_v4/adapters.py
++++ runtime_link_v5/adapters.py
+@@ -426,6 +426,230 @@
+                 "whole_paper_exact_RNG_replication_claim": False}
+ 
+ 
++class LinkSameCallMeanAdapter:
++    """Authenticate an explicit link provider's existing same-call VALID sidecar."""
++    def __init__(self, torch, job, policy, root, inner, provider):
++        self.torch, self.root, self.inner, self.provider = torch, Path(root).resolve(), inner, provider
++        self._job_authority = copy.deepcopy(job)
++        self.policy = policy
++        self.session, self.model, self.optimizers = inner.session, inner.model, inner.optimizers
++        self.callback_receipt = copy.deepcopy(inner.callback_receipt)
++        self.extension_receipt = copy.deepcopy(inner.extension_receipt)
++        self.dependency_receipts = copy.deepcopy(inner.dependency_receipts)
++        self.policy_receipt = receipt(inside(job['link_policy_module'], self.root))
++        if self.policy_receipt['sha256'] != job['link_policy_sha256']:
++            raise ValueError('Explicit link policy source differs from JOB')
++        declaration = self.session.interaction_metadata
++        manifest = inside(Path(self.extension_receipt['path']).parent / 'MANIFEST.json', self.root)
++        providers = [p for p in declaration['source_receipts'] if p['path'] == str(manifest)]
++        if declaration['method_id'] != job['procedure'] or len(providers) != 1 \
++                or providers[0] != receipt(manifest) \
++                or providers[0]['sha256'] != job['method_settings']['manifest_sha256']:
++            raise ValueError('One exact outer method/manifest provider must match immutable JOB')
++        self.provider_manifest = copy.deepcopy(providers[0])
++        if not callable(getattr(provider, 'selected_mean_sidecar', None)):
++            raise ValueError('Explicit link provider lacks a zero-forward same-call sidecar getter')
++        self._generation = self._serial = 0
++        self._cache = self._loaded_state_signature = self._selection = None
++
++    @property
++    def completed_epochs(self):
++        return self.inner.completed_epochs
++
++    def __getattr__(self, name):
++        return getattr(self.inner, name)
++
++    def _invalidate(self):
++        self._generation += 1
++        self._cache = self._selection = self._loaded_state_signature = None
++
++    def _tensor_identity(self, value):
++        if not self.torch.is_tensor(value):
++            raise ValueError('Native link identity requires a tensor')
++        value = value.detach().cpu().contiguous()
++        return {'shape': list(value.shape), 'dtype': str(value.dtype),
++                'sha256': hashlib.sha256(memoryview(value.numpy()).cast('B')).hexdigest()}
++
++    def _state_signature(self, value):
++        if self.torch.is_tensor(value):
++            return {'tensor': self._tensor_identity(value)}
++        if isinstance(value, dict):
++            return {'dict': [[type(k).__name__, str(k), self._state_signature(v)]
++                             for k, v in sorted(value.items(), key=lambda item: (type(item[0]).__name__, str(item[0])))]}
++        if isinstance(value, (list, tuple)):
++            return {type(value).__name__: [self._state_signature(v) for v in value]}
++        if value is None or type(value) in (str, int, float, bool):
++            return {type(value).__name__: repr(value)}
++        raise ValueError('Unsupported native checkpoint identity type: ' + type(value).__name__)
++
++    def train_epoch(self):
++        self._invalidate()
++        return self.inner.train_epoch()
++
++    def state(self):
++        return self.inner.state()
++
++    def load_state(self, value):
++        self._invalidate()
++        expected = self._state_signature(value)
++        self.inner.load_state(value)
++        if self._state_signature(self.inner.state()) != expected:
++            raise ValueError('Exact native link state differs after source restore')
++        self._loaded_state_signature = expected
++
++    def _check_runtime(self, runtime_binding):
++        expected = {name: receipt(Path(__file__).with_name(name))['sha256'] for name in
++                    ('run_fit.py', 'adapters.py', 'bookkeeping.py', 'common.py', 'controllers.py', 'source_rng.py')}
++        if runtime_binding != {'runtime_sha256': expected,
++                'policy_sha256': self.policy_receipt['sha256'],
++                'callback_sha256': self.callback_receipt['sha256'],
++                'extension_sha256': self.extension_receipt['sha256'],
++                'dependency_sha256': {p['path']: p['sha256'] for p in self.dependency_receipts}}:
++            raise ValueError('Selected link runtime/policy/outer extension/dependency authority differs')
++        for pin in (self.callback_receipt, self.extension_receipt, self.policy_receipt,
++                    self.provider_manifest, *self.dependency_receipts):
++            if receipt(inside(pin['path'], self.root)) != pin:
++                raise ValueError('Authenticated link source changed')
++
++    def bind_loaded_selection(self, payload, *, selected_checkpoint, job_hash, runtime_binding):
++        """Called by the finalizer after it loads this exact selected payload."""
++        self._check_runtime(runtime_binding)
++        epoch = payload['selector']['selected_epoch']
++        if payload['job_hash'] != job_hash or job_hash != digest(self._job_authority) \
++                or payload['runtime_binding'] != runtime_binding \
++                or self.completed_epochs != epoch or self._loaded_state_signature is None \
++                or self._state_signature(payload['adapter']) != self._loaded_state_signature \
++                or receipt(inside(selected_checkpoint['path'], self.root)) != selected_checkpoint:
++            raise ValueError('Selected payload must be the exact source state just loaded for this JOB')
++        self._selection = {'job_hash': job_hash, 'selected_epoch': epoch,
++            'selected_checkpoint': copy.deepcopy(selected_checkpoint),
++            'runtime_binding': copy.deepcopy(runtime_binding), 'state_generation': self._generation}
++
++    def _source_sidecar(self, actual):
++        t = self.torch
++        value = self.provider.selected_mean_sidecar(self.session)
++        if value.get('role') != 'VALID' or value.get('TEST_accessed') is not False \
++                or value.get('method_id') != self._job_authority['procedure'] \
++                or value.get('extra_forward_calls') != 0 \
++                or value.get('source_updates') != self.session.native.updates \
++                or value.get('selected_checkpoint_bound') is not False \
++                or value.get('caller_must_bind_loaded_selected_epoch_checkpoint') is not True:
++            raise ValueError('Current native source sidecar authority/role differs')
++        for source_key, actual_key in (('ids', 'ids'), ('labels', 'labels'), ('query_endpoints', 'query_endpoints'),
++                                      ('actual_served_raw_logits', 'outputs'), ('same_bank_mean_raw_logits', 'same_bank_mean_outputs')):
++            if self._tensor_identity(value[source_key]) != self._tensor_identity(actual[actual_key]):
++                raise ValueError('Same-call source and actual link tensor differ: ' + source_key)
++        for source_key, actual_key in (('actual_loss', 'loss'), ('actual_metrics', 'metrics'),
++                                      ('same_bank_mean_loss', 'same_bank_mean_loss'), ('same_bank_mean_metrics', 'same_bank_mean_metrics')):
++            if value[source_key] != actual[actual_key]:
++                raise ValueError('Same-call source and actual link summary differ: ' + source_key)
++        if actual.get('role') != 'VALID' or actual.get('complete_source_VALID') is not True \
++                or actual.get('TEST_accessed') is not False \
++                or (actual.get('complete_VALID_positive_records'), actual.get('complete_VALID_negative_records')) != (60084, 100000):
++            raise ValueError('Complete official link VALID role/counts required')
++        endpoints = t.cat((self.session.native.valid['edge'], self.session.native.valid['edge_neg'])).cpu()
++        if self._tensor_identity(actual['query_endpoints']) != self._tensor_identity(endpoints) \
++                or actual['query_endpoints'].shape != (160084, 2) or actual['ids'].shape != (160084,) \
++                or actual['labels'].shape != (160084,) or not bool((actual['labels'][:60084] == 1).all()) \
++                or not bool((actual['labels'][60084:] == 0).all()):
++            raise ValueError('Complete native query endpoints/order/positive-negative roles changed')
++        mean, served = actual['same_bank_mean_outputs'], actual['outputs']
++        if mean.shape != served.shape or mean.dtype != served.dtype or mean.numel() != 160084 \
++                or not bool(t.isfinite(mean).all()) or not bool(t.isfinite(served).all()) \
++                or set(actual['same_bank_mean_metrics']) != set(actual['metrics']) \
++                or any(not math.isfinite(float(v)) for v in [actual['loss'], actual['same_bank_mean_loss'],
++                    *actual['metrics'].values(), *actual['same_bank_mean_metrics'].values()]):
++            raise ValueError('Finite same-call native mean/actual values and metric keys required')
++        return value
++
++    def validate(self):
++        self._serial += 1
++        self._cache = None
++        before_updates, before_epoch = self.session.native.updates, self.completed_epochs
++        actual = self.inner.validate()
++        if (before_updates, before_epoch) != (self.session.native.updates, self.completed_epochs):
++            raise ValueError('Native TRAIN state advanced during VALID')
++        self._source_sidecar(actual)
++        authority = {'job_hash': digest(self._job_authority), 'state_generation': self._generation,
++            'validation_serial': self._serial, 'source_updates': before_updates,
++            'completed_epoch': before_epoch, 'provider_manifest': copy.deepcopy(self.provider_manifest),
++            'callback': copy.deepcopy(self.callback_receipt), 'extension': copy.deepcopy(self.extension_receipt),
++            'policy': copy.deepcopy(self.policy_receipt),
++            **{key: self._tensor_identity(actual[name]) for key, name in
++               (('ids', 'ids'), ('labels', 'labels'), ('query_endpoints', 'query_endpoints'),
++                ('actual_logits', 'outputs'), ('mean_logits', 'same_bank_mean_outputs'))}}
++        sidecar = {'schema': 'same-call-native-link-mean-VALID-v1', 'role': 'VALID',
++            'complete_source_VALID': True, 'TEST_accessed': False, 'authority': authority,
++            'ids': actual['ids'].detach().cpu().clone(), 'labels': actual['labels'].detach().cpu().clone(),
++            'query_endpoints': actual['query_endpoints'].detach().cpu().clone(),
++            'outputs': actual['same_bank_mean_outputs'].detach().cpu().clone(),
++            'loss': float(actual['same_bank_mean_loss']), 'metrics': copy.deepcopy(actual['same_bank_mean_metrics']),
++            'complete_VALID_positive_records': 60084, 'complete_VALID_negative_records': 100000,
++            'selection_uses': 'actual declared serving only; same-bank mean is diagnostic', 'extra_forward_calls': 0}
++        self._cache = cpu_clone(self.torch, sidecar)
++        actual['same_bank_mean_VALID'] = sidecar
++        return actual
++
++    def selected_mean_export(self, actual, *, job_hash, selected_epoch, selected_checkpoint, runtime_binding):
++        self._check_runtime(runtime_binding)
++        selection = {'job_hash': job_hash, 'selected_epoch': selected_epoch,
++            'selected_checkpoint': selected_checkpoint, 'runtime_binding': runtime_binding,
++            'state_generation': self._generation}
++        value, cache = actual.get('same_bank_mean_VALID'), self._cache
++        if self._selection != selection or self.completed_epochs != selected_epoch \
++                or job_hash != digest(self._job_authority) \
++                or receipt(inside(selected_checkpoint['path'], self.root)) != selected_checkpoint \
++                or value is None or cache is None or value['authority'] != cache['authority']:
++            raise ValueError('Fresh exact loaded selection and current same-call mean authority required')
++        self._source_sidecar(actual)  # Getter only; no model or native VALID call.
++        authority = cache['authority']
++        if (authority['state_generation'], authority['validation_serial'], authority['source_updates']) != \
++                (self._generation, self._serial, self.session.native.updates):
++            raise ValueError('Stale native link validation generation/update/serial')
++        for key, name in (('ids', 'ids'), ('labels', 'labels'), ('query_endpoints', 'query_endpoints'), ('actual_logits', 'outputs')):
++            if self._tensor_identity(actual[name]) != authority[key]:
++                raise ValueError('Selected actual link VALID tensor changed after capture')
++        for key, name in (('ids', 'ids'), ('labels', 'labels'), ('query_endpoints', 'query_endpoints'), ('mean_logits', 'outputs')):
++            if self._tensor_identity(value[name]) != authority[key]:
++                raise ValueError('Selected link mean tensor changed after capture')
++        if value['loss'] != cache['loss'] or value['metrics'] != cache['metrics']:
++            raise ValueError('Selected mean summary changed after capture')
++        return {'schema': 'own-selected-same-bank-mean-VALID-v1', 'role': 'VALID', 'TEST_accessed': False,
++            'job_hash': job_hash, 'job_id': self._job_authority['id'], 'selected_epoch': selected_epoch,
++            'selected_checkpoint': copy.deepcopy(selected_checkpoint), 'runtime_binding': copy.deepcopy(runtime_binding),
++            'ids': cache['ids'].clone(), 'labels': cache['labels'].clone(), 'query_endpoints': cache['query_endpoints'].clone(),
++            'raw_logits': cache['outputs'].clone(), 'loss': cache['loss'], 'metrics': copy.deepcopy(cache['metrics']),
++            'complete_VALID_positive_records': 60084, 'complete_VALID_negative_records': 100000,
++            'authority': copy.deepcopy(authority), 'extra_forward_calls': 0,
++            'selection_uses': 'actual declared serving only; same-bank mean is diagnostic'}
++
++
++def _link_source_dependencies(adapter, pin, root):
++    """Retain all original integration sources and authenticated outer method sources."""
++    adapter.callback_receipt = pin
++    if not hasattr(adapter, 'extension_receipt'):
++        adapter.extension_receipt = None
++    meta = adapter.metadata()['native_integration']
++    native = meta['native_binding']
++    rows = [*meta['integration_sources'], *meta['finalized_helper_sources'],
++        *native['adapter_source_receipts'].values(), native['adapter_manifest_receipt']]
++    if adapter.extension_receipt is not None:
++        if receipt(inside(adapter.extension_receipt['path'], root)) != adapter.extension_receipt:
++            raise ValueError('Outer link extension source receipt differs')
++        declaration = getattr(adapter.session, 'interaction_metadata', None)
++        if declaration is None:
++            raise ValueError('Extended link provider needs an explicit authenticated source declaration')
++        rows += [adapter.extension_receipt, *declaration['source_receipts']]
++    unique = {}
++    for row in rows:
++        actual = receipt(inside(row['path'], root))
++        if actual != row or (row['path'] in unique and unique[row['path']] != row):
++            raise ValueError('Native/outer link dependency receipt differs or conflicts')
++        unique[row['path']] = row
++    adapter.dependency_receipts = [unique[name] for name in sorted(unique)]
++    return adapter
++
++
+ def create_adapter(torch, job, policy, root):
+     if job["family"] == "node":
+         return NodeAdapter(torch, job, policy, root)
+@@ -438,10 +662,9 @@
+             raise ValueError("Use the pinned link integration's explicit candidate IDs, not a generic transform")
+         module, pin = load_module(job["callback_module"], root, job["callback_sha256"])
+         adapter = module.create_adapter(torch, job, policy, root)
+-        adapter.callback_receipt, adapter.extension_receipt = pin, None
+-        meta = adapter.metadata()["native_integration"]
+-        native = meta["native_binding"]
+-        adapter.dependency_receipts = [*meta["integration_sources"], *meta["finalized_helper_sources"],
+-            *native["adapter_source_receipts"].values(), native["adapter_manifest_receipt"]]
++        adapter = _link_source_dependencies(adapter, pin, root)
++        if adapter.extension_receipt is not None:
++            provider, _ = load_module(adapter.extension_receipt['path'], root, adapter.extension_receipt['sha256'])
++            return LinkSameCallMeanAdapter(torch, job, policy, root, adapter, provider)
+         return adapter
+     raise ValueError("This adapter supports actual native node and molecular sessions only")
+--- runtime_v4/run_fit.py
++++ runtime_link_v5/run_fit.py
+@@ -22,8 +22,9 @@
+ 
+ 
+ class OptimizerObserver:
+-    def __init__(self, torch, owners, previous=None):
++    def __init__(self, torch, owners, previous=None, maximum_completed=None):
+         self.torch, self.owners = torch, owners
++        self.maximum_completed = maximum_completed
+         self.attempts = list((previous or {}).get("attempts", [0] * len(owners)))
+         self.completed = list((previous or {}).get("completed", [0] * len(owners)))
+         self.originals = []
+@@ -32,6 +33,8 @@
+             self.originals.append(original)
+             def wrap(i, function):
+                 def step(*args, **kwargs):
++                    if self.maximum_completed is not None and sum(self.completed) >= self.maximum_completed:
++                        raise ValueError("Finite link CPU optimizer budget exhausted before another transition")
+                     self.attempts[i] += 1
+                     for group in self.owners[i].param_groups:
+                         for parameter in group["params"]:
+@@ -67,6 +70,17 @@
+         if job.get("device") != "cpu" or job.get("engineering_only") is not True \
+                 or os.environ.get("CUDA_VISIBLE_DEVICES") != "" or job["family"] not in ("node", "ogb"):
+             raise ValueError("CPU engineering requires explicit CPU mode, engineering-only job, CUDA hidden and node/OGB family")
++    elif mode == "cpu_link_engineering_v1":
++        limits = job.get("cpu_engineering_limits", {})
++        if job.get("device") != "cpu" or job.get("engineering_only") is not True \
++                or os.environ.get("CUDA_VISIBLE_DEVICES") != "" or job["family"] != "link" \
++                or set(limits) != {"maximum_epochs", "maximum_optimizer_updates"} \
++                or type(limits["maximum_epochs"]) is not int or not 1 <= limits["maximum_epochs"] <= 2 \
++                or type(limits["maximum_optimizer_updates"]) is not int or not 1 <= limits["maximum_optimizer_updates"] <= 34 \
++                or job["policy"].get("maximum_epochs") != limits["maximum_epochs"] \
++                or job["policy"].get("minimum_epochs") != limits["maximum_epochs"] \
++                or job["policy"].get("evaluate_TRAIN_each_epoch") is not False:
++            raise ValueError("Link CPU engineering requires hidden CUDA, finite<=2epochs/34updates and no TRAIN diagnostics")
+     elif mode != "production_gpu" or job.get("device", "cuda:0") != "cuda:0":
+         raise ValueError("Production workers target only allocation GPU0; CPU requires explicit engineering mode")
+     policy, _, _ = controller(job, root)
+@@ -159,7 +173,7 @@
+               "dataset": job["recipe"]["dataset"], "family": job["family"], "policy": job["policy"],
+               "TEST_accessed": False, "full_campaign_GO": False,
+               "execution_mode": job.get("execution_mode", "production_gpu"), "execution_device": device,
+-              "scientific_scope": "bounded CPU engineering qualification; no scientific accuracy claim" if device == "cpu" else
++              "scientific_scope": "bounded engineering qualification; no scientific accuracy claim" if job.get("engineering_only") is True or device == "cpu" else
+                    "bounded frozen validation-only pilot" if policy.track != "source_reference"
+                    else "native source-horizon reference with disclosed no-TEST diagnostic adaptation",
+               "runtime_sources": runtime_sources, "started_UTC": utc(), "resume_requested": resume is not None,
+@@ -196,7 +210,13 @@
+                 raise ValueError("Native completed-epoch and selector clocks disagree")
+             result["resumed_checkpoint"] = receipt(inside(resume, root))
+             result["partial_work_after_saved_checkpoint"] = "unknown_if_prior_process_died_without_terminal_receipt; prior records retained"
+-        observer = OptimizerObserver(torch, adapter.optimizers, previous_calls)
++        maximum_CPU_updates = None
++        if job.get("execution_mode") == "cpu_link_engineering_v1":
++            maximum_CPU_updates = job["cpu_engineering_limits"]["maximum_optimizer_updates"]
++            maps = adapter.session.layout["optimizer_maps_per_epoch"]
++            if type(maps) is not int or maps < 1 or maps * policy.maximum_epochs > maximum_CPU_updates:
++                raise ValueError("Declared CPU budget cannot complete the actual native link epochs")
++        observer = OptimizerObserver(torch, adapter.optimizers, previous_calls, maximum_CPU_updates)
+         calls_at_invocation_start = copy.deepcopy(observer.state())
+         completed_at_invocation_start = selector.completed_epoch
+         result.update(completed_epochs=selector.completed_epoch, selected_epoch=selector.selected_epoch,
+@@ -260,6 +280,10 @@
+             raise ValueError("Selected checkpoint runtime/native source differs")
+         adapter.load_state(selected["adapter"])
+         restore_rng(torch, selected["global_rng"], device=device)
++        bind_selection = getattr(adapter, "bind_loaded_selection", None)
++        if bind_selection is not None:
++            bind_selection(selected, selected_checkpoint=receipt(selected_path),
++                job_hash=job_hash, runtime_binding=runtime_binding)
+         final_valid = adapter.validate()
+         valid_summary = compact_validation(final_valid)
+         export = {"schema": "own-selected-VALID-logits-v1", "role": "VALID", "TEST_accessed": False,
+--- /dev/null
++++ runtime_link_v5/engineering_link_policy.py
+@@ -0,0 +1,65 @@
++"""Explicit finite NCNC lifecycle policy; never a production matched schedule."""
++from __future__ import annotations
++import copy
++from dataclasses import replace
++import hashlib
++import importlib.util
++import json
++from pathlib import Path
++import sys
++
++HERE=Path(__file__).resolve().parent
++EXPANSION=next(p for p in HERE.parents if p.name=='benchmark_expansion_20261015_v1')
++BASE_MANIFEST_SHA='2cc662050bd964b4fcc0b46923e3bf00cf31e1ee4f48e02107db7b79bbc28936'
++BASE_POLICY_SHA='732eaf774347b0c1eb48d30f436a7315af4d8cc32bd3b7b43685facfcb818fbc'
++FINITE_POLICY={'family':'link','track':'bounded_engineering','maximum_epochs':2,'minimum_epochs':2,
++    'patience':1,'metric':'hits@50','direction':'max','ties':'first','evaluate_TRAIN_each_epoch':False,
++    'evaluation_mode':'VALID_only_disclosed_adaptation'}
++
++
++def base_policy(root):
++    root=Path(root).resolve();folder=EXPANSION/'link_policy_v1'
++    if not folder.is_relative_to(root):raise ValueError('Original link policy must remain in actual repository')
++    manifest=folder/'MANIFEST.json'
++    if hashlib.sha256(manifest.read_bytes()).hexdigest()!=BASE_MANIFEST_SHA:
++        raise ValueError('Frozen original link policy manifest changed')
++    for row in json.loads(manifest.read_text())['files']:
++        p=(folder/row['path']).resolve()
++        if not p.is_relative_to(folder):raise ValueError('Original policy manifest path escapes')
++        b=p.read_bytes()
++        if len(b)!=row['bytes'] or hashlib.sha256(b).hexdigest()!=row['sha256']:
++            raise ValueError('Frozen original policy source changed')
++    source=folder/'policy.py'
++    if hashlib.sha256(source.read_bytes()).hexdigest()!=BASE_POLICY_SHA:raise ValueError('Original policy bytes differ')
++    name='_runtime_link_v5_engineering_original_policy_'+BASE_POLICY_SHA
++    if name not in sys.modules:
++        spec=importlib.util.spec_from_file_location(name,source);module=importlib.util.module_from_spec(spec)
++        sys.modules[name]=module;spec.loader.exec_module(module)
++    return sys.modules[name]
++
++
++def create_policy(job,root=None):
++    if job.get('family')!='link' or job.get('engineering_only') is not True or job.get('TEST_access') is not False \
++            or job.get('policy')!=FINITE_POLICY or job['recipe'].get('architecture')!='NCNC' \
++            or job.get('procedure')!='interaction_input_conditionalJ':
++        raise ValueError('Only explicit two-epoch NCNC conditional-J engineering lifecycle policy is admitted')
++    root=Path(root or job['recipe']['_repository_root']).resolve();module=base_policy(root)
++    binding=module.source_bindings(root)
++    cell=next(row for row in binding['cells'] if row['native_family']=='NCNC')
++    track=cell['tracks']['long_convergence'];stopping=track['stopping']
++    parent_job=copy.deepcopy(job)
++    parent_job['policy']={**FINITE_POLICY,'track':'matched_extended','maximum_epochs':track['maximum'],
++        'minimum_epochs':stopping['minimum_units'],'patience':stopping['patience_validation_checks']}
++    parent=module.create_policy(parent_job,root)
++    source_binding=copy.deepcopy(parent.source_binding)
++    source_binding['engineering_parent_policy']={'manifest_sha256':BASE_MANIFEST_SHA,'policy_sha256':BASE_POLICY_SHA}
++    return replace(parent,schema='bounded-native-NCNC-engineering-policy-v1',track='bounded_engineering',
++        maximum_epochs=2,minimum_epochs=2,patience=1,source_role='finite_native_lifecycle_engineering',
++        source_protocol_equivalent=False,source_RNG_trajectory_equivalent=False,
++        fidelity_limitations=[*parent.fidelity_limitations,
++            'Finite two-epoch engineering horizon; no convergence, production matched-schedule or accuracy inference'],
++        source_binding=source_binding)
++
++
++def create_selector(policy):
++    return base_policy(EXPANSION.parent.parent).create_selector(policy)
