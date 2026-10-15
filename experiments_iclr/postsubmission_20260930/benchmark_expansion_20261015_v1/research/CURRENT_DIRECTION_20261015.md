@@ -96,3 +96,14 @@ records every seed and limits. This strengthens the priority of testing useful
 member changes; it does not reject every learned readout or training objective.
 The [bounded common-error audit](shared_error_credit_audit_v1/NOTE.md) adds no
 new training branch because its concrete realizations are already accounted for.
+
+## Prepared alternative: learned private weight noise
+
+A bounded review retains a six-fit learned-versus-fixed private-noise contrast.
+Both preserve a native zero-residual start, use the same Gaussian mean anchor,
+and serve deterministic route means. The learned-scale contrast tests adaptive
+perturbation under its declared KL objective. It is not a posterior-correctness
+or novel-Bayesian-principle claim. Exact paid point/native references must match.
+See [proposal and limits](stochastic_private_adapter_audit_v1/NOTE.md). Source
+preparation is accepted; no stochastic scientific fit is launched. PubMed24
+remains the next scientific priority.

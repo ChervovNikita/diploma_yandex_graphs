@@ -146,3 +146,17 @@ common-error/private-credit versions collide with already saved pool, assignment
 and staged correction questions. Concrete TRAIN support/private score response
 and discriminating controls are reopening criteria. Zero new primary reads or
 network retrievals; no hypothesis-exhaustion claim. PubMed24 andpairwise21 remain.
+
+## Release29 preparation
+
+Root reviewed normalization_campaign_migration_v1 manifest
+cb08331336fbf98712a2975fa2773d48a150dd66103b84b019f2f54c62a725d4
+for one allocation metadata generation after publication. No native work.
+Scorer successor composable_normalization_final_scoring_v2 manifest
+af692038bec60bbb54e9ed45d659289af98a0cb844ab0637c8923ee6ce70b67b
+fixes inherited extra-state fingerprints, preserving composed state ownership.
+research/stochastic_private_adapter_audit_v1 retains six proposed learned/fixed
+noise fits; source implementation delegated, no actual qualification or fits.
+PubMed24 remains next. Reporting/dispatcher successor source work is delegated.
+Root owns generation, source publication, admission and scientific launch.
+Use CURRENT_EXECUTION_30 for the19:05 live progress observation.

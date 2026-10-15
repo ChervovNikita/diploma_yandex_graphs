@@ -169,6 +169,25 @@ collectors and analyzer. It reuses the 33 existing banks and performs no trainin
 The [bounded history audit](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/shared_error_credit_audit_v1/NOTE.md)
 found no additional distinct common-error rule to launch now; the existing
 transfer and pairwise studies remain the informative next questions.
+
+### Additional preparation
+
+The next prepared quality hypothesis learns small, route-specific weight-noise
+scales during training. It samples the private down matrices while zero-start
+up matrices preserve the native initial function. Prediction uses the learned
+means. A fixed-noise control tests whether learning the scales helps beyond
+ordinary perturbation and anchoring. This builds on BLoB and Rank-1 BNN; it is
+a proposed six-fit comparison, with no new accuracy result or novelty claim.
+PubMed transfer remains next.
+
+- [Stochastic-adapter hypothesis, controls and limitations](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/stochastic_private_adapter_audit_v1/NOTE.md)
+
+A reviewed metadata generator now applies the existing private-normalization
+decision to 2,890 proposed candidate fits while retaining 3,570 other fit
+definitions and 270 ensemble-export dependencies. Generation and subsequent
+reporting/dispatch integration are preparation; the 6,460-fit campaign remains
+unlaunched. The composed scorer also has a narrow checkpoint-metadata repair;
+its prediction rule is unchanged.
 ## Real-data smoke checks — 14 October 2026
 
 Completed **167 distinct configuration checks** across the redesigned study:

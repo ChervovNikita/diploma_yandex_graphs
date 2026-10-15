@@ -535,3 +535,14 @@ all24 descriptors without a model or fit. A bounded engineering queue is
 prepared to wait for the current six-fit study, then qualify CUDA behavior and
 measure production costs; its launch receipt determines actual execution.
 The24-fit pilot itself remains unlaunched and unbudgeted.
+
+## Release29 source preparation
+
+The frozen normalization migration generator preserves the proposed fit count
+and native definitions while replacing 2,890 candidate contracts with the
+reviewed private-normalization composition. Actual metadata generation and
+downstream reporting/dispatch binding remain separate from campaign admission.
+The inherited composed scorer now has a narrow typed-extra-state successor.
+The learned-private-noise [proposal](research/stochastic_private_adapter_audit_v1/NOTE.md)
+is retained as a distinct quality experiment for preparation. No new quality
+result or large-campaign GO is claimed.

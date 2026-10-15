@@ -1,0 +1,73 @@
+--- composable_normalization_runtime_v1/final_scoring/backend.py
++++ composable_normalization_final_scoring_v2/backend.py
+@@ -5,11 +5,13 @@
+ not launch workers, allocate another GPU, train, choose checkpoints or push Git.
+ """
+ from contextlib import contextmanager
++from collections import OrderedDict
+ import copy
+ import importlib.util
+ import json
+ from pathlib import Path
+ import sys
++import struct
+ import time
+ import traceback
+ from .contracts import (authorize, digest, inside, readout_policy, receipt, require,
+@@ -17,7 +19,7 @@
+ from .role_serving import metrics, predict, tensor_sha
+ 
+ HERE = Path(__file__).resolve().parent
+-EXPANSION = HERE.parents[1]
++EXPANSION = HERE.parent
+ 
+ 
+ def load_module(path, name):
+@@ -37,7 +39,7 @@
+ def source_authority(root, expected):
+     require(expected['path'] == str(HERE / 'MANIFEST.json'), 'Use this frozen scoring source manifest')
+     manifest = verify(expected, root, json_metadata=True)
+-    require(manifest['schema'] == 'composed-normalization-final-scoring-source-v1', 'Wrong final-scoring source schema')
++    require(manifest['schema'] == 'composed-normalization-final-scoring-source-v2', 'Wrong final-scoring source schema')
+     for row in manifest['files']:
+         verify({'path': str(HERE / row['path']), 'bytes': row['bytes'], 'sha256': row['sha256']}, root)
+     bindings = json.loads((HERE / 'SOURCE_BINDINGS.json').read_text())
+@@ -136,12 +138,36 @@
+             optimizer.step = original
+ 
+ 
++def _state_fingerprint(value, is_tensor):
++    """Preserve tensors and typed extra state; never drop or stringify objects."""
++    if is_tensor(value):
++        # Keep the existing tensor-only fingerprint representation unchanged.
++        return {'shape': list(value.shape), 'dtype': str(value.dtype), 'sha256': tensor_sha(value)}
++    kind = type(value)
++    if value is None:
++        return {'state_type': 'NoneType'}
++    if kind in (bool, int, str):
++        return {'state_type': kind.__name__, 'value': value}
++    if kind is float:
++        # IEEE bytes preserve signed zero and nonfinite payloads without NaN
++        # equality or JSON-number ambiguities. No numeric coercion is applied.
++        return {'state_type': 'float', 'ieee754_hex': struct.pack('>d', value).hex()}
++    if kind is bytes:
++        return {'state_type': 'bytes', 'hex': value.hex()}
++    if kind in (dict, OrderedDict):
++        return {'state_type': kind.__name__, 'items': [
++            [_state_fingerprint(key, is_tensor), _state_fingerprint(item, is_tensor)]
++            for key, item in value.items()]}
++    if kind in (list, tuple):
++        return {'state_type': kind.__name__, 'items': [_state_fingerprint(item, is_tensor) for item in value]}
++    raise TypeError('Unsupported model extra-state type: ' + kind.__module__ + '.' + kind.__qualname__)
++
+ def model_fingerprint(adapter):
+     if getattr(adapter, 'composed_producer', False):
+         return adapter.state_signature()
++    import torch
+     model = adapter.model
+-    return {name: {'shape': list(value.shape), 'dtype': str(value.dtype), 'sha256': tensor_sha(value)}
+-            for name, value in model.state_dict().items()}
++    return {name: _state_fingerprint(value, torch.is_tensor) for name, value in model.state_dict().items()}
+ 
+ 
+ def attach_metrics(torch, result, job):
