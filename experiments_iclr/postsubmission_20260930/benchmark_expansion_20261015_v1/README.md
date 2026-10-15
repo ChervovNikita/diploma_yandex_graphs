@@ -1,3 +1,43 @@
+# Current research snapshot — 15 October 2026, release 21 preparation
+
+The residual-only three-seed study is complete: mean VALID AUC **74.518 ± 2.660%**,
+versus genuine I4 **74.847 ± 0.500%**, and BCE **1.952 versus 0.890**. Removing
+BatchEnsemble factors improves AUC over factors-plus-residuals in all three
+seeds (+2.332 points mean), but losses worsen. Route ranking errors are mostly
+shared and averaging adds no AUC benefit. This is a mechanism diagnosis, not
+an I4 win or confirmed transfer.
+
+[Complete result and interpretation](pilot_20261015_residual_only_private_bn_v1/complete_results_v1/INTERPRETATION.md)
+retains all 33 banks and 39 unique paid fits. The latest three used 484 epochs,
+18,392 updates and 4,094.57 summed worker-seconds. TEST remains closed.
+
+The [six-fit specialization protocol](pilot_20261015_structural_private_risk_v1/PROTOCOL.md)
+is frozen. Three structural and three within-class permutation fits use the
+same residual/private-BN architecture, native settings and selection. The exact
+CPU producers and source/preflight checks passed. No new control fits or
+campaign roster additions are included. Launch waits for the BUDDY execution
+check to finish and a fresh root resource admission.
+
+The [literature follow-up](literature/structural_private_credit_followup_v1/NOTE.md)
+identifies ACE as direct prior work for different shared/private training credit.
+The [second-setting assessment](research/second_setting_decision_v1/NOTE.md)
+recommends Coauthor-CS/PolyFormer-Cheb preparation, with its native split's
+missing VALID classes and unmeasured exact-method time explicitly retained.
+
+Genuine composed-normalization molecular execution passed 38 updates and its
+selected-state serving path. Repaired NCN execution passed two full epochs,
+34 updates and four VALID calls. The original queued BUDDY two-epoch check is
+running; composed-normalization BUDDY qualification remains pending. These are
+engineering checks, not scientific accuracy results. The older GRU acquisition
+is the only other GPU worker. Only the dedicated allocation is authorized.
+
+The 6,460-fit campaign remains unlaunched and requires user GO. Final serving
+coverage, reliable cost/placement and any justified new recipe inclusion remain
+work to complete. Earlier dated entries below preserve their historical status;
+this snapshot and subsequent immutable receipts determine current status.
+
+---
+
 # GNNM benchmark preparation and bounded research
 
 The goal is a learnable ensemble with one shared native GNN and better

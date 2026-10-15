@@ -1,122 +1,112 @@
-# Continuation state — release20 preparation, 15 October 2026
+# Continuation state — release21 preparation, 15 October 2026
 
-Goal active and unachieved. Read ../AGENTS.md and RESEARCH_TARGET_20261015.md.
-Use only the guarded literal -2 allocation route. No77/MacLink, sudo, PDF,
-GENLINK, original-five reruns or changed original scores. Bounded pilots are
-allowed; the6460-fit campaign has no GO. Root owns Git; explicit selections only.
+Goal active and unachieved. Read ../AGENTS.md. Literal -2 allocation only;
+no77/MacLink, sudo, PDF, GENLINK, original-five reruns or changed original scores.
+Representative bounded pilots are allowed; the6460-fit campaign has no GO.
+Root owns Git; explicit selected source/scalar notes only.
 
 ## Publication
 
-Release19 pushed and verified15:11:03UTC:
-cdb8af8230d053b4eef464ce944de08861dcd229. PUSH_RECEIPT_19 saved locally.
-Release20 is preparation until COMMIT_RECEIPT_20/PUSH_RECEIPT_20 exist.
-DOC_UPDATE_RECEIPT_19 is previous mutable authority; replace ROOT_README_BLOCK_19
-with20. Root owns Git and explicitly selected source/scalar evidence only.
+Release20 committed/pushed6a6cc7c01650cdc0f5791b149bb6adbe30b9cf03 at15:29UTC.
+Release21 is preparation until COMMIT_RECEIPT_21/PUSH_RECEIPT_21 exist.
+DOC_UPDATE_RECEIPT_20 pins prior mutable documents; replace ROOT_README_BLOCK_20
+with21 exactly. Preserve all frozen packages and failed attempts.
 
-## Running science
+## Completed new scientific result
 
-Residual-only pilot: pilot_20261015_residual_only_private_bn_v1.
-SPEC a69e41b00fe751106c3584134e86ebab40ec714aa47742155763c5b97086496c;
-MANIFEST7917ff8b0bd25a02c53646080be16a3b72f561d67e8c1ff4978841ad4359fca1.
-Three seeds101/202/303, native MolBACE GIN width300,5layers, dropout.5, Adam.001,
-fullTRAIN1210/VALID151, ownBCE, first-best wholeVALIDAUC, min100/cap1000/patience50.
-Remove BE, add four zero-up rank8 residuals after AtomEncoder, private BN.
-19200 extra learned parameters; exact native initial evaluation parity passed.
-CPU qualification passed2updates/74forwards/3wholeVALID/restore in10.585s.
-Never initialize science from the engineering checkpoint.
+pilot_20261015_residual_only_private_bn_v1: all3 fits/collections complete.
+New full report at complete_results_v1/{RESULT.json,REPORT.md,INTERPRETATION.md}.
+33banks/39unique paid fits. Residual-only meanVALIDAUC74.518±2.660%, I474.847±.500;
+BCE1.952vs.890. Versus BN+BE+residual,+2.332pp(all3),BCEworseall3. VersusI4,
+AUCdifferences+3.114,-1.758,-2.344pp. No I4win,equivalence or transfer claim.
+MeanmemberAUC74.560%,poolgain-.043pp;95.54%poolreversals common toall4routes.
+Completedepochs186/149/149, selected136/9/15;18392updates,4094.573summedseconds.
+Selected collection60forwards/25.333supervisorseconds;0TRAIN. No controls rerun.
+Frozen sourceSPEC/MANIFEST remain a69e41b00fe751106c3584134e86ebab40ec714aa47742155763c5b97086496c /
+7917ff8b0bd25a02c53646080be16a3b72f561d67e8c1ff4978841ad4359fca1.
+Collection and terminal receipts in RESIDUAL_COLLECTION_*_21.json.
 
-Started14:39:43UTC, owner846365/start6088444359. At15:06:39UTC seed101 finished
-186epochs/7068updates by patience. Seed202 worker846622/start6088602138 is live;
-seed303 remains queued. Output results/residual_only_private_bn_v1. Keep
-progress score-free; PROGRESS selection metadata nests epoch under its own
-schema, so derive full epochs from completed update count/38 if necessary.
-No partial accuracy decisions. Per-fit wall limit4h; stop later seeds on failure.
+analysis/residual_gate_feasibility_v1: saved-logit CPU ceiling for existing
+alpha=.05+.8softmax gate, optimistic label-aware endpoints78.681/75.421/74.505AUC.
+No learned gate/new scores;0forwards/updates,3.766s. Seed303ceiling belowI4.
+Do not interpret common pair reversals as an absolute input-dependent gate limit.
 
-GRU owner640426/start6055039154, worker640428/start6055039165: stage2,
-29/30banks,44/48trajectories; seven-day cap. Original16GiBhost/32GiBGPU envelopes.
-These are the two active GPU workers. No third GPU worker or new remote route.
+## Next six-fit scientific study — source ready, NOT launched in this snapshot
 
-## Selected predictions after all3 fits finish
+pilot_20261015_structural_private_risk_v1.
+MANIFEST d2bb359dcfd43f945749bf38c57fd6dc82fc14a16499dc1ae370fff4099fc67c;
+SPEC f7348a4ad43e2891f328d768b1bd596c142297ea8beed12977bfbe9769e40759;
+COLLECTION_PLAN68f884a0aae025a8ceca0196553760f85c9756b0e1c9aaab8a47e74044460e3f.
+Root read protocol/run and relevant selected-analysis logic;12source checks and
+actual allocation preflight pass(STRUCTURAL_PILOT_PREFLIGHT_21.json).
+Six ordered fits:101structured/permuted,202structured/permuted,303structured/permuted.
+Native/initializer/controller unchanged from residual-only. SharedF/privateW,
+positive within-TRAIN-class atom-quartile weights. Same4forwards/2reverses/1Adam;
+no additional learned coordinates, no HPO/readout change.39paid controls reused.
+Primary descriptive signal is positive meanAUC versusBOTH uniform andpermuted;
+report allsignedBCE, member quality, commonerror repairs/harms and full costs.
+No independent confirmation, significance or novelty claim from this6fitpilot.
 
-Package pilot_20261015_residual_only_private_bn_v1/selected_VALID_addition_v1
-MANIFEST69b4a4dc376e9bdc1658b07679f790b872606f4233802ef165c6fead781e3b59.
-Root read/reviewed and6source checks passed; staged, no tensor execution.
-Bind actual END/OUTCOMES/all3 RESULT SHA values in a fresh root admission.
-Use unchanged collector and genuine original producer/transform, serially3banks.
-Reuse old30banks, do not recollect them. Then CPU analysis gives33banks/39unique
-fits and five declared contrasts: privateBN+BE+residual, privateBNbase,G0,M1,I4.
-Commands mode verifies metadata first. Preserve serving authority, BCE and all
-costs/warnings. No TEST or universal/novelity claim.
+Root must publish, bind actual commit/currentresources in fresh ADMISSION_TEMPLATE,
+and launch run.py --mode launch with its admissionSHA. One new GPUworker,4h/fit,
+stop-onfailure/noautomaticretry. BUDDY currently occupies second slot; wait for
+terminal before this launch. OriginalGRU may remain sole admitted peer.
+Afterall6successfulterminal,selected_VALID.py commands/collect/analyze gives6new
+banks,39totalbanks/45unique fits. Reuseold33anduniform3savedpredictiontensors;
+no old control recollection. Templates defer actual END/OUTCOMES/resultpins.
 
-## Completed evidence
+Producer research/structural_residual_composition_v2 manifest
+0606d36f439e7d0af9cecb64548be968b1a9940b01e2b16d3ac19b8d3b97aedc.
+Both realCPUqualifiers passed2constructors/2updates/73forwards/8reverses/3VALID.
+Newgroupdicts onAdamrestore observed; exactparameters/groups/options/defaults
+retained. Rootreview STRUCTURAL_V2_ROOT_REVIEW_21.json. V1failedafter1update,
+29forwards/4reverses/1VALID; preserve source and STRUCTURAL_CPU_OUTCOME_structured_21.
 
-Full30bank factorial: M173.32±1.17,I474.85±.50,G067.78±4.39,
-geometry71.17±2.66,correction71.76±3.91,both69.28±1.80,
-privateBN73.61±1.06,BN+geometry73.65±1.64,BN+correction72.19±1.41,
-BN+both73.03±1.61 AUC%. All36unique training fits retained.
-MatchedBN removes geometry gain(+.0366pp), correction falls1.4286pp (3/3).
-No I4 win. Source/results: pilot_20261015_bn_geometry_correction_v1/complete_results_v1.
+## Active and completed native engineering
 
-Gradient shadow audit completed186.400s/114temporaryupdates/570reversecollections,
-zeroVALID/TEST, all3 selected state/RNG/optimizer restores pass.0/456 qualifying
-harm events despite34/684 negative pairwise dots. Do not launch gradient surgery
-from this evidence. Scope: selected states and next full TRAIN epoch only.
-analysis/shared_gradient_shadow_completed_v1 contains all raw results/reports.
+OldGRU owner640426/start6055039154,worker640428/start6055039165;
+last15:41UTCstage2,29/30banks,44/48trajectories. Seven-daycap, original16GiBhost/
+32GiBGPUgrowth. No partialquality reads/restart.
 
-Fixed-weight ownBN73.614 versus common mixture68.449, +5.165pp all3seeds;
-BCE/Brier mixed.120CPUforwards/25.764s, no training. No exact recalibration claim.
-MolHIV resource check passed1029updates/1TRAIN+2VALID/613.996s; TRAIN582.446s.
-Same-setting100epochTRAINproxy16.18h, not campaign ETA. Do not repeat.
+BUDDY original queued2epoch3170update lifecycle launched16:02UTC.
+Owner847975/start6088937989;worker847979/start6088938049.
+Source qualification/portablev4_link_queued_parent_authority_repair_v1;
+output qualification/portablev3_BUDDY_queued_lifecycle_attempt01;
+current admission qualification/portablev4_BUDDY_queued_ADMISSION_21.json.
+BUDDY_LIFECYCLE_LAUNCH_21.json and OBSERVATION_21.json retain latestsnapshot.
+No new thirdCUDAworker. Actual supervisor samplesresources and caps3600s.
 
-## Engineering queue and source integration
+RepairedNCNlifecycle passed:2epochs,34updates,4VALID,3constructors,
+136TRAIN+16VALIDforwards,53.198s childwall,peakreserved8409579520bytes.
+NCN_LIFECYCLE_OBSERVATION_21.json keeps all outcome/provenance. Original failed
+claim/zero-native-workresult unchanged. Do not run NCN again.
 
-portable_runtime_authority_v4 MANIFEST
-99711f3bbbb21175ca4574daa9dc7b284b749756007169e2292218dffb6c40fc;
-qualification/portablev4_link_queued_parent_authority_repair_v1 MANIFEST
-4e4963975c243ac1e90c4fd3ce212207cc0abcce9cd12151870145193610903a.
-Root42+17checks and guarded166 source receipts+both parent descriptors+prior
-NCNfailure passed. Root first metadata check lacked CUDA_VISIBLE_DEVICES=0;
-its zero-native-work failure is retained, invocation corrected, no source change.
-Exact original NCN zero-work failure and claim remain unchanged. Deliberate repair
-uses distinct fixed claim/output. BUDDY retains its unstarted original identity.
-When a slot is free, bind current resources/peer identities and publish before
-native34NCN/3170BUDDY-update checks. No automatic retry or changed JOBs.
+Composed-normalization actual molecular qualifier PASSED38updates,selected
+producer/binder/scorer/restore,38.620s childwall. NORMALIZATION_MOLBACE_OUTCOME_21.
+Earlier transportstring SyntaxError incurredzeroexecution;retainedseparately.
+The separate composed-normalization BUDDYseed1 qualifier remains UNEXECUTED:
+1585updates,3constructors,4VALID; source20 and NORMALIZATION_QUALIFIER_INPUTS_20
+contain exactparent/rolepins. Root needs slot/resources. No new roster migration.
 
-composable_normalization_runtime_v1 implemented; MANIFEST
-518784a9e83f4ba92c4f7bff55705999a787c7a67ff69c0cc9c09b5530550d38.
-Root source tests and independent link review passed with no source blockers.
-Actual producer/helper identities, full selected envelope, private BN serving
-ownership and typed parent migration are implemented. Native behavior unverified.
-Finite qualifiers: MolBACEGIN/drop0 seed1,38updates; BUDDYseed1,1585updates;
-method interaction_input_conditionalJ. Each1epoch/3constructors/4VALID, positive
-selected-state restore and zero-TRAIN stopped resume. No TEST. Root needs current
-resources and publication before execution. Do not treat this as running residual
-pilot/drop.5 continuation. Existing role/parent lookup request assigned to resource
-agent. No roster regeneration or generic relocation (requires explicit parent).
+## Literature, next setting, existing evidence
 
-Completed36-fit scalar convergence audit: exactselector replay,5517epochs,
-0caps; allTRAIN losses fall,16/36lateAUCmeanrises,all36lateBCEworsens.0last50AUC
-records is expectedfrompatience, notstationarityproof. Evidence/extractor/final
-interpretation:analysis/completed_molbace_convergence_v1. No new training needed
-from these observations. Source/frozen first report retained, final evidence separate.
+literature/structural_private_credit_followup_v1/NOTE.md:2scopedprimaryreads,
+ACE(ICCV2021)andDecouplingRepresentationClassifier(ICLR2020). ACEexplicitly
+separates backbone/generalist andprivateexpertcredit; not ournewprinciple.
+research/second_setting_decision_v1/NOTE.md verifiesauthorCoauthor-CS/Cheb
+setting(PolyFormer),9105TRAIN/3667VALID,but6/15classesentirelyTRAIN. No exactpaid
+complete M1/I4/G0/residual controls evidenced; old40smokeupdatesnotfullfits.
+Matchedmin2000/patience100/cap10000; actualmethodtimeunmeasured. Preparebefore
+admitting any newtransferstudy; do notborrowdifferentbackbonecontrols.
 
-Buddy convergence task complete. Link independent code review complete.
-Agent combination_study_reuse_20261010 prepares actual structural residual/privateBN
-composition under research/structural_residual_composition_v1, source only.
-It reuses balanced structural and permutation supervision; six prospective fits
-would reuse uniform controls. Do not launch/choose before current3residual outcomes.
-Recommendation and19scoped source groups at research/next_quality_mechanism_20261015_v1.
-Conditional aggregation is separate lower-priority question; no combined grid.
+Earlier36fit factorial/convergence/gradient diagnoses areunchanged. No I4win.
+No gradient-surgerylaunch from0/456qualifyingharm events. Completed audit36fits/
+5517epochs,allpatience,TRAINlossfalling,all36lateBCEworsens; no blanketlongerfit
+justified. MolHIVGINVN1TRAIN582.446s,100epochproxy16.18hbeforeVALID; notcampaignETA.
 
-## Broad study
-
-6460physicalfits,7datasets,8families,27presets,25recipes;270reference,
-1080independentnative,5110shared. MatchedM1 reusesI4body0.270I4exports yield
-6730tasks/6190predictors. Actual27contracts/99proofs/43populations already prepared.
-No regeneration of unchanged authorities. Allocation mapping is preparation;
-measured3GPUplacement, final serving/native checks and reliable budget unfinished.
-All77workers disabled. PrivateBN migration affects2890candidatecontracts with
-3570definitions unchanged; originalG0 preserved and matchedBNcontrol retained.
-
-No fresh paper review until substantial supported improvement. No clear accept
-or defensible novel superiority yet. Preserve negative outcomes and keep working.
+6460proposedfits/7datasets/8families/27presets/25recipes remainunlaunched.
+270reference+1080independent+5110shared;270I4exports=>6730tasks/6190predictors.
+27contracts/99proofs/43populations prepared.2890candidate normalizationcontracts
+wouldchange,3570unchanged; migrationnotapplied. Broadreadiness/serving/3GPUmeasured
+placement/cost remainincomplete. No manuscriptreviewuntilsubstantialsupported
+paperimprovement. No acceptanceclaim. Continue research after the bounded queue.
