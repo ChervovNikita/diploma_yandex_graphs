@@ -3,58 +3,68 @@
 ## Shared-backbone ensemble research — 15 October 2026
 
 The aim is better predictions from several learned routes through one shared
-native GNN. Every compatible setting compares a native single model, original
+native GNN. Every compatible setting compares the native single model, original
 GNNM and four genuinely independent native models. Separate reference-setting
-runs check the source papers. Native operators, features, LR and WD stay fixed;
+runs check the source papers. Native operators, features, LR and WD are fixed;
 source ambiguities and longer training controllers are disclosed.
 
-### Expanded benchmark proposal
+### Complete molecular pilot
 
-The proposed roster contains **6,460 physical training fits across 7 datasets,
-8 architecture families and 27 fixed source presets**. It includes 270 separate
-source references, 1,080 independent native bodies and 5,110 shared-method fits.
-The matched single reuses independent body 0. Exact aliases are counted once.
+All **24 fits** of the MolBACE/GIN pilot finished: three paired seeds, four
+independent native models and four shared methods per seed. Each fit used
+complete TRAIN and VALID, its own first-best AUC checkpoint, and the frozen
+minimum100/cap1000/patience50 controller. Actual training lasted149–210 epochs
+per fit:3,680 whole epochs and139,840 optimizer updates in total. Elapsed pilot
+time was7.81 hours while another existing job shared the dedicated GPU.
 
-Beyond the required comparisons, the design tests task-specific embedding
-supervision, persistent structural responsibilities, private nonlinear input
-corrections, common versus route-specific context targets, learned aggregation
-and native BN state ownership. Selected ingredient combinations test whether
-these mechanisms help together. These are hypotheses and controls, with known
-prior-work ancestry; no new successful method is declared.
+| Method | Mean VALID AUC ± SD (%) | Mean BCE |
+| --- | ---: | ---: |
+| Native single | 73.32 ± 1.17 | 0.779 |
+| Independent ensemble | 74.85 ± 0.50 | 0.890 |
+| Base GNNM | 67.78 ± 4.39 | 0.719 |
+| Alignment + variance | 71.17 ± 2.66 | 0.551 |
+| Private input correction | 71.76 ± 3.91 | 0.941 |
+| Both ingredients | 69.28 ± 1.80 | 0.882 |
 
-**The giant campaign is not approved, executable or launched.** Missing native
-integrations, full-runtime/serving checks, a prospective confirmation policy
-and measured resource assignments must be completed before the user's GO.
-Only the dedicated one-GPU allocation is currently authorized.
+Private nonlinear input corrections improved base GNNM in all three seeds,
+by3.98 AUC points on average, but remained3.09 points below the independent
+ensemble on average. Their mean BCE also worsened. Alignment with a variance
+floor improved AUC in two seeds and reduced mean BCE; the combination did not
+improve on either ingredient's mean AUC. The failed interaction is retained.
 
-### Current bounded study
+These are selected validation measurements on one scaffold split. Three seeds
+do not establish a confirmed advantage or generality. The report includes every
+seed, paired differences, uncertainty assumptions, training curves and costs.
+Test scores remain closed. A frozen three-fit follow-up now tests whether
+separate running statistics for each route improve native batch normalization;
+it reuses the completed controls and has no complete result yet.
 
-The frozen 24-fit MolBACE/GIN pilot uses three paired seeds and genuine native
-independent-model controls. Each fit traverses complete TRAIN and VALID, uses
-its own selected state, and has a minimum of 100 epochs, a cap of 1,000 and
-patience of 50. TEST remains closed; all curves, failures and costs are kept.
+### Proposed broad benchmark
 
-Five fits from the first seed are complete. Selected VALID AUC is 0.73846 for
-native M1, 0.62784 for base GNNM, 0.71062 for graph alignment/variance and
-0.67729 for the private input correction. Their combination has AUC 0.68352
-and BCE 0.51682, below alignment alone on AUC. All three candidates worsen BCE
-versus base. The remaining seeds and independent ensemble are unfinished.
-This partial development signal is not a reliable method advantage, heldout
-confirmation, novelty result or significance claim.
+The proposed roster contains **6,460 physical fits across7 datasets,
+8 architecture families and27 fixed source presets**:270 source references,
+1,080 independent native bodies and5,110 shared-method fits. The matched single
+reuses independent body0. Exact method aliases are counted once. The25 method
+definitions include controls and known prior-work ingredients.
 
-A separate frozen three-fit BN follow-up waits for successful completion of
-the parent study and reuses its controls. It has no quality result yet. Native
-node, molecular and NCN bridges have passed bounded update/validation/restore
-checks; broader native/runtime/GPU readiness is recorded separately.
+The design tests task-specific embedding supervision, persistent structural
+responsibilities, nonlinear private corrections, common versus route-specific
+context targets, learned aggregation, and native BN state ownership. Four
+selected combinations measure interactions. Node, molecule and link tasks all
+retain the required native/GNNM/independent-ensemble comparisons.
 
+**The giant campaign is still pending preparation and user GO.** Missing native
+ports, full-runtime serving/recovery checks, provider/resource measurements and
+prospective confirmation decisions remain explicit. Only the dedicated
+one-GPU allocation is currently authorized. No77 deployment is claimed.
+
+- [Complete pilot results and limitations](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_molbace_v1/complete_analysis_v1/REPORT.md)
 - [Expanded design, exact counts and comparisons](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_study_design_v1/README.md)
 - [Exact native settings and replication limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_study_design_v1/NATIVE_SETTINGS.json)
-- [Current methods, code and open work](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/README.md)
-- [Partial first-seed diagnostic](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_molbace_v1/PARTIAL_SEED101_DIAGNOSTIC.md)
-- [Mechanisms and saved scientific decisions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/RESEARCH_SYNTHESIS_20261015.md)
-- [Method catalogue and historical dispositions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/catalogue/CATALOGUE.md)
+- [Current implementation and outstanding work](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/README.md)
+- [Method catalogue and retained decisions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/catalogue/CATALOGUE.md)
 - [Scoped literature conclusions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/literature/SCOPED_CONCLUSIONS.md)
-- [Statistical design audit](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/statistics_proposal_v1/AMENDMENT_PROPOSAL.md)
+- [Proposed fresh confirmation study](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/confirmation_protocol_proposal_v1/README.md)
 
 The dated sections below preserve earlier states and proposals.
 

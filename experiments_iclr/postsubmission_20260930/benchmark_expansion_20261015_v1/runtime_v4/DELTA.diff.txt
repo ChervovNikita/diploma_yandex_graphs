@@ -1,0 +1,256 @@
+--- runtime_v3/adapters.py
++++ runtime_v4/adapters.py
+@@ -10,7 +10,7 @@
+ from pathlib import Path
+ 
+ from bookkeeping import epoch_boundary_record
+-from common import inside, load_module, metadata, receipt
++from common import cpu_clone, digest, inside, load_module, metadata, receipt
+ 
+ 
+ class EpochComplete(Exception):
+@@ -20,6 +20,9 @@
+ class BaseAdapter:
+     def __init__(self, torch, job, policy, root):
+         self.torch, self.job, self.policy, self.root = torch, job, policy, Path(root).resolve()
++        self._job_authority = copy.deepcopy(job)
++        self._validation_generation = self._validation_serial = 0
++        self._same_bank_mean_cache = None
+         self.recipe = copy.deepcopy(job["recipe"])
+         self.recipe["_seed"] = job["seed"]
+         self.recipe["seed"] = job["seed"]
+@@ -74,9 +77,116 @@
+         return {"session": self.session.state(), "completed_epochs": self.completed_epochs}
+ 
+     def load_state(self, value):
++        self._invalidate_validation()
+         self.session.load_state(copy.deepcopy(value["session"]))
+         self.completed_epochs = int(value["completed_epochs"])
+         self.assert_identity()
++
++    def _invalidate_validation(self):
++        self._validation_generation += 1
++        self._same_bank_mean_cache = None
++
++    def _tensor_identity(self, value):
++        value = value.detach().cpu().contiguous()
++        return {"shape": list(value.shape), "dtype": str(value.dtype),
++                "sha256": hashlib.sha256(memoryview(value.numpy()).cast("B")).hexdigest()}
++
++    def _capture_same_call_mean(self, raw, actual):
++        """Only normalized data and optional fields from this exact native call."""
++        self._validation_serial += 1
++        self._same_bank_mean_cache = None
++        keys = ("same_bank_mean_outputs", "same_bank_mean_loss", "same_bank_mean_metrics")
++        present = [key in raw for key in keys]
++        declarations = [getattr(self.session, name) for name in ("interaction_metadata",
++            "conditional_aggregation_node_metadata", "conditional_aggregation_metadata") if hasattr(self.session, name)]
++        if not any(present):
++            if declarations:
++                raise ValueError("Declared native mean provider omitted its same-call diagnostic")
++            return  # Original ungated callback: no invented mean or extra forward.
++        if not all(present) or raw.get("VALID_scope") != "complete_source_VALID" or raw.get("TEST_accessed") is not False:
++            raise ValueError("Complete same-call native VALID mean fields and closed TEST role required")
++        if len(declarations) != 1 or self.extension_receipt is None:
++            raise ValueError("Mean diagnostics require one explicitly source-bound native extension")
++        declaration = declarations[0]
++        if declaration.get("method_id") != self._job_authority["procedure"]:
++            raise ValueError("Mean provider method differs from immutable JOB")
++        manifest_path = inside(Path(self.extension_receipt["path"]).parent / "MANIFEST.json", self.root)
++        expected_manifest = self._job_authority.get("method_settings", {}).get("manifest_sha256")
++        providers = [row for row in declaration.get("source_receipts", []) if row.get("path") == str(manifest_path)]
++        if len(providers) != 1 or providers[0]["sha256"] != expected_manifest or receipt(manifest_path) != providers[0]:
++            raise ValueError("Mean provider manifest does not match authenticated extension/JOB")
++        torch = self.torch
++        raw_ids = raw.get("VALID_node_ids", raw.get("VALID_graph_ids"))
++        if isinstance(raw_ids, list) and all(type(v) is int for v in raw_ids):
++            raw_ids = torch.tensor(raw_ids, dtype=torch.long)
++        if not torch.is_tensor(raw_ids) or raw_ids.dtype != actual["ids"].dtype or not torch.equal(
++                raw_ids.detach().cpu(), actual["ids"]):
++            raise ValueError("Mean native VALID IDs/order differ from provider-normalized actual output")
++        if "VALID_labels" in raw and self._tensor_identity(raw["VALID_labels"]) != self._tensor_identity(actual["labels"]):
++            raise ValueError("Mean native VALID labels differ from normalized provider labels")
++        mean = raw[keys[0]]
++        if not torch.is_tensor(mean) or mean.shape != actual["outputs"].shape or mean.dtype != actual["outputs"].dtype \
++                or not torch.isfinite(mean).all().item():
++            raise ValueError("Finite same-call mean must retain actual logit shape/dtype")
++        loss = float(raw[keys[1]])
++        metrics = {key: float(value) for key, value in raw[keys[2]].items()}
++        if not math.isfinite(loss) or set(metrics) != set(actual["metrics"]) or any(not math.isfinite(v) for v in metrics.values()):
++            raise ValueError("Finite same-call mean loss and native metric keys required")
++        authority = {"job_hash": digest(self._job_authority), "state_generation": self._validation_generation,
++            "validation_serial": self._validation_serial, "provider_manifest": copy.deepcopy(providers[0]),
++            "callback": copy.deepcopy(self.callback_receipt), "extension": copy.deepcopy(self.extension_receipt),
++            "ids": self._tensor_identity(actual["ids"]), "labels": self._tensor_identity(actual["labels"]),
++            "actual_logits": self._tensor_identity(actual["outputs"]), "mean_logits": self._tensor_identity(mean)}
++        sidecar = {"schema": "same-call-native-mean-VALID-v1", "role": "VALID", "complete_source_VALID": True,
++            "TEST_accessed": False, "ids": actual["ids"].detach().cpu().clone(),
++            "labels": actual["labels"].detach().cpu().clone(), "outputs": mean.detach().cpu().clone(),
++            "loss": loss, "metrics": metrics, "authority": authority,
++            "selection_uses": "actual serving result only; fixed same-bank mean is diagnostic", "extra_forward_calls": 0}
++        self._same_bank_mean_cache = cpu_clone(torch, sidecar)
++        actual["same_bank_mean_VALID"] = sidecar
++
++    def selected_mean_export(self, actual, *, job_hash, selected_epoch, selected_checkpoint, runtime_binding):
++        """Bind this same-call diagnostic to the finalizer's own loaded selection."""
++        value, cache = actual.get("same_bank_mean_VALID"), self._same_bank_mean_cache
++        if value is None and cache is None:
++            if any(hasattr(self.session, name) for name in ("interaction_metadata",
++                    "conditional_aggregation_node_metadata", "conditional_aggregation_metadata")):
++                raise ValueError("Declared mean provider has no authenticated current VALID diagnostic")
++            return None
++        if value is None or cache is None or value["authority"] != cache["authority"]:
++            raise ValueError("Missing, stale or modified same-call mean authority")
++        authority = cache["authority"]
++        if job_hash != digest(self._job_authority) or authority["job_hash"] != job_hash \
++                or authority["state_generation"] != self._validation_generation \
++                or authority["validation_serial"] != self._validation_serial \
++                or self.completed_epochs != selected_epoch:
++            raise ValueError("Selected job/epoch/state generation differs from the validated state")
++        if receipt(inside(selected_checkpoint["path"], self.root)) != selected_checkpoint:
++            raise ValueError("Selected checkpoint bytes changed")
++        if runtime_binding["callback_sha256"] != self.callback_receipt["sha256"] or runtime_binding[
++                "extension_sha256"] != self.extension_receipt["sha256"]:
++            raise ValueError("Selected runtime callback/extension authority differs")
++        expected_runtime = {name: receipt(Path(__file__).with_name(name))["sha256"] for name in
++            ("run_fit.py", "adapters.py", "bookkeeping.py", "common.py", "controllers.py", "source_rng.py")}
++        if runtime_binding["runtime_sha256"] != expected_runtime or runtime_binding["policy_sha256"] is not None \
++                or runtime_binding["dependency_sha256"] != {p["path"]: p["sha256"] for p in self.dependency_receipts}:
++            raise ValueError("Selected runtime/policy/native dependency authority differs")
++        for name, key in (("ids", "ids"), ("labels", "labels"), ("outputs", "actual_logits")):
++            if self._tensor_identity(actual[name]) != authority[key]:
++                raise ValueError("Actual selected VALID identity/logits changed after same-call capture")
++        for name, key in (("ids", "ids"), ("labels", "labels"), ("outputs", "mean_logits")):
++            if self._tensor_identity(value[name]) != authority[key]:
++                raise ValueError("Mean selected VALID identity/logits changed after capture")
++        if value["loss"] != cache["loss"] or value["metrics"] != cache["metrics"]:
++            raise ValueError("Mean selected VALID summary changed after capture")
++        return {"schema": "own-selected-same-bank-mean-VALID-v1", "role": "VALID", "TEST_accessed": False,
++            "job_hash": job_hash, "job_id": self._job_authority["id"], "selected_epoch": selected_epoch,
++            "selected_checkpoint": copy.deepcopy(selected_checkpoint), "runtime_binding": copy.deepcopy(runtime_binding),
++            "ids": cache["ids"].clone(), "labels": cache["labels"].clone(), "raw_logits": cache["outputs"].clone(),
++            "validation": {"role": "VALID", "complete_source_VALID": True, "records": len(cache["ids"]),
++                "loss": cache["loss"], "metrics": copy.deepcopy(cache["metrics"]), "TEST_accessed": False},
++            "same_call_authority": copy.deepcopy(authority), "extra_forward_calls": 0,
++            "selection_changed": False, "diagnostic_only": True}
+ 
+     def metadata(self):
+         return {"family": self.job["family"], "callback_receipt": self.callback_receipt,
+@@ -96,6 +206,7 @@
+ 
+ class NodeAdapter(BaseAdapter):
+     def __init__(self, torch, job, policy, root):
++        original_job_authority = copy.deepcopy(job)
+         job = copy.deepcopy(job)
+         split = str(job.get("split", 0))
+         bindings = job["recipe"]["official_split_bindings"]
+@@ -107,8 +218,10 @@
+         job["recipe"]["official_split_bindings"]["0"] = selected
+         self.selected_split_binding = selected
+         super().__init__(torch, job, policy, root)
++        self._job_authority = original_job_authority
+ 
+     def train_epoch(self):
++        self._invalidate_validation()
+         result = self.session.train_update()
+         loss = float(result["loss"])
+         if not math.isfinite(loss):
+@@ -121,6 +234,7 @@
+                 "activation_checkpoint_recomputations_not_counted": bool(result.get("activation_checkpointing"))}
+ 
+     def validate(self):
++        self._same_bank_mean_cache = None
+         torch = self.torch
+         result = self.session.validate()
+         ids = torch.nonzero(self.session.data.val_mask, as_tuple=False).flatten()
+@@ -129,11 +243,14 @@
+         if len(outputs) != len(ids) or not torch.isfinite(outputs).all().item():
+             raise ValueError("Complete finite official node VALID required")
+         accuracy = float(outputs.argmax(-1).eq(labels).float().mean())
+-        return {"outputs": outputs, "labels": labels, "ids": ids.detach().cpu(),
++        value = {"outputs": outputs, "labels": labels, "ids": ids.detach().cpu(),
+                 "loss": float(result["loss"]), "metrics": {"accuracy": accuracy},
+                 "role": "VALID", "complete_source_VALID": True, "TEST_accessed": False}
++        self._capture_same_call_mean(result, value)
++        return value
+ 
+     def train_diagnostic(self):
++        self._invalidate_validation()
+         torch = self.torch
+         self.model.eval()
+         with torch.no_grad():
+@@ -194,6 +311,7 @@
+             return batch.to(self.session.device), self.torch.tensor(positions, dtype=self.torch.long), skipped
+ 
+     def train_epoch(self):
++        self._invalidate_validation()
+         if self._iterator is not None:
+             raise ValueError("Nested epochs are forbidden")
+         self._seen, self._raw_batches, self._skipped = [], 0, 0
+@@ -231,6 +349,7 @@
+ 
+     def train_diagnostic(self):
+         """Native source's shuffled TRAIN eval: genuine loader RNG consumption."""
++        self._invalidate_validation()
+         torch, session = self.torch, self.session
+         self.model.eval()
+         predictions, labels = [], []
+@@ -252,6 +371,7 @@
+                 "native_shuffled_TRAIN_loader_RNG_consumed": True}
+ 
+     def validate(self):
++        self._same_bank_mean_cache = None
+         torch = self.torch
+         result = self.session.validate()
+         ids = torch.tensor(result["VALID_graph_ids"], dtype=torch.long)
+@@ -262,11 +382,13 @@
+         outputs = result["outputs"].detach().cpu()
+         if len(ids) != len(outputs) or not torch.isfinite(outputs).all().item():
+             raise ValueError("Complete finite source VALID graph outputs required")
+-        return {"outputs": outputs, "labels": labels, "ids": ids,
++        value = {"outputs": outputs, "labels": labels, "ids": ids,
+                 "loss": float(result["loss"]),
+                 "metrics": {k: float(v) for k, v in result["metrics"].items()},
+                 "role": "VALID", "complete_source_VALID": True,
+                 "native_skipped_batches": result["native_skipped_batches"], "TEST_accessed": False}
++        self._capture_same_call_mean(result, value)
++        return value
+ 
+     def state(self):
+         if self._iterator is not None:
+--- runtime_v3/run_fit.py
++++ runtime_v4/run_fit.py
+@@ -219,6 +219,9 @@
+             post_validation = getattr(adapter, "after_epoch_diagnostics", lambda: None)()
+             decision = selector.observe_validation(train["epoch"], raw_validation) if job["family"] == "link" \
+                 else selector.observe(train["epoch"], validation["metrics"])
++            result.update(completed_epochs=selector.completed_epoch, selected_epoch=selector.selected_epoch,
++                          best_validation_metric=selector.best_metric,
++                          training_epochs_this_invocation=selector.completed_epoch-completed_at_invocation_start)
+             payload = {"schema": "native-full-epoch-recovery-v1", "job_hash": job_hash,
+                        "adapter": cpu_clone(torch, adapter.state()), "selector": selector.state(),
+                        "global_rng": cpu_clone(torch, global_rng(torch, device=device)), "optimizer_calls": observer.state(),
+@@ -237,9 +240,6 @@
+                    "new_selected_receipt": selected_receipt}
+             event(output / "CURVE.jsonl", row)
+             atomic_json(output / "PROGRESS.json", {"job_id": job["id"], "job_hash": job_hash, **row})
+-            result.update(completed_epochs=selector.completed_epoch, selected_epoch=selector.selected_epoch,
+-                          best_validation_metric=selector.best_metric,
+-                          training_epochs_this_invocation=selector.completed_epoch-completed_at_invocation_start)
+         stop_reason = decision["stop_reason"]
+         selected_path = output / "selected.pt"
+         if selector.selected_epoch is None and job["family"] == "link" and policy.track == "source_reference":
+@@ -272,6 +272,13 @@
+                   "ids": final_valid["ids"].detach().cpu(), "labels": final_valid["labels"].detach().cpu(),
+                   "raw_logits": final_valid["outputs"].detach().cpu(), "validation": valid_summary,
+                   "source_metadata": result["source_metadata"], "policy": job["policy"]}
++        mean_exporter = getattr(adapter, "selected_mean_export", None)
++        if mean_exporter is not None:
++            mean_export = mean_exporter(final_valid, job_hash=job_hash,
++                selected_epoch=selected["selector"]["selected_epoch"],
++                selected_checkpoint=export["selected_checkpoint"], runtime_binding=runtime_binding)
++            if mean_export is not None:
++                export["same_bank_mean_VALID"] = mean_export
+         if job["family"] == "link":
+             if (final_valid.get("complete_VALID_positive_records"), final_valid.get("complete_VALID_negative_records")) != (60084, 100000):
+                 raise ValueError("Selected link export requires the complete official VALID queries")
