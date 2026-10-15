@@ -1,3 +1,9 @@
+# Latest state — 15 October, release 26 preparation
+
+The shared-backbone accuracy goal remains unachieved. Three of six structural MolBACE fits completed by 18:04 UTC; the fourth is running. The prepared PubMed/Cheb comparison is the default next scientific priority after complete outcomes and measured costs. The pairwise 21-fit study is frozen and preflighted but unlaunched. A repaired selected-node checkpoint replay passed with exact predictions and no training. The 6,460-fit campaign still requires user review and GO.
+
+See [current direction](research/CURRENT_DIRECTION_20261015.md) and [current continuation state](SESSION_STATE.md). Dated material below preserves earlier preparation.
+
 # Current research snapshot — 15 October 2026, release 25 preparation
 
 We are testing trainable routes through one shared native GNN, with small

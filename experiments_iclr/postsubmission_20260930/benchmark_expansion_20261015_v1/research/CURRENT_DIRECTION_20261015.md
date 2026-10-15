@@ -38,7 +38,7 @@ TEST remains closed.
 | --- | --- | --- |
 | MolBACE structural responsibilities | Does making small private corrections specialize by TRAIN graph size improve on uniform responsibilities and a shuffled-assignment control? Native shared parameters still receive the ordinary loss. | Six full fits running over three seeds; existing controls reused. Interpret only after all six finish. |
 | PubMed / native PolyFormer-Cheb | Does the residual and responsibility design work on a different backbone and node-classification task without batch normalization? Compare native M1/I4, original GNNM, uniform, structural and shuffled variants. | Source and three CPU lifecycle checks complete. Seven GPU engineering checks wait for the molecular study. Budgeting the proposed 24 fits requires measured production costs. |
-| MolBACE pairwise supervision | Can routes learn different useful ranking comparisons while keeping the native classification loss? Compare common, structural and shuffled pair weights; include independently trained native ensembles with the same common ranking loss. | All four CPU lifecycle checks passed. TRAIN-only support is adequate under the native sampler. Proposed 21 fits are not launched. |
+| MolBACE pairwise supervision | Can routes learn different useful ranking comparisons while keeping the native classification loss? Compare common, structural and shuffled pair weights; include independently trained native ensembles with the same common ranking loss. | All four CPU lifecycle checks passed. The complete 21-fit comparison is frozen and allocation preflight passed; the CUDA cost probe is prepared. No scientific fit has launched. |
 | Broad reference-wrapper campaign | Which methods transfer across the fixed native paper settings? Preserve source reproductions, ordinary independent ensembles and original GNNM throughout. | 6,460 proposed fits; serving coverage and measured placement/cost remain incomplete. Requires user review and GO. |
 
 The pairwise idea uses the model's existing logits. No teacher or independently
@@ -50,7 +50,18 @@ establishes pairwise AUC learning and shared/private specialist rankers; the
 [literature note](pairwise_competence_prior_followup_v1/NOTE.md) records the
 remaining empirical question and unresolved prior-art leads.
 
-We will select the next scientific study using completed comparisons and
+Our default next priority is the existing PubMed comparison, after complete
+MolBACE outcomes and measured GPU costs permit it. This tests another native
+backbone and prediction task without batch normalization. It is more informative
+for transfer than another round on the same 151 molecular validation records.
+The pairwise study remains a coherent secondary hypothesis: it directly trains
+ranking decisions and gives the independent ensemble the same auxiliary loss.
+PubMed cannot validate that ranking-specific mechanism. The
+[priority assessment](next_study_priority_20261015_v1/NOTE.md) records the
+alternatives, fixed comparisons and conditions that would reject each claim.
+Neither setting is untouched confirmation. No frozen protocol is changed.
+
+We will admit the next scientific study using completed comparisons and
 measured cost. We will not tune a running study after individual seed results.
 Improvement must appear in the actual served task metric, with member quality,
 probability loss, convergence, parameter count and costs reported alongside it.

@@ -1,0 +1,109 @@
+--- final_selected_scoring_v4/backend.py
++++ final_selected_scoring_v5/backend.py
+@@ -5,11 +5,13 @@
+ not launch workers, allocate another GPU, train, choose checkpoints or push Git.
+ """
+ from contextlib import contextmanager
++from collections import OrderedDict
+ import copy
+ import importlib.util
+ import json
+ from pathlib import Path
+ import sys
++import struct
+ import time
+ import traceback
+ from .contracts import (authorize, digest, inside, readout_policy, receipt, require,
+@@ -37,7 +39,7 @@
+ def source_authority(root, expected):
+     require(expected['path'] == str(HERE / 'MANIFEST.json'), 'Use this frozen scoring source manifest')
+     manifest = verify(expected, root, json_metadata=True)
+-    require(manifest['schema'] == 'final-selected-scoring-source-v4', 'Wrong final-scoring source schema')
++    require(manifest['schema'] == 'final-selected-scoring-source-v5', 'Wrong final-scoring source schema')
+     for row in manifest['files']:
+         verify({'path': str(HERE / row['path']), 'bytes': row['bytes'], 'sha256': row['sha256']}, root)
+     bindings = json.loads((HERE / 'SOURCE_BINDINGS.json').read_text())
+@@ -132,9 +134,34 @@
+             optimizer.step = original
+ 
+ 
++def _state_fingerprint(value, is_tensor):
++    """Preserve tensors and typed extra state; never drop or stringify objects."""
++    if is_tensor(value):
++        # Keep the existing tensor-only fingerprint representation unchanged.
++        return {'shape': list(value.shape), 'dtype': str(value.dtype), 'sha256': tensor_sha(value)}
++    kind = type(value)
++    if value is None:
++        return {'state_type': 'NoneType'}
++    if kind in (bool, int, str):
++        return {'state_type': kind.__name__, 'value': value}
++    if kind is float:
++        # IEEE bytes preserve signed zero and nonfinite payloads without NaN
++        # equality or JSON-number ambiguities. No numeric coercion is applied.
++        return {'state_type': 'float', 'ieee754_hex': struct.pack('>d', value).hex()}
++    if kind is bytes:
++        return {'state_type': 'bytes', 'hex': value.hex()}
++    if kind in (dict, OrderedDict):
++        return {'state_type': kind.__name__, 'items': [
++            [_state_fingerprint(key, is_tensor), _state_fingerprint(item, is_tensor)]
++            for key, item in value.items()]}
++    if kind in (list, tuple):
++        return {'state_type': kind.__name__, 'items': [_state_fingerprint(item, is_tensor) for item in value]}
++    raise TypeError('Unsupported model extra-state type: ' + kind.__module__ + '.' + kind.__qualname__)
++
++
+ def model_fingerprint(model):
+-    return {name: {'shape': list(value.shape), 'dtype': str(value.dtype), 'sha256': tensor_sha(value)}
+-            for name, value in model.state_dict().items()}
++    import torch
++    return {name: _state_fingerprint(value, torch.is_tensor) for name, value in model.state_dict().items()}
+ 
+ 
+ def attach_metrics(torch, result, job):
+@@ -262,7 +289,7 @@
+                 'selected_epoch': epoch, 'role_contract': task['role_contract'],
+                 'campaign_GO': go_pin, 'selection_rule': task['selection_rule'],
+                 'new_human_action_claimed': False, 'TEST_used_for_selection': False})
+-            require(model_fingerprint(adapter.model) == original, 'Inference changed selected parameters/buffers')
++            require(model_fingerprint(adapter.model) == original, 'Inference changed selected parameters/buffers/extra state')
+             # Return to the exact selected RNG, not the replay's advanced loader state.
+             adapter.load_state(copy.deepcopy(selected['adapter']))
+             runtime.restore_rng(torch, selected['global_rng'], device=job.get('device', 'cuda:0'))
+@@ -275,7 +302,7 @@
+             require(len(served['ids']) + len(skipped) == role['population']['records']
+                     and tensor_sha(served['ids']) == role['population']['ids_sha256'],
+                     'Final serving did not retain the complete official/native-eligible population')
+-            require(model_fingerprint(adapter.model) == original, 'TEST inference changed selected parameters/buffers')
++            require(model_fingerprint(adapter.model) == original, 'TEST inference changed selected parameters/buffers/extra state')
+             attach_metrics(torch, served, job)
+         payload = {'schema': 'own-selected-TEST-logits-v2', 'role': 'TEST', 'TEST_accessed': True,
+                    'identity': copy.deepcopy(spec['identity']), 'job_id': job['id'], 'job_hash': spec['job_hash'],
+--- final_selected_scoring_v4/check_metadata.py
++++ final_selected_scoring_v5/check_metadata.py
+@@ -6,6 +6,7 @@
+ import sys
+ from .contracts import readout_policy, selected_role_contract, validate_role_contract
+ from .role_serving import buddy_inference_context
++from .check_fingerprint import check_recursive_fingerprint
+ 
+ HERE = Path(__file__).resolve().parent
+ 
+@@ -159,14 +160,16 @@
+     ownership = check_buddy_context_ownership()
+     conversion = check_native_split_conversion()
+     free_names = check_native_helper_free_names()
+-    report = {'schema': 'final-selected-scoring-source-metadata-checks-v4', 'status': 'PASS',
++    full_state = check_recursive_fingerprint()
++    report = {'schema': 'final-selected-scoring-source-metadata-checks-v5', 'status': 'PASS',
+               'scientific_method_preset_routes': covered, 'registry_overlay_runtime_routes': aliases,
+               'unknown_readout_refused': True, 'ten_literal_node_TEST_populations_required': True,
+               'wrong_split_and_CAL_refused': True, 'prediction_aggregation_has_no_labels_input': True,
+               'top_level_model_imports': 0, 'training_calls': 0, 'datasets_opened': 0,
+               'checkpoints_opened': 0, 'TEST_payloads_opened': 0, 'native_executions': 0,
+               'numerical_or_source_parity_qualified': False,
+-              'BUDDY_private_BN_context': ownership, 'Collab_native_conversion':conversion, 'copied_helper_free_names':free_names}
++              'BUDDY_private_BN_context': ownership, 'Collab_native_conversion':conversion, 'copied_helper_free_names':free_names,
++              'recursive_full_model_state_fingerprint': full_state}
+     (HERE / 'LOCAL_CHECKS.json').write_text(json.dumps(report, indent=2) + '\n')
+     print(json.dumps(report))
+ 
