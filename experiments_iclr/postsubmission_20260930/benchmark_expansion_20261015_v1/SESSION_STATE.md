@@ -1,4 +1,4 @@
-# Continuation state — release 07, 15 October 2026
+# Continuation state — release 08, 15 October 2026
 
 ## Scope and Git
 
@@ -188,3 +188,35 @@ from actual source/state defects and reuse valid functional/full-epoch evidence.
 Do not multiply numerical reruns. A separate nine-fitBN×geometry×correction
 source/spec is being prepared from the completed molecular diagnosis. It is not
 part of6460 and has not launched. Root owns all Git and native admissions.
+
+
+## Release08 update (supersedes earlier launch status)
+
+Release07 exact-ref verified commit:c58a59ffe00c75e81082973139234a41b907c09b.
+RootBUDDY gate839910 passed111.36s. RootNCNC gate840005/child840009 passed181.32s.
+See qualification/BUDDY_PRODUCTION_SEED1_QUALIFICATION_07.json and
+qualification/NCNC_RUNTIME_V6_QUALIFICATION_07.json plus their fetched reports.
+NCNC peak allocated12,673,890,304B/reserved26,698,842,112B. No retries or TEST.
+The only earlier scientific queue progressed to29/30fitbanks and44/48trajectories
+at09:22UTC. Its full output is private_GRU_acquisition_root_20261011_v1/acquisition_v1.
+Read only progress until the complete family is ready under its frozen criteria.
+
+The nine newBN/geometry/correction fits are prepared and staged in
+pilot_20261015_bn_geometry_correction_v1. SPEC:eacd22be19a1cc108d816cd062f87dde902a4ad67aab6fe31301730c663c2d6b.
+Source review completed by root: unchanged parent ingredient train_update,
+privateBNv3 around run_member, shared native model/optimizer identities, exact
+state binding. Fifteen completed controls reused. No extra learnedBN weights.
+Its default is source-only preflight. Read future ROOT_ADMISSION and launch
+receipts before calling it running. Do not add9 to6460.
+
+Readiness coverage found73oldsmoke failures all recorded floating replay
+tolerance failures with exact initial state/RNG restore and post-replay RNG
+checks passed. No mass rerun. Actual coverage and19obligations(not19newruns)
+are under expanded_readiness_coverage_v1. Remaining molecularv4 lifecycle source
+and BUDDY compiler overlay are assigned to combination_study_reuse_20261010.
+Flow-matching method reading is retained separately, with one-stepprototype
+regression equivalence and no unsupported experiment/novelty claim.
+
+This document is prepared for release08. Check COMMIT_RECEIPT_08.json and
+PUSH_RECEIPT_08.json to establish publication. Root owns Git. Full benchmark
+continues to require completed preparation, user review and explicitGO.

@@ -159,3 +159,21 @@ paper progress; no acceptance verdict is requested or promised.
 - [Retained method catalogue](catalogue/CATALOGUE.md)
 - [Selected prior-result index](prior_result_index.json)
 - [Current continuation state](SESSION_STATE.md)
+
+
+## Release08 preparation update
+
+The actual BUDDY production conditional seed1 check passed:2updates,3wholeVALID,
+2constructions,32forwards and111.36seconds. The actual NCNCv6CUDA lifecycle also
+passed:2wholeepochs,34updates,4wholeVALID,3constructions,2selectedexports and
+181.32seconds. Both preserve zeroTEST access and zero giant-campaign launches.
+The remaining molecular/current-runtime and other source/resource branches are
+mapped in expanded_readiness_coverage_v1. The90BUDDY context descriptions still
+await the new compiler overlay at this snapshot.
+
+The nine-fitBN×geometry×correction source/spec is frozen in
+pilot_20261015_bn_geometry_correction_v1, with15completed factorial controls
+reused. This representative development study is separate from6,460. Consult
+its root admission and START/END receipts for actual launch state. Its outcomes
+will be preserved even if the combination is worse. The new descriptive
+member/pooling gap calculation is in analysis/member_pool_gap_decomposition_v1.

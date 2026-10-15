@@ -43,8 +43,11 @@ must consider individual prediction quality as well as diversity.
 
 Reconstructing all three private-BN checkpoints gave mean member AUC 72.63%,
 followed by a 0.99-point gain from averaging. The member-quality gap to I4 was
-smaller in each seed. The existing geometry/correction interaction therefore
-needs a matched normalization check before drawing a broader conclusion.
+smaller in each seed. A separate nine-fit study is now frozen: geometry, private
+correction, and both together under private BN, each at the same three seeds.
+It reuses all15 completed factorial controls. Source and settings are ready,
+with launch status recorded separately. No result for this combination is
+implied. The original6,460-fit benchmark count is unchanged.
 
 These are selected validation results on one scaffold split. Three seeds do
 not establish a confirmed advantage or transfer. Test scores remain closed.
@@ -68,11 +71,12 @@ retain the required native/GNNM/independent-ensemble comparisons.
 The compiler now provides **6,370 concrete job descriptions**, with 90 blocked
 on BUDDY's nonzero-seed input construction. Native NCNC/BUDDY context and
 interaction checks, BUDDY private-BN checks, and NCN context CUDA restoration
-checks have passed. The production dispatcher now implements durable claims, resume and at most two
-admitted jobs per GPU. Its 38 subprocess tests passed. Native execution and
-resource qualification remain incomplete. BUDDY production successors and the
-link runtime repair are prepared for finite native checks. These source and
-engineering results are not new accuracy measurements.
+checks have passed. The production dispatcher implements durable claims, resume and at most two
+admitted jobs per GPU. Its 38 subprocess tests passed. The production BUDDY
+provider passed its two-update/whole-validation/restore check. NCNC completed
+two native epochs, interruption/resume and selected-checkpoint exports on CUDA
+(34 updates, four validations). Other runtime/resource coverage remains open.
+These checks are not accuracy measurements.
 
 **The full campaign is awaiting preparation and user GO.** The launch plan
 contains 6,460 fit tasks and 270 export-only tasks but has started none. Only
