@@ -159,3 +159,16 @@ useful differences between predictions after the uniform residual model
 improved member ranking but supplied almost no averaging benefit. The original
 GNNM and independent ensemble comparisons remain visible in the full reports.
 No complete new result or large-campaign GO is implied by this launch.
+
+## Next setting and one complementary hypothesis
+
+The PubMed/Cheb wrapper passed actual full-graph CPU update/restore checks for
+all three variants. A proposed24-fit comparison includes native single/I4,
+original GNNM and uniform/structured/shuffled residual routes. GPU timing and
+a finite resource budget remain necessary before this study can start.
+
+A separate prospective molecular idea teaches each route positive–negative
+score ordering, while retaining classification loss. Common ranking loss,
+shuffled pair responsibilities and independent models trained with the same
+auxiliary are required controls. It is not part of the6,460-fit roster and
+has no implementation or launch yet. Accuracy gains remain to be demonstrated.

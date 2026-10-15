@@ -1,4 +1,4 @@
-# Continuation state — release22 preparation, 15 October 2026
+# Continuation state — release24 preparation, 15 October 2026
 
 Goal active and unachieved. Read ../AGENTS.md. Literal -2 allocation only;
 no77/MacLink, sudo, PDF, GENLINK, original-five reruns or changed original scores.
@@ -7,11 +7,12 @@ Root owns Git; explicit selected source/scalar notes only.
 
 ## Publication
 
-Release21 committed and pushed 7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f
-at 16:19:36 UTC. COMMIT_RECEIPT_21 and PUSH_RECEIPT_21 confirm publication.
-Release22 is preparation until its own commit/push receipts exist.
-DOC_UPDATE_RECEIPT_21 pins remote mutable documents. Replace root README
-block21 with block22 exactly. Preserve all frozen packages and failed attempts.
+Release23 committed and pushed afd61de7cd4ff4fe889d2ee1d7f1ee91232dcf4a
+at16:54:11UTC. COMMIT_RECEIPT_23 and PUSH_RECEIPT_23 confirm publication.
+Release24 is preparation until its own commit/push receipts exist.
+DOC_UPDATE_RECEIPT_24_FINAL pins the final remote mutable documents once present.
+Root README block24 is current. Preserve all
+frozen sources and failures; only source/scalar evidence enters Git.
 
 ## Completed new scientific result
 
@@ -140,21 +141,62 @@ other-split scores cannot serve as controls. The new complete setting needs
 24 cold trajectories over three seeds: twelve independent native bodies plus
 four shared banks per seed. Native M1 reuses I4 body0. No fit launch admitted.
 
-Agent combination_study_reuse_20261010 is now implementing ONLY the new
-PubMed/Cheb residual composition in research/pubmed_cheb_residual_composition_v1.
-Root must review before source publication, actual engineering execution or
-scientific fits. It uses lin1-output rank8 residuals, no BE/BN, native groups,
-TRAIN-degree responsibility and the same-operation uniform/permuted controls.
-No SSH, data/model/tensor execution, GPU or Git delegated. Do not publish its
-in-progress files in release22. Root owns all Git and launches.
+## Current PubMed source and execution status
 
-STRUCTURAL_PROGRESS_LATE_22 verifies first fit reached 53 full epochs / 2014
-Adam transitions at 16:33 UTC. Observed peak allocated CUDA 373115392 bytes,
-reserved 509607936 bytes. No partial quality interpreted. Future cost estimates
-must use the new two-reverse timing, not uniform-parent time alone.
+research/pubmed_cheb_residual_composition_v1 is frozen, reviewed and published
+in release23, manifest1c5d3669cec6681bbfbda045a9497805805c287ab3e03b4aca5aa65c0e3cf0dc.
+Root and independent source reviews found no actionable blocker. Actual native
+CPU qualification now PASSED for uniform/structured/permuted. Each performed
+2constructors,2full-graph Adam updates,3wholeVALID,57nativeattempts including
+checkpoint recomputation and8reverse collections including diagnostics.
+Totals:6updates,9VALID,171nativeattempts,24reverses. Initial native predictions,
+fresh-restored VALID and optimizer/restore semantics passed. Actual learned counts
+are592435native+8192private=600627,1.383%extra. NoBN. NoTEST/scientificselector.
+PUBMED_CPU_OUTCOME_{uniform,structured,permuted}_23.json preserve full evidence;
+PUBMED_CPU_SUMMARY_24.json gives costs. Childtimes103.931/106.219/109.433seconds.
+Do not repeatCPU. Diagnostic costs include extra derivatives and two retained
+adapters, not production/GPU throughput. All3supervisors terminated successfully.
+launch_pubmed_cpu_23.py and PUBMED_CPU_LAUNCH_*_23 retain bounded invocations.
 
-Immediate next steps: finish release22 notes/publication, keep six-fit study
-running, perform source work while both GPU slots are occupied. After all-six
-success use the frozen collection procedure, then evaluate every signed result
-under the existing protocol. Review the exact next-setting composition and
-qualify it when resources allow. The giant campaign still has no GO.
+research/pubmed_cheb_transfer_driver_v1 is frozen and root-reviewed:
+manifest a6c3bfadc459c2b2afe24e28c80e7365f5f9e0328241687aae66377f89d82d28.
+It implements24coldfits/18banks,12native+12shared,own-selected collector,
+per-class mean/SD, repairs/harms and same-runtime saved I4/M1 reuse.11source
+checks pass; actual allocation preflight passes0.809s with0models/0fits.
+PUBMED_TRANSFER_PREFLIGHT_24.json preserves the result. No scientific launch.
+research/pubmed_cheb_production_cost_probe_v1 is frozen/root-reviewed:
+manifest dab18f5eae00ad249bd3f9a1b855d51e53d7a0e3a8de55e70b3a3ab8ad9e36d2.
+It measures oneconstructor,2productionupdates and2VALID perM1/G0/uniform/structured,
+with no diagnosticderivatives. Both packages publish in release24 when receipts
+confirm. No24-fit admission/budget yet; actual GPU costs remain necessary.
+
+pubmed_gpu_engineering_queue_24.py waits for the running six-fit study to
+finish successfully, then acquires the existingGPUslot. Its7serial engineering
+invocations are3CUDA lifecyclechecks plus4productioncostprobes. They add
+14updates,17VALID,10constructors; no scientific fits/TEST. Each has900s limit,
+10s cleanup; stop on first failure, no retry. Own reservations24GiBhost/32GiBGPU
+are checked after knownGRU growth, with at most1olderGPUpeer. Queue waitswithout
+model/GPUcontext. Root publishes/pushes exactsource before launch. Check actual
+PUBMED_GPU_QUEUE_LAUNCH_24.json and remotequalification/pubmed_cuda_queue_24/
+QUEUE.json for whether it has launched/completed; do not launch twice. Root and
+link agent reviewed its process cleanup and terminal/slot/resource conditions.
+Both currentGPUworkers are untouched. PUBMED_SOURCE_REVIEW_24 records scope.
+
+research/pairwise_competence_synthesis_v1 is a prospective alternative, not
+implemented or admitted. One new scoped primary read:Gao-Zhou1208.0645v4,
+pairwise logisticAUC ancestry. It proposes positive label-independent symmetric
+pair responsibilities on native scalar ranking scores, retainingBCE. Common-pair,
+permuted-role and nativeM1/I4 same-auxiliary controls are required.21newfits would
+be needed for3seeds; none launched. No novelty/accuracyguarantee. Current6fits and
+PubMedprotocol are unchanged. Store primary downloads offGit, retain notes/pins.
+
+STRUCTURAL_PROGRESS_LATE_23 at17:00:51UTC:fit0structured101 completed149epochs,
+5662updates,2022.729workerseconds,patiencestop;fit1permuted101 livePID848977 /
+start6089255026,25epochs/950updates. Remaining4unstarted;ENDabsent. No partial
+quality inspected. Owner848485/start6089052668 remains authoritative. GRU progress
+still29/30banks,44/48trajectories. Observation delay doesnotjustifyrestart.
+
+Next:finish reviewed source/preparation release24, continue exact running queue.
+Afterall6successfulterminal, use frozen collection/analysis with actualpins.
+Then assess every signed result before selecting the next bounded study. The
+6460fitcampaign stillhasnoGO; no fresh manuscriptreview/acceptanceclaim warranted.

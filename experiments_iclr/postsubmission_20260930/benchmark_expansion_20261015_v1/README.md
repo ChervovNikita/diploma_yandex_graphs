@@ -512,3 +512,24 @@ finite native qualification commands. Root source checks and an
 [independent code review](analysis/composable_runtime_independent_review_v1/REPORT.md)
 found no actionable blocker. Actual molecular and BUDDY execution is still
 pending; neither source checks nor this review establishes native success.
+
+## 15 October, release24 preparation: PubMed native execution
+
+All three residual variants passed full-graph CPU update/restore checks.
+`PUBMED_CPU_SUMMARY_24.json` links all outcomes and costs: six optimizer updates,
+nine whole-VALID calls, initial native parity and fresh restore. Actual learned
+parameters are592435 native plus8192 private. These are engineering results,
+not training quality. GPU execution/cost and a separately admitted24-fit pilot
+remain pending. The code is published in release23.
+
+The current MolBACE six-fit study continues under its frozen protocol. The
+separate pairwise-competence note proposes a task-ranking objective, including
+matched independent-ensemble objective controls; it launches no new runs and
+changes no ongoing study. See`research/pairwise_competence_synthesis_v1/NOTE.md`.
+
+The24-fit PubMed source package and isolated production-cost probe are now
+implemented, reviewed and source-checked. Actual allocation preflight validates
+all24 descriptors without a model or fit. A bounded engineering queue is
+prepared to wait for the current six-fit study, then qualify CUDA behavior and
+measure production costs; its launch receipt determines actual execution.
+The24-fit pilot itself remains unlaunched and unbudgeted.

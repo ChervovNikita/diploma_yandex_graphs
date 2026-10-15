@@ -84,6 +84,22 @@ used different native settings. No transfer fits have started. A separate
 proper-loss/readout hypothesis addresses probability quality, with no claim
 that an NLL gain alone would meet the accuracy-over-I4 goal.
 
+The PubMed implementation is now source-reviewed and has passed all three
+full-graph CPU checks: uniform, structured and shuffled responsibilities. The
+checks exercised six training updates and nine validation passes, including
+fresh checkpoint restore. Actual parameter overhead is **8,192 / 592,435 =
+1.38%**. GPU cost measurement and full training remain pending; these checks
+provide no accuracy result.
+
+A separate prospective idea directly supervises positive–negative score
+orderings while retaining the native classification loss. It includes
+independent ensembles trained with the same auxiliary, so a better loss alone
+cannot be mistaken for an advantage of sharing. It has not been implemented
+or trained.
+
+- [Full-graph implementation checks and costs](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/PUBMED_CPU_SUMMARY_24.json)
+- [Ranking-supervision hypothesis and required controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/pairwise_competence_synthesis_v1/NOTE.md)
+
 ### Broad benchmark preparation
 
 The existing proposal contains **6,460 physical fits across 7 datasets,
