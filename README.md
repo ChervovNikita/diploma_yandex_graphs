@@ -2,200 +2,119 @@
 
 ## Shared-backbone ensemble research — 15 October 2026
 
-We are developing several trainable routes through one native GNN, with small
-additional parameter cost. Each compatible setting compares the native single
-model, original GNNM and four independently trained native models. The current
-residual and responsibility studies have **no confirmed quality advantage over
-independent ensembles**; earlier setting-specific findings remain in the history.
+Our goal is a trainable ensemble around one native GNN, with small parameter
+overhead and better prediction quality than both a single model and four
+independently trained native models. Native source settings remain the reference.
+**The current molecular studies do not establish a reliable advantage over the
+independent ensemble.** Earlier setting-specific findings remain in the history.
 
-### Latest completed comparison
+### Latest complete result: useful specialization has a competence cost
 
-The MolBACE/GIN studies now contain **39 unique completed fits and 33 prediction
-banks**, with three paired seeds and the full official TRAIN/VALID split.
-Native operators, features, learning rate and weight decay are unchanged.
-Every fit uses its first-best validation-AUC checkpoint under the frozen
-minimum 100 / maximum 1,000 / patience 50 controller. TEST remains closed.
+The completed MolBACE/GIN comparison contains **45 unique fits and 39 prediction
+banks**, with three paired optimizer seeds on the full official TRAIN/VALID
+roles. TEST remains closed. These are development results on one repeatedly
+examined scaffold split: 1,210 training and 151 validation molecules.
 
-| Method | Mean VALID AUC ± sample SD (%) | Mean BCE |
+| Method | VALID AUC mean ± sample SD (%) | Mean BCE |
 | --- | ---: | ---: |
 | Native single | 73.32 ± 1.17 | 0.779 |
 | Independent four-model ensemble | 74.85 ± 0.50 | 0.890 |
-| Original GNNM | 67.78 ± 4.39 | 0.719 |
-| GNNM + alignment/variance | 71.17 ± 2.66 | 0.551 |
-| GNNM + residual correction | 71.76 ± 3.91 | 0.941 |
-| GNNM + both ingredients | 69.28 ± 1.80 | 0.882 |
+| Original boundary GNNM | 67.78 ± 4.39 | 0.719 |
 | GNNM + private BN state | 73.61 ± 1.06 | 1.086 |
-| Private BN + alignment/variance | 73.65 ± 1.64 | 1.122 |
-| Private BN + correction | 72.19 ± 1.41 | 0.816 |
-| Private BN + both | 73.03 ± 1.61 | 1.030 |
+| GNNM + private BN + residual corrections | 72.19 ± 1.41 | 0.816 |
 | Residual-only routes + private BN | 74.52 ± 2.66 | 1.952 |
+| Residual routes + graph-size responsibilities | 74.47 ± 0.81 | 1.330 |
+| Residual routes + shuffled responsibilities | 72.11 ± 2.90 | 1.673 |
 
 Higher AUC means better ranking; lower BCE means better probability loss.
-These are selected validation results from one small, repeatedly examined
-scaffold split. They do not establish transfer or statistical equivalence.
-All seeds, losses, unsuccessful combinations and costs are retained.
+All other completed combinations, individual seeds and failures are retained
+in the linked complete reports.
 
-The newest method replaces the BatchEnsemble factors with four rank-eight
-additive corrections after the native input encoder. Their initial output is
-zero, so all routes start with the native model's function. They share the GNN
-weights and BN affine parameters, and keep separate BN running statistics.
-There are **19,200 extra learned parameters: 1.0183%** of the native GIN.
+The residual-only method replaces the boundary BatchEnsemble factors with
+four rank-eight additive corrections after the native input encoder. Their
+initial output is zero, preserving the native initial function. GNN weights
+and BN affine parameters are shared; BN running statistics are route-specific.
+The corrections add **19,200 learned parameters, or 1.0183%**.
 
-Removing the factors improved AUC over factors-plus-residuals in all three
-seeds (+2.33 points on average), while worsening BCE. The result is still
-0.33 points below I4 on average, with much greater seed variation. Individual
-routes have mean AUC 74.56%, but averaging contributes −0.04 points. About
-95.54% of pool ranking errors are shared by every route. The next objective
-is useful specialization while preserving member quality.
+The new specialization experiment assigns private learning responsibilities
+using TRAIN graph-size quartiles within each class. Shared parameters receive
+the ordinary loss. A within-class shuffle provides a matched control for the
+association with graph structure. Architecture, optimizer, serving and selection
+are fixed across these three residual arms.
 
-New analysis of every completed bank locates the probability-loss problem:
-residual-only worsens loss on positive molecules and improves it on negatives
-in all three seeds. At a fixed diagnostic threshold of 0.5, it misses
-105/95/78 of 130 positives, versus I4's 67/46/60. The five largest individual
-loss increases account for only 12–38% of net excess BCE. Ranking recovery
-therefore does not imply reliable probability estimates. The observed TRAIN/
-VALID prevalence difference is reported without fitting a validation correction.
+**The declared primary criterion failed:** structure improved mean AUC over the
+shuffle (+2.36 points), but not over uniform responsibilities (−0.05 points).
+The signed structured-minus-uniform changes were −3.96, +1.14 and +2.67 points.
+No statistical equivalence, generalization or novelty claim follows.
 
-A complete fixed-readout check now applies probability averaging to all 33
-banks. Residual-only BCE changes 1.952035→1.950576, while I4 improves
-0.890168→.820155; residual AUC decreases slightly. The tested averaging change
-therefore does not repair this bank. No serving rule was selected or refitted.
+The analysis nevertheless identifies a specific tradeoff. Averaging improved
+from −0.04 to **+0.45 AUC points** relative to mean route quality, and common
+member ranking errors fell from 664.7 to 519.3. Mean route AUC fell from 74.56%
+to 74.01%, cancelling the pooling benefit. Across all aligned pairs, mean strict
+repairs (326.0) were offset by harms (327.3). The next research question is how
+to preserve competent routes while creating useful complementary errors.
 
-- [Fixed-pooling comparison and interpretation](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/residual_positive_bce_pooling_v1/complete_results_v1/INTERPRETATION.md)
+Each new fit completed 149 epochs and stopped by the unchanged validation
+patience rule; none hit its cap. Validation stopping does not prove optimization
+stationarity. The six-fit training owner took 3.38 hours. Complete individual
+training, collection and analysis costs remain available.
 
-- [Class-specific errors and confidence analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_probability_failure_v1/INTERPRETATION.md)
-
-- [New results, paired differences, uncertainty and costs](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_residual_only_private_bn_v1/complete_results_v1/INTERPRETATION.md)
-- [Earlier complete factorial and error analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_bn_geometry_correction_v1/complete_results_v1/INTERPRETATION.md)
+- [Complete interpretation, signed effects and limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/structural_private_risk_complete_31/INTERPRETATION.md)
+- [All 39 banks and per-seed comparisons](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/structural_private_risk_complete_31/REPORT.md)
+- [Frozen specialization protocol](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_structural_private_risk_v1/PROTOCOL.md)
 - [Convergence audit of the preceding 36 fits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_molbace_convergence_v1/FINAL_INTERPRETATION.md)
+- [Probability-loss diagnosis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_probability_failure_v1/INTERPRETATION.md)
+- [Fixed probability pooling did not repair the residual bank](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/residual_positive_bce_pooling_v1/complete_results_v1/INTERPRETATION.md)
 
-### Current specialization study
+### Next scientific comparisons
 
-The running six-fit study compares uniform route supervision with graph-size
-responsibilities and a within-class shuffled-assignment control. Shared
-parameters receive the native unweighted loss; only the small private
-corrections receive the weighted loss. The same mean-logit serving rule and
-native training settings are retained. Six new fits reuse all paid controls. The source was published in commit
-`7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`, and training started on the
-authorized allocation at 16:21 UTC. At 19:39 UTC, five of six fits had completed and the sixth had reached 131 full epochs. We will interpret the comparison after all six fits finish. No partial
-accuracy result is used to change the methods or stopping rules.
+**PubMed / native PolyFormer-Cheb:** the frozen 24-fit study compares native
+M1/I4, original GNNM and uniform/structured/shuffled residuals. It changes the
+prediction task and backbone and has no BN. All three CPU and all seven CUDA
+lifecycle/cost checks passed. The shared residual adds 8,192 parameters (1.38%).
+Minimum 2,000 / cap 10,000 epochs and patience 100 are fixed; full validation
+runs every epoch. Conditional TRAIN+VALID timing projections are roughly
+10–12 hours at the minimum, excluding checkpoint I/O and setup. Scientific
+launch remains separate from these checks. PubMed is previously encountered
+development data; its minority VALID class has only 72 nodes.
 
-ACE (ICCV 2021) already separates shared and specialist gradient credit. That
-principle is attributed to prior work. Our empirical question is whether the
-association with graph structure improves these shared GNN routes. A learned
-readout remains a separate possibility: fixed-bank oracle bounds show limited
-room, without demonstrating a trainable gate.
+Two other prepared hypotheses remain distinct: task-ranking supervision with
+matched independent-ensemble objective controls, and learned private weight
+noise against fixed noise. The latter passed real CPU update/restore/noise
+replay checks; it has no accuracy result. A literature review is also examining
+intermediate task supervision to improve member competence. Existing ideas are
+credited to prior work; combining them does not itself establish novelty.
 
-- [Frozen six-fit protocol](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_structural_private_risk_v1/PROTOCOL.md)
-- [Closest prior work and claim limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/literature/structural_private_credit_followup_v1/NOTE.md)
-- [Why route quality precedes more diversity](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/next_quality_mechanism_20261015_v1/RECOMMENDATION.md)
-- [Next setting: PubMed / PolyFormer-Cheb, 24-fit preparation](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/second_setting_protocol_v1/DECISION.md)
-- [Probability-quality hypothesis and its limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/quality_specialization_synthesis_v1/SYNTHESIS.md)
+- [Frozen PubMed comparison and diagnostics](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/pubmed_cheb_transfer_driver_v1/README.md)
+- [Measured PubMed costs and current admission recommendation](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/pubmed_cheb_fit_admission_candidate_v2/REPORT.md)
+- [Pairwise competence proposal and controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/molbace_pairwise_study_v1/README.md)
+- [Learned private-noise proposal and prior work](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/stochastic_private_adapter_audit_v1/NOTE.md)
 
-The next source preparation uses the native PubMed/Cheb setting, without BN.
-Its fixed VALID split has class counts 72, 1,919 and 1,952. All classes occur,
-but the smallest has only 1.83% of the records. We retain the source split and
-selection, report per-class results, and disclose prior PubMed development.
-The proposed comparison requires 24 new fits because previous PubMed methods
-used different native settings. No transfer fits have started. A separate
-proper-loss/readout hypothesis addresses probability quality, with no claim
-that an NLL gain alone would meet the accuracy-over-I4 goal.
+### Broad benchmark: prepared roster, runtime completion pending
 
-The PubMed implementation is now source-reviewed and has passed all three
-full-graph CPU checks: uniform, structured and shuffled responsibilities. The
-checks exercised six training updates and nine validation passes, including
-fresh checkpoint restore. Actual parameter overhead is **8,192 / 592,435 =
-1.38%**. GPU cost measurement and full training remain pending; these checks
-provide no accuracy result.
+The proposed campaign has **6,460 physical fits across 7 datasets, 8 architecture
+families and 27 fixed source presets**. It includes 270 separate paper-source
+references, 1,080 independent native fits and 5,110 shared fits. M1 reuses I4
+body 0. Another 270 ensemble-export tasks produce 6,730 total tasks.
 
-A separate prospective idea directly supervises positive–negative score
-orderings while retaining the native classification loss. It includes
-independent ensembles trained with the same auxiliary, so a better loss alone
-cannot be mistaken for an advantage of sharing. Its source is now implemented, including genuine native controls and a TRAIN-only support inspector. All four CPU checks have now passed, including two training updates and fresh checkpoint restore per variant. The complete proposed 21-fit comparison is frozen and its allocation preflight passed. Its full-epoch CUDA cost probe is prepared; no scientific fit has run.
+Datasets are CiteSeer, PubMed, Coauthor-CS, Coauthor-Physics, MolBACE, MolHIV and
+ogbl-collab. Architectures are PolyFormer, GCN, GCN with a virtual node, GIN, GIN
+with a virtual node, NCN, NCNC and BUDDY. Task-specific methods have explicit
+controls; method support is not inferred from a successful smoke test.
 
-The default next scientific priority is the prepared **PubMed/Cheb transfer**.
-Another task and native backbone without BN provide a stronger scope test than
-further decisions on the same small MolBACE VALID split. Pairwise competence
-remains a separate hypothesis. Both settings have prior development exposure;
-neither constitutes independent confirmation. Actual full outcomes and costs
-will determine admission.
+Normalization migration, reporting and dispatch metadata are generated and
+cross-checked. Selected NCNC replay now passes with exact saved predictions and zero training.
+Composed BUDDY execution is running. Reporting witnesses, custody review and
+measured placement/budget remain outstanding. Two jobs per GPU is a proposed maximum; actual
+concurrency requires measured admission. Only the dedicated allocation is
+currently enabled. **The full campaign requires the user's review and GO.**
 
-- [Next-study priority, controls and falsifiers](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/next_study_priority_20261015_v1/NOTE.md)
+- [Plain-language campaign design](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/BENCHMARK_OVERVIEW.md)
+- [Method coverage and controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/benchmark_review_map_v1/README.md)
+- [Native source presets and hyperparameters](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_study_design_v1/NATIVE_SETTINGS.json)
+- [Remaining runtime checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/READY_NEXT_RUNTIME_CHECKS_30.md)
 
-- [Current research direction and decisions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/CURRENT_DIRECTION_20261015.md)
-- [Actual pairwise support and CPU qualification](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/PAIR_QUALIFICATION_SUMMARY_25.json)
-- [Pairwise implementation and bounded checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/molbace_pairwise_competence_v1/README.md)
-- [Pairwise prior work and claim limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/pairwise_competence_prior_followup_v1/NOTE.md)
-- [Full-graph implementation checks and costs](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/PUBMED_CPU_SUMMARY_24.json)
-- [Ranking-supervision hypothesis and required controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/pairwise_competence_synthesis_v1/NOTE.md)
-
-### Broad benchmark preparation
-
-The existing proposal contains **6,460 physical fits across 7 datasets,
-8 architecture families and 27 fixed source presets**: 270 source references,
-1,080 independent native fits and 5,110 shared fits. M1 reuses I4 body 0.
-An additional 270 export tasks give 6,730 tasks and 6,190 prediction rows.
-New research pilots are separate from this unlaunched roster.
-
-The 27 contracts, 99 split proofs and 43 evaluation populations are prepared.
-The genuine composed-normalization molecular pipeline passed 38 updates,
-restore, selection and serving. The repaired NCN pipeline passed two epochs,
-34 updates and four whole-VALID calls. The original BUDDY pipeline also passed two epochs, 3,170 updates, four VALID
-calls, restore and selected-state export. Its child wall time was 1,066.69
-seconds. The separate composed-normalization BUDDY check remains pending.
-These are execution checks, not scientific model-quality results.
-
-The selected node-state replay now passes: one restored model reproduced all
-665 VALID predictions exactly, with four native forwards and zero training.
-The preceding failed attempt exposed legitimate non-tensor checkpoint metadata;
-the scorer now preserves and checks that state. Both attempts remain recorded.
-NCNC selected serving and the composed BUDDY check are still pending.
-Final serving coverage, measured three-GPU placement and a reliable total
-budget remain incomplete. One measured MolHIV GIN-VN TRAIN epoch took 582.45
-seconds; its 100-epoch TRAIN proxy is 16.18 worker-hours before validation.
-It is not a campaign ETA. All 18.77 workers remain disabled. The large run
-requires the user's review and explicit GO.
-
-- [Plain-language benchmark design](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/BENCHMARK_OVERVIEW.md)
-- [Method coverage and matched controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/benchmark_review_map_v1/README.md)
-- [Native source settings](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_study_design_v1/NATIVE_SETTINGS.json)
-- [Runner preparation and outstanding work](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/README.md)
-
-The dated sections below preserve earlier states and proposals.
-
-The complete structural collector is now prepared to follow all six scientific fits
-and all seven PubMed engineering checks, using the original six selected-state
-collectors and analyzer. It reuses the 33 existing banks and performs no training.
-The [bounded history audit](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/shared_error_credit_audit_v1/NOTE.md)
-found no additional distinct common-error rule to launch now; the existing
-transfer and pairwise studies remain the informative next questions.
-
-### Additional preparation
-
-The next prepared quality hypothesis learns small, route-specific weight-noise
-scales during training. It samples the private down matrices while zero-start
-up matrices preserve the native initial function. Prediction uses the learned
-means. A fixed-noise control tests whether learning the scales helps beyond
-ordinary perturbation and anchoring. This builds on BLoB and Rank-1 BNN; it is
-a proposed six-fit comparison, with no new accuracy result or novelty claim.
-PubMed transfer remains next.
-
-- [Stochastic-adapter hypothesis, controls and limitations](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/stochastic_private_adapter_audit_v1/NOTE.md)
-
-The normalization migration, reporting tables and dispatch plan have now been
-generated on the allocation. They retain 6,460 fit definitions and 270 ensemble
-exports, with 2,890 composed candidates. All 27 reporting profiles agree with
-the dispatch descriptors and native dependencies. These are preparation
-results: native runtime coverage, measured resource placement and user GO
-remain outstanding. No campaign worker has started. The composed scorer
-preserves its original prediction rule.
-
-Both private-noise implementations passed real CPU checks on the full native
-TRAIN/VALID roles: two optimizer updates and fresh state/noise restoration per
-arm. The checks confirm that learning signals reach the noise scales after
-the initially zero residual becomes active. They provide no accuracy evidence.
-
-- [Actual fixed/learned-noise implementation checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/STOCHASTIC_CPU_SUMMARY_30.json)
+The dated sections below preserve earlier project states.
 ## Real-data smoke checks — 14 October 2026
 
 Completed **167 distinct configuration checks** across the redesigned study:

@@ -126,3 +126,20 @@ PubMed transfer comparison remains the next scientific priority.
 No massive-run admission follows from metadata success. Composed BUDDY, NCNC
 selected serving, runtime reporting witnesses, custody review and measured
 resource placement still require completion. All 18.77 execution is disabled.
+
+## Complete structural comparison: competence and complementarity tradeoff
+
+All six fits and the full 39-bank analysis finished. The frozen criterion failed:
+structured-minus-uniform mean AUC −0.0488 points; structured-minus-shuffled +2.3565.
+I4 remains higher on average by 0.3785 points. Positive pooling gain in every
+structured seed and fewer common errors accompany lower average route quality.
+Thus preserving competence while building complementary routes is now a
+concrete hypothesis to investigate, rather than assuming disagreement helps.
+See [full interpretation](../analysis/structural_private_risk_complete_31/INTERPRETATION.md).
+
+Keep the already frozen PubMed/Cheb transfer unchanged. Its seven CUDA checks
+passed; measured full-study TRAIN+VALID proxies are 10–12 hours near the minimum
+horizon, with checkpoint/setup overhead additional. Root will admit a bounded
+run after the remaining scheduled runtime check. Intermediate task supervision
+is under scoped literature review as a separate future competence intervention.
+Do not fold it into the frozen transfer or claim it novel by itself.

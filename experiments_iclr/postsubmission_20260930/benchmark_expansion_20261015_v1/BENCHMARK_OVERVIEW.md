@@ -201,3 +201,22 @@ PubMed transfer comparison remains the next scientific priority.
 No massive-run admission follows from metadata success. Composed BUDDY, NCNC
 selected serving, runtime reporting witnesses, custody review and measured
 resource placement still require completion. All 18.77 execution is disabled.
+
+## Release31: complete structural comparison and measured transfer costs
+
+The six-fit structural study and selected-state analysis are complete: 39 banks
+from 45 unique fits, no warnings, no TEST. The frozen primary criterion failed.
+Structured AUC 74.469% improves on shuffled 72.112%, but remains just below
+uniform 74.518% and I4 74.847%. Averaging benefit improves from −0.043 to +0.455 points,
+while mean member AUC falls from 74.560% to 74.014%; repairs and harms nearly cancel.
+See [complete interpretation](analysis/structural_private_risk_complete_31/INTERPRETATION.md).
+
+All seven PubMed CUDA lifecycle/cost checks passed. The frozen 24-fit study
+remains unchanged. Conditional TRAIN+VALID projections are 10.08–12.16 hours
+at 2,000 epochs and 50.34–60.73 hours at 10,000, before checkpoint I/O/setup. The
+resource candidate is closed until root admission; no full-campaign GO follows.
+
+NCNC selected CUDA replay passed in 12.54 seconds: one construction/restore,
+four encoder forwards, eight predictor calls, one whole VALID pass and zero
+TRAIN updates; saved logits and same-bank mean match exactly. The composed
+BUDDY check is running separately. Runtime checks are engineering evidence.
