@@ -25,7 +25,10 @@ epochs per fit, totaling 3,680 epochs and 139,840 updates. Elapsed time was
 | Alignment + variance | 71.17 ± 2.66 | 0.551 |
 | Private input correction | 71.76 ± 3.91 | 0.941 |
 | Both ingredients | 69.28 ± 1.80 | 0.882 |
-| Private BN running state, separate three-fit follow-up | 73.61 ± 1.06 | 1.086 |
+| Private BN running state | 73.61 ± 1.06 | 1.086 |
+| Private BN + geometry | 73.65 ± 1.64 | 1.122 |
+| Private BN + correction | 72.19 ± 1.41 | 0.816 |
+| Private BN + both | 73.03 ± 1.61 | 1.030 |
 
 Private input corrections improved base GNNM in all three seeds, but remained
 below I4 on average. Combining corrections with geometry underperformed each
@@ -43,10 +46,21 @@ must consider individual prediction quality as well as diversity.
 
 Reconstructing all three private-BN checkpoints gave mean member AUC 72.63%,
 followed by a 0.99-point gain from averaging. The member-quality gap to I4 was
-smaller in each seed. A separate nine-fit study started on the allocation at 09:36 UTC: geometry, private
-correction, and both together under private BN, each at the same three seeds.
-It reuses all 15 completed factorial controls and runs one new fit at a time.
-At 13:44 UTC, eight fits were complete and the ninth was running; partial quality scores remain unread. The original 6,460-fit benchmark count is unchanged.
+smaller in each seed. The separate nine-fit study has now completed all three ingredients under
+private BN, reusing the 15 factorial controls. It used 1,373 full epochs and
+52,174 optimizer updates, totaling 4.27 summed worker-hours. All fits stopped
+by patience after 149–178 epochs. Nine selected-state collections and the
+complete 30-bank analysis also finished, without TEST access.
+
+With matched private normalization, geometry changes mean AUC by only +0.04
+points, while correction reduces it by 1.43 points in all three seeds. Their
+combination is 0.59 points below private BN alone. The interaction becomes
+positive, but this does not imply a better predictor. Geometry's increased
+averaging benefit offsets weaker members; I4 retains higher mean member AUC
+and higher pooled AUC. These fixed recipes establish no improvement over I4.
+
+[Complete factorial results, costs and interpretation](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_bn_geometry_correction_v1/complete_results_v1/INTERPRETATION.md).
+The proposed 6,460-fit campaign count is unchanged.
 
 A completed saved-prediction check compared logit and probability averaging
 for every completed method across all three seeds. Probability averaging raised
@@ -96,6 +110,21 @@ must therefore be interpreted together with target fit and actual prediction
 quality. The exact derivation and prior-method comparison are preserved in the
 [context analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/literature/context_target_novelty_followup_v1/REPORT.md).
 
+### Next research directions
+
+The history review distinguishes genuine native-I4 comparisons from equipped
+or factorized controls. A small WikiCS/SAGE gain did not transfer to GCN/GAT;
+larger FiLM and Penn94 contrasts do not prove a gain over unmodified native I4.
+The resulting priorities are small native-initialized additive routes with
+BatchEnsemble optional, identifiable task responsibilities, and matched learned
+aggregation when useful alternatives exist. None is a supported novelty claim.
+
+The next diagnostic will measure actual shared and private Adam displacements
+on complete TRAIN epochs. It tests whether the shared update harms routes after
+accounting for their private progress. This adds no serving parameters. In
+parallel, a minimal residual-only comparison is being prepared using paid
+controls. Both remain separate from the unlaunched broad campaign.
+
 ### Proposed broad benchmark
 
 The proposal contains **6,460 physical fits across 7 datasets, 8 architecture
@@ -129,8 +158,9 @@ metadata failures and their repairs are retained. All native runtime modules
 are unchanged by the latest repair. The default ownership is a preparation
 map, not the final three-GPU workload division.
 
-Before the large run, the complete nine-fit study will inform a consistent
-normalization policy for the extensions and their controls. Original GNNM
+Before the large run, the completed nine-fit study informs a consistent
+normalization policy for the extensions and their controls; the precise
+per-architecture migration is being reviewed. Original GNNM
 remains unchanged. Native evaluation-population preparation now covers all 27
 presets, 99 preset/split proofs and 43 distinct populations. It accessed TEST
 metadata without scoring. The original Collab TEST file was recovered from its
@@ -148,7 +178,7 @@ is preserved with its repair.
 
 Three finite CUDA checks remain queued: NCN and BUDDY lifecycles plus a MolHIV
 GIN-VN resource measurement. They retain the previously fixed jobs and total
-4,233 optimizer updates. They wait for the scientific study to release a slot.
+4,233 optimizer updates. The MolHIV check is now running in the released slot; NCN/BUDDY remain queued.
 Native final-serving qualification and measured three-GPU placement remain
 incomplete. Source-setting training and validation scores alone do not verify
 a paper's reported test metric.

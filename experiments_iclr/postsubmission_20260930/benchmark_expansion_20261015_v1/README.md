@@ -61,11 +61,23 @@ all three selected checkpoints without training. Mean member AUC reached 72.63%,
 with a 0.99-point gain from averaging. Each seed improved mean member AUC over
 base GNNM while remaining below its independent control. This motivates checking
 geometry and corrections under matched private normalization before rejecting
-their combination. The nine-fit follow-up started on the allocation at 09:36 UTC on 15 October. It
-tests geometry, corrections and both together under private BN, with the same
-three seeds and 15 completed factorial controls. It runs one new fit at a time.
-The 13:44 UTC observation confirms eight of nine complete and the ninth running; no partial quality scores have been read. The scope and reporting criteria
-were frozen before launch; it remains separate from the 6,460-fit campaign.
+their combination. The nine-fit follow-up is now complete. All seeds and all 15 reused factorial
+controls are in the [complete results](pilot_20261015_bn_geometry_correction_v1/complete_results_v1/INTERPRETATION.md).
+New fits used 1,373 full epochs and 52,174 updates, or 4.27 summed worker-hours;
+all stopped by patience after 149–178 epochs. Nine new route collectors and
+all 30 prediction banks were analyzed with zero TEST access.
+
+With private BN fixed, geometry reaches 73.65 ± 1.64% AUC, correction
+72.19 ± 1.41%, and both 73.03 ± 1.61%, against private BN alone
+73.61 ± 1.06% and I4 74.85 ± 0.50%. Geometry's earlier gain becomes +0.04
+points, and correction's becomes −1.43 in all three seeds. The interaction
+changes sign to +0.81, but the combination still loses 0.59 points to neither
+ingredient. Mean BCE is 1.122/0.816/1.030, respectively; preserve these tradeoffs.
+
+Geometry under private BN lowers mean member AUC from 72.63% to 72.19%, while
+raising the averaging benefit from 0.99 to 1.47 points. I4 gives 73.41% member
+AUC and 1.44 points from averaging. The near-tie therefore does not demonstrate
+better individual learning. No combination is promoted as a native-I4 win.
 
 The [completed fixed-aggregation comparison](analysis/complete_fixed_aggregation_v1/REPORT.md)
 now includes all three seeds and all completed methods, including I4. Averaging
@@ -103,7 +115,8 @@ The [normalization design note](research_next_decision_v1/DESIGN_IMPLICATION.md)
 identifies a decision to resolve before committing the large compute budget.
 Original GNNM stays unchanged. If private BN is adopted for an extension, its
 mechanism controls must use the same policy, and private-BN GNNM must remain a
-reference. The complete nine-fit study will inform that decision. The current
+reference. The completed nine-fit study informs that decision; the exact per-architecture
+policy migration remains under review. The current
 roster is unchanged; three seeds on one molecular setting do not justify a
 universal normalization rule.
 
@@ -357,3 +370,25 @@ from unimplemented gradient-surgery proposals. No completed PCGrad, CAGrad,
 MGDA or GradNorm intervention was found in the audited record. Whether actual
 shared Adam steps harm competent routes remains an open hypothesis. Private BN
 changes inference running state; it does not settle that training question.
+
+## Research continuation after the completed factorial
+
+The [history shortlist](research/quality_history_shortlist_v1/REPORT.md) audits
+native versus equipped/factorized controls and preserves successful and failed
+transfer outcomes. It was written before interpreting the complete factorial;
+its old correction gain is qualified by the completed matched-BN result above.
+Native-initialized additive routes with optional BE factors remain an untested
+mechanism, not a conclusion from equipped-I4 comparisons.
+
+The [shared-update proposal](analysis/shared_gradient_private_progress_proposal_v1/PROPOSAL.md)
+first diagnoses actual Adam displacement and private progress on three complete
+TRAIN epochs. Root authorized implementation of that finite diagnostic, without
+VALID/TEST scoring or a new full training grid. Any later projection comparison
+must show prediction utility beyond known PCGrad/projection controls; a local
+first-order bound alone is insufficient. A minimal residual-only comparison
+using exact completed controls is also being prepared.
+
+The MolHIV GIN-VN whole-epoch resource check started at 14:01 UTC on the allocation.
+It measures 1,029 fixed updates and two full VALID passes, without TEST. Its
+one-epoch score is an execution check, not scientific efficacy evidence. The
+older private-GRU acquisition remains running. Neither job starts the campaign.

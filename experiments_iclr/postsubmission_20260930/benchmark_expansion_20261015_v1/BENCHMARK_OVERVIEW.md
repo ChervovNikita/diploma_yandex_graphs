@@ -7,7 +7,7 @@ they can outperform four separately trained copies of the same native model.
 
 The current proposal contains **6,460 training runs**. It is being implemented
 and checked; the full campaign waits for your review and GO. The completed
-24-run molecular pilot, completed three-run BN follow-up and running nine-fit
+24-run molecular pilot, completed three-run BN follow-up and completed nine-fit
 normalization/ingredient study are separate development studies. They do not replace any of the proposed benchmark runs.
 
 ## The comparisons made in every setting
@@ -108,7 +108,7 @@ The current authorization allows only the dedicated allocation. Deployment to
 completion time or dividing6,460 runs across three GPUs. Fit counts alone do
 not measure GPU work.
 
-## Preparation update — 15 October, 13:44 UTC
+## Preparation update — 15 October, 14:02 UTC
 
 Native final evaluation-population metadata is complete for all 27 presets and
 43 distinct populations. No TEST predictions or metrics were computed. The
@@ -120,3 +120,10 @@ passed eight real orchestration checks with metadata fixtures. Neither proves
 cross-task native readiness. The remaining three queued CUDA checks retain 4,233
 fixed optimizer updates; measured placement across the future three GPUs is
 still pending. The giant campaign remains unrun.
+
+The completed factorial shows that geometry/correction gains depend strongly
+on the normalization baseline. Under matched private BN, neither ingredient
+nor their combination improves mean AUC over I4. The proposal will keep
+original GNNM and use explicit matched normalization controls; the exact
+source-policy update is pending review. No benchmark fit count or source
+hyperparameter has been changed by this finding.

@@ -1,4 +1,4 @@
-# GNNM continuation state — release15 preparation, 15 October 2026
+# GNNM continuation state — release16 preparation, 15 October 2026
 
 Read ../AGENTS.md and RESEARCH_TARGET_20261015.md. Allocation only via literal
 -2 route and sole GPU identity. No77/MacLink, sudo, host changes, unrelated files,
@@ -7,30 +7,39 @@ representative pilots authorized; full6460-fit campaign GO absent. Root owns Git
 
 ## Publication
 
-Last pushed commit is release14:0c7b5482cb483ea6141a80f4e45c12d4145e5a39,
-verified12:56:58UTC. Release15 is preparation until COMMIT_RECEIPT_15 and
-PUSH_RECEIPT_15 exist. Mutable predecessor hashes:DOC_UPDATE_RECEIPT_14.
-Replace exact ROOT_README_BLOCK_14 with15, retaining earlier dated sections.
-Use explicit selection; never add the whole aggregation workspace. Raw data,
-checkpoints, logits and full generated metadata stay remote. publish_selected_v3
-adds explicit source.patch support; patch whitespace exclusions remain structural.
+Last pushed commit is release15:e1d45eaf747d0fab1a59ce5e42a61746ee55942d,
+verified13:58:43UTC. Release16 is preparation until COMMIT_RECEIPT_16 and
+PUSH_RECEIPT_16 exist. Mutable predecessor hashes:DOC_UPDATE_RECEIPT_15.
+Replace exact ROOT_README_BLOCK_15 with16, retaining earlier sections.
+Root owns explicit Git selections. Raw tensors/data stay remote.
+Release15 original publication transport timed out after staging; exact staged
+bytes preserved. Detached recovery exposed harmless trailing whitespace in
+immutable SADE extracted text. Root excluded only that exact pinned data file
+from lint, checked all code, committed199files and verified the pushed ref.
+Failures/recovery are saved; do not rerun or reset the publication.
 
-## Live science
+## Science completion and live jobs
 
-PROGRESS_METADATA_23 at13:44:52UTC verifies four exact live identities:
-BN owner840429/ticks6086623979,study840431/ticks6086623991;
-GRU owner640426/ticks6055039154,worker640428/ticks6055039165.
-BN8/9complete; ninth4066updates. No partial score reads. GRUstage2,29/30banks,
-44/48trajectories. Both CUDA slots occupied; GPU98%,2026MiB. Recheck actual
-processes before scheduling. Do not restart on observation timeout.
+BN9/9terminal success at13:54UTC; original owner/study absent. All9selected
+route collectors complete68.70s supervisor/180VALIDforwards; complete30bank
+analysis complete7.56sCPU. BN_GEOMETRY_COMPLETE_16 and complete_results_v1
+contain all factorial outcomes, matched nativeI4, costs and interpretation.
+No partial promotion and no TEST. Do not recollect or retrain paid controls.
 
-BN output:E/results/bn_geometry_followup_v1; SPEC
- eacd22be19a1cc108d816cd062f87dde902a4ad67aab6fe31301730c663c2d6b.
-After all9successful terminal outcomes, read full original REPORT. Bind actual
-END/OUTCOMES/REPORT hashes to collection_launch_v1, reserve one CUDA slot,
-retain GRU identity and collect9new selected banks sequentially. Then use
-complete_route_analysis_v2 for30banks/36unique fits. Reuse completed controls.
-No partial promotion, retries or tolerance-driven recollection.
+MolHIV current-portable resource check launched14:01UTC:
+timeout owner845177/start6088213514, CUDA child845178. Source:
+qualification/portablev3_molhiv_gin_vn_resource_v1/qualify.py.
+Output:qualification/portablev3_MolHIV_GIN_VN_resource_attempt01.
+At14:02:46UTC(PROGRESS_METADATA_25), owner live and128/1029updates complete.
+One fullTRAIN plus2wholeVALID;30minbound; no efficacy claim. Log:
+MOLHIV_RESOURCE_16.log. Read terminal RESULT and owner state; never restart
+because observation expired. Current GPU slots are MolHIV and olderGRU.
+
+GRU owner640426/ticks6055039154,worker640428/ticks6055039165 remains live.
+Stage2,29/30banks,44/48trajectories. Last blockGFI16:fit0done593updates,
+fit1done282,fit2at162/stale6 at14:02UTC.7daycap. Do not read partial scores.
+Its1.15GBRSS/936MiBGPU is below existing16GiBhost/32GiBGPU envelope.
+Normal kernel caches are allowed; no cache clearing or host changes.
 
 ## Completed science
 
@@ -85,17 +94,30 @@ zero unconditional added state creation; at most one conditional BUDDY BN state.
 
 ## Research and next actions
 
-Two scoped RIDE/SADE primary reads saved; no new recipe selected. Gradient
-history clarification separates completed synchronization/diagnostic work
-from unimplemented PCGrad/CAGrad/MGDA/GradNorm. No completed intervention found.
-Agents assess a bounded actual-Adam/private-progress question, strongest retained
-cross-setting quality evidence, and measured budget/three-GPUplacement gaps.
+Completed matched-BN factorial: baseline73.614AUC,geometry73.651,
+correction72.186,both73.028. Correction loses1.429pp in3/3,geometry+0.037mixed,
+both−0.586. Positive interaction+.806does not imply baseline superiority.
+I474.847remains ahead. Geometry improves averaging while weakening members.
+9newfits1373epochs/52174updates/15365.76summedseconds; allpatience149–178.
+Known privateBN control is essential; no novel superiority demonstrated.
 
-Finish reviewed release15 and push. Complete nine-fit science, collect/analyze,
-then execute only remaining finite CUDA qualifications. Resolve normalization
-with matched controls before giantGO. Finish measured resource estimates,
-three-GPUownership and concrete one-command package. Goal remains active.
+Parallel agents: combination agent implementing fullTRAIN shadow-Adam audit
+(3genuineBNstates,114temporarymaps,570reversecollections,1380routeforwards
+including12O-replayforwards). NoVALID/TEST; actualshared/private/finite effects;
+source review before launch, no fullprojectiontraining authorized yet.
+Link agent prepares minimal3missing residual-only MolBACE fit spec using exact
+M1/I4/G0/BN/BE+corr controls, and second-setting transfer rationale. No launch.
+Resource agent reviews normalization policy across25recipes/27presets without
+changing frozen roster or sources. Strongest historical nativeI4positive is
+smallWikiCSSAGE gain with worseNLL; GCN/GATtransferfails. EquippedFiLM/Penn
+contrasts are not genuine nativeI4 wins. See research/quality_history_shortlist_v1.
 
-Previous goal turn classified no research progress: verified reversal of user
-context-setting side task. This turn revalidated exact live scientific processes,
-updated public evidence interpretation and continued concrete publication work.
+Finish reviewed release16/push with complete science. Await MolHIV actual costs;
+then schedule remaining NCN/BUDDY finite checks or reviewed shadowaudit in the
+free secondCUDA slot. Do not add a thirdGPUworker. Complete source-normalization
+policy and measured3GPUpreparation before giantGO. No77access. Broad study still
+unlaunched and awaiting user review. Fresh manuscript review after substantial
+supported update, not a requestedaccept verdict. Goal remains active.
+
+Current goal turn is progress: complete9fit results collected/analyzed, new
+scientific constraints recorded, release15pushed and fullMolHIVepoch launched.
