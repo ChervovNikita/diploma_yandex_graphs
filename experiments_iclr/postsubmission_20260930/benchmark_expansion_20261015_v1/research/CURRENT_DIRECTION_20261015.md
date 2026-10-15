@@ -32,6 +32,17 @@ examined split. All unsuccessful combinations, paired outcomes and costs
 remain in the [complete result](../pilot_20261015_residual_only_private_bn_v1/complete_results_v1/INTERPRETATION.md).
 TEST remains closed.
 
+A complete saved-prediction diagnostic now identifies a class-specific
+probability failure. Compared with I4, residual-only increases BCE on positive
+molecules and reduces it on negatives in every seed. At the fixed diagnostic
+0.5 threshold, false negatives rise from 67/46/60 to 105/95/78 out of 130
+positives. The five largest loss increases explain only 12.3/17.7/38.2% of net
+excess BCE; the problem is not confined to a few outliers. These facts support
+ranking recovery, not general recovery of prediction quality. TRAIN and VALID
+positive prevalence differ (39.67% versus 86.09%), but this does not establish
+pure label shift or explain the paired method difference. No correction was
+fitted. See the [complete diagnostic interpretation](../analysis/completed_probability_failure_v1/INTERPRETATION.md).
+
 ## The current sequence
 
 | Study | Question and comparison | Status |

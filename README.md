@@ -5,7 +5,8 @@
 We are developing several trainable routes through one native GNN, with small
 additional parameter cost. Each compatible setting compares the native single
 model, original GNNM and four independently trained native models. The current
-methods have **no confirmed quality advantage over independent ensembles**.
+residual and responsibility studies have **no confirmed quality advantage over
+independent ensembles**; earlier setting-specific findings remain in the history.
 
 ### Latest completed comparison
 
@@ -47,6 +48,16 @@ routes have mean AUC 74.56%, but averaging contributes −0.04 points. About
 95.54% of pool ranking errors are shared by every route. The next objective
 is useful specialization while preserving member quality.
 
+New analysis of every completed bank locates the probability-loss problem:
+residual-only worsens loss on positive molecules and improves it on negatives
+in all three seeds. At a fixed diagnostic threshold of 0.5, it misses
+105/95/78 of 130 positives, versus I4's 67/46/60. The five largest individual
+loss increases account for only 12–38% of net excess BCE. Ranking recovery
+therefore does not imply reliable probability estimates. The observed TRAIN/
+VALID prevalence difference is reported without fitting a validation correction.
+
+- [Class-specific errors and confidence analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_probability_failure_v1/INTERPRETATION.md)
+
 - [New results, paired differences, uncertainty and costs](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_residual_only_private_bn_v1/complete_results_v1/INTERPRETATION.md)
 - [Earlier complete factorial and error analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_bn_geometry_correction_v1/complete_results_v1/INTERPRETATION.md)
 - [Convergence audit of the preceding 36 fits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_molbace_convergence_v1/FINAL_INTERPRETATION.md)
@@ -59,7 +70,7 @@ parameters receive the native unweighted loss; only the small private
 corrections receive the weighted loss. The same mean-logit serving rule and
 native training settings are retained. Six new fits reuse all paid controls. The source was published in commit
 `7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`, and training started on the
-authorized allocation at 16:21 UTC. At 18:04 UTC, three of six fits had completed and the fourth was running. We will interpret the comparison after all six fits finish. No partial
+authorized allocation at 16:21 UTC. At 18:31 UTC, three of six fits had completed and the fourth had reached 126 full epochs. We will interpret the comparison after all six fits finish. No partial
 accuracy result is used to change the methods or stopping rules.
 
 ACE (ICCV 2021) already separates shared and specialist gradient credit. That

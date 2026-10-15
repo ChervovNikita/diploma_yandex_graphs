@@ -1,4 +1,4 @@
-# Current continuation state — release 26 preparation
+# Current continuation state — release 27 preparation
 
 Goal active: a trainable ensemble around one shared native GNN with small
 parameter overhead and defensible quality gains over native M1 and genuine I4.
@@ -9,21 +9,18 @@ GENLINK, Desktop or unrelated data. Root owns explicit Git selection.
 
 ## Publication
 
-Latest confirmed publication is release25,
-c0173c5b659967bdee8332dcdca76d72dd5b0b27, pushed17:49:20UTC15October.
-COMMIT_RECEIPT_25 and PUSH_RECEIPT_25_RETRY_TTY are authoritative.
-The first failed push receipt remains; future interactive pushes need tty=true.
-Release26 is published only when its own commit and successful push receipts
-exist. DOC_UPDATE_RECEIPT_25 is the prior mutable-document authority;
-DOC_UPDATE_RECEIPT_26 records the current update when present.
+Release26 is confirmed as843bff59dd0b6acefc032e34f5e03eecea23c4ec,
+pushed18:12:59UTC15October. COMMIT_RECEIPT_26/PUSH_RECEIPT_26 are authoritative.
+Release27 is published only after its own receipts exist. DOC_UPDATE_RECEIPT_26
+is the prior mutable-doc authority; DOC_UPDATE_RECEIPT_27 records the next update.
+Use tty=true for the existing interactive push helper. Root owns Git.
 
 ## Active work — no duplicate launches
 
-Structural MolBACE six-fit owner848485/start6089052668. At18:04:34UTC,
-three fits completed; seed202permuted worker850275/start6089664380 is active.
-Two seed303 fits remain. CURRENT_EXECUTION_26_MID records the observation;
-epoch fields in that snapshot are null because the progress keys are nested,
-not because no work occurred. No partial quality was inspected. Source/SPEC/
+Structural MolBACE six-fit owner848485/start6089052668. At18:31:42UTC,
+three fits completed; seed202permuted worker850275/start6089664380 is active
+at126epochs/4788updates.
+Two seed303 fits remain. CURRENT_EXECUTION_27 records the observation. No partial quality was inspected. Source/SPEC/
 collection pins and six-fit order remain in CONTINUATION_25 and frozen package
 pilot_20261015_structural_private_risk_v1. One new model worker,4hcap/fit,
 no retry. Afterall6successful, use frozen selected_VALID.py commands/collect/
@@ -107,3 +104,27 @@ already passed; no repeats. ComposedBUDDYsource20 handoff remains inactive,
 Fullserving, normalizationmigration, measured3GPUplacement/budget unfinished.
 No6,460-fitcampaignGO. Finish reviewed publication, monitor original owners,
 collect complete active study, then admit next representative science by cost.
+
+## New completed diagnostic — do not repeat
+
+analysis/completed_probability_failure_v1 is frozen/root-reviewed and actually
+executed once on CPU. MANIFEST6e5e2cb6ce2f9b431d29e8297512b59973c5cf8cf553cc8b1063ab9e01fdadb0.
+All33banks/11methods/3seeds,39exports,27member collections,zero models/forwards/
+updates/checkpoints/TEST. Child3.779s;supervisor4.506s;sampledRSS374,833,152bytes.
+PROBABILITY_DIAGNOSTIC_27 records the pass. Full1.73MBRESULT stays on allocation,
+hashdf081cd67adb427db714dc66e2aca6d09ecce7efc35ee3ccd05fd747b791c8cf.
+CompactSUMMARY/REPORT/INTERPRETATION are local for publication. The9,966graph
+contributions remain allocation-only analysis_outputs/completed_probability_failure_v1/
+PER_EXAMPLE.jsonl; do not sync/commit. No partial current fit was inspected.
+
+Residual-only vsI4 BCE increases on positives and decreases on negatives in
+all3seeds. Fixed0.5threshold false negatives105/95/78 versus67/46/60 of130.
+Top5graph contributions explain12.3/17.7/38.2%ofnetexcess; losses are broad.
+MeanBrier.473versus.289. TRAINpositive39.67%,VALID86.09%; no pure-label-shift
+or causal claim and no fittedcorrection. Ranking recovery is not probability
+recovery. Keep current studies unchanged and PubMed default priority.
+
+research/rankexpert_followup_v1 records bounded primary access failure:
+ACM403 and checkedauthorpages yieldedno manuscript.19retrievalattempts,
+zero newmethod/paperread claims. Rawresponses allocationcacheonly. No change
+to pairwise21orPubMed24; stopmetadatachasingthislead without primarytext.
