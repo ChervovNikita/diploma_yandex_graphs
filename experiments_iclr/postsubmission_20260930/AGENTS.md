@@ -18,10 +18,18 @@ the allocation repository
 `/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs`,
 or the authorized 18.77 repository
 `/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git`.
+The latest user instruction substitutes 18.51 for occupied 18.77. Its dedicated
+project checkout is `/disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git`
+on host `olig`, GPUs `GPU-9c6c20fa-a620-479d-f72f-163ac74deef2` and
+`GPU-30283973-140d-9e7b-e780-0fcc487dec54`. Use MacLink forwarding and normal
+SSH to `shmelev@192.168.18.51`; no 18.77 jobs or modifications under this override.
 Use the reviewed MacLink wrapper for 18.77. Keep credentials private.
-Current user scheduling override: **use only the allocation for now**. Do not
-retry MacLink or 18.77, and do not launch or monitor jobs there until the user
-reauthorizes that route. Preserve earlier 18.77 evidence and provenance.
+Current user scheduling override (15 October 2026, latest instruction): reconnect
+to 18.77 through the reviewed MacLink route, synchronize the project repositories,
+and prepare approximately time-balanced experiment queues across the allocation
+GPU and the two 18.51 GPUs (latest replacement). Bounded representative pilots remain authorized;
+the full campaign still awaits readiness and the user's verification and GO.
+Preserve earlier 18.77 evidence and provenance.
 Ordinary incidental runtime caches are allowed; use normal host execution.
 No sudo, filesystem namespaces, mount changes, unrelated-data access,
 GENLINK work or PDF compilation.
@@ -80,5 +88,6 @@ embedding analysis on the dedicated one-GPU allocation only. Freeze each pilot's
 question, settings, controls, convergence rule and validation-only selection
 before execution; preserve negative outcomes and actual costs. This supersedes
 the earlier prohibition on new pilots. The giant campaign still awaits the
-user's verification and GO. No 18.77 access, new scientific run on the original
-five paper datasets, or change to original paper scores is authorized here.
+user's verification and GO. The later scheduling override above reauthorizes
+18.77. No new scientific run on the original five paper datasets or change to
+original paper scores is authorized here.
