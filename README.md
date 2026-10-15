@@ -59,8 +59,7 @@ parameters receive the native unweighted loss; only the small private
 corrections receive the weighted loss. The same mean-logit serving rule and
 native training settings are retained. Six new fits reuse all paid controls. The source was published in commit
 `7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`, and training started on the
-authorized allocation at 16:21 UTC. The first worker has completed training
-updates. We will interpret the comparison after all six fits finish. No partial
+authorized allocation at 16:21 UTC. At 17:30 UTC, two of six fits had completed and the third was running. We will interpret the comparison after all six fits finish. No partial
 accuracy result is used to change the methods or stopping rules.
 
 ACE (ICCV 2021) already separates shared and specialist gradient credit. That
@@ -94,9 +93,12 @@ provide no accuracy result.
 A separate prospective idea directly supervises positive–negative score
 orderings while retaining the native classification loss. It includes
 independent ensembles trained with the same auxiliary, so a better loss alone
-cannot be mistaken for an advantage of sharing. It has not been implemented
-or trained.
+cannot be mistaken for an advantage of sharing. Its source is now implemented, including genuine native controls and a TRAIN-only support inspector. All four CPU checks have now passed, including two training updates and fresh checkpoint restore per variant. The proposed 21 scientific fits have not run.
 
+- [Current research direction and decisions](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/CURRENT_DIRECTION_20261015.md)
+- [Actual pairwise support and CPU qualification](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/PAIR_QUALIFICATION_SUMMARY_25.json)
+- [Pairwise implementation and bounded checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/molbace_pairwise_competence_v1/README.md)
+- [Pairwise prior work and claim limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/pairwise_competence_prior_followup_v1/NOTE.md)
 - [Full-graph implementation checks and costs](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/PUBMED_CPU_SUMMARY_24.json)
 - [Ranking-supervision hypothesis and required controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/pairwise_competence_synthesis_v1/NOTE.md)
 

@@ -1,4 +1,4 @@
-# Continuation state — release24 preparation, 15 October 2026
+# Continuation state — release25 preparation, 15 October 2026
 
 Goal active and unachieved. Read ../AGENTS.md. Literal -2 allocation only;
 no77/MacLink, sudo, PDF, GENLINK, original-five reruns or changed original scores.
@@ -200,3 +200,40 @@ Next:finish reviewed source/preparation release24, continue exact running queue.
 Afterall6successfulterminal, use frozen collection/analysis with actualpins.
 Then assess every signed result before selecting the next bounded study. The
 6460fitcampaign stillhasnoGO; no fresh manuscriptreview/acceptanceclaim warranted.
+
+## Release25 continuation
+
+Release24 was committed and pushed as4a0347d69221c3472e6300dd57443756692d657f
+at17:18:55UTC. COMMIT_RECEIPT_24 andPUSH_RECEIPT_24 confirm it.
+DOC_UPDATE_RECEIPT_24_FINAL is the current remote mutable-document authority.
+Release25 is not published until its own receipts exist.
+
+CURRENT_EXECUTION_25_173007 confirms firsttwo structuralfits complete(149epochs
+each,5662updateseach), thirdseed202structured livePID849507/start6089457809.
+Owner848485 andoldGRU640428 remainlive. PubMedowner849490 waitswithoutmodel.
+No partial quality inspected. Collectall6 onlyafterterminalandPubMedslotrelease.
+
+research/molbace_pairwise_competence_v1 frozenmanifest
+84a9a2b63244222d9411ce02bdd2035ffe21476465b069acd002f2cd82ffc24b:
+sourceforcommon/structured/permuted sharedroutes andnativecommon-paircontrols.
+Five source/scalarchecks pass. Rootreviewedroles,objective,restoreandCPUqualifier.
+run_pair_support_25.py runsoneTRAIN-onlyCPUinspectionwith0models/updates/VALID.
+ItsPAIR_TRAIN_SUPPORT_25.json, whenpresent,recordsactualoutcome. No21fitlaunch.
+
+research/pairwise_competence_prior_followup_v1 adds2scopedprimaryreads:
+Yanget al2019personalizedAUC andHu/Zhong/Yang2022multitaskdeepAUC. Shared/private
+pairriskandCE+AUCtrainingalreadyexist; exactadaptationisuntested. RankExpert
+andMTboostingleadsunread. No noveltyclearance. RawprimaryfilesoffGit.
+
+analysis/composed_buddy_qualification_handoff_v1 prepares exactinactive
+BUDDYadmission/commandusingalready-publishedsource20. Noowner/schedulecreated.
+RequiresMolBACEterminal,all7PubMedcheckspassed,slotandfreshresourcesbeforeexecution.
+Nextservinggapnode_C4CPU/NCNC_C4CUDA:agentlinkpreparessourceonlyzeroTRAINreplays.
+research/CURRENT_DIRECTION_20261015.md is theplain-language decisionsequence.
+
+PAIR_TRAIN_SUPPORT_25 passedin15.385s:1210TRAIN(480positive/730negative),
+731445allinputpairs,350400oppositepairs. Batch32expected237.61pairs;empty7.2e-8.
+No model/VALID/TEST. All4PAIR_CPU_LIFECYCLE_*_25passed:8constructors,8updates,
+221nativeforwards,12VALID,allfreshrestoresbitexact. Summedsupervisor85.846s.
+PAIR_QUALIFICATION_SUMMARY_25 retainsactualcosts/support;noaccuracyclaim.
+Scientific21fitpilotnotlaunched;GPUproductioncostnotmeasured.

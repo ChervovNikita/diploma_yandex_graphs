@@ -1,51 +1,43 @@
-# Current research snapshot — 15 October 2026, release 22 preparation
+# Current research snapshot — 15 October 2026, release 25 preparation
 
-The residual-only three-seed study is complete: mean VALID AUC **74.518 ± 2.660%**,
-versus genuine I4 **74.847 ± 0.500%**, and BCE **1.952 versus 0.890**. Removing
-BatchEnsemble factors improves AUC over factors-plus-residuals in all three
-seeds (+2.332 points mean), but losses worsen. Route ranking errors are mostly
-shared and averaging adds no AUC benefit. This is a mechanism diagnosis, not
-an I4 win or confirmed transfer.
+We are testing trainable routes through one shared native GNN, with small
+parameter overhead. The target is better predictions than the native single
+model and a genuine independent ensemble. **That target remains unachieved.**
 
-[Complete result and interpretation](pilot_20261015_residual_only_private_bn_v1/complete_results_v1/INTERPRETATION.md)
-retains all 33 banks and 39 unique paid fits. The latest three used 484 epochs,
-18,392 updates and 4,094.57 summed worker-seconds. TEST remains closed.
+The latest completed MolBACE/GIN comparison has residual-only routes at
+74.518 ± 2.660% VALID AUC, versus I4 at 74.847 ± 0.500%. Parameter overhead is
+1.0183%, but probability loss is worse and averaging adds no AUC benefit.
+The [full result](pilot_20261015_residual_only_private_bn_v1/complete_results_v1/INTERPRETATION.md)
+preserves all paired outcomes, uncertainty, costs and exposure limits.
 
-The [six-fit specialization protocol](pilot_20261015_structural_private_risk_v1/PROTOCOL.md)
-is frozen. Three structural and three within-class permutation fits use the
-same residual/private-BN architecture, native settings and selection. The exact
-CPU producers and source/preflight checks passed. No new control fits or
-campaign roster additions are included. The source was published in commit
-`7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`. All six fits were admitted as a serial
-study at 16:21 UTC. Owner PID 848485, start ticks 6089052668, runs one new
-GPU worker alongside the previously admitted GRU worker. The first fit has
-completed native training updates. TEST remains closed. No partial accuracy
-results are used to modify this study.
+The running six-fit study tests supervised structural responsibilities against
+uniform and shuffled assignments. At 17:30 UTC, two fits were complete and
+the third was running. No partial quality was inspected. The older GRU worker
+is the other GPU worker; only the dedicated allocation is in use.
 
-The [literature follow-up](literature/structural_private_credit_followup_v1/NOTE.md)
-identifies ACE as direct prior work for different shared/private training credit.
-The [next-setting protocol](research/second_setting_protocol_v1/DECISION.md)
-now selects PubMed/PolyFormer-Cheb for source preparation. The actual
-TRAIN/VALID-only provider check found VALID counts 72/1919/1952. Its
-minority support, prior PubMed exposure and 24 cold trajectories are explicit.
-The new composition is being implemented. No transfer fit has launched.
-The separate [proper-loss synthesis](research/quality_specialization_synthesis_v1/SYNTHESIS.md)
-addresses probability quality and distinguishes that from the main objective
-of improving task accuracy over the independent ensemble.
+The native PubMed/Cheb extension has passed three full-graph CPU lifecycle
+checks. Its seven queued GPU checks will measure executable behavior and
+production cost after the six-fit study. The proposed 24 scientific fits have
+not launched. A separate pairwise-ranking source package now includes shared
+variants, independent native controls with the same auxiliary loss, and a
+TRAIN-only support inspector. All four CPU lifecycle checks passed, with eight total training updates and twelve whole-VALID passes. Its proposed 21 fits have not launched.
 
-Genuine composed-normalization molecular execution passed 38 updates and its
-selected-state serving path. Repaired NCN execution passed two full epochs,
-34 updates and four VALID calls. The original queued BUDDY check
-passed two epochs, 3,170 updates, four VALID calls and three constructions in
-1,066.69 child seconds. Composed-normalization BUDDY qualification remains
-pending. These are
-engineering checks, not scientific accuracy results. The older GRU acquisition
-is the only other GPU worker. Only the dedicated allocation is authorized.
+Two additional scoped primary reads establish prior shared/private rankers
+and task-specific AUC risks. They narrow the novelty claim; they do not supply
+evidence that our particular same-task ensemble improves predictions.
 
-The 6,460-fit campaign remains unlaunched and requires user GO. Final serving
-coverage, reliable cost/placement and any justified new recipe inclusion remain
-work to complete. Earlier dated entries below preserve their historical status;
-this snapshot and subsequent immutable receipts determine current status.
+The 6,460-fit campaign remains unlaunched and requires user review and GO.
+Concrete remaining work includes composed BUDDY qualification, final selected
+VALID serving coverage, and measured three-GPU placement and budget. Passed
+native BUDDY, NCN and molecular checks remain accepted and will not be repeated.
+
+- [Research direction and next decisions](research/CURRENT_DIRECTION_20261015.md)
+- [Actual pairwise qualification](PAIR_QUALIFICATION_SUMMARY_25.json)
+- [Pairwise implementation](research/molbace_pairwise_competence_v1/README.md)
+- [Closest ranking prior work](research/pairwise_competence_prior_followup_v1/NOTE.md)
+- [Composed BUDDY handoff](analysis/composed_buddy_qualification_handoff_v1/HANDOFF.md)
+
+The dated material below preserves the earlier study decisions and results.
 
 ---
 
