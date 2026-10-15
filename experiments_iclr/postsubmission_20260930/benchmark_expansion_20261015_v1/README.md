@@ -444,3 +444,20 @@ Next scientific work is a convergence audit of the36 completed fits and a
 focused review of task-responsibility and learned-aggregation mechanisms. These
 will guide a finite representative pilot after the residual-only outcome. The
 full6,460-fit campaign remains unlaunched and awaits user GO.
+
+## Completed convergence audit and normalization integration
+
+The [36-fit convergence audit](analysis/completed_molbace_convergence_v1/FINAL_INTERPRETATION.md)
+replayed every recorded selection decision. No fit hit its cap; all stopped by
+validation patience while TRAIN loss kept falling. Final 50 mean AUC improved
+in 16/36 versus the preceding 50; BCE worsened in all 36. No last 50 record is expected
+under patience and is not independent evidence of stationarity. Additional epochs
+could produce later recovery, but a blanket extension is unsupported by these
+observations. Original outcomes and scores remain unchanged.
+
+[Composed normalization runtime](composable_normalization_runtime_v1/README.md)
+now includes the actual producer, checkpoint restore, selected serving and two
+finite native qualification commands. Root source checks and an
+[independent code review](analysis/composable_runtime_independent_review_v1/REPORT.md)
+found no actionable blocker. Actual molecular and BUDDY execution is still
+pending; neither source checks nor this review establishes native success.

@@ -1,4 +1,4 @@
-# Continuation state — release19 preparation, 15 October 2026
+# Continuation state — release20 preparation, 15 October 2026
 
 Goal active and unachieved. Read ../AGENTS.md and RESEARCH_TARGET_20261015.md.
 Use only the guarded literal -2 allocation route. No77/MacLink, sudo, PDF,
@@ -7,11 +7,11 @@ allowed; the6460-fit campaign has no GO. Root owns Git; explicit selections only
 
 ## Publication
 
-Release18 pushed and verified at14:55:24UTC:
-c9ddf1258cd49395a08676898140a1939850787f. PUSH_RECEIPT_18 is saved locally.
-Release19 remains preparation until its COMMIT_RECEIPT_19/PUSH_RECEIPT_19 exist.
-DOC_UPDATE_RECEIPT_18 is the previous mutable-file authority; replace the exact
-ROOT_README_BLOCK_18 with19. Do not stage the local aggregation workspace.
+Release19 pushed and verified15:11:03UTC:
+cdb8af8230d053b4eef464ce944de08861dcd229. PUSH_RECEIPT_19 saved locally.
+Release20 is preparation until COMMIT_RECEIPT_20/PUSH_RECEIPT_20 exist.
+DOC_UPDATE_RECEIPT_19 is previous mutable authority; replace ROOT_README_BLOCK_19
+with20. Root owns Git and explicitly selected source/scalar evidence only.
 
 ## Running science
 
@@ -82,15 +82,31 @@ uses distinct fixed claim/output. BUDDY retains its unstarted original identity.
 When a slot is free, bind current resources/peer identities and publish before
 native34NCN/3170BUDDY-update checks. No automatic retry or changed JOBs.
 
-composable_normalization_v2 source/actual-parent scalar fixtures pass; agent
-massive_preparation_resource_admission_20261012 builds complete genuine producer,
-serving and typed-schema integration plus minimal native qualification source.
-No roster regeneration and no native launch until root review/admission.
+composable_normalization_runtime_v1 implemented; MANIFEST
+518784a9e83f4ba92c4f7bff55705999a787c7a67ff69c0cc9c09b5530550d38.
+Root source tests and independent link review passed with no source blockers.
+Actual producer/helper identities, full selected envelope, private BN serving
+ownership and typed parent migration are implemented. Native behavior unverified.
+Finite qualifiers: MolBACEGIN/drop0 seed1,38updates; BUDDYseed1,1585updates;
+method interaction_input_conditionalJ. Each1epoch/3constructors/4VALID, positive
+selected-state restore and zero-TRAIN stopped resume. No TEST. Root needs current
+resources and publication before execution. Do not treat this as running residual
+pilot/drop.5 continuation. Existing role/parent lookup request assigned to resource
+agent. No roster regeneration or generic relocation (requires explicit parent).
 
-Agent buddy_completion_20261015 now audits convergence for the36completed fits;
-may supply compact remote metadata extractor to root. No partial/live curves.
-Agent combination_study_reuse_20261010 synthesizes next quality mechanisms under
-research/next_quality_mechanism_20261015_v1. No launch or new grid.
+Completed36-fit scalar convergence audit: exactselector replay,5517epochs,
+0caps; allTRAIN losses fall,16/36lateAUCmeanrises,all36lateBCEworsens.0last50AUC
+records is expectedfrompatience, notstationarityproof. Evidence/extractor/final
+interpretation:analysis/completed_molbace_convergence_v1. No new training needed
+from these observations. Source/frozen first report retained, final evidence separate.
+
+Buddy convergence task complete. Link independent code review complete.
+Agent combination_study_reuse_20261010 prepares actual structural residual/privateBN
+composition under research/structural_residual_composition_v1, source only.
+It reuses balanced structural and permutation supervision; six prospective fits
+would reuse uniform controls. Do not launch/choose before current3residual outcomes.
+Recommendation and19scoped source groups at research/next_quality_mechanism_20261015_v1.
+Conditional aggregation is separate lower-priority question; no combined grid.
 
 ## Broad study
 

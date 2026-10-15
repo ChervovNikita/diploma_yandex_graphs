@@ -1,0 +1,228 @@
+--- portable_dispatcher_v3/runtime_link/run_fit.py
++++ composable_normalization_runtime_v1/runtime/run_fit.py
+@@ -142,6 +142,7 @@
+ def run(job, root, output, resume=None):
+     import torch
+     from adapters import create_adapter
++    from runtime_bridge import build_runtime_binding
+     root, output = Path(root).resolve(), inside(output, root)
+     policy = validate_job(job, root)
+     device = job.get("device", "cuda:0")
+@@ -186,11 +187,7 @@
+         seed_all(torch, job["seed"], device=device)
+         adapter = create_adapter(torch, job, policy, root)
+         result["source_metadata"] = adapter.metadata()
+-        runtime_binding = {"runtime_sha256": {name: pin["sha256"] for name, pin in runtime_sources.items()},
+-                           "policy_sha256": None if policy_receipt is None else policy_receipt["sha256"],
+-                           "callback_sha256": adapter.callback_receipt["sha256"],
+-                           "extension_sha256": None if adapter.extension_receipt is None else adapter.extension_receipt["sha256"],
+-                           "dependency_sha256": {pin["path"]: pin["sha256"] for pin in adapter.dependency_receipts}}
++        runtime_binding = build_runtime_binding(adapter, root)
+         result["runtime_binding"] = runtime_binding
+         result["construction_seconds"] = time.perf_counter() - started
+         previous_calls = None
+--- portable_runtime_authority_v4/host_binding.py
++++ composable_normalization_runtime_v1/host_binding.py
+@@ -103,7 +103,7 @@
+                                    text=True, timeout=10).splitlines()
+     check_observed_identity(config, hostname, uuids)
+     root = Path(config['project_root'])
+-    expected_here = root / config['phase_relative'] / 'benchmark_expansion_20261015_v1/portable_runtime_authority_v4'
++    expected_here = root / config['phase_relative'] / 'benchmark_expansion_20261015_v1/composable_normalization_runtime_v1'
+     require(HERE == expected_here, 'Guard source is outside the declared deployment')
+     if config['worker'].startswith('server77/'):
+         for field in ('human_host_reauthorization', 'identity_receipt', 'resource_receipt'):
+@@ -139,6 +139,26 @@
+     for row in audit_runtime_paths(job, config['project_root'], config['phase_relative']):
+         confined(row['path'], root)  # Resolve real links on the executing host; never create path aliases.
+     verify_parent_compiler_authority(job, root)
++    verify_normalization_authority(job, root)
++
++
++def verify_normalization_authority(job, root):
++    """Authenticate the exact parent and complete V2 migration before construction."""
++    from descriptor_binding import normalization_authority
++    authority = normalization_authority(job, str(root))
++    if authority is None:
++        return
++    parent = verify(authority, root)
++    expansion = HERE.parent
++    source = expansion / 'composable_normalization_v2'
++    require(pin(source / 'MANIFEST.json')['sha256'] == job['normalization_composition']['source_manifest_sha256'],
++            'Normalization source manifest differs')
++    import importlib.util
++    spec = importlib.util.spec_from_file_location('_composed_host_contracts', source / 'contracts.py')
++    contracts = importlib.util.module_from_spec(spec); spec.loader.exec_module(contracts)
++    roster = json.loads((expansion / 'expanded_study_design_v1/PROPOSED_ROSTER.json').read_text())
++    require(job == contracts.migrated_job(parent, job['normalization_composition'], roster),
++            'Composed descriptor differs from its authenticated parent migration')
+ 
+ 
+ def verify_parent_compiler_authority(job, root):
+--- portable_runtime_authority_v4/descriptor_binding.py
++++ composable_normalization_runtime_v1/descriptor_binding.py
+@@ -13,6 +13,7 @@
+     '/session_transform/path', '/extension_factory/path', '/session_extension/path',
+     '/method_settings/context_manifest', '/recipe/_native_callback',
+     '/parent_compiler_descriptor/path',
++    '/normalization_composition/parent_descriptor/path',
+ )
+ DATA_FIELDS = ('graph', 'train', 'valid', 'test')
+ PROVENANCE = {'expanded_contract', 'descriptor_preparation', 'source_plan_entry'}
+@@ -70,10 +71,38 @@
+     return value
+ 
+ 
++def normalization_authority(job, root):
++    """One exact declared parent JSON; other fields remain fully classified."""
++    if 'normalization_composition' not in job:
++        return None
++    value = job['normalization_composition']
++    require(job.get('schema') == 'native-full-epoch-fit-v1' and job.get('family') in ('ogb', 'link'),
++            'Native molecular or BUDDY composition required')
++    require(isinstance(value, dict) and set(value) == {'schema', 'policy', 'source_manifest_sha256',
++            'banks_sha256', 'parent_descriptor', 'parent_job_sha256', 'matched_control_method_id'},
++            'Exact normalization declaration required')
++    require(value['schema'] == 'native-route-BN-composition-v1'
++            and value['policy'] == 'private_native_running_state_shared_affine_v1'
++            and value['matched_control_method_id'] == 'gnnm_private_bn_state_v3',
++            'Declared private-native-state/shared-affine normalization policy required')
++    parent = value['parent_descriptor']
++    require(isinstance(parent, dict) and set(parent) == {'path', 'bytes', 'sha256'},
++            'Exact normalization parent receipt required')
++    path = normalized_absolute(parent['path'])
++    require(path.is_relative_to(normalized_absolute(root)) and path.suffix == '.json',
++            'Normalization parent must be a confined normalized JSON descriptor')
++    require(type(parent['bytes']) is int and parent['bytes'] > 0, 'Positive normalization parent size required')
++    for checksum in (parent['sha256'], value['source_manifest_sha256'], value['banks_sha256'], value['parent_job_sha256']):
++        require(isinstance(checksum, str) and len(checksum) == 64 and all(c in '0123456789abcdef' for c in checksum),
++                'Exact normalization source and parent hashes required')
++    return parent
++
++
+ def audit_runtime_paths(job, root, phase_relative):
+     root = normalized_absolute(root)
+     phase = root / phase_relative
+     parent_compiler_authority(job, str(root))
++    normalization_authority(job, str(root))
+     rows = []
+     for pointer, value in leaves(job):
+         if is_provenance(pointer) or not isinstance(value, str) or not value.startswith('/'):
+@@ -90,6 +119,8 @@
+ 
+ 
+ def rebind_job(original, source_root, source_phase_relative, target_root, target_phase_relative):
++    require('normalization_composition' not in original,
++            'A composed job requires an explicit rebound parent artifact and newly derived declaration; receipts cannot be relabeled')
+     source_root, target_root = normalized_absolute(source_root), normalized_absolute(target_root)
+     for phase in (source_phase_relative, target_phase_relative):
+         require(not PurePosixPath(phase).is_absolute() and '..' not in PurePosixPath(phase).parts, 'Safe relative phase required')
+--- final_selected_scoring_v4/backend.py
++++ composable_normalization_runtime_v1/final_scoring/backend.py
+@@ -17,7 +17,7 @@
+ from .role_serving import metrics, predict, tensor_sha
+ 
+ HERE = Path(__file__).resolve().parent
+-EXPANSION = HERE.parent
++EXPANSION = HERE.parents[1]
+ 
+ 
+ def load_module(path, name):
+@@ -37,7 +37,7 @@
+ def source_authority(root, expected):
+     require(expected['path'] == str(HERE / 'MANIFEST.json'), 'Use this frozen scoring source manifest')
+     manifest = verify(expected, root, json_metadata=True)
+-    require(manifest['schema'] == 'final-selected-scoring-source-v4', 'Wrong final-scoring source schema')
++    require(manifest['schema'] == 'composed-normalization-final-scoring-source-v1', 'Wrong final-scoring source schema')
+     for row in manifest['files']:
+         verify({'path': str(HERE / row['path']), 'bytes': row['bytes'], 'sha256': row['sha256']}, root)
+     bindings = json.loads((HERE / 'SOURCE_BINDINGS.json').read_text())
+@@ -90,6 +90,10 @@
+ 
+ def load_runtime(spec, job, root):
+     entry = verify(spec['runtime_entrypoint'], root)
++    if job.get('normalization_composition') is not None:
++        bridge = load_module(EXPANSION / 'composable_normalization_runtime_v1/runtime_bridge.py',
++                             '_normalization_final_runtime_bridge')
++        return bridge.load_runtime(spec, job, root)
+     family = 'runtime_link' if job['family'] == 'link' else 'runtime_node_molecular'
+     require(entry == EXPANSION / 'portable_dispatcher_v3' / family / 'run_fit.py', 'Exact coherent portablev3 runtime required')
+     folder = entry.parent
+@@ -132,7 +136,10 @@
+             optimizer.step = original
+ 
+ 
+-def model_fingerprint(model):
++def model_fingerprint(adapter):
++    if getattr(adapter, 'composed_producer', False):
++        return adapter.state_signature()
++    model = adapter.model
+     return {name: {'shape': list(value.shape), 'dtype': str(value.dtype), 'sha256': tensor_sha(value)}
+             for name, value in model.state_dict().items()}
+ 
+@@ -220,6 +227,9 @@
+         runtime, adapter, binding = load_runtime(spec, job, root)
+         require(binding == selected['runtime_binding'] == raw['runtime_binding'], 'Current source/runtime differs from selected fit')
+         adapter.load_state(copy.deepcopy(selected['adapter']))
++        if getattr(adapter, 'composed_producer', False):
++            adapter.bind_loaded_selection(selected, selected_checkpoint=selected_pin,
++                job_hash=spec['job_hash'], runtime_binding=binding)
+         require(adapter.completed_epochs == epoch, 'Restored native/selector clocks differ')
+         if job['family'] == 'link' and job['recipe']['architecture'].upper() == 'BUDDY' \
+                 and job['procedure'] == 'gnnm_private_bn_state_v3':
+@@ -227,7 +237,7 @@
+                                     '_final_scoring_BUDDY_owned_inference')
+             expected = receipt(EXPANSION / 'buddy_private_bn_production_v3/MANIFEST.json', root)['sha256']
+             record['inference_API_binding'] = inference.bind_inference_owner(adapter.session, job, root, expected)
+-        original = model_fingerprint(adapter.model)
++        original = model_fingerprint(adapter)
+         helper = load_module(EXPANSION / 'final_test_serving_v1/link/backend.py', '_final_scoring_link_source') \
+             if job['family'] == 'link' else None
+         with no_updates(adapter):
+@@ -262,9 +272,12 @@
+                 'selected_epoch': epoch, 'role_contract': task['role_contract'],
+                 'campaign_GO': go_pin, 'selection_rule': task['selection_rule'],
+                 'new_human_action_claimed': False, 'TEST_used_for_selection': False})
+-            require(model_fingerprint(adapter.model) == original, 'Inference changed selected parameters/buffers')
++            require(model_fingerprint(adapter) == original, 'Inference changed selected parameters/buffers')
+             # Return to the exact selected RNG, not the replay's advanced loader state.
+             adapter.load_state(copy.deepcopy(selected['adapter']))
++            if getattr(adapter, 'composed_producer', False):
++                adapter.bind_loaded_selection(selected, selected_checkpoint=selected_pin,
++                    job_hash=spec['job_hash'], runtime_binding=binding)
+             runtime.restore_rng(torch, selected['global_rng'], device=job.get('device', 'cuda:0'))
+             record['TEST_accessed'] = True  # Attempted role access is retained even on later failure.
+             test_started = time.perf_counter()
+@@ -275,7 +288,7 @@
+             require(len(served['ids']) + len(skipped) == role['population']['records']
+                     and tensor_sha(served['ids']) == role['population']['ids_sha256'],
+                     'Final serving did not retain the complete official/native-eligible population')
+-            require(model_fingerprint(adapter.model) == original, 'TEST inference changed selected parameters/buffers')
++            require(model_fingerprint(adapter) == original, 'TEST inference changed selected parameters/buffers')
+             attach_metrics(torch, served, job)
+         payload = {'schema': 'own-selected-TEST-logits-v2', 'role': 'TEST', 'TEST_accessed': True,
+                    'identity': copy.deepcopy(spec['identity']), 'job_id': job['id'], 'job_hash': spec['job_hash'],
+--- final_selected_scoring_v4/role_serving.py
++++ composable_normalization_runtime_v1/final_scoring/role_serving.py
+@@ -222,7 +222,7 @@
+             'positive_records': positive, 'readout': readout, 'work': work}
+ 
+ 
+-def predict(torch, adapter, job, role, contract, root, *, link_helper=None, cache_root=None):
++def _predict_native(torch, adapter, job, role, contract, root, *, link_helper=None, cache_root=None):
+     require(role in ('VALID', 'TEST'), 'Explicit inference role required')
+     adapter.model.eval()
+     with torch.no_grad():
+@@ -232,3 +232,12 @@
+             return molecular(torch, adapter, job, role, contract, root)
+         require(link_helper is not None and cache_root is not None, 'Native link role helper/cache authority missing')
+         return link(torch, adapter, job, role, contract, root, link_helper, cache_root)
++
++
++def predict(torch, adapter, job, role, contract, root, *, link_helper=None, cache_root=None):
++    if getattr(adapter, 'composed_producer', False):
++        with adapter.inference_operation(role):
++            return _predict_native(torch, adapter, job, role, contract, root,
++                                   link_helper=link_helper, cache_root=cache_root)
++    return _predict_native(torch, adapter, job, role, contract, root,
++                           link_helper=link_helper, cache_root=cache_root)

@@ -68,6 +68,17 @@ base GNNM AUC to 69.01%, while I4 reached 74.90%; it did not close the gap.
 No model was trained or evaluated again. All seven-bank comparisons and losses
 are retained in the [aggregation report](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/complete_fixed_aggregation_v1/REPORT.md).
 
+A completed convergence audit replayed the original selector for all 36 fits
+and 5,517 full epochs. None hit its 1,000-epoch cap. All met validation patience,
+while their TRAIN update losses continued decreasing. Final 50 mean VALID AUC
+rose in 16/36 fits relative to the preceding 50, while mean VALID BCE worsened
+in all 36. No new best AUC in the final 50 is expected from patience and is not
+independent proof of convergence. These are validation early-stopping outcomes;
+the evidence does not establish optimization stationarity or a blanket need for
+more epochs. No training was repeated for this metadata-only audit.
+
+[Complete convergence interpretation](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_molbace_convergence_v1/FINAL_INTERPRETATION.md).
+
 These are selected validation results on one scaffold split. Three seeds do
 not establish a confirmed advantage or transfer. Test scores remain closed.
 Every outcome, per-seed difference, training cost and failed combination is
@@ -174,9 +185,9 @@ are unchanged by the latest repair. The default ownership is a preparation
 map, not the final three-GPU workload division.
 
 Before the large run, the completed nine-fit study informs a consistent
-normalization policy for the extensions and their controls. A compositional
-source implementation and its checkpoint repair passed focused source checks;
-actual native integration and qualification remain pending. Original GNNM
+normalization policy for the extensions and their controls. The complete composition now has a genuine training entrypoint and selected
+serving path. Source checks and independent review found no blocking issue;
+actual molecular and BUDDY qualification remains pending. Original GNNM
 remains unchanged. Native evaluation-population preparation now covers all 27
 presets, 99 preset/split proofs and 43 distinct populations. It accessed TEST
 metadata without scoring. The original Collab TEST file was recovered from its
