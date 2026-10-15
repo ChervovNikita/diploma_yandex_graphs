@@ -97,6 +97,9 @@ sampler or treating these probabilities as model results.
 
 ## Full proposed design
 
+The [exact method coverage table](benchmark_review_map_v1/README.md) shows all
+25 recipe definitions, their controls, and where each task includes them.
+
 The [expanded roster](expanded_study_design_v1/README.md) contains6,460 proposed
 physical fits across7 datasets,8 architecture families and27 fixed reference
 presets. Every compatible preset has separate source-horizon reproductions,
@@ -124,11 +127,11 @@ No hyperparameter search or original-five paper rerun is included.
 
 ## Execution readiness
 
-The [third compiler version](expanded_job_binding_v1/HANDOFF_v3.json) prepares
+The [fourth compiler version](expanded_dispatcher_v2/HANDOFF_v4.json) prepares
 **all 6,460 source descriptions**, with zero remaining source/context blocks.
-It creates 100 descriptions and reuses 6,360, preserving the 2,480 predecessor
-contracts. The 270 paired M1/I4 groups retain separate native bodies. These are
-preparation counts, not completed training runs.
+It updates 100 BUDDY source bindings and reuses 6,360 descriptions, preserving
+the scientific configurations. The 270 paired M1/I4 groups retain separate
+native bodies. These are preparation counts, not completed training runs.
 
 Real-data checks cover the additional NCNC and BUDDY objectives, interactions
 and private BN, including BUDDY production input construction at a nonzero seed.
@@ -147,12 +150,20 @@ The [launch preparation](expanded_launch_preparation_v1/HANDOFF.json) accounts
 for 6,460 fits plus 270 I4 prediction exports. Exports require no training.
 The dispatcher implements durable work claims, restart handling, completed-run
 skipping and at most two resource-compatible jobs per GPU. Its 38 subprocess
-checks passed. The v3 source descriptions now have 6,730 callable execution candidates.
-Root accepted the corrected link metadata/readout protocol and virtual-environment
-launch path. The final qualified resource assignments remain incomplete, and
-a newly found BUDDY null-body metadata issue is being corrected before any
-production launch. Remaining source-policy and
-callback coverage is being consolidated from existing evidence.
+checks passed. The current source descriptions have 6,730 callable execution
+candidates. The BUDDY provider now handles the shared model's null body label
+correctly; this changes metadata only. Native training functions are unchanged.
+The final NCN and BUDDY lifecycle checks are prepared, with respectively 34 and
+3,170 optimizer updates, four whole validations and two existing prediction
+exports per case. They remain unlaunched while both permitted GPU slots are
+occupied. MolHIV resource measurement and final resource assignments are also
+pending. Earlier node, molecular and NCNC lifecycle evidence is reused.
+
+The [portable runner](portable_dispatcher_v2/README.md) now has a single command
+interface per GPU, permanent task ownership and shared host resource accounting.
+Thirty local checks cover its added process and failure-handling rules. This is
+source readiness: actual allocation projection, reporting rebinding and remaining
+native/resource checks are still required. Both future 18.77 workers stay disabled.
 
 The full campaign has not launched. Only the dedicated allocation is authorized;
 the two future 18.77 workers are disabled and have not been probed. The measured
@@ -183,7 +194,10 @@ remain unknown. Current development uses TRAIN/VALID with TEST scoring closed.
 A [runnable metadata reporter](benchmark_reporting_implementation_v1/README.md)
 now preserves all planned pairs, failures and capped outcomes, and generates
 1,170 declared contrasts across 27 presets. Nine focused metadata checks passed;
-actual compiler identity, sidecar and cost-ledger integration is underway.
+the full compiler registry now retains all 6,190 expected predictor rows,
+including same-bank diagnostics. The empty campaign report retains every
+missing outcome and withholds all 1,170 intervals. Selected-export and cost
+integration remains source-only until its real lifecycle check completes.
 Its three-seed pilot extraction does not receive a ten-cohort interval.
 
 The broad matrix is exploratory. The [confirmation proposal](confirmation_protocol_proposal_v1/README.md)

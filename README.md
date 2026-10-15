@@ -92,8 +92,10 @@ restore check at a nonzero seed. NCNC completed two native CUDA epochs with
 interruption/resume and selected exports (34 updates, four validations).
 The molecular runtime completed the corresponding CPU lifecycle (76 updates,
 four validations). These are execution checks, not accuracy measurements.
-The dispatcher passed 38 subprocess checks; remaining functional coverage,
-resource assignments and final source bindings are being consolidated.
+The dispatcher passed 38 subprocess checks. Compiler 4 and runtime 9 now
+propagate the corrected BUDDY shared-body metadata without changing scientific
+settings. The final NCN/BUDDY lifecycle checks are prepared but await a free
+GPU slot; resource measurement and offline three-GPU deployment remain pending.
 
 **The full campaign is awaiting preparation and user GO.** The launch plan
 contains 6,460 fit tasks and 270 export-only tasks but has started none. Only
@@ -102,6 +104,8 @@ The [budget review](experiments_iclr/postsubmission_20260930/benchmark_expansion
 A staged approval option is 646 fits across every setting and method, then the
 remaining 5,814. The complete roster is retained; no campaign-wide ETA is claimed.
 
+- [One-command runner source and remaining execution checks](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v2/README.md)
+- [Exact method-by-task coverage and controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/benchmark_review_map_v1/README.md)
 - [Plain-language benchmark design](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/BENCHMARK_OVERVIEW.md)
 - [Complete 24-fit results](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_molbace_v1/complete_analysis_v1/REPORT.md)
 - [Completed BN follow-up and limitations](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_bn_state_v1/complete_analysis_v1/INTERPRETATION.md)
