@@ -1,0 +1,251 @@
+--- buddy_private_bn_production_v2/session.py
++++ buddy_private_bn_production_v3/session.py
+@@ -75,6 +75,7 @@
+         if n.model.node_embedding is not None or not n.model.use_feature:
+             raise ValueError('Fixed feature branch and absent embedding branch required')
+         self._operation = self._state_operation = None
++        self._inference_role = self._inference_calls = None
+         self._last_ids = None
+         self._TRAIN_provider_checks = self._VALID_provider_checks = 0
+         self._original_route, self._original_next, self._original_hydrate = n._route, n._next_batch, n._hydrate
+@@ -94,7 +95,7 @@
+             for bank in banks for value in bank.buffers()]
+         self._calls = {role: {name: [0]*4 for name in self.manager.names} for role in ('TRAIN', 'VALID')}
+         self.method_metadata = {'schema': 'native-BUDDY-private-BN-production-source-v1', 'method_id': METHOD,
+-            'native_family': 'BUDDY', 'port': 'buddy_private_bn_production_v2', 'source_receipts': pins,
++            'native_family': 'BUDDY', 'port': 'buddy_private_bn_production_v3', 'source_receipts': pins,
+             'bank_source': bank_pin, 'production_native_provider': {'provider_mode':job['method_settings']['provider_mode'],'provider_manifest_sha256':job['method_settings']['provider_manifest_sha256'],'static_provider_sha256':job['method_settings']['static_provider_sha256']},
+             'definition': 'frozen v3 route-private running state; original shared native affine Parameters',
+             'manager': self.manager.metadata(), 'active_BN_modules': sorted(ACTIVE_BN),
+@@ -110,21 +111,32 @@
+             'input_scope': 'actual native fit seed/year2007; native sampler and first/second/tail plus whole VALID lineage',
+             'native_qualification': 'pending bounded real-data smoke; source prepared only', 'TEST_accessed': False}
+ 
++        self._install_ownership_guards()
++        self.inference_metadata = {'schema': 'bound-BUDDY-private-BN-inference-api-v1',
++            'producer_port': self.method_metadata['port'],
++            'inference_port': 'buddy_private_bn_production_v3',
++            'source_receipts': copy.deepcopy(pins), 'producer_metadata_changed': False}
++
++    def _install_ownership_guards(self):
++        n = self.native
++        modules = {name: ref() for name, ref in zip(self.manager.names, self.manager._refs)}
+         def require_route(module, inputs):
+-            if self._operation not in ('TRAIN', 'VALID') or self.manager._active is None or int(n.core.route) != self.manager._active:
++            if (self._operation not in ('TRAIN', 'VALID') and self._inference_role not in ('VALID', 'TEST')) \
++                    or self.manager._active is None or int(n.core.route) != self.manager._active:
+                 raise RuntimeError('BUDDY private-BN forward requires its owned source route/task context')
+         def require_BN(name):
+             def check(module, inputs):
+                 require_route(module, inputs)
+                 if bool(module.training) != (self._operation == 'TRAIN'):
+                     raise RuntimeError('Native BN mode and task role differ')
+-                self._calls[self._operation][name][self.manager._active] += 1
++                calls = self._inference_calls if self._inference_role is not None else self._calls[self._operation]
++                calls[name][self.manager._active] += 1
+             return check
+         def state_export(module, *args):
+-            if self.manager._active is not None or self._operation is not None or self._state_operation != 'export':
++            if self.manager._active is not None or self._operation is not None or self._inference_role is not None or self._state_operation != 'export':
+                 raise RuntimeError('Private-BN checkpoint must use the idle wrapped session.state')
+         def state_load(module, *args):
+-            if self.manager._active is not None or self._operation is not None or self._state_operation != 'load':
++            if self.manager._active is not None or self._operation is not None or self._inference_role is not None or self._state_operation != 'load':
+                 raise RuntimeError('Private-BN restore must use the idle wrapped session.load_state')
+         def before_load(module):
+             public = getattr(module, 'register_load_state_dict_pre_hook', None)
+@@ -136,7 +148,10 @@
+ 
+         @contextmanager
+         def route(owner, member, training):
+-            if self._operation not in ('TRAIN', 'VALID') or bool(training) != (self._operation == 'TRAIN'):
++            if self._inference_role is not None:
++                if self._inference_role not in ('VALID', 'TEST') or bool(training):
++                    raise RuntimeError('Owned final inference requires the literal VALID/TEST role and eval routes')
++            elif self._operation not in ('TRAIN', 'VALID') or bool(training) != (self._operation == 'TRAIN'):
+                 raise RuntimeError('Only the unchanged source TRAIN/VALID route dispatch is supported')
+             with self._original_route(member, training):
+                 with self.manager.route(member):
+@@ -172,12 +187,66 @@
+ 
+     @contextmanager
+     def operation(self, role):
+-        if self._operation is not None or self._state_operation is not None or self.manager._active is not None:
++        if role not in ('TRAIN', 'VALID'):
++            raise ValueError('Training operations admit only the unchanged TRAIN/VALID roles')
++        if self._operation is not None or self._inference_role is not None or self._state_operation is not None or self.manager._active is not None:
+             raise RuntimeError('One nonnested source task at a time')
+         self.assert_identity(); self._operation = role
+         try: yield
+         finally:
+             self._operation = None; self.assert_identity()
++
++
++    def _inference_buffers(self):
++        return {(scope, name): value for scope, owner in
++                (('route_bank', self.manager), ('native', self.native.model))
++                for name, value in owner.named_buffers()}
++
++    @contextmanager
++    def inference_operation(self, role):
++        """Own literal final VALID/TEST eval without changing saved TRAIN state.
++
++        Call diagnostics are returned locally, never added to the checkpointed
++        TRAIN/VALID ledger. Native route/BN guards remain active in this owner.
++        This source API neither authorizes TEST nor constructs any role data.
++        """
++        if role not in ('VALID', 'TEST'):
++            raise ValueError('One literal final VALID or TEST role required')
++        if self._operation is not None or self._inference_role is not None or self._state_operation is not None or self.manager._active is not None:
++            raise RuntimeError('Final inference requires an idle operation/state/route owner')
++        self.assert_identity()
++        buffers = self._inference_buffers()
++        before = {key: (value, value.data_ptr(), value.detach().clone()) for key, value in buffers.items()}
++        ledger = copy.deepcopy(self._calls)
++        providers = (self._TRAIN_provider_checks, self._VALID_provider_checks)
++        modes = [(module, bool(module.training)) for module in self.native.model.modules()]
++        self._inference_role = role
++        self._inference_calls = {name: [0]*4 for name in self.manager.names}
++        audit = {'schema': 'owned-BUDDY-private-BN-final-inference-v1', 'role': role,
++                 'inference_port': 'buddy_private_bn_production_v3',
++                 'producer_port': self.method_metadata['port'],
++                 'bank_nonmutation_required': True, 'saved_training_ledger_unchanged': False}
++        try:
++            self.native.model.eval()
++            with self.t.no_grad():
++                yield audit
++        finally:
++            calls = copy.deepcopy(self._inference_calls)
++            self._inference_role = self._inference_calls = None
++            for module, training in modes:
++                module.training = training
++            after = self._inference_buffers()
++            if set(after) != set(before) or any(after[key] is not original or after[key].data_ptr() != pointer
++                    or after[key].shape != saved.shape or after[key].dtype != saved.dtype
++                    or after[key].device != saved.device or not self.t.equal(after[key], saved)
++                    for key, (original, pointer, saved) in before.items()):
++                raise ValueError('Owned final inference changed native or private BN buffers')
++            if self._calls != ledger or (self._TRAIN_provider_checks, self._VALID_provider_checks) != providers:
++                raise ValueError('Final inference changed the saved TRAIN/VALID logical ledger')
++            self.assert_identity()
++            audit.update(branch_calls_by_route=calls, banks_unchanged=True,
++                         saved_training_ledger_unchanged=True)
++
+ 
+     def _snapshot(self):
+         return {name: value.detach().clone() for name,value in self.manager.named_buffers()}
+@@ -233,7 +302,7 @@
+             'private_BN_branch_ledger_scope':'checkpointed logical calls, not cumulative actual qualification work'}
+ 
+     def state(self):
+-        if self._operation is not None or self._state_operation is not None: raise RuntimeError('Checkpoint only outside live task')
++        if self._operation is not None or self._inference_role is not None or self._state_operation is not None: raise RuntimeError('Checkpoint only outside live task')
+         self.assert_identity(); self._state_operation = 'export'
+         try:
+             result = {'schema':STATE_SCHEMA,'method':copy.deepcopy(self.method_metadata),'native_integration':self.base.state(),
+@@ -243,7 +312,7 @@
+         return result
+ 
+     def load_state(self, value):
+-        if self._operation is not None or self._state_operation is not None or value.get('schema') != STATE_SCHEMA or value.get('method') != self.method_metadata:
++        if self._operation is not None or self._inference_role is not None or self._state_operation is not None or value.get('schema') != STATE_SCHEMA or value.get('method') != self.method_metadata:
+             raise ValueError('Idle exact method/source/context checkpoint required')
+         self.assert_identity(); self._state_operation = 'load'
+         try:
+@@ -254,9 +323,84 @@
+         self.assert_identity()
+ 
+     def close(self):
+-        if self._operation is not None or self._state_operation is not None or self.manager._active is not None:
++        if self._operation is not None or self._inference_role is not None or self._state_operation is not None or self.manager._active is not None:
+             raise RuntimeError('Close only outside live task/state operation')
+         self.assert_identity()
+         self.native._route,self.native._next_batch,self.native._hydrate = self._original_route,self._original_next,self._original_hydrate
+         for handle in self._handles:handle.remove()
+         self._handles=[]; self.base.close()
++
++
++def attach_inference_owner(session, job, root, expected_manifest_sha256):
++    """Bind this inference API to a genuine restored v2 producer session.
++
++    The original producer source is authenticated independently. Its method
++    metadata, callback/runtime binding, checkpoint layout and private state
++    remain genuine v2; this separately bound overlay changes ownership guards
++    only. A failed attachment invalidates the worker and must not be retried.
++    """
++    root = Path(root).resolve()
++    pins = bindings(root, expected_manifest_sha256)
++    parent_path = EXPANSION/'buddy_private_bn_production_v2/session.py'
++    parent = sys.modules.get(type(session).__module__)
++    if parent is None or Path(getattr(parent, '__file__', '')).resolve() != parent_path \
++            or type(session) is not parent.BUDDYPrivateBN:
++        raise ValueError('Inference overlay requires the exact authenticated v2 producer class')
++    metadata = session.method_metadata
++    if metadata.get('schema') != 'native-BUDDY-private-BN-production-source-v1' \
++            or metadata.get('method_id') != METHOD or metadata.get('port') != 'buddy_private_bn_production_v2':
++        raise ValueError('Genuine v2 producer metadata required')
++    if job != session.job or job.get('procedure') != METHOD or job.get('TEST_access') is not False:
++        raise ValueError('Overlay job must be the exact closed-TEST genuine producer descriptor')
++    callback = EXPANSION/'buddy_private_bn_production_v2/callback.py'
++    declared_callback = Path(job['callback_module'])
++    declared_callback = (declared_callback if declared_callback.is_absolute() else root/declared_callback).resolve()
++    if declared_callback != callback or job.get('callback_sha256') != receipt(callback)['sha256']:
++        raise ValueError('Overlay cannot replace or relabel the v2 training callback')
++    parent_pins = parent.bindings(root, job['method_settings']['manifest_sha256'])
++    if metadata.get('source_receipts') != parent_pins:
++        raise ValueError('Restored producer source closure differs from genuine v2')
++    if '_inference_role' in session.__dict__ or 'inference_metadata' in session.__dict__:
++        raise ValueError('Attach one reviewed inference API only')
++    if session._operation is not None or session._state_operation is not None or session.manager._active is not None:
++        raise RuntimeError('Attach inference only to an idle canonical restored session')
++    session.assert_identity()
++    expected_handles = 1+len(session.manager.names)+2*(2+len(session.manager.names))
++    if len(session._handles) != expected_handles:
++        raise ValueError('Authentic complete producer ownership guards required before replacement')
++    for name in ('_route', '_next_batch', '_hydrate'):
++        if getattr(getattr(getattr(session.native, name), '__func__', None), '__module__', None) != parent.__name__:
++            raise ValueError('Producer native ownership method source changed')
++    producer_metadata = copy.deepcopy(metadata)
++    session._inference_role = session._inference_calls = None
++    # Replace the producer-owned guards as one explicit inference overlay. The
++    # unchanged native model/optimizer/manager and original route remain owned.
++    for handle in session._handles:
++        handle.remove()
++    session._handles = []
++    for name in ('_inference_buffers', 'inference_operation', 'operation', 'state', 'load_state', 'close'):
++        setattr(session, name, types.MethodType(getattr(BUDDYPrivateBN, name), session))
++    BUDDYPrivateBN._install_ownership_guards(session)
++    if session.method_metadata != producer_metadata:
++        raise ValueError('Inference overlay must not rewrite saved producer metadata')
++    session.inference_metadata = {'schema': 'bound-BUDDY-private-BN-inference-api-v1',
++        'producer_port': 'buddy_private_bn_production_v2',
++        'inference_port': 'buddy_private_bn_production_v3',
++        'producer_manifest': receipt(callback.with_name('MANIFEST.json')),
++        'source_receipts': copy.deepcopy(pins), 'producer_metadata_changed': False}
++    return session.inference_metadata
++
++
++def bind_inference_owner(session, job, root, expected_manifest_sha256):
++    """Bind a genuine v2 overlay or verify this successor's genuine own API."""
++    if session.method_metadata.get('port') != 'buddy_private_bn_production_v3':
++        return attach_inference_owner(session, job, root, expected_manifest_sha256)
++    pins = bindings(root, expected_manifest_sha256)
++    actual = sys.modules.get(type(session).__module__)
++    if actual is None or Path(getattr(actual, '__file__', '')).resolve() != HERE/'session.py' \
++            or type(session) is not actual.BUDDYPrivateBN or job != session.job \
++            or session.method_metadata.get('source_receipts') != pins \
++            or session.inference_metadata.get('source_receipts') != pins:
++        raise ValueError('Genuine v3 producer and separately bound inference source required')
++    session.assert_identity()
++    return copy.deepcopy(session.inference_metadata)
+--- buddy_private_bn_production_v2/callback.py
++++ buddy_private_bn_production_v3/callback.py
+@@ -8,7 +8,7 @@
+ 
+ 
+ def source():
+-    name = '_buddy_private_bn_production_v2_source'
++    name = '_buddy_private_bn_production_v3_source'
+     if name not in sys.modules:
+         spec = importlib.util.spec_from_file_location(name,HERE/'session.py')
+         module = importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)

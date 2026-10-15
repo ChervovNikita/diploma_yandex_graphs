@@ -1,0 +1,380 @@
+--- final_selected_scoring_v3/backend.py
++++ final_selected_scoring_v4/backend.py
+@@ -37,7 +37,7 @@
+ def source_authority(root, expected):
+     require(expected['path'] == str(HERE / 'MANIFEST.json'), 'Use this frozen scoring source manifest')
+     manifest = verify(expected, root, json_metadata=True)
+-    require(manifest['schema'] == 'final-selected-scoring-source-v3', 'Wrong final-scoring source schema')
++    require(manifest['schema'] == 'final-selected-scoring-source-v4', 'Wrong final-scoring source schema')
+     for row in manifest['files']:
+         verify({'path': str(HERE / row['path']), 'bytes': row['bytes'], 'sha256': row['sha256']}, root)
+     bindings = json.loads((HERE / 'SOURCE_BINDINGS.json').read_text())
+@@ -221,6 +221,12 @@
+         require(binding == selected['runtime_binding'] == raw['runtime_binding'], 'Current source/runtime differs from selected fit')
+         adapter.load_state(copy.deepcopy(selected['adapter']))
+         require(adapter.completed_epochs == epoch, 'Restored native/selector clocks differ')
++        if job['family'] == 'link' and job['recipe']['architecture'].upper() == 'BUDDY' \
++                and job['procedure'] == 'gnnm_private_bn_state_v3':
++            inference = load_module(EXPANSION / 'buddy_private_bn_production_v3/session.py',
++                                    '_final_scoring_BUDDY_owned_inference')
++            expected = receipt(EXPANSION / 'buddy_private_bn_production_v3/MANIFEST.json', root)['sha256']
++            record['inference_API_binding'] = inference.bind_inference_owner(adapter.session, job, root, expected)
+         original = model_fingerprint(adapter.model)
+         helper = load_module(EXPANSION / 'final_test_serving_v1/link/backend.py', '_final_scoring_link_source') \
+             if job['family'] == 'link' else None
+--- final_selected_scoring_v3/role_serving.py
++++ final_selected_scoring_v4/role_serving.py
+@@ -10,6 +10,7 @@
+ import math
+ from pathlib import Path
+ from .contracts import inside, readout_policy, require, verify
++from .native_link import load_split, buddy_dataset
+ 
+ 
+ def tensor_sha(value):
+@@ -147,44 +148,48 @@
+ 
+ @contextmanager
+ def buddy_inference_context(torch, session, role):
+-    """Enter the authentic private-BN owner for VALID; TEST needs a new API.
+-
+-    The production v2 owner admits TRAIN and VALID only. Never impersonate
+-    VALID for TEST or bypass its route/BN ownership guards. Its banks live on
+-    the session manager, so check them explicitly as well as model buffers.
+-    """
++    """Require a separately bound producer-owned API for the literal role."""
+     if not buddy_private_bn_owner(session):
+         yield {'kind': 'existing_native_route', 'role': role}
+         return
+-    require(role == 'VALID', 'BUDDY private-BN TEST requires an explicit owned TEST inference API; no VALID role alias')
+-    operation, manager = getattr(session, 'operation', None), getattr(session, 'manager', None)
+-    require(callable(operation) and manager is not None,
+-            'Authentic BUDDY private-BN operation owner and banks required')
+-    before = {name: value.detach().clone() for name, value in manager.named_buffers()}
++    operation = getattr(session, 'inference_operation', None)
++    declaration = getattr(session, 'inference_metadata', {})
++    require(callable(operation) and declaration.get('schema') == 'bound-BUDDY-private-BN-inference-api-v1'
++            and declaration.get('inference_port') == 'buddy_private_bn_production_v3'
++            and declaration.get('producer_metadata_changed') is False,
++            'A separately authenticated owned BUDDY inference API is required')
++    before = {(scope, name): (value, value.data_ptr(), value.detach().clone()) for scope, owner in
++              (('route_bank', session.manager), ('native', session.native.model))
++              for name, value in owner.named_buffers()}
+     try:
+-        with operation(role):
+-            yield {'kind': 'owned_private_BN_operation', 'role': role,
+-                   'bank_names': sorted(before), 'bank_nonmutation_required': True}
++        with operation(role) as authority:
++            require(authority.get('schema') == 'owned-BUDDY-private-BN-final-inference-v1'
++                    and authority.get('role') == role, 'Inference owner changed the literal role')
++            yield authority
+     finally:
+-        after = dict(manager.named_buffers())
+-        require(set(after) == set(before) and all(value.shape == after[name].shape and value.dtype == after[name].dtype
+-                and value.device == after[name].device and torch.equal(value, after[name])
+-                for name, value in before.items()),
+-                'Final BUDDY inference changed a private BN bank')
++        after = {(scope, name): value for scope, owner in
++                 (('route_bank', session.manager), ('native', session.native.model))
++                 for name, value in owner.named_buffers()}
++        require(set(after) == set(before) and all(after[key] is original and after[key].data_ptr() == pointer
++                and saved.shape == after[key].shape and saved.dtype == after[key].dtype
++                and saved.device == after[key].device and torch.equal(saved, after[key])
++                for key, (original, pointer, saved) in before.items()),
++                'Final BUDDY inference changed native or private BN banks')
+ 
+ 
+ def link(torch, adapter, job, role, contract, root, helper, cache_root):
+     architecture = job['recipe']['architecture'].upper()
+     session = adapter.session
+-    require(not (architecture == 'BUDDY' and role == 'TEST' and buddy_private_bn_owner(session)),
+-            'BUDDY private-BN TEST requires an explicit owned TEST inference API; no VALID role alias')
++    require(not (architecture == 'BUDDY' and buddy_private_bn_owner(session))
++            or callable(getattr(session, 'inference_operation', None)),
++            'Explicit owned BUDDY inference API required before any role payload read')
+     # Current exact factory restores nested session extensions. Existing helper
+-    # calls native _route/predictor; BUDDY private-BN enters its owned VALID
+-    # operation below. Explicit private-BN TEST support remains unavailable.
++    # calls native _route/predictor; BUDDY private-BN enters the actual literal
++    # VALID/TEST inference owner below, with no change to producer state pins.
+     require(architecture == contract['architecture'], 'Link role belongs to another native architecture')
+     data = contract['data_files']
+     role_pin = data['valid' if role == 'VALID' else 'test']
+-    split = torch.load(verify(role_pin, root), map_location='cpu', weights_only=False)
++    split = load_split(torch, verify(role_pin, root))
+     positive = 60084 if role == 'VALID' else contract['population']['positive']
+     negative = 100000 if role == 'VALID' else contract['population']['negative']
+     for key, count in (('edge', positive), ('edge_neg', negative)):
+@@ -203,10 +208,10 @@
+         request = {'role': role, 'topology': contract['topology'] if role == 'TEST' else 'weighted_year2007_TRAIN',
+                    'data_files': data, 'query_population': {'positive': positive, 'negative': negative},
+                    'cache_directory': str(inside(Path(cache_root) / role, root))}
+-        # Enter before rebuilding context so unsupported private-BN TEST fails
+-        # before a role-specific HashDataset/cache can be constructed.
++        # The producer owns the literal final role while the original fresh
++        # HashDataset and sequential native route forwards execute.
+         with buddy_inference_context(torch, session, role) as owned_context:
+-            context = helper._buddy_dataset(torch, integration, session, job, split, request, root)
++            context = buddy_dataset(torch, integration, session, job, split, request, root, helper)
+             _, rows, work = helper._buddy_predict(torch, session, context[0], context[1])
+         work['source_role_context'] = context[2]
+         work['owned_inference_context'] = owned_context
+--- final_selected_scoring_v3/check_metadata.py
++++ final_selected_scoring_v4/check_metadata.py
+@@ -20,56 +20,85 @@
+ 
+ 
+ def check_buddy_context_ownership():
+-    from contextlib import contextmanager
+-    # Ordinary scalar fixtures exercise context ownership only. No model,
+-    # tensor library, checkpoint, dataset or native execution is involved.
+-    class Buffer:
+-        shape, dtype, device = (1,), 'fixture-int', 'fixture-host'
+-        def __init__(self, value): self.value = value
+-        def detach(self): return self
+-        def clone(self): return Buffer(self.value)
+-    class TorchFixture:
++    import importlib.util
++    path = HERE.parent/'buddy_private_bn_production_v3/check_source.py'
++    spec = importlib.util.spec_from_file_location('_owned_inference_scalar_fixtures', path)
++    fixtures = importlib.util.module_from_spec(spec); spec.loader.exec_module(fixtures)
++    library = fixtures.load_source(path.with_name('session.py'), '_owned_inference_producer_fixture')
++    for role in ('VALID','TEST'):
++        owner = fixtures.fixture(library)
++        owner.inference_metadata = {'schema':'bound-BUDDY-private-BN-inference-api-v1',
++            'inference_port':'buddy_private_bn_production_v3','producer_metadata_changed':False}
++        with buddy_inference_context(fixtures.TorchFixture, owner, role) as authority:
++            assert owner._inference_role == role and authority['role'] == role
++        assert authority['banks_unchanged'] and authority['saved_training_ledger_unchanged']
++    class OldOwner:
++        method_metadata = {'schema':'native-BUDDY-private-BN-production-source-v1',
++            'method_id':'gnnm_private_bn_state_v3'}
++    def absent():
++        with buddy_inference_context(fixtures.TorchFixture, OldOwner(), 'TEST'): pass
++    assert rejected(absent)
++    class Native: pass
++    with buddy_inference_context(fixtures.TorchFixture, Native(), 'TEST') as authority:
++        assert authority == {'kind':'existing_native_route','role':'TEST'}
++    return {'literal_VALID_and_TEST_owned_API':True,'missing_owned_API_refused':True,
++            'native_and_private_banks_protected':True,
++            'fixture_scope':'scalar control-flow only; not native numerical qualification'}
++
++
++def check_native_split_conversion():
++    from types import ModuleType
++    from .native_link import load_split
++    calls, raw = [], {'edge':'raw-array-fixture','nested':{'year':'raw-array-fixture'}}
++    converted = {'native':'conversion-return-fixture'}
++    class Loader:
+         @staticmethod
+-        def equal(a, b): return a.value == b.value
+-    class Manager:
+-        def __init__(self): self.buffer = Buffer(7)
+-        def named_buffers(self): return [('route_bank', self.buffer)]
+-    class Owner:
+-        method_metadata = {'schema': 'native-BUDDY-private-BN-production-source-v1',
+-                           'method_id': 'gnnm_private_bn_state_v3'}
+-        def __init__(self): self.manager, self.active, self.calls = Manager(), None, []
+-        @contextmanager
+-        def operation(self, role):
+-            assert self.active is None
+-            self.active = role; self.calls.append(role)
+-            try: yield
+-            finally: self.active = None
+-    owner = Owner()
+-    with buddy_inference_context(TorchFixture, owner, 'VALID') as authority:
+-        assert owner.active == 'VALID' and authority['role'] == 'VALID'
+-    assert owner.active is None and owner.calls == ['VALID']
+-    def unsupported():
+-        with buddy_inference_context(TorchFixture, owner, 'TEST'): pass
+-    assert rejected(unsupported) and owner.calls == ['VALID']
+-    def mutate():
+-        with buddy_inference_context(TorchFixture, owner, 'VALID'):
+-            owner.manager.buffer.value = 8
+-    assert rejected(mutate) and owner.active is None
+-    clean = Owner()
++        def load(path, **kwargs):
++            calls.append(('load',path,kwargs)); return raw
++    module = ModuleType('ogb.utils.torch_util')
++    def convert(value):
++        assert value is raw
++        calls.append(('native-convert',)); return converted
++    module.replace_numpy_with_torchtensor = convert
++    name = 'ogb.utils.torch_util'; original = sys.modules.get(name)
++    sys.modules[name] = module
+     try:
+-        with buddy_inference_context(TorchFixture, clean, 'VALID'):
+-            raise RuntimeError('fixture source failure')
+-    except RuntimeError as error:
+-        assert str(error) == 'fixture source failure'
+-    else: raise AssertionError('Source error must propagate')
+-    assert clean.active is None
+-    class Native: pass
+-    with buddy_inference_context(TorchFixture, Native(), 'TEST') as authority:
+-        assert authority == {'kind': 'existing_native_route', 'role': 'TEST'}
+-    return {'VALID_enters_genuine_owner': True, 'TEST_refused_without_role_alias': True,
+-            'private_bank_mutation_refused': True, 'exception_releases_owner': True,
+-            'other_methods_preserve_existing_native_route': True,
+-            'fixture_scope': 'scalar control-flow only; not native numerical qualification'}
++        assert load_split(Loader,'raw-split-fixture') is converted
++    finally:
++        if original is None: del sys.modules[name]
++        else: sys.modules[name] = original
++    assert calls == [('load','raw-split-fixture',{'map_location':'cpu','weights_only':False}),('native-convert',)]
++    tree = ast.parse((HERE/'native_link.py').read_text())
++    funcs = {n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
++    loader = funcs['load_split']
++    assert any(isinstance(n,ast.ImportFrom) and n.module=='ogb.utils.torch_util' for n in ast.walk(loader))
++    assert not any(isinstance(n,ast.Attribute) and n.attr in ('as_tensor','long','astype','save','write') for n in ast.walk(loader))
++    graph_loader = funcs['load_collab']
++    role_loads = [n for n in ast.walk(graph_loader) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='load_split']
++    assert len(role_loads)==2
++    return {'raw_role_split_uses_exact_OGB_conversion_API':True,'TRAIN_VALID_context_uses_same_loader':True,
++            'dtype_casts_or_cache_rewrites':0,'fixture_scope':'conversion API dispatch only; no arrays/tensors/data execution'}
++
++
++
++def check_native_helper_free_names():
++    import builtins
++    import symtable
++    path = HERE/'native_link.py'
++    table = symtable.symtable(path.read_text(), str(path), 'exec')
++    bound = {symbol.get_name() for symbol in table.get_symbols()
++             if symbol.is_assigned() or symbol.is_imported() or symbol.is_namespace()}
++    allowed = bound | set(dir(builtins)) | {'__file__','__name__','__package__'}
++    missing = []
++    def visit(scope):
++        for symbol in scope.get_symbols():
++            if symbol.is_referenced() and symbol.is_global() and symbol.get_name() not in allowed:
++                missing.append({'scope':scope.get_name(),'name':symbol.get_name()})
++        for child in scope.get_children(): visit(child)
++    visit(table)
++    assert not missing, missing
++    return {'module':'native_link.py','unbound_global_names':missing,
++            'scope':'symbol-table analysis only; no imports of native dependencies or hydration'}
+ 
+ 
+ def main():
+@@ -128,14 +157,16 @@
+     assert not any(isinstance(n, ast.Name) and n.id == 'labels' for n in ast.walk(pool))
+     assert 'torch' not in sys.modules
+     ownership = check_buddy_context_ownership()
+-    report = {'schema': 'final-selected-scoring-source-metadata-checks-v3', 'status': 'PASS',
++    conversion = check_native_split_conversion()
++    free_names = check_native_helper_free_names()
++    report = {'schema': 'final-selected-scoring-source-metadata-checks-v4', 'status': 'PASS',
+               'scientific_method_preset_routes': covered, 'registry_overlay_runtime_routes': aliases,
+               'unknown_readout_refused': True, 'ten_literal_node_TEST_populations_required': True,
+               'wrong_split_and_CAL_refused': True, 'prediction_aggregation_has_no_labels_input': True,
+               'top_level_model_imports': 0, 'training_calls': 0, 'datasets_opened': 0,
+               'checkpoints_opened': 0, 'TEST_payloads_opened': 0, 'native_executions': 0,
+               'numerical_or_source_parity_qualified': False,
+-              'BUDDY_private_BN_context': ownership}
++              'BUDDY_private_BN_context': ownership, 'Collab_native_conversion':conversion, 'copied_helper_free_names':free_names}
+     (HERE / 'LOCAL_CHECKS.json').write_text(json.dumps(report, indent=2) + '\n')
+     print(json.dumps(report))
+ 
+--- /dev/null
++++ final_selected_scoring_v4/native_link.py
+@@ -0,0 +1,101 @@
++"""Raw Collab split conversion and original BUDDY context; no top-level model imports."""
++from pathlib import Path
++import copy
++import json
++
++
++def load_split(torch, path):
++    # Same API as OGB PygLinkPropPredDataset.get_edge_split. It preserves
++    # NumPy dtype and nested container shape; no casts or cache rewrite.
++    from ogb.utils.torch_util import replace_numpy_with_torchtensor
++    return replace_numpy_with_torchtensor(torch.load(path, map_location='cpu', weights_only=False))
++
++
++def load_collab(torch, recipe, data_root):
++    from torch_geometric.data import Data
++    declared = recipe.get('data_files')
++    if declared is not None:
++        paths = {k: Path(declared[k]) for k in ('graph', 'train', 'valid')}
++        paths = {k: p if p.is_absolute() else Path(data_root) / p for k, p in paths.items()}
++    else:
++        raise ValueError('Exact explicit source graph/TRAIN/VALID paths required')
++    # Source-preserving graph deserialization in the admitted runtime. Nothing
++    # calls PygLinkPropPredDataset.get_edge_split or opens a TEST split.
++    packed = torch.load(paths['graph'], map_location='cpu', weights_only=False)
++    raw = packed[0] if isinstance(packed, tuple) else packed
++    if isinstance(raw, dict):
++        raw = Data.from_dict(raw)
++    if not hasattr(raw, 'x') or not hasattr(raw, 'edge_index'):
++        raise ValueError('Unsupported official processed Collab graph format')
++    graph = Data(x=raw.x.detach().cpu().clone(), edge_index=raw.edge_index.detach().cpu().clone(),
++                 num_nodes=int(raw.num_nodes))
++    weights = getattr(raw, 'edge_weight', None)
++    if weights is not None:
++        graph.edge_weight = weights.detach().cpu().clone()
++    if graph.num_nodes != 235868 or tuple(graph.x.shape) != (235868, 128):
++        raise ValueError('Full native Collab235868x128 required; graph/feature shrink is unsupported')
++    train = load_split(torch, paths['train'])
++    valid = load_split(torch, paths['valid'])
++    for k in ('edge', 'edge_neg'):
++        if valid[k].ndim != 2 or valid[k].shape[1] != 2:
++            raise ValueError('Complete official VALID pair records required: ' + k)
++    if tuple(valid['edge'].shape) != (60084, 2) or tuple(valid['edge_neg'].shape) != (100000, 2):
++        raise ValueError('Native complete Collab VALID60084/100000 required')
++    if train['edge'].ndim != 2 or train['edge'].shape[1] != 2:
++        raise ValueError('Native complete TRAIN edge records required')
++    return graph, train, valid, {k: str(p) for k, p in paths.items()}
++
++
++def buddy_dataset(torch, integration, session, job, split, request, root, helper):
++    import os
++    inside, digest, receipt = helper.inside, helper.digest, helper.receipt
++    _definition, PHASE = helper._definition, helper.PHASE
++    SOURCE_BINDINGS_SHA256 = helper.SOURCE_BINDINGS_SHA256
++    backend_sources = helper.backend_sources
++    import time
++    import scipy.sparse as ssp
++    import torch_sparse
++    from torch_geometric.data import Dataset
++    from torch_geometric.nn.conv.gcn_conv import gcn_norm
++    from torch_geometric.utils import to_undirected
++    n = session.native
++    callback = integration._native_factory(n.recipe)
++    graph, train, valid, _ = load_collab(torch, n.recipe, inside(job['data_root'], root))
++    loader = callback._local_module('source_loader')
++    _, _, Hashes, filter_year, _, _, _ = loader.load_buddy(torch)
++    graph, _ = filter_year(graph, {'train': train}, 2007)
++    if request['role'] == 'TEST':
++        if 'weight' not in valid or len(valid['weight']) != len(valid['edge']):
++            raise ValueError('BUDDY TEST topology needs original official VALID weights')
++        vei, vw = to_undirected(valid['edge'].t(), valid['weight'])
++        graph.edge_index = torch.cat((graph.edge_index, vei), dim=1)
++        graph.edge_weight = torch.cat((graph.edge_weight, vw.unsqueeze(-1)), dim=0)
++    args = copy.deepcopy(n.args)
++    args.load_features = args.load_hashes = False
++    args.cache_subgraph_features = args.use_struct_feature = True
++    args.dataset_name = 'ogbl-collab'; args.num_negs = 1
++    args.eval_batch_size = 1000000; args.dynamic_train = args.dynamic_val = args.dynamic_test = False
++    args.wandb = False
++    cache = inside(request['cache_directory'], root)
++    if cache.exists():
++        raise ValueError('A fresh role-specific BUDDY cache directory is required; never reuse TRAIN or stale TEST context')
++    cache.mkdir(parents=True)
++    cls = _definition(PHASE/'reference_wrapper_redesign_20261013_v1/native_sources/buddy/buddy_src_datasets_elph.py',
++        'HashDataset', {'torch': torch, 'Dataset': Dataset, 'ElphHashes': Hashes,
++            'coalesce': torch_sparse.coalesce, 'to_undirected': to_undirected, 'ssp': ssp,
++            'torch_sparse': torch_sparse, 'gcn_norm': gcn_norm, 'os': os, 'time': time.time})
++    dataset = cls(str(cache/'elph_'), request['role'].lower(), graph, split['edge'], split['edge_neg'], args,
++                  use_coalesce=True, directed=False)
++    if tuple(dataset.x.shape) != (235868, 128) or tuple(dataset.subgraph_features.shape) != (len(dataset.links), 8):
++        raise ValueError('Original BUDDY role context has an unexpected full-native shape')
++    provenance = {'schema': 'native-role-specific-BUDDY-context-v1', 'role': request['role'],
++        'topology': request['topology'], 'request_sha256': digest(request),
++        'query_population': request['query_population'], 'source_bindings_sha256': SOURCE_BINDINGS_SHA256,
++        'backend_sources': backend_sources(), 'data_files': request['data_files'],
++        'source_class': 'unchanged HashDataset AST',
++        'native_split_conversion_source': receipt(__file__),
++        'native_split_conversion': 'OGB replace_numpy_with_torchtensor; dtype/order unchanged; no raw cache rewrite',
++        'source_cache_files': [
++            {'path': str(path), **receipt(path)} for path in sorted(cache.rglob('*.pt'))]}
++    (cache/'CONTEXT_BINDING.json').write_text(json.dumps(provenance, indent=2)+'\n')
++    return dataset, args, provenance

@@ -1,0 +1,108 @@
+--- bn_bank_assignment_v1/diagnose.py
++++ bn_mixture_moments_v1/diagnose.py
+@@ -1,4 +1,8 @@
+-"""Finite CPU VALID intervention on saved BN banks, never training or TEST."""
++"""Own versus equal-route mixture moments at existing selected weights.
++
++Derived from bn_bank_assignment_v1/diagnose.py; keep its authentic frozen
++adapter construction and adapter.validate collector. No training or TEST.
++"""
+ from __future__ import annotations
+ import copy
+ import hashlib
+@@ -29,6 +33,14 @@
+     previous.verify_pin(result_path, entry['sha256'])
+     fit = result_path.parent
+     result, job = json.loads(result_path.read_text()), json.loads((fit / 'JOB.json').read_text())
++    prior_pin = inputs['prior_diagnostics'][index]
++    prior_path = previous.safe_path(prior_pin['path'], root)
++    previous.verify_pin(prior_path, prior_pin['sha256'])
++    prior = json.loads(prior_path.read_text())
++    assert prior['status'] == 'complete' and prior['native_forwards'] == 100
++    assert prior['seed'] == job['seed']
++    assert prior['checkpoint']['sha256'] == result['selected_checkpoint']['sha256']
++    assert [c['condition'] for c in prior['conditions']] == ['own','tied','shift1','shift2','shift3']
+     assert result['status'] == 'complete' and job['family'] == 'ogb' and job['TEST_access'] is False
+     assert job['seed'] == (101, 202, 303)[index] and job['recipe']['dataset'] == 'ogbg-molbace'
+     runtime = Path(result['runtime_sources']['run_fit.py']['path']).parent
+@@ -56,11 +68,14 @@
+     previous.verify_pin(previous.safe_path(job['callback_module'], root), binding['callback_sha256'])
+     output.mkdir(parents=True, exist_ok=False)
+     started = time.perf_counter()
+-    report = {'schema':'fixed-selected-BN-assignment-v1', 'status':'running', 'seed':job['seed'],
++    report = {'schema':'fixed-selected-BN-mixture-moments-v1', 'status':'running', 'seed':job['seed'],
+               'selected_epoch':selected['selector']['selected_epoch'], 'role':'VALID',
+               'fit_result':previous.pin(result_path), 'checkpoint':previous.pin(fit/'selected.pt'),
+               'inputs':previous.pin(here/'INPUTS.json'), 'source':previous.pin(Path(__file__)),
+-              'conditions':[], 'native_forwards':0, 'optimizer_updates':0, 'TRAIN_calls':0,
++              'conditions':[], 'bank_moment_summaries':[],
++              'prior_assignment':previous.pin(prior_path), 'prior_conditions':prior['conditions'],
++              'readout':'original fixed mean native raw logits via adapter.validate',
++              'native_forwards':0, 'optimizer_updates':0, 'TRAIN_calls':0,
+               'TEST_accessed':False, 'selection_changed':False, 'scientific_fits':0,
+               'device':'cpu', 'threads':2}
+     adapter = hook = None
+@@ -97,21 +112,45 @@
+         for banks in manager.banks:
+             assert all(torch.equal(banks[0].num_batches_tracked, b.num_batches_tracked) for b in banks)
+ 
++        # Stable equal-route law of total variance, accumulated in float64.
++        # These are plug-in moments of saved EMA banks, not recalibrated moments.
++        targets = []
++        for layer, banks in enumerate(manager.banks):
++            stored_means = torch.stack([original[f'banks.{layer}.{m}.running_mean'] for m in range(4)])
++            means = stored_means.double()
++            variances = torch.stack([original[f'banks.{layer}.{m}.running_var'].double() for m in range(4)])
++            assert torch.isfinite(means).all() and torch.isfinite(variances).all()
++            assert (variances >= 0).all()
++            mean = means.mean(0)
++            within = variances.mean(0)
++            between = (means - mean).square().mean(0)
++            variance = within + between
++            assert torch.isfinite(variance).all() and (variance >= 0).all()
++            # Match the old arithmetic tied mean exactly; change only variance.
++            targets.append((stored_means.mean(0), variance))
++            report['bank_moment_summaries'].append({
++                'layer':manager.names[layer], 'channels':mean.numel(),
++                'within_variance_mean':float(within.mean()),
++                'between_mean_variance_mean':float(between.mean()),
++                'between_mean_variance_max':float(between.max()),
++                'mixture_variance_mean':float(variance.mean()),
++                'between_fraction_of_total_sum':float(between.sum()/variance.sum()) if variance.sum()>0 else None})
++
+         def count(_module, _args, _output):
+             report['native_forwards'] += 1
+-            if report['native_forwards'] > 100: raise RuntimeError('Frozen forward limit exceeded')
++            if report['native_forwards'] > 40: raise RuntimeError('Frozen forward limit exceeded')
+ 
+         hook = model.native.register_forward_hook(count)
+         outputs = {}
+-        for name, shift in [('own',0), ('tied',None), ('shift1',1), ('shift2',2), ('shift3',3)]:
++        for name in ('own', 'mixture'):
+             manager.load_state_dict(copy.deepcopy(original))
+-            with torch.no_grad():
+-                for layer, banks in enumerate(manager.banks):
+-                    for key in ('running_mean','running_var'):
+-                        values = [original[f'banks.{layer}.{m}.{key}'] for m in range(4)]
+-                        for m, bank in enumerate(banks):
+-                            target = torch.stack(values).mean(0) if shift is None else values[(m+shift)%4]
+-                            getattr(bank,key).copy_(target)
++            if name == 'mixture':
++                with torch.no_grad():
++                    for banks, (mean, variance) in zip(manager.banks, targets):
++                        for bank in banks:
++                            bank.running_mean.copy_(mean)
++                            bank.running_var.copy_(variance)
++            # Counters, eps, momentum and affine parameters remain unchanged.
+             model.eval()
+             before = time.perf_counter()
+             with torch.no_grad(): actual = adapter.validate()
+@@ -134,7 +173,7 @@
+             report['conditions'].append(row)
+             outputs[name]=logits
+         manager.load_state_dict(original)
+-        assert parameters(model)==parameter_sha and report['native_forwards']==100
++        assert parameters(model)==parameter_sha and report['native_forwards']==40
+         assert not torch.cuda.is_initialized()
+         for key,value in original.items(): assert torch.equal(manager.state_dict()[key],value)
+         torch.save({'role':'VALID','TEST_accessed':False,'ids':ids,'labels':labels,

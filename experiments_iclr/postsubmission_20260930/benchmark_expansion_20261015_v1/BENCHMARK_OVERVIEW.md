@@ -18,8 +18,8 @@ configuration. For each of its ten trials we train:
 1. **Reference reproduction:** one native model with the source paper/release
    training horizon and selection protocol. Its selected checkpoint must also
    be scored with the source test protocol to check the reported baseline.
-   Final-scoring source now covers all task families. Its native numerical
-   checks and job/report integration remain pending; validation results alone
+   Final-scoring source now covers all task families. Its job/report integration is implemented; cross-task native numerical
+   and resource checks remain pending; validation results alone
    do not establish reproduction. Source-configuration ambiguities are disclosed.
 2. **Matched native single and independent ensemble:** four separate native
    models, each with its own weights, optimizer and selected checkpoint. Model0
@@ -108,11 +108,15 @@ The current authorization allows only the dedicated allocation. Deployment to
 completion time or dividing6,460 runs across three GPUs. Fit counts alone do
 not measure GPU work.
 
-## Preparation update — 15 October, 12:47 UTC
+## Preparation update — 15 October, 13:44 UTC
 
 Native final evaluation-population metadata is complete for all 27 presets and
 43 distinct populations. No TEST predictions or metrics were computed. The
 complete remote index is recorded in POPULATION_COMPLETION_V2_RUN_14.json;
 original failure histories and native Collab conversion are retained. Final
-serving must still pass native selected-state/resource qualification, including
-the BUDDY private-BN inference context repair. The giant campaign remains unrun.
+serving includes the BUDDY private-BN context repair. Three original molecular
+selected states passed whole-VALID CPU reconstruction, and the combined launcher
+passed eight real orchestration checks with metadata fixtures. Neither proves
+cross-task native readiness. The remaining three queued CUDA checks retain 4,233
+fixed optimizer updates; measured placement across the future three GPUs is
+still pending. The giant campaign remains unrun.

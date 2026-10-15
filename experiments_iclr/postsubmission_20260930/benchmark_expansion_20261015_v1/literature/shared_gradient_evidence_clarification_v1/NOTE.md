@@ -1,0 +1,11 @@
+# Shared-gradient interference remains an open experimental question
+
+15 October 2026. This is a clarification of the retained research record, not a new method or run. The checked records contain proposals for PCGrad/GEM-style projections, CAGrad and FAMO-style balancing, but no completed scientific gradient-surgery comparison or authentic model smoke qualification for those proposals. This is a scoped history assessment, not an exhaustive novelty claim.
+
+The completed 96-cell optimizer-synchronization study and its 12 norm-matched controls did not show consistent accuracy improvement. Those models used separate route AdamW states followed by synchronized weights. That is a different intervention from projecting or balancing shared gradients; its negative result cannot be cited as a failed PCGrad/CAGrad experiment.
+
+The later WikiCS diagnostic examined 15 banks, 24 restored states and 51 backwards with zero optimizer updates. It found no uniform overwhelming cancellation at the selected states. One dropout realization at each selected checkpoint does not establish or exclude harmful interference during the actual Adam trajectory. A shared-gradient energy ratio near one quarter can arise from four orthogonal gradients and does not mean the useful update vanished.
+
+The useful unresolved question is whether the actual shared optimizer displacement repeatedly harms some routes after accounting for their private progress, and whether an established optimizer adaptation improves final pooled predictions. Separate BN running statistics improve selected VALID ranking in the current molecular experiment but, under the recorded conditions, do not change native TRAIN gradients. They therefore neither diagnose nor resolve shared-gradient interference.
+
+Keep the existing deferred catalogue entry. Do not add another arm to the running nine-fit experiment or the 25-recipe proposal from this note. If this direction receives a later bounded pilot, compare uniform shared training with a faithful known method and any attributed-progress variant, preserving native architecture, private updates, normalization, data and serving. Report actual displacement/monitor effects and prediction quality; lower TRAIN conflict alone is insufficient. No novel principle, expected improvement, significance or launch is claimed here.

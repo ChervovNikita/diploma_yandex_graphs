@@ -46,7 +46,7 @@ followed by a 0.99-point gain from averaging. The member-quality gap to I4 was
 smaller in each seed. A separate nine-fit study started on the allocation at 09:36 UTC: geometry, private
 correction, and both together under private BN, each at the same three seeds.
 It reuses all 15 completed factorial controls and runs one new fit at a time.
-At 12:47 UTC, six fits were complete and the seventh was running; partial quality scores remain unread. The original 6,460-fit benchmark count is unchanged.
+At 13:44 UTC, eight fits were complete and the ninth was running; partial quality scores remain unread. The original 6,460-fit benchmark count is unchanged.
 
 A completed saved-prediction check compared logit and probability averaging
 for every completed method across all three seeds. Probability averaging raised
@@ -59,17 +59,23 @@ not establish a confirmed advantage or transfer. Test scores remain closed.
 Every outcome, per-seed difference, training cost and failed combination is
 retained. Different selected epochs also limit causal interpretation.
 
-### New fixed-weight normalization analysis
+### Stronger fixed-weight normalization control
 
 At the same three selected private-BN checkpoints, own route statistics give
-mean VALID AUC 73.61%, tied statistics 59.06%, and cyclically mismatched banks 57.98%
-when their three scores are averaged. Own versus tied improves all three seeds;
-one cyclic assignment improves one seed. The analysis used 300 CPU VALID forwards
-and no training. It supports keeping route-specific statistics as a control,
-with no new novelty or independent-ensemble superiority claim. The scoped
-slimmable-network source reading establishes relevant prior art.
+mean VALID AUC 73.61%. A common-mixture control gives 68.45%, compared with
+59.06% for the earlier arithmetic tie. The mixture adds variation between route
+means to the average within-route variance. That correction narrows the
+own-minus-common gap from 14.55 to **5.16 points**, with own banks still ahead
+in all three seeds. Probability losses are mixed: the common mixture improves
+BCE and Brier over own banks in one seed and worsens them in two.
 
-[Full analysis, all outcomes and limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/bn_bank_assignment_v1/REPORT.md).
+The stronger control required 120 CPU VALID forwards, zero training and 25.76
+seconds. Earlier tied/cyclic outcomes are retained. Saved EMA moments provide
+a plug-in approximation, not exact recalibration or reconstruction of original
+GNNM's sequential shared BN. These results support a matched normalization
+control; they establish neither novelty nor independent-ensemble superiority.
+
+[Complete comparison and limitations](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/bn_mixture_moments_completed_v1/INTERPRETATION.md).
 
 ### What the implementation and theory checks add
 
@@ -131,11 +137,21 @@ metadata without scoring. The original Collab TEST file was recovered from its
 retained archive, and its native OGB array conversion was applied; both failed
 attempts and their costs remain. Six successful providers were reused.
 
-Final scoring integration passes eight metadata checks. Native inference/resource
-qualification is still pending, including a concrete BUDDY private-BN operation
-context fix and the same native Collab split conversion in serving. The combined
-one-command launcher remains unbound pending that repair. Source-setting training
-and validation scores alone do not verify a paper's reported test metric.
+The final scorer now preserves original checkpoint provenance and attaches the
+explicit BUDDY inference context separately. Three genuine selected molecular
+states passed whole-VALID CPU reconstruction, without training or TEST scoring.
+This verifies their original producer scope, not exact CUDA parity or all tasks.
+The combined one-command orchestration passed eight actual process/ledger
+checks, including restart, failure and interrupted-readiness recovery. These
+used standard-library fixtures, with zero model work. An initial driver failure
+is preserved with its repair.
+
+Three finite CUDA checks remain queued: NCN and BUDDY lifecycles plus a MolHIV
+GIN-VN resource measurement. They retain the previously fixed jobs and total
+4,233 optimizer updates. They wait for the scientific study to release a slot.
+Native final-serving qualification and measured three-GPU placement remain
+incomplete. Source-setting training and validation scores alone do not verify
+a paper's reported test metric.
 
 **The full campaign is awaiting preparation and user GO.** The launch plan
 contains 6,460 fit tasks and 270 export-only tasks but has started none. Only

@@ -64,7 +64,7 @@ geometry and corrections under matched private normalization before rejecting
 their combination. The nine-fit follow-up started on the allocation at 09:36 UTC on 15 October. It
 tests geometry, corrections and both together under private BN, with the same
 three seeds and 15 completed factorial controls. It runs one new fit at a time.
-The 12:47 UTC observation confirms six of nine complete and the seventh running; no partial quality scores have been read. The scope and reporting criteria
+The 13:44 UTC observation confirms eight of nine complete and the ninth running; no partial quality scores have been read. The scope and reporting criteria
 were frozen before launch; it remains separate from the 6,460-fit campaign.
 
 The [completed fixed-aggregation comparison](analysis/complete_fixed_aggregation_v1/REPORT.md)
@@ -88,6 +88,16 @@ updates and 30.82 seconds. A [scoped prior-art inspection](literature/switchable
 found separate running statistics with shared affine weights in the author
 implementation of universal slimmable networks. This strengthens the reason
 to treat private BN as a necessary control rather than the claimed novelty.
+
+The [stronger common-mixture control](analysis/bn_mixture_moments_completed_v1/INTERPRETATION.md)
+adds between-route mean variation to the average saved variance. At the same
+weights it reaches 68.45% mean AUC, versus 59.06% for the arithmetic tie and
+73.61% for own banks. The gap therefore shrinks from 14.55 to 5.16 points;
+own banks remain ahead in all three seeds. BCE and Brier favor the mixture in
+one seed and own banks in two. This used 120 CPU VALID forwards and 25.76 seconds,
+without training or TEST. The mixture is a saved-EMA approximation; it is not
+exact pooled-history recalibration. The full report preserves the earlier
+controls, every seed and the limits of this fixed-weight comparison.
 
 The [normalization design note](research_next_decision_v1/DESIGN_IMPLICATION.md)
 identifies a decision to resolve before committing the large compute budget.
@@ -241,11 +251,12 @@ remain unknown. Current development uses TRAIN/VALID with TEST scoring closed.
 Training a source-reference model does not itself verify the paper's reported
 TEST metric. The final review package must also specify selected-checkpoint
 scoring with the original split, evaluator and task-specific test inputs. That
-[scoring source](final_selected_scoring_v2/README.md) is now implemented and
+[scoring source](final_selected_scoring_v4/README.md) is now implemented and
 reviewed: native role inputs, each own selected state, learned aggregation,
 member outputs and independent-ensemble exports. It checks complete selected
-VALID reconstruction before TEST. Actual role metadata, numerical/resource
-qualification and dispatcher/reporting integration remain pending. This adds
+VALID reconstruction before TEST. Actual role metadata and dispatcher/reporting integration are complete. Three
+genuine molecular states passed whole-VALID CPU reconstruction. Cross-task
+native numerical/resource qualification remains incomplete. This adds
 no training fits; no validation number will be presented as a reproduced test
 result.
 
@@ -300,12 +311,21 @@ for Coauthor-Physics. These are CPU population costs, not inference estimates.
 the complete remote index and output manifest. Full arrays stay on the server.
 No dataset/model/training setting or original paper score changed.
 
-The final scoring integration passes eight metadata checks and uses the existing
-worker reservations, failure records and scalar reporting. Actual native inference
-and resource qualification remain pending. A concrete BUDDY private-BN inference
-context issue and native Collab split conversion are being repaired in a separate
-source successor. The one-command sequencer is prepared but still needs its
-reviewed final scorer binding and execution checks. The campaign has not launched.
+The repaired final scorer preserves original producer/checkpoint identities,
+then attaches BUDDY VALID/TEST operation ownership explicitly. Native OGB split
+conversion is retained. Three genuine molecular selected states passed CPU
+whole-VALID replay in 23.26 seconds: zero optimizer, TEST or CUDA calls. This
+covers M1, original GNNM and private BN at their actual producer scope, not
+all current-runtime states. See [CPU replay evidence](CPU_SELECTED_VALID_RESULT_15.json).
+
+The coherently bound one-command sequencer passed eight actual orchestration
+checks in 4.29 seconds, using three standard-library fixture children. Restart,
+failure, duplicate prevention, readiness recovery, offline delivery and ledger
+handoff were exercised without models or network access. The first driver's
+wrong-config negative check failed before native work; its corrected successor
+and failure remain. See [execution evidence](FINAL_ORCHESTRATION_V2_RUN_15.json).
+Native CUDA resource/serving checks and final placement remain pending. The
+campaign has not launched.
 
 The [quality/diversity note](literature/quality_preserving_diversity_followup_v1/REPORT.md)
 finds no justification for adding another repulsion loss now. A pointwise rule
@@ -321,4 +341,19 @@ predictor rows and zero added training fits. This 0.65-second metadata build
 performed no inference. The full 14.36 MB roster stays remote; see
 [execution receipt](FINAL_POPULATION_ROSTER_RUN_14.json). The combined launcher
 successor also passes a focused interrupted-readiness recovery check. Final
-runtime/source binding and native resource qualification remain pending.
+runtime/source binding is complete; native resource qualification remains pending.
+
+## Scientific directions retained after the controls
+
+Two scoped primary reads of RIDE and SADE are recorded in the
+[shared-competence review](literature/shared_competence_primary_followup_v1/REPORT.md).
+Distinct learning targets can support useful routes, but repulsion alone does
+not guarantee competence; binary prior offsets can preserve population ranking.
+These readings add no recipe or claimed novelty to the current roster.
+
+The [gradient-history clarification](literature/shared_gradient_evidence_clarification_v1/NOTE.md)
+separates completed optimizer synchronization and saved-state gradient diagnosis
+from unimplemented gradient-surgery proposals. No completed PCGrad, CAGrad,
+MGDA or GradNorm intervention was found in the audited record. Whether actual
+shared Adam steps harm competent routes remains an open hypothesis. Private BN
+changes inference running state; it does not settle that training question.

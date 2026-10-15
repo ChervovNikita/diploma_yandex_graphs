@@ -1,97 +1,101 @@
-# GNNM continuation state — release14 preparation, 15 October 2026
+# GNNM continuation state — release15 preparation, 15 October 2026
 
-Read ../AGENTS.md. Allocation only via literal -2 route and sole GPU identity.
-No77/MacLink, sudo, host changes, unrelated files, Desktop, PDF, GENLINK,
-original-five reruns or original-score changes. Bounded pilots authorized;
-full 6460-fit campaign GO is absent. Root owns Git.
+Read ../AGENTS.md and RESEARCH_TARGET_20261015.md. Allocation only via literal
+-2 route and sole GPU identity. No77/MacLink, sudo, host changes, unrelated files,
+Desktop, PDF, GENLINK, original-five reruns or original-score changes. Bounded
+representative pilots authorized; full6460-fit campaign GO absent. Root owns Git.
 
-Latest verified publication: release13, commit
-3d6c40efbac67ce4f4ddc0bf0ca2dea79f5da2d7, pushed12:09:23UTC. Release14 uses this
-parent; consult COMMIT_RECEIPT_14/PUSH_RECEIPT_14 only when actually present.
-Mutable remote doc predecessor hashes are in DOC_PREVIOUS_PINS_14. Root README
-replacement must replace exact ROOT_README_BLOCK_13 with _14 and retain older
-sections. Raw data/checkpoints/logits and full generated metadata stay remote.
+## Publication
 
-## Live scientific work
+Last pushed commit is release14:0c7b5482cb483ea6141a80f4e45c12d4145e5a39,
+verified12:56:58UTC. Release15 is preparation until COMMIT_RECEIPT_15 and
+PUSH_RECEIPT_15 exist. Mutable predecessor hashes:DOC_UPDATE_RECEIPT_14.
+Replace exact ROOT_README_BLOCK_14 with15, retaining earlier dated sections.
+Use explicit selection; never add the whole aggregation workspace. Raw data,
+checkpoints, logits and full generated metadata stay remote. publish_selected_v3
+adds explicit source.patch support; patch whitespace exclusions remain structural.
 
-PROGRESS_METADATA_18 at12:47:49UTC verifies all four live identities:
-BN owner840429/ticks6086623979, study840431/ticks6086623991;
-GRU owner640426/ticks6055039154, worker640428/ticks6055039165.
-BN six of nine complete, seventh4636updates; no partial score reads. GRU stage2,
-29/30banks,44/48trajectories. GPU87%,2002MiB. Both CUDA slots occupied.
+## Live science
 
-Remote E/results/bn_geometry_followup_v1 uses SPEC SHA
-eacd22be19a1cc108d816cd062f87dde902a4ad67aab6fe31301730c663c2d6b.
-After all9successful terminal outcomes: original full report, then reviewed
-collection_launch_v1 for9missing banks and complete_route_analysis_v2 for all
-30banks. Collection needs fresh actual END/OUTCOMES/REPORT pins, correct slot
-reservation and retained olderGRU identity. No partial scientific interpretation.
+PROGRESS_METADATA_23 at13:44:52UTC verifies four exact live identities:
+BN owner840429/ticks6086623979,study840431/ticks6086623991;
+GRU owner640426/ticks6055039154,worker640428/ticks6055039165.
+BN8/9complete; ninth4066updates. No partial score reads. GRUstage2,29/30banks,
+44/48trajectories. Both CUDA slots occupied; GPU98%,2026MiB. Recheck actual
+processes before scheduling. Do not restart on observation timeout.
 
-Completed MolBACE24 AUC±SD: M173.32±1.17,I474.85±.50,G067.78±4.39,
-geometry71.17±2.66,correction71.76±3.91,both69.28±1.80. PrivateBN3:
-73.61±1.06;BCE1.086. No independent-ensemble win or novelty. All outcomes/costs
-in linked README reports. Fixed aggregation did not close the gap. TRAIN BN
-running-buffer ownership invariance is conditional source mathematics only.
+BN output:E/results/bn_geometry_followup_v1; SPEC
+ eacd22be19a1cc108d816cd062f87dde902a4ad67aab6fe31301730c663c2d6b.
+After all9successful terminal outcomes, read full original REPORT. Bind actual
+END/OUTCOMES/REPORT hashes to collection_launch_v1, reserve one CUDA slot,
+retain GRU identity and collect9new selected banks sequentially. Then use
+complete_route_analysis_v2 for30banks/36unique fits. Reuse completed controls.
+No partial promotion, retries or tolerance-driven recollection.
 
-## Actual native population preparation
+## Completed science
 
-Complete remote output: E/final_role_population_preparation_v1/allocation_population_v3.
-Index SHA032e029665bb518d123353eb77fac5c651dd160d2cb0040893723b79f05e4f6a;
-output manifest SHA572f172f1cffc8985d335cdffb61cc3891db1784dc1f09c6fade07df9a4e1c49.
-27contracts,99proofs,43unique populations. TEST metadata accessed, no scores.
-POPULATION_COMPLETION_V2_RUN_14 has compact counts/resources and paths.
-Initial failure: missing official Collab TEST PT. Completionv1 extracted exact
-native entry from retained archive matching admitted TRAIN/VALID, then failed
-on NumPy arrays. Completionv2 uses original OGB conversion, reuses all6completed
-providers, finishes in11.79s; prior failed supervisor costs65.59s. No data download,
-retraining or cache rewrite. All failures and originals preserved. Population
-sources and native scorer still need their scopes kept distinct.
+MolBACE nativeGIN,three seeds,full officialTRAIN/VALID. Parent24fits:
+M173.32±1.17,I474.85±.50,G067.78±4.39,geometry71.17±2.66,
+correction71.76±3.91,both69.28±1.80 AUC%;3680epochs,139840updates,7.81h.
+PrivateBN3:73.61±1.06 AUC%,BCE1.086;464epochs,17632updates. No cap stops.
+PrivateBN is known control, not novelty. Original scores unchanged.
 
-## Benchmark and pending source
+Stronger fixed-weight common normalization: own73.614,mixture68.449,
+arithmetic tie59.060 AUC%. Own−mixture5.165pp mean,positive3/3; BCE/Brier favor
+mixture1/3. Adds between-route mean variance to average saved variance;
+plug-in EMA approximation, not exact recalibration.120CPUVALIDforwards,
+25.764s,zeroTRAIN/TEST. Completed interpretation and evidence manifest in
+analysis/bn_mixture_moments_completed_v1. Source in bn_mixture_moments_v1.
+CSV local LF versus remote CRLF is documented; numbers unchanged. Do not rerun.
 
-Unchanged proposal:6460fits+270VALIDI4exports;6190expected predictors;7datasets,
-8families,27presets,25recipes; noHPO. OriginalGNNM stays. Normalization policy
-for extensions waits for complete nine-fit study before campaignGO.
-Portablev3 actual6730metadata and reporting build passed. All-allocation map is
-preparation only, not efficient final3GPUownership.77disabled.
+No fixed aggregation closesI4gap. No supported novel superiority or accept
+review. BN running-buffer ownership leaves TRAIN updates unchanged under
+matched weights/batches/RNG/route order; evaluation and selection can differ.
 
-Final_scoring_integration_v1 manifestc6b453a2b3fdb2dd2adb9a106656c403b82805b7a04d0e3632edf9010a65ad97:
-metadata8PASS, no native execution. Uses actual dispatcher leases/Popen and
-one supervisor metadata validation plus bounded per-child capsule. Same host
-ledger handoff, offline JSON shard merge, same campaignGO, scalar TEST reports.
-Still bound to scorer v2; requires reviewed coherent successor.
+## Benchmark and engineering
 
-Scorer v3 corrects BUDDY privateBN VALID context only and explicitly refuses
-TEST. Combination agent implementing v3producer inference overlay for genuine
-v2sessions plus scorer successor: explicit VALID/TEST roles, no selected-state
-provenance rewrite, native OGB NumPy conversion for link source files. Review
-before binding. Current portable training sources unchanged.
+Unchanged proposal6460fits+270VALIDI4exports:7datasets,8families,27presets,
+25recipes,6190predictors. Minimum237211000matched optimizer transitions is
+not ETA/FLOPs. Current all-allocation map is preparation, not balanced3GPUmap.
+Actual population preparation complete27contracts/99proofs/43populations.
+IndexSHA032e029665bb518d123353eb77fac5c651dd160d2cb0040893723b79f05e4f6a.
+Actual final6730task rosterSHA825a14ff982bcc18c9870d87cb270c5d27942abde9e31de850f8be3316794db1.
+Do not regenerate unchanged roster. Full14.36MBstays remote.
 
-Combined orchestrationv2 is source-only, unbound; v1history preserved. Root's
-shard-written/LOCAL_READY-missing crash hole is fixed with zero-rebuild recovery;
-metadata and repo-local fault-point checks pass. No actualGO/supervisors launched.
-Actual final roster compiled against current registry/population27contracts:
-FINAL_POPULATION_ROSTER_RUN_14, 6730tasks,6190predictors,14.36MBremote only,
-SHA825a14ff982bcc18c9870d87cb270c5d27942abde9e31de850f8be3316794db1.
-No model/inference work. Native resource and final source binding remain.
+Coherent sources:final_selected_scoring_v4,buddy_private_bn_production_v3,
+final_scoring_integration_v2,combined_campaign_orchestration_v3,
+final_source_chain_rebind_v1. Scorer restores original producer/state before
+explicit inference-role overlay; native OGB conversion retained. Initial
+missing-json source candidate is preserved.
 
-Selected-VALID qualification plan proposes reuse of genuine prior checkpoints
-at their actual scope, three queued-check portable retargets, and seven missing
-one-epoch representatives (1681additional updates). Root requests reducing extra states: path-only hash changes alone do not justify
-retraining. Revised plan pending; no new checks launched. Avoid broad repeated lifecycles or provenance rewriting.
-Queued original checks: NCN2epochs34updates, BUDDY2epochs3170updates, MolHIV
-GIN-VN1TRAIN1029updates+2wholeVALID. Integrate exact portable states where possible.
+Actual CPU selected replay PASS:M1/G0/privateBN seed101,original producer scope,
+3wholeVALIDcalls,45nativeforwards,23.259s,zeroTRAIN/TEST/CUDA. Does not certify
+current portable producer or CUDA parity. CPU_SELECTED_VALID_RESULT_15.
 
-## Next science and release
+Actual orchestration PASS8cases,4.286s,3stdlibchildren,zero model/network/TEST.
+Initial negative-CLI driver failure retained; fixed per-host config successor:
+orchestration_engineering_qualification_v2. FINAL_ORCHESTRATION_V2_RUN_15.
 
-Quality-preserving-diversity note reuses retained DICE/ADP/GNCL/TabM/collusion
-readings; no fresh paper count. It recommends no added repulsion pilot. Existing
-private-correctionF vs halfF/halfserved-mean contrast covers the actionable
-hypothesis, with matched BN and prediction-quality diagnostics. Pointwise
-zero-slack every-route-beats-mean BCE forces equal binary logits.
+Three already queued current-portable CUDA checks remain unlaunched:
+qualification/portablev3_queued_retargets_v1/COMMANDS.json.
+NCN2epochs34updates,BUDDY2epochs3170updates,MolHIVGIN-VN1TRAIN1029updates
+and2wholeVALID. JOB bytes unchanged. Reserve a slot and review actual resource
+state first; no third CUDA worker. SelectedVALID planv2 reuses authentic states;
+zero unconditional added state creation; at most one conditional BUDDY BN state.
 
-Finish coherent reviewed release14; preserve source/failure/cost history. Next
-analyze complete9fit study, resolve normalization, review explicit inference
-source fixes and final-role reconstruction/resource qualifications. Prepare
-actual efficient3GPUone-command package before giantGO request. Goal remains
-active; no supported novel superiority or clear-accept review yet.
+## Research and next actions
+
+Two scoped RIDE/SADE primary reads saved; no new recipe selected. Gradient
+history clarification separates completed synchronization/diagnostic work
+from unimplemented PCGrad/CAGrad/MGDA/GradNorm. No completed intervention found.
+Agents assess a bounded actual-Adam/private-progress question, strongest retained
+cross-setting quality evidence, and measured budget/three-GPUplacement gaps.
+
+Finish reviewed release15 and push. Complete nine-fit science, collect/analyze,
+then execute only remaining finite CUDA qualifications. Resolve normalization
+with matched controls before giantGO. Finish measured resource estimates,
+three-GPUownership and concrete one-command package. Goal remains active.
+
+Previous goal turn classified no research progress: verified reversal of user
+context-setting side task. This turn revalidated exact live scientific processes,
+updated public evidence interpretation and continued concrete publication work.
