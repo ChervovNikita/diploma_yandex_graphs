@@ -1,4 +1,4 @@
-# GNNM continuation state — release17 preparation, 15 October2026
+# GNNM continuation state — release18 preparation, 15 October2026
 
 Read ../AGENTS.md and RESEARCH_TARGET_20261015.md. Goal active/unachieved.
 Allocation only through literal -2 route, host anogena-2-0 and sole known GPU.
@@ -7,11 +7,11 @@ Representative pilots authorized; full6460-fit campaign GO absent. Root owns Git
 
 ## Publication
 
-Last verified push:release16,b10b3f99eee133278ce8348d3af1bbf8d717dad0,
-14:13:01UTC. Local PUSH_RECEIPT_16 is saved. Release17 remains preparation until
-COMMIT_RECEIPT_17/PUSH_RECEIPT_17 confirm. Mutable predecessor hashes are in
-DOC_UPDATE_RECEIPT_16. Replace exact ROOT_README_BLOCK_16 with17. Only explicit
-reviewed source/evidence summaries enter Git; tensors/data stay remote.
+Last verified push:release17,8b9f0a7d3cb3e631ded98222d6858da8b614e08f,
+14:37:20UTC. Local PUSH_RECEIPT_17 saved. Release18 remains preparation until
+COMMIT_RECEIPT_18/PUSH_RECEIPT_18 confirm. Mutable predecessor DOC_UPDATE_RECEIPT_17.
+Replace exact ROOT_README_BLOCK_17 with18. Only explicit source/scalar summaries
+enter Git; tensors/data remain remote. No whole local workspace staging.
 
 ## Completed science
 
@@ -50,8 +50,12 @@ Source is staged. CPU qualifier PASSED10.585s,2constructions/2updates/74forwards
 3wholeVALID. Initialnativeeval andfreshrestore exact,BNrouteisolation passes.
 Remotequalification/residual_only_private_bn_cpu_v1_attempt01. Local
 RESIDUAL_CPU_OBSERVATION_17 contains complete outcome. Never use engineering
-checkpoint as scientific initialization. execution_v1/run.py prepares serial
-existingrunner launches; no launch until rootadmission/publication/slotcheck.
+checkpoint as scientific initialization. execution_v1/run.py is RUNNING three sequential fresh fits, launched14:39:43UTC.
+Rootadmission binds published17andpassedCPUresult. Owner846365/start6088444359;
+worker846371/start6088444385 is seed101,53epochs/2014updates at14:47:24UTC.
+Outputresults/residual_only_private_bn_v1/seed{101,202,303}. No partialquality
+promotion. 4hourwalllimit perfit,stoplateradmissionsonfailure,noretry.
+SeeRESIDUAL_SCIENTIFIC_LAUNCH_17 and RESIDUAL_SCIENTIFIC_PROGRESS_17b.
 At75min historical proxy for3fits,8.3h ifall1000epochs;throughputunmeasured.
 
 ## Other live compute and completed qualification
@@ -82,20 +86,34 @@ Cacheaware successor qualification/portablev3_link_queued_lifecycle_cacheaware_v
 changesonlyprelaunchhostmemoryestimate:75%cleanactive+inactivefilecache after
 conservative exclusions;peer/case/GPU/diskbudgetsunchanged. No cache clearing or
 hostsettings. NewdriverMANIFEST3ad10154479e2e9413bca1118937e86d76590561ebaef523b539af3316c2a39e.
-Root must bindcurrentpublishedsource,existingGPUevidence,GRUpeer andnewoutput.
-Never thirdCUDAworker. Original queued JOBs byte-identical,not extra cases.
+NCNattempt01 ran14:37:44UTC andfailed1.51s,beforeTorch/model/update,
+Unclassified absolute runtime field:/parent_compiler_descriptor/path.
+NCN_LIFECYCLE_OBSERVATION_17 contains authenticterminal; preserveclaim/failure.
+Rootbound genuineNCNbase memoryevidence8.39GBreserved,40GiBGPUenvelope.
+Buddyagentpreparing portable_runtime_authority_v4 exacttypedparentreceipt
+and concretequalification/portablev4_link_queued_parent_authority_repair_v1.
+It must verify failedNCNzero-work anduseexplicitrepairclaim,notresetoriginal.
+BUDDYhasnotrun;originalqueuedidentityretained. WaitforCUDA slot(pilot+GRUlive).
+No thirdCUDAworker. All original nativeJOBs/scientificsettingsremainfixed.
 
-Generic composable_normalization_v1 source prepared byresourceagent;rootreview
-andnativequalification/runtime/scorerintegration stillpending. This is honest
+Generic composable_normalization_v1 andv2 source reviewed byroot.
+V1actualparentfixture reproduces two defects:nestedstateexportduringload,
+andcomposedenvelopepassedtoparentselectedbinder. V2fixesboth;actualAST-extracted
+parentload/bind/zero-forward-exportregression PASS,changedBNstate refused.
+V2MANIFESTcedb1bb2125f6d5ea78ea136d26ce17ac4ebbd33bd806b88545d270989c9eb5d.
+No nativeexecution. Genuine runtimebridge,hostschema,scorercontext andminimal
+molecular/BUDDYnativequalificationsremainpending. No broadrosterregeneration. This is honest
 successorstateownership;nooldcheckpointrelabelingorautomaticrosterrefresh.
 Migration policy affects2890candidatefits,3570definitions unchanged,counts6460.
 OriginalG0 unchanged; candidate matchedBNcontrol addedwhere nativeBN exists.
 
 ## Next actions
 
-Review/publishrelease17 source+evidence,completeNCN/BUDDYfinitechecksas slots
-allow,launchthe3qualifiedresidual-onlyfits. Preservealloutcomesandcosts. Literature
-agent preparing two scoped new sources/ReZero andLLaMA-Adapter; no noveltyclaim.
+Review/publishrelease18 source+evidence,monitor3residual-onlyfitswithoutpartial
+scoreselection,completeNCN/BUDDYrepairedfinitechecksasslotsallow. Preservealloutcomesandcosts. LiteratureagentfinishedtwoscopedReZero/LLaMA-Adapterreads,published17.
+Do notstackzero-gateonzero-upbranch(deadprivategradient);onezeroendretained.
+Agentnowprepares minimal prospective3selected-bankcollection+analysis,using
+completed30bankcontrols andgenuineproducer. No livepartial collection/pins.
 Keep nativeI4 controls distinct fromequipped/factorizedcontrols. No supported
 novelI4superiority or clear-acceptreview yet. Manuscriptreview after substantial
 supported update, not perexperiment. Goal notcomplete orblocked.

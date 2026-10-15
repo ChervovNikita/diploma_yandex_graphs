@@ -409,3 +409,18 @@ MolHIV resource measurement passed:1029updates,582.446sTRAIN,613.996soverall.
 At this one setting,100TRAINepochs imply16.18worker-hours before validation;
 there is no whole-campaign ETA. The two NCN/BUDDY lifecycle jobs remain queued.
 The large6460-fit campaign still requires user verification and GO.
+
+## Live status — 15 October2026,14:47UTC
+
+Release17 was pushed as8b9f0a7d3cb3e631ded98222d6858da8b614e08f.
+The qualified residual-only three-fit study is running serially; seed101 reached
+53epochs/2014updates. It adds1.018%learned parameters. No partial accuracy claim.
+Its owner is846365/start6088444359,firstworker846371/start6088444385.
+The olderGRU remains the only otherGPUworker. No thirdGPUworker is admitted.
+
+NCN's queued lifecycle failed before model construction/update on the exact
+engineering-only parent-descriptor path. Failure and claim are preserved;
+portable_runtime_authority_v4 is being prepared. BUDDY remains unexecuted.
+Generic normalizationV2 source fixes two real checkpoint ownership problems
+found inV1; focused actual-parent scalar regressions pass. Both versions are
+preserved. Genuine native/runtime/scorer integration still awaits qualification.

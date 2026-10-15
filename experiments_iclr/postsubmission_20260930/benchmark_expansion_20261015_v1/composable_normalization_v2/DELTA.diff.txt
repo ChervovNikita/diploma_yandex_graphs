@@ -1,0 +1,318 @@
+--- composable_normalization_v1/ownership.py
++++ composable_normalization_v2/ownership.py
+@@ -48,3 +48,15 @@
+             yield
+         finally:
+             self.state_role = None
++
++    @contextmanager
++    def _post_load_verification_export(self):
++        """Used only by the one-shot exact parent restore/read lifecycle."""
++        if self.state_role != 'load' or any(value is not None for value in
++                (self.operation_role, self.inference_role, self.member)):
++            raise RuntimeError('Post-load verification requires its active idle-route restore')
++        self.state_role = 'export'
++        try:
++            yield
++        finally:
++            self.state_role = 'load'
+--- composable_normalization_v1/adapter.py
++++ composable_normalization_v2/adapter.py
+@@ -47,12 +47,14 @@
+         self.inner, self.job, self.manager = inner, copy.deepcopy(job), manager
+         self.t = getattr(inner, 'torch', None) or getattr(inner.session, 'torch', None) or inner.session.t
+         self.model, self.optimizers, self.session = inner.model, inner.optimizers, inner.session
++        self.root = Path(getattr(inner, 'root', source_binding.get('project_root', HERE))).resolve()
+         self.owner = sibling('ownership').Ownership()
+         self.binding = {'schema': 'composed-native-route-BN-producer-v1',
+             'job_sha256': sibling('contracts').digest(job),
+             'declaration': copy.deepcopy(job['normalization_composition']),
+             'sources': copy.deepcopy(source_binding)}
+         self._handles, self._closed, self._invalid = [], False, None
++        self._loaded_composed_signature = self._loaded_bank_signature = self._selection_binding = None
+         self._parameters = tuple(self.model.named_parameters())
+         self._optimizer_parameters = tuple(p for opt in self.optimizers for group in opt.param_groups for p in group['params'])
+         self._native = manager._native_ref()
+@@ -149,10 +151,14 @@
+                     raise ValueError('Evaluation modified native/private normalization buffers')
+ 
+     def train_epoch(self):
++        self.owner.idle()
++        self._clear_selection()
+         with self._operation('TRAIN'): result = self.inner.train_epoch()
+         return self._annotate(result)
+ 
+     def train_update(self):
++        self.owner.idle()
++        self._clear_selection()
+         with self._operation('TRAIN'):
+             result = self.session.train_update()
+         return self._annotate(result)
+@@ -192,14 +198,117 @@
+             raise ValueError('Only the same genuine composed producer can restore this state')
+         self.assert_identity()
+         self.owner.idle()
++        self._clear_selection()
+         try:
+             with self.owner.state('load'):
+-                self.inner.load_state(copy.deepcopy(value['parent_adapter_state']))
++                self._restore_parent(copy.deepcopy(value['parent_adapter_state']))
+                 self.manager.load_state_dict(copy.deepcopy(value['private_BN_banks']), strict=True)
++            expected = self._state_signature(value)
++            if self._state_signature(self.state()) != expected:
++                raise ValueError('Exact composed parent/bank state differs after restore')
++            self._loaded_composed_signature = expected
++            self._loaded_bank_signature = self._state_signature(value['private_BN_banks'])
+         except BaseException:
+             self._invalid = 'Composed restore failed after admission'
+             raise
+         self.assert_identity()
++
++    def _clear_selection(self):
++        self._loaded_composed_signature = self._loaded_bank_signature = self._selection_binding = None
++
++    def _state_signature(self, value):
++        is_tensor = getattr(self.t, 'is_tensor', lambda value: False)
++        if is_tensor(value):
++            tensor = value.detach().cpu().contiguous()
++            return {'tensor': {'shape': list(tensor.shape), 'dtype': str(tensor.dtype),
++                'sha256': hashlib.sha256(memoryview(tensor.numpy()).cast('B')).hexdigest()}}
++        if isinstance(value, dict):
++            return {'dict': [[type(key).__name__, str(key), self._state_signature(item)]
++                for key, item in sorted(value.items(), key=lambda pair: (type(pair[0]).__name__, str(pair[0])))]}
++        if isinstance(value, (list, tuple)):
++            return {type(value).__name__: [self._state_signature(item) for item in value]}
++        if value is None or type(value) in (str, int, float, bool):
++            return {type(value).__name__: repr(value)}
++        raise ValueError('Unsupported composed checkpoint identity type: ' + type(value).__name__)
++
++    def _restore_parent(self, value):
++        """Keep the pinned parent's exact restore and post-restore read intact."""
++        function = getattr(self.inner.load_state, '__func__', None)
++        known = function is not None and function.__qualname__ == 'LinkSameCallMeanAdapter.load_state' \
++            and Path(function.__code__.co_filename).resolve() == \
++                EXPANSION / 'portable_dispatcher_v3/runtime_link/adapters.py' \
++            and type(self.inner).__name__ in ('LinkSameCallMeanAdapter', 'LinkDeclaredExtensionAdapter')
++        if not known:
++            return self.inner.load_state(value)
++        target = self.inner.inner
++        original_load, original_state = target.load_state, target.state
++        present = {name: (name in vars(target), vars(target).get(name)) for name in ('load_state', 'state')}
++        calls = {'restored': 0, 'verified': 0}
++        def restore(payload):
++            if calls != {'restored': 0, 'verified': 0} or self.owner.state_role != 'load':
++                raise RuntimeError('Only the exact first nested parent restore is permitted')
++            result = original_load(payload)
++            calls['restored'] = 1
++            return result
++        def verify_read():
++            if calls != {'restored': 1, 'verified': 0}:
++                raise RuntimeError('Only one verification read after successful nested restore is permitted')
++            calls['verified'] = 1
++            with self.owner._post_load_verification_export():
++                return original_state()
++        try:
++            target.load_state, target.state = restore, verify_read
++            self.inner.load_state(value)
++            if calls != {'restored': 1, 'verified': 1}:
++                raise ValueError('Pinned parent restore/verification lifecycle changed')
++        finally:
++            for name, (existed, previous) in present.items():
++                if existed: setattr(target, name, previous)
++                else: delattr(target, name)
++
++    def _selection_authority(self, *, selected_checkpoint, job_hash, runtime_binding, selected_epoch):
++        self.assert_identity(); self.owner.idle()
++        if job_hash != self.binding['job_sha256'] or self.completed_epochs != selected_epoch \
++                or self._loaded_composed_signature is None:
++            raise ValueError('A genuine current loaded composed selection is required')
++        verify(selected_checkpoint, self.root)
++        with self.owner.state('export'):
++            banks = self._state_signature(self.manager.state_dict())
++        if banks != self._loaded_bank_signature:
++            raise ValueError('Loaded selected private BN bank state changed')
++        return {'job_hash': job_hash, 'selected_epoch': selected_epoch,
++            'selected_checkpoint': copy.deepcopy(selected_checkpoint), 'runtime_binding': copy.deepcopy(runtime_binding),
++            'composed_signature_sha256': sibling('contracts').digest(self._loaded_composed_signature),
++            'BN_signature_sha256': sibling('contracts').digest(banks)}
++
++    def bind_loaded_selection(self, payload, *, selected_checkpoint, job_hash, runtime_binding):
++        epoch = payload['selector']['selected_epoch']
++        authority = self._selection_authority(selected_checkpoint=selected_checkpoint, job_hash=job_hash,
++            runtime_binding=runtime_binding, selected_epoch=epoch)
++        if payload.get('job_hash') != job_hash or payload.get('runtime_binding') != runtime_binding \
++                or self._state_signature(payload['adapter']) != self._loaded_composed_signature:
++            raise ValueError('Selected payload differs from the full composed producer/bank envelope just loaded')
++        parent_payload = dict(payload)
++        parent_payload['adapter'] = payload['adapter']['parent_adapter_state']
++        parent_bind = getattr(self.inner, 'bind_loaded_selection', None)
++        if parent_bind is not None:
++            parent_bind(parent_payload, selected_checkpoint=selected_checkpoint, job_hash=job_hash,
++                runtime_binding=runtime_binding)
++        self._selection_binding = authority
++
++    def selected_mean_export(self, actual, *, job_hash, selected_epoch, selected_checkpoint, runtime_binding):
++        authority = self._selection_authority(selected_checkpoint=selected_checkpoint, job_hash=job_hash,
++            runtime_binding=runtime_binding, selected_epoch=selected_epoch)
++        if self._selection_binding != authority:
++            raise ValueError('Bind the exact full composed selected envelope before diagnostic export')
++        parent_export = getattr(self.inner, 'selected_mean_export', None)
++        if parent_export is None: return None
++        result = parent_export(actual, job_hash=job_hash, selected_epoch=selected_epoch,
++            selected_checkpoint=selected_checkpoint, runtime_binding=runtime_binding)
++        if result is None: return None
++        result = dict(result)
++        result['normalization_selected_state'] = copy.deepcopy(authority)
++        return result
+ 
+     def metadata(self):
+         return {**self.inner.metadata(), 'normalization_composition': copy.deepcopy(self.binding),
+@@ -273,7 +382,8 @@
+         if job['family'] == 'link' and getattr(inner.session, 'family', None) != 'BUDDY':
+             raise ValueError('Only native tracked-BN BUDDY is an eligible link preset')
+         return NormalizedAdapter(inner, job, manager, {'composition_manifest': own,
+-            'unchanged_bank_law': bank_pin, 'parent_descriptor': declaration['parent_descriptor']})
++            'unchanged_bank_law': bank_pin, 'parent_descriptor': declaration['parent_descriptor'],
++            'project_root': str(root)})
+     except BaseException:
+         inner.close()
+         raise
+--- composable_normalization_v1/check_source.py
++++ composable_normalization_v2/check_source.py
+@@ -10,6 +10,7 @@
+ import json
+ from pathlib import Path
+ import sys
++import tempfile
+ from types import SimpleNamespace
+ import weakref
+ 
+@@ -84,7 +85,8 @@
+ 
+ class Parent:
+     def __init__(self, family):
+-        self.torch = SimpleNamespace(equal=lambda x, y: x.value == y.value, no_grad=nullcontext)
++        self.torch = SimpleNamespace(equal=lambda x, y: x.value == y.value, no_grad=nullcontext,
++                                     is_tensor=lambda value: False)
+         native = Native(); self.family = family
+         self.model = Core(native) if family == 'ogb' else native
+         self.optimizers = [SimpleNamespace(param_groups=[{'params': [native.parameter]}])]
+@@ -122,6 +124,105 @@
+     try: fn()
+     except (ValueError, RuntimeError): return
+     raise AssertionError('Expected retained ownership refusal')
++
++
++def actual_parent_class():
++    """Execute pinned parent lifecycle bodies, without importing its runtime."""
++    path = HERE.parent / 'portable_dispatcher_v3/runtime_link/adapters.py'
++    parsed = ast.parse(path.read_text())
++    cls = next(node for node in parsed.body if isinstance(node, ast.ClassDef)
++               and node.name == 'LinkSameCallMeanAdapter')
++    keep = {'completed_epochs', '__getattr__', '_invalidate', '_state_signature',
++            'state', 'load_state', 'bind_loaded_selection', 'selected_mean_export'}
++    cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in keep]
++    namespace = {'copy': copy, 'digest': contracts.digest, 'receipt': adapter.receipt,
++                 'inside': lambda value, root: Path(value).resolve()}
++    exec(compile(ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[])), str(path), 'exec'), namespace)
++    return namespace['LinkSameCallMeanAdapter']
++
++
++def lifecycle_fixture():
++    """Regression for actual nested restore, selected envelope and mean export."""
++    cls = actual_parent_class()
++    with tempfile.TemporaryDirectory(prefix='scalar_lifecycle_', dir=HERE) as temp:
++        root = Path(temp)
++        def setup(implementation, *, preload=False):
++            bare = Parent('link'); bare.completed_epochs = 1; bare.session.updates = 1
++            bare.session.native.updates = 1
++            verifier = cls.__new__(cls)
++            verifier.inner = bare; verifier.torch = bare.torch; verifier.root = root
++            verifier.session, verifier.model, verifier.optimizers = bare.session, bare.model, bare.optimizers
++            verifier._generation = verifier._serial = 0
++            verifier._cache = verifier._loaded_state_signature = verifier._selection = None
++            verifier._check_runtime = lambda binding: None  # Explicit fixture; no runtime qualification.
++            verifier._tensor_identity = lambda value: {'scalar_fixture': value.value}
++            verifier._source_sidecar = lambda actual: {'scalar_fixture': True}
++            job = {'id':'scalar-checkpoint-fixture', 'family':'link', 'normalization_composition':{'policy':contracts.POLICY}}
++            verifier._job_authority = copy.deepcopy(job)
++            if preload:
++                verifier.load_state(bare.state())
++            banks = Banks(bare.native)
++            composed = implementation.NormalizedAdapter(verifier, job, banks, {'fixture_only':True})
++            return bare, verifier, banks, composed, job
++        # Reproduce v1's actual nested export failure without changing v1.
++        import importlib.util
++        spec = importlib.util.spec_from_file_location('_preserved_normalization_v1', HERE.parent/'composable_normalization_v1/adapter.py')
++        legacy = importlib.util.module_from_spec(spec); spec.loader.exec_module(legacy)
++        bare, verifier, banks, old, job = setup(legacy)
++        state = old.state()
++        try: old.load_state(state)
++        except RuntimeError as error:
++            assert str(error) == 'Checkpoint must use the idle composed adapter state API'
++        else: raise AssertionError('Original nested-load blocker must reproduce')
++        old.close()
++        # Independently reproduce envelope mismatch after a genuine parent-only
++        # restore, rather than forging its loaded-state verification result.
++        bare, verifier, banks, old, job = setup(legacy, preload=True)
++        state = old.state()
++        # Actual parent bind compares the full envelope to its parent-state signature.
++        checkpoint = root/'legacy-envelope.json'; checkpoint.write_text(json.dumps(state))
++        runtime = {'scalar_fixture_runtime':'not-qualified'}
++        payload = {'adapter':state,'selector':{'selected_epoch':1},'job_hash':contracts.digest(job),'runtime_binding':runtime}
++        try: old.bind_loaded_selection(payload,selected_checkpoint=adapter.receipt(checkpoint),job_hash=contracts.digest(job),runtime_binding=runtime)
++        except ValueError as error:
++            assert str(error) == 'Selected payload must be the exact source state just loaded for this JOB'
++        else: raise AssertionError('Original selected-envelope blocker must reproduce')
++        old.close()
++
++        bare, verifier, banks, current, job = setup(adapter)
++        before_methods = (bare.state, bare.load_state)
++        state = current.state()
++        with current.owner.state('load'):
++            refuses(bare.native.state_dict)  # No blanket export permission during load.
++        current.load_state(state)
++        assert (bare.state,bare.load_state) == before_methods
++        checkpoint = root/'genuine-composed-fixture-envelope.json'; checkpoint.write_text(json.dumps(state))
++        selected = adapter.receipt(checkpoint)
++        payload = {'adapter':state,'selector':{'selected_epoch':1},'job_hash':contracts.digest(job),'runtime_binding':runtime}
++        bad_payload = copy.deepcopy(payload); bad_payload['adapter']['private_BN_banks'][0] += 1
++        refuses(lambda: current.bind_loaded_selection(bad_payload,selected_checkpoint=selected,job_hash=contracts.digest(job),runtime_binding=runtime))
++        current.bind_loaded_selection(payload,selected_checkpoint=selected,job_hash=contracts.digest(job),runtime_binding=runtime)
++        assert payload['adapter'] is state and 'private_BN_banks' in payload['adapter']
++        authority = {'state_generation':verifier._generation,'validation_serial':verifier._serial,'source_updates':1,
++                     'ids':{'scalar_fixture':1},'labels':{'scalar_fixture':2},'query_endpoints':{'scalar_fixture':3},
++                     'actual_logits':{'scalar_fixture':4},'mean_logits':{'scalar_fixture':5}}
++        cache = {'authority':authority,'ids':Buffer(1),'labels':Buffer(2),'query_endpoints':Buffer(3),
++                 'outputs':Buffer(5),'loss':0.5,'metrics':{'fixture':0.5}}
++        verifier._cache = cache
++        actual = {'same_bank_mean_VALID':cache,'ids':Buffer(1),'labels':Buffer(2),'query_endpoints':Buffer(3),'outputs':Buffer(4)}
++        before_calls = list(bare.calls)
++        exported = current.selected_mean_export(actual,job_hash=contracts.digest(job),selected_epoch=1,
++            selected_checkpoint=selected,runtime_binding=runtime)
++        assert bare.calls == before_calls and exported['extra_forward_calls'] == 0
++        assert 'normalization_selected_state' in exported
++        banks.values[0].value += 1
++        refuses(lambda: current.selected_mean_export(actual,job_hash=contracts.digest(job),selected_epoch=1,
++            selected_checkpoint=selected,runtime_binding=runtime))
++        current.close()
++    return {'actual_parent_AST_lifecycle_exercised':True,'legacy_nested_load_blocker_reproduced':True,
++        'legacy_selected_envelope_blocker_reproduced':True,'composed_restore_selected_bind_mean_export_passed':True,
++        'unscoped_load_export_still_refused':True,'mutated_BN_selected_payload_and_live_bank_refused':True,
++        'zero_forward_mean_export_preserved':True,'native_runtime_or_role_data_qualified':False}
+ 
+ 
+ def main():
+@@ -193,9 +294,10 @@
+     assert new['controls'][1]['fit_ids'] == [mapping['ingredient']]
+     assert new['controls'][2] == old['controls'][2]
+     assert not any(name.startswith(('torch', 'numpy')) for name in sys.modules)
+-    print(json.dumps({'schema': 'composable-normalization-source-check-v1', 'status': 'PASS',
++    lifecycle = lifecycle_fixture()
++    print(json.dumps({'schema': 'composable-normalization-source-check-v2', 'status': 'PASS',
+         'scalar_protocol_cases': len(cases), 'source_pins_verified': len(bindings['files']),
+-        'state_restore_role_exception_and_control_link_checks': True,
++        'state_restore_role_exception_and_control_link_checks': True, 'selected_lifecycle_regression':lifecycle,
+         'real_native_compositions_qualified': False, 'models': 0, 'native_forwards': 0,
+         'optimizer_updates': 0, 'TEST_payload_accessed': False, 'remote_calls': 0,
+         'roster_regenerated': False, 'campaign_GO': False}, indent=2))

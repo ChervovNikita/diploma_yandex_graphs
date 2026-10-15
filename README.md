@@ -133,8 +133,9 @@ The next candidate removes BatchEnsemble and adds four small residual routes
 that initially preserve the native GNN predictions. It adds 19,200 trainable
 parameters and uses matched private BN. Its exact composition passed two CPU
 updates, normalization isolation and fresh checkpoint reconstruction across
-three full VALID passes. Three full fits are prepared, reusing paid controls;
-the source check is not evidence of prediction improvement. All three seeds
+three full VALID passes. Three full fits are now running serially on the allocation, reusing paid
+controls. The first seed completed 53 epochs at14:47UTC; no partial accuracy
+is promoted. The source check is not evidence of prediction improvement. All three seeds
 and every negative result will be retained.
 
 [Residual-only pilot protocol](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_residual_only_private_bn_v1/PROTOCOL.md).
@@ -173,8 +174,9 @@ are unchanged by the latest repair. The default ownership is a preparation
 map, not the final three-GPU workload division.
 
 Before the large run, the completed nine-fit study informs a consistent
-normalization policy for the extensions and their controls; the precise
-per-architecture migration is being reviewed. Original GNNM
+normalization policy for the extensions and their controls. A compositional
+source implementation and its checkpoint repair passed focused source checks;
+actual native integration and qualification remain pending. Original GNNM
 remains unchanged. Native evaluation-population preparation now covers all 27
 presets, 99 preset/split proofs and 43 distinct populations. It accessed TEST
 metadata without scoring. The original Collab TEST file was recovered from its
@@ -196,7 +198,10 @@ CUDA allocated memory was 410.94 MB. At this measured rate, 100 epochs alone
 would take about 16.18 worker-hours before validation costs, for this specific
 configuration. This is no campaign ETA or prediction-quality result.
 
-The two already queued NCN/BUDDY lifecycle checks remain: 34 and 3,170 updates.
+The NCN lifecycle stopped before any model construction or optimizer update:
+its engineering descriptor contained an unclassified parent-source path. The
+exact failure is preserved; a narrow schema repair is being prepared. BUDDY
+remains unstarted. These are still the queued34/3170-update checks.
 Their host-memory admission now accounts for clean active as well as inactive
 file cache, with conservative exclusions and reserves. No host cache or setting
 is changed; native jobs and GPU/peer reservations remain unchanged.
