@@ -97,6 +97,25 @@ reference. The complete nine-fit study will inform that decision. The current
 roster is unchanged; three seeds on one molecular setting do not justify a
 universal normalization rule.
 
+The [BatchEnsemble batching inspection](literature/batchensemble_bn_batching_v1/READING_AND_DESIGN.md)
+adds a concrete implementation explanation. Sequential routes use their own
+TRAIN batch statistics but update one shared running history. The inspected
+vectorized CIFAR BatchEnsemble implementation instead normalizes a combined
+route batch. These are different training rules when native BN is present;
+concatenating routes is not an equivalent speed optimization by default.
+Separate running state has prior art, and this derivation does not attribute
+all of the observed AUC gain to one cause.
+
+A [focused context-target analysis](literature/context_target_novelty_followup_v1/REPORT.md)
+clarifies another proposed direction. Routes learn relationships derived from
+different observed graph contexts while sharing the native predictor. Existing
+multi-view and molecular-similarity methods supply clear ancestry. The common
+versus split-target comparison also changes target entropy and can change
+whether the target is representable by cosine similarities. A lower auxiliary
+loss or a win over the common-target arm alone cannot prove useful prediction
+specialization. These limits and the exact analytic example are retained before
+the broad experiment; no new method or accuracy result is claimed.
+
 [Native molecular label support](molecular/RARE_CLASS_SUPPORT_NOTE.md) also
 shows why a cross-task port needs more than a callable loss: with the unchanged
 batch size32, only33.81% of random MolHIV batches have two distinct positive
@@ -216,8 +235,13 @@ remain unknown. Current development uses TRAIN/VALID with TEST scoring closed.
 Training a source-reference model does not itself verify the paper's reported
 TEST metric. The final review package must also specify selected-checkpoint
 scoring with the original split, evaluator and task-specific test inputs. That
-scoring stage remains an explicit preparation item; no validation number will
-be presented as a reproduced test result.
+[scoring source](final_selected_scoring_v2/README.md) is now implemented and
+reviewed: native role inputs, each own selected state, learned aggregation,
+member outputs and independent-ensemble exports. It checks complete selected
+VALID reconstruction before TEST. Actual role metadata, numerical/resource
+qualification and dispatcher/reporting integration remain pending. This adds
+no training fits; no validation number will be presented as a reproduced test
+result.
 
 A [runnable metadata reporter](benchmark_reporting_implementation_v1/README.md)
 now preserves all planned pairs, failures and capped outcomes, and generates

@@ -71,6 +71,22 @@ slimmable-network source reading establishes relevant prior art.
 
 [Full analysis, all outcomes and limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/bn_bank_assignment_v1/REPORT.md).
 
+### What the implementation and theory checks add
+
+The inspected BatchEnsemble author implementation normalizes concatenated
+route batches; our current molecular model normalizes routes sequentially.
+The two rules have different TRAIN statistics and running-state updates.
+This explains why batching and normalization must be stated explicitly when
+interpreting the completed molecular pilots. It does not establish a new
+normalization method or explain the entire measured gain.
+
+The context-specialization analysis also identified a control limitation:
+averaging two valid similarity targets can produce a target that no symmetric
+cosine scorer can represent exactly. Common versus route-specific target results
+must therefore be interpreted together with target fit and actual prediction
+quality. The exact derivation and prior-method comparison are preserved in the
+[context analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/literature/context_target_novelty_followup_v1/REPORT.md).
+
 ### Proposed broad benchmark
 
 The proposal contains **6,460 physical fits across 7 datasets, 8 architecture
@@ -106,9 +122,11 @@ map, not the final three-GPU workload division.
 
 Before the large run, the complete nine-fit study will inform a consistent
 normalization policy for the extensions and their controls. Original GNNM
-remains unchanged. Final selected-checkpoint test scoring is also a required
-preparation item: source-setting training and validation scores alone do not
-verify a paper's reported test metric.
+remains unchanged. Final selected-checkpoint scoring source now covers all
+three task families and current extensions, including learned aggregation and
+private normalization. Native role metadata, numerical/resource qualification
+and scheduling/reporting integration remain required. Source-setting training
+and validation scores alone do not verify a paper's reported test metric.
 
 **The full campaign is awaiting preparation and user GO.** The launch plan
 contains 6,460 fit tasks and 270 export-only tasks but has started none. Only
