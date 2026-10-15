@@ -1,10 +1,12 @@
-# Latest state — 15 October, release 27 preparation
+# Latest state — 15 October, release 28 preparation
 
-The shared-backbone accuracy goal remains unachieved. Three of six structural MolBACE fits completed by 18:04 UTC; the fourth is running. The prepared PubMed/Cheb comparison is the default next scientific priority after complete outcomes and measured costs. The pairwise 21-fit study is frozen and preflighted but unlaunched. A repaired selected-node checkpoint replay passed with exact predictions and no training. The 6,460-fit campaign still requires user review and GO.
+Four of six structural MolBACE fits completed; the fifth had reached 48 full epochs at 18:47 UTC. PubMed GPU checks remain queued behind that study. A prepared collector will reuse the 33 existing banks and analyze all six new banks after both queues succeed. The large 6,460-fit campaign remains unlaunched and requires user review and GO.
 
-A new complete saved-prediction analysis finds that the residual variant's probability loss worsens broadly on positive molecules in all three seeds, despite ranking recovery. No training or validation calibration was performed. [Diagnostic and limits](analysis/completed_probability_failure_v1/INTERPRETATION.md).
+A completed comparison of both fixed averaging rules on every saved bank shows that probability averaging barely changes residual-only BCE (1.952035 to 1.950576) and slightly reduces AUC. I4 benefits more from the same change. This averaging change does not repair the residual bank's deficit. [Full result and limits](research/residual_positive_bce_pooling_v1/complete_results_v1/INTERPRETATION.md).
 
-See [current direction](research/CURRENT_DIRECTION_20261015.md) and [current continuation state](SESSION_STATE.md). Dated material below preserves earlier preparation.
+PubMed/Cheb remains the next scientific priority after measured cost review. A bounded history audit found no additional distinct common-error training rule worth launching now; the prepared transfer and pairwise questions remain open. [Audit and reopening conditions](research/shared_error_credit_audit_v1/NOTE.md).
+
+See [current direction](research/CURRENT_DIRECTION_20261015.md) and [continuation state](SESSION_STATE.md). Dated material below preserves earlier preparation.
 
 # Current research snapshot — 15 October 2026, release 25 preparation
 

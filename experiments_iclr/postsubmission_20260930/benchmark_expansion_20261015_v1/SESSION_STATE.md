@@ -1,4 +1,4 @@
-# Current continuation state — release 27 preparation
+# Current continuation state — release 27 published
 
 Goal active: a trainable ensemble around one shared native GNN with small
 parameter overhead and defensible quality gains over native M1 and genuine I4.
@@ -9,23 +9,23 @@ GENLINK, Desktop or unrelated data. Root owns explicit Git selection.
 
 ## Publication
 
-Release26 is confirmed as843bff59dd0b6acefc032e34f5e03eecea23c4ec,
-pushed18:12:59UTC15October. COMMIT_RECEIPT_26/PUSH_RECEIPT_26 are authoritative.
-Release27 is published only after its own receipts exist. DOC_UPDATE_RECEIPT_26
-is the prior mutable-doc authority; DOC_UPDATE_RECEIPT_27 records the next update.
+Release27 is confirmed as ff3e7c04c6af153c210109b5870cc5b809fe845d,
+pushed 18:35:13 UTC 15 October. COMMIT_RECEIPT_27/PUSH_RECEIPT_27 are authoritative.
+DOC_UPDATE_RECEIPT_27 pins the remote current documents before the next update.
 Use tty=true for the existing interactive push helper. Root owns Git.
 
 ## Active work — no duplicate launches
 
-Structural MolBACE six-fit owner848485/start6089052668. At18:31:42UTC,
-three fits completed; seed202permuted worker850275/start6089664380 is active
-at126epochs/4788updates.
-Two seed303 fits remain. CURRENT_EXECUTION_27 records the observation. No partial quality was inspected. Source/SPEC/
-collection pins and six-fit order remain in CONTINUATION_25 and frozen package
-pilot_20261015_structural_private_risk_v1. One new model worker,4hcap/fit,
-no retry. Afterall6successful, use frozen selected_VALID.py commands/collect/
-analyze with actual terminal pins, reusing33banks/39paidfits:6newbanks,
-39totalbanks/45uniquefits. Wait for PubMed engineering to release GPU slot.
+Structural MolBACE six-fit owner848485/start6089052668. At18:47:47UTC,
+four fits completed149epochs each; seed303structured worker850971/start6089865992
+was at48epochs/1824updates. Seed303permuted is unstarted. CURRENT_EXECUTION_28
+records the observation, with no partial quality inspected. Existing pins and
+six-fit order remain in pilot_20261015_structural_private_risk_v1. No duplicate
+fit or collector. New qualification/structural_complete_collection_queue_v1
+source is root-reviewed to wait for all6fits and all7PubMed checks, acquire the
+existing slot, run6original collectors and analyze39banks/45paidfits using the
+original frozen analyzer. Publication/queue admission/launch receipts will be
+STRUCTURAL_COLLECTION_QUEUE_*_28; check actual receipt/status before acting.
 
 PubMed engineering owner849490/start6089402542 is already running and waiting
 for those six fits. Then it holds the shared GPU slot and runs3CUDA lifecycle
@@ -128,3 +128,21 @@ research/rankexpert_followup_v1 records bounded primary access failure:
 ACM403 and checkedauthorpages yieldedno manuscript.19retrievalattempts,
 zero newmethod/paperread claims. Rawresponses allocationcacheonly. No change
 to pairwise21orPubMed24; stopmetadatachasingthislead without primarytext.
+
+## Completed fixed-pool follow-up and bounded method audit
+
+research/residual_positive_bce_pooling_v1/complete_results_v1 contains the actual
+all33-bank comparison. POOLING_DIAGNOSTIC_28 records a passed3.642sCPU child,
+4.054ssupervisor,359493632bytes sampledRSS,zero models/forwards/updates/TEST.
+Residual BCE1.952035→1.950576 and AUC74.5177→74.4933 under probability mean;
+I4BCE.890168→.820155 andAUC74.8474→74.8962. Positive-class residual-minus-I4
+excess1.267414→1.348697, increasing inall3seeds. No new readout selected.
+Do not repeat. RESULT hash23670669cd82f3dbb4cead8f6ed1d9c2188b67810727aa1d69d6d0b022c79253.
+This rules out the tested fixed averaging change as a repair, not every trained
+readout/objective. Current studies stay frozen; no source recipe changed.
+
+research/shared_error_credit_audit_v1 found no additional distinct candidate:
+common-error/private-credit versions collide with already saved pool, assignment
+and staged correction questions. Concrete TRAIN support/private score response
+and discriminating controls are reopening criteria. Zero new primary reads or
+network retrievals; no hypothesis-exhaustion claim. PubMed24 andpairwise21 remain.

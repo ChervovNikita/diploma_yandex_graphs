@@ -56,6 +56,13 @@ loss increases account for only 12–38% of net excess BCE. Ranking recovery
 therefore does not imply reliable probability estimates. The observed TRAIN/
 VALID prevalence difference is reported without fitting a validation correction.
 
+A complete fixed-readout check now applies probability averaging to all 33
+banks. Residual-only BCE changes 1.952035→1.950576, while I4 improves
+0.890168→.820155; residual AUC decreases slightly. The tested averaging change
+therefore does not repair this bank. No serving rule was selected or refitted.
+
+- [Fixed-pooling comparison and interpretation](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/residual_positive_bce_pooling_v1/complete_results_v1/INTERPRETATION.md)
+
 - [Class-specific errors and confidence analysis](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/completed_probability_failure_v1/INTERPRETATION.md)
 
 - [New results, paired differences, uncertainty and costs](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_residual_only_private_bn_v1/complete_results_v1/INTERPRETATION.md)
@@ -70,7 +77,7 @@ parameters receive the native unweighted loss; only the small private
 corrections receive the weighted loss. The same mean-logit serving rule and
 native training settings are retained. Six new fits reuse all paid controls. The source was published in commit
 `7ad17c23a3e6bd66d3bb5a8900b2cc565dce3c7f`, and training started on the
-authorized allocation at 16:21 UTC. At 18:31 UTC, three of six fits had completed and the fourth had reached 126 full epochs. We will interpret the comparison after all six fits finish. No partial
+authorized allocation at 16:21 UTC. At 18:47 UTC, four of six fits had completed and the fifth had reached 48 full epochs. We will interpret the comparison after all six fits finish. No partial
 accuracy result is used to change the methods or stopping rules.
 
 ACE (ICCV 2021) already separates shared and specialist gradient credit. That
@@ -155,6 +162,13 @@ requires the user's review and explicit GO.
 - [Runner preparation and outstanding work](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/README.md)
 
 The dated sections below preserve earlier states and proposals.
+
+The complete structural collector is now prepared to follow all six scientific fits
+and all seven PubMed engineering checks, using the original six selected-state
+collectors and analyzer. It reuses the 33 existing banks and performs no training.
+The [bounded history audit](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/research/shared_error_credit_audit_v1/NOTE.md)
+found no additional distinct common-error rule to launch now; the existing
+transfer and pairwise studies remain the informative next questions.
 ## Real-data smoke checks — 14 October 2026
 
 Completed **167 distinct configuration checks** across the redesigned study:

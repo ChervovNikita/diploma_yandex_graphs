@@ -83,3 +83,16 @@ supported improvement; setup checks do not justify another acceptance review.
 Only the dedicated one-GPU allocation is in use. Original paper scores are
 unchanged. There is no full-campaign launch authorization and no current
 authorization to use 18.77.
+
+## 18:50 UTC follow-up: fixed pooling does not repair residual probability loss
+
+The completed all 33-bank comparison applies both fixed rules to every bank.
+Residual BCE changes 1.952035→1.950576; native I4 changes 0.890168→.820155.
+Residual AUC slips 74.518→74.493%, while I4 changes 74.847→74.896%.
+Its positive-class excess therefore grows under the matched probability readout.
+No fitted calibration or new selected serving rule is introduced. The
+[complete interpretation](residual_positive_bce_pooling_v1/complete_results_v1/INTERPRETATION.md)
+records every seed and limits. This strengthens the priority of testing useful
+member changes; it does not reject every learned readout or training objective.
+The [bounded common-error audit](shared_error_credit_audit_v1/NOTE.md) adds no
+new training branch because its concrete realizations are already accounted for.
