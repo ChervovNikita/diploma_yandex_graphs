@@ -65,8 +65,8 @@ selected-checkpoint analysis. All trials, failures and costs will be retained.
 selection, independent checkpoint ownership and explicit epoch-boundary resume.
 Native parameter identity and optimizer ownership are checked. Runtime/source
 hashes bind checkpoints and selected predictions. There are no automatic
-scientific retries. A later resume-finalization guard is still required for
-failure after a stopping condition but before final export; v1 is preserved.
+scientific retries. Running v1 retains its known stopped-resume limitation and
+has no automatic resume; the separate v2 guard below preserves v1 unchanged.
 
 The running v1 frontend supports node and molecular fits. Prepared
 [runtime_v2](runtime_v2/API.md) adds explicit source-specific link dispatch,
@@ -98,7 +98,7 @@ part of the comparison. Neither ingredient is declared novel or successful.
 
 Per-route selected-checkpoint analysis runs separately from training and changes
 no selection. Native and base-GNNM exports have completed. The latest saved
-observation has two completed fits, no failures and the graph-objective fit
+observation11 has three completed fits, no failures and the private-input fit
 training. There is no complete paired cohort or candidate advantage yet.
 
 The proposed statistical policy also needs revision before the full launch:
@@ -109,6 +109,47 @@ would test a different, explicitly dataset-weighted question; it is a proposal,
 not an adopted rule or a significance claim.
 
 ## Evidence and decisions
+
+The portable input-adapter package now has two explicit methods: BE plus private
+nonlinear input corrections, and four private corrections around one shared
+native body with BE factors removed. The latter remains a four-route ensemble.
+Actual MolBACE/GIN and full-graph CiteSeer/Cheb CPU checks passed, including
+updates, complete VALID and fresh-session checkpoint restoration. These are
+execution checks, not trained accuracy results. See
+[portable input readiness](qualification/portable_private_input_v2_READINESS.md).
+The original v1 repository-binding defect and its source remain preserved.
+
+The [conditional aggregation recipe](conditional_aggregation_v1/README.md)
+prepares mean, global-weight and prediction-conditioned weighting under the
+same half-own/half-served-pool loss. They add0/4/20 learned parameters. Actual
+MolBACE/GIN CPU update/VALID/restore checks passed; other native ports, CUDA and
+final serving are separate gates. Positive weights and entropy/disagreement
+inputs do not guarantee better predictions or calibrated confidence.
+
+[Structural class responsibilities](qualification/structural_class_responsibility_v1_READINESS.md)
+prepare atom-count/degree quartiles within each TRAIN class and an exact
+within-class permutation control. Every route retains positive supervision
+and equal full-TRAIN class mass. Shared weights receive ordinary own risk;
+private factors receive weighted risk. Both molecular variants passed actual
+CPU update, whole-VALID and checkpoint checks. Node integration is being added;
+the endpoint-correlated link field is a separately defined hypothesis.
+
+A separate [three-fit BN follow-up](pilot_20261015_bn_state_v1/README.md) is
+frozen and its supervisor is waiting for successful completion of the current24
+fits. It reuses all three exact base-GNNM and independent-ensemble control
+cohorts. It starts one new child at a time, without changing the parent queue.
+A CPU-only analysis watcher will report every paired selected-VALID difference
+after all three candidates finish. No BN quality result is available yet.
+
+The [campaign supervisor](campaign_launcher_v1/README.md) has a concrete finite
+source-job interface and eighteen passing synthetic scheduling checks. The
+three historical worker dry runs remain **blocked, not compiled**: executable
+job bindings and measured resource profiles are missing, and18.77 is not
+currently authorized. This source preparation is not three-GPU launch readiness.
+
+- [Mechanisms and current scientific rationale](RESEARCH_SYNTHESIS_20261015.md)
+- [First-seed prediction diagnostic and its limits](pilot_20261015_molbace_v1/FIRST_SEED_DIAGNOSTIC.md)
+- [Task-method scientific audit](method_matrix_scientific_audit_v1/REPORT.md)
 
 - [Exact frozen pilot](pilot_20261015_molbace_v1/SPEC.json)
 - [Molecular objective and scoped readings](molecular/README.md)

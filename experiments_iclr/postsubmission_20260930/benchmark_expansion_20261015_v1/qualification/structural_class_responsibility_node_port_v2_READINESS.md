@@ -1,0 +1,13 @@
+# C2 native node port: bounded qualification
+
+The separate v2 bridge imports the unchanged frozen C2 exact table helper. It implements actual source TRAIN-class incoming-degree quartiles and the whole-vector within-class permutation control for native PolyFormer. Native shared gradients use unweighted F; private boundary gradients use weighted W through the unchanged source block-gradient function. Native full-TRAIN CE, Adam groups/options, model parameters, graph preprocessing, activation checkpointing and mean raw-logit readout remain unchanged.
+
+Both methods passed on the actual CiteSeer-Cheb source descriptor: 3,327 graph nodes, 1,929 authentic TRAIN nodes per complete update and 665 nodes in every complete VALID pass. Each method completed two updates with a fresh-session checkpoint restore between them and three full VALID passes. All four optimizer attempts completed; four native sessions were constructed. Initial and restored output differences were zero. Native optimizer ownership/options and Parameter identity were retained. Modified topology metadata and modified saved weights were rejected before restoration. Wall time for this finite check was 36.24 seconds, Torch 2.1.2+cu118, two CPU threads, CUDA hidden.
+
+Table exactness is inherited from the pinned helper and separately checked. The structured table hash is `478754688d85d1306b0a519193d71ef243b95dbae1c24d180ae064cb0366fc23`; the control table hash is `cf1bccb7c9cdf14ce1ae1f0f645b5f0a5c25dc9af20ec6869b967ace388fd426`. Each class retains exact member/class weight mass equal to its authentic TRAIN class size. The isolated permutation moved 1,922 of 1,929 source positions at fit seed0; ties mean moved positions do not imply all weight vectors change or empirical correlation is zero.
+
+The first native F was identical between candidates, while their W differed. Subsequent F values can differ because the previous private update changes future predictions and shared gradients. There is no global scalar-objective or identical shared-trajectory claim.
+
+Preserved failure: v1 incorrectly required molecular wrapper module names. Both variants failed at this guard before any optimizer attempt, after two source constructions. V2 checks the actual native+banks node core, exact lin1/lin3 roles and four-route shapes; it makes no numerical-rule change. Total engineering costs across v1 and v2 are six native constructions and four successful optimizer transitions.
+
+This is CPU engineering evidence only. It does not qualify Physics/other node cells, link prediction, CUDA, paired GPU resources, full workers, final serving, convergence or predictive gains. Molecular C2 and all prior frozen sources remain unchanged. No TEST scoring, GPU job or scientific fit was performed.

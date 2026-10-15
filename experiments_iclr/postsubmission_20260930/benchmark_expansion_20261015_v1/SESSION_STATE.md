@@ -54,6 +54,14 @@ revision, not after each experiment.
 
 ## Publication
 
+Source addition02 is committed and exact-ref-verified pushed as
+`57803be70ecb5841c9fbbfb2fa1615a3bfd1cbff`. Its commit/push/source receipts are
+local and remote. `publish_selected.py` is now the explicit-file publisher;
+use a NEW selection, expected parent and receipt names for later publication.
+Its preflight failures (missing CSV, marker-only self-match, receipt newline)
+were engineering publication issues, not training retries or scientific edits.
+Keep exact remote receipt bytes when generating a source selection.
+
 Commit `5b69e41774b4aff12adf3ec6d3c28b9d4902838f` was pushed and exact-ref verified
 on `codex/postsubmission-research-20260930`. It includes the bounded runtime,
 24-fit specification/launch, molecular/link helpers, selected analysis, reviewed
@@ -90,6 +98,31 @@ never store or print its passphrase.
   scientifically qualified giant-run artifacts until reviewed and published.
 
 ## Next work
+
+Additional active finite follow-up: supervisor826667 at
+results/bn_state_followup_v1 waits for the parent24 queue, then executes exactly
+three prospectively frozen private-BN candidate fits sequentially using runtime
+v1. SPEC SHA `df726ef6f9fdfc01a859f9d3fe536120113d5e0e10da3bde609b5f9898d69986`.
+It reuses parent base/M1/I4 controls and launches nothing if the parent fails.
+Analysis watcher826681 at results/bn_state_followup_analysis_v1 is CPU/export-only,
+waits48hours, and requires all three own candidate/parent banks. No automatic
+training retry. No BN candidate fit has started in the saved watcher status.
+The current parent source and24-fit queue remain immutable.
+
+Portable input v2 (current, preserving v1) has real CPU MolBACE and full CiteSeer
+qualification for both BE+residual and residual-only. Exact source manifest
+`21ad8f2c644a1833f0015dfc4c0c0193bcfc9598b6f84d98b9d686330bed8115`.
+Mean/global/conditional aggregation source has actual molecular CPU qualification;
+manifest `edef4b1f552a495e09e64855afbd96c7eb14ce5ef02d26cc13ec530d80e9805f`.
+Their final-serving reconstruction and actual link/CUDA/mature resources remain
+pending. Refer to each qualification readiness document instead of inferring
+all-cell coverage from a passing toy or two-update check.
+
+The launcher prototype has18 passing synthetic checks, but0 compiled historical
+full-campaign jobs. It deliberately blocks77 before metadata access and keeps
+runtime_v2 unchanged. It is source preparation, not an authorized giant launch.
+Agents are preparing structural within-class responsibility, native node C6
+and focused quality-architecture literature. Do not count unfinished cells.
 
 1. Monitor existing full fits and preserve failures/costs. Complete all paired
    trials before promotion; keep TEST closed in exploration.
