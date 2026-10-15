@@ -1,0 +1,143 @@
+--- runtime_link_v6/adapters.py
++++ runtime_link_v7/adapters.py
+@@ -624,22 +624,120 @@
+             'selection_uses': 'actual declared serving only; same-bank mean is diagnostic'}
+ 
+ 
+-def _link_source_dependencies(adapter, pin, root):
++
++class LinkDeclaredExtensionAdapter(LinkSameCallMeanAdapter):
++    """Use genuine C6 or unchanged-mean declarations without an interaction alias."""
++    def __init__(self, torch, job, policy, root, inner, provider):
++        self.torch, self.root, self.inner, self.provider = torch, Path(root).resolve(), inner, provider
++        self._job_authority = copy.deepcopy(job)
++        self.policy = policy
++        self.session, self.model, self.optimizers = inner.session, inner.model, inner.optimizers
++        self.callback_receipt = copy.deepcopy(inner.callback_receipt)
++        self.extension_receipt = copy.deepcopy(inner.extension_receipt)
++        self.dependency_receipts = copy.deepcopy(inner.dependency_receipts)
++        self.policy_receipt = receipt(inside(job['link_policy_module'], self.root))
++        if self.policy_receipt['sha256'] != job['link_policy_sha256']:
++            raise ValueError('Explicit link policy source differs from JOB')
++        authority = inner.extension_authority
++        if authority['mean_protocol'] not in ('none','same_call'):
++            raise ValueError('Use the unchanged interaction wrapper for provider-sidecar declarations')
++        self.extension_authority = copy.deepcopy(authority)
++        self.mean_protocol = authority['mean_protocol']
++        self.provider_manifest = copy.deepcopy(authority['manifest'])
++        self._generation = self._serial = 0
++        self._cache = self._loaded_state_signature = self._selection = None
++
++    def _source_sidecar(self, actual):
++        t = self.torch
++        # Normalize fields returned by this exact authenticated native VALID call.
++        # No inference, source update, provider callback, selection or metric recomputation.
++        value = {'role':actual.get('role'), 'TEST_accessed':actual.get('TEST_accessed'),
++            'method_id':self._job_authority['procedure'], 'extra_forward_calls':0,
++            'source_updates':self.session.native.updates, 'selected_checkpoint_bound':False,
++            'caller_must_bind_loaded_selected_epoch_checkpoint':True,
++            'ids':actual['ids'], 'labels':actual['labels'], 'query_endpoints':actual['query_endpoints'],
++            'actual_served_raw_logits':actual['outputs'], 'same_bank_mean_raw_logits':actual['same_bank_mean_outputs'],
++            'actual_loss':actual['loss'], 'actual_metrics':actual['metrics'],
++            'same_bank_mean_loss':actual['same_bank_mean_loss'], 'same_bank_mean_metrics':actual['same_bank_mean_metrics']}
++        if value.get('role') != 'VALID' or value.get('TEST_accessed') is not False \
++                or value.get('method_id') != self._job_authority['procedure'] \
++                or value.get('extra_forward_calls') != 0 \
++                or value.get('source_updates') != self.session.native.updates \
++                or value.get('selected_checkpoint_bound') is not False \
++                or value.get('caller_must_bind_loaded_selected_epoch_checkpoint') is not True:
++            raise ValueError('Current native source sidecar authority/role differs')
++        for source_key, actual_key in (('ids', 'ids'), ('labels', 'labels'), ('query_endpoints', 'query_endpoints'),
++                                      ('actual_served_raw_logits', 'outputs'), ('same_bank_mean_raw_logits', 'same_bank_mean_outputs')):
++            if self._tensor_identity(value[source_key]) != self._tensor_identity(actual[actual_key]):
++                raise ValueError('Same-call source and actual link tensor differ: ' + source_key)
++        for source_key, actual_key in (('actual_loss', 'loss'), ('actual_metrics', 'metrics'),
++                                      ('same_bank_mean_loss', 'same_bank_mean_loss'), ('same_bank_mean_metrics', 'same_bank_mean_metrics')):
++            if value[source_key] != actual[actual_key]:
++                raise ValueError('Same-call source and actual link summary differ: ' + source_key)
++        if actual.get('role') != 'VALID' or actual.get('complete_source_VALID') is not True \
++                or actual.get('TEST_accessed') is not False \
++                or (actual.get('complete_VALID_positive_records'), actual.get('complete_VALID_negative_records')) != (60084, 100000):
++            raise ValueError('Complete official link VALID role/counts required')
++        endpoints = t.cat((self.session.native.valid['edge'], self.session.native.valid['edge_neg'])).cpu()
++        if self._tensor_identity(actual['query_endpoints']) != self._tensor_identity(endpoints) \
++                or actual['query_endpoints'].shape != (160084, 2) or actual['ids'].shape != (160084,) \
++                or actual['labels'].shape != (160084,) or not bool((actual['labels'][:60084] == 1).all()) \
++                or not bool((actual['labels'][60084:] == 0).all()):
++            raise ValueError('Complete native query endpoints/order/positive-negative roles changed')
++        mean, served = actual['same_bank_mean_outputs'], actual['outputs']
++        if mean.shape != served.shape or mean.dtype != served.dtype or mean.numel() != 160084 \
++                or not bool(t.isfinite(mean).all()) or not bool(t.isfinite(served).all()) \
++                or set(actual['same_bank_mean_metrics']) != set(actual['metrics']) \
++                or any(not math.isfinite(float(v)) for v in [actual['loss'], actual['same_bank_mean_loss'],
++                    *actual['metrics'].values(), *actual['same_bank_mean_metrics'].values()]):
++            raise ValueError('Finite same-call native mean/actual values and metric keys required')
++        return value
++
++
++    def validate(self):
++        if self.mean_protocol == 'same_call':
++            return super().validate()
++        self._serial += 1
++        self._cache = None
++        before_updates, before_epoch = self.session.native.updates, self.completed_epochs
++        actual = self.inner.validate()
++        if (before_updates, before_epoch) != (self.session.native.updates, self.completed_epochs):
++            raise ValueError('Native TRAIN state advanced during VALID')
++        if any(key in actual for key in ('same_bank_mean_outputs','same_bank_mean_loss','same_bank_mean_metrics')):
++            raise ValueError('Undeclared same-call mean fields from unchanged-mean link provider')
++        return actual
++
++    def selected_mean_export(self, actual, *, job_hash, selected_epoch, selected_checkpoint, runtime_binding):
++        if self.mean_protocol == 'same_call':
++            return super().selected_mean_export(actual, job_hash=job_hash, selected_epoch=selected_epoch,
++                selected_checkpoint=selected_checkpoint, runtime_binding=runtime_binding)
++        self._check_runtime(runtime_binding)
++        selection = {'job_hash':job_hash, 'selected_epoch':selected_epoch,
++            'selected_checkpoint':selected_checkpoint, 'runtime_binding':runtime_binding,
++            'state_generation':self._generation}
++        if self._selection != selection or self.completed_epochs != selected_epoch \
++                or job_hash != digest(self._job_authority) or receipt(inside(selected_checkpoint['path'],self.root)) != selected_checkpoint:
++            raise ValueError('Exact own loaded selection required for unchanged-mean source')
++        if any(key in actual for key in ('same_bank_mean_VALID','same_bank_mean_outputs','same_bank_mean_loss','same_bank_mean_metrics')):
++            raise ValueError('Undeclared link mean output')
++        return None  # Actual serving already is the declared mean; no duplicate diagnostic or forward.
++
++
++def _link_source_dependencies(adapter, pin, root, job):
+     """Retain all original integration sources and authenticated outer method sources."""
+     adapter.callback_receipt = pin
+     if not hasattr(adapter, 'extension_receipt'):
+         adapter.extension_receipt = None
+     meta = adapter.metadata()['native_integration']
+     native = meta['native_binding']
+-    rows = [*meta['integration_sources'], *meta['finalized_helper_sources'],
++    rows = [receipt(Path(__file__).with_name('link_authority.py')), *meta['integration_sources'], *meta['finalized_helper_sources'],
+         *native['adapter_source_receipts'].values(), native['adapter_manifest_receipt']]
+     if adapter.extension_receipt is not None:
+         if receipt(inside(adapter.extension_receipt['path'], root)) != adapter.extension_receipt:
+             raise ValueError('Outer link extension source receipt differs')
+-        declaration = getattr(adapter.session, 'interaction_metadata', None)
+-        if declaration is None:
+-            raise ValueError('Extended link provider needs an explicit authenticated source declaration')
+-        rows += [adapter.extension_receipt, *declaration['source_receipts']]
++        from link_authority import authenticate_extension
++        adapter.extension_authority = authenticate_extension(adapter.session, job, adapter.extension_receipt, root, receipt, inside)
++        rows += [adapter.extension_receipt, *adapter.extension_authority['source_receipts']]
+     identity_fields = {'path', 'bytes', 'sha256'}
+     manifest = native['adapter_manifest_receipt']
+     if manifest.get('adapter_hashes_verified') is not True:
+@@ -674,9 +772,11 @@
+             raise ValueError("Use the pinned link integration's explicit candidate IDs, not a generic transform")
+         module, pin = load_module(job["callback_module"], root, job["callback_sha256"])
+         adapter = module.create_adapter(torch, job, policy, root)
+-        adapter = _link_source_dependencies(adapter, pin, root)
++        adapter = _link_source_dependencies(adapter, pin, root, job)
+         if adapter.extension_receipt is not None:
+             provider, _ = load_module(adapter.extension_receipt['path'], root, adapter.extension_receipt['sha256'])
+-            return LinkSameCallMeanAdapter(torch, job, policy, root, adapter, provider)
++            if adapter.extension_authority['mean_protocol'] == 'provider':
++                return LinkSameCallMeanAdapter(torch, job, policy, root, adapter, provider)
++            return LinkDeclaredExtensionAdapter(torch, job, policy, root, adapter, provider)
+         return adapter
+     raise ValueError("This adapter supports actual native node and molecular sessions only")

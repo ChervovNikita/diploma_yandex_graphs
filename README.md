@@ -59,6 +59,18 @@ not establish a confirmed advantage or transfer. Test scores remain closed.
 Every outcome, per-seed difference, training cost and failed combination is
 retained. Different selected epochs also limit causal interpretation.
 
+### New fixed-weight normalization analysis
+
+At the same three selected private-BN checkpoints, own route statistics give
+mean VALID AUC 73.61%, tied statistics 59.06%, and cyclically mismatched banks 57.98%
+when their three scores are averaged. Own versus tied improves all three seeds;
+one cyclic assignment improves one seed. The analysis used 300 CPU VALID forwards
+and no training. It supports keeping route-specific statistics as a control,
+with no new novelty or independent-ensemble superiority claim. The scoped
+slimmable-network source reading establishes relevant prior art.
+
+[Full analysis, all outcomes and limits](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/analysis/bn_bank_assignment_v1/REPORT.md).
+
 ### Proposed broad benchmark
 
 The proposal contains **6,460 physical fits across 7 datasets, 8 architecture

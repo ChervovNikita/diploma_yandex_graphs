@@ -1,4 +1,4 @@
-# Continuation state — release 09 preparation, 15 October 2026
+# Continuation state — release 10 preparation, 15 October 2026
 
 ## Scope and immediate objective
 
@@ -16,9 +16,9 @@ repeat native checks solely for small floating-point replay differences.
 ## Publication
 
 Remote branch: codex/postsubmission-research-20260930.
-Last exact-ref verified commit: 8e0e737ed4f256e9a3b27b7d9bc0248d7d2e5efa (release08).
-Read COMMIT_RECEIPT_09.json and PUSH_RECEIPT_09.json to determine whether the next
-publication completed. Their absence means pending. Root owns Git. Use explicit
+Last exact-ref verified commit: ba2612a5d6fad4c5ce412b8b37ad50159679d58c (release09).
+Push09 completed at10:15:39UTC with matching remote branch hash. Read
+COMMIT_RECEIPT_10.json/PUSH_RECEIPT_10.json for the next publication status. Root owns Git. Use explicit
 byte-pinned selections and reviewed source/compact results only. Exclude datasets,
 checkpoints, logits, tensor contexts, full generated descriptors and fake fixture
 trees. Each publication file must be below 2,000,000 bytes. Diff-data files require
@@ -84,8 +84,8 @@ record admission. Three new arms (BN+geometry, BN+correction, BN+both)×three se
 15 completed factorial controls reused. Same native settings/controller as
 MolBACE24. Frozen reporting covers all cells, AUC/BCE, conditional effects,
 interaction moderation, seeds and costs. Selected VALID exploration only.
-At10:01UTC first fit000_c53897a759a16a32 reached128epochs/4864updates; no terminal
-fit yet. Do not promote partial scores. Nine fits are separate from6460.
+At10:21UTC first fit000_c53897a759a16a32 completed149epochs by patience;
+second fit001_559b911a4356905a is running. No partial quality results inspected. Do not promote partial scores. Nine fits are separate from6460.
 
 Older GRU acquisition remains separate:
 phase/private_GRU_acquisition_root_20261011_v1/acquisition_v1.
@@ -199,3 +199,31 @@ molecular evidence, v3 compiler, pilot admission and compact literature receipts
 Deliver the final count/settings/methods, measured-versus-estimated cost and
 one-command launch preparation for user review before giantGO. Do not silently
 shrink the roster to avoid revealing its compute cost.
+
+## Release10 continuation addendum
+
+Root accepted runtime_link_v8 declaration/mean protocols and dispatcher2 lexical
+venv execution; six v6 runtime core files and dispatcher engine bytes unchanged.
+ROOT_SOURCE_REVIEW_10.json records exact source review. MolHIV GIN-VN qualifier
+source is accepted, unlaunched: the two existing scientific CUDA workers still
+occupy both slots. BUDDY production descriptors contain body:null and old provider
+casts int(None); combination agent is implementing provider2/runtime9/compiler4
+source successors plus final finite qualifiers. No failed production fit occurred.
+
+benchmark_reporting_implementation_v1 implements the accepted descriptive report,
+1170prescribedcontrasts,9focusedmetadata checks and unchanged MolBACE3seed extraction.
+Resource agent now integrates full registry/binding/cost/mean sidecars; no tensors,
+training or77. Buddy agent builds disabled host portability; do not call77ready.
+
+Completed new analysis/bn_bank_assignment_v1: all3selectedBNcheckpoints, own/tied/
+all3cyclicbankassignments,15fullVALIDcalls,300nativeforwards,0TRAIN/updates/TEST.
+CPU2threads,30.82077selapsed,maxRSS628108KiB. MeanAUC own73.61416%,tied59.05983%,
+meanofshift-scores57.97721%. Own beats tied in3/3 and average shifts in3/3, but
+shift1 improves seed101AUC. BCE own1.08552,tied1.25036,shifts1.77466; tied improves
+BCE for2/3,so no uniform calibration claim. Inputs/planfrozen beforelaunch; first
+resource API call failed before modelconstruction; preserved and corrected keys.
+Models/checkpointsunchanged; rawtensorsremote. This diagnostic does not identify
+original EMA/time/order/selection effects or establish I4superiority. Prior-art
+note literature/switchable_norm_scope_v1 reads Slimmable abstract plus exact author
+code, including shared-affine/private-running-state USBatchNorm implementation.
+No full-paper read or new mechanism novelty claim.

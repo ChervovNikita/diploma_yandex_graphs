@@ -77,6 +77,18 @@ why probability loss and ranking should both be retained. This uses saved select
 VALID predictions, seven banks per seed, zero new fits or forwards, and 7.81 CPU
 seconds. It changes no original score or proposed primary serving rule.
 
+The [fixed-weight normalization assignment analysis](analysis/bn_bank_assignment_v1/REPORT.md)
+compares own, tied and cyclically exchanged TRAIN-derived banks at the same
+three selected checkpoints. Mean AUC is73.61% with own banks, 59.06% with tied
+banks and 57.98% averaged across the three cyclic assignments. Own versus tied
+improves AUC in all three seeds, but one cyclic assignment improves one seed;
+BCE does not uniformly favor own over tied. This is a development diagnostic,
+not an independent-ensemble win. It used 300 CPU VALID forwards, zero training
+updates and 30.82 seconds. A [scoped prior-art inspection](literature/switchable_norm_scope_v1/READING.md)
+found separate running statistics with shared affine weights in the author
+implementation of universal slimmable networks. This strengthens the reason
+to treat private BN as a necessary control rather than the claimed novelty.
+
 [Native molecular label support](molecular/RARE_CLASS_SUPPORT_NOTE.md) also
 shows why a cross-task port needs more than a callable loss: with the unchanged
 batch size32, only33.81% of random MolHIV batches have two distinct positive
@@ -135,8 +147,11 @@ The [launch preparation](expanded_launch_preparation_v1/HANDOFF.json) accounts
 for 6,460 fits plus 270 I4 prediction exports. Exports require no training.
 The dispatcher implements durable work claims, restart handling, completed-run
 skipping and at most two resource-compatible jobs per GPU. Its 38 subprocess
-checks passed. The new source descriptions still need to be attached to the
-final qualified runtime and resource assignments. Remaining source-policy and
+checks passed. The v3 source descriptions now have 6,730 callable execution candidates.
+Root accepted the corrected link metadata/readout protocol and virtual-environment
+launch path. The final qualified resource assignments remain incomplete, and
+a newly found BUDDY null-body metadata issue is being corrected before any
+production launch. Remaining source-policy and
 callback coverage is being consolidated from existing evidence.
 
 The full campaign has not launched. Only the dedicated allocation is authorized;
@@ -164,6 +179,12 @@ withhold the complete-preset interval. No significant-win label or cross-preset
 winner substitution is permitted. The [initial exposure ledger](benchmark_reporting_protocol_v1/EXPOSURE_LEDGER.json)
 records verified historical Physics TEST exposure; the other six histories
 remain unknown. Current development uses TRAIN/VALID with TEST scoring closed.
+
+A [runnable metadata reporter](benchmark_reporting_implementation_v1/README.md)
+now preserves all planned pairs, failures and capped outcomes, and generates
+1,170 declared contrasts across 27 presets. Nine focused metadata checks passed;
+actual compiler identity, sidecar and cost-ledger integration is underway.
+Its three-seed pilot extraction does not receive a ten-cohort interval.
 
 The broad matrix is exploratory. The [confirmation proposal](confirmation_protocol_proposal_v1/README.md)
 would select at most one method/setting using development VALID, then freeze
