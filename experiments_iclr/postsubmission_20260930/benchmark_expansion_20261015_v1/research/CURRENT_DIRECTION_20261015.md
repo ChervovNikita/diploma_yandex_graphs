@@ -1,3 +1,33 @@
+# Current state — 15 October 2026, three-GPU preparation
+
+The latest molecular comparison is complete: 45 unique fits and 39 prediction
+banks. Structured private learning improves pooling but weakens the individual
+routes; its primary criterion failed, and a reliable advantage over the
+independent ensemble remains unestablished. [Complete results](analysis/structural_private_risk_complete_31/INTERPRETATION.md).
+
+The user substituted server 18.51 for occupied 18.77. MacLink and authenticated
+SSH to 18.51 work. Host `olig` has two A100 80 GB GPUs; the dedicated allocation
+has the third. The published source revision is synchronized, and the exact
+PubMed inputs and native source dependencies have transferred successfully.
+A matching Python/PyTorch/PyG runtime and three disjoint eight-fit PubMed queues
+are being checked. The intended assignment keeps each seed's native four-model
+ensemble and all four shared-model variants on one GPU. Check the dated
+[connection and queue record](planning/three_gpu_sync_20261015_v1/README.md)
+for actual qualification and launch status. Prepared queues are not running fits.
+
+The 6,460-fit campaign remains separate and requires user review and GO.
+Three dormant campaign assignment lists are being prepared; unsupported
+historical allocation-only execution bindings are not relabelled as ready.
+
+The NCNC selected-checkpoint replay passed. Composed BUDDY completed its
+1,585-update native epoch, then failed in fresh selected serving because a
+required native dataset argument was omitted. The checkpoint is preserved.
+The narrow source repair and zero-training replay are ready; the training epoch
+will not be repeated. The earlier PubMed queue stopped at its BUDDY prerequisite
+without launching a scientific fit. Its failure record is retained.
+
+## Earlier research decisions and context
+
 # Research direction and next decisions
 
 We want several trainable prediction routes through one shared native GNN.

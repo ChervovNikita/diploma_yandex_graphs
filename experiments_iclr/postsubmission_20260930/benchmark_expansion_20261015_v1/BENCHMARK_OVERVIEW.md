@@ -1,12 +1,32 @@
-# Latest state — 15 October, release 28 preparation
+# Current state — 15 October 2026, three-GPU preparation
 
-Four of six structural MolBACE fits completed; the fifth had reached 48 full epochs at 18:47 UTC. PubMed GPU checks remain queued behind that study. A prepared collector will reuse the 33 existing banks and analyze all six new banks after both queues succeed. The large 6,460-fit campaign remains unlaunched and requires user review and GO.
+The latest molecular comparison is complete: 45 unique fits and 39 prediction
+banks. Structured private learning improves pooling but weakens the individual
+routes; its primary criterion failed, and a reliable advantage over the
+independent ensemble remains unestablished. [Complete results](analysis/structural_private_risk_complete_31/INTERPRETATION.md).
 
-A completed comparison of both fixed averaging rules on every saved bank shows that probability averaging barely changes residual-only BCE (1.952035 to 1.950576) and slightly reduces AUC. I4 benefits more from the same change. This averaging change does not repair the residual bank's deficit. [Full result and limits](research/residual_positive_bce_pooling_v1/complete_results_v1/INTERPRETATION.md).
+The user substituted server 18.51 for occupied 18.77. MacLink and authenticated
+SSH to 18.51 work. Host `olig` has two A100 80 GB GPUs; the dedicated allocation
+has the third. The published source revision is synchronized, and the exact
+PubMed inputs and native source dependencies have transferred successfully.
+A matching Python/PyTorch/PyG runtime and three disjoint eight-fit PubMed queues
+are being checked. The intended assignment keeps each seed's native four-model
+ensemble and all four shared-model variants on one GPU. Check the dated
+[connection and queue record](planning/three_gpu_sync_20261015_v1/README.md)
+for actual qualification and launch status. Prepared queues are not running fits.
 
-PubMed/Cheb remains the next scientific priority after measured cost review. A bounded history audit found no additional distinct common-error training rule worth launching now; the prepared transfer and pairwise questions remain open. [Audit and reopening conditions](research/shared_error_credit_audit_v1/NOTE.md).
+The 6,460-fit campaign remains separate and requires user review and GO.
+Three dormant campaign assignment lists are being prepared; unsupported
+historical allocation-only execution bindings are not relabelled as ready.
 
-See [current direction](research/CURRENT_DIRECTION_20261015.md) and [continuation state](SESSION_STATE.md). Dated material below preserves earlier preparation.
+The NCNC selected-checkpoint replay passed. Composed BUDDY completed its
+1,585-update native epoch, then failed in fresh selected serving because a
+required native dataset argument was omitted. The checkpoint is preserved.
+The narrow source repair and zero-training replay are ready; the training epoch
+will not be repeated. The earlier PubMed queue stopped at its BUDDY prerequisite
+without launching a scientific fit. Its failure record is retained.
+
+## Earlier research decisions and context
 
 # What the proposed benchmark will test
 

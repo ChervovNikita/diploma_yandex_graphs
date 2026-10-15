@@ -1,200 +1,53 @@
-# Current continuation state — release 27 published
+# Current continuation state — three-GPU synchronization, 15 October 2026
 
-Goal active: a trainable ensemble around one shared native GNN with small
-parameter overhead and defensible quality gains over native M1 and genuine I4.
-Read ../AGENTS.md. Allocation only; no77/MacLink. Bounded representative pilots
-are authorized. The6,460-fit campaign remains unlaunched and awaits user GO.
-Original paper scores stay fixed. No original-five reruns, HPO, sudo, PDF,
-GENLINK, Desktop or unrelated data. Root owns explicit Git selection.
+Read ../AGENTS.md. The latest user replaced occupied18.77 with18.51.
+Only the allocation, authorized51 project, and local workspace are current work
+locations. Seven-GPU account is MacLink forwarding only. No sudo, host changes,
+original-five reruns, HPO, TEST scoring, PDF compilation or GENLINK. The giant
+campaign is unlaunched and still requires user verification/GO.
 
-## Publication
+## Publication and completed evidence
 
-Release27 is confirmed as ff3e7c04c6af153c210109b5870cc5b809fe845d,
-pushed 18:35:13 UTC 15 October. COMMIT_RECEIPT_27/PUSH_RECEIPT_27 are authoritative.
-DOC_UPDATE_RECEIPT_27 pins the remote current documents before the next update.
-Use tty=true for the existing interactive push helper. Root owns Git.
+Published release31: 0dd66efe12be9a851e5e8e56ad504677ed4a1b4c.
+COMMIT_RECEIPT_31/PUSH_RECEIPT_31 and DOC_UPDATE_RECEIPT_31 are authoritative.
+Root owns publication; use existing SSH key interactively, never save secrets.
+Structural MolBACE: all45unique fits/39banks complete, primary criterion failed.
+See analysis/structural_private_risk_complete_31. Do not repeat them.
+PubMed all3CPU+7GPU engineering checks passed;24scientific fits unstarted.
+NCNC selected replay passed; no repeat. BUDDY completed1585updates and selected
+checkpoint, then failed serving. Source-only narrow repair is ready under
+qualification/composed_BUDDY_selected_VALID_v1; replay zero TRAIN, no refit.
+Queue32 stopped at BUDDY prerequisite. queue_pubmed_transfer_33.py is UNFROZEN
+and must never be staged or launched.
 
-## Active work — no duplicate launches
+## Active synchronization
 
-Structural MolBACE six-fit owner848485/start6089052668. At18:47:47UTC,
-four fits completed149epochs each; seed303structured worker850971/start6089865992
-was at48epochs/1824updates. Seed303permuted is unstarted. CURRENT_EXECUTION_28
-records the observation, with no partial quality inspected. Existing pins and
-six-fit order remain in pilot_20261015_structural_private_risk_v1. No duplicate
-fit or collector. New qualification/structural_complete_collection_queue_v1
-source is root-reviewed to wait for all6fits and all7PubMed checks, acquire the
-existing slot, run6original collectors and analyze39banks/45paidfits using the
-original frozen analyzer. Publication/queue admission/launch receipts will be
-STRUCTURAL_COLLECTION_QUEUE_*_28; check actual receipt/status before acting.
+Server51 hostolig, repo /disk/10tb/home/shmelev/gnnm_iclr_validation_tuning/postsubmission_git.
+GPU0 UUID9c6c20fa-a620-479d-f72f-163ac74deef2; GPU1 UUID30283973-140d-9e7b-e780-0fcc487dec54.
+MacLink connects to the paired Mac. Authentication is via an existing live SSH
+control socket; no credential is recorded in project files or command arguments.
+planning/three_gpu_sync_20261015_v1 holds transport, source, data and runtime
+receipts. Published0dd66efe sparse checkout completed in62.46s. Exact source
+closure58files4.56MB and data/tool377.45MB transferred; no payload copied onto
+Macs. Initial free disk116GiB; user intends freeing more. No unrelated jobs touched.
 
-PubMed engineering owner849490/start6089402542 is already running and waiting
-for those six fits. Then it holds the shared GPU slot and runs3CUDA lifecycle
-checks plus4production cost probes. No separate invocation/duplicate queue.
-Status qualification/pubmed_cuda_queue_24/QUEUE.json. On failure preserve it;
-do not relaunch automatically. No24scientificfits have launched.
+research/pubmed_three_gpu_queue_v1 is being built and independently reviewed.
+Intended seed assignments101allocation,202server51GPU0,303server51GPU1. Each has
+four native independent fits and G0/uniform/structured/permuted shared fits.
+The source recipe is unchanged; canonical and relocated execution identities
+stay separate. Selected prediction collection must use the training host;
+complete24-fit join required before analysis. No51 scientific launch yet.
 
-OldGRU owner640426/start6055039154 and worker640428/start6055039165 continue.
-Coarse29/30banks,44/48trajectories updates after a wholebank, not each update.
-GRU_PROGRESS_DETAIL_25 confirmed active body2 after593/282updates in bodies0/1.
-Worker was live again18:04. Keep original7daycap and16GiBhost/32GiBGPUgrowth.
-Two model-worker slots remain occupied. No third GPU model worker.
+planning/three_gpu_campaign_readiness_20261015_v1 prepares dormant6730task views.
+Current historical canonical execution metadata still binds every task to the
+allocation. New assignment lists are preparation, not executable admission.
+OriginalGRU owner640426/start6055039154, worker640428/start6055039165 still runs
+on allocation. Do not duplicate or terminate it casually. Latest observation
+used936MiB GPU, about1.1GiB RSS. Retain existing7day cap/growth envelopes.
 
-## Completed science and next choice
+## Prepared distinct scientific directions
 
-MolBACE residual-only/private-BN:74.518±2.660%VALIDAUC versusI474.847±.500%,
-BCE1.952versus.890. Four rank8 input residuals add19,200parameters(1.0183%).
-Averaging adds−.043points;95.54%of pooled ranking errors are common toallroutes.
-No I4win/equivalence; exposed VALID151 has130positive/21negative. Full33bank/
-39fit report remains pilot_20261015_residual_only_private_bn_v1/complete_results_v1.
-
-Default next scientific priority: existing PubMed/Cheb24fit transfer, contingent
-on completed MolBACE outcomes and measured cost/resources. Different node task,
-native polynomial/attention body,noBN. CPU checks passed;24newfitsneeded for
-exactnativeM1/I4/G0/uniform/structured/permuted. It is exposed development,
-not protected confirmation. Keep all3seed results, per-class support/harms and
-same frozen recipe. See research/next_study_priority_20261015_v1/NOTE.md.
-Pairwise MolBACE21fits remain a valid secondary direct-ranking question; PubMed
-cannot validate that mechanism. No new manuscript superiority/review warranted.
-
-## Pairwise prepared source — do not repeat CPU work
-
-research/molbace_pairwise_competence_v1: manifest
-84a9a2b63244222d9411ce02bdd2035ffe21476465b069acd002f2cd82ffc24b.
-TRAIN-only support inspection and all4CPUlifecycles passed:8updates,
-12VALID,8constructors,221nativeforwards; all fresh restores bit exact.
-PAIR_QUALIFICATION_SUMMARY_25 is authoritative. No repeat.
-
-research/molbace_pairwise_study_v1: frozen21fitstudy,
-MANIFEST bcb189fdd847fe50004edb8f29d6883e714a1e637b625816eb8d5b6f8be5ba5e,
-SPEC cc4415b651c0564ed130138e473f43e6013027e6dbaa9b07d82e0af08a64abcf.
-Rootsource review and actual allocation preflight passed. Reuse18baselinefits;
-9shared+12nativeauxiliaryfits produce27rows,69contrasts after all21terminal
-and9newcollections. No scientific admission/launch. Preserve every BCEharm.
-
-research/molbace_pairwise_cost_probe_v1: frozen/root-reviewed source,
-MANIFEST564eefd7fd441fee9c27199cc48c6dc7c3f33b02da3f1b1e7cf0caa16c82369b.
-One constructor/full native1210TRAINepoch(38updates)/2VALID for each of
-structured and native_commonbody0seed101. No selector/checkpoint/scientificfit.
-All5sourcechecks passed. Not executed. Before actualCUDA:sharedGPUslot,live
-resources,finite root supervisor,exactsourceadmission. No automatic owner.
-
-## Actual selected-state scorer repair
-
-NODE_SELECTED_VALID_REPLAY_26 preserves failedv2:7.976supervisorseconds,
-1constructor/1restore/0forwards/0VALID. Legitimate _extra_state dict caused
-v4tensor-only fingerprint to fail. This is a bug, not numerical mismatch.
-
-final_selected_scoring_v5: manifest
-e0b86279593c9f20e49b615c57fce41360babc40201b3172ae76db6eab6f9659.
-Recursive typed extra state; existing tensor hashes/serving unchanged.
-qualification/final_selected_node_NCNC_VALID_v3: manifest
-8fc619d48cc82b1106c1ca6e3534376e661a1dd1c9987f6b335d477fc94f0f97.
-Root reviewed/staged; one corrected nodeCPUreplay PASSED8.733supervisorseconds:
-1constructor/1restore/4forwards/1wholeVALID665/0TRAIN/0CUDA. Both learnedreadout
-and same-bank mean exactly equal saved outputs. Do not repeat. Evidence
-NODE_SELECTED_VALID_REPLAY_CORRECTED_26.json and NODE_SCORER_REPAIR_REVIEW_26.json.
-NCNCv3 CUDA selectedreplay remains pending32GiBGPU/8GiBRSS/600s with slot.
-NoTEST. V1/v2andfailedhistory unchanged.
-
-## Other pending campaign work
-
-OriginalBUDDY3170updates, repairedNCN34updates and composedMolBACE38updates
-already passed; no repeats. ComposedBUDDYsource20 handoff remains inactive,
-1585updates/3constructors/4VALID; only afterMolBACE6+PubMed7successful andslot.
-Fullserving, normalizationmigration, measured3GPUplacement/budget unfinished.
-No6,460-fitcampaignGO. Finish reviewed publication, monitor original owners,
-collect complete active study, then admit next representative science by cost.
-
-## New completed diagnostic — do not repeat
-
-analysis/completed_probability_failure_v1 is frozen/root-reviewed and actually
-executed once on CPU. MANIFEST6e5e2cb6ce2f9b431d29e8297512b59973c5cf8cf553cc8b1063ab9e01fdadb0.
-All33banks/11methods/3seeds,39exports,27member collections,zero models/forwards/
-updates/checkpoints/TEST. Child3.779s;supervisor4.506s;sampledRSS374,833,152bytes.
-PROBABILITY_DIAGNOSTIC_27 records the pass. Full1.73MBRESULT stays on allocation,
-hashdf081cd67adb427db714dc66e2aca6d09ecce7efc35ee3ccd05fd747b791c8cf.
-CompactSUMMARY/REPORT/INTERPRETATION are local for publication. The9,966graph
-contributions remain allocation-only analysis_outputs/completed_probability_failure_v1/
-PER_EXAMPLE.jsonl; do not sync/commit. No partial current fit was inspected.
-
-Residual-only vsI4 BCE increases on positives and decreases on negatives in
-all3seeds. Fixed0.5threshold false negatives105/95/78 versus67/46/60 of130.
-Top5graph contributions explain12.3/17.7/38.2%ofnetexcess; losses are broad.
-MeanBrier.473versus.289. TRAINpositive39.67%,VALID86.09%; no pure-label-shift
-or causal claim and no fittedcorrection. Ranking recovery is not probability
-recovery. Keep current studies unchanged and PubMed default priority.
-
-research/rankexpert_followup_v1 records bounded primary access failure:
-ACM403 and checkedauthorpages yieldedno manuscript.19retrievalattempts,
-zero newmethod/paperread claims. Rawresponses allocationcacheonly. No change
-to pairwise21orPubMed24; stopmetadatachasingthislead without primarytext.
-
-## Completed fixed-pool follow-up and bounded method audit
-
-research/residual_positive_bce_pooling_v1/complete_results_v1 contains the actual
-all33-bank comparison. POOLING_DIAGNOSTIC_28 records a passed3.642sCPU child,
-4.054ssupervisor,359493632bytes sampledRSS,zero models/forwards/updates/TEST.
-Residual BCE1.952035→1.950576 and AUC74.5177→74.4933 under probability mean;
-I4BCE.890168→.820155 andAUC74.8474→74.8962. Positive-class residual-minus-I4
-excess1.267414→1.348697, increasing inall3seeds. No new readout selected.
-Do not repeat. RESULT hash23670669cd82f3dbb4cead8f6ed1d9c2188b67810727aa1d69d6d0b022c79253.
-This rules out the tested fixed averaging change as a repair, not every trained
-readout/objective. Current studies stay frozen; no source recipe changed.
-
-research/shared_error_credit_audit_v1 found no additional distinct candidate:
-common-error/private-credit versions collide with already saved pool, assignment
-and staged correction questions. Concrete TRAIN support/private score response
-and discriminating controls are reopening criteria. Zero new primary reads or
-network retrievals; no hypothesis-exhaustion claim. PubMed24 andpairwise21 remain.
-
-## Release29 preparation
-
-Root reviewed normalization_campaign_migration_v1 manifest
-cb08331336fbf98712a2975fa2773d48a150dd66103b84b019f2f54c62a725d4
-for one allocation metadata generation after publication. No native work.
-Scorer successor composable_normalization_final_scoring_v2 manifest
-af692038bec60bbb54e9ed45d659289af98a0cb844ab0637c8923ee6ce70b67b
-fixes inherited extra-state fingerprints, preserving composed state ownership.
-research/stochastic_private_adapter_audit_v1 retains six proposed learned/fixed
-noise fits; source implementation delegated, no actual qualification or fits.
-PubMed24 remains next. Reporting/dispatcher successor source work is delegated.
-Root owns generation, source publication, admission and scientific launch.
-Use CURRENT_EXECUTION_30 for the19:05 live progress observation.
-
-## Release30: actual preparation and private-noise qualification
-
-The normalization migration, reporting registry and dispatch plan were generated
-on the allocation with zero model work. The current roster remains 6,460 fits
-and 270 I4 export tasks; 2,890 fit descriptors use composed normalization.
-All 27 reporting profiles cross-check against the complete dispatch roster.
-Actual generation took 34.73, 49.02 and 55.11 seconds respectively. The initial
-migration attempt failed before creating outputs because two decision files
-were absent; the dependency repair and failure remain recorded.
-
-The fixed- and learned-private-noise implementations both passed two genuine
-CPU updates, fresh VALID restore and next-noise replay. This is engineering
-evidence only. New stochastic training remains unlaunched; the prepared
-PubMed transfer comparison remains the next scientific priority.
-
-No massive-run admission follows from metadata success. Composed BUDDY, NCNC
-selected serving, runtime reporting witnesses, custody review and measured
-resource placement still require completion. All 18.77 execution is disabled.
-
-## Release31: complete structural comparison and measured transfer costs
-
-The six-fit structural study and selected-state analysis are complete: 39 banks
-from 45 unique fits, no warnings, no TEST. The frozen primary criterion failed.
-Structured AUC 74.469% improves on shuffled 72.112%, but remains just below
-uniform 74.518% and I4 74.847%. Averaging benefit improves from −0.043 to +0.455 points,
-while mean member AUC falls from 74.560% to 74.014%; repairs and harms nearly cancel.
-See [complete interpretation](analysis/structural_private_risk_complete_31/INTERPRETATION.md).
-
-All seven PubMed CUDA lifecycle/cost checks passed. The frozen 24-fit study
-remains unchanged. Conditional TRAIN+VALID projections are 10.08–12.16 hours
-at 2,000 epochs and 50.34–60.73 hours at 10,000, before checkpoint I/O/setup. The
-resource candidate is closed until root admission; no full-campaign GO follows.
-
-NCNC selected CUDA replay passed in 12.54 seconds: one construction/restore,
-four encoder forwards, eight predictor calls, one whole VALID pass and zero
-TRAIN updates; saved logits and same-bank mean match exactly. The composed
-BUDDY check is running separately. Runtime checks are engineering evidence.
+Pairwise MolBACE21fits and learned private-noise6fits remain unlaunched; their
+CPU checks already passed. Deep supervision is a literature-grounded prospective
+placement study, not implemented or established novelty. Goal remains unachieved;
+no new manuscript accept review is warranted by the current development results.

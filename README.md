@@ -74,8 +74,13 @@ prediction task and backbone and has no BN. All three CPU and all seven CUDA
 lifecycle/cost checks passed. The shared residual adds 8,192 parameters (1.38%).
 Minimum 2,000 / cap 10,000 epochs and patience 100 are fixed; full validation
 runs every epoch. Conditional TRAIN+VALID timing projections are roughly
-10–12 hours at the minimum, excluding checkpoint I/O and setup. Scientific
-launch remains separate from these checks. PubMed is previously encountered
+10–12 hours serial at the minimum, excluding checkpoint I/O and setup. The
+three-GPU plan assigns eight cold fits to each device, keeping each complete
+seed comparison on one host. This gives roughly 3.4–4.1 hours of TRAIN+VALID
+compute per cohort near the minimum; host load and checkpoint I/O add time.
+The dedicated allocation and server 18.51 are synchronized to the published
+source. Both new server GPUs passed real full-graph update, validation and
+checkpoint restore checks. Queue review and publication precede scientific launch. PubMed is previously encountered
 development data; its minority VALID class has only 72 nodes.
 
 Two other prepared hypotheses remain distinct: task-ranking supervision with
@@ -104,10 +109,27 @@ controls; method support is not inferred from a successful smoke test.
 
 Normalization migration, reporting and dispatch metadata are generated and
 cross-checked. Selected NCNC replay now passes with exact saved predictions and zero training.
-Composed BUDDY execution is running. Reporting witnesses, custody review and
-measured placement/budget remain outstanding. Two jobs per GPU is a proposed maximum; actual
-concurrency requires measured admission. Only the dedicated allocation is
-currently enabled. **The full campaign requires the user's review and GO.**
+Composed BUDDY completed its 1,585-update epoch, then fresh selected serving
+failed because a native dataset argument was omitted. Its checkpoint is
+preserved; the narrow repair replays serving with zero additional training.
+Reporting witnesses, custody review and full destination runtime readiness
+remain outstanding. Two jobs per GPU is the proposed campaign maximum.
+
+The user replaced occupied 18.77 with **18.51**, which supplies two A100 80 GB
+GPUs alongside the allocation GPU. Dormant campaign queues now contain:
+
+| Device | Fits | I4 exports | Paired cohorts |
+| --- | ---: | ---: | ---: |
+| Allocation GPU0 | 2,154 | 90 | 90 |
+| Server 18.51 GPU0 | 2,153 | 90 | 90 |
+| Server 18.51 GPU1 | 2,153 | 90 | 90 |
+
+Each source setting is distributed across all three GPUs; each trial's native
+ensemble and shared controls stay together. All 6,730 tasks occur exactly once
+and every dependency is earlier on the same device. Relative work is balanced
+within 0.06%, using declared scheduling weights. This is not a measured wall
+time guarantee or an executable campaign release. Actual launch remains gated
+on the remaining runtime work and user approval. **The full campaign requires the user's review and GO.**
 
 - [Plain-language campaign design](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/BENCHMARK_OVERVIEW.md)
 - [Method coverage and controls](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/benchmark_review_map_v1/README.md)
