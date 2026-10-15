@@ -424,3 +424,23 @@ portable_runtime_authority_v4 is being prepared. BUDDY remains unexecuted.
 Generic normalizationV2 source fixes two real checkpoint ownership problems
 found inV1; focused actual-parent scalar regressions pass. Both versions are
 preserved. Genuine native/runtime/scorer integration still awaits qualification.
+
+## Continuation — 15 October, 15:06 UTC
+
+The residual-only pilot has completed seed101 (186 epochs, patience stop), and
+seed202 is running. All three fits must finish before the planned joint analysis.
+The selected-VALID addition is ready: it will collect only three new banks and
+reuse the completed30-bank analysis, retaining39 unique training fits overall.
+The prediction rule and all five declared comparisons stay fixed.
+
+The NCN parent-descriptor repair passed42 runtime metadata checks,17 driver
+checks and guarded verification of166 actual source receipts, both parent JSONs
+and the preserved zero-model-work failure. Native NCN/BUDDY qualification still
+awaits a compatible free worker slot. The residual pilot and older GRU job occupy
+the two allowed slots; no third worker is started. These checks add no scientific
+accuracy evidence.
+
+Next scientific work is a convergence audit of the36 completed fits and a
+focused review of task-responsibility and learned-aggregation mechanisms. These
+will guide a finite representative pilot after the residual-only outcome. The
+full6,460-fit campaign remains unlaunched and awaits user GO.

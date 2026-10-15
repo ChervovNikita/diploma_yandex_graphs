@@ -134,8 +134,8 @@ that initially preserve the native GNN predictions. It adds 19,200 trainable
 parameters and uses matched private BN. Its exact composition passed two CPU
 updates, normalization isolation and fresh checkpoint reconstruction across
 three full VALID passes. Three full fits are now running serially on the allocation, reusing paid
-controls. The first seed completed 53 epochs at14:47UTC; no partial accuracy
-is promoted. The source check is not evidence of prediction improvement. All three seeds
+controls. The first seed finished after 186 full epochs by patience; seed202 is running
+as of15:06UTC. No partial accuracy is promoted. The source check is not evidence of prediction improvement. All three seeds
 and every negative result will be retained.
 
 [Residual-only pilot protocol](experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/pilot_20261015_residual_only_private_bn_v1/PROTOCOL.md).
@@ -200,7 +200,9 @@ configuration. This is no campaign ETA or prediction-quality result.
 
 The NCN lifecycle stopped before any model construction or optimizer update:
 its engineering descriptor contained an unclassified parent-source path. The
-exact failure is preserved; a narrow schema repair is being prepared. BUDDY
+exact failure is preserved. The narrow parent-descriptor repair passed source
+checks and actual allocation metadata verification; it waits for a free GPU
+slot before the native lifecycle. BUDDY
 remains unstarted. These are still the queued34/3170-update checks.
 Their host-memory admission now accounts for clean active as well as inactive
 file cache, with conservative exclusions and reserves. No host cache or setting

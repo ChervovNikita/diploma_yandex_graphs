@@ -1,0 +1,632 @@
+--- portablev3_link_queued_lifecycle_cacheaware_v1/qualify.py
++++ portablev4_link_queued_parent_authority_repair_v1/qualify.py
+@@ -39,7 +39,9 @@
+         'restore_checks':[],'global_RNG_restore_checks':[],'epoch_receipts':[],'VALID_receipts':[],'export_receipts':[],'invocations':[],'snapshots':[],
+         'update_cost_ledger_rows':0,'update_cost_chain_sha256':digest([]),'scientific_fits':0,'TEST_accessed':False,'automatic_retries':0,
+         'full_campaign_GO':False,'reporting_scope':'approved exploratory TRAIN/VALID; later confirmation is not an admission gate',
+-        'reporting_ROOT_REVIEW':admission['reporting_ROOT_REVIEW'],'memory_events_before':Path('/sys/fs/cgroup/memory.events').read_text()}
++        'reporting_ROOT_REVIEW':admission['reporting_ROOT_REVIEW'],
++        'repair_attempt_id':admission.get('repair_attempt_id'),'verified_prior_failure':admission.get('_verified_prior_failure'),
++        'memory_events_before':Path('/sys/fs/cgroup/memory.events').read_text()}
+ 
+     def write():
+         usage=resource.getrusage(resource.RUSAGE_SELF)
+@@ -56,7 +58,7 @@
+     signal.signal(signal.SIGTERM,limit);signal.signal(signal.SIGALRM,limit);signal.alarm(case['wall_watchdog_seconds']);write()
+     try:
+         report['sources_before']=sources(here,admission['driver_manifest_sha256'])
+-        runtime=here.parents[1]/'portable_dispatcher_v3/runtime_link';sys.path.insert(0,str(runtime))
++        runtime=here.parents[1]/'portable_runtime_authority_v4/runtime_link';sys.path.insert(0,str(runtime))
+         import common
+         import adapters
+         import run_fit
+--- portablev3_link_queued_lifecycle_cacheaware_v1/support.py
++++ portablev4_link_queued_parent_authority_repair_v1/support.py
+@@ -10,7 +10,7 @@
+ 
+ ROOT=Path('/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs')
+ UUID='GPU-44039938-fd82-41d2-fefd-de71514e2fac'
+-RUNTIME_SHA='8cd1e0dd4d92bc22dab6a39be21a5dfa7c591f741e69fcde502e3dfb8bcf9cc5'
++RUNTIME_SHA='99711f3bbbb21175ca4574daa9dc7b284b749756007169e2292218dffb6c40fc'
+ 
+ 
+ def require(ok,message):
+@@ -54,7 +54,7 @@
+ 
+ def sources(here,driver_sha):
+     here=inside(here);expansion=here.parents[1]
+-    rows=package(here,driver_sha)+package(expansion/'portable_dispatcher_v3',RUNTIME_SHA)
++    rows=package(here,driver_sha)+package(expansion/'portable_runtime_authority_v4',RUNTIME_SHA)
+     closure=json.loads((here/'SOURCE_CLOSURE.json').read_text())
+     for pin in closure['source_metadata_receipts']:
+         p=inside(pin['path']);require(p.suffix in('.py','.json','.md','.txt','.html','.csv'),'Only source metadata may be verified')
+@@ -88,7 +88,7 @@
+     require(value.get('limits')==case['limits']and value.get('wall_watchdog_seconds')==case['wall_watchdog_seconds'],
+             'Exact frozen work/watchdog bounds required')
+     require(value.get('runtime_manifest_sha256')==RUNTIME_SHA and value.get('TEST_access')is False and value.get('full_campaign_GO')is False,
+-            'Frozen portablev3 and engineering-only closed-TEST scope required')
++            'Frozen runtime authority v4 and engineering-only closed-TEST scope required')
+     sources(here,value['driver_manifest_sha256'])
+     job=here/('JOB_'+case['case_id']+'_CUDA.json')
+     require(receipt(job)['sha256']==value['job_sha256'],'Frozen own engineering JOB differs')
+@@ -100,4 +100,22 @@
+     prior=json.loads((here/'PRELAUNCH_RETARGET.json').read_text())['original_queue_outputs'][case['case_id']]
+     require(not inside(prior['output']).exists() and not inside(prior['attempt_claim']).exists(),
+             'Original queued attempt already has evidence/claim; root must review rather than duplicate it')
++    # Validate both actual engineering schemas and pinned parent JSON before child launch/Torch.
++    folder=here.parents[1]/'portable_runtime_authority_v4'
++    sys.path.insert(0,str(folder))
++    import host_binding, descriptor_binding, ncn_repair_authority
++    require(all(Path(module.__file__).resolve()==folder/(module.__name__+'.py')
++                for module in (host_binding,descriptor_binding,ncn_repair_authority)),
++            'Exact reviewed runtime authority modules required')
++    host_binding.validate_host_job(json.loads(job.read_text()),ROOT)
++    target=json.loads((here/'PRELAUNCH_RETARGET.json').read_text())['attempts'][case['case_id']]
++    require(value.get('output')==target['output'] and value.get('attempt_claim')==target['attempt_claim'],
++            'Exact original BUDDY or separately named NCN repair identity required')
++    if case['case_id']=='NCN':
++        contract,verified=ncn_repair_authority.verify_prior_ncn_failure(ROOT)
++        ncn_repair_authority.validate_repair_admission(value,contract)
++        value['_verified_prior_failure']=verified
++    else:
++        require(value.get('repair_attempt_id') is None and value.get('prior_failed_attempt') is None,
++                'BUDDY remains its original unexecuted queued case, with no repair identity')
+     return value,job,case
+--- portablev3_link_queued_lifecycle_cacheaware_v1/supervise.py
++++ portablev4_link_queued_parent_authority_repair_v1/supervise.py
+@@ -114,13 +114,16 @@
+         result['interpreter']=validate_interpreter(here);result['case_id']=case['case_id']
+         require(inside(admission['output'])==output,'Admission output differs')
+         result.update(admission=receipt(args.admission),job=receipt(job_path),device=admission['device'],
+-            publication_commit=admission['publication_commit'],source_receipts=sources(here,admission['driver_manifest_sha256']))
++            publication_commit=admission['publication_commit'],source_receipts=sources(here,admission['driver_manifest_sha256']),
++            repair_attempt_id=admission.get('repair_attempt_id'),verified_prior_failure=admission.get('_verified_prior_failure'))
+         pre=preflight(admission,case);result['preflight']=pre
+-        # Exclusive campaign identity prevents a second device/attempt, even with a new output.
+-        claim=here.parent/('portablev3_link_queued_'+case['case_id']+'_ATTEMPT_CLAIM.json')
++        # Fixed exclusive claim: original BUDDY case or separately authorized NCN source repair.
++        claim=inside(admission['attempt_claim'])
+         with claim.open('x') as stream:
+             json.dump({'admission':receipt(args.admission),'output':str(output),'supervisor_pid':os.getpid(),
+-                'device':admission['device'],'publication_commit':admission['publication_commit']},stream,indent=2)
++                'device':admission['device'],'publication_commit':admission['publication_commit'],
++                'case_id':case['case_id'],'repair_attempt_id':admission.get('repair_attempt_id'),
++                'verified_prior_failure':admission.get('_verified_prior_failure')},stream,indent=2)
+         result['one_attempt_claim']=receipt(claim)
+         shutil_copy=output/'ADMISSION.json'
+         with shutil_copy.open('xb') as stream:stream.write(Path(args.admission).read_bytes())
+--- portablev3_link_queued_lifecycle_cacheaware_v1/ADMISSION_TEMPLATE_NCN.json
++++ portablev4_link_queued_parent_authority_repair_v1/ADMISSION_TEMPLATE_NCN.json
+@@ -2,6 +2,7 @@
+   "GPU_resource_evidence": null,
+   "GPU_resource_evidence_applicable": false,
+   "TEST_access": false,
++  "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev4_link_queued_NCN_PARENT_AUTHORITY_REPAIR_CLAIM.json",
+   "automatic_retries": 0,
+   "case_id": "NCN",
+   "device": "cuda:0",
+@@ -18,18 +19,37 @@
+     "updates_attempted": 34
+   },
+   "maximum_attempts": 1,
+-  "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_NCN_queued_lifecycle_attempt01",
++  "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev4_NCN_parent_authority_repair_attempt01",
+   "own_GPU_reservation_bytes": null,
+   "peers": [],
++  "prior_failed_attempt": {
++    "prior_attempt_claim": {
++      "bytes": 669,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_NCN_ATTEMPT_CLAIM.json",
++      "sha256": "bd4e2a06b0e8b8510f55a798694793aea7480df31c00af0fcac7f79c98be87da"
++    },
++    "prior_child_result": {
++      "bytes": 64450,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_NCN_queued_lifecycle_attempt01/qualification/RESULT.json",
++      "sha256": "292480bfac7a200f9c886f3742e90704cd014794e2e82e54f37c92d85c0602a8"
++    },
++    "prior_observation": {
++      "bytes": 197043,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/NCN_LIFECYCLE_OBSERVATION_17.json",
++      "sha256": "1286eba9f86742049b04fcc3de8e3176f2744d52550c70e550be0f2b2914b5c4"
++    },
++    "prior_publication_commit": "8b9f0a7d3cb3e631ded98222d6858da8b614e08f"
++  },
+   "publication_commit": null,
+   "published": false,
++  "repair_attempt_id": "NCN-parent-compiler-authority-repair-v1",
+   "reporting_ROOT_REVIEW": {
+     "bytes": 1945,
+     "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/benchmark_reporting_protocol_v1/ROOT_REVIEW.json",
+     "sha256": "14955903beee7de3b94e2a285c1f60dd235079c2bfc70ff871fc112da51d3a9b"
+   },
+   "root_current_admission_note": "Bind current peer PID/start ticks/host+GPU growth envelopes and applicable own GPU evidence; two active owned CUDA workers already exclude another launch.",
+-  "runtime_manifest_sha256": "8cd1e0dd4d92bc22dab6a39be21a5dfa7c591f741e69fcde502e3dfb8bcf9cc5",
++  "runtime_manifest_sha256": "99711f3bbbb21175ca4574daa9dc7b284b749756007169e2292218dffb6c40fc",
+   "schema": "portablev3-link-queued-single-case-root-admission-v1",
+   "template_is_not_admission": true,
+   "wall_watchdog_seconds": 1800
+--- portablev3_link_queued_lifecycle_cacheaware_v1/ADMISSION_TEMPLATE_BUDDY.json
++++ portablev4_link_queued_parent_authority_repair_v1/ADMISSION_TEMPLATE_BUDDY.json
+@@ -2,6 +2,7 @@
+   "GPU_resource_evidence": null,
+   "GPU_resource_evidence_applicable": false,
+   "TEST_access": false,
++  "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_BUDDY_ATTEMPT_CLAIM.json",
+   "automatic_retries": 0,
+   "case_id": "BUDDY",
+   "device": "cuda:0",
+@@ -29,7 +30,7 @@
+     "sha256": "14955903beee7de3b94e2a285c1f60dd235079c2bfc70ff871fc112da51d3a9b"
+   },
+   "root_current_admission_note": "Bind current peer PID/start ticks/host+GPU growth envelopes and applicable own GPU evidence; two active owned CUDA workers already exclude another launch.",
+-  "runtime_manifest_sha256": "8cd1e0dd4d92bc22dab6a39be21a5dfa7c591f741e69fcde502e3dfb8bcf9cc5",
++  "runtime_manifest_sha256": "99711f3bbbb21175ca4574daa9dc7b284b749756007169e2292218dffb6c40fc",
+   "schema": "portablev3-link-queued-single-case-root-admission-v1",
+   "template_is_not_admission": true,
+   "wall_watchdog_seconds": 3600
+--- portablev3_link_queued_lifecycle_cacheaware_v1/PRELAUNCH_RETARGET.json
++++ portablev4_link_queued_parent_authority_repair_v1/PRELAUNCH_RETARGET.json
+@@ -1,30 +1,49 @@
+ {
+-  "schema": "already-queued-link-prelaunch-portablev3-retarget-v1",
+-  "status": "SOURCE_ONLY_ROOT_REVIEW_AND_CURRENT_RESOURCE_ADMISSION_PENDING",
+-  "parent_driver": {
+-    "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_lifecycle_v1/MANIFEST.json",
+-    "bytes": 3050,
+-    "sha256": "06734e50a5c2be41b866acff155c6fbdcb116d9d2dc136287c6b3e2d07702511"
++  "JOB_bytes_and_native_recipe_policy_callback_extension_preserved": true,
++  "NCN_prior_failure_contract": {
++    "bytes": 8840,
++    "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_runtime_authority_v4/NCN_REPAIR_CONTRACT.json",
++    "sha256": "324aca64906c4e231687e9c34ebf2723145bd0d02b46c4154208b7ffde0921f3"
+   },
+-  "target_portable_manifest": {
+-    "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/MANIFEST.json",
+-    "bytes": 13724,
+-    "sha256": "8cd1e0dd4d92bc22dab6a39be21a5dfa7c591f741e69fcde502e3dfb8bcf9cc5"
+-  },
+-  "runtime_relative": "portable_dispatcher_v3/runtime_link",
+-  "original_queue_outputs": {
++  "TEST_access": false,
++  "attempts": {
++    "BUDDY": {
++      "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_BUDDY_ATTEMPT_CLAIM.json",
++      "logical_queued_case_unchanged": true,
++      "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_BUDDY_queued_lifecycle_attempt01",
++      "repair_attempt_id": null
++    },
+     "NCN": {
+-      "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_NCN_combined_attempt01",
+-      "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_NCN_ATTEMPT_CLAIM.json"
+-    },
+-    "BUDDY": {
+-      "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_BUDDY_combined_attempt01",
+-      "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_BUDDY_ATTEMPT_CLAIM.json"
++      "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev4_link_queued_NCN_PARENT_AUTHORITY_REPAIR_CLAIM.json",
++      "logical_queued_case_unchanged": true,
++      "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev4_NCN_parent_authority_repair_attempt01",
++      "repair_attempt_id": "NCN-parent-compiler-authority-repair-v1"
+     }
+   },
+-  "JOB_bytes_and_native_recipe_policy_callback_extension_preserved": true,
++  "native_executions": 0,
++  "new_fits_beyond_queued_cases": 0,
++  "original_queue_outputs": {
++    "BUDDY": {
++      "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_BUDDY_ATTEMPT_CLAIM.json",
++      "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_BUDDY_combined_attempt01"
++    },
++    "NCN": {
++      "attempt_claim": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_NCN_ATTEMPT_CLAIM.json",
++      "output": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_NCN_combined_attempt01"
++    }
++  },
++  "parent_driver": {
++    "bytes": 2597,
++    "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_lifecycle_cacheaware_v1/MANIFEST.json",
++    "sha256": "3ad10154479e2e9413bca1118937e86d76590561ebaef523b539af3316c2a39e"
++  },
++  "runtime_relative": "portable_runtime_authority_v4/runtime_link",
++  "schema": "finite-link-queued-parent-authority-repair-v1",
+   "selected_binding_policy": "New runtime bindings arise only from genuine execution under current source; no checkpoint or provenance rewrite",
+-  "new_fits_beyond_queued_cases": 0,
+-  "TEST_access": false,
+-  "native_executions": 0
++  "status": "SOURCE_ONLY_ROOT_REVIEW_AND_CURRENT_RESOURCE_ADMISSION_PENDING",
++  "target_portable_manifest": {
++    "bytes": 3759,
++    "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_runtime_authority_v4/MANIFEST.json",
++    "sha256": "99711f3bbbb21175ca4574daa9dc7b284b749756007169e2292218dffb6c40fc"
++  }
+ }
+--- portablev3_link_queued_lifecycle_cacheaware_v1/SOURCE_CLOSURE.json
++++ portablev4_link_queued_parent_authority_repair_v1/SOURCE_CLOSURE.json
+@@ -1,8 +1,18 @@
+ {
+   "accepted_ancestor_driver_manifest": {
++    "bytes": 3050,
+     "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_lifecycle_v1/MANIFEST.json",
+-    "bytes": 3050,
+     "sha256": "06734e50a5c2be41b866acff155c6fbdcb116d9d2dc136287c6b3e2d07702511"
++  },
++  "accepted_immediate_predecessor_driver_manifest": {
++    "bytes": 2597,
++    "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_lifecycle_cacheaware_v1/MANIFEST.json",
++    "sha256": "3ad10154479e2e9413bca1118937e86d76590561ebaef523b539af3316c2a39e"
++  },
++  "current_runtime_manifest": {
++    "bytes": 3759,
++    "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_runtime_authority_v4/MANIFEST.json",
++    "sha256": "99711f3bbbb21175ca4574daa9dc7b284b749756007169e2292218dffb6c40fc"
+   },
+   "data_receipts_are_verified_by_unchanged_native_callback_at_execution": true,
+   "interpreter_environment": {
+@@ -20,7 +30,7 @@
+     "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/benchmark_reporting_integration_v2/observe_exports.py",
+     "sha256": "2a992dcf68f3b229f001f88779acb061036c0d1c974ffab613f1e3c1f588ff9a"
+   },
+-  "schema": "portablev3-link-queued-lifecycle-source-closure-v1",
++  "schema": "portablev4-finite-link-parent-authority-source-closure-v1",
+   "source_metadata_receipts": [
+     {
+       "bytes": 1945,
+@@ -378,244 +388,274 @@
+       "sha256": "2a992dcf68f3b229f001f88779acb061036c0d1c974ffab613f1e3c1f588ff9a"
+     },
+     {
++      "bytes": 3050,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_lifecycle_v1/MANIFEST.json",
+-      "bytes": 3050,
+       "sha256": "06734e50a5c2be41b866acff155c6fbdcb116d9d2dc136287c6b3e2d07702511"
+     },
+     {
++      "bytes": 29260,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_lifecycle_v1/qualify.py",
+-      "bytes": 29260,
+       "sha256": "66a44b83265e0854076227fb41d1d41f8f14d4ce11888b595e2ca33942a619f9"
+     },
+     {
++      "bytes": 13045,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_lifecycle_v1/supervise.py",
+-      "bytes": 13045,
+       "sha256": "66631108c2447e410bff0fee3e8ea9219f5213637f3aee4ee86bb06ffc2e9289"
+     },
+     {
++      "bytes": 5853,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/runtime_link_v9_combined_lifecycle_v1/support.py",
+-      "bytes": 5853,
+       "sha256": "f36e95e38785d4517c59d248fdbe9a1c50ff00b08e8bd59e7b04c2c1c1d973d2"
+     },
+     {
++      "bytes": 13724,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/MANIFEST.json",
+-      "bytes": 13724,
+       "sha256": "8cd1e0dd4d92bc22dab6a39be21a5dfa7c591f741e69fcde502e3dfb8bcf9cc5"
+     },
+     {
++      "bytes": 859,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/AUDIT_TRANSPORT.json",
+-      "bytes": 859,
+       "sha256": "72a1b34ba0dec6740aabd6b4050d663bc1f9f35bdf10e61fb620372ffc2ed445"
+     },
+     {
++      "bytes": 825,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/CHECKS.json",
+-      "bytes": 825,
+       "sha256": "abd0b45a9a7570d60d8472526e8c850f74eb4bbbfa0a1e25d709b7ce835f256e"
+     },
+     {
++      "bytes": 9060,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/DELTA.diff.txt",
+-      "bytes": 9060,
+       "sha256": "9d78e45d212fc5bd8d9fd8064a28a7442010c984f446d2afab8300fc3991a019"
+     },
+     {
++      "bytes": 51766,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/FULL_SCHEMA_AUDIT.json",
+-      "bytes": 51766,
+       "sha256": "079b64b748f3500f4b1d739ceca3262299f3b98cdf98c7880002b3db0345d04a"
+     },
+     {
++      "bytes": 6026,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/PARENT_GENERATION.json",
+-      "bytes": 6026,
+       "sha256": "e5ce782a9bf312bdfcab2d0c3df8f6cbd6b8ef020c44ce0d6a4ffc4948354147"
+     },
+     {
++      "bytes": 404,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/PARENT_PINS.json",
+-      "bytes": 404,
+       "sha256": "15fa696e299f04a5b5dbb02e7fe0e1353b3687fdc9813774d43fe1ad08d47c85"
+     },
+     {
++      "bytes": 4027,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/README.md",
+-      "bytes": 4027,
+       "sha256": "5766bd35568ce9caf0cfe6fad7e65429ccb8b8bde9b37be3f118204afca4161b"
+     },
+     {
++      "bytes": 337,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/RUN_SPEC_TEMPLATE.json",
+-      "bytes": 337,
+       "sha256": "805b72a218ecdf95d1aa4a2481721a955d8fde3aeb95e83fbd5896c313fe2907"
+     },
+     {
++      "bytes": 2410,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/SOURCE_REVIEW.json",
+-      "bytes": 2410,
+       "sha256": "93910699e22c9f587a0a523e1b8e03f3f1d93e1db60b11c85a17d38767140714"
+     },
+     {
++      "bytes": 5416,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/audit_actual_descriptors.py",
+-      "bytes": 5416,
+       "sha256": "3454e8be001edb2480fcd914a7da34370209516350b3a2afb7a899aea8c505f6"
+     },
+     {
++      "bytes": 10587,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/backend.py",
+-      "bytes": 10587,
+       "sha256": "c44a1d323e879bfcd242b70be5705abf4728402c6e063d1952abb4834a3ab05b"
+     },
+     {
++      "bytes": 5736,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/check_schema_successor.py",
+-      "bytes": 5736,
+       "sha256": "6fa8a91d5a8ce1b2ae7d62c4c0500432c0c766acb359fd77f1ab7bc379e3a896"
+     },
+     {
++      "bytes": 16321,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/contracts.py",
+-      "bytes": 16321,
+       "sha256": "81f5243bb38c5462e495b4b9ef19f6232a083efb299aa29e5e9b261665502c65"
+     },
+     {
++      "bytes": 1967,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/custody.py",
+-      "bytes": 1967,
+       "sha256": "194f82cb4642deb7e5777b74df4bd1461d0d3dc69dac2d59a05d3ae9cd2c36b6"
+     },
+     {
++      "bytes": 5584,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/descriptor_binding.py",
+-      "bytes": 5584,
+       "sha256": "7f686a9144632ca77131f32f0bdcce8f2f96412fbbea22a7da534e926c81dec6"
+     },
+     {
++      "bytes": 25752,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/engine.py",
+-      "bytes": 25752,
+       "sha256": "c0f457e2e21d0a06dc6cf6791d9b59fc17a69acee5065afef094701ac65f9355"
+     },
+     {
++      "bytes": 7552,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/host_binding.py",
+-      "bytes": 7552,
+       "sha256": "edaad11e3fbf9479182f6c835c947e7958c7356131c0f6324e43bf8e805f0bb3"
+     },
+     {
++      "bytes": 12186,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/host_ledger.py",
+-      "bytes": 12186,
+       "sha256": "648c584759430f2f35e57166e3c82ffeeeaf7d965bc3edc5d069db4627b34b62"
+     },
+     {
++      "bytes": 1074,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/hosts/allocation_gpu0.json",
+-      "bytes": 1074,
+       "sha256": "009f2ae98a0bdee33414b219ad3c52e340cb409c0dd0745b79da327517bbabc6"
+     },
+     {
++      "bytes": 982,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/hosts/server77_gpu0.json",
++      "sha256": "748c1edf8da6fa9fea89e865f0838e638fa6bce2faf83734c35e0a0649c47005"
++    },
++    {
+       "bytes": 982,
+-      "sha256": "748c1edf8da6fa9fea89e865f0838e638fa6bce2faf83734c35e0a0649c47005"
+-    },
+-    {
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/hosts/server77_gpu1.json",
+-      "bytes": 982,
+       "sha256": "8d419e44f84f29c79caadd189b929f0a62081b0f038173db01fba81ddfd2a224"
+     },
+     {
++      "bytes": 3281,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/ownership.py",
+-      "bytes": 3281,
+       "sha256": "6df03dbedbc0fc411cda45f72f66f15933ecc2dfe3ce91c40afb04d2907d1ae6"
+     },
+     {
++      "bytes": 12597,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/prepare_projection.py",
+-      "bytes": 12597,
+       "sha256": "c30de9e29e869388f39c1b22b7f36bc434ac8d776fa492ad3bbbf6a859ba1d6b"
+     },
+     {
++      "bytes": 3400,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/qualified_python_entry.py",
+-      "bytes": 3400,
+       "sha256": "eaf01c0321b276eca32ffffe0484827bea5928d730b9d83d82dd0e08bf8a312d"
+     },
+     {
++      "bytes": 6210,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/run_gpu.py",
+-      "bytes": 6210,
+       "sha256": "e8f457131b4d66fb5014238928cd0d5765524379d458b9711da6aaaf09a65816"
+     },
+     {
++      "bytes": 6380,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_I4/aggregate_selected.py",
+-      "bytes": 6380,
+       "sha256": "8d23def99c18e8dc728b05463de1337fcfe198577b91e2ac4e3c2b2222da1fca"
+     },
+     {
++      "bytes": 4456,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_I4/common.py",
+-      "bytes": 4456,
+       "sha256": "5384144f910febf179d08ba0690362c79d5876dba92280e943945f642fd680bd"
+     },
+     {
++      "bytes": 51220,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/adapters.py",
+-      "bytes": 51220,
+       "sha256": "880ca91d3f10de5b1a22f91432fec16daeaae077150a3384f1726769cb371d08"
+     },
+     {
++      "bytes": 6492,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/bookkeeping.py",
++      "sha256": "fd7b1dc10ac06d2ca5f47bd34e329a867853f4e71b61b9acfdc20186ff7dca52"
++    },
++    {
++      "bytes": 4956,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/common.py",
++      "sha256": "8c16524fda46bde2c15022dcf6c2830421edb5546b4243e76fb6672c02b1dd9f"
++    },
++    {
++      "bytes": 1065,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/controllers.py",
++      "sha256": "2d0ceede763a21c85af87c0a343ac0dff7822a9b0c2ff4d22ec0bff40509e074"
++    },
++    {
++      "bytes": 3810,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/engineering_link_policy.py",
++      "sha256": "8c3ccb40cc8f5ff08a3b4bdb880e6918e7ae72307cc36ed726f2d206ac3a276f"
++    },
++    {
++      "bytes": 8681,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/link_authority.py",
++      "sha256": "94400f0d5e34764c8715c9ce120d06cb0f8b7aa658cca4038450819a224c3f59"
++    },
++    {
++      "bytes": 22999,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/run_fit.py",
++      "sha256": "0873bdd4888452f20b9d17214ced1c0a145bbe2c89df4ff1cb5c3fde7555b02f"
++    },
++    {
++      "bytes": 12051,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/source_rng.py",
++      "sha256": "2dffa7fc31d568ab8479979262a962111a4c42da1efc14c1476bf3ed21411651"
++    },
++    {
++      "bytes": 27386,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/adapters.py",
++      "sha256": "b066c8ca696b734f345701e5778bc8af4444945d4c64c1e4d151c34967a05fc7"
++    },
++    {
+       "bytes": 6492,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/bookkeeping.py",
+       "sha256": "fd7b1dc10ac06d2ca5f47bd34e329a867853f4e71b61b9acfdc20186ff7dca52"
+     },
+     {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/common.py",
+       "bytes": 4956,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/common.py",
+       "sha256": "8c16524fda46bde2c15022dcf6c2830421edb5546b4243e76fb6672c02b1dd9f"
+     },
+     {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/controllers.py",
+       "bytes": 1065,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/controllers.py",
+       "sha256": "2d0ceede763a21c85af87c0a343ac0dff7822a9b0c2ff4d22ec0bff40509e074"
+     },
+     {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/engineering_link_policy.py",
+-      "bytes": 3810,
+-      "sha256": "8c3ccb40cc8f5ff08a3b4bdb880e6918e7ae72307cc36ed726f2d206ac3a276f"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/link_authority.py",
+-      "bytes": 8681,
+-      "sha256": "94400f0d5e34764c8715c9ce120d06cb0f8b7aa658cca4038450819a224c3f59"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/run_fit.py",
+-      "bytes": 22999,
+-      "sha256": "0873bdd4888452f20b9d17214ced1c0a145bbe2c89df4ff1cb5c3fde7555b02f"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_link/source_rng.py",
++      "bytes": 20946,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/run_fit.py",
++      "sha256": "47d22089992c69f6f086b78ec37a007de0f4288391de86f3d5b9abde1aeaa564"
++    },
++    {
+       "bytes": 12051,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/source_rng.py",
+       "sha256": "2dffa7fc31d568ab8479979262a962111a4c42da1efc14c1476bf3ed21411651"
+     },
+     {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/adapters.py",
+-      "bytes": 27386,
+-      "sha256": "b066c8ca696b734f345701e5778bc8af4444945d4c64c1e4d151c34967a05fc7"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/bookkeeping.py",
+-      "bytes": 6492,
+-      "sha256": "fd7b1dc10ac06d2ca5f47bd34e329a867853f4e71b61b9acfdc20186ff7dca52"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/common.py",
+-      "bytes": 4956,
+-      "sha256": "8c16524fda46bde2c15022dcf6c2830421edb5546b4243e76fb6672c02b1dd9f"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/controllers.py",
+-      "bytes": 1065,
+-      "sha256": "2d0ceede763a21c85af87c0a343ac0dff7822a9b0c2ff4d22ec0bff40509e074"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/run_fit.py",
+-      "bytes": 20946,
+-      "sha256": "47d22089992c69f6f086b78ec37a007de0f4288391de86f3d5b9abde1aeaa564"
+-    },
+-    {
+-      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/runtime_node_molecular/source_rng.py",
+-      "bytes": 12051,
+-      "sha256": "2dffa7fc31d568ab8479979262a962111a4c42da1efc14c1476bf3ed21411651"
+-    },
+-    {
++      "bytes": 6337,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/portable_dispatcher_v3/stop_transport.py",
+-      "bytes": 6337,
+       "sha256": "0f24533725d36a9bd75f506daf75b82b73e9388efab710557f190c50f7734c2e"
+     },
+     {
++      "bytes": 4455,
+       "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_queued_retargets_v1/check_source.py",
+-      "bytes": 4455,
+       "sha256": "8f443848961d0175f1fd612321a16897542ad36005b59e73ad8f2f40a2ba5c46"
++    },
++    {
++      "bytes": 2597,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_lifecycle_cacheaware_v1/MANIFEST.json",
++      "sha256": "3ad10154479e2e9413bca1118937e86d76590561ebaef523b539af3316c2a39e"
++    },
++    {
++      "bytes": 197043,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/NCN_LIFECYCLE_OBSERVATION_17.json",
++      "sha256": "1286eba9f86742049b04fcc3de8e3176f2744d52550c70e550be0f2b2914b5c4"
++    },
++    {
++      "bytes": 29638,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_lifecycle_cacheaware_v1/qualify.py",
++      "sha256": "91f517bc6b5a227922617392d22e14c352510fbf20fabbd7a3506a73e8edb073"
++    },
++    {
++      "bytes": 13615,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/qualification/portablev3_link_queued_lifecycle_cacheaware_v1/supervise.py",
++      "sha256": "adedf29761615866d059abb45ad175bedf03ade08e78bc4caabbc95be94769f9"
++    },
++    {
++      "bytes": 37471,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_job_binding_v1/generated_v1/jobs/ec5477dc6ecd433aeedc5351efb36e27e18bc60521078d07ed01dc0368139100.json",
++      "sha256": "b64fb5ae16ea8a7ac430f437128da318d4dbc94f70dd05bc7a630c4e6089500b"
++    },
++    {
++      "bytes": 36749,
++      "path": "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs/experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1/expanded_job_binding_v1/generated_v4/jobs/793c35753ae8c35d19577abaf28be0cf372ece3cbd03fc1d40069bd5b39eb362.json",
++      "sha256": "8e646d7ca2b9ffc4da8850fe161e270e3fd549ed0034fe26a84ca7024091bf83"
+     }
+   ],
+   "tensor_reads_in_preparation": 0
