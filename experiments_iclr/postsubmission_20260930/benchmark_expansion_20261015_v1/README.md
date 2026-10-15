@@ -64,7 +64,7 @@ geometry and corrections under matched private normalization before rejecting
 their combination. The nine-fit follow-up started on the allocation at 09:36 UTC on 15 October. It
 tests geometry, corrections and both together under private BN, with the same
 three seeds and 15 completed factorial controls. It runs one new fit at a time.
-No completed-family result is available yet. The scope and reporting criteria
+The 12:47 UTC observation confirms six of nine complete and the seventh running; no partial quality scores have been read. The scope and reporting criteria
 were frozen before launch; it remains separate from the 6,460-fit campaign.
 
 The [completed fixed-aggregation comparison](analysis/complete_fixed_aggregation_v1/REPORT.md)
@@ -104,7 +104,13 @@ vectorized CIFAR BatchEnsemble implementation instead normalizes a combined
 route batch. These are different training rules when native BN is present;
 concatenating routes is not an equivalent speed optimization by default.
 Separate running state has prior art, and this derivation does not attribute
-all of the observed AUC gain to one cause.
+all of the observed AUC gain to one cause. The
+[TRAIN-semantics note](analysis/bn_train_semantics_source_v1/NOTE.md) adds an
+important limit: with matched parameters, batches, RNG and route order, changing
+only running-buffer ownership leaves native TRAIN batch-normalized outputs and
+updates mathematically unchanged. It changes evaluation state and can change
+checkpoint selection/stopping. This is a conditional source argument, not a
+numerical equivalence experiment or evidence of improved TRAIN gradients.
 
 A [focused context-target analysis](literature/context_target_novelty_followup_v1/REPORT.md)
 clarifies another proposed direction. Routes learn relationships derived from
@@ -271,3 +277,48 @@ paper progress; no acceptance verdict is requested or promised.
 - [Retained method catalogue](catalogue/CATALOGUE.md)
 - [Selected prior-result index](prior_result_index.json)
 - [Current continuation state](SESSION_STATE.md)
+
+## Actual evaluation-population preparation, 15 October
+
+The CPU preparation now produces native role contracts for all **27 presets,
+99 preset/split proofs and 43 distinct populations**. Node IDs retain all ten
+literal source splits; molecular IDs retain native batch/skip behavior; Collab
+retains all 46,329 positive and 100,000 negative TEST queries in native order.
+The work accessed TEST population metadata, including declared label/container
+access needed by original providers. It computed no predictions or scores.
+
+The first attempt completed six datasets but stopped on the missing Collab
+TEST sibling. The original file was recovered from the retained official archive
+only after matching its TRAIN/VALID bytes. The second attempt exposed OGB's
+NumPy-to-tensor split conversion; the declared successor now uses that exact
+native conversion. Both failures and costs remain. All six completed providers
+were reused. The successful completion took 11.79 seconds; the two preceding
+supervisors took 65.59 seconds combined. Peak observed provider RSS was 4.00 GB
+for Coauthor-Physics. These are CPU population costs, not inference estimates.
+
+[Compact execution evidence](POPULATION_COMPLETION_V2_RUN_14.json) identifies
+the complete remote index and output manifest. Full arrays stay on the server.
+No dataset/model/training setting or original paper score changed.
+
+The final scoring integration passes eight metadata checks and uses the existing
+worker reservations, failure records and scalar reporting. Actual native inference
+and resource qualification remain pending. A concrete BUDDY private-BN inference
+context issue and native Collab split conversion are being repaired in a separate
+source successor. The one-command sequencer is prepared but still needs its
+reviewed final scorer binding and execution checks. The campaign has not launched.
+
+The [quality/diversity note](literature/quality_preserving_diversity_followup_v1/REPORT.md)
+finds no justification for adding another repulsion loss now. A pointwise rule
+requiring every binary route to beat its own mean prediction would force equality
+at zero slack. The existing matched private-correction comparison, own-member
+loss versus half own-member/half pooled loss, already tests the useful question.
+Its ancestry and possible learner-collusion failure are recorded; no new paper
+read, new method, pilot, or predictive advantage is claimed by that analysis.
+
+The actual population contracts now also compile against the current reporting
+registry into all **6,730 final-stage task descriptions**, with 6,190 expected
+predictor rows and zero added training fits. This 0.65-second metadata build
+performed no inference. The full 14.36 MB roster stays remote; see
+[execution receipt](FINAL_POPULATION_ROSTER_RUN_14.json). The combined launcher
+successor also passes a focused interrupted-readiness recovery check. Final
+runtime/source binding and native resource qualification remain pending.

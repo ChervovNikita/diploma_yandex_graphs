@@ -107,3 +107,12 @@ The current authorization allows only the dedicated allocation. Deployment to
 18.77 comes later. Measured full-epoch costs are required before promising a
 completion time or dividing6,460 runs across three GPUs. Fit counts alone do
 not measure GPU work.
+
+## Preparation update — 15 October, 12:47 UTC
+
+Native final evaluation-population metadata is complete for all 27 presets and
+43 distinct populations. No TEST predictions or metrics were computed. The
+complete remote index is recorded in POPULATION_COMPLETION_V2_RUN_14.json;
+original failure histories and native Collab conversion are retained. Final
+serving must still pass native selected-state/resource qualification, including
+the BUDDY private-BN inference context repair. The giant campaign remains unrun.

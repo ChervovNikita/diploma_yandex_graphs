@@ -46,7 +46,7 @@ followed by a 0.99-point gain from averaging. The member-quality gap to I4 was
 smaller in each seed. A separate nine-fit study started on the allocation at 09:36 UTC: geometry, private
 correction, and both together under private BN, each at the same three seeds.
 It reuses all 15 completed factorial controls and runs one new fit at a time.
-No completed-family result for this combination is available yet. The original 6,460-fit benchmark count is unchanged.
+At 12:47 UTC, six fits were complete and the seventh was running; partial quality scores remain unread. The original 6,460-fit benchmark count is unchanged.
 
 A completed saved-prediction check compared logit and probability averaging
 for every completed method across all three seeds. Probability averaging raised
@@ -75,7 +75,10 @@ slimmable-network source reading establishes relevant prior art.
 
 The inspected BatchEnsemble author implementation normalizes concatenated
 route batches; our current molecular model normalizes routes sequentially.
-The two rules have different TRAIN statistics and running-state updates.
+The two rules have different TRAIN statistics and running-state updates. With
+matched batches, weights, RNG and route order, changing only the ownership of
+running buffers leaves native TRAIN updates mathematically unchanged; its direct
+effect is on evaluation state. Selected epochs can still differ.
 This explains why batching and normalization must be stated explicitly when
 interpreting the completed molecular pilots. It does not establish a new
 normalization method or explain the entire measured gain.
@@ -122,10 +125,16 @@ map, not the final three-GPU workload division.
 
 Before the large run, the complete nine-fit study will inform a consistent
 normalization policy for the extensions and their controls. Original GNNM
-remains unchanged. Final selected-checkpoint scoring source now covers all
-three task families and current extensions, including learned aggregation and
-private normalization. Native role metadata, numerical/resource qualification
-and scheduling/reporting integration remain required. Source-setting training
+remains unchanged. Native evaluation-population preparation now covers all 27
+presets, 99 preset/split proofs and 43 distinct populations. It accessed TEST
+metadata without scoring. The original Collab TEST file was recovered from its
+retained archive, and its native OGB array conversion was applied; both failed
+attempts and their costs remain. Six successful providers were reused.
+
+Final scoring integration passes eight metadata checks. Native inference/resource
+qualification is still pending, including a concrete BUDDY private-BN operation
+context fix and the same native Collab split conversion in serving. The combined
+one-command launcher remains unbound pending that repair. Source-setting training
 and validation scores alone do not verify a paper's reported test metric.
 
 **The full campaign is awaiting preparation and user GO.** The launch plan
