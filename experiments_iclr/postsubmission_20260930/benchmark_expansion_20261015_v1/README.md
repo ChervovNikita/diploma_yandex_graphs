@@ -1,4 +1,4 @@
-# Current state — 16 October 2026, 03:50 Moscow
+# Current state — 16 October 2026, 04:41 Moscow
 
 The completed PubMed/Cheb pilot contains 24 fits and three paired cohorts.
 Original GNNM reaches **92.121% VALID accuracy**, compared with **91.538%** for
@@ -17,14 +17,24 @@ whole-VALID evaluation and checkpoint restoration. Extra diagnostic checks do
 not replace that coverage. Original-paper experiments are not rerun.
 
 Citeseer/Cheb and MolBACE/GCN diagnostics passed. The BUDDY selected-checkpoint
-replay also passed without retraining. Initial campaign jobs exposed stale
-source-version checks before any optimizer updates; these are being repaired.
-Previous failures remain recorded. Queue owners run in tmux, with at most two
-compatible fits per GPU and larger fits running alone. All full fits start fresh
-only after the global smoke checks pass.
+replay also passed without retraining. A later composed BUDDY smoke exposed a
+missing helper-policy receipt before any optimizer update. The narrow port5
+repair now passes the exact failed seed-2 configuration on server51 GPU1:
+**two TRAIN updates, all 160,084 VALID records, and exact model/optimizer reload**,
+with no TEST access or additional TRAIN update. This diagnostic is explicitly
+excluded from the 6,460-fit global smoke coverage.
+[Exact diagnostic evidence](planning/all_fit_launch_20261016_v1/BUDDY_POLICY_DIAGNOSTIC_OBSERVATION.json).
+
+Port5, smoke5, execution6, projection-cache5 and coordinator5 sources are frozen.
+The port5 deployment and metadata rollout are in progress; the new campaign
+queues are not yet claimed live. Current smoke work continues while replacement
+metadata is prepared. Earlier successes and failures are preserved, and the
+small early smoke set will be rerun under the exact port5 inventory. At most two
+compatible fits run per GPU; larger fits run alone. Full training starts fresh
+only after all 6,460 port5 smoke checks pass.
 
 Reviewed source and compact evidence are published on
-`codex/all-fit-smoke-training-20261016`, most recently at `52b3dfd7500b`.
+`codex/all-fit-smoke-training-20261016`, most recently at `2782129a0e89`.
 [Live continuation record](planning/all_fit_launch_20261016_v1/CONTINUATION.md).
 
 ## Historical status — 15 October 2026
