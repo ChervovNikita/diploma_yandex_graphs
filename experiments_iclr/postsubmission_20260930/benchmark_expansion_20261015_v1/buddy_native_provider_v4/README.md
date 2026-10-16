@@ -1,0 +1,3 @@
+# Native BUDDY provider v4
+
+Successor of v3. All native preprocessing, inputs, optimizer, sampler and hydration remain unchanged. Non-card static tensor receipts remain exact. Float32 HLL cardinalities are checked for finite values and exact shape/dtype, then compared at rtol=atol=1e-6 to the unchanged pinned native HLL calculation over the exact authenticated integer registers on this runtime. The original cards tensor is never replaced. Both the historical canonical cards receipt and actual/local-reference receipts are retained; cross-host bitwise equality of float HLL arithmetic is not required. Typed path binding and static authority JSON are unchanged.
