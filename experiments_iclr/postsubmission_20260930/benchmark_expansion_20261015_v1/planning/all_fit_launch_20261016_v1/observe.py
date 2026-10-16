@@ -16,7 +16,7 @@ CODE = r'''
 from pathlib import Path
 import json,subprocess,datetime
 root=Path(ROOT_VALUE);host=HOST_VALUE;e=root/'experiments_iclr/postsubmission_20260930/benchmark_expansion_20261015_v1'
-queue=e/('campaign_execution_20261016_v3' if (e/'campaign_execution_20261016_v3/runs').exists() else 'campaign_execution_20261016_v2' if host=='server51' and (e/'campaign_execution_20261016_v2/runs').exists() else 'campaign_execution_20261016_v1');result={'UTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'host':host,'queue_version':queue.name,'workers':[]}
+queue=next((e/('campaign_execution_20261016_v'+str(v)) for v in (7,6,5,4,3,2,1) if (e/('campaign_execution_20261016_v'+str(v))/'runs').exists()),e/'campaign_execution_20261016_v1');result={'UTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'host':host,'queue_version':queue.name,'workers':[]}
 for worker in ([host+'/gpu0'] if host=='allocation' else [host+'/gpu0',host+'/gpu1']):
  p=queue/'runs'/worker.replace('/','_');row={'worker':worker}
  if (p/'STATUS.json').exists():row['status']=json.loads((p/'STATUS.json').read_text())

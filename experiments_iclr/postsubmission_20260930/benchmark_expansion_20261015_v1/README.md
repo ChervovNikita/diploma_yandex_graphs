@@ -1,4 +1,4 @@
-# Current state — 16 October 2026, 04:41 Moscow
+# Current state — 16 October 2026, 05:08 Moscow
 
 The completed PubMed/Cheb pilot contains 24 fits and three paired cohorts.
 Original GNNM reaches **92.121% VALID accuracy**, compared with **91.538%** for
@@ -25,16 +25,32 @@ with no TEST access or additional TRAIN update. This diagnostic is explicitly
 excluded from the 6,460-fit global smoke coverage.
 [Exact diagnostic evidence](planning/all_fit_launch_20261016_v1/BUDDY_POLICY_DIAGNOSTIC_OBSERVATION.json).
 
-Port5, smoke5, execution6, projection-cache5 and coordinator5 sources are frozen.
-The port5 deployment and metadata rollout are in progress; the new campaign
-queues are not yet claimed live. Current smoke work continues while replacement
-metadata is prepared. Earlier successes and failures are preserved, and the
-small early smoke set will be rerun under the exact port5 inventory. At most two
-compatible fits run per GPU; larger fits run alone. Full training starts fresh
-only after all 6,460 port5 smoke checks pass.
+A read-only audit found four causes across 19 retained failed smoke attempts:
+missing helper-policy metadata (8), an omitted BUDDY objectives dependency (8),
+a delegated private-normalization epoch path attempting a third smoke update (2),
+and a molecular source-RNG audit retaining allocation-specific paths (1).
+All four known causes now have source repairs. The original failures and their
+actual update costs remain preserved.
+[Four-cause failure evidence](planning/all_fit_launch_20261016_v1/SERVER51_EXECUTION5_FAILURE_SUMMARY_20261016.json).
+
+Port6, smoke6, execution7, projection-cache6 and coordinator6 are frozen, with
+**47 focused source checks passing**: 26 port, 8 smoke controller, 7 scheduler,
+and 6 cache/coordinator checks. The exact omitted objective source was restored;
+source audit rebinding preserves 24 native source hashes and semantic assumptions.
+Execution7 continues independent pending smokes after failures while retaining
+failed IDs without automatic retries. Every exact smoke PASS is still required.
+[Source freeze and pins](planning/all_fit_launch_20261016_v1/PORT6_DOWNSTREAM_SOURCE_FREEZE.json).
+
+Deployment and fresh metadata projection are underway. The repaired execution7
+queues are not yet claimed live, and **native GPU qualification of the remaining
+repairs is pending**. The allocation's previous queue continues; the server51
+owners stopped on known failures while the corrected successor is prepared.
+At most two compatible fits run per GPU; larger fits run alone. Full training
+has not started and starts fresh only after all 6,460 exact smoke checks pass.
 
 Reviewed source and compact evidence are published on
-`codex/all-fit-smoke-training-20261016`, most recently at `2782129a0e89`.
+`codex/all-fit-smoke-training-20261016`, most recently at `fb880e19646c` before
+this successor snapshot.
 [Live continuation record](planning/all_fit_launch_20261016_v1/CONTINUATION.md).
 
 ## Historical status — 15 October 2026
