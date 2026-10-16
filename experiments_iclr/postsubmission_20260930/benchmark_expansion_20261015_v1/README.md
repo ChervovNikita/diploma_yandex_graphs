@@ -1,4 +1,35 @@
-# Current state — 15 October 2026, three-GPU preparation
+# Current state — 16 October 2026, 03:50 Moscow
+
+The completed PubMed/Cheb pilot contains 24 fits and three paired cohorts.
+Original GNNM reaches **92.121% VALID accuracy**, compared with **91.538%** for
+four independent native models and **91.267%** for the native single model.
+The GNNM–independent difference is +0.583 percentage points, with a descriptive
+95% interval of −1.477 to +2.643. This is one graph/split and three cohorts;
+it is not a demonstrated general advantage. The proposed structured residual
+correction failed its frozen criterion and underperformed original GNNM.
+[Results, uncertainty and training costs](planning/all_fit_launch_20261016_v1/PUBMED24_CONCLUSIONS_20261016.md).
+
+The user authorized all-fit smoke checks followed by full training. The frozen
+campaign contains **6,460 fits and 270 independent-ensemble export tasks**, with
+2,154 fits on the allocation GPU and 2,153 on each server51 GPU. Full training
+has **not started**. All 6,460 fits must first pass two optimizer updates,
+whole-VALID evaluation and checkpoint restoration. Extra diagnostic checks do
+not replace that coverage. Original-paper experiments are not rerun.
+
+Citeseer/Cheb and MolBACE/GCN diagnostics passed. The BUDDY selected-checkpoint
+replay also passed without retraining. Initial campaign jobs exposed stale
+source-version checks before any optimizer updates; these are being repaired.
+Previous failures remain recorded. Queue owners run in tmux, with at most two
+compatible fits per GPU and larger fits running alone. All full fits start fresh
+only after the global smoke checks pass.
+
+Reviewed source and compact evidence are published on
+`codex/all-fit-smoke-training-20261016`, most recently at `52b3dfd7500b`.
+[Live continuation record](planning/all_fit_launch_20261016_v1/CONTINUATION.md).
+
+## Historical status — 15 October 2026
+
+# Three-GPU preparation snapshot
 
 The latest molecular comparison is complete: 45 unique fits and 39 prediction
 banks. Structured private learning improves pooling but weakens the individual
