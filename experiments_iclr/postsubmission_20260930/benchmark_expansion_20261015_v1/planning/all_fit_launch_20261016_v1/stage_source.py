@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import zlib
 
 HERE = Path(__file__).resolve().parent
 E = HERE.parents[1]
@@ -24,18 +25,18 @@ def stage(host, paths):
         raw = source.read_bytes()
         records.append({'path': str(source.relative_to(E.parent)), 'bytes': len(raw),
                         'sha256': hashlib.sha256(raw).hexdigest(),
-                        'content': base64.b64encode(raw).decode()})
+                        'content': base64.b64encode(zlib.compress(raw)).decode()})
     created = []
     # Limit each forwarded command's size; do not stage datasets/checkpoints.
     for record in records:
         assert record['bytes'] < 120000, record['path']
         code = '''
-import base64,hashlib,json
+import base64,hashlib,json,zlib
 from pathlib import Path
 root=Path(PHASE_VALUE)
 row=ROW_VALUE
 p=root/row['path']; assert p.resolve().is_relative_to(root) and not p.is_symlink()
-raw=base64.b64decode(row['content']);assert len(raw)==row['bytes'] and hashlib.sha256(raw).hexdigest()==row['sha256']
+raw=zlib.decompress(base64.b64decode(row['content']));assert len(raw)==row['bytes'] and hashlib.sha256(raw).hexdigest()==row['sha256']
 if p.exists():
  assert p.read_bytes()==raw, 'Refuse frozen source replacement: '+str(p)
 else:
