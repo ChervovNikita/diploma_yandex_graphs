@@ -400,3 +400,106 @@ missing-objectives errors. Observer nowprefers execution7 when its runs exist.
 Expected receipts PORT6_PROJECTION_RUN_01.json,PORT6_ROLLOUT_COMPLETE.json,
 TMUX_SMOKE7_LAUNCH_{allocation,server51}.json,GLOBAL_SMOKE_BINDINGS_PORT6.json.
 Fulltraining has NOT started. All6460 exactpasses stillrequired.
+
+## Execution7 running; eight old failures now genuinely PASS — 16 October,05:18 Moscow
+
+Root exec33964 and80372 completed0. PORT6_ROLLOUT_COMPLETE.json confirms all3
+execution7 queues launched in tmux. Actual latest compact observation around
+05:17Moscow: allocation16PASS/2running; server51GPU0 8PASS/2running; GPU1
+8PASS/2running; no failures. Allownersalive. Fulltraining has NOT started.
+Coordinator6binding SHAb605b36e90fe86b7b58cbb366918ea7c7efdba331a33fd897962696d4f4eda96. Initial pendingprobe completed0, zero markers.
+Use collect_global_smoke_barrier_port6.py with GLOBAL_SMOKE_BINDINGS_PORT6.json
+and this exactSHA; automation must prefer latestexecution7, not oldfailedqueues.
+
+PORT6_PREVIOUS_FAILURE_RECHECK_01.json checks exact old19failedIDs againstnew
+execution7 receipts:8nowPASS, including BOTH private-BN seeds and missing-objective
+geometry/input-conditional variants. Each verifiedresult has2actualTRAINupdates,
+finiteVALID and checkpointreloadPASS. Otherspending/running, including MolBACE
+source-audit cell. Do not claim that all19orall6460havepassed. Sources/core fixes
+are now genuinely exercised, but continue diagnosing any remaining failures.
+Observer updated to include up to4failureexamples even while phase smokecontinues,
+with explicittruncation flag. This monitor update and later rollout receipts
+postdate sealedpublication6; include them in nextcompactpublication when needed.
+
+Source/publication6pushed and exactverified:68988d18ad4b9b7d28fb1afc7ba0b273e8e4bc3f,
+parentfb880e19646cfa4d235710a706b442dd8ac33f65;154selected/147changedfiles.
+FINAL_CHECKS PASS. LiveHEAD/index and all5prior snapshots unchanged. Sourcepack
+README truthfully reflects its sealed05:08deployment-underway state.
+
+Next: monitorexecution7, repairactualfailureswithoutautomaticunchangedretries,
+preserveallpriorattempts, runcoordinator6whenall6460PASS. All3tmuxowners will
+startfreshfullfits onlyafterglobalmarker; no furtherapprovalneeded.
+
+## Connection restored and queue health verified — 16 October, about05:24 Moscow
+
+Local MacLink controller stopped after turn interruption; root restarted the
+existing paired connect command as detached local process26390 (stdoutdiscarded,
+project stderrlog). Existing otherMac reconnected and authenticated server51
+SSH socket remained usable. Scientific tmux jobs were never restarted or stopped.
+Latest HEALTH_CHECK_20261016T022331Z.json: 106PASS, 0failed, 6running across execution7; all3tmuxownersalive.
+Still smokephase, nofulltraining. Continue existing queues/coordinator6.
+
+## Smoke verification and scheduler recovery — 19 October, about 15:50 Moscow
+
+User requested verification everywhere. Direct guarded checks found allocation
+745 PASS / 1,409 pending, idle despite live tmux; server51 GPU0 2,152 PASS / one
+failed (dead pane); GPU1 2,153 PASS and waiting for the global barrier. Full
+training had NOT started. Do not describe the preceding days as continuously
+monitored: these conditions remained unresolved until this verification.
+
+SMOKE_RECEIPT_AUDIT_20261019_v1/AUDIT.json independently checks exactly 6,460
+unique fit assignments and 270 unique exports, no gaps/overlaps. All initial
+5,050 PASS STATE -> ATTEMPT_RESULT -> NATIVE_RESULT chains validate, with
+10,100 actual optimizer updates, finite TRAIN/VALID, checkpoint reload PASS,
+no TEST access and frozen source bindings. This is engineering evidence.
+
+Allocation diagnosis: memory.current was 255GB of a 261GB cgroup limit,
+including 251GB clean file cache; the old scheduler credited only inactive
+cache and reported 20.8GB available. No model job was active. Additive wrapper
+campaign_memory_admission_20261019_v1 conservatively credits clean active and
+inactive file cache, excluding shmem/dirty/writeback/unevictable, bounded by
+actual cgroup limits and host MemAvailable. No cache clearing, system limit,
+mount or scientific change. Manifest SHA
+6905ecec8b840925d2c3e03fb9dd43f06083372a05077579082f468a93aa4c31.
+Twelve focused tests PASS. Live probe reports 256.6GB available. Old owner was
+gracefully stopped with no active children. Same execution7 plan/state resumed
+in original tmux under explicit wrapper provenance, retaining all745 PASS.
+REPAIR_LAUNCH_allocation_gpu0_20261019.json records launch. Subsequent observation
+confirmed747 PASS and two active BUDDY smoke jobs: backlog is progressing.
+
+Server51 isolated failure is CUDA OOM in Physics PolyFormer mono, long schedule,
+split9/seed9 structural_class_quartile_permuted_private_v1. At admission GPU0
+had78.8GiB free and no owned active reservations; at failure an unidentified
+PID1495596 used59.85GiB, failing child used18.95GiB. PID not found in saved
+execution1-7 native receipts; ownership is not established. Preserve attempt0001
+(0 optimizer updates). Agent is freezing narrow explicit attempt0002 retry;
+no other successful fit is to rerun. Full training still requires all6460 PASS.
+
+MacLink/server51 SSH control authentication restored. Use current guarded
+remote51.call; no credentials in receipts. observe.py now tails bounded bytes
+and targets failed_fit_ids, avoiding whole-log reads. Memory wrapper keeps
+original execution7 run/global barrier/full behavior. All prior failures,
+source generations, fit descriptors, inventories and original paper scores
+remain preserved. Coordinator6 binding unchanged:
+b605b36e90fe86b7b58cbb366918ea7c7efdba331a33fd897962696d4f4eda96.
+
+## Isolated server51 retry PASS — 19 October, about15:53 Moscow
+
+campaign_isolated_smoke_retry_20261019_v1 manifest
+6c8427257b9eb1ecbb7d2582fbcdfb09a6f83c53d01fbf74c6207969a3eaf212;
+authorization03e13d28f722e632ba16dcf451708e7dc6f91c6883cfd55c590fb0a90ad5dea0.
+Sixteen focused tests PASS. Same native descriptor/source/settings; exact failed
+attempt0001 preserved. Explicit attempt0002 in original GPU0 tmux completed
+PASS with exit0, two optimizer updates, finite complete VALID, exact checkpoint
+reload, noTEST;83.0sec wall, peak CUDA reserved55.7GB. Receipt:
+SERVER51_ISOLATED_RETRY_PASS_20261019.json. Both server51 workers now2153PASS,
+waiting_for_global_all_fit_PASS; no remaining failed smoke on either server.
+Allocation observed755PASS+2active while this retry completed; continues same
+2154fit assignment. Do not rerun success receipts or start fulltraining early.
+
+Root helper repair_smoke_20261019.py stages only additive checked package files,
+compiles guarded remote snippets locally, preserves prior OWNER/STOP history,
+and relaunches only drained original tmux owners. Initial transfer attempts hit
+local/remote syntax and command-size errors before any model launch; corrected
+chunked transfer and source hash verification were then successful. No scientific
+attempt or prior source was overwritten. New compact publication pending.
