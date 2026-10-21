@@ -104,3 +104,29 @@ Run the new queue owners inside tmux so disconnects cannot stop their work.
 Keep already-running pilot sources/HEADs and ownership intact. Use ordinary
 resource-aware execution, up to two compatible jobs per GPU; no extra user
 approval is required after the requested checks pass.
+
+User readiness review override (21 October 2026): verify smoke completion and
+full-training readiness, report findings, and leave the launch decision to the
+user's next discussion. Do not publish the global PASS marker or start new full
+training under the older conditional GO during this readiness review. Preserve
+existing queue owners and evidence. The allocation now has all 2,154 PASS;
+server51's 4,306 PASS are preserved from October19, but its current connection
+must be restored before a fresh live preflight.
+
+User readable-commands rule (20–21 October 2026): before preparing remote
+operations, transfers or launchers, read
+/Users/alex/.codex/skills/readable-remote-commands/SKILL.md. All executable
+source and commands must remain readable plaintext, including inside wrappers.
+Never use compressed/base64/hex command payloads or decoder-to-executor
+loaders. Do not invoke legacy repair_smoke_20261019.py or the old compressed
+coordinator transport. Preserve their history; prepare plaintext successors
+for future operations. Do not restart connectors/workers or modify existing
+jobs solely for this rule. Keep credentials private as data.
+
+User launch authorization (21 October 2026, after MacLink reconnection): start
+the verified massive campaign on each of the three assigned GPUs as capacity
+becomes available; leave tmux queue owners waiting on busy GPUs. This explicitly
+supersedes the earlier readiness-review deferral. Complete exact all-fit PASS
+verification and the reviewed operational safeguards before releasing the global
+barrier. Preserve other users' jobs; no GPU preallocation, eviction or busy loop.
+Keep at most two resource-compatible owned fits per GPU and frozen assignments.

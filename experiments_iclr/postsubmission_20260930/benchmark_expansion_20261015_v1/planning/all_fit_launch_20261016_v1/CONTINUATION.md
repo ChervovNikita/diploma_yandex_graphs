@@ -503,3 +503,98 @@ and relaunches only drained original tmux owners. Initial transfer attempts hit
 local/remote syntax and command-size errors before any model launch; corrected
 chunked transfer and source hash verification were then successful. No scientific
 attempt or prior source was overwritten. New compact publication pending.
+
+## Verified push and final observation — 19 October,15:59 Moscow
+
+Publication commit6adbcf17b706f73a1cd878c20e046ba3f22fee39 pushed and exact
+remote ref verified on codex/all-fit-smoke-training-20261016. Parent68988d18...;
+live HEAD/index unchanged. Failed noninteractive push attempt preserved;
+interactive attempt02 verified without saving credentials. Receipt in
+publication_all_fit_smoke_training_20261019_v1/PUSH_RECEIPT_ATTEMPT02.json.
+Final allocation status: {"PASS": 807, "pending": 1345, "running": 2}, tmux alive.
+Server51 both2153PASS waitingglobal. Fulltraining remains gated by allocation
+completion. Use existing coordinator6 and samebinding, no successfulsmoke reruns.
+
+## Smoke complete; readiness review — 21 October, about06:10 Moscow
+
+Latest user asks to verify smoke completion and report before deciding on full
+training. Treat this as deferring the older conditional launch authorization:
+do not create/install GLOBAL_SMOKE_PASS or start new full fits yet.
+
+Fresh guarded allocation STATUS:2154PASS, waiting_for_global_all_fit_PASS,
+tmux alive, no training acceptance/global marker, about698GiB free. New
+planning/readiness_20261021_v1/audit_allocation.py is a reviewed plaintext
+successor to the old encoded audit transport. It was transferred via ordinary
+SCP and invoked by its visible path. Complete audit verified2154PASS,4308
+optimizer updates, all frozen-source/receipt chains and summary, zeroerrors.
+Remote summary SHA86ca25327ad0e2fc6bce901d5d395ae2005d890c05a1f3b5bd14d5359dafccd0.
+The first metadata-audit invocation lacked the coordinator-binding JSON; this
+was preserved as a failed read-only attempt and fixed by copying the exact
+readable configuration. No training executed or numerical result changed.
+
+MacLink reports controller running but paired otherMac disconnected. No
+connector restart or alternate route attempted. Server51's2153+2153PASS from
+October19 remain preserved evidence; live GPU/disk/source state is unverified.
+Thus all6460fits have recordedPASS evidence (12920passing-run optimizerupdates),
+with freshallocation and historicalserver51 verification. No assignmentoverlaps.
+
+REVIEW.md/READINESS.json in planning/readiness_20261021_v1 document source review:
+no demonstrated fresh-start bug; full-epoch/resume/export lifecycle evidence
+already exists for important paths. Concrete gaps: queue accepts I4 completion
+without verifying bank_receipt/path; active-job disk admission does not implement
+planned retention cap/checkpoint-boundary safeguards. Do not claim all-lifetime
+storage or future-run failure immunity. No new massive runs or repeat smokegrid.
+
+Readable-command skill now applies to all wrappers. Legacy compressed coordinator
+and repair helper are prohibited for future dispatch. Preserve history and prepare
+plaintext replacements before a later authorized launch. Direct reviewed SSH
+plaintext audit was used today; no encoded executable payloads or connector changes.
+
+User launch authorization (21 October 2026, after MacLink reconnection): start
+the verified massive campaign on each of the three assigned GPUs as capacity
+becomes available; leave tmux queue owners waiting on busy GPUs. This explicitly
+supersedes the earlier readiness-review deferral. Complete exact all-fit PASS
+verification and the reviewed operational safeguards before releasing the global
+barrier. Preserve other users' jobs; no GPU preallocation, eviction or busy loop.
+Keep at most two resource-compatible owned fits per GPU and frozen assignments.
+
+## 21 October launch in progress after explicit GO
+
+All 6,460 exact fit smoke records are independently audited PASS across both
+hosts, with 12,920 passing-attempt optimizer updates, no assignment gaps or
+overlaps, and 270 separate export tasks. Full global validator PASS candidate
+SHA256 is 065b2574147b257ab7aa47163eaaa475f7b8a0f6df1f4a6378b4a43f30d8c4f4.
+All three original tmux sessions now run the additive named safeguards wrapper,
+manifest b7da088e468530267e0fd2afbaafa927c82fb6b39b5ee5008f0a1222168e9824.
+Native settings, source descriptors, fit IDs and prior attempts are unchanged.
+
+Allocation global marker was delivered; two fresh full BUDDY fits are running,
+with actual Linux process titles AI Auto Research Pipeline. Server51 transfer
+encountered the SSH mux command-length limit before its marker was delivered.
+The preserved partial candidate is only 335,608 bytes and cannot release jobs.
+A reviewed resume helper campaign_readable_release_resume_20261021_v1 now uses
+8,000-byte readable blocks and the SAME v2 proof/candidate. Root exec session
+81923 owns this delivery; inspect completion before any retry. Server51 GPU1
+was externally busy with only 198 MiB free; the active named owner will wait
+for capacity after marker release. No other user's job was modified.
+
+## 21 October global release complete
+
+Root exec81923 completed successfully. The identical global marker
+065b2574147b257ab7aa47163eaaa475f7b8a0f6df1f4a6378b4a43f30d8c4f4 is
+now delivered on BOTH hosts; do not re-release or restart existing owners.
+Coordinator v2 proof retains DELIVERED-allocation.json, DELIVERED-server51.json
+and successful RESUME_RELEASE receipt. Readiness folder STARTED_TRAINING.json
+records all three owners in full phase with accepted barriers and live tmux.
+Allocation has two running BUDDY fits (PIDs1909014,1909017), each at4 complete
+epochs/6340 optimizer updates. Server51GPU0 has two fresh BUDDY fits
+(PIDs2469460,2469471); GPU1 has zero children and waits for GPU memory.
+Exact actual process title is AI Auto Research Pipeline for all four children
+and all three supervisors. Only the campaign processes were named.
+
+Monitor via the named plaintext planning/readiness_reconnected_20261021_v1/
+monitor_training.py --host allocation|server51 on each guarded route. Source
+SHA256 3f32afa82718dd90cf191f6477f73cb4b32753e164f76204b72cf88343c7b73a.
+Do not rerun smokes, replace frozen sources or use legacy encoded transports.
+Keep other users' jobs intact; max2 compatible owned jobs/GPU. Training starts
+automatically on GPU1 when capacity becomes available without either Mac online.
