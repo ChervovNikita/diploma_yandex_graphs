@@ -598,3 +598,49 @@ SHA256 3f32afa82718dd90cf191f6477f73cb4b32753e164f76204b72cf88343c7b73a.
 Do not rerun smokes, replace frozen sources or use legacy encoded transports.
 Keep other users' jobs intact; max2 compatible owned jobs/GPU. Training starts
 automatically on GPU1 when capacity becomes available without either Mac online.
+
+Final verification at about03:58UTC: both server51GPU0 children completed their
+first native full epoch (1,585 optimizer updates each), with no queue error.
+Allocation was last checked at6 full epochs/9,510 updates per child. GPU1 still
+waits for capacity; all three owners remain live in tmux. No fits were rerun.
+Source and compact launch evidence committed/pushed and exact remote ref verified:
+cdd99d9713f7ca1999fef18187a7e7d57ed29e83 on codex/all-fit-smoke-training-20261016,
+parent6adbcf17b706f73a1cd878c20e046ba3f22fee39. LiveHEAD/index unchanged. Receipt:
+publication_all_fit_smoke_training_20261021_v1/PUSH_RECEIPT_ATTEMPT02.json.
+The first interactive push attachment was interrupted before authentication;
+the second succeeded. No credentials are present in source/evidence receipts.
+This final continuation and later HEALTH/READY_AND_STARTED summaries postdate
+the immutable publication snapshot and can be included with the next update.
+
+## 23 October allocation reporting recovery
+
+Live check at01:07UTC found the allocation idle in full_failed since
+21October18:19UTC. Four native BUDDY fits and one I4 aggregation were complete;
+two aggregation wrapper fits had finished149epochs but failed after export,
+because composed_authority.py rejected a legitimate pinned README.md dependency.
+The failure went undetected after launch, leaving about31hours idle.
+
+New additive campaign_reporting_repair_20261023_v1 source manifest
+01ff5b1f7377ffa6ec2f9878930424ef9ccc3f6a3bb7e19801ff1b9e1bf085fd
+retains all frozen native sources, scientific settings and queue assignments.
+It patches only the reporting witness to permit the exact BUDDY production README
+and SHA; all other dependency checks remain active.15focused tests PASS on Mac
+and allocation, plus both actual failed runtime identities pass preflight.
+
+Explicit recovery config planning/allocation_recovery_20261023_v1/RECOVERY_CONFIG.json
+SHAf0ed9d1f5c5f5ad4092610f0e480f4b81be5d08063b9c6242fc0de8211b7999f
+binds only the two observed failed attempts. RecoveryWorker resumes their stopped
+checkpoints; both now complete with0newTRAINepochs/updates and unchanged selected
+epochs32/95. RESUME_AUDIT.json verifies exact equality of old/new VALID logits,
+labels,ids and link endpoints. Previous failed attempts and oldexports preserved.
+
+The existing dead allocation tmux pane%11 was resumed (no process signals) via
+activate_allocation.py. Journal activation-1792718276409481919. New owner is
+1910274; latest newchildPIDs1910452,1910456 run boundary_global_half_pool and
+boundary_private_half_pool on collab-buddy/long_convergence/split0/seed0, each
+normalization-route-private-v1. At01:19UTC:7complete queue tasks (6fits+I4),
+2running,2235pending,no currentfailure. Actual titles AI Auto Research Pipeline.
+Use planning/allocation_recovery_20261023_v1/compact_status.py for compact live
+status; source SHAc6b9012feff9c7b645dbd46de05439d43267c8a0f10240c4ba95b5cbf6c99441.
+Do not restart the old named supervisor or rerun smokes. Server51 unchanged and
+not inspected today. No new scientific quality claim; TEST remains closed.
