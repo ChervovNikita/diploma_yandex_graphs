@@ -130,3 +130,63 @@ supersedes the earlier readiness-review deferral. Complete exact all-fit PASS
 verification and the reviewed operational safeguards before releasing the global
 barrier. Preserve other users' jobs; no GPU preallocation, eviction or busy loop.
 Keep at most two resource-compatible owned fits per GPU and frozen assignments.
+
+User concurrency override (29 October 2026): use up to four resource-compatible
+tasks per GPU on the authorized allocation and server51. This supersedes the
+earlier two-job ceiling; retain host/GPU identity, resource-growth checks and
+frozen scientific assignments. The new source is
+`benchmark_expansion_20261015_v1/campaign_concurrency_20261029_v1`.
+Three tmux handover watchers finish the current pairs and replace each drained
+owner automatically. Their exact STOP markers are deliberate; inspect
+`planning/concurrency4_20261029_v1/<worker>/STATUS.json` before any intervention.
+Do not mistake a scheduled transition for four already-running jobs.
+
+30 October handover correction: allocation's old owner remained in state Z,
+so its identity-only watcher stalled after training finished. The additive
+`planning/concurrency4_zombie_repair_20261030_v1/finish_handover.py` completed
+that exact drained handover; four-slot owners are now active on all workers.
+Do not reuse the old watcher liveness check: matching PID identity does not
+mean an exited zombie is running. Preserve its failure history. Server51 GPU1
+was waiting on memory occupied outside this campaign at the latest check.
+
+30 October 2026 latest explicit user override: direct scientific execution is
+now authorized on `anogena.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru:2222`,
+host `anogena-0`, ONLY physical GPU indices 1 and 6. Their UUIDs are respectively
+`GPU-898f1f43-286a-0614-7317-ceb12eebaaf8` and
+`GPU-6c281e4f-b62c-f866-f7ea-fd3786643f31`. The repository is the same shared
+path as the original one-GPU allocation. This narrowly supersedes the earlier
+seven-GPU prohibition for new work on these two devices; prior excluded evidence
+remains excluded. Do not touch the other five GPUs or change server51.
+
+The original allocation task assignment is redistributed by
+`benchmark_expansion_20261015_v1/planning/allocation_gpu1_gpu6_20261030_v1`.
+Its immutable PARTITION.json preserves every task ID, scientific descriptor,
+smoke result and canonical attempt folder. Previously attempted groups stay on
+the original allocation. Original live fits drain normally; their successor
+waits for the inherited leases. New GPU1/GPU6 queues own only disjoint pending
+groups and keep I4 dependencies together. The original allocation STOP marker
+is permanent handover evidence: DO NOT remove it or restart the original full
+assignment. Use this package's status.py for combined allocation progress;
+the old queue STATUS is historical after drain. Each GPU admits up to four
+compatible tasks and shares disk reservations across the two hosts.
+
+31 October 2026 latest explicit user override: GPU indices 2, 3 and 4 on
+`anogena-0` are now also authorized. The authorized allocation devices are
+the sole GPU on `anogena-2-0` and physical GPUs 1, 2, 3, 4 and 6 on
+`anogena-0`. GPUs 0 and 5 on `anogena-0` remain outside scientific execution
+scope. Server51 must remain unchanged for this redistribution. Keep all
+deliberate file operations inside the existing shared project repository.
+
+The additive successor is
+`benchmark_expansion_20261015_v1/planning/allocation_six_gpu_20261031_v1`.
+It redistributes only untouched groups from the same 2,244 allocation tasks.
+Completed and attempted groups retain their prior physical worker, including
+the earlier GPU1/GPU6 assignments. Preserve every earlier STOP marker and
+partition; never restart a superseded full assignment. Existing numerical
+processes finish normally, while each successor waits for prior ownership
+locks. Host-local process accounting includes all still-running generations;
+shared disk reservations include both allocation hosts. Keep up to four
+resource-compatible tasks per GPU and preserve external jobs, including any
+existing GPU4 occupancy. No scientific settings or historical scores change.
+Use the six-device package's status.py after its immutable PARTITION.json and
+launch receipts exist; preparation alone does not establish a live launch.
