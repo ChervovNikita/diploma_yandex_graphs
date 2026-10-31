@@ -1,0 +1,178 @@
+--- public_path_responsibility_two_hop_paired_qualification_preparation_20261006_v3/qualify_bridge.py
++++ public_path_responsibility_two_hop_paired_qualification_preparation_20261006_v4/qualify_bridge.py
+@@ -9,6 +9,7 @@
+ import hashlib
+ import importlib.util
+ import json
++import math
+ import os
+ from pathlib import Path
+ import random
+@@ -160,7 +161,139 @@
+         return result
+ 
+ 
+-def independent_dense_banks(op, data, originals, banks, compare):
++def precision_action_derivative(adapter, port, edges, terminals, lap, matrix, q, v, sparse_gradient):
++    """Isolated oracle only: independent public stars, frozen FP64 algebra, FP32 envelope.
++
++    No native/response/Q-map precision changes. Bounds depend on graph reduction
++    lengths and absolute terms, never on the observed sparse/dense discrepancy.
++    """
++    torch = sys.modules["torch"]
++    def gamma(count, bits):
++        value = count * 2.0 ** -bits
++        require(0 <= value < 1, "Invalid fixed rounding operation budget")
++        return value / (1 - value)
++    # Independently assemble off-diagonal star cliques from public integer edges.
++    public = edges.detach().cpu(); public = public[:, public[0] != public[1]]
++    n = terminals.numel(); location = torch.full((24492,), -1, dtype=torch.long)
++    location[terminals.detach().cpu()] = torch.arange(n)
++    a, b = location[public[0]], location[public[1]]
++    direct = torch.zeros((n, n), dtype=torch.float64)
++    keep = (a >= 0) & (b >= 0); direct[a[keep], b[keep]] = 1
++    direct_codes = (a[keep] * n + b[keep]).sort().values
++    D = torch.diag(direct.sum(1)) - direct
++    keep = (a >= 0) & (b < 0); rows, interior_ids = a[keep], public[1, keep]
++    interiors, columns = torch.unique(interior_ids, sorted=True, return_inverse=True)
++    full_degree = torch.bincount(public[0], minlength=24492)
++    counts = torch.bincount(columns, minlength=interiors.numel())
++    require(torch.equal(lap.bridge.row.cpu(), rows) and torch.equal(lap.bridge.column.cpu(), columns)
++            and torch.equal(lap.bridge.terminal_neighbours.cpu(), counts), "Public star incidence/counts differ")
++    groups = {}
++    for row, interior in zip(rows.tolist(), interior_ids.tolist()): groups.setdefault(interior, []).append(row)
++    require(all(len(values) == len(set(values)) for values in groups.values()), "Duplicate public star incidence")
++    def bridge(weights):
++        terms = {}
++        for interior, neighbours in groups.items():
++            for i in neighbours:
++                for j in neighbours:
++                    if i != j: terms.setdefault((i, j), []).append(weights[interior])
++        C = torch.zeros((n, n), dtype=torch.float64); row_terms = [[] for _ in range(n)]
++        for (i, j), values in terms.items():
++            value = math.fsum(values); C[i, j] = value; row_terms[i].append(value)
++        degree = torch.tensor([math.fsum(values) for values in row_terms], dtype=torch.float64)
++        return torch.diag(degree) - C
++    ideal_weights = {u: 1.0 / int(full_degree[u]) for u in groups}
++    B = bridge(ideal_weights)
++    normalization = math.fsum((1.0, float(direct.sum(1).max()), float(B.diagonal().max())))
++    weights32 = lap.bridge.inverse_full_degree.detach().cpu().double()
++    expected_weights = torch.tensor([ideal_weights[u] for u in interiors.tolist()], dtype=torch.float64)
++    require(bool(((weights32 - expected_weights).abs() <=
++        (gamma(1, 24) + gamma(2, 53)) * expected_weights).all()), "FP32 reciprocal formation outside rounding bound")
++    p = lap.permutation.cpu()
++    R = ((D + B[p][:, p]) / normalization).to(device=q.device)
++    frozen_weights = {u: float(weights32[j]) for j, u in enumerate(interiors.tolist())}
++    F = ((D + bridge(frozen_weights)[p][:, p]) / float(lap.normalization)).to(device=q.device)
++    d, b = lap.direct, lap.bridge
++    require(torch.equal((d.row * n + d.column).cpu().sort().values, direct_codes)
++            and bool((d.weight == 1).all()), "Public raw direct support/unit weights differ")
++    require(torch.equal(d.degree.cpu().double(), direct.sum(1)), "Raw direct degree differs")
++    dmax = int(torch.bincount(d.row, minlength=n).max())
++    tmax = int(torch.bincount(b.row, minlength=n).max()); kmax = int(counts.max())
++    m = dmax + tmax + kmax + 8
++    dense_m = 2 * n + 2; reference_m = 4 * n + 16
++    sparse_coeff_m = tmax + 8; dense_coeff_m = 2 * interiors.numel() + 2 * n + 8
++    # Positive coefficient formation has no subtraction cancellation. Check it
++    # separately so a wrong coefficient cannot be absorbed by the action envelope.
++    coefficient_uncertainty = gamma(16, 53) * R.abs() / (1 - gamma(16, 53))
++    require(bool(((F - R).abs() <= gamma(sparse_coeff_m, 24) * R.abs() + coefficient_uncertainty).all()),
++            "Frozen sparse coefficients outside formation bound")
++    A = matrix.detach().double()
++    require(bool(((A - R).abs() <= gamma(dense_coeff_m, 24) * R.abs() + coefficient_uncertainty).all()),
++            "Dense FP32 coefficients outside formation bound")
++    # Fixed trigonometric probes and integer counts keep all nonzero primitive
++    # intermediates normal: dyadic granularity >=2^-110, below overflow. Thus
++    # the standard round-to-nearest gamma model applies without an underflow term.
++    require(0 < float(lap.normalization) < 2.0 ** 16 and kmax < 2 ** 15
++            and int(full_degree.max()) < 2 ** 15 and bool((weights32 >= 2.0 ** -16).all())
++            and bool((weights32 <= 1).all()), "Rounding domain for fixed graph differs")
++    for x in (q.detach(), v):
++        magnitude = x.abs()
++        require(x.dtype == torch.float32 and bool(torch.isfinite(x).all()) and bool((magnitude <= 1).all())
++                and bool(((magnitude == 0) | (magnitude >= 2.0 ** -32)).all()), "Fixed FP32 probe rounding domain differs")
++    def mass(x):
++        # Absolute expanded sparse DAG includes the self terms that cancel.
++        z = x.abs()[lap.inverse_permutation]
++        sums = x.new_zeros((counts.numel(), x.shape[1])).index_add(0, b.column, z[b.row])
++        messages = b.inverse_full_degree.double()[b.column, None] * (
++            b.terminal_neighbours[b.column, None].double() * z[b.row] + sums[b.column])
++        bridged = torch.zeros_like(x).index_add(0, b.row, messages)[lap.permutation]
++        raw = d.degree.double()[:, None] * x.abs() + torch.zeros_like(x).index_add(
++            0, d.row, d.weight.double().abs()[:, None] * x.abs()[d.column])
++        return (raw + bridged) / lap.normalization.double() / (1 - gamma(m, 53))
++    direct64 = port.SparseLaplacian(d.row, d.column, d.weight.double(), d.degree.double())
++    bridge64 = adapter.StarBridgeLaplacian(b.row, b.column, b.inverse_full_degree.double(), b.terminal_neighbours, b.degree.double())
++    frozen64 = adapter.DirectAndBridgeLaplacian(direct64, bridge64, lap.permutation, lap.inverse_permutation, lap.normalization.double())
++    leaf = q.detach().double().requires_grad_(True)
++    action64 = frozen64 @ leaf
++    gradient64, = torch.autograd.grad((action64 * v.double()).sum(), (leaf,))
++    algebra_errors = {}
++    for kind, x, actual, coefficients in (("action", leaf.detach(), action64.detach(), F),
++                                         ("VJP", v.double(), gradient64, F.T)):
++        expected = coefficients @ x
++        absolute_mass = coefficients.abs() @ x.abs()
++        bound = gamma(m, 53) * mass(x) + gamma(reference_m, 53) * absolute_mass / (1 - gamma(reference_m, 53)) ** 2
++        error = (actual - expected).abs()
++        require(bool(torch.isfinite(error).all()) and bool(torch.isfinite(bound).all())
++                and bool((error <= bound).all()), "Independent frozen-coefficient FP64 " + kind + " algebra failed")
++        algebra_errors[kind] = {"max_abs_error": float(error.max()), "max_rounding_bound": float(bound.max())}
++    x = v.double(); sparse_mass = mass(x); dense_mass = A.T.abs() @ x.abs()
++    reference = R.T @ x
++    uncertainty = gamma(reference_m, 53) * ((F.T.abs() + A.T.abs() + R.T.abs()) @ x.abs()) / (1 - gamma(reference_m, 53)) ** 2
++    sparse_round = gamma(m, 24) * sparse_mass
++    dense_round = gamma(dense_m, 24) * dense_mass / (1 - gamma(dense_m, 53))
++    sparse_bound = sparse_round + (F.T - R.T).abs() @ x.abs() + uncertainty
++    dense_bound = dense_round + (A.T - R.T).abs() @ x.abs() + uncertainty
++    pair_bound = sparse_round + dense_round + (F.T - A.T).abs() @ x.abs() + 2 * uncertainty
++    dense_gradient = matrix.T @ v
++    s, a = sparse_gradient.detach().double(), dense_gradient.double()
++    for label, error, bound in (("sparse", (s - reference).abs(), sparse_bound),
++                                ("dense", (a - reference).abs(), dense_bound),
++                                ("sparse_dense", (s - a).abs(), pair_bound)):
++        require(bool(torch.isfinite(error).all()) and bool(torch.isfinite(bound).all())
++                and bool((error <= bound).all()), "FP32 isolated VJP outside declared " + label + " rounding envelope")
++    difference = (s - a).abs(); original_gate = GRAD_ATOL + GRAD_RTOL * a.abs()
++    return {"scope": "isolated_linear_action_derivative_only", "FP64_frozen_coefficient_algebra": algebra_errors,
++        "FP32_sparse_reference_max_abs_error": float((s - reference).abs().max()),
++        "FP32_dense_reference_max_abs_error": float((a - reference).abs().max()),
++        "FP32_sparse_dense_max_abs_error": float(difference.max()),
++        "original_FP32_strict_gate_failed_coordinates": int((difference > original_gate).sum()),
++        "original_FP32_strict_gate_max_ratio": float((difference / original_gate).max()),
++        "FP32_sparse_max_envelope": float(sparse_bound.max()), "FP32_dense_max_envelope": float(dense_bound.max()),
++        "FP32_pair_max_envelope": float(pair_bound.max()), "all_coordinate_envelopes_passed": True,
++        "operation_budgets": {"sparse": m, "dense": dense_m, "reference_FP64": reference_m,
++                              "sparse_coefficient": sparse_coeff_m, "dense_coefficient": dense_coeff_m}}
++
++
++def independent_dense_banks(op, data, originals, banks, compare, adapter, port):
+     """Qualification-only public-incidence matrices, independent of adapter factors.
+ 
+     This oracle is not supplied by the adapter and does not change its source.
+@@ -215,7 +348,8 @@
+             q = torch.sin(torch.arange(n * 4, device=edges.device).reshape(n, 4) / 97.0).requires_grad_(True)
+             v = torch.cos(torch.arange(n * 4, device=edges.device).reshape(n, 4) / 89.0)
+             sparse_gradient, = torch.autograd.grad((candidate.laplacian @ q * v).sum(), (q,))
+-            compare(sparse_gradient, matrix.T @ v, gradient=True)
++            linear_precision = precision_action_derivative(adapter, port, edges, T,
++                candidate.laplacian, matrix, q, v, sparse_gradient)
+             # Complete original eight-step Q map: first and second raw-cost credit.
+             map_errors = []
+             derivatives = []
+@@ -231,6 +365,7 @@
+             target.append(op.Pair(original.classes, original.nodes, original.targets, original.competitors, matrix))
+             checks.append({"classes": list(original.classes), "bank": label,
+                 "all_matrix_coordinate_max_error": action_error, "complete_Q_first_second_credit_max_errors": map_errors,
++                "isolated_action_derivative_precision": linear_precision,
+                 "minimum_eigenvalue": float(eigenvalues.min()), "maximum_eigenvalue": float(eigenvalues.max()),
+                 "fixed_bridge_nonidentity": True, "direct_edge_invariance": True})
+         del incidence, C, LD, LB
+@@ -347,7 +482,7 @@
+         require(banks.minimum_restoration_gate and len(banks.static_coverage) == 10, "Every live pair must newly couple a former isolate")
+         receipt["actual_static_coverage"] = banks.static_coverage; save()
+         references = measured("qualification_only_dense_operator_and_Q_derivative_oracles", lambda:
+-            independent_dense_banks(op, data, originals, banks, compare))
++            independent_dense_banks(op, data, originals, banks, compare, adapter, port))
+         receipt["operator_checks"] = references[2]; save()
+         for label, pairs, reference_pairs in (("live", banks.live, references[0]),
+                                                ("bridge_permuted", banks.bridge_permuted, references[1])):

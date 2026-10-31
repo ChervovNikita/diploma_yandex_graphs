@@ -1,0 +1,105 @@
+--- base_runtime/engine.py
++++ runtime/engine.py
+@@ -304,8 +304,14 @@
+                 or not run.get('adapter','').endswith('/adapters/sehgnn.py:make_adapter')):
+             raise ValueError('Only explicitly typed complete native SeHGNN AMP epochs may skip optimizer maps')
+     policy = spec.get("completion_policy", "full_budget")
+-    if policy not in {"full_budget", "native_selector_stop", "hgt_native_selector_stop"}:
++    if policy not in {"full_budget", "native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"}:
+         raise ValueError("Unsupported trajectory completion policy")
++    if policy == "bsnn_native_selector_stop":
++        from bsnn_stopping import validate_bsnn_run
++        validate_bsnn_run(spec["adapter_spec"]["run"])
++        if (spec["budget_unit"] != "optimizer_updates" or spec["budget_steps"] != 500
++                or spec["validation_interval"] != 1 or spec["validate_initial"] or spec["prefixes"]):
++            raise ValueError("Bayesian BSNN keeps cap500/p200/no0/full four posterior SELECT draws")
+     if policy == "hgt_native_selector_stop":
+         from hgt_stopping import validate_hgt_run
+         validate_hgt_run(spec["adapter_spec"]["run"])
+@@ -616,7 +622,7 @@
+             else:
+                 record({"kind": "resume", "step": start_step, "admission": _resume_admission})
+             caps = {p["cap_step"] for p in spec["prefixes"]}
+-            native_already_stopped = (spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop"}
++            native_already_stopped = (spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"}
+                                       and last_decision is not None and last_decision["stop_requested"])
+             trajectory_end = start_step if native_already_stopped else spec["budget_steps"]
+             for step in range(start_step + 1, trajectory_end + 1):
+@@ -647,17 +653,17 @@
+                 if (step % spec.get("recovery_interval", 100) == 0
+                         or step in caps or step == spec["budget_steps"]
+                         or any(p.get("closure_step") == step for p in result["prefixes"])
+-                        or (spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop"}
++                        or (spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"}
+                             and last_decision["stop_requested"])):
+                     phase = "checkpoint"
+                     save_recovery()
+                 phase = "resource"
+                 resource("after_step")
+-                if (spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop"}
++                if (spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"}
+                         and last_decision["stop_requested"]):
+                     result["completion_reason"] = "native_patience30" if spec.get("completion_policy") == "hgt_native_selector_stop" else "native_patience" + str(spec["adapter_spec"]["run"]["budget"]["patience"])
+                     break
+-            if spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop"}:
++            if spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"}:
+                 result.setdefault("completion_reason", ("native_patience30" if last_decision["stop_requested"] else "native_cap300")
+                                   if spec.get("completion_policy") == "hgt_native_selector_stop"
+                                   else ("native_patience" + str(spec["adapter_spec"]["run"]["budget"]["patience"]) if last_decision["stop_requested"] else "native_cap" + str(spec["budget_steps"])))
+@@ -669,7 +675,7 @@
+                 validation=last_validation, decision=last_decision))
+             result['final_training_checkpoint'] = checkpoint_receipt(output / 'final_training.pt', fit_id=spec['fit_id'], step=step)
+             if (spec["budget_unit"] == "optimizer_updates"
+-                    and result["trajectory_operation_counts"]["optimizer_updates"] != (result["completed_steps"] if spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop"} else spec["budget_steps"])):
++                    and result["trajectory_operation_counts"]["optimizer_updates"] != (result["completed_steps"] if spec.get("completion_policy", "full_budget") in {"native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"} else spec["budget_steps"])):
+                 raise ValueError("Reported optimizer updates differ from the declared trajectory completion")
+             if result["selected"] is None:
+                 raise RuntimeError("Full trajectory has no eligible validation-selected checkpoint")
+--- base_runtime/spec.py
++++ runtime/spec.py
+@@ -87,8 +87,11 @@
+                 raise ValueError("Declare the training unit")
+             if type(budget.get("maximum")) is not int or budget["maximum"] < 1:
+                 raise ValueError("Declare a positive fixed maximum budget")
+-            if budget.get("policy") not in {"full_budget", "minimum_then_patience", "native_selector_stop", "hgt_native_selector_stop"}:
++            if budget.get("policy") not in {"full_budget", "minimum_then_patience", "native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"}:
+                 raise ValueError("Declare the training-budget policy")
++            if budget["policy"] == "bsnn_native_selector_stop":
++                from bsnn_stopping import validate_bsnn_run
++                validate_bsnn_run(run)
+             if budget["policy"] == "hgt_native_selector_stop":
+                 from hgt_stopping import validate_hgt_run
+                 validate_hgt_run(run)
+--- base_runtime/run_study.py
++++ runtime/run_study.py
+@@ -287,6 +287,9 @@
+     run = rows[0]
+     require_phase_approval(project_root, spec, run, approval)
+     from native_stopping import require_completion
++    if run["budget"]["policy"] == "bsnn_native_selector_stop":
++        from bsnn_stopping import validate_bsnn_run
++        validate_bsnn_run(run)
+     if run["budget"]["policy"] == "hgt_native_selector_stop":
+         from hgt_stopping import validate_hgt_run
+         validate_hgt_run(run)
+@@ -332,7 +335,7 @@
+                                         "data": spec["data"], "source": spec["source"]}}
+         if run['config'].get('native_AMP_overflow_skip_allowed'):
+             engine_spec['native_amp_cycle_policy']={'schema':'native-SeHGNN-AMP-complete-cycle-v1','optimizer_owner_attempts':1}
+-        if run["budget"]["policy"] in {"native_selector_stop", "hgt_native_selector_stop"}:
++        if run["budget"]["policy"] in {"native_selector_stop", "hgt_native_selector_stop", "bsnn_native_selector_stop"}:
+             engine_spec["completion_policy"] = run["budget"]["policy"]
+         def guard(phase, step, result):
+             if time.monotonic() - tick > spec["resources"]["wall_seconds"]:
+--- base_runtime/compile_master_plan.py
++++ runtime/compile_master_plan.py
+@@ -186,6 +186,9 @@
+     """Known exact bridge families; unknown ownership is never silently one."""
+     config, budget = run['config'], run['budget']
+     unit, maximum = budget['unit'], budget['maximum']
++    if budget['policy'] == 'bsnn_native_selector_stop':
++        from bsnn_stopping import validate_bsnn_run
++        return validate_bsnn_run(run)
+     if budget['policy'] == 'hgt_native_selector_stop':
+         from hgt_stopping import validate_hgt_run
+         return validate_hgt_run(run)

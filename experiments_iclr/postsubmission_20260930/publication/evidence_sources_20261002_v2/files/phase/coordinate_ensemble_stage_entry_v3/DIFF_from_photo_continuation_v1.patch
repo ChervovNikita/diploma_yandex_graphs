@@ -1,0 +1,103 @@
+--- photo_continuation_v1
++++ stage_entry_v3
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Exact-request bridge for supervised acquire/qualify stages; never fit/test.
++"""Exact-request bridge for acquire/qualify/validation-fit stages; no test mode.
+ 
+ Source preparation only. Runtime uses stdlib and invokes the independently frozen
+ runner as an argv list. Existing whole-process supervision owns the final cap.
+@@ -177,9 +177,9 @@
+ 
+ 
+ def plan(request, request_path, supervisor):
+-    require(request["schema"] == "coordinate-ensemble-stage-entry-request-v1" and
++    require(request["schema"] == "coordinate-ensemble-stage-entry-request-v3" and
+             request["root_admitted"] is True, "Require explicit root stage admission")
+-    require(request["mode"] in {"acquire", "qualify"}, "Fit/test/preflight modes are not admitted")
++    require(request["mode"] in {"acquire", "qualify", "fit"}, "Test/preflight modes are not admitted")
+     require(request["phase_root"] == str(PHASE) and request["gpu_uuid"] == GPU_UUID,
+             "Request phase/GPU differs from pinned authorized identity")
+     mode = request["mode"]
+@@ -212,8 +212,7 @@
+     protocol_path = verify_binding(request["protocol"])
+     sources_path = verify_binding(request["sources"])
+     runner_path = verify_binding(request["runner"])
+-    expected_runner = PHASE / ("coordinate_ensemble_runner_v1/runner.py" if mode == "acquire"
+-                              else "coordinate_ensemble_runner_v2/runner.py")
++    expected_runner = PHASE / "coordinate_ensemble_runner_v3/runner.py"
+     require(runner_path == expected_runner, "Only the independently frozen stage-specific runner is admitted")
+     protocol, sources = read_json(protocol_path), read_json(sources_path)
+     require(protocol["schema_version"] == sources["schema_version"] == 1 and
+@@ -288,7 +287,7 @@
+     planned, identities = [], set()
+     for operation in operations:
+         dataset = operation["dataset"]
+-        require(dataset in {"LastFMAsia", "AmazonPhoto"} and dataset in protocol["datasets"], "Dataset not frozen")
++        require(dataset in {"CoauthorCS", "AmazonPhoto"} and dataset in protocol["datasets"], "Dataset not frozen")
+         argv = [str(INTERPRETER), str(runner_path), mode,
+                 "--protocol", str(protocol_path), "--protocol-sha256", request["protocol"]["sha256"],
+                 "--sources", str(sources_path), "--sources-sha256", request["sources"]["sha256"], "--dataset", dataset]
+@@ -309,8 +308,20 @@
+                        all(c[name] == cell[name] for name in cell)]
+             require(len(matches) == 1, "Qualification cell must occur exactly once in frozen protocol")
+             recipe = protocol["recipes"][cell["recipe"]]
+-            require(protocol["qualification"]["complete_updates"] == 100 and recipe["eval_every"] == 10,
+-                    "Qualification must be 100 complete updates and ten train-only scheduled evaluations")
++            if mode == "qualify":
++                require(protocol["qualification"]["complete_updates"] == 100 and recipe["eval_every"] == 10,
++                        "Qualification must be 100 complete updates and ten train-only evaluations")
++            else:
++                require(recipe["min_epochs"] == 1000 and recipe["max_epochs"] == 2000 and
++                        recipe["patience"] == 200 and recipe["eval_every"] == 10 and
++                        recipe["checkpoint_metric"] == "validation_nll" and recipe["checkpoint_ties"] == "earliest",
++                        "Validation fits require the fixed competent horizon and checkpoint rule")
++                require(cell["split"] in {"calibration", "core0", "core1", "core2"} and
++                        cell["seed"] in {17, 29, 43}, "Validation fit split/seed not prospective")
++                if cell["split"] == "calibration":
++                    require(cell["arm"] == "single" and cell["seed"] == 17 and
++                            recipe["optimizer"]["lr"] in {3e-5, 3e-4},
++                            "Calibration admits only the matched single and two frozen learning rates")
+             require(protocol["runtime"]["device"] == "cuda:0", "Qualification must use the single exposed CUDA device")
+             data_path = verify_binding(operation["data_manifest"])
+             require(data_path == confined(str(confined(protocol["phases"]["acquire"]["public_root"]) /
+@@ -365,7 +376,7 @@
+                                     "metadata_interval_seconds": GPU_METADATA_INTERVAL_SECONDS,
+                                     "memory_used_MiB_maximum": 100, "utilization_percent_required": 0,
+                                     "occupied_memory_rejected_immediately": True},
+-              "fit_or_test_admitted": False})
++              "validation_fit_admitted": request["mode"] == "fit", "test_admitted": False})
+     records, gpu_guards, error, active, active_record = [], [], None, None, None
+     begun = time.monotonic()
+     signal.signal(signal.SIGTERM, interrupted)
+@@ -409,6 +420,21 @@
+             write_new(output / f"operation_{number:03d}_TERMINAL.json", record)
+             require(record["exit_code"] == 0, "Exact runner operation returned nonzero")
+             require((operation["output"] / "artifacts.json").is_file(), "Runner terminal artifact manifest absent")
++            if request["mode"] in {"qualify", "fit"}:
++                report = read_json(operation["output"] / "cell_report.json")
++                require(report["mode"] == request["mode"] and
++                        report["test_labels_read"] is False and report["test_scores_or_logits_written"] is False,
++                        "Runner mode/test-isolation receipt differs")
++                if request["mode"] == "qualify":
++                    require(report["status"] == "QUALIFICATION_COMPLETE" and report["completed_updates"] == 100,
++                            "Qualification update completion differs")
++                else:
++                    require(report["status"] == "FIT_COMPLETE" and
++                            1000 <= report["completed_updates"] <= 2000 and
++                            type(report["selected_epoch"]) is int and
++                            1 <= report["selected_epoch"] <= report["completed_updates"] and
++                            report["selected_validation"] is not None,
++                            "Complete validation-fit receipt differs; convergence still needs scientific assessment")
+             for binding in bindings + operation["bindings"]:
+                 verify_binding(binding)
+         require(sha(request_path) == request_sha, "Request changed during stage")
+@@ -443,7 +469,7 @@
+                     "error": error, "completed_operation_count": sum(r["exit_code"] == 0 for r in records),
+                     "requested_operation_count": len(operations), "records": records, "gpu_guards": gpu_guards,
+                     "request_unchanged": unchanged, "elapsed_seconds": time.monotonic() - begun,
+-                    "START_sha256": sha(output / "START.json"), "fit_or_test_admitted": False,
++                    "START_sha256": sha(output / "START.json"), "validation_fit_admitted": request["mode"] == "fit", "test_admitted": False,
+                     "termination_owner": "Existing bounded supervisor kills the complete inherited process group"}
+         write_new(output / "TERMINAL.json", terminal)
+     print(json.dumps({"stage_output": str(output), "complete": terminal["complete"],

@@ -1,0 +1,86 @@
+--- runtime/adapters/sehgnn.py
++++ runtime/adapters/sehgnn.py
+@@ -185,7 +185,24 @@
+         if hasattr(session,'verify_optimizer'):session.verify_optimizer()
+         if hasattr(session,'verify_optimizers'):session.verify_optimizers()
+     def train_cycle(adapter,step):
+-        before=copy.deepcopy(session.counters);own=policy.train_epoch() if policy else session.train_epoch();correction=None
++        before=copy.deepcopy(session.counters);attempts=[0]
++        # Observe requests separately from actual source optimizer.step calls.
++        # The original bank/native GradScaler law and source FP32 joint algebra
++        # remain unchanged; every temporary wrapper delegates and is restored.
++        if hasattr(session,'scalar'):
++            old_scalar_step=session.scalar.step
++            def request(*args,**kwargs):attempts[0]+=1;return old_scalar_step(*args,**kwargs)
++            session.scalar.step=request;restores=((session.scalar,'step',old_scalar_step),)
++        else:
++            restores=[]
++            for opt in optimizers:
++                original=opt.step
++                def request(*args,_original=original,**kwargs):attempts[0]+=1;return _original(*args,**kwargs)
++                opt.step=request;restores.append((opt,'step',original))
++        try:own=policy.train_epoch() if policy else session.train_epoch()
++        finally:
++            for obj,name,original in restores:setattr(obj,name,original)
++        correction=None
+         extra={'source_credit_leaf_reverse_calls':0,'source_private_model_VJP_calls':0,'source_private_trial_attempts':0}
+         if policy:
+             h=mods['helper'];old_make,old_accumulate,old_trial=h.make_credit_plan,h.accumulate_replay,h.try_private_step
+@@ -200,13 +217,18 @@
+             try:correction=policy.correct(own['own_displacements'])
+             finally:h.make_credit_plan,h.accumulate_replay,h.try_private_step=old_make,old_accumulate,old_trial
+         after=session.counters;delta={k:int(after[k]-before.get(k,0)) for k in after if type(after[k]) is int}
++        commits=delta['actual_Adam_steps'];skips=attempts[0]-commits
++        if attempts[0]!=len(optimizers) or skips<0 or not hasattr(session,'scalar') and skips:raise ValueError('Complete source owner attempt/commit accounting differs')
++        amp_enabled=int(hasattr(session,'scalar') and session.scalar.is_enabled())
++        if skips and not amp_enabled:raise ValueError('Only enabled native GradScaler may skip an own optimizer map')
+         fwd=sum(delta.get(k,0) for k in ('own_member_forwards','source_reference_forwards','source_replay_forwards','source_trial_forwards','reference_forwards','gradient_replays'))
+         backward=delta.get('own_backwards',0)+delta.get('P_backwards',0)+delta.get('S_private_VJPs',0)+extra['source_private_model_VJP_calls']
+         # The source helper's private VJPs/leaf-credit reverses are additional
+         # work; they are prospectively typed and audited in controller costs.
+         objective=float(own['mean_native_own_BCE'] if 'mean_native_own_BCE' in own else own['P_reference_complete_mean'])
+         return {'objective':objective,'ce':objective,'regularization':0.,
+-            'operation_counts':{'optimizer_updates':delta['actual_Adam_steps'],'model_forwards':fwd,'backward_calls':backward,
++            'operation_counts':{'optimizer_updates':commits,'source_optimizer_attempts':attempts[0],'source_AMP_skipped_optimizer_maps':skips,
++                'source_native_complete_cycles':1,'source_native_AMP_enabled':amp_enabled,'model_forwards':fwd,'backward_calls':backward,
+                 'route_predictions':len(models),'supervised_examples':ctx.train_count,'accepted_private_corrections':int(correction is not None and correction.get('status')=='accepted')},
+             'source_counters':{**delta,**extra},'source_correction':correction,'cost_events':copy.deepcopy(costs.rows[-8:])}
+     adapter=BernoulliAdapter(torch,torch.nn.functional,model,optimizer,logits_fn=logits_fn,train_ids=train['ids'].to(device),train_y=train['y'].to(device),
+--- runtime/adapters/sehgnn_native.py
++++ runtime/adapters/sehgnn_native.py
+@@ -78,9 +78,11 @@
+                     self.counters['own_member_forwards']+=1;self.counters['own_backwards']+=1
+                 finally:engine.restore_rng(self.rt['numpy'],t,caller)
+             self.scalar.unscale_(self.optimizer)
+-            if any(p.grad is not None and not t.isfinite(p.grad).all().item() for p in self.model.parameters()):raise ValueError('Finite unscaled native gradients required')
+             original=self.optimizer.step
+             def observed(*args,**kwargs):
++                # Native GradScaler may legally skip this call after detecting
++                # overflow. Check actual Adam gradients only when it commits.
++                if any(p.grad is not None and not t.isfinite(p.grad).all().item() for p in self.model.parameters()):raise ValueError('Finite actual unscaled native Adam gradients required')
+                 value=original(*args,**kwargs);self.counters['actual_Adam_steps']+=1;return value
+             self.optimizer.step=observed
+             try:self.scalar.step(self.optimizer);self.scalar.update()
+--- runtime/compile_sehgnn_packet.py
++++ runtime/compile_sehgnn_packet.py
+@@ -31,6 +31,7 @@
+         else:members,owners=(1,1) if arm in ('native_single','factorized_native_single') else (4,1)
+         return {'sehgnn_arm':arm,'sehgnn_epochs':1000,'architecture':'native_sehgnn_source','backbone':'native_SeHGNN','width':512,'classes':5,'feature_channels':25,'label_channels':12,
+                 'members':members,'physical_slow_bodies':owners,'source_optimizer_count':owners,'is_original_gnnm':arm=='original_gnnm','historical_state_inherited':False,
++                'native_AMP_overflow_skip_allowed':arm not in SEHGNN_JOINT,'source_optimizer_accounting':'attempts_and_actual_committed_maps_are_distinct',
+                 'sehgnn_sources':sources,'typed_inputs':typed_inputs(split),'fusion':'mean_logits' if arm=='original_gnnm' else 'mean_probabilities','weight_decay':0.,'stage':stage,
+                 'selection_roles':'TRAIN/SELECT only; heldout-style development endpoints remain globally closed','historical_source_horizon':200,'prospective_complete_native_epochs':1000,
+                 'diagnostic_prefixes':[200,500],'prefixes_are_not_additional_heldout_endpoints':True,'native_source_own_batch_size':10000,'native_source_TRAIN_batches_per_epoch':1,
+@@ -98,7 +99,11 @@
+     plan={'schema_version':1,'slots_per_gpu':2,'studies':[{'path':str(path.relative_to(root)),'spec_hash':fingerprint(study)}],
+           'groups':[{'id':study['study_id'],'run_keys':[study['study_id']+'/'+r['run_id'] for r in study['runs']],'allowed_workers':['allocation/gpu0'],'gpu_assignment':'allocation/gpu0','estimated_seconds':sum(r['config']['estimated_seconds'] for r in study['runs']),'maximum_cuda_bytes':32768*1024**2}],
+           'barriers':{},'scientific_launch_enabled':False,'human_GO_required':True,'resources_are_provisional':True}
+-    summary={'schema':'native-SeHGNN-seven-source-conditions-disabled-packet-v1','plan_hash':fingerprint(plan),'status':'DISABLED_ACTUAL_INPUT_RESOURCE_ADMISSION_AND_GO_PENDING','counts':counts,'arms':list(ARMS),'bank_methods':list(ARMS)+list(I4),'HPO_domain':DOMAIN,'HPO_seeds':list(SEARCH),'comparative_seeds':list(COMPARE),'complete_masks':10,'primary_complete_native_epochs':1000,'diagnostic_prefix_caps':[200,500],'prefix_heldout_banks':0,
++    summary={'schema':'native-SeHGNN-seven-source-conditions-disabled-packet-AMP-v2','plan_hash':fingerprint(plan),'status':'DISABLED_ACTUAL_INPUT_RESOURCE_ADMISSION_AND_GO_PENDING','counts':counts,'arms':list(ARMS),'bank_methods':list(ARMS)+list(I4),'HPO_domain':DOMAIN,'HPO_seeds':list(SEARCH),'comparative_seeds':list(COMPARE),'complete_masks':10,'primary_complete_native_epochs':1000,'diagnostic_prefix_caps':[200,500],'prefix_heldout_banks':0,
++             'optimizer_accounting':'Complete epochs and owner attempts are fixed; native AMP legally skips maps on overflow; committed maps are separately observed',
++             'native_AMP_fit_groups':612,'native_AMP_optimizer_attempts':612000,'native_AMP_committed_map_bounds':[0,612000],
++             'FP32_joint_fit_groups':618,'FP32_joint_exact_maps_on_successful_complete_fits':906000,'total_optimizer_attempts':1518000,
++             'total_committed_map_bounds_on_successful_complete_source_trajectories':[906000,1518000],
+              'genuine_I4_banks':sum(b['genuine_I4'] for b in banks),'grouped_independent_source_banks_are_not_genuine_I4':True,'original_gnnm_fit_records':sum(r['kind']=='model_fit' and r['method']=='original_gnnm' for r in study['runs']),
+              'GO_receipt_created':False,'benchmark_training_started':False,'actual_fits':0,'actual_CUDA_executions':0,'GO':False,'source_provider_manifest':sources['provider_manifest']}
+     for name,value in (('PLAN.json',plan),('SUMMARY.json',summary)):(out/name).write_text(json.dumps(value,indent=2,sort_keys=True)+'\n')

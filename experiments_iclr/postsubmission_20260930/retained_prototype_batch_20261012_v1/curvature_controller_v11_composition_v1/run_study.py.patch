@@ -1,0 +1,52 @@
+--- run_study.py
++++ run_study.py
+@@ -138,6 +138,18 @@
+     lifecycle = run["config"].get("lifecycle")
+     if lifecycle is None:
+         return []
++    if isinstance(lifecycle, dict) and lifecycle.get('schema') == 'paid-curvature-stage-v2':
++        stage = run['config'].get('curvature_stage')
++        if (set(lifecycle) != {'schema','parent_fit_ids','source_stage','named_Adam_reuse','source_RNG','returned_trial_states'}
++                or stage not in ('trials','continuation')
++                or lifecycle['source_stage'] != ('warm' if stage == 'trials' else 'trials')
++                or lifecycle['named_Adam_reuse'] is not True
++                or lifecycle['source_RNG'] != 'own_fixed_last_warm'
++                or lifecycle['returned_trial_states'] != 'pretrial_only'
++                or not isinstance(lifecycle['parent_fit_ids'],list) or len(lifecycle['parent_fit_ids']) != 1
++                or not isinstance(lifecycle['parent_fit_ids'][0],str)):
++            raise ValueError('Curvature requires own paid source, named Adam, original warm RNG and pretrial states')
++        return lifecycle['parent_fit_ids']
+     if isinstance(lifecycle, dict) and lifecycle.get('schema') == 'paid-native-capture-label-stage-v1':
+         if (set(lifecycle) != {'schema','parent_fit_ids','new_label_optimizer','native_initialization','label_initialization'}
+                 or lifecycle['new_label_optimizer'] is not True
+@@ -167,6 +179,21 @@
+     return lifecycle["parent_fit_ids"]
+ 
+ 
++def require_curvature_paid_parent(parent, run):
++    """Validate cohort/HPO custody before decoding any own paid source tensor."""
++    c, p = run['config'], parent['config']
++    expected = 'warm' if c.get('curvature_stage') == 'trials' else 'trials'
++    if (c.get('curvature_stage') not in ('trials','continuation')
++            or p.get('curvature_stage') != expected
++            or any(parent.get(k) != run.get(k) for k in ('split','seed','body'))
++            or any(p.get(k) != c.get(k) for k in ('stage','node_inputs','curvature_sources','curvature_constants',
++                                                 'learning_rate','dropout','selected_config_from'))
++            or parent['budget'] != {'unit':'optimizer_updates' if expected=='warm' else 'epochs',
++                                    'policy':'full_budget','maximum':250 if expected=='warm' else 1}
++            or parent['selection'].get('checkpoint0') is not False
++            or (expected=='trials' and p.get('curvature_joint_selector') is not True)
++            or (expected=='warm' and p.get('curvature_fixed_last') is not True)):
++        raise ValueError('Curvature parent must be own complete fixed-last warm or five-arm pretrial block')
+ def require_growth_terminal20_parent(parent, run):
+     """The post arm receives its own new terminal TRAIN-only warm authority."""
+     a, b = parent["config"], run["config"]
+@@ -215,6 +242,8 @@
+     from engine import checkpoint_receipt
+     for identifier in identifiers:
+         parent = registry.run(spec["study_id"], identifier)
++        if run['config'].get('curvature_stage') in ('trials','continuation'):
++            require_curvature_paid_parent(resolve_selected_config(spec,parent['contract'],registry), run)
+         value = parent["result"] or {}
+         terminal_nsd = run['config'].get('lifecycle',{}).get('schema') == 'paid-NSD-geometry-branch-v1'
+         if terminal_nsd:

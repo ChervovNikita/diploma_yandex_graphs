@@ -1,0 +1,45 @@
+# Landmark source port on complete new roles
+
+Scope: WikiCS20 and AmazonPhoto10, complete prepared TRAIN/SELECT/CAL/development roles. This disabled packet transfers the exact factorized Mono-K2 PolyFormer landmark architecture. It does not replicate the historical PubMed training recipe, reopen its result, establish novelty, or cover the full method census. Original-five experiments remain excluded. Original GNNM is retained as the exact BEBlock boundary baseline adapted to this native backbone.
+
+## Source and closed history
+
+The core is `pubmed_private_landmark_memory_execution_source_20261011_v2/core.py`, SHA256 `e0248e310af75f177ee0fcec31a9ae4adb246af00089d1abef3d2e83685a9c4a`. The factor ancestor is the exact all23-linear-site unit-factor PolyFormer factory, with author commit `d390f39e88d0eaac80318fdc7704bd3bf3cf8b13`. PolyFormer is distinct from Polynormer. This port executes the pinned author AST definitions through an isolated owned-pin namespace, omitting imports, seed42 and CUDA seeding. It never mutates shared helper source globals. Original sources, nomination, source contract, learning/runtime/acquire evidence and closed interpretation are frozen in the packet.
+
+The closed LM4 study completed36 groups/54 trajectories and39 CAL endpoints. All three LM4 trajectories selected checkpoint0 after100 continuation updates, retaining90.8308% source accuracy. Raw all-positive criteria failed; calibrated developmental NLL was worse than I4[S64] by0.009752. Member protection passed and the combined criteria failed. Independent controls selected positive steps2–18. No selector, tie or calibration change in this new track repairs that historical failure.
+
+LM4 is standard inducing write followed by four grouped decoder-attention heads with tied maps, branch losses and probability mixture. Aq with a free E is functionally redundant, while its optimizer geometry is substantive: both are retained. S64 changes joint read normalization, prediction count and loss; T16 changes offset sharing; I4 changes source multiplicity. No pure topology or private-sharing causal claim is supported.
+
+## Native source and paid lifecycle
+
+Native recipe: hidden256, layers2, heads8, FFN32, monoK2, multi2, q1.6, attention dropout.8. Exact PyG NormalizeFeatures is applied once to a clone of provider raw X; exact author gcn_norm→SciPy→FP32 COO→successive spmm produces three mono tokens. The raw ordered provider graph is preserved. All references use this derived feature/token bank. Source normalization version and raw/derived tensor hashes are recorded.
+
+Source arms are `ordinary_m1`, `factor_m1`, `shared_factor4`, `original_boundary`. Native factor coordinates use `linear(x*r,weight)*s+bias`, retaining the native slow objects; bias stays outside s. Original boundary replaces only lin1/lin3 with the exact original BEBlock; the ordinary interior remains shared and serving averages raw logits.
+
+Each source fit has one body, one optimizer and an own selector. Fresh ordinary and factor quartets are acquired once; M1 serves fixed body0 and its I4 reference serves the quartet. Continuation arms B1/B4/T16/S64/FS64/LM4 all authenticate a matching paid factor_m1 selected checkpoint. `continued_m1` authenticates ordinary_m1; `continued_f1` authenticates factor_m1. Exact same split, seed, body, roles, graph capsule, source pins, dimensions and full horizon are required. Parent checkpoint bytes/size/hash, positive selected step and paid completion are verified before restoration. Source optimizer moments are restored only as source evidence and never reused by continuation. No historical PubMed source is used.
+
+After actual selected restoration, native eval/member0 captures raw unclipped pre-lin3 H[N,256]. U=H/norm(H).clamp_min(1) is used only in memory. Full source/cache-head predictions and TRAIN correct masks must match; float containment uses frozen atol1e-5/rtol1e-4. Every native parameter is frozen except exact lin3 weight/bias/r/s. H/U, anchors, distance bias and mono tokens are nonpersistent immutable payloads with actual hash and version guards. Selected-state restoration does not overwrite these buffers. The trunk remains eval during tail training. No H/U is prepared before a paid source exists.
+
+## Geometry and landmark algebra
+
+Five paired seeds per provider each own a GRAPH-only capsule. A private CPU generator seeded paired_seed+491001001 draws64 distinct ordered anchors; consecutive groups contain16. Geometry alone uses loop-free unique undirected union-transpose support.64 FIFO BFS searches cap distance at16, assign unreachable16 and self0; bias is -distance/4. No masks, rerolls, labels or predictions enter geometry. RNG before/after, native-edge/support/anchor/distance/bias/token and capsule hashes are retained.
+
+Aq,Ak,Av,Bq map256→32; Bk/Bv map32→32; Wo maps32→256. Six maps receive Xavier initialization in that order from seed paired_seed+491003041+1000003*body. EmptyLinear constructors consume no discarded draws; Wo/E are zero. Residual is H+.25*Wo(read), without clipping. T16 has E[16,32] tied across four16-slot groups; LM4 has E[4,16,32]; S64/FS64 use joint64 write/read normalization and E[64,32]. FS64 unit-factors all seven memory maps, including zero Wo. The exact factorization adds1568 coordinates.
+
+Each incoming bank/update computes live Ak(U), Av(U), Bq(U) once. Views stream own CE/views backwards; earlier backwards retain the shared tape while memory exists. One optimizer step follows all views. Products are never detached or cached across updates. Zero Wo gives zero initial six-map/E data gradients while allowing a Wo gradient; delayed gradients are tested without inventing a requirement that every map must be nonzero by the second step.
+
+B1/S64/FS64 serve one view; B4/T16/LM4 serve four. I4[S64] and I4[FS64] contain four distinct separately optimized/selected one-view fits with four distinct paid factor sources; fixed body0 is reused. Export restores every own-selected checkpoint and validates actual body/seed/ancestry/view counts. Source, cache, body and checkpoint costs remain charged.
+
+## Standardized adaptations and scoring
+
+Every source or continuation completes5000 updates under fresh grouped AdamW, WD0, betas(.9,.999), epsilon1e-8. Source attention versus ordinary LR and continuation memory versus head LR preserve the low/base ratio1/10. Useful9 HPO crosses base LR.0025/.005/.01 and tail dropout.3/.5/.7; native architectural fields remain fixed. Search seeds75101/75103 use split0; comparative seeds75201/75203/75207 cover all30 splits. HPO uses SELECT only. Earliest own SELECT accuracy selects among positive steps; checkpoint0 is ineligible. Ineligible step0 accuracy/own CE/pooled NLL is recorded in the first update trace, and positive-step proper losses remain available. No extra diagnostic fit track is created.
+
+The archived recipe stays in provenance: source max2000/patience250 grouped Adam(.005/WD.001 versus.0005/WD1e-8); continuation max500/patience100, checkpoint0 eligible, grouped Adam head versus memory; original seed stride1009 and tail streams. New full-native controls continue all native parameters for5000 updates, four TRAIN dropout draws and one served view. They match optimizer budget; label reduction and FLOPs differ from one-view landmark arms.
+
+Raw serving remains probability mean except original boundary raw-logit mean. The common standardized scalar CAL is an explicit source-law adaptation: after serving pool, float64 Adam LR.01,500 updates, clamp logT[-4,4], final state. Historical landmark CAL applied one temperature per member before probability pool, LR.05,500 updates, clamp[-5,5], latest minimum over0..500. That law is preserved in provenance, not silently claimed as the common track. Raw comparisons remain primary. CAL/evaluation targets are opened only by their endpoints after global phase gates.
+
+## Finite roster and readiness
+
+3140 model/optimizer/body starts:1052 source acquisitions plus2088 continuations,15.7M total model updates.440 search fits and2700 comparative fits;24 selectors;1620 banks,1620 exports,1620 scalar CAL fits,1620 evaluations.540 genuine I4 banks, including180 landmark-memory I4;540 fixed body0 reuses.810000 scalar CAL updates and8024 total records. No deduplication or predictive fitting has occurred.
+
+Seven synthetic/source CPU tests cover author construction and raw-core equivalence at the original shape/count anchor, exact factors/bias placement and original boundary, normalization/mono/BFS/private RNG, paid restore/H-U/zero-readout/delayed gradients, streamed shared-tape equivalence, FS64/private offset ownership/immutable restoration, real four-body own-selected export, native continuation, complete finite roster and master ancestry. CPU proof does not qualify full-input CUDA resources or scientific performance. Resource reservations remain explicit unmeasured placeholders; root engineering admission, comprehensive coverage, global closure and human GO remain pending. Scientific launch is disabled.

@@ -1,0 +1,42 @@
+--- v1/qualify_training_step.py
++++ v2/qualify_training_step.py
+@@ -7,6 +7,7 @@
+ """
+ import gc
+ import json
++import math
+ import os
+ import resource
+ import time
+@@ -30,9 +31,28 @@
+     limit = atol+rtol*torch.maximum(a.abs(), b.abs())
+     relative = float((a-b).double().norm()/torch.maximum(a.double().norm(), b.double().norm()).clamp_min(1e-300))
+     ok = bool((difference <= limit).all()) and (group_l2 is None or relative <= group_l2)
+-    result = {"coordinates": a.numel(), "maximum_absolute_error": float(difference.max()),
+-              "maximum_coordinate_error_to_limit": float((difference/limit).max()),
+-              "relative_L2": relative, "passed": ok}
++    # Diagnostics only: 0/0 for an exact comparison is reported as zero.
++    # A nonzero error at zero tolerance remains a failed criterion and has an
++    # explicit null ratio/status, rather than emitting JSON NaN or Infinity.
++    zero_limit = limit == 0
++    safe_limit = torch.where(zero_limit, torch.ones_like(limit), limit)
++    ratio = torch.where(zero_limit & (difference == 0), torch.zeros_like(difference), difference/safe_limit)
++    maximum_ratio = float(ratio.max())
++    maximum_absolute = float(difference.max())
++    if bool((zero_limit & (difference != 0)).any()):
++        maximum_ratio, ratio_status = None, "nonzero_error_with_zero_limit"
++    elif not math.isfinite(maximum_ratio):
++        maximum_ratio, ratio_status = None, "nonfinite_diagnostic_ratio"
++    else:
++        ratio_status = "finite"
++    result = {"coordinates": a.numel(),
++              "maximum_absolute_error": maximum_absolute if math.isfinite(maximum_absolute) else None,
++              "maximum_absolute_error_status": "finite" if math.isfinite(maximum_absolute) else "nonfinite_diagnostic_difference",
++              "maximum_coordinate_error_to_limit": maximum_ratio,
++              "coordinate_error_to_limit_status": ratio_status,
++              "relative_L2": relative if math.isfinite(relative) else None,
++              "relative_L2_status": "finite" if math.isfinite(relative) else "nonfinite_diagnostic_norm",
++              "passed": ok}
+     if not ok: raise ValueError("Prospective immutable qualification tolerance failed: "+json.dumps(result))
+     return result
+ 

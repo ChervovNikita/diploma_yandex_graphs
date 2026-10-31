@@ -1,0 +1,73 @@
+"""Metal/organic partial-sanitization fixtures; no dataset or training."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+
+from chemical_groups import PROCEDURE, molecular_keys, topology
+
+
+def run():
+    from rdkit import Chem
+    from rdkit.Chem.Scaffolds import MurckoScaffold
+    metal_aryl = "[Al](c1ccccc1)(c1ccccc1)(c1ccccc1)(c1ccccc1)(c1ccccc1)(c1ccccc1)c1ccccc1"
+    fixtures = {
+        "benzene_aromatic": "c1ccccc1", "benzene_kekule": "C1=CC=CC=C1",
+        "toluene": "Cc1ccccc1", "toluene_reordered": "c1ccccc1C",
+        "ethylbenzene": "CCc1ccccc1", "pyrrole": "[nH]1cccc1",
+        "alanine_left": "N[C@@H](C)C(=O)O", "alanine_right": "N[C@H](C)C(=O)O",
+        "disconnected_salt": "[Na+].[Cl-]", "explicit_hydrogen": "[H]OC",
+        "aluminium_seven_ligands": "[Al](F)(F)(F)(F)(F)(F)F",
+        "aluminium_seven_ligands_reordered": "F[Al](F)(F)(F)(F)(F)F",
+        "aluminium_seven_aryl_ligands": metal_aryl,
+        "cookbook_hypervalent_P": "F[P-](F)(F)(F)(F)F.CN(C)C(F)=[N+](C)C",
+    }
+    values, details = {}, []
+    for name, smiles in fixtures.items():
+        mol, canonical, scaffold = molecular_keys(smiles)
+        # A uniform canonical round-trip is checked without strict valence parsing.
+        replay, second, second_scaffold = molecular_keys(canonical)
+        if second != canonical or second_scaffold != scaffold:
+            raise AssertionError("Version-pinned permissive canonicalization does not round-trip")
+        values[name] = (canonical, scaffold)
+        details.append({"fixture": name, "atoms": mol.GetNumAtoms(), "bonds": mol.GetNumBonds(),
+                        "molecule_sha256": hashlib.sha256(canonical.encode()).hexdigest(),
+                        "scaffold_sha256": hashlib.sha256(scaffold.encode()).hexdigest(),
+                        "empty_scaffold": scaffold == "", "permissive_round_trip": True})
+        if not name.startswith("aluminium") and name != "cookbook_hypervalent_P":
+            strict = Chem.MolFromSmiles(smiles)
+            assert strict is not None
+            strict_molecule = Chem.MolToSmiles(strict, canonical=True, isomericSmiles=True)
+            strict_scaffold = Chem.MolToSmiles(MurckoScaffold.GetScaffoldForMol(strict), canonical=True, isomericSmiles=False)
+            if (canonical, scaffold) != (strict_molecule, strict_scaffold):
+                raise AssertionError("Organic fixture grouping differs from documented standard RDKit route")
+    assert values["benzene_aromatic"] == values["benzene_kekule"]
+    assert values["toluene"] == values["toluene_reordered"]
+    assert values["toluene"][1] == values["ethylbenzene"][1] == values["benzene_aromatic"][1]
+    assert values["alanine_left"][0] != values["alanine_right"][0]
+    assert values["aluminium_seven_ligands"] == values["aluminium_seven_ligands_reordered"]
+    assert values["aluminium_seven_aryl_ligands"][1] != ""
+    return {"status": "passed", "scope": "version-pinned metal/organic grouping fixtures only",
+            "procedure": PROCEDURE, "fixtures": details, "molecules_dropped": 0,
+            "singleton_exception_fallbacks": 0, "features_recomputed_or_changed": False,
+            "labels_or_dataset_accessed": False, "predictive_claim": False,
+            "chemical_validity_claim": False, "all_actual_training_topology_checks_pending": True}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report", type=Path, required=True)
+    args = parser.parse_args()
+    here, output = Path(__file__).resolve().parent, args.report.resolve()
+    if here not in output.parents:
+        raise ValueError("Report must remain in grouping-v3 packet")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    report = run()
+    with output.open("x") as stream:
+        json.dump(report, stream, indent=2, allow_nan=False)
+        stream.write("\n")
+    print(json.dumps(report, indent=2))
+
+
+if __name__ == "__main__":
+    main()

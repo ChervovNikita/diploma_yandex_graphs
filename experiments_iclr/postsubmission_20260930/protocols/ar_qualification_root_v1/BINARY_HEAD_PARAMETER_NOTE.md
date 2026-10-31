@@ -1,0 +1,7 @@
+# Binary-head capacity and storage boundary
+
+The current sources use two logits for active/inactive decisions. Their active probability depends only on the difference between those logits. For an ordinary affine head, define the single log-odds weight as `W[1] - W[0]` and bias as `b[1] - b[0]`. A sigmoid on this affine value gives the identical ideal-arithmetic binary law. Finite-arithmetic equivalence would still need qualification if used as an implementation change.
+
+Consequently a private ordinary binary head with two rows stores `2h+2` parameters but its probability law can be represented by `h+1` affine parameters. Four such heads do not need four full two-row matrices to provide that law capacity. Shared-head controls must be described with this redundancy disclosed. A storage claim should compare against an appropriately compact Bernoulli-head implementation or count/report its equivalent storage, rather than obtain a factor-sharing advantage from unused ordinary-head gauge freedom.
+
+The sealed sources have not been changed, compiled into sigmoid heads or executed by this note. Raw instantiated parameter counts must still describe those actual implementations, and measured latency must describe executed operations. This algebra is a standard binary softmax identity, not a new theoretical contribution. The initial correctness diagnostic checks the current sources. It supplies no compact-Bernoulli numerical, cost or training qualification.

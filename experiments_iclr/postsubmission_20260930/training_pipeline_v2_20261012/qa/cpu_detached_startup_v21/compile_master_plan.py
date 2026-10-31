@@ -1,0 +1,680 @@
+"""Prepare one disabled master from exact immutable packet metadata.
+
+No numerical library, model, target-array reader, worker, remote transport,
+approval writer or phase-receipt writer is called. CLI metadata access is
+allocation-guarded; pure helpers support local standard-library fixtures.
+"""
+from __future__ import annotations
+
+import argparse
+import ast
+from collections import Counter
+import copy
+import csv
+import gzip
+import hashlib
+import json
+import math
+from pathlib import Path
+import re
+
+from partition import assign, DEFAULT_WORKERS
+from prepare_node_data import verify_allocation
+from spec import canonical, fingerprint, validate
+
+MIB = 1024 ** 2
+CONTROLLER_FILES = ('engine.py', 'metrics.py', 'spec.py', 'registry.py', 'partition.py',
+                    'run_study.py', 'run_endpoint.py', 'launcher.py', 'phase_closure.py',
+                    'author_cli_spec.py', 'run_author_cli.py', 'phase_rendezvous.py', 'start_massive.sh')
+STAGE_KIND = {'search': 'model_fit', 'comparative': 'model_fit', 'search_selection': 'selection',
+              'bank_export': 'ensemble_assembly', 'calibration': 'calibration', 'evaluation': 'evaluation',
+              'author_cli': 'author_cli_group'}
+SCOPES = {'measured', 'measured_proxy', 'provisional', 'mixed', 'unknown'}
+
+
+def safe_path(root, value):
+    root = Path(root).resolve()
+    raw = Path(value)
+    if raw.is_absolute() or '..' in raw.parts or not raw.parts:
+        raise ValueError('Master inputs/output use project-relative paths')
+    candidate = root / raw
+    if any(p.is_symlink() for p in (candidate, *candidate.parents)):
+        raise ValueError('Immutable packet/controller paths may not traverse symlinks')
+    target = candidate.resolve()
+    if not target.is_relative_to(root):
+        raise ValueError('Master path escapes the project')
+    return target
+
+
+def receipt(root, path):
+    path = safe_path(root, path)
+    payload = path.read_bytes()
+    return {'path': str(path.relative_to(Path(root).resolve())), 'bytes': len(payload),
+            'sha256': hashlib.sha256(payload).hexdigest()}
+
+
+def validate_receipt(value):
+    if (not isinstance(value, dict) or set(value) != {'path', 'bytes', 'sha256'}
+            or type(value['bytes']) is not int or value['bytes'] < 0
+            or not isinstance(value['sha256'], str) or not re.fullmatch('[0-9a-f]{64}', value['sha256'])):
+        raise ValueError('An exact path/bytes/SHA256 receipt is required')
+    path = Path(value['path'])
+    if path.is_absolute() or '..' in path.parts or not path.parts:
+        raise ValueError('Receipt paths must be project-relative')
+
+
+def read_bound(root, value):
+    validate_receipt(value)
+    observed = receipt(root, value['path'])
+    if observed != value:
+        raise ValueError('Immutable metadata changed: ' + value['path'])
+    return safe_path(root, value['path']).read_bytes()
+
+
+def number(value, name, *, integer=False, zero=False):
+    if (type(value) not in ((int,) if integer else (int, float)) or not math.isfinite(value)
+            or value < 0 or (value == 0 and not zero)):
+        raise ValueError('Invalid explicit ' + name)
+    return value
+
+
+def merge_bindings(*rosters):
+    result = {}
+    for roster in rosters:
+        for row in roster:
+            validate_receipt(row)
+            prior = result.get(row['path'])
+            if prior is not None and prior != row:
+                raise ValueError('Conflicting immutable file binding: ' + row['path'])
+            result[row['path']] = copy.deepcopy(row)
+    return [result[key] for key in sorted(result)]
+
+
+def fit_semantics(run):
+    """Known exact bridge families; unknown ownership is never silently one."""
+    config, budget = run['config'], run['budget']
+    unit, maximum = budget['unit'], budget['maximum']
+    if budget['policy'] != 'full_budget':
+        raise ValueError('Master only supports the registered full-budget controller')
+    if 'source_arm' in config and 'source_optimizer_count' in config:
+        objects = number(config['source_optimizer_count'], 'source optimizer objects', integer=True)
+        bodies = 4 if config['source_arm'] == 'untied' else 1
+        if objects != (4 if config['source_arm'] == 'untied' else 1) or unit != 'epochs':
+            raise ValueError('Coordinate four-object source cycles require epochs and the exact ownership count')
+        calls = objects * maximum
+        law = 'coordinate_full_graph_source_cycles'
+    elif 'molecular_inputs' in config:
+        objects, bodies, calls, law = 1, 1, None, 'molecular_minibatch_updates_per_epoch_unresolved'
+        if 'train_minibatches_per_epoch' in config:
+            if unit != 'epochs':
+                raise ValueError('Molecular minibatch accounting requires an epoch budget')
+            batches = number(config['train_minibatches_per_epoch'], 'bound TRAIN minibatches per epoch', integer=True)
+            calls, law = batches * maximum, 'molecular_bound_minibatch_calls_per_full_epoch'
+    elif 'link_inputs' in config:
+        objects, bodies, calls, law = 1, 1, None, 'link_native_minibatch_updates_per_epoch_unresolved'
+    elif config.get('architecture') in {'single', 'factorized_single', 'original_gnnm', 'internal_be', 'joint_untied'}:
+        objects, bodies = 1, 4 if config['architecture'] == 'joint_untied' else 1
+        calls = maximum if unit == 'optimizer_updates' else None
+        law = 'native_one_optimizer_per_declared_update'
+    else:
+        raise ValueError('Unknown fit optimizer/body semantics; prepare an exact source-specific packet first')
+    if unit == 'optimizer_updates' and objects != 1:
+        raise ValueError('Optimizer-update budget cannot hide multiple paid optimizer calls')
+    return {'optimizer_objects': objects, 'physical_slow_bodies': bodies,
+            'known_optimizer_step_calls': calls, 'budget_unit': unit,
+            'registered_budget_units': maximum, 'law': law}
+
+
+def routes(run):
+    config = run['config']
+    if 'members' in config:
+        return number(config['members'], 'actual route count', integer=True)
+    if 'molecular_inputs' in config:
+        return 4 if config['arm'].startswith('be_') else 1
+    if 'link_inputs' in config:
+        return 1
+    raise ValueError('Unknown selected-bank route contract')
+
+
+def actual_seed(run):
+    config = run['config']
+    if 'initialization_seed' in config:
+        return config['initialization_seed']
+    if 'architecture' in config or 'source_arm' in config:
+        return run['seed'] + 1000003 * run['body']
+    raise ValueError('Independent member initialization ancestry is unresolved')
+
+
+def bank_roster(study):
+    runs = {r['run_id']: r for r in study['runs']}
+    banks = []
+    singles = {r['config']['fit_parents'][0] for r in study['runs']
+               if r['kind'] == 'ensemble_assembly' and len(r['config'].get('fit_parents', [])) == 1}
+    excluded = {'initialization_seed', 'dropout_seed', 'shuffle_seed', 'resolved_selection',
+                'reservation_mib', 'maximum_cuda_bytes', 'estimated_seconds'}
+    for row in study['runs']:
+        if row['kind'] != 'ensemble_assembly':
+            continue
+        fits = row['config'].get('fit_parents')
+        if not isinstance(fits, list) or len(fits) not in (1, 4) or len(set(fits)) != len(fits):
+            raise ValueError('Each bank must declare one selected model group or four separate member fits')
+        parents = [runs.get(identifier) for identifier in fits]
+        if any(r is None or r['kind'] != 'model_fit' or r['config']['stage'] != 'comparative' for r in parents):
+            raise ValueError('A prediction bank omits a required comparative fit')
+        if not set(fits) <= set(row['parents']):
+            raise ValueError('Bank fit custody must also be a dependency')
+        independent = len(fits) == 4
+        if independent:
+            if (parents[0]['body'] != 0 or sorted(r['body'] for r in parents) != [0, 1, 2, 3]
+                    or any(routes(r) != 1 or fit_semantics(r)['optimizer_objects'] != 1 for r in parents)
+                    or len({actual_seed(r) for r in parents}) != 4):
+                raise ValueError('Genuine I4 requires four separately initialized one-route optimizer trajectories')
+            configs = [{k: v for k, v in r['config'].items() if k not in excluded} for r in parents]
+            if any(c != configs[0] for c in configs[1:]):
+                raise ValueError('Equipped I4 members have different learning/data/selection contracts')
+        banks.append({'run_id': row['run_id'], 'method': row['method'], 'split': row['split'], 'seed': row['seed'],
+            'fit_parents': fits, 'routes': 4 if independent else routes(parents[0]),
+            'genuine_I4': independent, 'member0_reused': independent and fits[0] in singles})
+    return banks
+
+
+def reference_matches(study):
+    """Every declared candidate cohort must retain its named reference cohort."""
+    roster = [r for r in study['runs'] if r['config']['stage'] in {'comparative', 'bank_export'}]
+    names = {}
+    for row in roster:
+        names.setdefault(row['method'], set()).add((canonical(row['split']), row['seed']))
+    # Exact exported labels win. Source aliases are accepted only when no
+    # method with that label exists; no cross-study lookup or fitted reuse.
+    for row in roster:
+        for name in (row['config'].get('arm'), row['config'].get('source_arm')):
+            if name and name not in names:
+                names[name] = {(canonical(r['split']), r['seed']) for r in roster
+                    if r['config'].get('arm') == name or r['config'].get('source_arm') == name}
+    result = []
+    for comparison in study['comparisons']:
+        references = comparison.get('references', []) + comparison.get('equipped_I4', [])
+        candidates = comparison.get('candidates', [])
+        if candidates and not references:
+            raise ValueError('Candidate comparisons require explicit matched references')
+        required_cohorts = set().union(*(names.get(name, set()) for name in candidates)) if candidates else set().union(*names.values())
+        missing_names = [name for name in references + candidates if name not in names]
+        missing_cohorts = {name: sorted(required_cohorts - names.get(name, set())) for name in references
+                           if required_cohorts - names.get(name, set())}
+        result.append({'references': references, 'candidates': candidates, 'missing_names': missing_names,
+                       'missing_reference_cohorts': missing_cohorts,
+                       'matched': not missing_names and not missing_cohorts})
+    return result
+
+
+def graph_check(studies, barriers):
+    records = {}
+    for study in studies:
+        for run in study['runs']:
+            key = study['study_id'] + '/' + run['run_id']
+            if key in records:
+                raise ValueError('Duplicate study/run identity')
+            stage = run['config'].get('stage')
+            if stage not in STAGE_KIND or STAGE_KIND[stage] != run['kind']:
+                raise ValueError('Unsupported or mismatched phase/kind; never bypass a gate by omitting stage')
+            records[key] = {'study': study['study_id'], 'run': run}
+    deps = {}
+    for key, row in records.items():
+        deps[key] = [row['study'] + '/' + identifier for identifier in row['run']['parents']] + barriers.get(key, [])
+        if len(deps[key]) != len(set(deps[key])) or any(p not in records for p in deps[key]):
+            raise ValueError('Missing/repeated master dependency for ' + key)
+        if row['run']['kind'] == 'model_fit' and (row['run']['budget'].get('prefixes')
+                or any(records[row['study'] + '/' + p]['run']['kind'] == 'model_fit' for p in row['run']['parents'])):
+            raise ValueError('Source/warm-start/continuation lifecycle requires its explicit typed adapter contract')
+    if set(barriers) - set(records):
+        raise ValueError('Barrier addresses an unknown run')
+    done, visiting = set(), set()
+    def visit(key):
+        if key in visiting:
+            raise ValueError('Cyclic master dependencies')
+        if key in done:
+            return
+        visiting.add(key)
+        for parent in deps[key]:
+            visit(parent)
+        visiting.remove(key)
+        done.add(key)
+    for key in records:
+        visit(key)
+    return records, deps
+
+
+def typed_counts(studies):
+    stages = {}
+    totals = Counter()
+    unknown_updates = []
+    for study in studies:
+        runs = study['runs']
+        if all(run['kind'] == 'author_cli_group' for run in runs):
+            from author_cli_spec import author_counts
+            quantities = author_counts(study)
+            counts = {key: value for key, value in quantities.items() if type(value) is int}
+            counts['run_records'] = len(runs)
+            stages.setdefault('author_cli', Counter()).update(counts)
+            totals.update(counts)
+            continue
+        for run in runs:
+            stage = run['config']['stage']
+            count = stages.setdefault(stage, Counter())
+            count['run_records'] += 1
+            totals['run_records'] += 1
+            if run['kind'] == 'model_fit':
+                semantics = fit_semantics(run)
+                quantities = {'atomic_fit_run_groups': 1, 'paid_optimizer_starts': semantics['optimizer_objects'],
+                    'physical_slow_body_instances': semantics['physical_slow_bodies'], 'initial_training_segments': 1,
+                    'multi_optimizer_cohort_groups': int(semantics['optimizer_objects'] > 1),
+                    'multi_route_one_optimizer_groups': int(routes(run) > 1 and semantics['optimizer_objects'] == 1)}
+                units = run['budget']['maximum']
+                quantities['registered_' + run['budget']['unit']] = units
+                if semantics['known_optimizer_step_calls'] is None:
+                    quantities['unresolved_epoch_fit_groups'] = 1
+                    unknown_updates.append(study['study_id'] + '/' + run['run_id'])
+                else:
+                    quantities['known_registered_optimizer_step_calls'] = semantics['known_optimizer_step_calls']
+                count.update(quantities)
+                totals.update(quantities)
+            else:
+                name = {'selection': 'search_selection_jobs', 'ensemble_assembly': 'bank_exports',
+                        'calibration': 'scalar_CAL_fit_jobs', 'evaluation': 'evaluation_jobs'}[run['kind']]
+                count[name] += 1
+                totals[name] += 1
+                if run['kind'] == 'calibration':
+                    steps = number(run['config']['steps'], 'scalar calibration steps', integer=True)
+                    count['registered_scalar_CAL_updates'] += steps
+                    totals['registered_scalar_CAL_updates'] += steps
+        banks = bank_roster(study)
+        totals.update({'served_banks': len(banks), 'served_route_views': sum(b['routes'] for b in banks),
+            'genuine_separately_selected_I4_banks': sum(b['genuine_I4'] for b in banks),
+            'reused_exact_member0_fit_references': sum(b['member0_reused'] for b in banks)})
+    return {'scope': 'exact_registered_contract_roster_not_executed', 'totals': dict(totals),
+        'by_stage': {key: dict(value) for key, value in sorted(stages.items())},
+        'model_optimizer_step_call_total_fully_determined': not unknown_updates,
+        'model_optimizer_step_call_total': totals['known_registered_optimizer_step_calls'] if not unknown_updates else None,
+        'epoch_fit_groups_with_unresolved_minibatch_update_count': len(unknown_updates),
+        'unresolved_update_run_keys': unknown_updates, 'actual_model_optimizer_updates': 0,
+        'actual_scalar_CAL_updates': 0, 'actual_predictive_scores': 0,
+        'cross_study_fit_reuse': [], 'source_acquisition_fit_groups': 0, 'continuation_segments': 0, 'extension_segments': 0}
+
+
+def load_packet(root, entry):
+    packet_id = entry['id']
+    plan = json.loads(read_bound(root, entry['plan']))
+    summary = json.loads(read_bound(root, entry['summary']))
+    if plan.get('schema_version') != 1 or plan.get('slots_per_gpu') != 2:
+        raise ValueError('Unsupported packet plan schema')
+    if plan.get('scientific_launch_enabled') is not False or plan.get('human_GO_required') is not True:
+        raise ValueError('Inputs must be disabled packets requiring human GO')
+    plan_hash = fingerprint(plan)
+    for declared in (entry.get('plan_hash'), summary.get('plan_hash')):
+        if declared is not None and declared != plan_hash:
+            raise ValueError('Packet PLAN/SUMMARY identity differs')
+    for flag in ('training_started', 'benchmark_training_started', 'GO_receipt_created'):
+        if summary.get(flag, False) is not False:
+            raise ValueError('Master preparation cannot import an executed/approved packet as disabled work')
+    for field in ('benchmark_optimizer_fits_executed', 'predictive_scores_computed', 'actual_model_fits',
+                  'actual_predictive_scores', 'scientific_training_runs'):
+        if summary.get(field, 0) != 0:
+            raise ValueError('Input packet contains executed scientific work: ' + field)
+    studies, bindings = [], [entry['plan'], entry['summary']]
+    for row in plan['studies']:
+        observed = receipt(root, row['path'])
+        raw = read_bound(root, observed)
+        spec = validate(json.loads(gzip.decompress(raw).decode() if row['path'].endswith('.gz') else raw))
+        if fingerprint(spec) != row['spec_hash']:
+            raise ValueError('Study contract differs from packet PLAN')
+        if any(s['study_id'] == spec['study_id'] for s in studies):
+            raise ValueError('Repeated study in packet')
+        for value in spec['source']['files']:
+            validate_receipt(value)
+        # Metadata-only preparation preserves declared source/data bindings.
+        # Target/graph arrays are never opened or rehashed here. The execution
+        # controller's bind_source rechecks actual files at its admitted stage.
+        bindings.append(observed)
+        studies.append(spec)
+    coverage = []
+    for value in entry.get('coverage', []):
+        raw = read_bound(root, value)
+        bindings.append(value)
+        coverage.append({'receipt': value, 'text': raw.decode('utf-8')})
+    barriers = plan.get('barriers', {})
+    records, deps = graph_check(studies, barriers)
+    assigned = set()
+    for group in plan['groups']:
+        for key in group['run_keys']:
+            if key in assigned or key not in records:
+                raise ValueError('Repeated/unknown packet assignment')
+            assigned.add(key)
+    if assigned != set(records):
+        raise ValueError('Packet has unassigned registered jobs')
+    references = {s['study_id']: reference_matches(s) for s in studies}
+    if any(not r['matched'] for rows in references.values() for r in rows):
+        raise ValueError('A packet omits a matched required reference cohort')
+    counts = typed_counts(studies)
+    return {'id': packet_id, 'plan': plan, 'plan_hash': plan_hash, 'summary': summary,
+            'studies': studies, 'bindings': merge_bindings(bindings), 'coverage': coverage,
+            'references': references, 'counts': counts,
+            'declared_source_data_bindings_rehashed': False}
+
+
+def readiness(root, index):
+    if index.get('schema') != 'disabled-master-input-index-v1':
+        raise ValueError('Use disabled-master-input-index-v1')
+    packets, report, seen = [], [], set()
+    for entry in index.get('packets', []):
+        if not isinstance(entry.get('id'), str) or not entry['id'] or entry['id'] in seen:
+            raise ValueError('Unique explicit packet IDs required')
+        seen.add(entry['id'])
+        if entry.get('status') == 'pending':
+            item = {'id': entry['id'], 'status': 'pending_unmaterialized', 'declaration': copy.deepcopy(entry)}
+            if 'manifest' in entry:
+                item['manifest'] = json.loads(read_bound(root, entry['manifest']))
+            report.append(item)
+            continue
+        try:
+            packet = load_packet(root, entry)
+            packets.append(packet)
+            report.append({'id': entry['id'], 'status': 'validated_disabled_metadata',
+                'plan_hash': packet['plan_hash'], 'study_count': len(packet['studies']),
+                'counts': packet['counts'], 'input_summary': packet['summary'],
+                'references': packet['references'], 'coverage': packet['coverage']})
+        except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as error:
+            report.append({'id': entry['id'], 'status': 'blocked_input', 'error_type': type(error).__name__, 'error': str(error)})
+    ids = [s['study_id'] for p in packets for s in p['studies']]
+    if len(ids) != len(set(ids)):
+        raise ValueError('Duplicate study ID across immutable packets; no implicit dedup/reuse')
+    merge_bindings(*(s['source']['files'] for p in packets for s in p['studies']))
+    return packets, {'schema': 'disabled-master-readiness-v1', 'packets': report,
+        'invalid_inputs': [r['id'] for r in report if r['status'] == 'blocked_input'],
+        'pending_unmaterialized_packets': [r['id'] for r in report if r['status'] == 'pending_unmaterialized'],
+        'ready_disabled_packet_count': len(packets), 'scientific_launch_enabled': False,
+        'human_GO_required': True, 'all_249_predictive_candidates_covered': False}
+
+
+def controller_bindings(root, relative):
+    runtime = safe_path(root, relative)
+    if runtime.is_relative_to(Path(root).resolve() / 'training_pipeline_v2_20261012'):
+        raise ValueError('Common controller must be frozen outside the live package')
+    values = [receipt(root, str((runtime / name).relative_to(Path(root).resolve()))) for name in CONTROLLER_FILES]
+    tree = ast.parse((runtime / 'run_study.py').read_text())
+    factories = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'load_factory']
+    if len(factories) != 1 or not any(isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and 'gnnm_packet_' in n.value for n in ast.walk(factories[0])):
+        raise ValueError('Common dispatcher must include the root namespace-isolating load_factory')
+    return values
+
+
+def scope(value, name):
+    if not isinstance(value, dict) or value.get('kind') not in SCOPES or not value.get('scope'):
+        raise ValueError('Explicit measured/provisional ' + name + ' scope required')
+    if value['kind'] in {'measured', 'measured_proxy', 'mixed'} and not value.get('evidence'):
+        raise ValueError('Measured resource scope requires saved evidence')
+    if value['kind'] in {'measured', 'measured_proxy', 'mixed'}:
+        for evidence in value['evidence']:
+            validate_receipt(evidence)
+    return copy.deepcopy(value)
+
+
+def apply_resources(study, profiles):
+    study = copy.deepcopy(study)
+    override = profiles.get(study['study_id'])
+    source_profile = copy.deepcopy(study['resources'].get('profile', {}))
+    if override is None:
+        scopes = {'memory': {'kind': 'unknown', 'scope': 'original packet declarations; explicit measured/provisional classification absent'},
+                  'time': {'kind': 'provisional', 'scope': 'original estimated_seconds; actual training/serializer throughput unmeasured'}}
+        run_overrides = {}
+    else:
+        scopes = {'memory': scope(override['memory'], 'memory'), 'time': scope(override['time'], 'time')}
+        run_overrides = override.get('runs', {})
+        if set(run_overrides) - {r['run_id'] for r in study['runs']}:
+            raise ValueError('Resource override addresses an unknown registered run')
+    for run in study['runs']:
+        change = run_overrides.get(run['run_id'], {})
+        if set(change) - {'reservation_mib', 'estimated_seconds'}:
+            raise ValueError('Master resource overrides cannot alter learning/source/selector decisions')
+        run['config'].update(change)
+        number(run['config'].get('reservation_mib'), 'run reservation MiB', integer=True)
+        number(run['config'].get('estimated_seconds'), 'run estimated seconds', zero=True)
+        if 'maximum_cuda_bytes' in run['config']:
+            run['config']['maximum_cuda_bytes'] = run['config']['reservation_mib'] * MIB
+    study['resources']['master_resource_scope'] = {'scopes': scopes, 'original_packet_profile': source_profile,
+                                                 'override': copy.deepcopy(override)}
+    return study
+
+
+def assemble(root, packets, ready, controller, controller_files, resources, output_relative, input_bindings, host_bindings=None):
+    root = Path(root).resolve()
+    capacities = resources['worker_capacities_cuda_bytes']
+    if set(capacities) != set(DEFAULT_WORKERS):
+        raise ValueError('Declare all three logical worker planning capacities')
+    for name, value in capacities.items():
+        number(value, name + ' CUDA capacity bytes', integer=True)
+    if ready['invalid_inputs'] or not packets:
+        raise ValueError('Cannot prepare master from invalid or empty compiled packet roster')
+    studies, origins, barriers, original_groups = [], {}, {}, []
+    files = merge_bindings(controller_files, input_bindings)
+    for packet in packets:
+        original_groups.extend(packet['plan']['groups'])
+        for key, values in packet['plan'].get('barriers', {}).items():
+            if key in barriers:
+                raise ValueError('Repeated cross-study barrier identity')
+            barriers[key] = copy.deepcopy(values)
+        for original in packet['studies']:
+            study = apply_resources(original, resources.get('study_profiles', {}))
+            if study['study_id'] in origins:
+                raise ValueError('Duplicate master study ID')
+            origins[study['study_id']] = {'packet_id': packet['id'], 'input_plan_hash': packet['plan_hash'],
+                'input_spec_hash': fingerprint(original), 'input_resource_scope': copy.deepcopy(original['resources'])}
+            study['source']['files'] = merge_bindings(study['source']['files'], files, packet['bindings'])
+            study['source']['master_controller'] = {'runtime_package': controller, 'files': controller_files,
+                'adapter_dependencies': 'original frozen packet factory paths and own namespace imports preserved'}
+            if all(run['kind'] == 'author_cli_group' for run in study['runs']):
+                study['source']['worker_entrypoint'] = controller + '/run_author_cli.py'
+            study['source']['master_input_identity'] = origins[study['study_id']]
+            study['release']['global_plan_gates_required'] = True
+            study['release']['master_gate_scope'] = 'all materialized packets, matched reference cohorts and assigned hosts'
+            validate(study)
+            studies.append(study)
+    if set(resources.get('study_profiles', {})) - set(origins):
+        raise ValueError('Resource profile names an absent study')
+    merge_bindings(*(s['source']['files'] for s in studies))
+    records, deps = graph_check(studies, barriers)
+    granularity = resources.get('group_granularity', 'study')
+    if granularity not in {'study', 'dependency'}:
+        raise ValueError('Use explicit study or actual dependency-component grouping')
+    parents = ({key: key for key in records} if granularity == 'dependency' else
+               {s['study_id']: s['study_id'] for s in studies})
+    def find(identifier):
+        while parents[identifier] != identifier:
+            parents[identifier] = parents[parents[identifier]]
+            identifier = parents[identifier]
+        return identifier
+    def union(left, right):
+        a, b = find(left), find(right)
+        if a != b:
+            parents[max(a, b)] = min(a, b)
+    components = {}
+    if granularity == 'dependency':
+        for key, values in deps.items():
+            for value in values:
+                union(key, value)
+        for group in original_groups:
+            if group.get('must_remain_together'):
+                for key in group['run_keys']:
+                    union(min(group['run_keys']), key)
+        for key in records:
+            components.setdefault(find(key), []).append(key)
+    else:
+        for group in original_groups:
+            names = {records[key]['study'] for key in group['run_keys']}
+            for name in names:
+                union(min(names), name)
+        for key, values in deps.items():
+            for value in values:
+                union(records[key]['study'], records[value]['study'])
+        for key, value in records.items():
+            components.setdefault(find(value['study']), []).append(key)
+    groups = []
+    for identifier, component_keys in sorted(components.items()):
+        keys = sorted(component_keys)
+        names = {records[key]['study'] for key in keys}
+        cost = sum(records[key]['run']['config']['estimated_seconds'] for key in keys)
+        memory = max(records[key]['run']['config']['reservation_mib'] for key in keys) * MIB
+        group = {'id': identifier, 'study_ids': sorted(names), 'run_keys': keys,
+                 'estimated_seconds': cost, 'maximum_cuda_bytes': memory}
+        if any(records[key]['run']['kind'] == 'author_cli_group' for key in keys):
+            # The current source/private-library/runtime bindings are allocation-specific.
+            # A separate 18.77 environment must be qualified before that protocol can move.
+            group['allowed_workers'] = ['allocation/gpu0']
+        groups.append(group)
+    placement = assign(groups, capacities)
+    assigned = {key: group['gpu_assignment'] for group in placement['groups'] for key in group['run_keys']}
+    gates = {}
+    gate_rows = [('whole_search', ['search', 'search_selection'], ['comparative', 'author_cli']),
+        ('whole_comparative', ['comparative'], ['bank_export', 'calibration', 'evaluation']),
+        ('whole_calibration', ['calibration'], ['evaluation'])]
+    if any(record['run']['kind'] == 'author_cli_group' for record in records.values()):
+        gate_rows.append(('whole_author', ['author_cli'], []))
+    for name, phases, required in gate_rows:
+        cohort = sorted(key for key, record in records.items() if record['run']['config']['stage'] in phases)
+        blocked_jobs = [key for key, record in records.items() if record['run']['config']['stage'] in required]
+        if blocked_jobs and not cohort:
+            raise ValueError('A required global phase has no actual registered closure cohort')
+        gates[name] = {'path': output_relative + '/gate_receipts/' + name + '.json',
+            'source_stages': phases, 'required_for_stages': required,
+            'required_hosts': sorted({assigned[key].split('/')[0] for key in cohort}),
+            'all_packet_source_run_keys': cohort, 'input_packet_gate_receipts_accepted': False,
+            'receipt_contract': 'status=complete;plan_hash=current_plan_hash;closed_phase=gate_name;host_receipts_keys=required_hosts'}
+    plan = {'schema_version': 1, 'slots_per_gpu': 2, 'torch_threads_per_fit': 2,
+        'runtime_package': controller, 'runtime_launcher': controller + '/launcher.py',
+        'immutable_source_bundle': {'package': controller, 'files': controller_files,
+            'model_worker_entrypoint': controller + '/run_study.py', 'endpoint_worker_entrypoint': controller + '/run_endpoint.py'},
+        'output_root': output_relative + '/execution', 'studies': [], 'groups': placement['groups'],
+        'estimated_gpu_seconds': placement['estimated_gpu_seconds'], 'worker_capacities_cuda_bytes': capacities,
+        'estimates_are_measurements': False, 'barriers': barriers, 'global_gates': gates,
+        'host_bindings': copy.deepcopy(host_bindings or {'allocation': {'status': 'pending_live_verification_before_launch'},
+            'server77': {'status': 'pending_live_verification_before_launch'}}),
+        'scientific_launch_enabled': False, 'human_GO_required': True, 'approval_receipt_created': False}
+    plan['group_granularity'] = granularity
+    if 'phase_rendezvous' in resources:
+        from phase_rendezvous import transport_policy
+        plan['phase_rendezvous'] = copy.deepcopy(resources['phase_rendezvous'])
+        transport_policy(plan, plan['phase_rendezvous'].get('remote_name'))
+    summary = {'schema': 'disabled-master-summary-v1', 'status': 'PREPARED_DISABLED_REQUIRES_COVERAGE_RESOURCE_REFERENCE_QA_AND_HUMAN_GO',
+        'counts': typed_counts(studies), 'input_readiness': ready, 'input_packet_summaries': {p['id']: p['summary'] for p in packets},
+        'input_packet_coverages': {p['id']: p['coverage'] for p in packets}, 'per_study': [], 'per_worker': {},
+        'pending_unmaterialized_packets': ready['pending_unmaterialized_packets'],
+        'all_249_predictive_candidates_covered': False, 'author_replication_ready': False,
+        'scientific_launch_enabled': False, 'human_GO_required': True, 'GO_receipt_created': False,
+        'actual_model_fits': 0, 'actual_predictive_scores': 0, 'source_data_arrays_opened': 0,
+        'source_data_fingerprint_policy': 'preserved immutable packet declarations; controller rechecks files at admitted execution',
+        'unknown_costs_are_not_zero': True, 'remote_capacities_are_planning_bounds_not_live_host_proofs': True}
+    for study in studies:
+        keys = [key for key, value in records.items() if value['study'] == study['study_id']]
+        references = reference_matches(study)
+        if any(not row['matched'] for row in references):
+            raise ValueError('Rewritten master lost a matched reference cohort')
+        workers = sorted({assigned[key] for key in keys})
+        summary['per_study'].append({'study_id': study['study_id'], 'dataset': study['dataset'], 'origin': origins[study['study_id']],
+            'counts': typed_counts([study]), 'references': references,
+            'worker': workers[0] if len(workers) == 1 else None, 'workers': workers,
+            'estimated_gpu_seconds': sum(records[k]['run']['config']['estimated_seconds'] for k in keys),
+            'reservation_mib': max(records[k]['run']['config']['reservation_mib'] for k in keys),
+            'resource_scope': study['resources']['master_resource_scope'],
+            'preserved_comparison_contracts': study['comparisons'], 'preserved_data_evidence': study['data']['evidence']})
+    for worker in DEFAULT_WORKERS:
+        own = []
+        for study in studies:
+            own_runs = [run for run in study['runs'] if assigned[study['study_id'] + '/' + run['run_id']] == worker]
+            if own_runs:
+                own.append({**study, 'runs': own_runs})
+        reservations = sorted((r['config']['reservation_mib'] for s in own for r in s['runs']), reverse=True)
+        pair = sum(reservations[:2]) * MIB
+        summary['per_worker'][worker] = {'study_ids': [s['study_id'] for s in own], 'counts': typed_counts(own),
+            'estimated_gpu_seconds': placement['estimated_gpu_seconds'][worker],
+            'estimated_serial_gpu_days': placement['estimated_gpu_seconds'][worker] / 86400,
+            'two_slot_wall_time_is_not_half_serial_time': True, 'capacity_bytes': capacities[worker],
+            'maximum_run_reservation_bytes': max(reservations, default=0) * MIB,
+            'two_largest_registered_run_reservations_bytes': pair, 'worst_pair_fits_declared_capacity': pair <= capacities[worker],
+            'concurrent_throughput_measured': False, 'live_hardware_and_external_headroom_qualification_pending': True,
+            'resource_scopes_by_study': {s['study_id']: s['resources']['master_resource_scope'] for s in own}}
+    return plan, studies, summary
+
+
+def write_master(root, output_relative, plan, studies, summary):
+    output = safe_path(root, output_relative)
+    if output.is_relative_to(Path(root).resolve() / 'training_pipeline_v2_20261012') or output.exists():
+        raise ValueError('Fresh output outside the live package required')
+    output.mkdir(parents=True, exist_ok=False)
+    (output / 'studies').mkdir()
+    for study in studies:
+        path = output / 'studies' / (study['study_id'] + '.json.gz')
+        path.write_bytes(gzip.compress((canonical(study) + '\n').encode(), mtime=0))
+        plan['studies'].append({'path': str(path.relative_to(Path(root).resolve())), 'spec_hash': fingerprint(study)})
+    summary['plan_hash'] = fingerprint(plan)
+    for name, value in [('PLAN.json', plan), ('SUMMARY.json', summary), ('READINESS.json', summary['input_readiness'])]:
+        (output / name).write_text(json.dumps(value, indent=2, allow_nan=False) + '\n')
+    with (output / 'WORKER_COSTS.csv').open('w', newline='') as stream:
+        writer = csv.DictWriter(stream, fieldnames=['worker', 'atomic_fit_groups', 'paid_optimizer_starts', 'physical_bodies',
+            'estimated_gpu_seconds', 'epoch_update_groups_unknown', 'capacity_bytes', 'worst_pair_bytes', 'worst_pair_fits'])
+        writer.writeheader()
+        for worker, row in summary['per_worker'].items():
+            counts = row['counts']['totals']
+            writer.writerow({'worker': worker, 'atomic_fit_groups': counts.get('atomic_fit_run_groups', 0),
+                'paid_optimizer_starts': counts.get('paid_optimizer_starts', 0), 'physical_bodies': counts.get('physical_slow_body_instances', 0),
+                'estimated_gpu_seconds': row['estimated_gpu_seconds'],
+                'epoch_update_groups_unknown': row['counts']['epoch_fit_groups_with_unresolved_minibatch_update_count'],
+                'capacity_bytes': row['capacity_bytes'], 'worst_pair_bytes': row['two_largest_registered_run_reservations_bytes'],
+                'worst_pair_fits': row['worst_pair_fits_declared_capacity']})
+    return summary['plan_hash']
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--project-root', required=True)
+    parser.add_argument('--packet-index', required=True)
+    parser.add_argument('--mode', choices=('dry-run', 'prepare'), default='dry-run')
+    parser.add_argument('--controller-runtime')
+    parser.add_argument('--resources')
+    parser.add_argument('--host-bindings')
+    parser.add_argument('--output')
+    args = parser.parse_args()
+    verify_allocation()
+    root = Path(args.project_root).resolve()
+    index_binding = receipt(root, args.packet_index)
+    packets, ready = readiness(root, json.loads(read_bound(root, index_binding)))
+    if args.mode == 'dry-run':
+        print(json.dumps(ready, indent=2, allow_nan=False))
+        return 2 if ready['invalid_inputs'] else 0
+    if not all((args.controller_runtime, args.resources, args.output)):
+        parser.error('prepare requires controller-runtime, resources and output')
+    controller = str(safe_path(root, args.controller_runtime).relative_to(root))
+    control_files = controller_bindings(root, controller)
+    resource_binding = receipt(root, args.resources)
+    resources = json.loads(read_bound(root, resource_binding))
+    inputs = [index_binding, resource_binding]
+    host_bindings = None
+    if args.host_bindings:
+        host_binding = receipt(root, args.host_bindings)
+        inputs.append(host_binding)
+        host_bindings = json.loads(read_bound(root, host_binding))
+    for profile in resources.get('study_profiles', {}).values():
+        for label in ('memory', 'time'):
+            value = scope(profile[label], label)
+            for evidence in value.get('evidence', []):
+                if isinstance(evidence, dict):
+                    read_bound(root, evidence)
+                    inputs.append(evidence)
+    plan, studies, summary = assemble(root, packets, ready, controller, control_files, resources, args.output, merge_bindings(inputs), host_bindings)
+    digest = write_master(root, args.output, plan, studies, summary)
+    print(canonical({'status': 'prepared_disabled', 'plan_hash': digest, 'output': args.output,
+        'studies': len(studies), 'counts': summary['counts']['totals'], 'GO_receipt_created': False,
+        'pending_packets': ready['pending_unmaterialized_packets']}))
+
+
+if __name__ == '__main__':
+    main()

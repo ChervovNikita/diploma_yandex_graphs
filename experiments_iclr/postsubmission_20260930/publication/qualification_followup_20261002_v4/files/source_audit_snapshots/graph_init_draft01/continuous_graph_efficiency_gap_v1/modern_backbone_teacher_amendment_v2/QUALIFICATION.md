@@ -1,0 +1,17 @@
+# Supplemented qualification custody v2
+
+No numerical qualification was run by this child. Short v2 qualification writes modern-teacher-partial-qualification-v2 with partial_checks_passed=true, admission_eligible=false, report_eligible=false. Its assertions remain v1 identity/mean-common-weight gradients, aggregate finite loss and selected replay checks. It does not claim the broader external audit automatically.
+
+Root's separately versioned qualification_entry/full_parity instrumentation supplies modern-external-runtime-audit-v2: exact partial receipt/tested admission/source seal, graph/role/train+validation/provider/extraction/N/F/C/E identity, runtime, model hashes, actual preprocessing evidence, instrumentation source descriptors, full attempt history and explicit failure retention. Required external checks cover exact optimizer membership/native grouping; finite all-node logits/active gradients; each member's connectivity; copied B/dormant ownership; exact Photo local model/Adam tensors/step restoration and final model restoration; full-graph identity/shared-W/private-B gradient parity; strict selected checkpoint replay and primitive weights_only metadata.
+
+Frozen tolerances remain logits rtol1e-5/atol1e-6 and gradients rtol1e-4/atol1e-6. Evidence must explain inapplicable Squirrel local/global checks explicitly. No tolerance rescue is provided.
+
+certify-qualification verifies compatible immutable v1/v2 model bytes and the root-tested preprocessing metadata, then records tested admission/config, source seals and target preprocessing identity (interface hashes differ; neural bytes do not). A broad v1 pass alone cannot certify. Failed prior attempts and separately versioned repairs/runtime/backend instrumentation remain in history. Actual deterministic/CUBLAS flags and the fixed CPU APS backend are declared; determinism is never disabled.
+
+Scientific teacher fit verifies its exact input identity and supplemented certificate, actual preprocessing and separate modern-full-schedule-feasibility-v2 approval before opening label arrays. Resource evidence can be complete-graph stage/update/peak measurements with explicit full native schedule accounting; a prior completed full schedule is not mandatory. A first full schedule can be a registered actual scientific cell after approval. Different role/label cases cannot silently reuse seed17-only certificates. Short qualification never becomes full-fit utility or a measured completion claim.
+
+Root retains responsibility for every external runtime check, source/data/provider row identity, numerical validity, all-stage/member resource feasibility, exact admission and held-pool release.
+
+## Explicit seed coverage amendment
+
+Root authorized numerical operator/runtime qualification on seed17 only, plus a separately audited exact same-graph/provider/row/source-label coverage list for seeds17/29/43. The modern-exact-role-label-coverage-v2 record binds every exact target role/train/validation descriptor and independently verifies shape/range/node alignment/extraction evidence. Certificate tested_seed17_input remains separate from authorized_target_input/input_identity, numerical_tested_seeds=[17], and numerical_tests_on_target_seed is false for29/43. No numerical test on those untested seeds is claimed. Every registered target cell retains its exact pack binding and normal full-fit finite-loss/gradient/failure gates. This permits all72 complete admissions to be preregistered without twelve repetitive GPU qualifications.

@@ -1,0 +1,98 @@
+--- a/compile_master_plan.py
++++ b/compile_master_plan.py
+@@ -31,7 +31,7 @@
+                     'ogb_author_cli_spec.py', 'run_ogb_author_cli.py', 'ogb_declared_seed_entry.py')
+ STAGE_KIND = {'search': 'model_fit', 'comparative': 'model_fit', 'search_selection': 'selection',
+               'bank_export': 'ensemble_assembly', 'calibration': 'calibration', 'evaluation': 'evaluation',
+-              'author_cli': 'author_cli_group'}
++              'author_cli': 'author_cli_group','native_capture':'selection'}
+ SCOPES = {'measured', 'measured_proxy', 'provisional', 'mixed', 'unknown'}
+ POLYFORMER_MODES = {'polyformer_single', 'polyformer_factorized_single', 'polyformer_internal_be',
+                     'polyformer_original_boundary_own', 'polyformer_boundary_equipped_M1_own'}
+@@ -65,6 +65,13 @@
+     for kind in ('single', 'be_init')}
+ POLYNORMER_QK_ARMS.update(bare_native_single=('bare', 'single', 1),
+                           original_gnnm=('original_boundary', 'boundary4', 4))
++# served routes, source head forwards, backwards, optimizer owners per label cycle.
++PAID_LABEL_WORK = {
++    'staged_posterior_c4':(4,4,4,1),'staged_posterior_s_joint4head':(1,4,1,1),
++    'staged_posterior_u4_sharedb':(4,4,4,4),'staged_posterior_s_one_path':(1,1,1,1),
++    'query_value_gate_c4_gate':(4,4,4,1),'query_value_gate_s_joint4head_gate':(1,4,1,1),
++    'query_value_gate_u4_sameb_full_untied_gate':(4,4,4,4),'query_value_gate_s_one_path_gate':(1,1,1,1),
++    'query_value_gate_c4_gate_identity_erased':(4,4,4,1)}
+ 
+ 
+ def source_parent_arm(family, arm):
+@@ -147,7 +154,16 @@
+     family = staged_family(config)
+     train_calls = {}
+     constructor_overhead = {}
+-    if 'polynormer_qk_arm' in config:
++    if config.get('architecture') == 'paid_native_label_stage':
++        arm = PAID_LABEL_WORK.get(config.get('paid_label_arm'))
++        if (arm is None or unit != 'epochs' or maximum != 5000 or config.get('label_cycles') != 5000
++                or config.get('source_optimizer_count') != arm[3] or config.get('physical_slow_bodies') != 0
++                or config.get('members') != arm[0] or config.get('lifecycle',{}).get('schema') != 'paid-native-capture-label-stage-v1'):
++            raise ValueError('Paid native label stage must retain paid parent, exact source owners and complete old-state label cycles')
++        objects,bodies,calls,law=arm[3],0,maximum*arm[3],'paid_native_frozen_capture_fresh_label_owners'
++        train_calls={'known_source_TRAIN_forward_calls':maximum*arm[1],'known_source_TRAIN_backward_calls':maximum*arm[2]}
++        constructor_overhead={'unstepped_pre_install_Adam_constructor_objects':int('s_joint4head' in config['paid_label_arm'])}
++    elif 'polynormer_qk_arm' in config:
+         source = POLYNORMER_QK_ARMS.get(config['polynormer_qk_arm'])
+         if source is None:
+             raise ValueError('Unknown native Polynormer Q/K source arm')
+@@ -426,6 +442,25 @@
+                         or parent['budget']['policy'] != 'full_budget'
+                         or parent['budget']['unit'] != 'optimizer_updates'):
+                     raise ValueError('Staged continuation has mismatched or ineligible paid source ancestry')
++            elif paid and run['config'].get('architecture') == 'paid_native_label_stage':
++                parent=records[row['study']+'/'+paid[0]]['run']
++                capture=records.get(row['study']+'/'+run['config'].get('capture_parent',''),{}).get('run')
++                if (parent['config'].get('polynormer_qk_arm') != 'bare_native_single'
++                        or any(parent.get(k) != run.get(k) for k in ('split','seed','body'))
++                        or parent['config']['node_inputs'] != run['config']['node_inputs']
++                        or parent['config']['stage'] != run['config']['stage']
++                        or parent['selection'].get('checkpoint0') is not False
++                        or run['selection'].get('checkpoint0') is not False
++                        or parent['budget'] != {'unit':'optimizer_updates','policy':'full_budget','maximum':5000}
++                        or capture is None or capture['config'].get('native_capture') is not True
++                        or capture['kind'] != 'selection' or capture['config'].get('stage') != 'native_capture'
++                        or run['config']['capture_parent'] not in run['parents']
++                        or any(capture.get(k) != run.get(k) for k in ('split','seed','body'))
++                        or capture['config'].get('capture_source') != run['config']['label_sources']['capture']
++                        or capture['config'].get('classes') != run['config']['classes']
++                        or capture['config'].get('native_fit_parent') != paid[0]
++                        or capture['parents'] != paid):
++                    raise ValueError('Label stage must bind its matching new paid own-native/capture cohort')
+             elif paid:
+                 raise ValueError('Only an explicitly typed staged continuation lifecycle is admitted')
+     if set(barriers) - set(records):
+@@ -490,8 +525,9 @@
+                 count.update(quantities)
+                 totals.update(quantities)
+             else:
+-                name = {'selection': 'search_selection_jobs', 'ensemble_assembly': 'bank_exports',
++                name = ('paid_native_capture_jobs' if stage == 'native_capture' else {'selection': 'search_selection_jobs', 'ensemble_assembly': 'bank_exports',
+                         'calibration': 'scalar_CAL_fit_jobs', 'evaluation': 'evaluation_jobs'}[run['kind']]
++                        )
+                 count[name] += 1
+                 totals[name] += 1
+                 if run['kind'] == 'calibration':
+--- a/run_study.py
++++ b/run_study.py
+@@ -138,6 +138,15 @@
+     lifecycle = run["config"].get("lifecycle")
+     if lifecycle is None:
+         return []
++    if isinstance(lifecycle, dict) and lifecycle.get('schema') == 'paid-native-capture-label-stage-v1':
++        if (set(lifecycle) != {'schema','parent_fit_ids','new_label_optimizer','native_initialization','label_initialization'}
++                or lifecycle['new_label_optimizer'] is not True
++                or lifecycle['native_initialization'] != 'own_selected_native_frozen_capture'
++                or lifecycle['label_initialization'] != 'fresh_source_maps_no_native_optimizer_reuse'
++                or not isinstance(lifecycle['parent_fit_ids'],list) or len(lifecycle['parent_fit_ids']) != 1
++                or not isinstance(lifecycle['parent_fit_ids'][0],str)):
++            raise ValueError('Exact paid native/capture/fresh-label lifecycle required')
++        return lifecycle['parent_fit_ids']
+     if (not isinstance(lifecycle, dict) or set(lifecycle) != {
+             "schema", "parent_fit_ids", "new_optimizer", "parameter_initialization"}
+             or lifecycle.get("schema") != "paid-parent-continuation-v1"

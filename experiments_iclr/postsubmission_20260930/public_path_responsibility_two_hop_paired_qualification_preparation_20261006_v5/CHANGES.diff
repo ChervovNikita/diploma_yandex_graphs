@@ -1,0 +1,190 @@
+--- public_path_responsibility_two_hop_paired_qualification_preparation_20261006_v4/qualify_bridge.py
++++ public_path_responsibility_two_hop_paired_qualification_preparation_20261006_v5/qualify_bridge.py
+@@ -161,13 +161,24 @@
+         return result
+ 
+ 
+-def precision_action_derivative(adapter, port, edges, terminals, lap, matrix, q, v, sparse_gradient):
++def precision_action_derivative(adapter, port, edges, terminals, lap, matrix, q, v, sparse_gradient, progress):
+     """Isolated oracle only: independent public stars, frozen FP64 algebra, FP32 envelope.
+ 
+     No native/response/Q-map precision changes. Bounds depend on graph reduction
+     lengths and absolute terms, never on the observed sparse/dense discrepancy.
+     """
+     torch = sys.modules["torch"]
++    def reported(value):
++        number = float(value)
++        return number if math.isfinite(number) else str(number)
++    dense_gradient = matrix.T @ v
++    s, a = sparse_gradient.detach().double(), dense_gradient.double()
++    difference = (s - a).abs(); original_gate = GRAD_ATOL + GRAD_RTOL * a.abs()
++    progress.update(scope="isolated_linear_action_derivative_only", status="RUNNING",
++        FP32_sparse_dense_max_abs_error=reported(difference.max()),
++        original_FP32_strict_gate_failed_coordinates=int((difference > original_gate).sum()),
++        original_FP32_strict_gate_max_ratio=reported((difference / original_gate).max()),
++        completed_stages=[], FP64_sparse_action_attempts=0, FP64_gradient_API_attempts=0)
+     def gamma(count, bits):
+         value = count * 2.0 ** -bits
+         require(0 <= value < 1, "Invalid fixed rounding operation budget")
+@@ -190,6 +201,7 @@
+     groups = {}
+     for row, interior in zip(rows.tolist(), interior_ids.tolist()): groups.setdefault(interior, []).append(row)
+     require(all(len(values) == len(set(values)) for values in groups.values()), "Duplicate public star incidence")
++    progress["completed_stages"].append("independent_public_star_incidence")
+     def bridge(weights):
+         terms = {}
+         for interior, neighbours in groups.items():
+@@ -206,8 +218,12 @@
+     normalization = math.fsum((1.0, float(direct.sum(1).max()), float(B.diagonal().max())))
+     weights32 = lap.bridge.inverse_full_degree.detach().cpu().double()
+     expected_weights = torch.tensor([ideal_weights[u] for u in interiors.tolist()], dtype=torch.float64)
+-    require(bool(((weights32 - expected_weights).abs() <=
+-        (gamma(1, 24) + gamma(2, 53)) * expected_weights).all()), "FP32 reciprocal formation outside rounding bound")
++    reciprocal_error = (weights32 - expected_weights).abs()
++    reciprocal_bound = (gamma(1, 24) + gamma(2, 53)) * expected_weights
++    progress["reciprocal_formation"] = {"max_abs_error": reported(reciprocal_error.max()),
++        "max_bound": reported(reciprocal_bound.max()), "failed_coordinates": int((reciprocal_error > reciprocal_bound).sum())}
++    require(bool((reciprocal_error <= reciprocal_bound).all()), "FP32 reciprocal formation outside rounding bound")
++    progress["completed_stages"].append("reciprocal_formation")
+     p = lap.permutation.cpu()
+     R = ((D + B[p][:, p]) / normalization).to(device=q.device)
+     frozen_weights = {u: float(weights32[j]) for j, u in enumerate(interiors.tolist())}
+@@ -221,14 +237,28 @@
+     m = dmax + tmax + kmax + 8
+     dense_m = 2 * n + 2; reference_m = 4 * n + 16
+     sparse_coeff_m = tmax + 8; dense_coeff_m = 2 * interiors.numel() + 2 * n + 8
++    progress["operation_budgets"] = {"sparse": m, "dense": dense_m, "reference_FP64": reference_m,
++                                     "sparse_coefficient": sparse_coeff_m, "dense_coefficient": dense_coeff_m}
+     # Positive coefficient formation has no subtraction cancellation. Check it
+     # separately so a wrong coefficient cannot be absorbed by the action envelope.
+     coefficient_uncertainty = gamma(16, 53) * R.abs() / (1 - gamma(16, 53))
+-    require(bool(((F - R).abs() <= gamma(sparse_coeff_m, 24) * R.abs() + coefficient_uncertainty).all()),
++    sparse_coefficient_error = (F - R).abs()
++    sparse_coefficient_bound = gamma(sparse_coeff_m, 24) * R.abs() + coefficient_uncertainty
++    progress["sparse_coefficient_formation"] = {"max_abs_error": reported(sparse_coefficient_error.max()),
++        "max_bound": reported(sparse_coefficient_bound.max()),
++        "failed_coordinates": int((sparse_coefficient_error > sparse_coefficient_bound).sum())}
++    require(bool((sparse_coefficient_error <= sparse_coefficient_bound).all()),
+             "Frozen sparse coefficients outside formation bound")
++    progress["completed_stages"].append("sparse_coefficient_formation")
+     A = matrix.detach().double()
+-    require(bool(((A - R).abs() <= gamma(dense_coeff_m, 24) * R.abs() + coefficient_uncertainty).all()),
++    dense_coefficient_error = (A - R).abs()
++    dense_coefficient_bound = gamma(dense_coeff_m, 24) * R.abs() + coefficient_uncertainty
++    progress["dense_coefficient_formation"] = {"max_abs_error": reported(dense_coefficient_error.max()),
++        "max_bound": reported(dense_coefficient_bound.max()),
++        "failed_coordinates": int((dense_coefficient_error > dense_coefficient_bound).sum())}
++    require(bool((dense_coefficient_error <= dense_coefficient_bound).all()),
+             "Dense FP32 coefficients outside formation bound")
++    progress["completed_stages"].append("dense_coefficient_formation")
+     # Fixed trigonometric probes and integer counts keep all nonzero primitive
+     # intermediates normal: dyadic granularity >=2^-110, below overflow. Thus
+     # the standard round-to-nearest gamma model applies without an underflow term.
+@@ -239,6 +269,7 @@
+         magnitude = x.abs()
+         require(x.dtype == torch.float32 and bool(torch.isfinite(x).all()) and bool((magnitude <= 1).all())
+                 and bool(((magnitude == 0) | (magnitude >= 2.0 ** -32)).all()), "Fixed FP32 probe rounding domain differs")
++    progress["completed_stages"].append("normal_rounding_domain")
+     def mass(x):
+         # Absolute expanded sparse DAG includes the self terms that cancel.
+         z = x.abs()[lap.inverse_permutation]
+@@ -253,18 +284,23 @@
+     bridge64 = adapter.StarBridgeLaplacian(b.row, b.column, b.inverse_full_degree.double(), b.terminal_neighbours, b.degree.double())
+     frozen64 = adapter.DirectAndBridgeLaplacian(direct64, bridge64, lap.permutation, lap.inverse_permutation, lap.normalization.double())
+     leaf = q.detach().double().requires_grad_(True)
++    progress["FP64_sparse_action_attempts"] += 1
+     action64 = frozen64 @ leaf
++    progress["FP64_gradient_API_attempts"] += 1
+     gradient64, = torch.autograd.grad((action64 * v.double()).sum(), (leaf,))
+     algebra_errors = {}
++    progress["FP64_frozen_coefficient_algebra"] = algebra_errors
+     for kind, x, actual, coefficients in (("action", leaf.detach(), action64.detach(), F),
+                                          ("VJP", v.double(), gradient64, F.T)):
+         expected = coefficients @ x
+         absolute_mass = coefficients.abs() @ x.abs()
+         bound = gamma(m, 53) * mass(x) + gamma(reference_m, 53) * absolute_mass / (1 - gamma(reference_m, 53)) ** 2
+         error = (actual - expected).abs()
++        algebra_errors[kind] = {"max_abs_error": reported(error.max()), "max_rounding_bound": reported(bound.max()),
++            "failed_coordinates": int((error > bound).sum())}
+         require(bool(torch.isfinite(error).all()) and bool(torch.isfinite(bound).all())
+                 and bool((error <= bound).all()), "Independent frozen-coefficient FP64 " + kind + " algebra failed")
+-        algebra_errors[kind] = {"max_abs_error": float(error.max()), "max_rounding_bound": float(bound.max())}
++        progress["completed_stages"].append("FP64_" + kind + "_algebra")
+     x = v.double(); sparse_mass = mass(x); dense_mass = A.T.abs() @ x.abs()
+     reference = R.T @ x
+     uncertainty = gamma(reference_m, 53) * ((F.T.abs() + A.T.abs() + R.T.abs()) @ x.abs()) / (1 - gamma(reference_m, 53)) ** 2
+@@ -273,27 +309,24 @@
+     sparse_bound = sparse_round + (F.T - R.T).abs() @ x.abs() + uncertainty
+     dense_bound = dense_round + (A.T - R.T).abs() @ x.abs() + uncertainty
+     pair_bound = sparse_round + dense_round + (F.T - A.T).abs() @ x.abs() + 2 * uncertainty
+-    dense_gradient = matrix.T @ v
+-    s, a = sparse_gradient.detach().double(), dense_gradient.double()
++    envelope_rows = {}; progress["FP32_envelopes"] = envelope_rows
+     for label, error, bound in (("sparse", (s - reference).abs(), sparse_bound),
+                                 ("dense", (a - reference).abs(), dense_bound),
+                                 ("sparse_dense", (s - a).abs(), pair_bound)):
++        envelope_rows[label] = {"max_abs_error": reported(error.max()), "max_bound": reported(bound.max()),
++            "failed_coordinates": int((error > bound).sum())}
+         require(bool(torch.isfinite(error).all()) and bool(torch.isfinite(bound).all())
+                 and bool((error <= bound).all()), "FP32 isolated VJP outside declared " + label + " rounding envelope")
+-    difference = (s - a).abs(); original_gate = GRAD_ATOL + GRAD_RTOL * a.abs()
+-    return {"scope": "isolated_linear_action_derivative_only", "FP64_frozen_coefficient_algebra": algebra_errors,
+-        "FP32_sparse_reference_max_abs_error": float((s - reference).abs().max()),
+-        "FP32_dense_reference_max_abs_error": float((a - reference).abs().max()),
+-        "FP32_sparse_dense_max_abs_error": float(difference.max()),
+-        "original_FP32_strict_gate_failed_coordinates": int((difference > original_gate).sum()),
+-        "original_FP32_strict_gate_max_ratio": float((difference / original_gate).max()),
+-        "FP32_sparse_max_envelope": float(sparse_bound.max()), "FP32_dense_max_envelope": float(dense_bound.max()),
+-        "FP32_pair_max_envelope": float(pair_bound.max()), "all_coordinate_envelopes_passed": True,
+-        "operation_budgets": {"sparse": m, "dense": dense_m, "reference_FP64": reference_m,
+-                              "sparse_coefficient": sparse_coeff_m, "dense_coefficient": dense_coeff_m}}
+-
+-
+-def independent_dense_banks(op, data, originals, banks, compare, adapter, port):
++        progress["completed_stages"].append("FP32_" + label + "_envelope")
++    progress.update(status="PASS_ISOLATED_PRECISION_ONLY",
++        FP32_sparse_reference_max_abs_error=reported((s - reference).abs().max()),
++        FP32_dense_reference_max_abs_error=reported((a - reference).abs().max()),
++        FP32_sparse_max_envelope=reported(sparse_bound.max()), FP32_dense_max_envelope=reported(dense_bound.max()),
++        FP32_pair_max_envelope=reported(pair_bound.max()), all_coordinate_envelopes_passed=True)
++    return progress
++
++
++def independent_dense_banks(op, data, originals, banks, compare, adapter, port, receipt, save):
+     """Qualification-only public-incidence matrices, independent of adapter factors.
+ 
+     This oracle is not supplied by the adapter and does not change its source.
+@@ -348,8 +381,22 @@
+             q = torch.sin(torch.arange(n * 4, device=edges.device).reshape(n, 4) / 97.0).requires_grad_(True)
+             v = torch.cos(torch.arange(n * 4, device=edges.device).reshape(n, 4) / 89.0)
+             sparse_gradient, = torch.autograd.grad((candidate.laplacian @ q * v).sum(), (q,))
+-            linear_precision = precision_action_derivative(adapter, port, edges, T,
+-                candidate.laplacian, matrix, q, v, sparse_gradient)
++            linear_precision = {"classes": list(original.classes), "bank": label, "status": "ATTEMPTED"}
++            receipt.setdefault("isolated_precision_checks", []).append(linear_precision)
++            precision_body_error = None
++            try:
++                precision_action_derivative(adapter, port, edges, T,
++                    candidate.laplacian, matrix, q, v, sparse_gradient, linear_precision)
++            except BaseException as error:
++                precision_body_error = error
++                linear_precision.update(status="FAIL_ISOLATED_PRECISION", error_type=type(error).__name__,
++                    error=str(error), traceback=traceback.format_exc())
++                raise
++            finally:
++                try: save()
++                except BaseException:
++                    receipt.setdefault("isolated_precision_publication_errors", []).append(traceback.format_exc())
++                    if precision_body_error is None: raise
+             # Complete original eight-step Q map: first and second raw-cost credit.
+             map_errors = []
+             derivatives = []
+@@ -482,7 +529,7 @@
+         require(banks.minimum_restoration_gate and len(banks.static_coverage) == 10, "Every live pair must newly couple a former isolate")
+         receipt["actual_static_coverage"] = banks.static_coverage; save()
+         references = measured("qualification_only_dense_operator_and_Q_derivative_oracles", lambda:
+-            independent_dense_banks(op, data, originals, banks, compare, adapter, port))
++            independent_dense_banks(op, data, originals, banks, compare, adapter, port, receipt, save))
+         receipt["operator_checks"] = references[2]; save()
+         for label, pairs, reference_pairs in (("live", banks.live, references[0]),
+                                                ("bridge_permuted", banks.bridge_permuted, references[1])):

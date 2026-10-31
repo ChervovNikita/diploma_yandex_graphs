@@ -1,0 +1,7 @@
+# BUDDY floating-cardinality portability repair
+
+Exact seed1/2 server51 zero-update constructor observations isolated the static-authority failure to float32 HLL cards. All other static hashes match. Canonical vs actual maximum absolute difference is 1.52587890625e-05 and maximum relative difference 1.137607506753407e-07 (7,552 of 471,736 entries). The native HLL source uses fixed MinHash seed1, independent of fit seed.
+
+Provider v4 validates all non-card static inputs exactly. It keeps original card values and checks their finite float32 shape and consistency with the unchanged native HLL function on authenticated integer registers using rtol=atol=1e-6. It records actual and local-reference hashes and the historical canonical card receipt. No model, input, optimizer, sampling, hydration or scientific setting changes. Actual CPU tests accept native and canonical cards, reject material/nonfinite/dtype/integer-lineage drift, and confirm no input mutation or RNG consumption.
+
+The three consumer sessions remain byte-identical. New callback source-cache names/provider paths and source manifests identify the actual successors. REGISTRY_DELTA maps the original canonical callbacks directly to these packages; composed parents and children must be rederived. It retains all prior registry entries. Private-BN v5 retains its historical metadata.port literal v2; scoring must authenticate its actual v5 class/callback/manifest. Full native two-update smokes remain required and are owned by root. No predecessor source was edited.

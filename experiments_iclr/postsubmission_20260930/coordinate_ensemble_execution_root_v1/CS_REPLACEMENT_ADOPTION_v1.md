@@ -1,0 +1,7 @@
+# Prospective dataset replacement
+
+CoauthorCS replaces LastFMAsia because the latter publisher failed DNS before any model validation outcome. The candidate and all eight controls, custom partition rule, shared heldout seed4100, development seeds4101–4104, model seeds17/29/43, unnormalized provider features, probability pooling, competent1000–2000-update recipe and fixed utility gates remain as proposed. This freezes the two development graphs Amazon Photo/CoauthorCS before comparative outcomes. The original five dataset scores are untouched.
+
+Both actual installed PyG2.7.0 source modules now exactly match retained official references. CS acquisition is custodial CPU work with sealed labels; normal fit/test work is not admitted by this request. Provider reading binarizes positive attributes, removes loops and makes adjacency undirected; no additional transform is applied. Before model admission the resulting archive must match the prospectively declared12835626-byte length and Git blobSHA1, with its actual SHA256 recorded. Published dimensions18333/6805/15 and163788 edge entries are planning declarations pending actual audit. All prior acquisition failures are retained.
+
+The original agent-proposed six-hour ceiling has not been adopted and is not a user resource limit. Feasibility of the complete competent comparison will be determined from actual all-arm timing, validation/checkpoint I/O and memory; no shortened-training result will be promoted to fit that proposal.

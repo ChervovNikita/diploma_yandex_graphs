@@ -1,0 +1,164 @@
+--- v2/driver.py
++++ v3/driver.py
+@@ -39,12 +39,17 @@
+     if name in sys.modules:
+         module = sys.modules[name]
+         require(Path(module.__file__).resolve() == path, "Ordinary module-name collision")
++        require(getattr(module, "__graph_curvature_executed_sha256__", None) == record["sha256"]
++                and getattr(module, "__graph_curvature_executed_path__", None) == str(path),
++                "Preloaded module lacks exact verified executed-source custody: "+name)
+     else:
+         spec = importlib.util.spec_from_file_location(name, path)
+         module = importlib.util.module_from_spec(spec)
+         sys.modules[name] = module
+         try:
+             exec(compile(data, str(path), "exec"), module.__dict__)
++            module.__graph_curvature_executed_sha256__ = record["sha256"]
++            module.__graph_curvature_executed_path__ = str(path)
+         except BaseException:
+             del sys.modules[name]
+             raise
+@@ -133,6 +138,8 @@
+     No acquisition or continuation is invoked by source preparation or the CLI.
+     """
+     sources = load_sources()
++    require(native_api is sources["native_adapter"],
++            "Fresh acquisition must use the identical verified native adapter from load_sources")
+     binding = json.loads((HERE/"SOURCE_BINDINGS.json").read_text())["native_adapter"]
+     path = Path(native_api.__file__).resolve()
+     data = path.read_bytes()
+--- v2/test_source.py
++++ v3/test_source.py
+@@ -7,6 +7,7 @@
+ import shutil
+ import sys
+ import tempfile
++from types import ModuleType
+ import unittest
+ 
+ from selector import ARMS, PAIRS, FrozenConstants, choose_pair
+@@ -119,6 +120,67 @@
+             for name in names:
+                 sys.modules.pop(name, None)
+ 
++    def test_stale_same_path_preloaded_module_is_rejected(self):
++        import driver
++        old_here = driver.HERE
++        name = "unverified_same_path_stub"
++        try:
++            with tempfile.TemporaryDirectory() as directory:
++                phase = Path(directory)
++                driver.HERE = phase/"packet"
++                path = phase/(name+".py")
++                path.write_text("VALUE = 'current verified disk bytes'\n")
++                data = path.read_bytes()
++                record = dict(path=path.name, bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
++                stale = ModuleType(name)
++                stale.__file__ = str(path)
++                stale.VALUE = "stale executed code"
++                sys.modules[name] = stale
++                with self.assertRaisesRegex(ValueError, "executed-source custody"):
++                    driver.load_bound_source(record)
++                self.assertIs(sys.modules[name], stale)
++                self.assertEqual(stale.VALUE, "stale executed code")
++        finally:
++            driver.HERE = old_here
++            sys.modules.pop(name, None)
++
++    def test_exact_verified_cache_is_reused(self):
++        import driver
++        old_here = driver.HERE
++        name = "verified_cache_stub"
++        try:
++            with tempfile.TemporaryDirectory() as directory:
++                phase = Path(directory)
++                driver.HERE = phase/"packet"
++                path = phase/(name+".py")
++                path.write_text("VALUE = object()\n")
++                data = path.read_bytes()
++                record = dict(path=path.name, bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
++                first = driver.load_bound_source(record)
++                value = first.VALUE
++                self.assertEqual(first.__graph_curvature_executed_sha256__, record["sha256"])
++                self.assertEqual(first.__graph_curvature_executed_path__, str(path.resolve()))
++                self.assertIs(driver.load_bound_source(record), first)
++                self.assertIs(first.VALUE, value)
++                first.__graph_curvature_executed_sha256__ = "incorrect cached digest"
++                with self.assertRaisesRegex(ValueError, "executed-source custody"):
++                    driver.load_bound_source(record)
++        finally:
++            driver.HERE = old_here
++            sys.modules.pop(name, None)
++
++    def test_acquisition_rejects_other_native_api_before_warm_work(self):
++        import driver
++        original = driver.load_sources
++        verified = ModuleType("verified_native_api_stub")
++        driver.load_sources = lambda: {"native_adapter": verified}
++        try:
++            with self.assertRaisesRegex(ValueError, "identical verified native adapter"):
++                driver.acquire_fresh_and_prepare(object(), "Squirrel", 17,
++                                                None, None, None, None, None, None, None)
++        finally:
++            driver.load_sources = original
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+--- v2/SOURCE_BINDINGS.json
++++ v3/SOURCE_BINDINGS.json
+@@ -1,7 +1,8 @@
+ {
+   "canonical_edits": false,
+-  "created_UTC": "2026-10-04T18:00:55.131471+00:00",
++  "created_UTC": "2026-10-04T18:13:28.558007+00:00",
+   "donor_bytecode": "Verified source bytes compiled directly; no donor bytecode cache read/write.",
++  "executed_source_custody": "Modules tagged with executed SHA256 and resolved path only after this loader successfully executes the exact verified compiled bytes. Existing cached modules are reused only with exact matching tags; unverified cached modules are rejected. Fresh acquisition requires the identical verified native adapter returned by load_sources.",
+   "external_dependency_status": "Ordinary installed packages; numerical/runtime environment qualification remains pending. No package imported by the author.",
+   "external_numerical_imports": [
+     "numpy",
+@@ -86,16 +87,16 @@
+   ],
+   "predecessor": {
+     "manifest": {
+-      "bytes": 1313,
+-      "path": "graph_curvature_selector_source_preparation_20261004_v1/MANIFEST.json",
+-      "scope": "Sealed v1 preserved; portability-only successor.",
+-      "sha256": "59840d901a3859b8e818a888169c3217f8708ce2eff8e05cc1a558883a3632a5"
++      "bytes": 1541,
++      "path": "graph_curvature_selector_source_preparation_20261004_v2/MANIFEST.json",
++      "scope": "Sealed v2 preserved; executed-byte cache custody repair only.",
++      "sha256": "09e41d6ca83f0c4516eb2b1229465fad24c4ebbe994128379d4190e13ded103b"
+     },
+     "seal": {
+       "bytes": 513,
+-      "path": "graph_curvature_selector_source_preparation_20261004_v1/SEAL.json",
+-      "scope": "Sealed v1 preserved; no inherited numerical qualification.",
+-      "sha256": "3f532b9ba8030c11d5579dedd690e99d2072f3589a03fd75a8ef472419e404ce"
++      "path": "graph_curvature_selector_source_preparation_20261004_v2/SEAL.json",
++      "scope": "Sealed v2 preserved; no inherited numerical qualification.",
++      "sha256": "da140ff5e8019b6c3e92057f985b7efcb124399843252d8d81cf05dc94fb0998"
+     }
+   },
+   "qualification_inheritance": false,
+@@ -120,7 +121,7 @@
+     }
+   },
+   "runtime_payloads_opened": false,
+-  "schema": "graph-curvature-selector-source-bindings-v2",
++  "schema": "graph-curvature-selector-source-bindings-v3",
+   "scientific_execution_by_author": false,
+   "source_resolution": "Every file descriptor resolves against driver.HERE.parent; no original-host absolute path is opened.",
+   "status": "SOURCE_PREPARATION_ONLY_UNQUALIFIED"
+--- v2/ELIGIBILITY.md
++++ v3/ELIGIBILITY.md
+@@ -37,3 +37,9 @@
+ The loader hashes and compiles the exact bound source bytes directly, so it neither reads nor writes donor bytecode caches. Its stdlib relocation test moves a phase tree, loads bound stub dependencies and a native-adapter stub from the new location, and checks that preexisting stale bytecode stays untouched even with bytecode writes globally enabled. No numerical source or real warm-state operation is executed by this test.
+ 
+ For a future host, transfer this packet and its bound source donor subtrees while preserving their relative layout beneath the phase directory. All numerical, fresh-warm and predictive checks above remain pending root review and qualification; this portability repair grants none of them.
++
++## Executed-byte custody successor v3
++
++Sealed v2 is preserved with its reviewer finding: matching a cached module's `__file__` to a currently hashed file did not establish which bytes produced that cached module. V3 sets an executed-SHA256 marker and resolved-path marker only after its loader successfully compiles and executes the exact verified source bytes. A cached module is reused only when both markers match; an unverified same-path module is rejected without replacement. Fresh acquisition also requires the supplied native API to be the identical verified native adapter returned by `load_sources`.
++
++`selector.py`, `PROTOCOL.json` and all prospective constants remain byte-identical to v2. Changes are limited to the loader/acquisition identity checks, their stdlib tests, bindings and this note. `DIFF_V2_V3.patch` records the precise diff. Added tests reject stale same-path cache entries and mismatched executed hashes, verify exact tagged-cache reuse, and reject a different native adapter before warm work. No numerical code is imported or executed by these tests. Numerical and actual-warm qualification remain pending.

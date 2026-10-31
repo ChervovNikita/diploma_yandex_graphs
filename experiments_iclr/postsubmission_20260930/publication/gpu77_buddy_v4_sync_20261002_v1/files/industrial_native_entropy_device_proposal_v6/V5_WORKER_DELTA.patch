@@ -1,0 +1,83 @@
+--- sealed-v5/native_import_worker.py
++++ dormant-v6/native_import_worker.proposed.py
+@@ -19,6 +19,9 @@
+ import sys
+ import time
+ 
++# Dormant source proposal. Activation requires a newly reviewed/sealed packet.
++PUBLIC_DEVICE_GRANT_APPROVED = False
++
+ 
+ def digest(path):
+     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+@@ -31,6 +34,8 @@
+     rules omit READ_DIR and O_DIRECTORY; public parent directories get only
+     READ_DIR, so added label files acquire no read permission.
+     """
++    if not PUBLIC_DEVICE_GRANT_APPROVED:
++        raise RuntimeError('Proposed /dev/urandom grant has no activation approval')
+     abi = policy.checked_syscall(444, ctypes.c_void_p(), 0, 1)
+     if abi < 1:
+         raise RuntimeError('Landlock ABI1 unavailable')
+@@ -54,10 +59,25 @@
+                 policy.checked_syscall(445, ruleset, 1, ctypes.byref(rule), 0)
+             finally:
+                 os.close(descriptor)
++        # Fixed public entropy endpoint; regular-file rules above stay strict.
++        device_descriptor = os.open('/dev/urandom', os.O_PATH | os.O_CLOEXEC | os.O_NOFOLLOW)
++        try:
++            observed_device = os.fstat(device_descriptor)
++            if (not stat.S_ISCHR(observed_device.st_mode)
++                    or os.major(observed_device.st_rdev) != 1
++                    or os.minor(observed_device.st_rdev) != 9):
++                raise RuntimeError('Expected /dev/urandom character device major1 minor9')
++            device_rule = policy.PathBeneath(1 << 2, device_descriptor)
++            policy.checked_syscall(445, ruleset, 1, ctypes.byref(device_rule), 0)
++        finally:
++            os.close(device_descriptor)
+         policy.checked_syscall(446, ruleset, 0)
+     finally:
+         os.close(ruleset)
+-    return abi
++    return abi, {'path': '/dev/urandom', 'object_type': 'character_device',
++                 'major': 1, 'minor': 9, 'allowed_access_fs': 1 << 2,
++                 'actual_fstat_validated': True, 'read_file_only': True,
++                 'write_file_granted': False, 'inherited_entropy_FD': False}
+ 
+ 
+ def diagnostic_text(value, *, representation=False, limit=16384):
+@@ -233,7 +253,7 @@
+ 
+ 
+ def main():
+-    result = {'schema': 'CPU-native-import-qualification-v5', 'status': 'STARTING',
++    result = {'schema': 'CPU-native-import-qualification-v6-device-proposal', 'status': 'STARTING',
+               'diagnostic_only_revision': 2,
+               'equivalent_to_v2_chroot_mount_contract': False, 'metadata_visibility_disclosed': True,
+               'GPU_ioctl_compatibility_claimed': False, 'dataset_load_requested': False,
+@@ -243,6 +263,8 @@
+     audit_fd = None
+     started = time.monotonic()
+     try:
++        if not PUBLIC_DEVICE_GRANT_APPROVED:
++            raise RuntimeError('Dormant v6 proposal: public-device grant is unapproved')
+         resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+         root = Path(sys.argv[1]); host = json.loads(sys.argv[2]); pins = json.loads(sys.argv[3])
+         bindings_sha = sys.argv[4]
+@@ -280,7 +302,7 @@
+         policy.drop_capabilities()
+         pin, device = policy.reviewed_stdio_and_pin()
+         result['entropy_probes'] = {'before_restrictions': entropy_probe(policy)}
+-        abi = restrict_native(policy, bindings['readonly_directories'], bindings['readonly_files'],
++        abi, random_device = restrict_native(policy, bindings['readonly_directories'], bindings['readonly_files'],
+                               bindings['directory_listing_only'], bindings['writable_directories'])
+         result['boundaries'].append({'stage': 'LANDLOCK_INSTALLED', 'seconds': time.monotonic()-started})
+         if pin > 3:
+@@ -288,6 +310,7 @@
+         policy.checked_syscall(436, pin + 1, 0xFFFFFFFF, 0)
+         count = policy.seccomp_program(pin)
+         result.update(restrictions_installed=True, kernel_landlock_abi=abi, used_filesystem_ABI=1,
++                      public_device_read_grant=random_device, explicit_policy_difference_from_v5=True,
+                       seccomp_BPF_instructions=count, pinned_FD=pin, pinned_character_device='major1 minor3 only',
+                       source_pins=pins, bindings_sha256=bindings_sha,
+                       host_namespaces=host, worker_namespaces=observed,

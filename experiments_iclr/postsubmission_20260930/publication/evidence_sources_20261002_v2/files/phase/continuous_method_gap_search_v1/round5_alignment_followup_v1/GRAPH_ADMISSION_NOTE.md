@@ -1,0 +1,9 @@
+# Concrete graph recommendation and disclosed exposure
+
+Recommend **revised leakage-corrected Squirrel + Amazon Photo**. Squirrel supplies a contrasting graph regime; Photo offers practical artifact reuse. Photo+CS would be easier to reuse but cover two similar regimes. This choice precedes candidate utility outcomes and does not use Stage1 comparative results.
+
+Earlier strict virgin-dataset language in this unsealed follow-up is superseded by parent steering: prior exposure alone is not disqualification. The bounded127-document metadata search is retained as provenance, not absence/virginity evidence. Further legacy audit is stopped. Photo/CS artifacts and dev-only logits were identified in the parent's messages; child did not inspect parent outputs. Stage1 development logits are neither full candidate teacher replacements nor alignment inputs. No Stage1 score/pool/mask is selected to rescue or change Stage1 or submitted results.
+
+The new prospective setting uses three Squirrel published source partitions and three fixed Photo masks, paired with distinct seeds. The label-blind derived-role rule in `PROSPECTIVE_PROTOCOL.md` keeps every Squirrel published test node in a larger≈50% final pool; it uses published validation plus selected published train as the source reservoir. Exact release, mask transformation, RNG/rounding and source counts are frozen before labels. Teacher/correction labels are≈30/20% of all nodes;≈50% total source supervision is explicit.
+
+No graph has been acquired/frozen or scientific work authorized by this packet. Separate admission requires exact source/hash/environment/mask provenance and exposure disclosure, not a declaration of no prior testing. All new heldout scoring occurs only after a separate method/score freeze and reports all outcomes once. It cannot change original/Stage1 scores. This is exploratory utility evidence with reused graph names, not untouched-dataset confirmation.

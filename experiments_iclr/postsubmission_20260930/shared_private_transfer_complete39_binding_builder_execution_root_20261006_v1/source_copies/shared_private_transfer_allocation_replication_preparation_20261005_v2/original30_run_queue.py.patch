@@ -1,0 +1,117 @@
+--- shared_private_transfer_paired_pilot_preparation_20261005_v2/run_queue.py
++++ shared_private_transfer_allocation_replication_preparation_20261005_v1/original30/run_queue.py
+@@ -6,6 +6,9 @@
+ import subprocess
+ import time
+ import pilot_common as c
++import sys
++sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
++import protocol as p
+ 
+ 
+ def output_bytes(path):
+@@ -120,34 +123,59 @@
+     return receipt
+ 
+ 
++FAMILY='original30'
++
+ def main():
+     parser=argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--queue',type=Path,required=True)
+     args=parser.parse_args();queue=c.read(args.queue)
+     c.physical_host();c.verify_packet(queue['pilot_source_manifest_sha256']);c.verify_training();s=c.supervisor()
+     root=(c.PHASE/c.relative_path(queue['execution_directory_relative'])).resolve(strict=True)
+-    if args.queue.resolve()!=root/'QUEUE.json' or not root.is_relative_to(c.PHASE) or (root/'QUEUE_START.json').exists():
+-        raise ValueError('Require the exact fresh frozen queue; resumption/retry needs a new reviewed release')
+-    if c.sha(root/'ROOT_RELEASE.json')!=queue['root_release_sha256'] or c.sha(root/'COHORT_PLAN.json')!=queue['cohort_plan_sha256']:
+-        raise ValueError('Root release/cohort changed')
+-    if queue.get('retry') is not False or queue.get('read_scores_or_change_family') is not False:
+-        raise ValueError('Only frozen outcome-free whole-block execution is admitted')
+-    release=c.read(root/'ROOT_RELEASE.json');plan=c.read(root/'COHORT_PLAN.json')
+-    subset=queue['execution_blocks'];expected=[i for i in plan['execution_order'] if i.split('_',1)[0] in subset]
+-    if len(set(subset))!=len(subset) or len(expected)!=10*len(subset) or [row['cell_id'] for row in queue['entries']]!=expected or len(set(plan['execution_order']))!=30:
+-        raise ValueError('No partial block, missing/duplicate/reordered prospective cell')
+-    if c.sha(root/'EXTERNAL_ANCHORS.json')!=plan['external_anchors_sha256']:raise ValueError('Original fixed anchors changed')
+-    for key in ('python_executable','environment_overrides','queue_hard_seconds','queue_overhead_seconds','resource_limits','execution_blocks','resource_assignment'):
+-        if queue[key]!=release[key]:raise ValueError('Frozen runtime/bounds differ from root release')
+-    for row in queue['entries']:
+-        cell=next(v for v in plan['cells'] if v['cell_id']==row['cell_id'])
+-        if row['hard_seconds']!=release['fit_bounds_by_cell'][cell['cell']]['hard_seconds']:raise ValueError('Fit hard bound differs')
+-        if row['job_relative']!=str((root/'jobs'/(row['cell_id']+'.json')).relative_to(c.PHASE)) or row['output_relative']!=str((root/'runs'/row['cell_id']).relative_to(c.PHASE)):
+-            raise ValueError('Frozen cell paths differ')
++    p.require(args.queue.resolve()==root/'QUEUE.json' and not (root/'QUEUE_START.json').exists(),
++              'Exact fresh queue only; no implicit retry/resumption')
++    release=c.read(root/'ROOT_RELEASE.json');a=p.verify_frozen_protocol(c.PHASE,release)
++    descriptor=next(q for q in a['queues'] if q['queue_id']==queue['queue_id'])
++    p.require(descriptor['family']==FAMILY and all(queue[k]==v for k,v in descriptor.items()),
++              'Exact fixed family/block/attempt/order/bounds required')
++    p.require([e['cell_id'] for e in queue['entries']]==descriptor['ordered_cell_ids'], 'Whole block order required')
++    p.require(c.sha(root/'ROOT_RELEASE.json')==queue['root_release_sha256']
++              and c.sha(root/'COHORT_PLAN.json')==descriptor['cohort_plan']['sha256'], 'Frozen release/plan changed')
++    p.canonical_plan(c.PHASE,a,FAMILY)
++    if FAMILY=='original30':
++        p.require(c.sha(root/'EXTERNAL_ANCHORS.json')==a['external_anchors']['sha256'],'Immutable original anchors changed')
++    p.require(queue['retry'] is False and queue['read_scores_or_change_family'] is False
++              and queue['TEST_access'] is False and queue['replication_not_setup_fallback_or_resumption'] is True,
++              'Explicit counted replication scope required')
++    for k in ('python_executable','environment_overrides','resource_limits'):
++        p.require(queue[k]==a[k], 'Qualified allocation runtime/resources changed')
++    control=c.PHASE/p.relative(queue['execution_control_relative'])
++    intent=p.read(root/'LAUNCH_INTENT.json')
++    review=p.read(p.binding(c.PHASE,intent['root_job_review']))
++    auth=p.read(p.binding(c.PHASE,review['frozen_authentication']))
++    p.require(review['all26_generated_jobs_reviewed'] is True and review['full39_collection_contract_reviewed'] is True
++              and review['explicit_replication_exception_reviewed'] is True and review['scores_read'] is False
++              and review['TEST_access'] is False and review['generated_job_hashes']==auth['job_hashes'],
++              'All26 actual jobs must be root reviewed before first fit')
++    p.require(auth['scientific_children_started']==0 and auth['queues'][queue['queue_id']]['queue']['sha256']==c.sha(args.queue),
++              'Genuine prefit freeze differs')
++    registration=p.read(p.binding(c.PHASE,auth['queues'][queue['queue_id']]['registration']))
++    p.require(registration['registered_before_first_new_fit'] is True and registration['chosen_cells']==descriptor['ordered_cell_ids'],
++              'Actual new physical attempt must be registered before fit')
++    for entry in queue['entries']:
++        row=next(r for r in a['new_selected_attempts'] if r['cell_id']==entry['cell_id'])
++        expected=p.job_from_preview(c.PHASE,a,row)
++        p.require(entry['physical_attempt_id']==row['physical_attempt_id']
++                  and entry['job_relative']==descriptor['execution_directory_relative']+'/jobs/'+entry['cell_id']+'.json'
++                  and entry['output_relative']==descriptor['execution_directory_relative']+'/runs/'+entry['cell_id']
++                  and entry['hard_seconds']==row['fit_bounds_seconds']['hard_seconds'], 'Exact attempt/path/bound differs')
++        job=c.phase_file(entry['job_relative'])
++        p.require(c.read(job)==expected and c.sha(job)==entry['job_sha256']==auth['job_hashes'][entry['cell_id']],
++                  'Reviewed generated job differs from disabled exact preview')
+     environment=c.check_environment(queue['environment_overrides']);started=time.monotonic();completed=[]
+     c.write(root/'QUEUE_START.json',{'UTC':s.now(),'supervisor_identity':s.identity(os.getpid()),'queue_sha256':c.sha(args.queue),
+-        'physical_fits':len(queue['entries']),'full_scientific_cohort_fits':30,'execution_blocks':subset,
+-        'TEST_access':False,'comparative_scoring_performed':False,'retry':False})
++        'physical_fits':len(queue['entries']),'full_scientific_cohort_fits':39,'execution_blocks':[descriptor['block']],
++        'queue_id':queue['queue_id'],'attempt_id':descriptor['attempt_id'],'attempt_history_sha256':release['attempt_history_sha256'],
++        'TEST_access':False,'comparative_scoring_performed':False,'retry':False,'new_counted_replication':True})
+     try:
+         for entry in queue['entries']:
+             c.verify_packet(queue['pilot_source_manifest_sha256']);c.verify_training();c.physical_host()
+@@ -163,17 +191,17 @@
+                 raise RuntimeError(entry['cell_id']+' operational failure; preserve every artifact and stop, no retry')
+             freeze=output/'FREEZE.json'
+             if not freeze.is_file() or (output/'FAILURE.json').exists():raise ValueError('Authoritative zero exit lacks complete training freeze')
+-            # Custody hash only: no parsing of scores or selection outcomes.
++            # No FREEZE/history/CONFIG parsing. Only ordinary custody hash of source FREEZE.
+             completed.append({**receipt,'freeze_relative':str(freeze.relative_to(c.PHASE)),'freeze_sha256':c.sha(freeze)})
+             c.write(root/'QUEUE_PROGRESS.json',{'UTC':s.now(),'completed':len(completed),'total':len(queue['entries']),
+-                    'full_scientific_cohort_fits':30,'execution_blocks':subset,'scores_read':False})
++                'queue_id':queue['queue_id'],'attempt_id':descriptor['attempt_id'],'full_scientific_cohort_fits':39,'scores_read':False})
+             print('Completed operationally: '+entry['cell_id'],flush=True)
+-        all_blocks=len(completed)==30
+-        c.write(root/('COHORT_FREEZE.json' if all_blocks else 'BLOCK_FREEZE.json'),{'complete':all_blocks,
+-            'selected_blocks_complete':True,'execution_blocks':subset,'physical_fits':len(completed),'completed':completed,
++        c.write(root/'BLOCK_FREEZE.json',{'complete':False,'selected_blocks_complete':True,'execution_blocks':[descriptor['block']],
++            'queue_id':queue['queue_id'],'attempt_id':descriptor['attempt_id'],'physical_fits':len(completed),'completed':completed,
+             'queue_sha256':c.sha(args.queue),'cohort_plan_sha256':queue['cohort_plan_sha256'],
+-            'external_anchors_sha256':c.sha(root/'EXTERNAL_ANCHORS.json'),'inclusive_seconds':time.monotonic()-started,
+-            'TEST_access':False,'comparative_scoring_performed':False,'retry':False})
++            'attempt_history_sha256':release['attempt_history_sha256'],'inclusive_seconds':time.monotonic()-started,
++            'TEST_access':False,'comparative_scoring_performed':False,'retry':False,'scores_read':False,
++            'full39_collection_still_required_before_history_or_scoring':True})
+     except (Exception,KeyboardInterrupt) as error:
+         c.write(root/'QUEUE_FAILURE.json',{'UTC':s.now(),'error':type(error).__name__+': '+str(error),'completed':completed,
+             'inclusive_seconds':time.monotonic()-started,'partial_outputs_preserved':True,'retry':False,'scores_read':False})

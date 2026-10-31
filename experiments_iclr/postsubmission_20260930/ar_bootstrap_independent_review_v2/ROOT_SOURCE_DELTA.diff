@@ -1,0 +1,140 @@
+--- protocols/ar_fitted_screen_root_v1/run_fitted_root.py
++++ protocols/ar_fitted_screen_root_v2/run_fitted_root.py
+@@ -17,7 +17,7 @@
+ REPO = "/home/jovyan/shares/SR003.nfs2/GENATATOR_PIPELINE/diploma_yandex_graphs"
+ REMOTE = REPO + "/experiments_iclr/postsubmission_20260930"
+ DEST = "anogena-2.ai0001053-01174@ssh-sr003-jupyter.ai.cloud.ru"
+-PACKET = "new_learning_gap_independent_v1/ar_fitted_screen_source_v1"
++PACKET = "new_learning_gap_independent_v1/ar_fitted_screen_source_v2"
+ SSH = ["ssh", "-p", "2222", "-i", "/Users/alex/.ssh/mlspace__private_key_anogena.txt",
+        "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", "-o", "UpdateHostKeys=no",
+        "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=15", DEST]
+@@ -31,18 +31,27 @@
+ 
+ def main():
+     started = time.perf_counter()
+-    admission_path = HERE / "EXECUTION_ADMISSION_v1.json"
++    admission_path = HERE / "EXECUTION_ADMISSION_v2.json"
+     admission = json.loads(admission_path.read_text())
+     assert admission["status"] == "admitted_by_root"
+     for row in admission["bindings"]:
+         assert sha256((PHASE / row["path"]).read_bytes()).hexdigest() == row["sha256"], row["path"]
+-    prior_path = PHASE / "protocols/ar_resource_compatibility_v3_root_v1/CUMULATIVE_BOUND_AFTER_RESOURCE_run01.json"
++    prior_path = PHASE / "protocols/ar_fitted_screen_root_v1/CUMULATIVE_BOUND_AFTER_FITTED_run01.json"
+     prior_bytes = prior_path.read_bytes()
+     prior = json.loads(prior_bytes)
++    allocation_path = HERE / "PROSPECTIVE_RESOURCE_ALLOCATION_v1.json"
++    allocation = json.loads(allocation_path.read_text())
++    assert allocation["prior_accounting"]["sha256"] == sha256(prior_bytes).hexdigest()
++    assert allocation["prior_charges_preserved"] is True
++    prior = dict(prior, phase_cap_seconds=allocation["new_aggregate_phase_cap_seconds"],
++                 diagnostic_cap_seconds=allocation["new_aggregate_diagnostic_cap_seconds"])
+     envelope, diagnostic_reserve = 3000, 60
+-    assert prior["combined_phase_seconds"] + envelope <= prior["phase_cap_seconds"]
+-    assert prior["diagnostic_seconds"] + diagnostic_reserve <= prior["diagnostic_cap_seconds"]
+-    assert not (PHASE / "protocols/FETCH_AUTHORIZED_78.json").exists()
++    preparation_reserve = allocation["repair_review_retention_integration_reservation_seconds"]
++    preparation_diagnostic_reserve = allocation["repair_review_diagnostic_reservation_seconds"]
++    assert prior["combined_phase_seconds"] + preparation_reserve + envelope <= prior["phase_cap_seconds"]
++    assert prior["diagnostic_seconds"] + preparation_diagnostic_reserve + diagnostic_reserve <= prior["diagnostic_cap_seconds"]
++    assert prior["combined_phase_allocated_disk_conservative_bytes"] + allocation["additional_local_remote_disk_reservation_bytes"] <= allocation["aggregate_disk_cap_bytes"]
++    assert not (PHASE / "protocols/FETCH_AUTHORIZED_79.json").exists()
+     assert not (PHASE / PACKET / "runs").exists()
+     write(HERE / "FITTED_START_run01.json", {
+         "UTC": datetime.now(timezone.utc).isoformat(),
+@@ -62,8 +71,8 @@
+         if remaining <= 0:
+             raise TimeoutError("Whole-coordinator envelope exhausted before retention")
+         fetch = [sys.executable, "-B", str(PHASE / "protocols/fetch_authorized_evidence_v2.py"),
+-            "--receipt", str(PHASE / "protocols/FETCH_AUTHORIZED_78.json"),
+-            "protocols/ar_fitted_screen_root_v1/fitted_supervision_run01",
++            "--receipt", str(PHASE / "protocols/FETCH_AUTHORIZED_79.json"),
++            "protocols/ar_fitted_screen_root_v2/fitted_supervision_run01",
+             PACKET + "/runs/admitted_run_v1"]
+         with (HERE / "FITTED_FETCH_stdout_run01.txt").open("x") as out:
+             fetched = subprocess.run(fetch, cwd=PHASE, stdout=out, stderr=subprocess.STDOUT,
+@@ -78,13 +87,13 @@
+             completed = subprocess.run(upload, cwd=PHASE, stdout=out, stderr=subprocess.STDOUT, timeout=35)
+         terminal["stages"].append({"stage": "upload", "returncode": completed.returncode})
+         assert completed.returncode == 0, "Source transfer failed; child not started"
+-        supervisor = REMOTE + "/protocols/ar_fitted_screen_root_v1/fitted_supervision_run01"
++        supervisor = REMOTE + "/protocols/ar_fitted_screen_root_v2/fitted_supervision_run01"
+         argv = [REPO + "/.venv/bin/python", REMOTE + "/protocols/run_authorized_v2.py",
+             "--output", supervisor, "--", REPO + "/.venv/bin/python",
+             REMOTE + "/" + PACKET + "/launch_guard.py",
+-            "--root-freeze", REMOTE + "/protocols/ar_fitted_screen_root_v1/SCIENTIFIC_FREEZE_v1.json",
++            "--root-freeze", REMOTE + "/protocols/ar_fitted_screen_root_v2/SCIENTIFIC_FREEZE_v2.json",
+             "--root-freeze-sha256", admission["scientific_freeze_sha256"],
+-            "--root-admission", REMOTE + "/protocols/ar_fitted_screen_root_v1/EXECUTION_ADMISSION_v1.json",
++            "--root-admission", REMOTE + "/protocols/ar_fitted_screen_root_v2/EXECUTION_ADMISSION_v2.json",
+             "--run-name", "admitted_run_v1"]
+         command = ("cd " + shlex.quote(REPO)
+             + " && source experiments_iclr/postsubmission_20260930/protocols/repo_env.sh"
+@@ -135,8 +144,8 @@
+             except (ValueError, OSError):
+                 pass
+         diagnostic_accounting_known = not supervision_attempted or (meter_terminal and final_snapshot and bool(observed_charges))
+-        phase_cap_exceeded = prior["combined_phase_seconds"] + max(envelope, time.perf_counter() - started) > prior["phase_cap_seconds"]
+-        diagnostic_cap_exceeded = prior["diagnostic_seconds"] + diagnostic_charged > prior["diagnostic_cap_seconds"]
++        phase_cap_exceeded = prior["combined_phase_seconds"] + preparation_reserve + max(envelope, time.perf_counter() - started) > prior["phase_cap_seconds"]
++        diagnostic_cap_exceeded = prior["diagnostic_seconds"] + preparation_diagnostic_reserve + diagnostic_charged > prior["diagnostic_cap_seconds"]
+         if terminal["status"] == "completed" and (not diagnostic_accounting_known or phase_cap_exceeded or diagnostic_cap_exceeded
+                                                    or (observed_diagnostic is not None and observed_diagnostic > 60)):
+             terminal["status"] = "accounting_invalid_no_go"
+@@ -148,12 +157,12 @@
+         elapsed = time.perf_counter() - started
+         terminal.update(seconds=elapsed, UTC=datetime.now(timezone.utc).isoformat())
+         write(HERE / "FITTED_COORDINATOR_run01.json", terminal)
+-        accounting = dict(prior, schema="gnnm-cumulative-bound-after-fitted-AR-screen-v1-run01",
++        accounting = dict(prior, schema="gnnm-cumulative-bound-after-fitted-AR-screen-v2-bootstrap-repair-run01",
+             UTC=terminal["UTC"], prior_accounting={"path": str(prior_path.relative_to(PHASE)),
+             "sha256": sha256(prior_bytes).hexdigest()},
+-            combined_phase_seconds=prior["combined_phase_seconds"] + max(envelope, elapsed),
+-            diagnostic_seconds=prior["diagnostic_seconds"] + diagnostic_charged,
+-            combined_phase_allocated_disk_conservative_bytes=prior["combined_phase_allocated_disk_conservative_bytes"] + 2 * 1024**3,
++            combined_phase_seconds=prior["combined_phase_seconds"] + preparation_reserve + max(envelope, elapsed),
++            diagnostic_seconds=prior["diagnostic_seconds"] + preparation_diagnostic_reserve + diagnostic_charged,
++            combined_phase_allocated_disk_conservative_bytes=prior["combined_phase_allocated_disk_conservative_bytes"] + allocation["additional_local_remote_disk_reservation_bytes"],
+             fitted_operation_conservative_seconds=max(envelope, elapsed),
+             fitted_complete_coordinator_observed_seconds=elapsed,
+             fitted_diagnostic_reservation_seconds=diagnostic_reserve,
+@@ -161,9 +170,14 @@
+             fitted_diagnostic_charged_seconds=diagnostic_charged,
+             diagnostic_accounting_known=diagnostic_accounting_known,
+             unknown_meter_does_not_certify_cap=True,
+-            phase_cap_exceeded=prior["combined_phase_seconds"] + max(envelope, elapsed) > prior["phase_cap_seconds"],
+-            diagnostic_cap_exceeded=prior["diagnostic_seconds"] + diagnostic_charged > prior["diagnostic_cap_seconds"],
+-            actual_GPU_busy_time_claimed=False, original_caps_unchanged=True)
++            phase_cap_exceeded=prior["combined_phase_seconds"] + preparation_reserve + max(envelope, elapsed) > prior["phase_cap_seconds"],
++            diagnostic_cap_exceeded=prior["diagnostic_seconds"] + preparation_diagnostic_reserve + diagnostic_charged > prior["diagnostic_cap_seconds"],
++            actual_GPU_busy_time_claimed=False, original_caps_unchanged=False,
++            allocation_addendum_sha256=sha256(allocation_path.read_bytes()).hexdigest(),
++            repair_review_retention_integration_reserve_seconds=preparation_reserve,
++            repair_review_diagnostic_reserve_seconds=preparation_diagnostic_reserve,
++            original_phase_cap_seconds=allocation["original_phase_cap_seconds"],
++            original_diagnostic_cap_seconds=allocation["original_diagnostic_cap_seconds"])
+         write(HERE / "CUMULATIVE_BOUND_AFTER_FITTED_run01.json", accounting)
+         print(json.dumps(terminal), flush=True)
+     return 0 if terminal["status"] == "completed" else 1
+--- protocols/ar_fitted_screen_root_v1/audit_fitted_evidence.py
++++ protocols/ar_fitted_screen_root_v2/audit_fitted_evidence.py
+@@ -11,8 +11,8 @@
+ from pathlib import Path
+ 
+ PHASE = Path(__file__).resolve().parents[2]
+-PACKET = PHASE / "new_learning_gap_independent_v1/ar_fitted_screen_source_v1"
+-EXPECTED_FREEZE_SHA256 = "5202fcb2b310377ee1363339a77711ff3447f35295f17b956e45fe61ea25d837"
++PACKET = PHASE / "new_learning_gap_independent_v1/ar_fitted_screen_source_v2"
++EXPECTED_FREEZE_SHA256 = "210ba66129493a973f8826e207ba0841826b63040bc670701a18004b8f7e6833"
+ 
+ 
+ def sha(path):
+@@ -133,7 +133,7 @@
+     parser.add_argument("--output", type=Path, required=True)
+     args = parser.parse_args()
+     require(args.output.resolve().is_relative_to(PHASE) and not args.output.exists(), "New phase-confined audit output required")
+-    freeze_path = PHASE / "protocols/ar_fitted_screen_root_v1/SCIENTIFIC_FREEZE_v1.json"
++    freeze_path = PHASE / "protocols/ar_fitted_screen_root_v2/SCIENTIFIC_FREEZE_v2.json"
+     require(sha(freeze_path) == EXPECTED_FREEZE_SHA256, "Root scientific freeze changed")
+     run = PACKET / "runs/admitted_run_v1"
+     progress_path = run / "progress.json"

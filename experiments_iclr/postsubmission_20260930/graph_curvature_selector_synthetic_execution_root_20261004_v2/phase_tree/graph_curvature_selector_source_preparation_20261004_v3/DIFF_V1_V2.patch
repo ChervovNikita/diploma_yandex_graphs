@@ -1,0 +1,310 @@
+--- v1/driver.py
++++ v2/driver.py
+@@ -21,29 +21,44 @@
+ SEEDS = (17, 29, 43)
+ 
+ 
++def source_path(record):
++    """File descriptors are relative to the research phase containing this packet."""
++    relative = Path(record["path"])
++    require(not relative.is_absolute() and ".." not in relative.parts,
++            "Source descriptor must be phase-relative")
++    return (HERE.parent/relative).resolve()
++
++
++def load_bound_source(record):
++    """Compile the verified bytes directly; no donor bytecode is read or written."""
++    path = source_path(record)
++    data = path.read_bytes()
++    require(len(data) == record["bytes"] and hashlib.sha256(data).hexdigest() == record["sha256"],
++            "Pinned runtime source differs: "+str(path))
++    name = path.stem
++    if name in sys.modules:
++        module = sys.modules[name]
++        require(Path(module.__file__).resolve() == path, "Ordinary module-name collision")
++    else:
++        spec = importlib.util.spec_from_file_location(name, path)
++        module = importlib.util.module_from_spec(spec)
++        sys.modules[name] = module
++        try:
++            exec(compile(data, str(path), "exec"), module.__dict__)
++        except BaseException:
++            del sys.modules[name]
++            raise
++    return module
++
++
+ def load_sources():
+-    """Ordinary file imports of unchanged pinned sources; numerical imports deferred."""
++    """Ordinary pinned modules, with local imports preloaded in dependency order."""
+     bindings = json.loads((HERE/"SOURCE_BINDINGS.json").read_text())
+-    modules = {}
+-    for role, record in bindings["runtime_modules"].items():
+-        path = Path(record["path"])
+-        data = path.read_bytes()
+-        require(len(data) == record["bytes"] and hashlib.sha256(data).hexdigest() == record["sha256"],
+-                "Pinned runtime source differs: "+str(path))
+-        name = path.stem
+-        if name in sys.modules:
+-            module = sys.modules[name]
+-            require(Path(module.__file__).resolve() == path.resolve(), "Ordinary module-name collision")
+-        else:
+-            spec = importlib.util.spec_from_file_location(name, path)
+-            module = importlib.util.module_from_spec(spec)
+-            sys.modules[name] = module
+-            try:
+-                spec.loader.exec_module(module)
+-            except BaseException:
+-                del sys.modules[name]
+-                raise
+-        modules[role] = module
++    for record in bindings["native_source_dependencies"]:
++        load_bound_source(record)
++    modules = {role: load_bound_source(record)
++               for role, record in bindings["runtime_modules"].items()}
++    modules["native_adapter"] = load_bound_source(bindings["native_adapter"])
+     return modules
+ 
+ 
+@@ -121,7 +136,7 @@
+     binding = json.loads((HERE/"SOURCE_BINDINGS.json").read_text())["native_adapter"]
+     path = Path(native_api.__file__).resolve()
+     data = path.read_bytes()
+-    require(path == Path(binding["path"]).resolve() and len(data) == binding["bytes"]
++    require(path == source_path(binding) and len(data) == binding["bytes"]
+             and hashlib.sha256(data).hexdigest() == binding["sha256"],
+             "Unchanged bound native adapter required for fresh acquisition")
+     backbone = CELLS[graph_name]
+--- v1/test_source.py
++++ v2/test_source.py
+@@ -1,7 +1,12 @@
+ """Stdlib-only source/decision checks; no tensor, data or trial execution."""
+ import ast
++import hashlib
++import importlib.util
++import json
+ from pathlib import Path
++import shutil
+ import sys
++import tempfile
+ import unittest
+ 
+ from selector import ARMS, PAIRS, FrozenConstants, choose_pair
+@@ -62,6 +67,58 @@
+         self.assertNotIn("numpy", sys.modules)
+         self.assertEqual(driver.SEEDS, (17, 29, 43))
+ 
++    def test_descriptor_rejects_absolute_and_parent_paths(self):
++        import driver
++        for path in ("/unrelated/source.py", "../unrelated/source.py"):
++            with self.assertRaises(ValueError):
++                driver.source_path({"path": path})
++
++    def test_phase_relocation_loads_bound_local_dependencies_without_bytecode(self):
++        import driver
++        old_here, old_bytecode, old_cache_prefix = driver.HERE, sys.dont_write_bytecode, sys.pycache_prefix
++        names = ("relocation_dependency_a", "relocation_dependency_b", "relocation_native")
++        try:
++            with tempfile.TemporaryDirectory() as directory:
++                phase = Path(directory)/"original_phase"
++                packet, donors = phase/"packet", phase/"donors"
++                packet.mkdir(parents=True)
++                donors.mkdir()
++                texts = {names[0]: "VALUE = 41\n", names[1]:
++                         "from relocation_dependency_a import VALUE\nVALUE += 1\n",
++                         names[2]: "from relocation_dependency_b import VALUE\n"}
++                records = {}
++                for name, text in texts.items():
++                    path = donors/(name+".py")
++                    path.write_text(text)
++                    records[name] = dict(path="donors/"+path.name, bytes=len(path.read_bytes()),
++                                         sha256=hashlib.sha256(path.read_bytes()).hexdigest())
++                sys.pycache_prefix = None  # Make the fixture cache local on every host.
++                cache = Path(importlib.util.cache_from_source(str(donors/(names[0]+".py"))))
++                cache.parent.mkdir()
++                cache.write_bytes(b"stale bytecode must remain unread and unchanged")
++                bindings = dict(native_source_dependencies=[records[names[0]], records[names[1]]],
++                                runtime_modules={"integration": records[names[1]]},
++                                native_adapter=records[names[2]])
++                (packet/"SOURCE_BINDINGS.json").write_text(json.dumps(bindings))
++                relocated = Path(directory)/"different_host"/"relocated_phase"
++                relocated.parent.mkdir()
++                shutil.move(str(phase), relocated)
++                driver.HERE = relocated/"packet"
++                sys.dont_write_bytecode = False  # The loader itself must avoid donor writes.
++                modules = driver.load_sources()
++                self.assertEqual(modules["native_adapter"].VALUE, 42)
++                self.assertEqual(Path(modules["native_adapter"].__file__).resolve(),
++                                 driver.source_path(bindings["native_adapter"]))
++                caches = list((relocated/"donors").rglob("*.pyc"))
++                self.assertEqual(len(caches), 1)
++                self.assertEqual(caches[0].read_bytes(), b"stale bytecode must remain unread and unchanged")
++                self.assertNotIn("torch", sys.modules)
++                self.assertNotIn("numpy", sys.modules)
++        finally:
++            driver.HERE, sys.dont_write_bytecode, sys.pycache_prefix = old_here, old_bytecode, old_cache_prefix
++            for name in names:
++                sys.modules.pop(name, None)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+--- v1/SOURCE_BINDINGS.json
++++ v2/SOURCE_BINDINGS.json
+@@ -1,79 +1,127 @@
+ {
+   "canonical_edits": false,
+-  "created_UTC": "2026-10-04T17:52:28.107312+00:00",
++  "created_UTC": "2026-10-04T18:00:55.131471+00:00",
++  "donor_bytecode": "Verified source bytes compiled directly; no donor bytecode cache read/write.",
++  "external_dependency_status": "Ordinary installed packages; numerical/runtime environment qualification remains pending. No package imported by the author.",
++  "external_numerical_imports": [
++    "numpy",
++    "torch",
++    "torch_geometric"
++  ],
+   "inputs": [
+     {
+       "bytes": 7775,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/graph_pooled_curvature_intervention_20261003_v1/CANDIDATE_SPEC.json",
++      "path": "graph_pooled_curvature_intervention_20261003_v1/CANDIDATE_SPEC.json",
+       "scope": "Exact retained finite-selector algorithm and five-arm matrix.",
+       "sha256": "ad2bae605ec61b1b0635bb5ee5724c42be28faf83822e694be95df9b48f063b0"
+     },
+     {
+       "bytes": 15729,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/graph_pooled_curvature_intervention_20261003_v1/REPORT.md",
++      "path": "graph_pooled_curvature_intervention_20261003_v1/REPORT.md",
+       "scope": "Saved attribution and mathematical limits; no primary reading.",
+       "sha256": "e3afda4b67ea35b2c16dd8b18feea24d6a46dfbdb7884506f57abf2da5d11aa0"
+     },
+     {
+       "bytes": 11591,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/graph_curvature_selector_current_eligibility_20261004_v1/ELIGIBILITY.md",
++      "path": "graph_curvature_selector_current_eligibility_20261004_v1/ELIGIBILITY.md",
+       "scope": "Completed bounded static/history eligibility assessment; no runtime qualification.",
+       "sha256": "5d62ba12abc5ebf58631cc35c92814354af982ae89af9b4ea9c3f6d917295219"
+     },
+     {
+       "bytes": 6914,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/PROTOCOL.json",
++      "path": "continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/PROTOCOL.json",
+       "scope": "Inherited cfg0 warm/continuation schedules, seed pairing and native pooling.",
+       "sha256": "91f20afb455c234ce113a5e3d3035955bc42b412ff7f389e5f511c7de47de446"
+     },
+     {
+       "bytes": 5428,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/SOURCE_BINDINGS.json",
++      "path": "continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/SOURCE_BINDINGS.json",
+       "scope": "Exact retained static lineage; old qualification is not inherited.",
+       "sha256": "f6d8ff959204ccc793212b0ff0560213f08de7d92b74e162441888058262bc48"
+     },
+     {
+       "bytes": 15694,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/MANIFEST.json",
++      "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/MANIFEST.json",
+       "scope": "Pinned modern source lineage only.",
+       "sha256": "e2fd767c4d08e93ca7ec9c9c526440c4cc5b8f4e7d8bb345de90308e9c57302b"
+     },
+     {
+       "bytes": 264,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/SEAL.json",
++      "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/SEAL.json",
+       "scope": "Pinned modern source seal only.",
+       "sha256": "9589bd1a41ec59fc9259d72c833c5e550e6887196eb773b86c75c6d03b67645d"
+     }
+   ],
+   "native_adapter": {
+     "bytes": 16125,
+-    "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/modern_teacher_adapter.py",
++    "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/modern_teacher_adapter.py",
+     "scope": "Unchanged future native single cfg0 specification and optimizer API; root supplies ordinary loaded adapter.",
+     "sha256": "e493242ee43968dd906ea0a789f16de480e6622f9d44e1378fc7a5c4fa5fefb3"
++  },
++  "native_source_dependencies": [
++    {
++      "bytes": 4219,
++      "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/native_polyformer.py",
++      "scope": "Unchanged local source import dependency; compiled from verified bytes before native adapter use.",
++      "sha256": "b1bf001258d160f8e98d5042a775ae475b6ea5e515e2af901287f8fea0382730"
++    },
++    {
++      "bytes": 1501,
++      "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/native_polyformer_outer.py",
++      "scope": "Unchanged local source import dependency; compiled from verified bytes before native adapter use.",
++      "sha256": "b4bf6669ebb869bfe0130bdb4d0be2132b31af71817b58219f1a96566f38df96"
++    },
++    {
++      "bytes": 1111,
++      "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/native_polyformer_preprocess.py",
++      "scope": "Unchanged local source import dependency; compiled from verified bytes before native adapter use.",
++      "sha256": "36d558c1f29b3fd9ad9084e61efc7ec22aae2de49c3b3d76fde63b52542fcb0f"
++    },
++    {
++      "bytes": 7129,
++      "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/native_polynormer.py",
++      "scope": "Unchanged local source import dependency; compiled from verified bytes before native adapter use.",
++      "sha256": "9b4e533f46ae7f91a23a552f88bbb47a01359e224b53996cf1a68c10a865f6a8"
++    }
++  ],
++  "predecessor": {
++    "manifest": {
++      "bytes": 1313,
++      "path": "graph_curvature_selector_source_preparation_20261004_v1/MANIFEST.json",
++      "scope": "Sealed v1 preserved; portability-only successor.",
++      "sha256": "59840d901a3859b8e818a888169c3217f8708ce2eff8e05cc1a558883a3632a5"
++    },
++    "seal": {
++      "bytes": 513,
++      "path": "graph_curvature_selector_source_preparation_20261004_v1/SEAL.json",
++      "scope": "Sealed v1 preserved; no inherited numerical qualification.",
++      "sha256": "3f532b9ba8030c11d5579dedd690e99d2072f3589a03fd75a8ef472419e404ce"
++    }
+   },
+   "qualification_inheritance": false,
+   "runtime_modules": {
+     "boundary": {
+       "bytes": 6797,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/backbone_boundary_adapter.py",
++      "path": "continuous_graph_efficiency_gap_v1/modern_backbone_teacher_amendment_v3/prototype/backbone_boundary_adapter.py",
+       "scope": "Unchanged identity native K1/K4 boundary cloning and final head algebra.",
+       "sha256": "699b606ead00cb7bdd9be6cd58730a0687157c40cf594af620d1edc4c93b6bac"
+     },
+     "initializer": {
+       "bytes": 22545,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/prototype/graph_band_route_initializer.py",
++      "path": "continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/prototype/graph_band_route_initializer.py",
+       "scope": "Unchanged common-only safeguard, cubic graph bands, normalized adjacency and fixed topology permutation.",
+       "sha256": "1a8036c7bbf9f2b831747f99d3aa2dfdabc31cb636cd41ccad9457206a70cbcf"
+     },
+     "integration": {
+       "bytes": 28520,
+-      "path": "/Users/alex/Documents/ChatGPT/anogena allocation/postsubmission_research_20260930/continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/prototype/graph_init_training_adapter.py",
++      "path": "continuous_method_gap_search_v1/round17_graph_init_driver_integration_v3_precision/prototype/graph_init_training_adapter.py",
+       "scope": "Unchanged named coupled-Adam transport, full state/RNG custody, native warm and continuation.",
+       "sha256": "9f5b5d314ed4c0f2611696f9be088f0022ea45c1b29b3861ca66bdcdd5e7a696"
+     }
+   },
+   "runtime_payloads_opened": false,
+-  "schema": "graph-curvature-selector-source-bindings-v1",
++  "schema": "graph-curvature-selector-source-bindings-v2",
+   "scientific_execution_by_author": false,
++  "source_resolution": "Every file descriptor resolves against driver.HERE.parent; no original-host absolute path is opened.",
+   "status": "SOURCE_PREPARATION_ONLY_UNQUALIFIED"
+ }
+--- v1/ELIGIBILITY.md
++++ v2/ELIGIBILITY.md
+@@ -27,3 +27,13 @@
+ Predictive accuracy remains the broader primary quality objective. The frozen mechanism endpoint and native checkpoint selector remain validation NLL. Competent single, ordinary native BE/GNNM and independent ensemble4 references remain necessary for broader quality claims. Source algebra and a TRAIN-selected winner supply no predictive evidence.
+ 
+ No numerical library was imported by the author, and no dataset, checkpoint, logits, private/current predictive outcome or server was accessed. Existing source files and canonical history were preserved. Only stdlib compilation/decision checks were run; see `STATIC_CHECKS.json`.
++
++## Portability successor v2
++
++Sealed v1 is preserved. `selector.py` and `PROTOCOL.json` are byte-identical to v1, including all scientific behavior and the 13 null prospective constants. The exact source/binding/test diff is saved in `DIFF_V1_V2.patch`.
++
++Every file descriptor in `SOURCE_BINDINGS.json` is now relative to the research phase. `driver.source_path` resolves it against `HERE.parent`; the native adapter identity check uses that same resolution. The four unchanged local native dependencies are bound and preloaded in their ordinary module names before native adapter use. Direct external numerical imports are listed separately and remain ordinary installed runtime dependencies pending qualification.
++
++The loader hashes and compiles the exact bound source bytes directly, so it neither reads nor writes donor bytecode caches. Its stdlib relocation test moves a phase tree, loads bound stub dependencies and a native-adapter stub from the new location, and checks that preexisting stale bytecode stays untouched even with bytecode writes globally enabled. No numerical source or real warm-state operation is executed by this test.
++
++For a future host, transfer this packet and its bound source donor subtrees while preserving their relative layout beneath the phase directory. All numerical, fresh-warm and predictive checks above remain pending root review and qualification; this portability repair grants none of them.

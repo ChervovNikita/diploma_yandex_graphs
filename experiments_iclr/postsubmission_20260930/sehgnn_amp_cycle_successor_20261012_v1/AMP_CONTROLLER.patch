@@ -1,0 +1,129 @@
+--- runtime/engine.py
++++ runtime/engine.py
+@@ -290,7 +290,35 @@
+     interval = spec.get("recovery_interval", 100)
+     if type(interval) is not int or interval < 1:
+         raise ValueError("recovery_interval must be a positive integer")
++    policy=spec.get('native_amp_cycle_policy')
++    if policy is not None:
++        run=spec['adapter_spec'].get('run',{});c=run.get('config',{})
++        arms={'native_single','factorized_native_single','original_gnnm','shared_own_only','native_pool_credit','source_view_supervision','uncoupled_source_contrast','COMMON_cycle','assigned_source_supply'}
++        if (policy!={'schema':'native-SeHGNN-AMP-complete-cycle-v1','optimizer_owner_attempts':1}
++                or spec['budget_unit']!='epochs' or spec['budget_steps']!=1000
++                or c.get('sehgnn_arm') not in arms or c.get('sehgnn_epochs')!=1000
++                or c.get('source_optimizer_count')!=1 or c.get('native_AMP_overflow_skip_allowed') is not True
++                or c.get('historical_state_inherited') is not False
++                or c.get('backbone')!='native_SeHGNN' or c.get('width')!=512 or c.get('classes')!=5
++                or c.get('feature_channels')!=25 or c.get('label_channels')!=12
++                or not run.get('adapter','').endswith('/adapters/sehgnn.py:make_adapter')):
++            raise ValueError('Only explicitly typed complete native SeHGNN AMP epochs may skip optimizer maps')
+     return spec
++
++
++def _training_counts(raw,spec):
++    policy=spec.get('native_amp_cycle_policy')
++    if policy is None:return _counts(raw,positive_updates=True)
++    counts=_counts(raw,positive_updates=False);attempts=counts.get('source_optimizer_attempts');skips=counts.get('source_AMP_skipped_optimizer_maps');maps=counts['optimizer_updates']
++    if (attempts!=policy['optimizer_owner_attempts'] or skips is None or maps+skips!=attempts
++            or counts.get('source_native_complete_cycles')!=1
++            or counts.get('source_native_AMP_enabled') not in (0,1)
++            or skips and counts.get('source_native_AMP_enabled')!=1
++            or counts.get('model_forwards',0)<1 or counts.get('backward_calls',0)<1
++            or counts.get('supervised_examples',0)<1
++            or skips and counts.get('accepted_private_corrections',0)!=0):
++        raise ValueError('Native AMP epochs must report complete supervised work, every attempt, and committed/skipped maps')
++    return counts
+ 
+ 
+ def _metrics(torch, raw):
+@@ -583,7 +611,7 @@
+                     raw = adapter.train_step(step)
+                 finally:
+                     result["costs"]["train_seconds"] += time.perf_counter() - before
+-                counts = _counts(raw.get("operation_counts"), positive_updates=True)
++                counts = _training_counts(raw.get("operation_counts"),spec)
+                 add_counts(counts)
+                 counts_recorded = True
+                 metrics = _metrics(torch, raw)
+--- runtime/run_study.py
++++ runtime/run_study.py
+@@ -321,6 +321,8 @@
+                        "inherited_fit_ids": run["parents"],
+                        "adapter_spec": {"study_hash": digest, "run": run,
+                                         "data": spec["data"], "source": spec["source"]}}
++        if run['config'].get('native_AMP_overflow_skip_allowed'):
++            engine_spec['native_amp_cycle_policy']={'schema':'native-SeHGNN-AMP-complete-cycle-v1','optimizer_owner_attempts':1}
+         def guard(phase, step, result):
+             if time.monotonic() - tick > spec["resources"]["wall_seconds"]:
+                 raise TimeoutError("Declared run wall budget exhausted")
+--- runtime/compile_master_plan.py
++++ runtime/compile_master_plan.py
+@@ -162,6 +162,8 @@
+             or c.get('feature_channels')!=25 or c.get('label_channels')!=12 or c.get('members')!=members
+             or c.get('source_optimizer_count')!=owners or c.get('physical_slow_bodies')!=owners
+             or c.get('historical_state_inherited') is not False or c.get('is_original_gnnm')!=(arm=='original_gnnm')
++            or c.get('native_AMP_overflow_skip_allowed')!=(arm not in SEHGNN_JOINT)
++            or c.get('source_optimizer_accounting')!='attempts_and_actual_committed_maps_are_distinct'
+             or run['selection']!={'metric':'pooled_BCE','direction':'min','ties':'first','evaluation_interval':1,'checkpoint0':False,'patience_steps':1001}):
+         raise ValueError('Complete512native five-label SeHGNN1000epoch source contract with diagnostic200/500 prefixes required')
+     work={'known_source_TRAIN_forward_calls':1000*fwd,'known_source_TRAIN_backward_calls':1000*back,
+@@ -173,7 +175,10 @@
+         work.update(known_sehgnn_source_opportunities=198,known_sehgnn_scalar_leaf_reverse_calls=198*12,
+                     known_sehgnn_private_model_VJP_calls=198*vjp,known_sehgnn_private_trial_attempt_upper_bound=198*4,
+                     known_sehgnn_private_trial_forward_upper_bound=198*44)
+-    return {'optimizer_objects':owners,'physical_slow_bodies':owners,'known_optimizer_step_calls':1000*owners,
++    amp=arm not in SEHGNN_JOINT
++    return {'optimizer_objects':owners,'physical_slow_bodies':owners,'known_optimizer_step_calls':None if amp else 1000*owners,
++            'known_sehgnn_optimizer_attempts':1000*owners,'known_sehgnn_optimizer_commit_lower_bound':0 if amp else 1000*owners,
++            'known_sehgnn_optimizer_commit_upper_bound':1000*owners,'known_sehgnn_AMP_bounded_commit_fit_groups':int(amp),
+             'budget_unit':'epochs','registered_budget_units':1000,'law':'native_SeHGNN_complete_TRAIN_cycles_explicit_old_state_replay_VJPs_trials',**work}
+ 
+ 
+@@ -618,6 +623,8 @@
+     totals = Counter()
+     unknown_updates = []
+     bounded_updates = []
++    amp_bounded_updates = []
++    trial_bounded_updates = []
+     for study in studies:
+         runs = study['runs']
+         if all(run['kind'] == 'author_cli_group' for run in runs):
+@@ -656,13 +663,20 @@
+                         growth_new_paid_warm_fit_groups=int(run['config']['growth_stage'] == 'warm'),
+                         growth_paid_post_fit_groups=int(run['config']['growth_stage'] == 'post'))
+                 quantities['registered_' + run['budget']['unit']] = units
+-                if 'bounded_optimizer_step_calls_maximum' in semantics:
++                if semantics.get('known_sehgnn_AMP_bounded_commit_fit_groups'):
++                    quantities['AMP_bounded_commit_fit_groups']=1
++                    quantities['bounded_optimizer_step_calls_minimum']=semantics['known_sehgnn_optimizer_commit_lower_bound']
++                    quantities['bounded_optimizer_step_calls_maximum']=semantics['known_sehgnn_optimizer_commit_upper_bound']
++                    bounded_updates.append(study['study_id']+'/'+run['run_id'])
++                    amp_bounded_updates.append(study['study_id']+'/'+run['run_id'])
++                elif 'bounded_optimizer_step_calls_maximum' in semantics:
+                     quantities['bounded_trial_fit_groups']=1
+                     quantities['bounded_optimizer_step_calls_minimum']=semantics['bounded_optimizer_step_calls_minimum']
+                     quantities['bounded_optimizer_step_calls_maximum']=semantics['bounded_optimizer_step_calls_maximum']
+                     quantities['bounded_paid_stepped_Adam_objects_minimum']=semantics['bounded_paid_stepped_Adam_objects_minimum']
+                     quantities['bounded_paid_stepped_Adam_objects_maximum']=semantics['bounded_paid_stepped_Adam_objects_maximum']
+                     bounded_updates.append(study['study_id']+'/'+run['run_id'])
++                    trial_bounded_updates.append(study['study_id']+'/'+run['run_id'])
+                 elif semantics['known_optimizer_step_calls'] is None:
+                     quantities['unresolved_epoch_fit_groups'] = 1
+                     unknown_updates.append(study['study_id'] + '/' + run['run_id'])
+@@ -703,11 +717,15 @@
+         'by_stage': {key: dict(value) for key, value in sorted(stages.items())},
+         'model_optimizer_step_call_total_fully_determined': not unknown_updates and not bounded_updates,
+         'model_optimizer_step_call_total': totals['known_registered_optimizer_step_calls'] if not unknown_updates and not bounded_updates else None,
++        'native_SeHGNN_optimizer_attempt_total':totals['registered_known_sehgnn_optimizer_attempts'],
++        'native_SeHGNN_optimizer_commit_bounds':[totals['registered_known_sehgnn_optimizer_commit_lower_bound'],totals['registered_known_sehgnn_optimizer_commit_upper_bound']],
+         'model_optimizer_step_call_minimum': totals['known_registered_optimizer_step_calls']+totals['bounded_optimizer_step_calls_minimum'] if not unknown_updates else None,
+         'model_optimizer_step_call_maximum': totals['known_registered_optimizer_step_calls']+totals['bounded_optimizer_step_calls_maximum'] if not unknown_updates else None,
+         'paid_stepped_Adam_starts_minimum':totals['paid_optimizer_starts']+totals['bounded_paid_stepped_Adam_objects_minimum'],
+         'paid_stepped_Adam_starts_maximum':totals['paid_optimizer_starts']+totals['bounded_paid_stepped_Adam_objects_maximum'],
+-        'finite_bounded_trial_groups':len(bounded_updates),'bounded_trial_run_keys':bounded_updates,
++        'finite_bounded_optimizer_groups':len(bounded_updates),'bounded_optimizer_run_keys':bounded_updates,
++        'finite_bounded_trial_groups':len(trial_bounded_updates),'bounded_trial_run_keys':trial_bounded_updates,
++        'native_AMP_bounded_commit_fit_groups':len(amp_bounded_updates),'native_AMP_bounded_commit_run_keys':amp_bounded_updates,
+         'curvature_source_acquisition_fit_groups':totals['curvature_warm_paid_groups'],
+         'curvature_paid_finite_trial_groups':totals['curvature_trials_paid_groups'],
+         'curvature_continuation_segments':totals['curvature_continuation_paid_groups'],

@@ -1,0 +1,23 @@
+--- a/runtime/engine.py
++++ b/runtime/engine.py
+@@ -128,7 +128,11 @@
+     """Reject duplicate, foreign, missing, or frozen optimizer parameters."""
+     live = {id(p) for p in adapter.model.parameters() if p.requires_grad}
+     owned = [id(p) for group in adapter.optimizer.param_groups for p in group["params"]]
+-    if not live or len(owned) != len(set(owned)) or set(owned) != live:
++    frozen = adapter.source_frozen_factor_ownership() if hasattr(adapter, 'source_frozen_factor_ownership') else set()
++    model_frozen = {id(p) for p in adapter.model.parameters() if not p.requires_grad}
++    if not isinstance(frozen, set) or not frozen <= model_frozen or frozen & live:
++        raise ValueError('Only declared exact source model frozen factors may retain optimizer ownership')
++    if not live or len(owned) != len(set(owned)) or set(owned) != live | frozen:
+         raise ValueError("Optimizer must own each live model parameter exactly once")
+     return {"live_parameter_objects": len(live), "optimizer_parameter_objects": len(owned)}
+ 
+@@ -590,6 +594,7 @@
+             save(output / "final_training.pt", capture_checkpoint(
+                 torch, adapter, fit_id=spec["fit_id"], step=step,
+                 validation=last_validation, decision=last_decision))
++            result['final_training_checkpoint'] = checkpoint_receipt(output / 'final_training.pt', fit_id=spec['fit_id'], step=step)
+             if (spec["budget_unit"] == "optimizer_updates"
+                     and result["trajectory_operation_counts"]["optimizer_updates"] != spec["budget_steps"]):
+                 raise ValueError("Reported optimizer updates differ from the declared update budget")

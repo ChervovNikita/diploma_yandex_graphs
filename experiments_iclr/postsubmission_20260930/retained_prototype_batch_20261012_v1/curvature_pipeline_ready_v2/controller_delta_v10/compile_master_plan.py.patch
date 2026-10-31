@@ -1,0 +1,127 @@
+--- compile_master_plan.py
++++ compile_master_plan.py
+@@ -154,7 +154,43 @@
+     family = staged_family(config)
+     train_calls = {}
+     constructor_overhead = {}
+-    if 'growth_stage' in config:
++    if 'curvature_stage' in config:
++        stage,arm=config['curvature_stage'],config['curvature_arm']
++        arms=('common_only','fixed_first_graph_pair','selected_graph_pair','selected_permuted_span','selected_random_span')
++        if (stage not in ('warm','trials','continuation','cold')
++                or maximum != {'warm':250,'trials':1,'continuation':4750,'cold':5000}[stage]
++                or unit != ('epochs' if stage=='trials' else 'optimizer_updates')
++                or config.get('backbone')!='native_Photo_Polynormer_r'
++                or config.get('physical_slow_bodies')!=1
++                or config.get('source_optimizer_count')!=1
++                or config.get('local_transition_updates')!=200
++                or run['seed'] not in (88101,88103,88201,88203,88207)
++                or run['body'] not in ((0,1,2,3) if stage=='cold' and arm=='native_M1' else (0,))
++                or config.get('learning_rate') not in (.0005,.001,.002)
++                or config.get('dropout') not in (.35,.7,.85)
++                or run['selection'].get('metric')!='pooled_nll'
++                or run['selection'].get('direction')!='min' or run['selection'].get('ties')!='first'
++                or run['selection'].get('evaluation_interval')!=1
++                or run['selection'].get('checkpoint0')!=(stage=='continuation')
++                or stage=='continuation' and arm not in arms
++                or stage=='cold' and arm not in ('native_M1','original_GNNM')
++                or stage in ('warm','trials') and arm!='joint_five_arm_source'
++                or config.get('members')!=(4 if stage in ('trials','continuation') or arm=='original_GNNM' else 1)
++                or stage=='warm' and config.get('curvature_fixed_last') is not True
++                or stage=='trials' and config.get('curvature_joint_selector') is not True):
++            raise ValueError('Exact Photo250warm/finite10trial/4750continuation/5000cold lifecycle required')
++        objects,bodies=1,1
++        calls=None if stage=='trials' else maximum
++        law='curvature_'+stage+'_source_named_coupled_Adam'
++        if stage=='trials':
++            constructor_overhead={'bounded_optimizer_step_calls_minimum':1,'bounded_optimizer_step_calls_maximum':10,
++                'bounded_paid_stepped_Adam_objects_minimum':1,'bounded_paid_stepped_Adam_objects_maximum':10,
++                'unstepped_pre_install_Adam_constructor_objects':7}
++        else:
++            constructor_overhead={'serial_stepped_Adam_constructor_objects':2 if stage in ('warm','cold') else 1}
++        if config.get('is_original_gnnm') != (arm=='original_GNNM'):
++            raise ValueError('Actual source original boundary GNNM flag required')
++    elif 'growth_stage' in config:
+         stage,arm=config['growth_stage'],config['growth_arm']
+         objects=4 if arm=='independent_graph_growth4' else 1
+         if (unit!='epochs' or stage not in ('warm','post','cold_control')
+@@ -455,6 +491,11 @@
+                         or parent['budget']['policy'] != 'full_budget'
+                         or parent['budget']['unit'] != 'optimizer_updates'):
+                     raise ValueError('Staged continuation has mismatched or ineligible paid source ancestry')
++            elif run['config'].get('curvature_stage') in ('trials','continuation'):
++                from run_study import require_curvature_paid_parent
++                if len(paid)!=1:
++                    raise ValueError('Curvature typed stage requires one paid source ancestor')
++                require_curvature_paid_parent(records[row['study']+'/'+paid[0]]['run'],run)
+             elif run['config'].get('growth_stage') == 'post':
+                 from run_study import require_growth_terminal20_parent
+                 if len(paid) != 1:
+@@ -504,6 +545,7 @@
+     stages = {}
+     totals = Counter()
+     unknown_updates = []
++    bounded_updates = []
+     for study in studies:
+         runs = study['runs']
+         if all(run['kind'] == 'author_cli_group' for run in runs):
+@@ -523,8 +565,11 @@
+                 semantics = fit_semantics(run)
+                 family = staged_family(run['config'])
+                 continuation = ((family is not None and run['config'][family + '_stage'] == 'continuation')
+-                                or run['config'].get('growth_stage') == 'post')
+-                quantities = {'atomic_fit_run_groups': 1, 'paid_optimizer_starts': semantics['optimizer_objects'],
++                                or run['config'].get('growth_stage') == 'post'
++                                or run['config'].get('curvature_stage') == 'continuation')
++                quantities = {'atomic_fit_run_groups': 1, 'paid_optimizer_starts':
++                    (0 if 'bounded_optimizer_step_calls_maximum' in semantics else
++                     semantics.get('serial_stepped_Adam_constructor_objects',semantics['optimizer_objects'])),
+                     'physical_slow_body_instances': semantics['physical_slow_bodies'],
+                     'initial_training_segments': int(not continuation),
+                     'paid_continuation_segments': int(continuation),
+@@ -538,7 +583,14 @@
+                         growth_new_paid_warm_fit_groups=int(run['config']['growth_stage'] == 'warm'),
+                         growth_paid_post_fit_groups=int(run['config']['growth_stage'] == 'post'))
+                 quantities['registered_' + run['budget']['unit']] = units
+-                if semantics['known_optimizer_step_calls'] is None:
++                if 'bounded_optimizer_step_calls_maximum' in semantics:
++                    quantities['bounded_trial_fit_groups']=1
++                    quantities['bounded_optimizer_step_calls_minimum']=semantics['bounded_optimizer_step_calls_minimum']
++                    quantities['bounded_optimizer_step_calls_maximum']=semantics['bounded_optimizer_step_calls_maximum']
++                    quantities['bounded_paid_stepped_Adam_objects_minimum']=semantics['bounded_paid_stepped_Adam_objects_minimum']
++                    quantities['bounded_paid_stepped_Adam_objects_maximum']=semantics['bounded_paid_stepped_Adam_objects_maximum']
++                    bounded_updates.append(study['study_id']+'/'+run['run_id'])
++                elif semantics['known_optimizer_step_calls'] is None:
+                     quantities['unresolved_epoch_fit_groups'] = 1
+                     unknown_updates.append(study['study_id'] + '/' + run['run_id'])
+                 else:
+@@ -548,6 +600,10 @@
+                         quantities['partial_registered_' + name] = semantics[name]
+                 if 'unstepped_pre_install_Adam_constructor_objects' in semantics:
+                     quantities['unstepped_pre_install_Adam_constructor_objects'] = semantics['unstepped_pre_install_Adam_constructor_objects']
++                if 'serial_stepped_Adam_constructor_objects' in semantics:
++                    quantities['serial_stepped_Adam_constructor_objects']=semantics['serial_stepped_Adam_constructor_objects']
++                if 'curvature_stage' in run['config']:
++                    quantities['curvature_'+run['config']['curvature_stage']+'_paid_groups']=1
+                 count.update(quantities)
+                 totals.update(quantities)
+             else:
+@@ -568,8 +624,16 @@
+             'reused_exact_member0_fit_references': sum(b['member0_reused'] for b in banks)})
+     return {'scope': 'exact_registered_contract_roster_not_executed', 'totals': dict(totals),
+         'by_stage': {key: dict(value) for key, value in sorted(stages.items())},
+-        'model_optimizer_step_call_total_fully_determined': not unknown_updates,
+-        'model_optimizer_step_call_total': totals['known_registered_optimizer_step_calls'] if not unknown_updates else None,
++        'model_optimizer_step_call_total_fully_determined': not unknown_updates and not bounded_updates,
++        'model_optimizer_step_call_total': totals['known_registered_optimizer_step_calls'] if not unknown_updates and not bounded_updates else None,
++        'model_optimizer_step_call_minimum': totals['known_registered_optimizer_step_calls']+totals['bounded_optimizer_step_calls_minimum'] if not unknown_updates else None,
++        'model_optimizer_step_call_maximum': totals['known_registered_optimizer_step_calls']+totals['bounded_optimizer_step_calls_maximum'] if not unknown_updates else None,
++        'paid_stepped_Adam_starts_minimum':totals['paid_optimizer_starts']+totals['bounded_paid_stepped_Adam_objects_minimum'],
++        'paid_stepped_Adam_starts_maximum':totals['paid_optimizer_starts']+totals['bounded_paid_stepped_Adam_objects_maximum'],
++        'finite_bounded_trial_groups':len(bounded_updates),'bounded_trial_run_keys':bounded_updates,
++        'curvature_source_acquisition_fit_groups':totals['curvature_warm_paid_groups'],
++        'curvature_paid_finite_trial_groups':totals['curvature_trials_paid_groups'],
++        'curvature_continuation_segments':totals['curvature_continuation_paid_groups'],
+         'epoch_fit_groups_with_unresolved_minibatch_update_count': len(unknown_updates),
+         'unresolved_update_run_keys': unknown_updates, 'actual_model_optimizer_updates': 0,
+         'actual_scalar_CAL_updates': 0, 'actual_predictive_scores': 0,

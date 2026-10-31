@@ -1,0 +1,66 @@
+--- a/runtime/run_study.py
++++ b/runtime/run_study.py
+@@ -147,6 +147,14 @@
+                 or not isinstance(lifecycle['parent_fit_ids'][0],str)):
+             raise ValueError('Exact paid native/capture/fresh-label lifecycle required')
+         return lifecycle['parent_fit_ids']
++    if isinstance(lifecycle, dict) and lifecycle.get('schema') == 'paid-NSD-geometry-branch-v1':
++        if (set(lifecycle) != {'schema','parent_fit_ids','new_optimizer','parameter_initialization'}
++                or lifecycle['new_optimizer'] is not True
++                or lifecycle['parameter_initialization'] != 'terminal100_slow_Adam_retained'
++                or not isinstance(lifecycle['parent_fit_ids'],list) or len(lifecycle['parent_fit_ids']) != 1
++                or not isinstance(lifecycle['parent_fit_ids'][0],str)):
++            raise ValueError('Exact paid NSD100+400 source slow-Adam continuation required')
++        return lifecycle['parent_fit_ids']
+     if (not isinstance(lifecycle, dict) or set(lifecycle) != {
+             "schema", "parent_fit_ids", "new_optimizer", "parameter_initialization"}
+             or lifecycle.get("schema") != "paid-parent-continuation-v1"
+@@ -180,6 +188,21 @@
+         raise ValueError("Growth requires its newly paid exact terminal20 same-source TRAIN-only warm parent")
+ 
+ 
++def require_nsd_geometry_parent(parent, run):
++    """A paid100 source warm initializes slow Adam and preserves warm-best eligibility."""
++    a,b = parent['config'],run['config']
++    if (a.get('nsd_arm') != 'geometry_warm' or b.get('nsd_arm') != 'geometry_branch'
++            or parent['budget'] != {'unit':'optimizer_updates','policy':'full_budget','maximum':100}
++            or run['budget'] != {'unit':'optimizer_updates','policy':'full_budget','maximum':400}
++            or parent['selection'].get('checkpoint0') is not False
++            or run['selection'].get('checkpoint0') is not True
++            or b.get('geometry_choice') not in {'identity','random_admissible','live_action_rank','classifier_response_rank'}
++            or a.get('stage') != b.get('stage')
++            or any(parent.get(k) != run.get(k) for k in ('split','seed','body'))
++            or any(k not in a or k not in b or a[k] != b[k] for k in ('initialization_seed','learning_rate','dropout','node_inputs','nsd_sources'))):
++        raise ValueError('NSD source continuation requires new paid100 warm,same roles/seed/LR/source,400post and paid warm-best eligibility')
++
++
+ def paid_parent_checkpoints(root, spec, run, registry, output_root):
+     """Require completed, paid, directly declared selected-state ancestors."""
+     identifiers = paid_parent_ids(run)
+@@ -193,19 +216,22 @@
+     for identifier in identifiers:
+         parent = registry.run(spec["study_id"], identifier)
+         value = parent["result"] or {}
+-        bound = value.get("selected_checkpoint")
++        terminal_nsd = run['config'].get('lifecycle',{}).get('schema') == 'paid-NSD-geometry-branch-v1'
++        if terminal_nsd:
++            require_nsd_geometry_parent(parent['contract'],run)
++        bound = value.get('final_training_checkpoint' if terminal_nsd else 'selected_checkpoint')
+         if (parent["state"] != "complete" or value.get("status") != "complete"
+                 or value.get("completed_steps") != parent["contract"]["budget"]["maximum"]
+                 or not isinstance(bound, dict) or bound.get("fit_id") != identifier
+-                or bound.get("path") != "selected.pt" or type(bound.get("step")) is not int
++                or bound.get("path") != ("final_training.pt" if terminal_nsd else "selected.pt") or type(bound.get("step")) is not int
+                 or not 1 <= bound["step"] <= parent["contract"]["budget"]["maximum"]
+-                or bound["step"] != value.get("selected", {}).get("step")):
++                or bound["step"] != (100 if terminal_nsd else value.get("selected", {}).get("step"))):
+             raise ValueError("Paid source lacks a complete, positive-step selected checkpoint")
+         if run["config"].get("growth_stage") == "post":
+             require_growth_terminal20_parent(parent["contract"], run)
+             if value.get("completed_steps") != 20 or bound["step"] != 20:
+                 raise ValueError("Growth requires complete terminal20 selected.pt authority")
+-        path = Path(output_root) / spec["study_id"] / identifier / "selected.pt"
++        path = Path(output_root) / spec["study_id"] / identifier / ("final_training.pt" if terminal_nsd else "selected.pt")
+         if not path.resolve().is_relative_to(Path(root).resolve()) or path.is_symlink():
+             raise ValueError("Paid source checkpoint escapes the repository")
+         observed = checkpoint_receipt(path, fit_id=identifier, step=bound["step"])

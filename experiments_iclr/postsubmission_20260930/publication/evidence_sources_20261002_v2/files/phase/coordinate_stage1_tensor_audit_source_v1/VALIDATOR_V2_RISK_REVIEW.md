@@ -1,0 +1,23 @@
+# Adopted Stage1 validator v2 — focused independent risk review
+
+2 October 2026. Static source, frozen JSON and retained qualification metadata only. No comparative output, tensor content or scientific outcome was inspected; no remote connection, source execution, tests or compilation. Root reports AST syntax success; this reviewer did not repeat it.
+
+The separately frozen root adoption SHA256 `0f3f6c4e8dac4f695e8291d3b9eb65897f3984f9f8c09879dc46cb42d8bfad17` matches specification `6da6a44bbc2b55118296b8e0de007330fd5d83983b57fb3d17fdd093e0cef44d`, validator `e5f870f62a0d9635113517bc80a8ff1fe8b858b9b2c8d4e00b22854770fc4bab`, and every exact v2 analysis rule. Adoption says root had inspected supervision metadata only. NLL aggregation, thresholds, boundary rule, S/U/H ties, per-graph cost ratios and residual-inclusive cost are unambiguous. No concrete new scientific-rule or ordinary-input source blocker was found.
+
+## Material limits addressed by the separate replay
+
+1. **Hash consistency does not prove tensor semantics.** V2 proves trusted-index/manifest byte consistency and reported provenance, but deliberately never deserializes `.pt`. It cannot confirm tensor key/shape/dtype/epoch/internal provenance, deployment-state equality, node order, immutable permutation buffers or whether saved logits came from the selected state. These are computational claims to verify with the narrow replay.
+2. **Metric/curve agreement is not independent score reproduction.** V2 checks the report against recorded JSONL and the earliest strict primary-NLL minimum. Both can share the same computational error. Recomputing selected-logit primary/sensitivity/member NLL, accuracy, macro-F1 and disagreement with a separate CPU64 implementation, then comparing an independent selected-state forward with the saved logits, closes the specific outstanding integrity gap. CPU64 quantities remain checks; they must not replace the already adopted FP32 gate metrics after outcomes.
+3. **Count/byte gates alone do not prove state shape or fixed buffers.** V2 checks byte declarations and frozen source/provenance. Replay must verify exact fresh-model state keys/shapes/dtypes, strict state application, selected/deployment tensor equality and equality of declared fixed buffers to their freshly constructed values, before the one forward.
+
+## Remaining boundaries
+
+The evidence index must be root-frozen after complete retrieval. The validator requires all54 expected rows and complete normal supervision; missing or corrupt evidence cannot select a favorable subset. A global prerequisite rejection can terminate without an assessment output; original evidence remains retained. Root must distinguish rejected analysis prerequisites from a competent Stage1 no-go.
+
+The residual-inclusive cost intentionally includes unallocated scientific residual/cleanup time. It is the prospectively adopted whole scientific timer after subtracting three disjoint profiling blocks; it does not separately attribute that residual to backward, optimizer, bookkeeping or a GPU kernel. Framework imports before the scientific timer and final report/manifest hashing remain outside that metric. Earlier P3 component-attribution limits remain preserved.
+
+An integrity replay can confirm checkpoint/logit correspondence but does not reconstruct training dynamics, optimizer correctness, historical runtime/kernel configuration, or the no-test-read history. Those still depend on the pinned training code, supervision, data/source isolation and retained execution evidence. Replay applies no optimizer state. Numerical convergence remains uncertified; the inherited final-evaluation strict-improvement rule is unchanged.
+
+The pinned PyTorch2.1.2 runtime's `weights_only=True` must not be described as a general untrusted-file sandbox. Eligible bundles are exclusively exact digest-verified tensor/primitive files written by the reviewed runner. The proposed loader hashes the exact bytes it will deserialize, uses CPU/weights_only with no custom safe globals or unrestricted-pickle fallback, and rejects every direct torch.load/save outside that loader. Arbitrary user checkpoints or unbound paths are not admitted.
+
+The old runtime allows nondeterministic kernels, so bitwise forward equality cannot be assumed. Prospective tolerances must be frozen before tensor/metric outcomes: proposed logits atol1e-6/rtol1e-5; NLL atol2e-6/rtol1e-5; fractions atol1e-7, with exact pooled/member argmax agreement. Exceeding a tolerance is inconclusive integrity evidence, not permission to widen it or change the selected state, metric, member/class order or kernel recipe.
