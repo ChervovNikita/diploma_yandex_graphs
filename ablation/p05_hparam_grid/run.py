@@ -15,7 +15,7 @@ from datasets import load_dataset
 from run_common import PATIENCE
 
 from ablation.common.resumable import source_fingerprint
-from ablation.common.study import REPOSITORY
+from ablation.common.study import REPOSITORY, add_training_arguments
 from ablation.common.tabm_trainer import TrainSettings, train_resumable
 from ablation.common.worker import Job, print_status, run_worker
 
@@ -30,15 +30,22 @@ SOURCES = ('models.py', 'datasets.py', 'run_common.py', 'ablation/common/resumab
 
 
 def make_jobs(args):
+    configs = grid.configs_for(args.grid_family)
     return [
         Job(
             key=f'{dataset}/{method}/{model}/{name}/L{layers}/split{split}',
             config={
                 'dataset': dataset, 'method': method, 'model': model, 'config_name': name,
-                'num_layers': layers, 'split': split, 'seed': grid.seed_for(method, split),
+                'model_module': 'ablation.p05_hparam_grid.models',
+                'num_layers': layers, 'split': split,
+                'seed': args.seed if args.seed is not None else grid.seed_for(method, split),
                 'hidden_dim': grid.HIDDEN_DIM, 'members': grid.members_for(method),
                 'num_steps': args.num_steps or grid.steps_for(dataset),
-                'patience': PATIENCE * 100, **grid.CONFIGS[name],
+                'patience': args.patience, **configs[name],
+                'min_steps': args.min_steps, 'selection_interval': args.selection_interval,
+                'weight_decay': (args.weight_decay if args.weight_decay is not None
+                                 else configs[name].get('weight_decay', 0.0)),
+                'defer_test': args.defer_test, 'save_selected': args.save_selected,
             },
         )
         for dataset in args.datasets
@@ -59,19 +66,26 @@ def parse_args():
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--methods', nargs='+', default=grid.METHODS, choices=grid.METHODS)
     parser.add_argument('--models', nargs='+', default=['GAT'])
-    parser.add_argument('--configs', nargs='+', default=list(grid.CONFIGS),
-                        choices=list(grid.CONFIGS))
+    parser.add_argument('--grid_family', choices=['legacy', 'lrwd', 'combined'], default='legacy')
+    parser.add_argument('--configs', nargs='+', default=None)
     parser.add_argument('--layers', nargs='+', type=int, default=grid.LAYERS)
     parser.add_argument('--splits', nargs='+', type=int, default=grid.PILOT_SPLITS)
     parser.add_argument('--num_steps', type=int, default=None,
-                        help='Override the step limit, for smoke tests only.')
+                        help='Explicit maximum updates, shared by every method in this task.')
+    add_training_arguments(parser)
     parser.add_argument('--save_every_sec', type=float, default=120.0)
     parser.add_argument('--max_failures', type=int, default=3)
     parser.add_argument('--stale_seconds', type=float, default=600.0)
     parser.add_argument('--no_wait', action='store_true',
                         help='Exit instead of waiting for jobs held by other workers.')
     parser.add_argument('--status', action='store_true', help='Print progress and exit.')
-    return parser.parse_args()
+    args = parser.parse_args()
+    available = grid.configs_for(args.grid_family)
+    args.configs = args.configs or list(available)
+    unknown = set(args.configs) - set(available)
+    if unknown:
+        parser.error(f'Unknown configs for {args.grid_family}: {sorted(unknown)}')
+    return args
 
 
 def main():
@@ -102,8 +116,13 @@ def main():
             dataset=config['dataset'], split=config['split'], seed=config['seed'],
             members=config['members'], lr=config['lr'], num_steps=config['num_steps'],
             patience=config['patience'], save_every_sec=args.save_every_sec,
+            min_steps=config['min_steps'], selection_interval=config['selection_interval'],
+            weight_decay=config['weight_decay'], defer_test=config['defer_test'],
+            save_selected=config['save_selected'],
         )
-        logits_path = store.dir / 'logits.pt' if config['method'].startswith('ens_m') else None
+        logits_path = (store.dir / 'logits.pt'
+                       if config['method'].startswith('ens_m') and not config['defer_test']
+                       else None)
         result = train_resumable(
             settings, store, bundle, device,
             lambda: build_model(

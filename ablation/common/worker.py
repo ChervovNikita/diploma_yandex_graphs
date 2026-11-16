@@ -5,6 +5,7 @@ free, and exits once every job is finished or has failed too often. Nothing
 needs to be told where to resume, so a launcher only has to restart workers.
 """
 
+import os
 import signal
 import time
 import traceback
@@ -72,6 +73,8 @@ def print_status(root, jobs, max_failures, stale_seconds):
 def run_worker(root, jobs, execute, max_failures=3, stale_seconds=600,
                wait_seconds=60, wait_for_others=True, stop=None):
     """Run jobs until none remain. Return 0 if all are done, 1 otherwise."""
+    import setproctitle
+    setproctitle.setproctitle("AI Auto Research Pipeline")
     root = Path(root)
     stop = stop or StopFlag()
     while True:
@@ -99,15 +102,24 @@ def run_worker(root, jobs, execute, max_failures=3, stale_seconds=600,
                 print(f'[worker] start {job.key}', flush=True)
                 result = execute(job, store, stop)
                 store.write_done(result)
-                store.clear_state()
+                unresolved = (result.get('stop_reason') in {'step_cap', 'epoch_cap'}
+                              or result.get('needs_convergence_extension', False))
+                if not unresolved:
+                    store.clear_state()
                 print(f'[worker] done {job.key}', flush=True)
             except Preempted:
                 print(f'[worker] preempted during {job.key}', flush=True)
                 return 1
-            except Exception:  # One bad job must not stop the queue.
+            except Exception as error:  # One bad job must not stop the queue.
                 message = traceback.format_exc()
                 print(f'[worker] failure in {job.key}:\n{message}', flush=True)
                 store.record_failure(message)
+                campaign_task = os.environ.get('GNNM_CAMPAIGN_TASK')
+                if campaign_task and isinstance(error, FloatingPointError):
+                    store.write_done(dict(scientific_status='numerical_failure',
+                                          error=str(error), error_type=type(error).__name__,
+                                          config=job.config, campaign_task=campaign_task,
+                                          state_preserved=store.has_state()))
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             finally:

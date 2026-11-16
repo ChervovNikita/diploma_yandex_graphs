@@ -29,9 +29,13 @@ def make_jobs(args, variants):
             key=f'{args.dataset}/{variant}/{model}/L{num_layers}/split{split}',
             config={
                 'dataset': args.dataset, 'variant': variant, 'model': model,
-                'num_layers': num_layers, 'split': split, 'seed': split,
+                'num_layers': num_layers, 'split': split,
+                'seed': args.seed if args.seed is not None else split,
                 'hidden_dim': HIDDEN_DIM, 'lr': LEARNING_RATE, 'm': variants[variant],
-                'num_steps': args.num_steps, 'patience': PATIENCE * 100,
+                'num_steps': args.num_steps, 'patience': args.patience,
+                'min_steps': args.min_steps, 'selection_interval': args.selection_interval,
+                'weight_decay': args.weight_decay or 0.0, 'defer_test': args.defer_test,
+                'save_selected': args.save_selected,
             },
         )
         for variant in args.variants
@@ -39,6 +43,17 @@ def make_jobs(args, variants):
         for num_layers in args.layers
         for split in args.splits
     ]
+
+
+def add_training_arguments(parser):
+    """Shared protocol flags for singleton campaign tasks and legacy study workers."""
+    parser.add_argument('--min_steps', type=int, default=0)
+    parser.add_argument('--patience', type=int, default=PATIENCE * 100)
+    parser.add_argument('--selection_interval', type=int, default=10)
+    parser.add_argument('--weight_decay', type=float, default=None)
+    parser.add_argument('--seed', type=int, default=None)
+    parser.add_argument('--defer_test', action='store_true')
+    parser.add_argument('--save_selected', action='store_true')
 
 
 def parse_args(description, variants, default_variants, default_root):
@@ -53,6 +68,7 @@ def parse_args(description, variants, default_variants, default_root):
     parser.add_argument('--layers', nargs='+', type=int, default=[1, 2, 3, 4, 5])
     parser.add_argument('--splits', nargs='+', type=int, default=list(range(10)))
     parser.add_argument('--num_steps', type=int, default=NUM_STEPS)
+    add_training_arguments(parser)
     parser.add_argument('--save_every_sec', type=float, default=120.0)
     parser.add_argument('--max_failures', type=int, default=3)
     parser.add_argument('--stale_seconds', type=float, default=600.0)
@@ -67,6 +83,8 @@ def run_study(description, variants, build_model, study_sources, default_root,
     """Run a worker. ``variants`` maps a variant name to its number of members."""
     args = parse_args(description, variants, default_variants or list(variants), default_root)
     jobs = make_jobs(args, variants)
+    for job in jobs:
+        job.config['model_module'] = build_model.__module__
     if args.status:
         print_status(args.root, jobs, args.max_failures, args.stale_seconds)
         return 0
@@ -85,6 +103,9 @@ def run_study(description, variants, build_model, study_sources, default_root,
             dataset=config['dataset'], split=config['split'], seed=config['seed'],
             members=config['m'], lr=config['lr'], num_steps=config['num_steps'],
             patience=config['patience'], save_every_sec=args.save_every_sec,
+            min_steps=config['min_steps'], selection_interval=config['selection_interval'],
+            weight_decay=config['weight_decay'], defer_test=config['defer_test'],
+            save_selected=config['save_selected'],
         )
         result = train_resumable(
             settings, store, bundle, device,

@@ -17,15 +17,19 @@ from pathlib import Path
 import pandas as pd
 
 from ablation.p08_training_steps.estimate import DATASET_FOLDERS, METHODS, PAPER_MODELS
+from ablation.p08_training_steps.history import read_results_csv
 
 
 KEYS = ['dataset', 'model', 'num_layers', 'split']
 
 
 def load_method(results, method):
-    frames = [pd.read_csv(Path(results) / folder / METHODS[method][0]) for folder in DATASET_FOLDERS]
+    frames = [read_results_csv(Path(results) / folder / METHODS[method][0]) for folder in DATASET_FOLDERS]
     frame = pd.concat(frames, ignore_index=True)
     frame = frame[frame.model.isin(PAPER_MODELS)][KEYS + ['val_metric', 'test_metric']]
+    frame = frame.drop_duplicates(KEYS + ['val_metric', 'test_metric'])
+    if frame.duplicated(KEYS).any():
+        raise ValueError(f'Conflicting historical results for {method}; supply one authoritative source')
     columns = {'val_metric': f'val_{method}', 'test_metric': f'test_{method}'}
     return frame.rename(columns=columns)
 
@@ -37,15 +41,15 @@ def paired_scores(results):
     return merged
 
 
-def cell_means(paired):
+def cell_means(paired, role='test'):
     score_columns = [column for column in paired if column.startswith(('val_', 'test_'))]
     table = paired.groupby(['dataset', 'model', 'num_layers']).agg(
         splits=('split', 'nunique'), **{column: (column, 'mean') for column in score_columns},
     ).reset_index()
     table[score_columns] *= 100
-    table['gnnm_minus_ens'] = table.test_gnnm - table.test_ens
-    table['gnnm_minus_base'] = table.test_gnnm - table.test_base
-    table['ens_minus_base'] = table.test_ens - table.test_base
+    table['gnnm_minus_ens'] = table[f'{role}_gnnm'] - table[f'{role}_ens']
+    table['gnnm_minus_base'] = table[f'{role}_gnnm'] - table[f'{role}_base']
+    table['ens_minus_base'] = table[f'{role}_ens'] - table[f'{role}_base']
     return table
 
 
@@ -60,14 +64,44 @@ def summarise(table, group):
     ).reset_index()
 
 
+def pair_current_scores(scores, role='val'):
+    metric = f'{role}_metric'
+    required = set(KEYS + ['method', metric])
+    if not required.issubset(scores):
+        raise ValueError(f'Missing current score columns {sorted(required - set(scores))}')
+    merged = None
+    for method in ('base', 'ens', 'gnnm'):
+        frame = scores[scores.method == method][KEYS + [metric]]
+        if frame.duplicated(KEYS).any():
+            raise ValueError(f'Duplicate score cells for {method}; select one config first')
+        frame = frame.rename(columns={metric: f'{role}_{method}'})
+        merged = frame if merged is None else merged.merge(frame, on=KEYS, how='inner', validate='one_to_one')
+    if merged.empty:
+        raise ValueError('No complete paired BASE/ENS/GNNM depth cells')
+    return merged
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--results', type=Path, default=Path('results_merged'))
+    sources = parser.add_mutually_exclusive_group(required=True)
+    sources.add_argument('--results', type=Path, help='Explicit historical score directory')
+    sources.add_argument('--scores', type=Path, help='Current normalized per-depth score CSV')
+    parser.add_argument('--config_name', help='Explicit common hyperparameter config for current scores')
+    parser.add_argument('--role', choices=['val', 'test'], default='val')
     parser.add_argument('--out', type=Path, default=Path(__file__).parent / 'results')
     args = parser.parse_args()
 
-    table = cell_means(paired_scores(args.results))
+    if args.scores is not None:
+        scores = pd.read_csv(args.scores)
+        if 'config_name' in scores:
+            if args.config_name is not None:
+                scores = scores[scores.config_name == args.config_name]
+            elif scores.config_name.nunique() != 1:
+                parser.error('--config_name is required when several configurations are present')
+        table = cell_means(pair_current_scores(scores, args.role), role=args.role)
+    else:
+        table = cell_means(paired_scores(args.results), role=args.role)
     by_depth = summarise(table, ['num_layers'])
     by_dataset = summarise(table, ['dataset', 'num_layers'])
     by_model = summarise(table, ['model', 'num_layers'])

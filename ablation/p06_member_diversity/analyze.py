@@ -43,7 +43,14 @@ RECHECK_TOLERANCE = 1e-4
 @torch.no_grad()
 def capture_member(model, data, member, mask):
     """Run one member and return its test logits and the test activations of each stage."""
-    inner = model.model if isinstance(model, PlainModel) else model
+    inner = model
+    while not hasattr(inner, 'residual_modules'):
+        if hasattr(inner, 'base'):
+            inner = inner.base
+        elif isinstance(inner, PlainModel):
+            inner = inner.model
+        else:
+            raise ValueError(f'Cannot locate backbone stages in {type(inner).__name__}')
     stages = {}
 
     def recorder(name):

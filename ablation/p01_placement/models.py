@@ -8,7 +8,7 @@ from torch_geometric.nn.dense.linear import Linear as PyGLinear
 from models import TABMModel
 
 
-VARIANTS = {'gnnm': 4, 'input_only': 4, 'output_only_signs': 4, 'all_layer_be': 4, 'gnnm_m1': 1}
+VARIANTS = {'gnnm': 4, 'input_only': 4, 'output_only_identity': 4, 'output_only_signs': 4, 'all_layer_be': 4, 'gnnm_m1': 1}
 LINEAR_TYPES = (nn.Linear, PyGLinear)
 
 
@@ -89,10 +89,11 @@ def build_model(variant, model_name, num_layers, input_dim, hidden_dim, output_d
     )
     if variant == 'input_only':
         model.output_be_block = SharedProjector(model.output_be_block.W.weight)
-    elif variant == 'output_only_signs':
+    elif variant in ('output_only_identity', 'output_only_signs'):
         model.input_be_block = SharedProjector(model.input_be_block.W.weight)
-        with torch.no_grad():
-            model.output_be_block.R.bernoulli_(0.5).mul_(2).sub_(1)
+        if variant == 'output_only_signs':
+            with torch.no_grad():
+                model.output_be_block.R.bernoulli_(0.5).mul_(2).sub_(1)
     elif variant == 'all_layer_be':
         model = AllLayerBEModel(model, m)
     return model.to(device)

@@ -2,7 +2,7 @@
 
     python -m ablation.p08_training_steps.estimate --cost_root P07_RUNS --out RESULT_DIR
 
-Run where results_merged is available. The stop step comes from the training logs; a run
+Supply --results for an explicit historical archive, or --current_root for current fits. The stop step comes from the training logs; a run
 that never reached early stopping used its whole step limit. ENS costs one step time per
 member multiplied by the steps of that member. Output files:
 
@@ -19,6 +19,8 @@ import re
 from pathlib import Path
 
 import pandas as pd
+
+from .history import read_results_csv
 
 
 # The seven backbones of the main table; TAG is reported only in the cost tables.
@@ -79,7 +81,7 @@ def member_best_steps(value):
 
 def archived_runs(results, folder, method):
     file_name, log_name = METHODS[method]
-    frame = pd.read_csv(Path(results) / folder / file_name)
+    frame = read_results_csv(Path(results) / folder / file_name)
     logs = read_logs(Path(results) / folder / log_name)
     rows = []
     for row in frame.itertuples():
@@ -161,13 +163,71 @@ def relative_to_ensemble(grid, selected):
     return result
 
 
+def current_runs(root, reuse_base=False):
+    """Measured fit cost and actual stopping updates from current training receipts."""
+    from ablation.p05_hparam_grid.collect import load_rows, compose_ensembles
+    runs = load_rows(root)
+    required = {'dataset', 'model', 'method', 'config_name', 'num_layers', 'split',
+                'fit_seconds', 'stopped_step', 'best_step'}
+    if not required.issubset(runs):
+        raise ValueError(f'Current grid receipts are missing {sorted(required - set(runs))}')
+
+    def unavailable(*_args):
+        raise ValueError('Current reports require saved role-indexed predictions')
+
+    ensembles = compose_ensembles(runs, unavailable, reveal_test=False, reuse_base=reuse_base)
+    plain = runs[~runs.method.str.startswith('ens_m')].copy()
+    plain['member_steps_total'] = plain.stopped_step
+    plain['steps_run'] = plain.stopped_step
+    plain['steps_to_best'] = plain.best_step
+    plain['members'] = plain.get('members', 1)
+    frame = pd.concat([plain, ensembles], ignore_index=True)
+    frame['cost_hours'] = frame.fit_seconds / 3600
+    frame['stop_source'] = 'measured_training_receipt'
+    return frame
+
+
+def report_current(root, out, reuse_base=False):
+    frame = current_runs(root, reuse_base)
+    keys = ['dataset', 'model', 'method', 'config_name', 'split']
+    ordered = frame.sort_values(keys + ['num_layers'])
+    selected = ordered.loc[ordered.groupby(keys, sort=False).val_metric.idxmax()]
+    grouped = frame.groupby(['dataset', 'model', 'method', 'config_name']).agg(
+        fits=('val_metric', 'size'), mean_steps_to_best=('steps_to_best', 'mean'),
+        mean_updates_run=('steps_run', 'mean'), sum_fit_hours=('cost_hours', 'sum'),
+        unresolved_caps=('needs_convergence_extension', 'sum'),
+    ).reset_index()
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    frame.drop(columns=[column for column in frame if column.startswith('test_')]).to_csv(
+        out / 'per_run.csv', index=False)
+    grouped.to_csv(out / 'by_configuration.csv', index=False)
+    selected.drop(columns=[column for column in selected if column.startswith('test_')]).to_csv(
+        out / 'selected.csv', index=False)
+    (out / 'scope.json').write_text(json.dumps({
+        'source': str(Path(root).resolve()), 'selection_role': 'validation',
+        'cost_measurement': 'observed update plus validation plus selection time',
+        'concurrency_note': 'Concurrent fit times are not exclusive GPU-hours; use p07 profiles for fair isolated cost comparisons.',
+        'base_reused_as_member_zero': reuse_base,
+    }, indent=2) + '\n')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--cost_root', type=Path, required=True)
-    parser.add_argument('--results', type=Path, default=Path('results_merged'))
+    parser.add_argument('--cost_root', type=Path)
+    sources = parser.add_mutually_exclusive_group(required=True)
+    sources.add_argument('--results', type=Path, help='Explicit historical score/log archive')
+    sources.add_argument('--current_root', type=Path, help='Completed prospective grid fits')
+    parser.add_argument('--reuse_base', action='store_true')
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
+
+    if args.current_root is not None:
+        report_current(args.current_root, args.out, args.reuse_base)
+        return
+    if args.cost_root is None:
+        parser.error('--cost_root is required with historical --results')
 
     runs = pd.DataFrame([row for folder in DATASET_FOLDERS for method in METHODS
                          for row in archived_runs(args.results, folder, method)])
